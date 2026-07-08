@@ -3,16 +3,20 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from collections.abc import Mapping
+import dataclasses
 import datetime as dt
 from decimal import Decimal
 import enum
 from fractions import Fraction
+from itertools import starmap
 from math import ceil, floor
-from typing import get_args, TYPE_CHECKING, TypeAliasType, TypedDict, TypeForm
+from pathlib import Path
+from typing import get_args, get_type_hints, TYPE_CHECKING, TypeAliasType, TypedDict, TypeForm
 
 from hypothesis import strategies as st
 import msgspec
 import msgspec.inspect as _mi
+import msgspec.msgpack
 import pydantic
 
 
@@ -190,8 +194,12 @@ def _node(node: _mi.Type) -> st.SearchStrategy[object]:  # noqa: C901, PLR0911
             return _RAW_ST
         case _mi.AnyType():
             return _json_value()
-        case _mi.CustomType() | _mi.ExtType():
-            return st.none()  # JSON-opaque leaves have no schema-derivable projection.
+        case _mi.CustomType(cls=cls):
+            # Schema-opaque leaves route through hypothesis's own registry: a suite-registered
+            # `st.register_type_strategy` row resolves; an unregistered class fails loudly at draw.
+            return st.from_type(cls)
+        case _mi.ExtType():
+            return st.tuples(st.integers(min_value=0, max_value=127), st.binary(max_size=16)).map(lambda cd: msgspec.msgpack.Ext(*cd))
         case _:  # pragma: no cover  # provably unreachable: the msgspec node taxonomy above is exhaustive
             raise AssertionError(f"unhandled msgspec node {type(node).__name__}")
 
@@ -387,6 +395,26 @@ def _deferred_ref(ref: str, defs: dict[str, _Schema]) -> Callable[[], st.SearchS
     return lambda: _pyd_node(defs[ref], defs)
 
 
+def _tagged_cases(subject: type) -> dict[str, TypeForm[object]] | None:
+    """Detect an ``expression`` ``@tagged_union`` class and map its case fields to type hints.
+
+    The decorator leaves every dataclass field ``init=False``/``kw_only`` behind a leading ``tag``
+    discriminator and replaces ``__init__`` with an exactly-one-case constructor, so field-wise
+    sampling constructs invalid unions; detection keys on that structural signature.
+
+    Returns:
+        Case-name to type-hint mapping, or ``None`` when the subject is not a tagged union.
+    """
+    if not (dataclasses.is_dataclass(subject) and isinstance(subject, type)):
+        return None
+    fields = dataclasses.fields(subject)
+    shaped = len(fields) >= 2 and fields[0].name == "tag" and all(not f.init and f.kw_only for f in fields)
+    if not shaped:
+        return None
+    hints: dict[str, TypeForm[object]] = get_type_hints(subject, include_extras=True)  # keep Annotated constraints on case fields
+    return {f.name: hints[f.name] for f in fields[1:]}
+
+
 _REGISTERED: set[type] = set()
 
 
@@ -416,7 +444,18 @@ def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
         return _node(node)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]
     if subject not in _REGISTERED:
         _REGISTERED.add(subject)
-        if issubclass(subject, pydantic.BaseModel):
+        if (cases := _tagged_cases(subject)) is not None:
+            union = subject
+
+            # Exactly one case per draw: the constructor rejects zero-case and multi-case payloads.
+            def _union_arm(name: str, hint: TypeForm[object]) -> st.SearchStrategy[object]:
+                return resolve(hint).map(lambda v: union(**{name: v}))
+
+            def _union_build() -> st.SearchStrategy[object]:
+                return st.one_of(*starmap(_union_arm, cases.items()))
+
+            st.register_type_strategy(subject, st.deferred(_union_build))
+        elif issubclass(subject, pydantic.BaseModel):
             model = subject
 
             def _pyd_build() -> st.SearchStrategy[object]:
@@ -450,6 +489,13 @@ def resolve[T](subject: TypeForm[T]) -> st.SearchStrategy[T]:
 
     return st.from_type(subject)
 
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+# Kit-owned opaque-leaf baseline: Path fields draw short portable relative paths (msgspec encodes
+# Path as its string form), so struct resolution never degrades to a single-value builds(Path).
+_SEGMENT: st.SearchStrategy[str] = st.text(alphabet="abcdefghijklmnopqrstuvwxyz0123456789", min_size=1, max_size=8)
+st.register_type_strategy(Path, st.lists(_SEGMENT, min_size=1, max_size=3).map(lambda parts: Path(*parts)))
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

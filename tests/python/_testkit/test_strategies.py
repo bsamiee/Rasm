@@ -3,12 +3,15 @@
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Literal, override
 
 import annotated_types
-from hypothesis import given, settings as hyp_settings
+from expression import case, tag, tagged_union
+from hypothesis import given, settings as hyp_settings, strategies as st
 import msgspec
+import msgspec.msgpack
 import pydantic
+import pytest
 
 from tests.python._testkit.strategies import resolve
 
@@ -49,6 +52,34 @@ class TaggedB(msgspec.Struct, tag="b", frozen=True):
 
 
 type Either = TaggedA | TaggedB
+
+
+@tagged_union
+class Axis:
+    """Expression tagged union: the constructor accepts exactly one case keyword."""
+
+    tag: str = tag()
+    linear: Annotated[int, msgspec.Meta(ge=1, le=5)] = case()
+    angular: float = case()
+
+
+class _Opaque:
+    """Schema-opaque leaf with no msgspec projection; resolution rides hypothesis's registry."""
+
+    def __init__(self, token: int) -> None:
+        self.token = token
+
+    @override
+    def __repr__(self) -> str:
+        return f"_Opaque({self.token})"
+
+
+class Carrier(msgspec.Struct, frozen=True):
+    payload: _Opaque
+
+
+class Framed(msgspec.Struct, frozen=True):
+    ext: msgspec.msgpack.Ext
 
 
 class Model(pydantic.BaseModel):
@@ -146,6 +177,47 @@ def test_union_reaches_every_member(first: TaggedA, second: TaggedB) -> None:
 def test_literal_form_stays_inside_its_vocabulary(value: str) -> None:
     """A Literal form draws only its declared members."""
     assert value in {"on", "off"}, f"literal escaped its vocabulary: {value!r}"
+
+
+# --- [EXPRESSION_AND_OPAQUE_ALGEBRA]
+
+
+@_BUDGET
+@given(resolve(Axis))
+def test_expression_tagged_union_draws_exactly_one_constrained_case(value: Axis) -> None:
+    """Every draw constructs through the one-case constructor with its case constraint intact; field-wise sampling refuses at build."""
+    match value.tag:
+        case "linear":
+            assert 1 <= value.linear <= 5, f"case constraint broke: {value.linear}"
+        case "angular":
+            assert isinstance(value.angular, float)
+        case unknown:
+            pytest.fail(f"drawn union carries an unknown tag: {unknown!r}")
+
+
+@_BUDGET
+@given(resolve(Axis).filter(lambda v: v.tag == "linear"), resolve(Axis).filter(lambda v: v.tag == "angular"))
+def test_expression_tagged_union_reaches_every_case(first: Axis, second: Axis) -> None:
+    """Both cases are reachable draws — a single-arm slice exhausts its filter and fails as Unsatisfiable."""
+    assert (first.tag, second.tag) == ("linear", "angular")
+
+
+st.register_type_strategy(_Opaque, st.integers(min_value=1, max_value=9).map(_Opaque))
+
+
+@_BUDGET
+@given(resolve(Carrier))
+def test_custom_leaf_resolves_through_the_hypothesis_registry(value: Carrier) -> None:
+    """A schema-opaque field routes to ``st.from_type``, so the suite-registered strategy owns it."""
+    assert isinstance(value.payload, _Opaque) and 1 <= value.payload.token <= 9, f"registered custom strategy ignored: {value.payload!r}"
+
+
+@_BUDGET
+@given(resolve(Framed))
+def test_ext_leaf_generates_wire_valid_msgpack_extensions(value: Framed) -> None:
+    """Ext fields draw real tagged extension payloads that survive the MessagePack codec."""
+    assert 0 <= value.ext.code <= 127, f"ext code escaped the custom band: {value.ext.code}"
+    assert msgspec.msgpack.decode(msgspec.msgpack.encode(value), type=Framed) == value
 
 
 # --- [PYDANTIC_ALGEBRA]

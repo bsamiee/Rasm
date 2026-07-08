@@ -14,15 +14,15 @@
 
 [ENTRYPOINT_SCOPE]: the value exports — everything a spec or config file imports from the barrel.
 
-| [INDEX] | [SYMBOL]                          | [TYPE]                                        | [CAPABILITY / BOUNDARY]                                          |
-| :-----: | :-------------------------------- | :-------------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `test`                            | `TestType<PlaywrightTestArgs & …Options, …WorkerArgs & …WorkerOptions>` | the runner; declares tests + owns fixtures (see [02]) |
-|  [02]   | `expect`                          | `Expect<{}>`                                  | web-first auto-retrying assertions (see [03])                   |
-|  [03]   | `devices`                         | keyed descriptor map                          | `devices['Desktop Chrome']` → a `use` preset; the parameterized device axis |
-|  [04]   | `defineConfig(config, ...configs)`| 6 overloads → `PlaywrightTestConfig`          | config-as-code with right-fold merge of later configs           |
-|  [05]   | `mergeTests(...tests)`            | `MergedTestType<List>`                        | compose independent fixture sets into one `test`               |
-|  [06]   | `mergeExpects(...expects)`        | `MergedExpect<List>`                          | compose independent matcher sets into one `expect`             |
-|  [07]   | `_baseTest`                       | `TestType<{}, {}>`                            | the fixture-free base to `.extend` from scratch                |
+| [INDEX] | [SYMBOL]                           | [TYPE]                                                                  | [CAPABILITY]                                                                |
+| :-----: | :--------------------------------- | :---------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `test`                             | `TestType<PlaywrightTestArgs & …Options, …WorkerArgs & …WorkerOptions>` | the runner; declares tests + owns fixtures (see [02])                       |
+|  [02]   | `expect`                           | `Expect<{}>`                                                            | web-first auto-retrying assertions (see [03])                               |
+|  [03]   | `devices`                          | keyed descriptor map                                                    | `devices['Desktop Chrome']` → a `use` preset; the parameterized device axis |
+|  [04]   | `defineConfig(config, ...configs)` | 6 overloads → `PlaywrightTestConfig`                                    | config-as-code with right-fold merge of later configs                       |
+|  [05]   | `mergeTests(...tests)`             | `MergedTestType<List>`                                                  | compose independent fixture sets into one `test`                            |
+|  [06]   | `mergeExpects(...expects)`         | `MergedExpect<List>`                                                    | compose independent matcher sets into one `expect`                          |
+|  [07]   | `_baseTest`                        | `TestType<{}, {}>`                                                      | the fixture-free base to `.extend` from scratch                             |
 
 ```ts contract
 export const test: TestType<PlaywrightTestArgs & PlaywrightTestOptions, PlaywrightWorkerArgs & PlaywrightWorkerOptions>
@@ -124,8 +124,8 @@ interface Project<T, W> {  // beyond name/use/testMatch: the dependency topology
   teardown?: string          // project that runs after this one and its dependents complete
 }
 // test-scoped (per test): baseURL, viewport, colorScheme, locale, timezoneId, geolocation, permissions, offline,
-//   storageState, testIdAttribute, contextOptions, serviceWorkers, actionTimeout, navigationTimeout, trace, video, screenshot
-// worker-scoped (per worker): browserName, headless, channel, launchOptions, connectOptions
+//   storageState, testIdAttribute, contextOptions, serviceWorkers, actionTimeout, navigationTimeout
+// worker-scoped (per worker): browserName, headless, channel, launchOptions, connectOptions, trace, video, screenshot
 // CONFIG RESOLUTION IS CWD-ONLY — resolveConfigLocation probes playwright.config.{ts,js,mts,mjs,cts,cjs} in process.cwd(),
 //   never upward: only a ROOT-resident config defends a bare root invocation from a tree-wide *.spec.ts sweep.
 // CLI rails: --last-failed (+ --last-failed-file, state under outputDir), --only-changed [ref],

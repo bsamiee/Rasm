@@ -437,7 +437,7 @@ internal static class Admit {
 
 One readiness algebra, one oracle, one bridge, one pair combinator, one admission vocabulary; a new check is a row, a new receipt is an evidence registration, a new guard is a member — never a sibling rail.
 
-| [INDEX] | [AXIS/CONCERN]        | [OWNER]                      | [KIND]                                                        | [RAIL]                                          | [CASES] |
+| [INDEX] | [CONCERN]             | [OWNER]                      | [KIND]                                                        | [RAIL]                                          | [CASES] |
 | :-----: | :-------------------- | :--------------------------- | :------------------------------------------------------------ | :----------------------------------------------- | :-----: |
 |  [01]   | Readiness rows        | `Requirement`                | sealed record, `Seq<Check>` monoid, `ForKind` dispatch        | `Apply → Validation<Error, T>` (accumulating)   |    9    |
 |  [02]   | Check matrix          | `Requirement.Check`          | `[SmartEnum<string>]` + `[UseDelegateFromConstructor]` columns | `Apply → Fin<Unit>` → `Fault.InvalidGeometry`   |   13    |

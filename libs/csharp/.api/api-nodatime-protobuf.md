@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_NODATIME_PROTOBUF]
+# [RASM_API_NODATIME_PROTOBUF]
 
 `NodaTime.Serialization.Protobuf` supplies bidirectional extension conversions
 between NodaTime temporal values and protobuf wire types: `Instant`/`Duration`

@@ -105,6 +105,16 @@ public static partial class Spec {
         double[] tail = [.. right];
         Equal(left: head, right: tail, tolerance: tolerance, metric: metric, what: what);
     }
+    // One golden-value table: every row gates through the shared tolerance regime and metric row,
+    // and the fold names EVERY diverging row in one verdict — never a first-failure stop.
+    public static void Golden(Tolerance tolerance, Metric? metric = null, params (string Label, double Actual, double Expected)[] rows) {
+        ArgumentNullException.ThrowIfNull(argument: rows);
+        Holds(condition: rows.Length > 0, label: "Golden: empty golden table proves nothing");
+        string[] drift = [.. rows
+            .Where(predicate: row => !Approx.Equal(left: row.Actual, right: row.Expected, tolerance: tolerance, metric: metric))
+            .Select(selector: static row => string.Create(provider: CultureInfo.InvariantCulture, $"{row.Label}: {row.Actual:R} vs {row.Expected:R}"))];
+        Holds(condition: drift.Length == 0, label: $"golden drift ({(metric ?? Metric.Absolute).Name}): {string.Join(separator: "; ", values: drift)}");
+    }
     // Bounded render keeps span failures actionable without flooding the sampler output.
     private static string Render(ReadOnlySpan<double> values) {
         string head = string.Join(separator: ", ", values: values[..Math.Min(val1: 8, val2: values.Length)].ToArray()

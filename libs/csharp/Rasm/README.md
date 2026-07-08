@@ -89,7 +89,6 @@
 The numeric solver and geometry host packages this folder consumes outside the C# substrate registry; versions are centralized in the one C# manifest, corroborated by `.api/`.
 
 [NUMERIC_SOLVERS]:
-- `MathNet.Numerics`
 - `CSparse`
 
 [EXACT_PRECISION]:
@@ -128,13 +127,7 @@ The C# substrate registry cards this folder consumes; full registry and substrat
 [NUMERIC_SUBSTRATE]:
 - `System.Numerics.Tensors`
 - `CommunityToolkit.HighPerformance` — `Span2D`/`MemoryOwner<T>`/`ParallelHelper` on the SoA build arenas, frozen or partition-disjoint spans only
+- `MathNet.Numerics` — the `Numerics/matrix` dense/sparse linear-algebra owner and distribution folds
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — the bounded-lane graph-algorithm owner: MST normals, König-matching constraint islands; every graph RESULT leaves as a kernel-owned SoA wire
-
-[TEST_SUBSTRATE]:
-- `xunit.v3.*`
-- `CsCheck`
-- `coverlet.MTP`
-- `BenchmarkDotNet`
-- `Verify.XunitV3`

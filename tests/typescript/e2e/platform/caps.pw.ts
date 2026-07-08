@@ -1,4 +1,3 @@
-import { Hermetic } from '@rasm/ts-testkit/e2e';
 import { expect, test } from '../fixtures.ts';
 
 // Capability rows ride the built-in context surface directly — a fixture wrapping grantPermissions
@@ -6,10 +5,10 @@ import { expect, test } from '../fixtures.ts';
 const _SITE = { latitude: 35.6892, longitude: 51.389 };
 
 test.describe('capability lanes', () => {
-    test('a granted geolocation lane serves the declared coordinates', async ({ context, hermetic, page }) => {
-        await context.grantPermissions(['geolocation'], { origin: Hermetic.origin });
+    test('a granted geolocation lane serves the declared coordinates', async ({ context, page, target }) => {
+        await context.grantPermissions(['geolocation'], { origin: target.origin });
         await context.setGeolocation(_SITE);
-        await hermetic.open('/form');
+        await target.open('/form');
         const probe = await page.evaluate(
             () =>
                 new Promise<{ readonly latitude: number; readonly longitude: number }>((resolve, reject) => {
@@ -23,9 +22,9 @@ test.describe('capability lanes', () => {
         expect(probe).toEqual(_SITE);
     });
 
-    test('clearing permissions refutes the granted state', async ({ context, hermetic, page }) => {
-        await context.grantPermissions(['geolocation'], { origin: Hermetic.origin });
-        await hermetic.open('/form');
+    test('clearing permissions refutes the granted state', async ({ context, page, target }) => {
+        await context.grantPermissions(['geolocation'], { origin: target.origin });
+        await target.open('/form');
         const query = () => page.evaluate(async () => (await navigator.permissions.query({ name: 'geolocation' })).state);
         expect(await query()).toBe('granted');
         await context.clearPermissions();

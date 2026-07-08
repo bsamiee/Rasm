@@ -20,9 +20,13 @@
 - [14]-[PROJECTION](.planning/Projection/projection.md): the `IElementProjection` projector floor and its one `Project`, the `IGraphConstraint` IFC-semantic legality floor and its one `Validate`, the `ProjectionContext`, and the `Assemble` composition capability the apps wire.
 - [15]-[ADDRESS](.planning/Projection/address.md): the `CanonicalWriter` deterministic byte codec and the `ContentAddress` `[ValueObject<UInt128>]` over the kernel seed-zero `XxHash128`, with order-independent graph addressing.
 
-## [02]-[SUBSTRATE_PACKAGES]
+## [02]-[DOMAIN_PACKAGES]
 
-The C# substrate registry cards this folder composes; full registry and substrate contracts live in `libs/csharp/.planning/README.md`, with shared API evidence in `libs/csharp/.api/`. The folder admits NO domain packages — it is the host-neutral, provider-free seam; GeometryGym, VividOrange, NetTopologySuite, and the IFC/geospatial codecs all live in the AEC peers that project onto this graph.
+The folder admits NO domain packages — it is the host-neutral, provider-free seam; GeometryGym, VividOrange, NetTopologySuite, and the IFC/geospatial codecs all live in the AEC peers that project onto this graph.
+
+## [03]-[SUBSTRATE_PACKAGES]
+
+The C# substrate registry cards this folder composes; full registry and substrate contracts live in `libs/csharp/.planning/README.md`, with shared API evidence in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
 - `LanguageExt.Core`
@@ -46,10 +50,3 @@ The C# substrate registry cards this folder composes; full registry and substrat
 - `Google.Protobuf` — `rasm.element.v1` wire messages: `IMessage<T>`/`MessageParser<T>` flow, `CreateWithLimits` payload gate, `ByteString` content-key carrier.
 - `Grpc.Tools` — build-only `<Protobuf>` message codegen for `Graph/element.proto` (`GrpcServices=None`, `PrivateAssets=all`); never a runtime surface.
 - `Generator.Equals` — structural equality + `Inequalities` member diff, feeding the 3-way `StructuralMerge`; never replaces the `XxHash128` rail.
-
-[TEST_SUBSTRATE]:
-- `xunit.v3.*`
-- `CsCheck`
-- `coverlet.MTP`
-- `BenchmarkDotNet`
-- `Verify.XunitV3`

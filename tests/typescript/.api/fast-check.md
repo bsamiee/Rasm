@@ -1,35 +1,36 @@
 # [fast-check] — property engine behind the law combinators and Schema-driven arbitraries
 
 [PACKAGE_SURFACE]:
-- package: `fast-check` · version `4.8.0` · license `MIT`
-- module: ESM (`type: module`); single barrel `fast-check` — one `.` export, no deep-import paths; default export `fc` mirrors the named surface.
-- asset: `lib/fast-check.d.ts` (bundled single-file declarations); runtime `lib/fast-check.js`.
-- runtime: platform-neutral (node / bun / browser / worker); zero native or wasm; randomness via bundled `pure-rand` (`RandomGenerator` supports v7 + v8 shapes).
-- plane: `plane:dev` — admitted on the `tests/` dev plane so no runtime graph imports it; the `tests/typescript/_architecture` suite asserts the arbitrary source never leaks into a runtime subpath.
+- package: `fast-check` · version `3.23.2` · license `MIT`
+- arrival: transitive under `effect` — never a workspace admission; the estate reaches the engine only through the `effect/FastCheck` re-export, so the version rides `effect`'s own manifest and moves with the substrate wave.
+- module: dual CJS/ESM barrel `fast-check` — one `.` export, no deep-import paths; default export `fc` mirrors the named surface.
+- asset: `lib/types/fast-check-default.d.ts` (barrel declarations); runtime `lib/fast-check.js` + `lib/esm/`.
+- runtime: platform-neutral (node / bun / browser / worker); zero native or wasm; randomness via bundled `pure-rand`.
+- plane: `plane:dev` — the `tests/typescript/_architecture` suite refuses a direct `fast-check` manifest admission outright, so no runtime graph can ever import it.
 - rail: property / generative law.
 
-`fast-check` is the sole generator engine behind the `_testkit` law/arbitrary source (`tests/typescript/_testkit`), which derives every kernel-brand and decoded-wire `Arbitrary<T>` from an `effect/Schema` via `Arbitrary.make` (never hand-rolls one) and folds those arbitraries into the three reusable law combinators — fold identity, merge commutativity, upcast totality — each a `property`/`asyncProperty` closed by `assert` and bound to specs through `@effect/vitest` `it.prop` / `it.effect`. The v4 surface below is authoritative for `4.8.0`: the v3 char-family (`char`, `ascii`, `unicode`, `hexaString`, `fullUnicodeString`, `stringOf`) and `frequency` are GONE — string variation collapses into one `string(constraints)` with a `unit` axis, and weighting collapses into `oneof`.
+`fast-check` is the sole generator engine behind the `_testkit` law/arbitrary source (`tests/typescript/_testkit`), which derives every kernel-brand and decoded-wire `Arbitrary<T>` from an `effect/Schema` via `Arbitrary.make` (never hand-rolls one) and folds those arbitraries into the reusable law combinators — each a `property`/`asyncProperty` closed by `assert` and bound to specs through `@effect/vitest` `it.effect.prop` / `it.effect`. String variation rides the one `string(constraints)` with its `unit` axis (shipped since `3.22.0`) and weighting rides `oneof` rows; the deprecated char-family (`char`, `ascii`, `hexaString`, `fullUnicodeString`, `stringOf`) still ships on this line and is rejected wholesale.
 
 ## [01]-[CORE_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the generator algebra — one abstract owner, everything else is a row on it.
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :------------------------------ | :------------------ | :------------------------------------------------------------------- |
-|  [01]   | `Arbitrary<T>`                  | abstract class      | typed generator; owns `map`/`filter`/`chain` — the composition floor |
-|  [02]   | `Value<T>`                      | class               | one generated value + `context` metadata; `WithCloneMethod` support  |
-|  [03]   | `Stream<T>`                     | class               | lazy `IterableIterator<T>` shrink stream                             |
-|  [04]   | `Random`                        | class               | mutable `pure-rand` wrapper; the only RNG a predicate may touch      |
-|  [05]   | `IRawProperty<Ts, IsAsync>`     | interface           | property contract: `generate` / `shrink` / `run`                    |
-|  [06]   | `IProperty<Ts>` / `IPropertyWithHooks<Ts>` | interface | sync property (+ `beforeEach`/`afterEach`)                          |
-|  [07]   | `IAsyncProperty<Ts>` / `…WithHooks` | interface       | async property; async hooks live only on the async variant           |
-|  [08]   | `GeneratorValue`                | type alias          | callable in-predicate RNG produced by `gen()`                       |
-|  [09]   | `Parameters<T>` / `GlobalParameters` | interface + alias | per-run config (see [04]); global subset for `configureGlobal`     |
-|  [10]   | `RunDetails<Ts>`                | discriminated union | run outcome: `RunDetailsSuccess` \| three failure variants           |
-|  [11]   | `PreconditionFailure`           | class (Error)       | thrown by `pre(false)` when the skip budget is exhausted            |
-|  [12]   | `ExecutionStatus` / `ExecutionTree<Ts>` / `VerbosityLevel` | enum + interface | per-run replay tree feeding verbose reporters          |
-|  [13]   | `Size` / `SizeForArbitrary` / `DepthSize` | union aliases | collection/string/recursion size policy (`Size` = `"xsmall".."xlarge"`) |
-|  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod` | branded shape | stateful-value cloning + custom counterexample rendering |
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]       | [CAPABILITY]                                                            |
+| :-----: | :--------------------------------------------------------- | :------------------ | :---------------------------------------------------------------------- |
+|  [01]   | `Arbitrary<T>`                                             | abstract class      | typed generator; owns `map`/`filter`/`chain` — the composition floor    |
+|  [02]   | `Value<T>`                                                 | class               | one generated value + `context` metadata; `WithCloneMethod` support     |
+|  [03]   | `Stream<T>`                                                | class               | lazy `IterableIterator<T>` shrink stream                                |
+|  [04]   | `Random`                                                   | class               | mutable `pure-rand` wrapper; the only RNG a predicate may touch         |
+|  [05]   | `IRawProperty<Ts, IsAsync>`                                | interface           | property contract: `generate` / `shrink` / `run`                        |
+|  [06]   | `IProperty<Ts>` / `IPropertyWithHooks<Ts>`                 | interface           | sync property (+ `beforeEach`/`afterEach`)                              |
+|  [07]   | `IAsyncProperty<Ts>` / `…WithHooks`                        | interface           | async property; async hooks live only on the async variant              |
+|  [08]   | `GeneratorValue`                                           | type alias          | callable in-predicate RNG produced by `gen()`                           |
+|  [09]   | `Parameters<T>` / `GlobalParameters`                       | interface + alias   | per-run config (see [04]); global subset for `configureGlobal`          |
+|  [10]   | `RunDetails<Ts>`                                           | discriminated union | run outcome: `RunDetailsSuccess` \| three failure variants              |
+|  [11]   | `PreconditionFailure`                                      | class (Error)       | thrown by `pre(false)` when the skip budget is exhausted                |
+|  [12]   | `ExecutionStatus` / `ExecutionTree<Ts>` / `VerbosityLevel` | enum + interface    | per-run replay tree feeding verbose reporters                           |
+|  [13]   | `Size` / `SizeForArbitrary` / `DepthSize`                  | union aliases       | collection/string/recursion size policy (`Size` = `"xsmall".."xlarge"`) |
+|  [14]   | `WithCloneMethod` / `WithToStringMethod` / `cloneMethod`   | branded shape       | stateful-value cloning + custom counterexample rendering                |
 
 ```ts contract
 // The Arbitrary algebra — every primitive/combinator below returns one of these; you refine with three methods.
@@ -53,21 +54,21 @@ declare function clone<T>(arb: Arbitrary<T>, numValues: number): Arbitrary<T[]> 
 
 [ENTRYPOINT_SCOPE]: property construction + execution — the surface every law combinator terminates in.
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]      | [CAPABILITY / BOUNDARY]                                      |
-| :-----: | :---------------------------------------------------- | :------------------ | :----------------------------------------------------------- |
-|  [01]   | `property(...arbs, predicate)`                        | sync property       | `IPropertyWithHooks<Ts>`; predicate returns `boolean \| void` |
-|  [02]   | `asyncProperty(...arbs, predicate)`                   | async property      | `IAsyncPropertyWithHooks<Ts>`; predicate returns a `Promise`  |
-|  [03]   | `assert(property, params?)`                           | throwing runner     | the spec entry — throws with seed + minimal counterexample    |
-|  [04]   | `check(property, params?)`                            | non-throwing runner | returns `RunDetails<Ts>` for custom reporting                 |
-|  [05]   | `sample(gen, params? \| number)`                      | extractor           | `Ts[]` for corpus generation / debugging                     |
-|  [06]   | `statistics(gen, classify, params? \| number)`        | classifier          | logs frequency distribution of a `classify` label            |
-|  [07]   | `pre(expectTruthy)`                                   | precondition        | `asserts expectTruthy`; a false guard skips the run          |
-|  [08]   | `gen()`                                               | inline RNG          | `Arbitrary<GeneratorValue>` — draw inside a predicate         |
-|  [09]   | `configureGlobal` / `readConfigureGlobal` / `resetConfigureGlobal` | global config | one `GlobalParameters` override across a suite           |
-|  [10]   | `hash` / `stringify` / `asyncStringify` / `defaultReportMessage` | reporting utils | stable hashing + counterexample rendering               |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]      | [CAPABILITY]                                                  |
+| :-----: | :----------------------------------------------------------------- | :------------------ | :------------------------------------------------------------ |
+|  [01]   | `property(...arbs, predicate)`                                     | sync property       | `IPropertyWithHooks<Ts>`; predicate returns `boolean \| void` |
+|  [02]   | `asyncProperty(...arbs, predicate)`                                | async property      | `IAsyncPropertyWithHooks<Ts>`; predicate returns a `Promise`  |
+|  [03]   | `assert(property, params?)`                                        | throwing runner     | the spec entry — throws with seed + minimal counterexample    |
+|  [04]   | `check(property, params?)`                                         | non-throwing runner | returns `RunDetails<Ts>` for custom reporting                 |
+|  [05]   | `sample(gen, params? \| number)`                                   | extractor           | `Ts[]` for corpus generation / debugging                      |
+|  [06]   | `statistics(gen, classify, params? \| number)`                     | classifier          | logs frequency distribution of a `classify` label             |
+|  [07]   | `pre(expectTruthy)`                                                | precondition        | `asserts expectTruthy`; a false guard skips the run           |
+|  [08]   | `gen()`                                                            | inline RNG          | `Arbitrary<GeneratorValue>` — draw inside a predicate         |
+|  [09]   | `configureGlobal` / `readConfigureGlobal` / `resetConfigureGlobal` | global config       | one `GlobalParameters` override across a suite                |
+|  [10]   | `hash` / `stringify` / `asyncStringify` / `defaultReportMessage`   | reporting utils     | stable hashing + counterexample rendering                     |
 
 ```ts contract
-// Signatures verified against lib/fast-check.d.ts @4.8.0 (variadic-tuple arbitraries → typed predicate).
+// Signatures verified against lib/types/fast-check-default.d.ts @3.23.2 (variadic-tuple arbitraries → typed predicate).
 declare function property<Ts extends [unknown, ...unknown[]]>(
   ...args: [...arbitraries: { [K in keyof Ts]: Arbitrary<Ts[K]> }, predicate: (...args: Ts) => boolean | void]
 ): IPropertyWithHooks<Ts>
@@ -86,13 +87,13 @@ The full generator roster is SEED DATA for the one `Arbitrary<T>` algebra — a 
 
 [ENTRYPOINT_SCOPE]: scalars — `nat`, `integer`, `maxSafeInteger`, `maxSafeNat`, `double`, `float`, `boolean`, `bigInt`, `constant`, `constantFrom`, `falsy`, `date`, `ulid`, `uuid` (all take a `*Constraints` bag; `constant<const T>` preserves literal type).
 
-[ENTRYPOINT_SCOPE]: strings — `string(constraints)` (the v4 unifier; `constraints.unit` selects `'grapheme' | 'binary' | 'grapheme-ascii' | 'grapheme-composite' | Arbitrary<string>`, absorbing the removed char-family), `stringMatching(regex)`, `base64String`, `lorem`, `mixedCase`, and the web/net family `emailAddress`, `domain`, `webUrl`, `webAuthority`, `webPath`, `webSegment`, `webFragments`, `webQueryParameters`, `ipV4`, `ipV4Extended`, `ipV6`.
+[ENTRYPOINT_SCOPE]: strings — `string(constraints)` (the one string owner; `constraints.unit` selects `'grapheme' | 'grapheme-composite' | 'grapheme-ascii' | 'binary' | 'binary-ascii' | Arbitrary<string>`, default `'grapheme-ascii'`, superseding the deprecated char-family), `stringMatching(regex)`, `base64String`, `lorem`, `mixedCase`, and the web/net family `emailAddress`, `domain`, `webUrl`, `webAuthority`, `webPath`, `webSegment`, `webFragments`, `webQueryParameters`, `ipV4`, `ipV4Extended`, `ipV6`.
 
-[ENTRYPOINT_SCOPE]: collections + structured — `array`, `uniqueArray` (four overloads: recommended / custom-compare / custom-select), `set`, `subarray`, `shuffledSubarray`, `sparseArray`, `tuple`, `record`, `dictionary`, `mapToConstant`, `object`, `json`, `jsonValue`, `anything`, and the typed-array family `int8Array`…`float64Array`, `uint8Array`, `uint8ClampedArray`, `uint16Array`, `uint32Array`, `bigInt64Array`, `bigUint64Array`.
+[ENTRYPOINT_SCOPE]: collections + structured — `array`, `uniqueArray` (comparator/selector overload family), `subarray`, `shuffledSubarray`, `sparseArray`, `tuple`, `record`, `dictionary`, `mapToConstant`, `object`, `json`, `jsonValue`, `anything`, and the typed-array family `int8Array`…`float64Array`, `uint8Array`, `uint8ClampedArray`, `uint16Array`, `uint32Array`, `bigInt64Array`, `bigUint64Array`.
 
-[ENTRYPOINT_SCOPE]: combinators + recursion — `oneof` (weighted via `MaybeWeightedArbitrary` / `WeightedArbitrary` rows or an `OneOfConstraints` head), `option`, `letrec` (typed + loosely-typed builders), `memo` (depth-cached), `chainUntil` (v4 — iterate an arbitrary to a fixed point), `func` (deterministic pure-function arbitrary), `context`, `infiniteStream`.
+[ENTRYPOINT_SCOPE]: combinators + recursion — `oneof` (weighted via `MaybeWeightedArbitrary` / `WeightedArbitrary` rows or an `OneOfConstraints` head), `option`, `letrec` (typed + loosely-typed builders), `memo` (depth-cached), `func` (deterministic pure-function arbitrary), `context`, `infiniteStream`.
 
-[ENTRYPOINT_SCOPE]: relational + model-based + async — `entityGraph(arbitraries, relations, constraints?)` (v4 — a related-entity graph honoring `EntityGraphRelations`), `commands` + `modelRun` / `asyncModelRun` / `scheduledModelRun` (stateful `Command`/`AsyncCommand` sequences), `scheduler` / `schedulerFor` (`Arbitrary<Scheduler>` for deterministic async-race ordering).
+[ENTRYPOINT_SCOPE]: model-based + async — `commands` + `modelRun` / `asyncModelRun` / `scheduledModelRun` (stateful `Command`/`AsyncCommand` sequences), `scheduler` / `schedulerFor` (`Arbitrary<Scheduler>` for deterministic async-race ordering).
 
 ```ts contract
 declare function string(constraints?: StringConstraints): Arbitrary<string>
@@ -100,8 +101,8 @@ declare function oneof<Ts extends MaybeWeightedArbitrary<unknown>[]>(...arbs: Ts
 declare function oneof<Ts extends MaybeWeightedArbitrary<unknown>[]>(constraints: OneOfConstraints, ...arbs: Ts): Arbitrary<OneOfValue<Ts>>
 declare function record<T>(model: { [K in keyof T]: Arbitrary<T[K]> }, constraints?: RecordConstraints<keyof T>): Arbitrary<T>
 declare function letrec<T>(builder: T extends Record<string, unknown> ? LetrecTypedBuilder<T> : never): LetrecValue<T>
-declare function chainUntil<T>(startArb: Arbitrary<T>, chainer: (prev: T) => Arbitrary<T> | undefined): Arbitrary<T>
-declare function constant<const T>(value: T): Arbitrary<T>
+declare function constant<T>(value: T): Arbitrary<T>
+declare function constantFrom<TArgs extends unknown[]>(...values: TArgs): Arbitrary<TArgs[number]> // the literal-preserving row picker
 ```
 
 ## [04]-[RUN_CONFIG_AND_RECEIPT]

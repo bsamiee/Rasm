@@ -47,7 +47,7 @@
         "e2e": {
             "cache": true,
             "inputs": ["default", "^production"],
-            "outputs": ["{workspaceRoot}/.artifacts/typescript/test-results"]
+            "outputs": ["{workspaceRoot}/.artifacts/typescript/e2e"]
         }
     },
     "plugins": [

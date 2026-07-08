@@ -34,8 +34,10 @@ const _PROMOTED = [
     'no-barrel-reexport',
     'no-blanket-catchall',
     'no-domain-throw',
+    'no-fetch-in-domain',
     'no-mutable-accumulation',
     'no-nullable-return',
+    'no-process-env-in-domain',
     'no-rename-wrapper',
     'no-run-in-domain',
     'no-standalone-brand',
@@ -96,6 +98,18 @@ const _Biome = Schema.Struct({
             suspicious: Schema.Struct({ noExplicitAny: Schema.String }),
         }),
     }),
+    // Shipped-rule promotions ride overrides: a rule Biome ships needs no GritQL twin, only its armed row.
+    overrides: Schema.Array(
+        Schema.Struct({
+            includes: Schema.Array(Schema.String),
+            linter: Schema.Struct({
+                rules: Schema.Struct({
+                    style: Schema.Record({ key: Schema.String, value: Schema.String }),
+                    suspicious: Schema.Record({ key: Schema.String, value: Schema.String }),
+                }),
+            }),
+        }),
+    ),
 });
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
@@ -128,6 +142,15 @@ const _legislated = (config: typeof _Biome.Type): ReadonlyArray<string> =>
                 ? Option.none()
                 : Option.some(`${plugin.path} must scope [${_PLUGIN_SCOPE.join(', ')}]`),
         ),
+        Array.some(
+            config.overrides,
+            (row) =>
+                Array.every(_PLUGIN_SCOPE, (glob) => Array.some(row.includes, (own) => own === glob)) &&
+                row.linter.rules.suspicious['noConsole'] === 'error' &&
+                row.linter.rules.style['noDefaultExport'] === 'error',
+        )
+            ? []
+            : ['an estate-scoped override must arm suspicious.noConsole and style.noDefaultExport at error'],
     ]);
 
 // The armed-rule predicate over one .grit text.
@@ -338,12 +361,32 @@ describe('admission predicates', () => {
                 domains: { project: 'recommended', test: 'recommended', types: 'recommended' },
                 rules: { preset: 'recommended', suspicious: { noExplicitAny: 'error' } },
             },
+            overrides: [
+                { includes: [..._PLUGIN_SCOPE], linter: { rules: { style: { noDefaultExport: 'error' }, suspicious: { noConsole: 'error' } } } },
+            ],
         };
         expect(_legislated(lawful)).toEqual([]);
         expect(_legislated({ ...lawful, plugins: Array.drop(lawful.plugins, 1) })).not.toEqual([]);
         expect(_legislated({ ...lawful, plugins: Array.map(lawful.plugins, (row) => ({ ...row, includes: ['libs/typescript/**'] })) })).not.toEqual(
             [],
         );
+        expect(_legislated({ ...lawful, overrides: [] })).not.toEqual([]);
+        expect(
+            _legislated({
+                ...lawful,
+                overrides: [
+                    { includes: [..._PLUGIN_SCOPE], linter: { rules: { style: { noDefaultExport: 'error' }, suspicious: { noConsole: 'warn' } } } },
+                ],
+            }),
+        ).not.toEqual([]);
+        expect(
+            _legislated({
+                ...lawful,
+                overrides: [
+                    { includes: [..._PLUGIN_SCOPE], linter: { rules: { style: { noDefaultExport: 'warn' }, suspicious: { noConsole: 'error' } } } },
+                ],
+            }),
+        ).not.toEqual([]);
         expect(
             _legislated({ ...lawful, linter: { ...lawful.linter, rules: { preset: 'all', suspicious: { noExplicitAny: 'error' } } } }),
         ).not.toEqual([]);

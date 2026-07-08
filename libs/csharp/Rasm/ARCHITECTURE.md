@@ -34,22 +34,22 @@ Rasm/
 │   ├── Transport.cs         # Log-domain Sinkhorn OT (balanced/unbalanced/debiased) + SinkhornPlan projections
 │   └── Fields.cs            # ScalarField/VectorField/TensorField unions, typed SdfKind primitives, BlendKind, SampleDetailed seam
 ├── Parametric/              # The vendored NURBS engine + host-neutral op tier, evaluation + location
-│   ├── Nurbs.cs             # THE vendored NURBS engine one-engine law: Nurbs.Of four-shape admission, De Boor, Piegl-Tiller curve/surface fits, ToEncodeForm
+│   ├── Nurbs.cs             # THE vendored NURBS one-engine law: Nurbs.Of 4-shape admission, De Boor, Piegl-Tiller curve/surface fits, ToEncodeForm
 │   ├── Curve.cs             # ParametricOp eight-case rail Evaluate·Measure·Divide·Stations·Split·Reconstruct·Offset·Intersect2D
 │   ├── Surface.cs           # SurfaceOp six-case rail Tessellate·Isolines·Geodesics·NormalOffset·CurvatureSample·Pullback
-│   ├── Subdivide.cs         # Stencil-row subdivision: Catmull-Clark/Loop SubdivisionScheme rows over ONE refinement fold, semi-sharp creases, Stam limit
-│   ├── Develop.cs           # Guaranteed-isometric developable strips: MMP-exact rails, torsal ruling solve, ddouble isometry witness, DevelopmentReceipt
+│   ├── Subdivide.cs         # Catmull-Clark/Loop SubdivisionScheme stencil rows over ONE refinement fold, semi-sharp creases, Stam limit
+│   ├── Develop.cs           # Guaranteed-isometric strips: MMP-exact rails, torsal ruling solve, ddouble isometry witness, DevelopmentReceipt
 │   ├── Panelize.cs          # Cross-field-guided panelization: Lattice + Seeded families, per-panel frames, planarity acceptance, PanelField SoA wire
-│   ├── Patternmap.cs        # Wallpaper-group pattern-to-surface instancing: 17 Seitz rows over ONE orbit fold, PL log-map inversion, vector-heat frames
+│   ├── Patternmap.cs        # Wallpaper pattern-to-surface instancing: 17 Seitz rows over ONE orbit fold, PL log-map inversion, vector-heat frames
 │   ├── Projections.cs       # CurveProjection/SurfaceProjection selectors, the one shape-operator + pose-slerp owners, SurfaceSpace
 │   └── Locate.cs            # Locator/LocationValue/Division location algebra with curvature extrema
 ├── Meshing/                 # Mesh substrate + construction lattice
 │   ├── Delaunay.cs          # Constrained Bowyer-Watson Delaunay/tetrahedralization on InCircle/InSphere
 │   ├── Arrangement.cs       # Managed exact boolean/overlay cell-complex retiring the native CSG gate
 │   ├── Intersect.cs         # Predicate-exact IntersectOp crossing lattice
-│   ├── Slice.cs             # Slicing.Apply slice-stack fold: LayerPlan rows over ONE March integrator, exact-parity nesting forest, SliceStack SoA wire
+│   ├── Slice.cs             # Slicing.Apply fold: LayerPlan rows over ONE March integrator, exact-parity nesting forest, SliceStack SoA wire
 │   ├── Offset.cs            # Aichholzer-Aurenhammer wavefront OffsetOp (Skeleton/Weighted/Offset/Medial/Minkowski/Clearance)
-│   ├── Skeleton.cs          # Au-2008 MCF 3D curve-skeleton: implicit contraction over the MeshEdit arena, cost-ordered collapse to 1D, CurveSkeleton SoA wire
+│   ├── Skeleton.cs          # Au-2008 MCF curve-skeleton: implicit contraction over MeshEdit arena, cost-ordered 1D collapse, CurveSkeleton SoA wire
 │   ├── Mesh.cs              # MeshSpace snapshot handle, LaplacianCache, IntrinsicMesh + MeshAdjointSnapshot, one cotangent owner, power diagram
 │   ├── Edit.cs              # MeshEdit single-writer SoA build arena: one polymorphic Of (space|soup), weld kernel + knob
 │   ├── Dec.cs               # AssembleDecOperators, CR connection heat, CDS holonomy, harmonic basis + Hodge decomposition
@@ -68,7 +68,7 @@ Rasm/
 │   ├── Geodesics.cs         # Heat-method + MMP geodesics, log/exp maps, vector-heat transport, MCF
 │   └── Segment.cs           # HKS/WKS descriptors, feature edges, MeshSegmentation union, cross-fields/stripes, host remesh capture
 ├── Solving/                 # Nonlinear least-squares owners over the matrix floor
-│   ├── Solver.cs            # Lm.Minimize ILmModel λ-ladder the ONE damped Gauss-Newton + Constraint solver, island decomposition, DofReport/DofAnalysis
+│   ├── Solver.cs            # Lm.Minimize ILmModel λ-ladder the ONE Gauss-Newton + Constraint solver, island decomposition, DofReport/DofAnalysis
 │   └── Fit.cs               # MLESAC FitOp primitive-fit (PROSAC/NAPSAC draws over the kd-tree lane) + FitModel : ILmModel orthogonal-distance refine
 ├── Drawing/                 # Kernel-quality 2D drawing-geometry producers
 │   ├── View.cs              # Predicate-exact hidden-line/silhouette ViewOp returning DrawingProjection

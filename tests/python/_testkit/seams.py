@@ -13,6 +13,7 @@ import msgspec
 lazy import grpc.aio
 lazy import pytest
 lazy import sniffio
+lazy import trio.testing
 
 
 if TYPE_CHECKING:
@@ -212,6 +213,22 @@ async def grpc_loopback(bind: Callable[[grpc.aio.Server], None], *, host: str = 
         await server.stop(grace=None)
 
 
+# --- [VIRTUAL_TIME]
+
+
+def autojump_backend(threshold: float = 0.0) -> tuple[str, dict[str, object]]:
+    """Mint an ``anyio_backend`` parameter running the law under trio's autojumping virtual clock.
+
+    Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``,
+    so retry, drain, and timeout laws prove in microseconds of wall time. Each call mints a fresh
+    clock; the grpc/asyncssh capsules skip themselves under this backend through their own guards.
+
+    Returns:
+        ``("trio", {"clock": MockClock(...)})`` for the anyio pytest plugin's backend fixture.
+    """
+    return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=threshold)})
+
+
 # --- [FIXTURE_WRITERS]
 
 
@@ -363,6 +380,7 @@ __all__ = [
     "TmpRoot",
     "Variant",
     "VariantWriter",
+    "autojump_backend",
     "autospec_proc",
     "grpc_loopback",
     "install_module_attr",

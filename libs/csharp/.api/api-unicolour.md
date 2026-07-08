@@ -1,4 +1,4 @@
-# [RASM_APPUI_API_UNICOLOUR]
+# [RASM_API_UNICOLOUR]
 
 `Wacton.Unicolour` (MIT, pure-managed `netstandard2.0`, zero dependencies,
 ALC-safe) supplies a 40-space colour model via the immutable `Unicolour` type, with
@@ -316,7 +316,7 @@ All `Unicolour` construction routes are on `Wacton.Unicolour.Unicolour`. Alpha d
 Lazy-evaluated properties on `Unicolour`; all spelled exactly as below.
 
 | [INDEX] | [MEMBER] | [SIGNATURE] | [USED_BY] | [SOURCE] |
-| :-----: | --------------------- | --------------------------------------------- | -------------------------------------- | ----------------- |
+| :-----: | :-------------------- | :-------------------------------------------- | :------------------------------------- | :---------------- |
 | [01] | `.Rgb` | `Rgb` | sRGB byte output | property |
 | [02] | `.RgbLinear` | `RgbLinear` | #BSDF_MODEL linear-light pipeline | member surface |
 | [03] | `.Xyz` | `Xyz` | #PHOTOMETRIC tristimulus | member surface |
@@ -354,7 +354,7 @@ Lazy-evaluated properties on `Unicolour`; all spelled exactly as below.
 `DeltaE` enum — all 12 members verified. Called via `unicolour.Difference(reference, DeltaE.X)`.
 
 | [INDEX] | [MEMBER] | [SIGNATURE] | [USED_BY] | [SOURCE] |
-| :-----: | ------------------- | --------------------------------------- | --------------------------------- | ---------------------------- |
+| :-----: | :------------------ | :-------------------------------------- | :-------------------------------- | :--------------------------- |
 | [01] | `Cie76` | `DeltaE.Cie76` | baseline perceptual diff | member surface |
 | [02] | `Cie94` | `DeltaE.Cie94` | graphic-arts weighting | member surface |
 | [03] | `Cie94Textiles` | `DeltaE.Cie94Textiles` |  | member surface |

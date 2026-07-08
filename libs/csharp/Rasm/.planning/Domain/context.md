@@ -135,7 +135,7 @@ public sealed record Context {
 
 One context owner, one factory family; a new model-space fact is one slot, never a sibling bundle.
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]                                                | [KIND]                                              | [RAIL]                                     | [CASES] |
+| [INDEX] | [CONCERN]          | [OWNER]                                                | [KIND]                                              | [RAIL]                                     | [CASES] |
 | :-----: | :----------------- | :----------------------------------------------------- | :--------------------------------------------------- | :------------------------------------------ | :-----: |
 |  [01]   | Tolerance scalars  | `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` | `[ValueObject<double>]` with admission guards        | `TryCreateValidated → Validation<Error, T>` |    3    |
 |  [02]   | Model context      | `Context`                                              | sealed record, polymorphic `Of` family + derivations | `Of → Validation<Error, Context>`           |    4    |

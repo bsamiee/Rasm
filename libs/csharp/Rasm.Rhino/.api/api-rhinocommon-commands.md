@@ -1,4 +1,4 @@
-# [API_RHINOCOMMON_COMMANDS]
+# [RASM_RHINO_API_RHINOCOMMON_COMMANDS]
 
 Catalog scope: the command lifecycle and the full interactive getter/option surface — `Rhino.Commands` plus every `Rhino.Input`/`Rhino.Input.Custom` acquisition family the package composes.
 

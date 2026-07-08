@@ -72,6 +72,22 @@ public sealed class ExpectLaws {
 }
 
 public sealed class FactLaws {
+    // Note is the unasserted observation verb: it facts the EvidenceName key verbatim and counts
+    // as evidence, with no assertion or reference count movement.
+    [Fact]
+    public void NoteFactsTheEvidenceNameKeyVerbatim() =>
+        Spec.ForAll(gen: EvidenceGens.Projection, property: static input => {
+            List<(string Key, object? Value)> log = [];
+            ScenarioContext ctx = EvidenceGens.Context(log: log);
+            ctx.Note(key: new EvidenceName(Key: input.Label), value: input.Payload);
+            (string key, object? value) = Assert.Single(collection: log);
+            Assert.Equal(expected: input.Label, actual: key);
+            Assert.Equal(expected: input.Payload, actual: value);
+            Assert.Equal(expected: 1, actual: ctx.FactCount);
+            Assert.Equal(expected: 0, actual: ctx.AssertionCount);
+            Assert.Equal(expected: 0, actual: ctx.ReferenceCount);
+        });
+
     [Fact]
     public void StreamForwardsInOrderAndCountsConserve() =>
         Spec.ForAll(gen: EvidenceGens.Stream, property: static stream => {
@@ -283,6 +299,25 @@ public sealed class FactKeyGrammarLaws {
         Assert.StartsWith(expectedStartString: "failed:", actualString: (string)log[1].Value!, comparisonType: StringComparison.Ordinal);
         _ = ctx.Case(name: "after", action: static () => Fin.Succ(value: unit));
         Assert.Equal(expected: "ok", actual: log[3].Value);
+    }
+}
+
+public sealed class ScenarioDiscoveryWireLaws {
+    // Cargo discovers scenario methods over staged assemblies BY FULL NAME ("Rasm.ScenarioKit.
+    // RhinoScenarioAttribute"): a namespace move compiles clean everywhere and silently discovers
+    // ZERO scenarios, so the reflected discovery shape is pinned here as frozen wire law.
+    [Fact]
+    public void DiscoveryShapeIsFrozenWireLaw() {
+        Assert.Equal(expected: "Rasm.ScenarioKit.RhinoScenarioAttribute", actual: typeof(RhinoScenarioAttribute).FullName);
+        Assert.Equal(expected: "Rasm.ScenarioKit.ScenarioContext", actual: typeof(ScenarioContext).FullName);
+        AttributeUsageAttribute usage = Assert.IsType<AttributeUsageAttribute>(@object: Attribute.GetCustomAttribute(
+            element: typeof(RhinoScenarioAttribute), attributeType: typeof(AttributeUsageAttribute)));
+        Assert.Equal(expected: AttributeTargets.Method, actual: usage.ValidOn);
+        // The manifest member roster cargo reads off attribute metadata: name and type are law.
+        Spec.Matrix(
+            (Label: "theme-is-string", Probe: static () => typeof(RhinoScenarioAttribute).GetProperty(name: nameof(RhinoScenarioAttribute.Theme))?.PropertyType == typeof(string), Expected: true),
+            (Label: "requires-is-string-array", Probe: static () => typeof(RhinoScenarioAttribute).GetProperty(name: nameof(RhinoScenarioAttribute.Requires))?.PropertyType == typeof(string[]), Expected: true),
+            (Label: "budget-is-int", Probe: static () => typeof(RhinoScenarioAttribute).GetProperty(name: nameof(RhinoScenarioAttribute.BudgetMs))?.PropertyType == typeof(int), Expected: true));
     }
 }
 

@@ -10,7 +10,8 @@
         "./gauges": "./src/gauges.ts",
         "./harness": "./src/harness.ts",
         "./laws": "./src/laws.ts",
-        "./setup": "./src/setup.ts"
+        "./setup": "./src/setup.ts",
+        "./telemetry": "./src/telemetry.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",

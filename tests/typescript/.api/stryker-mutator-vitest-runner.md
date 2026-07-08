@@ -14,12 +14,12 @@
 
 [PUBLIC_TYPE_SCOPE]: the two public exports (`strykerPlugins`, `strykerValidationSchema`) typed against the `@stryker-mutator/api/plugin` loading ABI that `stryker-mutator-core.md` [04] owns. `strykerPlugins` is the value `@stryker-mutator/core` discovers; a `FactoryPlugin` is a DI factory tagged by `PluginKind` and injected with `["$injector"]` (`commonTokens.injector`).
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]        | [CAPABILITY / BOUNDARY]                                                  |
-| :-----: | :-------------------------------- | :------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `strykerPlugins`                  | `FactoryPlugin[]`    | the only value export the host reads — `FactoryPlugin<PluginKind.TestRunner, ["$injector"]>[]` |
-|  [02]   | `strykerValidationSchema`         | JSON schema          | `typeof vitest-runner-options.json` — validates the `vitest` option bag   |
-|  [03]   | `PluginKind` / `FactoryPlugin<K, Tokens>` | shared ABI   | the plugin-loading types this row is typed with — owned by `stryker-mutator-core.md` [04] |
-|  [04]   | `VitestTestRunner`                | internal `TestRunner` impl | the class the `FactoryPlugin` factory yields (not a public export); implements the [02] contract |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]              | [CAPABILITY]                                                                                     |
+| :-----: | :---------------------------------------- | :------------------------- | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `strykerPlugins`                          | `FactoryPlugin[]`          | the only value export the host reads — `FactoryPlugin<PluginKind.TestRunner, ["$injector"]>[]`   |
+|  [02]   | `strykerValidationSchema`                 | JSON schema                | `typeof vitest-runner-options.json` — validates the `vitest` option bag                          |
+|  [03]   | `PluginKind` / `FactoryPlugin<K, Tokens>` | shared ABI                 | the plugin-loading types this row is typed with — owned by `stryker-mutator-core.md` [04]        |
+|  [04]   | `VitestTestRunner`                        | internal `TestRunner` impl | the class the `FactoryPlugin` factory yields (not a public export); implements the [02] contract |
 
 ```ts contract
 // index.d.ts @9.6.1 — the ENTIRE public barrel is two exports; PluginKind/FactoryPlugin import from @stryker-mutator/api/plugin (core [04]).
@@ -32,15 +32,15 @@ export declare const strykerValidationSchema: typeof import('../schema/vitest-ru
 
 [PUBLIC_TYPE_SCOPE]: the `@stryker-mutator/api/test-runner` contract — one dry run establishes per-mutant coverage, then one `mutantRun` per mutant returns a four-arm verdict union. Both result shapes are discriminated unions on `status`, never boolean pairs.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]        | [CAPABILITY / BOUNDARY]                                                  |
-| :-----: | :-------------------------------- | :------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `TestRunner`                      | interface            | `capabilities` + `dryRun` + `mutantRun` (+ optional `init`/`dispose`)     |
-|  [02]   | `TestRunnerCapabilities`          | interface            | `{ reloadEnvironment: boolean }` — worker-reuse capability advertisement  |
-|  [03]   | `DryRunResult`                    | discriminated union  | `Complete{tests, mutantCoverage?} \| Error \| Timeout` on `DryRunStatus`  |
-|  [04]   | `MutantRunResult`                 | discriminated union  | `Killed \| Survived \| Timeout \| Error` on `MutantRunStatus`             |
-|  [05]   | `MutantRunOptions`                | interface            | `activeMutant` + `sandboxFileName` + `testFilter` + `hitLimit` + activation|
-|  [06]   | `MutantActivation`                | union                | `'runtime' \| 'static'` — when the mutant switch flips                    |
-|  [07]   | `TestResult`                      | discriminated union  | `Success \| Failed \| Skipped` on `TestStatus` — dry-run per-test rows    |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [CAPABILITY]                                                                |
+| :-----: | :----------------------- | :------------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `TestRunner`             | interface           | `capabilities` + `dryRun` + `mutantRun` (+ optional `init`/`dispose`)       |
+|  [02]   | `TestRunnerCapabilities` | interface           | `{ reloadEnvironment: boolean }` — worker-reuse capability advertisement    |
+|  [03]   | `DryRunResult`           | discriminated union | `Complete{tests, mutantCoverage?} \| Error \| Timeout` on `DryRunStatus`    |
+|  [04]   | `MutantRunResult`        | discriminated union | `Killed \| Survived \| Timeout \| Error` on `MutantRunStatus`               |
+|  [05]   | `MutantRunOptions`       | interface           | `activeMutant` + `sandboxFileName` + `testFilter` + `hitLimit` + activation |
+|  [06]   | `MutantActivation`       | union               | `'runtime' \| 'static'` — when the mutant switch flips                      |
+|  [07]   | `TestResult`             | discriminated union | `Success \| Failed \| Skipped` on `TestStatus` — dry-run per-test rows      |
 
 ```ts contract
 // test-runner.d.ts / mutant-run-result.d.ts — the kill verdict is a tagged union; `Killed` names the killing tests.
@@ -83,16 +83,16 @@ declare module 'vitest' {
 
 The runner and the whole mutation gauge are ONE declarative options object `stryker.config.json` owns — thresholds AS DATA; the assay mutation rail invokes it with `--configFile stryker.config.json`. `testRunner: "vitest"` activates this plugin; `coverageAnalysis: "perTest"` unlocks the `testFilter` narrowing; `thresholds.break` is the CI kill floor. The `vitest` bag is the only plugin-owned surface — a config file pointer that reuses the folder's existing vitest config, so mutants run under the identical `@effect/vitest` setup the specs already use.
 
-| [INDEX] | [CONFIG_ROW]                                    | [OWNER]              | [CAPABILITY]                                                           |
-| :-----: | :---------------------------------------------- | :------------------- | :--------------------------------------------------------------------- |
-|  [01]   | `mutate: string[]`                              | core                | the mutant-source glob; assay `--mutation changed` scopes it           |
-|  [02]   | `testRunner: "vitest"`                          | core                | activates this plugin as the kill engine                               |
-|  [03]   | `coverageAnalysis: 'off' \| 'all' \| 'perTest'` | core                | `perTest` → `testFilter` runs only covering specs per mutant           |
-|  [04]   | `thresholds: { high; low; break }`              | core                | mutation-score policy; `break` is the CI fail floor (kill-ratio gate)  |
-|  [05]   | `reporters: string[]` + `jsonReporter`          | core                | `["json","html","clear-text"]`; the JSON report is the gauge receipt   |
-|  [06]   | `concurrency` / `maxTestRunnerReuse`            | core                | worker fan-out and reuse cap across the mutant sweep                   |
-|  [07]   | `incremental` / `ignoreStatic` / `timeoutMS`    | core                | incremental cache, static-mutant policy, runaway-mutant timeout        |
-|  [08]   | `vitest: { configFile?; dir?; related }`        | plugin              | reuse the folder vitest config; `related` narrows to changed-related   |
+| [INDEX] | [CONFIG_ROW]                                    | [OWNER] | [CAPABILITY]                                                          |
+| :-----: | :---------------------------------------------- | :------ | :-------------------------------------------------------------------- |
+|  [01]   | `mutate: string[]`                              | core    | the mutant-source glob; assay `--mutation changed` scopes it          |
+|  [02]   | `testRunner: "vitest"`                          | core    | activates this plugin as the kill engine                              |
+|  [03]   | `coverageAnalysis: 'off' \| 'all' \| 'perTest'` | core    | `perTest` → `testFilter` runs only covering specs per mutant          |
+|  [04]   | `thresholds: { high; low; break }`              | core    | mutation-score policy; `break` is the CI fail floor (kill-ratio gate) |
+|  [05]   | `reporters: string[]` + `jsonReporter`          | core    | `["json","html","clear-text"]`; the JSON report is the gauge receipt  |
+|  [06]   | `concurrency` / `maxTestRunnerReuse`            | core    | worker fan-out and reuse cap across the mutant sweep                  |
+|  [07]   | `incremental` / `ignoreStatic` / `timeoutMS`    | core    | incremental cache, static-mutant policy, runaway-mutant timeout       |
+|  [08]   | `vitest: { configFile?; dir?; related }`        | plugin  | reuse the folder vitest config; `related` narrows to changed-related  |
 
 ```ts contract
 import type { PartialStrykerOptions } from "@stryker-mutator/api/core"   // the canonical schema — stryker-mutator-core.md [02]

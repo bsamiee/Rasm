@@ -104,6 +104,28 @@ public static class Regression {
                     Some: existing => existing.Add(benchmark.Statistics!.Median),
                     None: () => Seq(benchmark.Statistics!.Median)));
 
+    // Registry-discovery parity: every discovered [Benchmark] method key owns at least one registry
+    // row and every row names a discovered method, so a benchmark landing without its BenchCase is
+    // a loud failure, never a silently ungated measurement. A parameterized report FullName suffixes
+    // "(args)" onto the method key, so a row matches exactly or at the "(" boundary — never by bare prefix.
+    public static Fin<Unit> RegistryParity(Seq<string> discovered, Seq<BenchCase> cases) {
+        static bool Owns(string methodKey, string rowName) =>
+            string.Equals(a: rowName, b: methodKey, comparisonType: StringComparison.Ordinal)
+            || (rowName.Length > methodKey.Length
+                && rowName[index: methodKey.Length] == '('
+                && rowName.StartsWith(value: methodKey, comparisonType: StringComparison.Ordinal));
+        Seq<Error> gaps =
+            discovered.Bind(method => cases.Exists(predicate: row => Owns(methodKey: method, rowName: row.FullName))
+                ? Seq<Error>()
+                : Seq(Error.New($"ungated benchmark: '{method}' has no BenchCase registry row")))
+            + cases.Bind(row => discovered.Exists(predicate: method => Owns(methodKey: method, rowName: row.FullName))
+                ? Seq<Error>()
+                : Seq(Error.New($"phantom registry row: '{row.FullName}' names no discovered [Benchmark] method")));
+        return gaps.IsEmpty
+            ? Fin.Succ(value: unit)
+            : Fin.Fail<Unit>(error: Error.Many(errors: gaps));
+    }
+
     public static Fin<BdnReport> ReadReport(string path) {
         ArgumentException.ThrowIfNullOrWhiteSpace(argument: path);
         return Try.lift(() => JsonSerializer.Deserialize(json: File.ReadAllText(path: path), jsonTypeInfo: BdnContext.Default.BdnReport)

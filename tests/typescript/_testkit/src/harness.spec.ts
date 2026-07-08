@@ -2,7 +2,7 @@ import { FileSystem, HttpRouter, HttpServerResponse, Path } from '@effect/platfo
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, layer } from '@effect/vitest';
 import { uuid_ossp } from '@electric-sql/pglite/contrib/uuid_ossp';
-import { Context, Effect, Layer, Option, Schema } from 'effect';
+import { Array, Context, Effect, Layer, Option, Schema } from 'effect';
 import type { StartedTestContainer } from 'testcontainers';
 import { Containers, HarnessFault, Loopback, Loopbacks, ObjectStore, ObjectStores, PgLane, PgLanes, PinsPath } from './harness.ts';
 
@@ -80,6 +80,30 @@ layer(PgLanes.pglite(_DDL))('pg unit lane', (it) => {
                 expect(yield* box.take).toBe('<pulse-c>');
             }),
         ),
+    );
+
+    it.effect('a sandboxed write rolls back — lane state never leaks across tests', () =>
+        Effect.gen(function* () {
+            const lane = yield* PgLane;
+            yield* lane.sandbox(
+                Effect.gen(function* () {
+                    yield* lane.exec("INSERT INTO marks VALUES ('<key-sandboxed>', 1);");
+                    expect(yield* lane.rows("SELECT key FROM marks WHERE key = '<key-sandboxed>'")).toHaveLength(1);
+                }),
+            );
+            expect(yield* lane.rows("SELECT key FROM marks WHERE key = '<key-sandboxed>'")).toHaveLength(0);
+        }),
+    );
+
+    it.effect('a failing sandbox still rolls back and surfaces its own typed failure', () =>
+        Effect.gen(function* () {
+            const lane = yield* PgLane;
+            const fault = yield* Effect.flip(
+                lane.sandbox(Effect.zipRight(lane.exec("INSERT INTO marks VALUES ('<key-doomed>', 1);"), Effect.fail('refused' as const))),
+            );
+            expect(fault).toBe('refused');
+            expect(yield* lane.rows("SELECT key FROM marks WHERE key = '<key-doomed>'")).toHaveLength(0);
+        }),
     );
 
     it.effect('an extension the lane never loaded refuses typed at CREATE EXTENSION', () =>
@@ -220,6 +244,19 @@ describe.skipIf(!_LIVE)('pg container lane [RASM_TESTKIT_CONTAINERS]', () => {
             ),
         );
 
+        it.effect('the pooled-driver sandbox joins one transaction connection and rolls back on exit', () =>
+            Effect.gen(function* () {
+                const lane = yield* PgLane;
+                yield* lane.sandbox(
+                    Effect.gen(function* () {
+                        yield* lane.exec("INSERT INTO marks VALUES ('<key-pooled>', 9);");
+                        expect(yield* lane.rows("SELECT key FROM marks WHERE key = '<key-pooled>'")).toHaveLength(1);
+                    }),
+                );
+                expect(yield* lane.rows("SELECT key FROM marks WHERE key = '<key-pooled>'")).toHaveLength(0);
+            }),
+        );
+
         it.effect('a second concurrent listen arms without leaking its control frames into the first mailbox', () =>
             Effect.scoped(
                 Effect.gen(function* () {
@@ -314,9 +351,11 @@ describe.skipIf(!_LIVE)('object store container lane [RASM_TESTKIT_CONTAINERS]',
         Layer.unwrapScoped(
             Effect.gen(function* () {
                 const image = yield* Containers.pin('store');
-                const started = yield* Containers.start(Containers.objectStore({ image, rootUser: 'testing', rootPassword: 'testing-secret' }));
+                const row = Containers.objectStore({ image, rootUser: 'testing', rootPassword: 'testing-secret' });
+                const started = yield* Containers.start(row);
                 return ObjectStores.s3({
-                    endpoint: `http://${started.getHost()}:${started.getMappedPort(9000)}`,
+                    // The service port is the row's own fact: the mapped-port read can never drift from the builder.
+                    endpoint: `http://${started.getHost()}:${started.getMappedPort(Array.headNonEmpty(row.ports))}`,
                     bucket: 'kit',
                     accessKeyId: 'testing',
                     secretAccessKey: 'testing-secret',

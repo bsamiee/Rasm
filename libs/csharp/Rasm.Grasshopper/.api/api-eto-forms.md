@@ -1,4 +1,4 @@
-# [API_ETO_FORMS]
+# [RASM_GRASSHOPPER_API_ETO_FORMS]
 
 Catalog scope: the `Eto.Forms` construction surface inside the GH2 process — controls, layout, windows/dialogs, menus/commands, and the form-field roster GH2-hosted panels compose.
 

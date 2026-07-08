@@ -1,4 +1,4 @@
-# [API_GH2_DOCUMENT]
+# [RASM_GRASSHOPPER_API_GH2_DOCUMENT]
 
 Catalog scope: the Grasshopper2 document graph — document lifecycle, the object list, the mutation verb surface, connectivity/wire topology, special objects, undo, and solution control.
 

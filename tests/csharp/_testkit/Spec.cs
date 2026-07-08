@@ -14,6 +14,11 @@ public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
 // argument lets one row family also carry oracle relations — never parallel relation methods.
 public sealed record MetamorphicRelation<T, TResult>(string Name, Func<T, T> Transform, Func<T, TResult, TResult, bool> Relate);
 
+// One content-key axis row: a transform and whether the key must survive it. Preserving rows are
+// representation changes (copy, re-encode, transcode); separating rows are content changes. The
+// gauge demands at least one separating row — without it a constant mint is irrefutable.
+public sealed record KeyAxis<T>(string Name, Func<T, T> Transform, bool PreservesKey);
+
 // A law is admissible only with a refuting witness: an input the property MUST fail on. Hold runs
 // the refutation before sampling — a witness the property survives exposes the law as a tautology
 // no mutant can ever violate, and that registration is itself the failure.
@@ -128,6 +133,27 @@ public static partial class Spec {
         Cancel();
         initial.SampleMetamorphic(operations: GenMetamorphic.Create(gen: paramGen, name: name, action1: path1, action2: path2), equal: equal, seed: seed, iter: iter ?? -1L, time: time ?? -1);
     }
+    // The pure differential arm of the same family: a subject answer against an independent
+    // reference over one generated input — golden folds, dual algorithms, and external oracles
+    // ride this shape; the mutation arm above shares the name because the law is identical.
+    public static void DualPath<T, TResult>(Gen<T> gen, Func<T, TResult> subject, Func<T, TResult> reference, Func<TResult, TResult, bool>? eq = null,
+        string? seed = null, long? iter = null, int? time = null) {
+        ArgumentNullException.ThrowIfNull(argument: subject);
+        ArgumentNullException.ThrowIfNull(argument: reference);
+        ForAll(gen: gen, property: value => {
+            (TResult actual, TResult expected) = (subject(value), reference(value));
+            Holds(condition: (eq ?? EqualityComparer<TResult>.Default.Equals)(actual, expected), label: $"DualPath diverged: subject={actual}, reference={expected}");
+        }, seed: seed, iter: iter, time: time);
+    }
+    // Tolerance-carrying differential: numeric divergence classifies through the Metric row —
+    // sign ambiguity and periodic wrap are admitted classes, magnitude drift is the rejection.
+    public static void DualPath<T>(Gen<T> gen, Func<T, double> subject, Func<T, double> reference, Tolerance tolerance, Metric? metric = null,
+        string? seed = null, long? iter = null, int? time = null) {
+        ArgumentNullException.ThrowIfNull(argument: subject);
+        ArgumentNullException.ThrowIfNull(argument: reference);
+        ForAll(gen: gen, property: value =>
+            Equal(left: subject(value), right: reference(value), tolerance: tolerance, metric: metric, what: "DualPath"), seed: seed, iter: iter, time: time);
+    }
     public static void Parallel<T>(Gen<T> init, GenOperation<T>[] operations, string? seed = null, long? iter = null, int? time = null) {
         ArgumentNullException.ThrowIfNull(argument: operations);
         Holds(condition: operations.Length > 0, label: "Parallel: empty operation table proves nothing");
@@ -228,6 +254,120 @@ public static partial class Spec {
             byte[] reencoded = JsonSerializer.SerializeToUtf8Bytes(value: decoded, jsonTypeInfo: contract);
             Holds(condition: raw.AsSpan().SequenceEqual(reencoded), label: $"RoundtripBytes not byte-identical for {typeof(T).Name}");
         }, seed: seed, iter: iter, time: time);
+    }
+
+    // The fixture-corpus arm: every discovered golden fixture must decode and re-encode to its
+    // exact producer bytes, and byte-identical twin fixtures are a corpus defect. The fold names
+    // EVERY drifting fixture, never the first.
+    public static void RoundtripBytes<T>(JsonTypeInfo<T> contract, IReadOnlyCollection<CorpusEntry> corpus) {
+        ArgumentNullException.ThrowIfNull(argument: contract);
+        ArgumentNullException.ThrowIfNull(argument: corpus);
+        Holds(condition: corpus.Count > 0, label: "RoundtripBytes: empty corpus proves nothing");
+        string[] twins = [.. corpus.GroupBy(keySelector: static entry => entry.Key)
+            .Where(predicate: static group => group.Count() > 1)
+            .Select(selector: static group => string.Join(separator: " == ", values: group.Select(selector: static entry => entry.RelativePath)))];
+        Holds(condition: twins.Length == 0, label: $"corpus carries byte-identical fixtures: {string.Join(separator: "; ", values: twins)}");
+        string[] drift = [.. corpus.SelectMany(selector: entry => {
+            byte[] raw = entry.Bytes();
+            T? decoded = JsonSerializer.Deserialize(utf8Json: raw, jsonTypeInfo: contract);
+            return decoded is null ? (string[])[$"{entry.RelativePath}: decoded null"]
+                : raw.AsSpan().SequenceEqual(JsonSerializer.SerializeToUtf8Bytes(value: decoded, jsonTypeInfo: contract)) ? []
+                : [$"{entry.RelativePath}: re-encode drifted from producer bytes"];
+        })];
+        Holds(condition: drift.Length == 0, label: $"corpus roundtrip drift for {typeof(T).Name}: {string.Join(separator: "; ", values: drift)}");
+    }
+
+    // --- [IDENTITY]
+    // The universal content-key gauge: one mint over one input space proves stability (same input,
+    // same key), representation independence (preserving axes keep the key), and separation
+    // (content changes move the key) in one table-driven pass over any key type.
+    public static void ContentKey<T, TKey>(Gen<T> gen, Func<T, TKey> mint, params KeyAxis<T>[] axes) {
+        ArgumentNullException.ThrowIfNull(argument: mint);
+        ArgumentNullException.ThrowIfNull(argument: axes);
+        Holds(condition: axes.Length > 0, label: "ContentKey: empty axis table proves nothing");
+        Holds(condition: axes.Any(predicate: static axis => !axis.PreservesKey),
+              label: "ContentKey: an all-preserving axis table cannot refute a constant mint — register a separating axis");
+        ForAll(gen: gen, property: value => {
+            TKey key = mint(value);
+            Holds(condition: EqualityComparer<TKey>.Default.Equals(x: key, y: mint(value)), label: $"ContentKey: unstable mint — two mints of one input disagree ({key})");
+            _ = axes.AsIterable().Iter(axis => {
+                TKey moved = mint(axis.Transform(value));
+                Holds(condition: EqualityComparer<TKey>.Default.Equals(x: key, y: moved) == axis.PreservesKey, label: axis.PreservesKey
+                    ? $"ContentKey '{axis.Name}': a preserved representation moved the key ({key} -> {moved})"
+                    : $"ContentKey '{axis.Name}': a content change failed to move the key ({key})");
+            });
+        });
+    }
+
+    // --- [RECEIPT_ALGEBRA]
+    // The hybrid-logical-clock advance law: physical advance resets the logical half to zero,
+    // a held physical strictly increments it, and regression is never admissible. The refuting
+    // witness is a PAIR the order relation itself must reject — refutation before sampling.
+    public static void Causal<T>(Gen<T> gen, Func<T, T> advance, Func<T, long> physical, Func<T, ulong> logical, (T Before, T After) refutingWitness,
+        string? seed = null, long? iter = null, int? time = null) {
+        ArgumentNullException.ThrowIfNull(argument: advance);
+        ArgumentNullException.ThrowIfNull(argument: physical);
+        ArgumentNullException.ThrowIfNull(argument: logical);
+        bool Follows(T before, T after) =>
+            physical(after) > physical(before) ? logical(after) == 0UL : physical(after) == physical(before) && logical(after) > logical(before);
+        Holds(condition: !Follows(refutingWitness.Before, refutingWitness.After),
+              label: "Causal: the refuting witness pair satisfies the stamp order — the law is a tautology");
+        ForAll(gen: gen, property: value => {
+            T next = advance(value);
+            Holds(condition: Follows(value, next), label: string.Create(provider: CultureInfo.InvariantCulture,
+                $"Causal: advance broke the stamp order (physical {physical(value)} -> {physical(next)}, logical {logical(value)} -> {logical(next)})"));
+        }, seed: seed, iter: iter, time: time);
+    }
+    // One fault-band registry law: every code inside its owner's band, no duplicate codes or
+    // owners, and bands pairwise disjoint — one folded verdict naming every violation.
+    public static void FaultBands(params (string Owner, int Start, int End, int[] Codes)[] rows) {
+        ArgumentNullException.ThrowIfNull(argument: rows);
+        Holds(condition: rows.Length > 0, label: "FaultBands: empty band registry proves nothing");
+        (string Owner, int Start, int End, int[] Codes)[] ordered = [.. rows.OrderBy(keySelector: static row => row.Start)];
+        string[] defects = [
+            .. rows.Where(predicate: static row => row.Start > row.End)
+                .Select(selector: static row => string.Create(provider: CultureInfo.InvariantCulture, $"{row.Owner}: inverted band [{row.Start}, {row.End}]")),
+            .. rows.SelectMany(selector: static row => row.Codes.Where(code => code < row.Start || code > row.End)
+                .Select(code => string.Create(provider: CultureInfo.InvariantCulture, $"{row.Owner}: code {code} outside band [{row.Start}, {row.End}]"))),
+            .. rows.Where(predicate: static row => row.Codes.Length != row.Codes.Distinct().Count())
+                .Select(selector: static row => $"{row.Owner}: duplicate codes"),
+            .. rows.GroupBy(keySelector: static row => row.Owner, comparer: StringComparer.Ordinal)
+                .Where(predicate: static group => group.Count() > 1)
+                .Select(selector: static group => $"owner '{group.Key}' registers more than one band"),
+            .. ordered.Zip(ordered.Skip(count: 1))
+                .Where(predicate: static pair => pair.Second.Start <= pair.First.End)
+                .Select(selector: static pair => $"bands '{pair.First.Owner}' and '{pair.Second.Owner}' overlap"),
+        ];
+        Holds(condition: defects.Length == 0, label: $"fault-band registry defects: {string.Join(separator: "; ", values: defects)}");
+    }
+    // The verdict-fold law: a Worst-style status fold over a closed vocabulary is a bounded
+    // semilattice — closed, commutative, associative, idempotent, identity-absorbed — proven
+    // EXHAUSTIVELY over the vocabulary, so no witness ceremony and no sampling gap exists.
+    public static void Semilattice<T>(IReadOnlyList<T> vocabulary, Func<T, T, T> combine, T identity, Func<T, T, bool>? eq = null) {
+        ArgumentNullException.ThrowIfNull(argument: vocabulary);
+        ArgumentNullException.ThrowIfNull(argument: combine);
+        Holds(condition: vocabulary.Count > 0, label: "Semilattice: empty vocabulary proves nothing");
+        Func<T, T, bool> equal = eq ?? EqualityComparer<T>.Default.Equals;
+        bool Member(T value) => vocabulary.Any(row => equal(row, value));
+        for (int i = 0; i < vocabulary.Count; i++) {
+            for (int j = i + 1; j < vocabulary.Count; j++) {
+                Holds(condition: !equal(vocabulary[i], vocabulary[j]), label: string.Create(provider: CultureInfo.InvariantCulture, $"Semilattice: vocabulary rows {i} and {j} coincide"));
+            }
+        }
+        Holds(condition: Member(identity), label: $"Semilattice: identity {identity} lies outside the vocabulary");
+        foreach (T x in vocabulary) {
+            Cancel();
+            Holds(condition: equal(combine(x, identity), x) && equal(combine(identity, x), x), label: $"Semilattice: identity fails to absorb under {x}");
+            Holds(condition: equal(combine(x, x), x), label: $"Semilattice: combine is not idempotent at {x}");
+            foreach (T y in vocabulary) {
+                T xy = combine(x, y);
+                Holds(condition: Member(xy), label: $"Semilattice: combine escapes the vocabulary at ({x}, {y})");
+                Holds(condition: equal(xy, combine(y, x)), label: $"Semilattice: combine is not commutative at ({x}, {y})");
+                foreach (T z in vocabulary) {
+                    Holds(condition: equal(combine(xy, z), combine(x, combine(y, z))), label: $"Semilattice: combine is not associative at ({x}, {y}, {z})");
+                }
+            }
+        }
     }
 
     // --- [CASE_TABLES]

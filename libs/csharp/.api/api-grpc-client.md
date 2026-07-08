@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_GRPC_CLIENT]
+# [RASM_API_GRPC_CLIENT]
 
 `Grpc.Net.Client` supplies gRPC channels, HTTP-backed call invocation, service
 configuration, retry, hedging, resolver, and load-balancer surfaces for remote

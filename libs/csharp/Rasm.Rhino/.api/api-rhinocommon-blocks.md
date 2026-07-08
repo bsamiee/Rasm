@@ -1,4 +1,4 @@
-# [API_RHINOCOMMON_BLOCKS]
+# [RASM_RHINO_API_RHINOCOMMON_BLOCKS]
 
 Catalog scope: the instance-definition (block) surface — definition tables, instances, linked archives, previews, and the attribute text-field bridge.
 

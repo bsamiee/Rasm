@@ -1,2 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <!-- The kit's fixture-corpus keys ride the estate's one seed-zero XxHash128 content spine. -->
+    <ItemGroup Label="Content Identity">
+        <PackageReference Include="System.IO.Hashing" />
+    </ItemGroup>
 </Project>

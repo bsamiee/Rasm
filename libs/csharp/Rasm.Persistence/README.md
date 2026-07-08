@@ -32,7 +32,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every Persistence-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; substrate packages live in `[3]-[SUBSTRATE_PACKAGES]` below.
+Every Persistence-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; substrate packages live in `[03]-[SUBSTRATE_PACKAGES]` below.
 
 [POSTGRES_EF]:
 - `Npgsql`
@@ -194,5 +194,6 @@ Upward ProjectReferences (alignment by contract, never a sibling peer reference)
 - `System.Numerics.Tensors` — SIMD numeric substrate with `Rasm.Compute`; `TensorPrimitives` backs `VECTOR_CODEBOOK` PQ k-means + ADC scan; shared substrate
 
 [TEST_SUBSTRATE]:
+Rows bind in the branch test and benchmark projects, never the package csproj.
 - `Verify.XunitV3`
 - `BenchmarkDotNet`

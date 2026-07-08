@@ -1,4 +1,4 @@
-# [API_RHINOCOMMON_GEOMETRY]
+# [RASM_RHINO_API_RHINOCOMMON_GEOMETRY]
 
 Catalog scope: the `Rhino.Geometry` value and query surface the boundary composes — carrier types, transforms, and the geometry members command input, camera, blocks, and exchange operate on. Kernel-grade geometry algorithms live in `Rasm`; this catalog carries only the host-boundary crossing set.
 

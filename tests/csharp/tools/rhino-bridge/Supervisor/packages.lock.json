@@ -38,6 +38,12 @@
         "resolved": "3.0.121",
         "contentHash": "PKNTmwMdzM0YJ7tAvwzWmlgWhtm8ZOma2eNUqchkbmvWwqC8QXoOzNPKwNHZBtPJpehYb7qu9q/182qg4Fmclw=="
       },
+      "Microsoft.Extensions.TimeProvider.Testing": {
+        "type": "Direct",
+        "requested": "[10.7.0, )",
+        "resolved": "10.7.0",
+        "contentHash": "THd3CJ9e/ftm/3+Z69E51MQy4n46so4Zs/vUevMCYR5tjZsP+INqD4npXARVQwB2nnG+eQ8SI6ERLe/tn6gwSA=="
+      },
       "Microsoft.Testing.Extensions.CrashDump": {
         "type": "Direct",
         "requested": "[2.2.3, )",
@@ -249,7 +255,6 @@
           "Csp.Contracts": "[1.0.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
-          "Microsoft.Diagnostics.NETCore.Client": "[0.2.661903, )",
           "Rasm.Bridge.Contract": "[1.0.0, )",
           "StreamJsonRpc": "[2.25.29, )",
           "System.IO.Hashing": "[10.0.9, )",
@@ -262,6 +267,7 @@
           "Csp.Contracts": "[1.0.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
           "LanguageExt.Core": "[5.0.0-beta-77, )",
+          "System.IO.Hashing": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )"
         }
       },

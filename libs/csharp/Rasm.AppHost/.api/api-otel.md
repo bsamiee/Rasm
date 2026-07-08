@@ -60,7 +60,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [04]   | `SpanAttributes`             | attribute bag   | span attributes          |
 |  [05]   | `Link`                       | span link       | causal link              |
 |  [06]   | `Status`                     | span status     | trace result             |
-|  [07]   | `Sampler`                    | sampling policy | trace admission base; built-in `ParentBasedSampler(Sampler root[, remote/local sampled/notSampled])`, `TraceIdRatioBasedSampler(double probability)`, `AlwaysOnSampler`, `AlwaysOffSampler` |
+|  [07]   | `Sampler`                    | sampling policy | trace admission base     |
 |  [08]   | `SamplingResult`             | sampling result | trace admission result   |
 |  [09]   | `Metric`                     | metric payload  | metric export payload    |
 |  [10]   | `MetricPoint`                | metric point    | metric timeseries point  |
@@ -156,7 +156,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 - exporter rail: exporter, export result, batch payload, export processor options
 - reader contract: metric readers own collection cadence and export cadence
 - propagation rail: trace context, baggage, composite propagators
-- sampling rail: `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler`, `TraceIdRatioBasedSampler`, set through `SetSampler` on the tracer-provider builder
+- sampling rail: `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler(Sampler root[, remote/local sampled/notSampled])`, `TraceIdRatioBasedSampler(double probability)`, set through `SetSampler` on the tracer-provider builder
 
 [LOCAL_ADMISSION]:
 - Runtime code emits signals through provider builders and processor chains.

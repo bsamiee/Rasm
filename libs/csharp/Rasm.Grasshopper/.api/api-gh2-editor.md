@@ -1,4 +1,4 @@
-# [API_GH2_EDITOR]
+# [RASM_GRASSHOPPER_API_GH2_EDITOR]
 
 Catalog scope: the Grasshopper2 editor shell and chrome — editor lifecycle, toolbars, input panels, tooltips, icons, floating buttons, and the Rhino handoff seam.
 

@@ -1,12 +1,10 @@
 # [RASM_APPHOST_API_NUGET_VERSIONING]
 
-`NuGet.Versioning` supplies the real SemVer-2.0 grammar and the `[min,max)` interval algebra the
-supply-chain `SemverGate` needs to admit a plugin artifact: `System.Version` is not semver-aware
-(no prerelease labels, no metadata, no range syntax), so the gate parses `artifact.ContractRange`
-as a `VersionRange`, parses the host plugin-contract version as a `NuGetVersion`, and decides
-admission with `VersionRange.Satisfies(host)` rather than a hand-split `lower-upper` string and a
-`System.Version` comparison. The same `FindBestMatch` / `VersionComparer` surface resolves the
-newest compatible version when several candidates exist.
+`NuGet.Versioning` supplies the SemVer-2.0 grammar and the `[min,max)` interval algebra behind
+the supply-chain `SemverGate`: the gate parses `artifact.ContractRange` as a `VersionRange`,
+parses the host plugin-contract version as a `NuGetVersion`, and decides admission with
+`VersionRange.Satisfies(host)`. The same `FindBestMatch` / `VersionComparer` surface resolves
+the newest compatible version when several candidates exist.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -50,7 +48,7 @@ newest compatible version when several candidates exist.
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: version parsing (boundary — never construct from a `System.Version`)
+[ENTRYPOINT_SCOPE]: version parsing at the artifact/host boundary
 - rail: supply-chain
 
 | [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [RAIL]                                                       |
@@ -67,7 +65,7 @@ newest compatible version when several candidates exist.
 | :-----: | :-------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
 |  [01]   | `VersionRange.TryParse(string value, out VersionRange? versionRange)`              | parse call     | parses `[1.0,2.0)` / `1.2.*` / `(,3.0]` — the contract-range boundary |
 |  [02]   | `VersionRange.TryParse(string value, bool allowFloating, out VersionRange? versionRange)` | parse call     | floating-aware overload                                            |
-|  [03]   | `VersionRangeBase.Satisfies(NuGetVersion version)`                                 | decide call    | returns `bool` — **the admission predicate** (replaces a hand-split min/max compare) |
+|  [03]   | `VersionRangeBase.Satisfies(NuGetVersion version)`                                 | decide call    | returns `bool` — the admission predicate                            |
 |  [04]   | `VersionRangeBase.Satisfies(NuGetVersion version, VersionComparison versionComparison)` | decide call    | comparison-mode overload (e.g. ignore metadata)                   |
 |  [05]   | `VersionRange.FindBestMatch(IEnumerable<NuGetVersion>? versions)`                  | resolve call   | returns `NuGetVersion?` — newest in-range candidate when several exist |
 |  [06]   | `VersionRange.IsBetter(NuGetVersion? current, NuGetVersion? considering)`          | resolve call   | pairwise candidate preference                                     |
@@ -91,7 +89,7 @@ newest compatible version when several candidates exist.
 [VERSION_TOPOLOGY]:
 - `SemanticVersion` models SemVer with `Major`/`Minor`/`Patch`, an ordered `ReleaseLabels : IEnumerable<string>` prerelease segment, and `Metadata`; it implements `IComparable`, `IComparable<SemanticVersion>`, `IEquatable<SemanticVersion>`, `IFormattable`, and the full `<`/`<=`/`>`/`>=`/`==`/`!=` operator set, with comparison precedence ignoring build metadata.
 - `NuGetVersion : SemanticVersion` adds a fourth `Revision` (legacy `System.Version` interop via the `Version` property and `IsLegacyVersion` when `Revision > 0`), `IsSemVer2` (true when SemVer-2.0 prerelease/metadata is present), and `OriginalVersion` (the verbatim input). `TryParseStrict` rejects the legacy 4-part form; `TryParse` admits it.
-- this is precisely the gap `System.Version` cannot fill: it has no prerelease ordering, no metadata, and no range syntax, so a semver-compatible admission decision MUST go through this type.
+- `System.Version` carries no prerelease ordering, metadata, or range syntax; the admission decision routes through `NuGetVersion`.
 
 [RANGE_TOPOLOGY]:
 - `VersionRange : VersionRangeBase` is the `[min,max)` interval value with `MinVersion`/`MaxVersion` and `IsMinInclusive`/`IsMaxInclusive` bounds; the `interval-notation` grammar (`[1.0,2.0)`, `(,3.0]`, `1.2.*`, `[1.0.0]`) parses through `TryParse`.
@@ -104,7 +102,7 @@ newest compatible version when several candidates exist.
 - `VersionFormatter.Instance` is the `ICustomFormatter` backing the `N`/`V`/`F`/`R`/`x`/`y`/`z` format specifiers used by `ToString(format, provider)` for canonical fault-message rendering.
 
 [LOCAL_ADMISSION]:
-- the supply-chain `SemverGate` replaces its `System.Version.TryParse` + manual `range.Split('-')` `[min,max)` logic with: `VersionRange.TryParse(artifact.ContractRange, out var range)` and `NuGetVersion.TryParse(Policy.HostContractVersion, out var host)`, then `range.Satisfies(host)` — a parse failure on either side fails the gate closed (`SupplyChainFault.VersionIncompatible`), matching the existing fail-closed posture.
+- the supply-chain `SemverGate` decides admission with `VersionRange.TryParse(artifact.ContractRange, out var range)` and `NuGetVersion.TryParse(Policy.HostContractVersion, out var host)`, then `range.Satisfies(host)`; a parse failure on either side fails the gate closed (`SupplyChainFault.VersionIncompatible`).
 - the gate keeps the decision pure and total: `TryParse` (never `Parse`) on both boundary inputs, no exception path in the admission fold; the `Fin`-rail integration wraps the `bool` result, so a malformed contract range is a typed denial, not a throw.
 - when the host advertises several compatible plugin-contract versions, `FindBestMatch` selects the newest in-range version for the load decision; `PrettyPrint()` / `ToNormalizedString()` render the range and version into the `VersionIncompatible` fault payload.
 - only the version/range/comparer surface is admitted for the contract-range gate; package-graph resolution, framework-compatibility, and the wider NuGet client surface are out of scope.

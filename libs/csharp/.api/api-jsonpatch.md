@@ -1,4 +1,4 @@
-# [RASM_APPHOST_API_JSONPATCH]
+# [RASM_API_JSONPATCH]
 
 `Microsoft.AspNetCore.JsonPatch.SystemTextJson` supplies RFC 6902 JSON Patch document parsing, operation application over untyped `JsonPatchDocument` and strongly typed `JsonPatchDocument<TModel>`, an `IObjectAdapter` contract for custom object mutation, and a `JsonPatchException` error rail for boundary consumers using `System.Text.Json` serialization.
 

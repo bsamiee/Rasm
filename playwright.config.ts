@@ -8,37 +8,100 @@
 
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, devices, type PlaywrightTestConfig, type Project } from '@playwright/test';
+import { defineConfig, devices, type PlaywrightTestConfig, type PlaywrightWorkerOptions, type Project } from '@playwright/test';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [TYPES] -------------------------------------------------------------------------------
+
+type Lane = Pick<Project, 'testMatch' | 'use'>;
+type Target = {
+    readonly lanes: Readonly<Record<string, Lane>>;
+    // Absent origin rides the kit hermetic corpus (fixtures fulfill routes in-context); a served
+    // product carries its origin as baseURL and the fixtures discriminate on that presence.
+    readonly origin?: string;
+    readonly prefix: string;
+    readonly serve?: {
+        readonly command: string;
+        readonly cwd?: string;
+        readonly env?: Readonly<Record<string, string>>;
+        readonly timeoutMs?: number;
+        readonly url: string;
+    };
+};
+
+// --- [CONSTANTS] ---------------------------------------------------------------------------
 
 const _ROOT = path.dirname(fileURLToPath(import.meta.url));
 const _ARTIFACTS = path.join(_ROOT, '.artifacts/typescript/e2e');
 const _CI = process.env['CI'] === 'true';
+const _SERVE = { shutdownMs: 10_000, startupMs: 120_000 } as const;
+
+// Evidence policy rows keyed by profile: CI captures traces on the retry pass and keeps failure
+// video; a local run has zero retries, so the trace itself is the failure evidence and video is off.
+const _EVIDENCE = {
+    ci: { screenshot: 'only-on-failure', trace: 'on-first-retry', video: 'retain-on-failure' },
+    local: { screenshot: 'only-on-failure', trace: 'retain-on-failure', video: 'off' },
+} as const satisfies Record<string, Pick<PlaywrightWorkerOptions, 'screenshot' | 'trace' | 'video'>>;
 
 // Software-rendering rows for the gpu lane, keyed by host platform: linux CI pins the WebGPU
 // adapter to swiftshader so the acquisition gauge stays deterministic off real hardware.
 const _GPU = ['--enable-unsafe-swiftshader', '--enable-unsafe-webgpu', ...(process.platform === 'linux' ? ['--use-webgpu-adapter=swiftshader'] : [])];
 
-// The engine roster is config data: a new engine is one row here plus its out-of-band
-// `playwright install <engine>`; firefox's row lands when a served product flow demands
-// tri-engine coverage. Per-lane testMatch keeps screenshot goldens single-engine.
-const _LANES = {
-    chromium: {
-        testMatch: ['platform/**/*.pw.ts', 'engine/**/*.pw.ts', 'load/**/*.pw.ts'],
-        use: { ...devices['Desktop Chrome'] },
+// The target roster is config data: each row is one system-under-test the harness serves, and its
+// lanes fan the engine matrix. The hermetic row owns the empty prefix, so committed golden paths
+// ({projectName} keyed) never move; a served product lands as ONE row — origin, serve command,
+// `<name>:`-prefixed lanes — and its projects plus webServer lifecycle mint from the roster.
+// A new engine is one lane row plus its out-of-band `playwright install <engine>`; firefox's row
+// lands when a served product flow demands tri-engine coverage. Per-lane testMatch keeps
+// screenshot goldens single-engine.
+const _TARGETS = {
+    hermetic: {
+        lanes: {
+            chromium: {
+                testMatch: ['platform/**/*.pw.ts', 'engine/**/*.pw.ts', 'load/**/*.pw.ts'],
+                use: { ...devices['Desktop Chrome'] },
+            },
+            viewer: {
+                testMatch: ['gpu/**/*.pw.ts'],
+                use: { ...devices['Desktop Chrome'], launchOptions: { args: _GPU } },
+            },
+            webkit: {
+                testMatch: ['engine/**/*.pw.ts'],
+                use: { ...devices['Desktop Safari'] },
+            },
+        },
+        prefix: '',
     },
-    viewer: {
-        testMatch: ['gpu/**/*.pw.ts'],
-        use: { ...devices['Desktop Chrome'], launchOptions: { args: _GPU } },
-    },
-    webkit: {
-        testMatch: ['engine/**/*.pw.ts'],
-        use: { ...devices['Desktop Safari'] },
-    },
-} satisfies Record<string, Pick<Project, 'testMatch' | 'use'>>;
+} as const satisfies Record<string, Target>;
 
-// --- [EXPORTS] ---------------------------------------------------------------------------
+// --- [OPERATIONS] --------------------------------------------------------------------------
+
+const _rows: ReadonlyArray<Target> = Object.values(_TARGETS);
+
+const _projects: ReadonlyArray<Project> = _rows.flatMap((target) =>
+    Object.entries(target.lanes).map(([lane, shape]) => ({
+        name: `${target.prefix}${lane}`,
+        ...shape,
+        use: { ...shape.use, ...(target.origin === undefined ? {} : { baseURL: target.origin }) },
+    })),
+);
+
+const _servers = _rows.flatMap((target) =>
+    target.serve === undefined
+        ? []
+        : [
+              {
+                  command: target.serve.command,
+                  cwd: target.serve.cwd ?? _ROOT,
+                  ...(target.serve.env === undefined ? {} : { env: { ...target.serve.env } }),
+                  gracefulShutdown: { signal: 'SIGTERM' as const, timeout: _SERVE.shutdownMs },
+                  reuseExistingServer: !_CI,
+                  timeout: target.serve.timeoutMs ?? _SERVE.startupMs,
+                  url: target.serve.url,
+              },
+          ],
+);
+
+// --- [EXPORTS] -----------------------------------------------------------------------------
 
 const config: PlaywrightTestConfig = defineConfig({
     captureGitInfo: { commit: true, diff: false },
@@ -55,7 +118,7 @@ const config: PlaywrightTestConfig = defineConfig({
     globalTimeout: 900_000,
     maxFailures: _CI ? 10 : 0,
     outputDir: path.join(_ARTIFACTS, 'test-results'),
-    projects: Object.entries(_LANES).map(([name, lane]) => ({ name, ...lane })),
+    projects: [..._projects],
     reporter: _CI
         ? [['blob', { outputDir: path.join(_ARTIFACTS, 'blob') }], ['github']]
         : [['list'], ['html', { open: 'never', outputFolder: path.join(_ARTIFACTS, 'report') }]],
@@ -76,12 +139,11 @@ const config: PlaywrightTestConfig = defineConfig({
         contextOptions: { reducedMotion: 'reduce' },
         locale: 'en-US',
         navigationTimeout: 15_000,
-        screenshot: 'only-on-failure',
         testIdAttribute: 'data-testid',
         timezoneId: 'UTC',
-        trace: 'on-first-retry',
-        video: 'retain-on-failure',
+        ..._EVIDENCE[_CI ? 'ci' : 'local'],
     },
+    ...(_servers.length > 0 ? { webServer: [..._servers] } : {}),
     workers: '50%',
 });
 

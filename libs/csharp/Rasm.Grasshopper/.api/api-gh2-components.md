@@ -1,4 +1,4 @@
-# [API_GH2_COMPONENTS]
+# [RASM_GRASSHOPPER_API_GH2_COMPONENTS]
 
 Catalog scope: the Grasshopper2 component and parameter model — component lifecycle, pin registration, data access, tree/goo data structures, type conversion, and plugin registration.
 

@@ -1029,7 +1029,7 @@ flowchart LR
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]        | [OWNER]                                  | [KIND]                                                              | [RAIL]                                             | [CASES] |
+| [INDEX] | [CONCERN]             | [OWNER]                                  | [KIND]                                                              | [RAIL]                                             | [CASES] |
 | :-----: | :-------------------- | :--------------------------------------- | :------------------------------------------------------------------ | :-------------------------------------------------- | :-----: |
 |  [01]   | Distance fields       | `GeodesicKernel` heat/MCF arms + cache probes | cache-memoized per-vertex solves over `dec` scaffold + `matrix` factors | `HeatGeodesicAt → Fin<double>`                      |    —    |
 |  [02]   | Exact wavefront       | `GeodesicWindow`/`WindowField` + `PropagateWindows` | pure-scalar MMP wavefront, policy-budgeted, census-carrying, memoized per `WindowFieldKey` | `PropagateWindows → WindowPropagation` (total)      |    —    |

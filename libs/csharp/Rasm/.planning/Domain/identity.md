@@ -87,7 +87,7 @@ public static class Deterministic {
 
 Two owners, two concerns, zero siblings; every reproducibility need in the corpus resolves to one of these members.
 
-| [INDEX] | [AXIS/CONCERN]           | [OWNER]         | [KIND]                                             | [RAIL]                                          | [CASES] |
+| [INDEX] | [CONCERN]                | [OWNER]         | [KIND]                                             | [RAIL]                                          | [CASES] |
 | :-----: | :----------------------- | :-------------- | :-------------------------------------------------- | :----------------------------------------------- | :-----: |
 |  [01]   | Content identity         | `ContentHash`   | static entry over seed-zero `XxHash128`             | `ReadOnlySpan<byte> → UInt128`                   |    1    |
 |  [02]   | Reproducible derivation  | `Deterministic` | the one splitmix64 family: streams + keys + draws over a private mixer | `ref ulong → double`/`coordinates → ulong`       |    6    |

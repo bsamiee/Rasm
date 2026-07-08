@@ -105,7 +105,8 @@ const config: ViteUserConfig = defineConfig({
         diff: { ..._CONFIG.output.diff },
         fakeTimers: { ..._CONFIG.fakeTimers, toFake: [..._CONFIG.fakeTimers.toFake] },
         fileParallelism: true,
-        forceRerunTriggers: ['**/package.json/**', '**/vitest.config.*/**', '**/tsconfig*.json'],
+        // Watch reruns track the gauge inputs too: container pins feed the harness lanes, grit rules feed the admission live-fire.
+        forceRerunTriggers: ['**/package.json/**', '**/vitest.config.*/**', '**/tsconfig*.json', '**/tests/containers.json', '**/tools/biome/*.grit'],
         globals: true,
         hideSkippedTests: _CI,
         hookTimeout: _CONFIG.timeouts.hook,
@@ -148,6 +149,9 @@ const config: ViteUserConfig = defineConfig({
                     // The lane is armed, not red: it activates the day the first *.browser.spec lands.
                     include: [..._CONFIG.patterns.browserInclude],
                     name: 'browser',
+                    // The one boot file serves both lanes: structural toEqual equality holds in browser
+                    // specs from day one, and the node-only socket default self-gates.
+                    setupFiles: [..._CONFIG.setupFiles],
                 },
             },
         ],

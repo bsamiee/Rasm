@@ -10,7 +10,8 @@ import sys
 import threading
 
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+# Upward sentinel search: the workspace lockfile marks the root, so kit depth never re-anchors this.
+REPO_ROOT = next(parent for parent in Path(__file__).resolve().parents if (parent / "uv.lock").is_file())
 _DEFAULT_HYPOTHESIS_HOME = REPO_ROOT / ".cache" / "hypothesis"
 _hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # noqa: TID251  # precedes hypothesis import; locks storage path
 HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME

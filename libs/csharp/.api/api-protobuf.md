@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_PROTOBUF]
+# [RASM_API_PROTOBUF]
 
 `Google.Protobuf` supplies the generated wire-contract runtime the Compute remote
 lane projects: `IMessage<T>` message contracts, the `MessageParser<T>` /

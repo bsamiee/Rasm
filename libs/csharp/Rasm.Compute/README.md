@@ -56,7 +56,6 @@
 Every Compute-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; API evidence lives in the adjacent `.api/` folder. `GeneticSharp` carries the evolutionary/genetic-algorithm tier of the Solver `OptimizerKind` rows that the exact `Google.OrTools` CP-SAT/MILP lane does not reach — the chromosome encodings, selection/crossover/mutation/termination operator catalog, and multithreaded executor behind the metaheuristic optimizer cases. `TorchSharp` (with its `libtorch-cpu` meta-backend selecting the `libtorch-cpu-osx-arm64` native dylib) is the dual-leg `[CLASSICAL_ML_BLAS]` owner: it backs the iterative `Stats/estimator` `EstimatorKind` rows (Lasso, GLM/IRLS, kernel-SVM, GMM/EM, NMF, clustering, ARMA-MLE) via `torch.linalg` + autograd + `torch.optim`, and it supplies the native osx-arm64 dense linear-algebra substrate (native ATen GEMM/factorization) for the `Tensor/blas` lane, retaining the managed MathNet terminal as the cold-start path.
 
 [TENSOR_NUMERIC]:
-- `MathNet.Numerics`
 - `MathNet.Numerics.Providers.MKL`
 - `MathNet.Numerics.Providers.OpenBLAS`
 - `CSparse`
@@ -80,7 +79,7 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `cslsqp` — SOURCE-VENDORED (oberbichler, ISC; feed-verified absent from NuGet): the span-based SLSQP the `OptimizerKind.slsqp` smooth constrained-NLP row binds.
 
 [ENERGY_SIMULATION]:
-- `Microsoft.Data.Sqlite` — the read-only eplusout.sql TABULAR reader (the SystemSummary setpoint-not-met rows the SWIG `SqlFile` exposes no accessor for).
+- `Microsoft.Data.Sqlite` — the read-only eplusout.sql TABULAR reader (the `TabularDataWithStrings` setpoint-not-met rows the SWIG `SqlFile` exposes no accessor for).
 - `NREL.OpenStudio.macOS-arm64` — in-process SWIG SDK: `ElementGraph` → OSM → IDF, reads `SqlFile`; EnergyPlus runs as the `EnergyToolchain` subprocess.
 - `PollinationSDK` — `EnergyRoute.Cloud` transport, `Wrapper` orchestration onto the same `SqlFile` fold; sidecar-isolated, durable half Persistence-owned.
 
@@ -113,6 +112,11 @@ Every Compute-domain library the folder uses, planned or implemented. Versions a
 - `Microsoft.Extensions.Caching.Hybrid`
 - `Microsoft.Extensions.AI.Abstractions`
 
+[WIRE_CLIENT]:
+- `Grpc.Net.Client.Web` — the gRPC-Web message handler translating client calls to `application/grpc-web`/`application/grpc-web-text` for HTTP/1.1 and browser-constrained paths.
+- `Grpc.Net.Common` — the shared compression-provider contracts and connectivity vocabulary beneath the `Grpc.Net.Client`/`Grpc.AspNetCore` rails.
+- `Microsoft.AspNetCore.TestHost` — test-only: the in-memory server whose `CreateHandler` handler the `RemoteTransport.InProcess` row injects into `GrpcChannelOptions.HttpHandler`; binds in the transport test harness, never this csproj.
+
 ## [03]-[SUBSTRATE_PACKAGES]
 
 Cross-cutting C# substrate libraries Compute consumes; package charters live in `libs/csharp/.planning/README.md` and shared API evidence lives in `libs/csharp/.api/`.
@@ -129,11 +133,14 @@ Cross-cutting C# substrate libraries Compute consumes; package charters live in 
 
 [NUMERIC_SUBSTRATE]:
 - `CommunityToolkit.HighPerformance`
+- `MathNet.Numerics` — solver quadrature, distributions, and the MKL/OpenBLAS provider hooks admitted as folder additions
 - `System.Numerics.Tensors`
 - `UnitsNet`
 
-[GRAPH_AND_PLANAR]:
+[GRAPH_ALGORITHM]:
 - `QuikGraph` — the `Analysis/circulation` path/topology algebra (Dijkstra/A*, SCC) over the per-request space-adjacency view.
+
+[PLANAR_GEOMETRY]:
 - `NetTopologySuite` — isovist/visibility polygons and occupant areas at the circulation planar boundary (float production-plane, never a second exact rail).
 - `Clipper2` — the corridor-clearance offset algebra (`InflatePaths` collapse test) at the same boundary.
 
@@ -144,8 +151,10 @@ Cross-cutting C# substrate libraries Compute consumes; package charters live in 
 [WIRE_CODEGEN]:
 - `Google.Protobuf`
 - `Grpc.Net.Client`
-- `Grpc.Net.Client.Web`
-- `Grpc.Net.Common`
 - `Grpc.AspNetCore`
 - `Grpc.Tools`
 - `NodaTime.Serialization.Protobuf`
+
+[TEST_SUBSTRATE]:
+Rows bind in the branch benchmark project, never the package csproj.
+- `BenchmarkDotNet`

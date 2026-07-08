@@ -4,10 +4,10 @@
 (`AdbcDriver`), `BigQueryDatabase` (`AdbcDatabase`), and `BigQueryConnection` (`AdbcConnection`) — that
 opens a BigQuery warehouse from an `IReadOnlyDictionary<string,string>` parameter map and returns query
 results as Arrow `RecordBatch` streams over the `BigQuery Storage Read API`. It is a CONCRETE
-implementation of the `Apache.Arrow.Adbc` abstraction cataloged in `api-arrow.md`; this catalog documents
-the driver-selection surface, the `adbc.bigquery.*` connection-string vocabulary, the OAuth / service-
-account / Entra-ID (`Azure AD` workload-identity-federation) auth posture, the token-refresh callback, and
-the integration seams. The base query/metadata/result-stream surface is documented in `api-arrow.md`.
+implementation of the `Apache.Arrow.Adbc` abstraction: the driver-selection surface, the
+`adbc.bigquery.*` connection-string vocabulary, the OAuth / service-account / Entra-ID
+(`Azure AD` workload-identity-federation) auth posture, the token-refresh callback, and the
+integration seams live here; `api-arrow.md` owns the base query/metadata/result-stream contract.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -16,9 +16,9 @@ the integration seams. The base query/metadata/result-stream surface is document
 - license: Apache-2.0 (`licenses.nuget.org/Apache-2.0`)
 - assembly: `Apache.Arrow.Adbc.Drivers.BigQuery`
 - namespace: `Apache.Arrow.Adbc.Drivers.BigQuery`
-- asset: runtime library, pure-managed AnyCPU, NO native RID asset (over `Google.Cloud.BigQuery.V2` / `Google.Apis.Auth`). Multi-TFM `net8.0` / `netstandard2.0` / `net472`; the consumer `net10.0` binds the highest asset `lib/net8.0` — no `net10.0`/`net9.0` asset ships, so `net8.0` is the consumed surface. The public surface is `BigQueryDriver` / `BigQueryDatabase` / `BigQueryConnection`; the `BigQueryParameters` / `BigQueryConstants` key holders are `internal` but their `const string` values ARE the connection contract (they key the `Open` dictionary), so they are documented here as the wire vocabulary.
+- asset: runtime library, pure-managed AnyCPU, NO native RID asset (over `Google.Cloud.BigQuery.V2` / `Google.Apis.Auth`). Multi-TFM `net8.0` / `netstandard2.0` / `net472`; the consumer `net10.0` binds the highest asset `lib/net8.0` — no `net10.0`/`net9.0` asset ships, so `net8.0` is the consumed surface. The public surface is `BigQueryDriver` / `BigQueryDatabase` / `BigQueryConnection`; the `BigQueryParameters` / `BigQueryConstants` key holders are `internal` but their `const string` values ARE the connection contract (they key the `Open` dictionary) — the wire vocabulary.
 - rail: query egress
-- ABI floor: `Apache.Arrow.Adbc` `0.23.0` is a PRE-1.0 contract — the abstract `AdbcDriver`/`AdbcConnection` members this driver overrides can break across a minor bump. `BigQueryConnection` extends the driver framework's `TracingConnection` (a `System.Diagnostics.ActivitySource` integration) and implements `ITokenProtectedResource` (an `internal` interface) — the `internal` Thrift/tracing infrastructure is not consumer surface. The `Interop.Snowflake`/`Interop.FlightSql` siblings are REJECTED (no `osx-arm64` native asset); this pure-managed driver is `osx-arm64`-viable beside `Drivers.Apache`.
+- ABI floor: `Apache.Arrow.Adbc` is a PRE-1.0 contract over the abstract `AdbcDriver`/`AdbcConnection` members this driver overrides. `BigQueryConnection` extends the driver framework's `TracingConnection` (a `System.Diagnostics.ActivitySource` integration) and implements `ITokenProtectedResource` (an `internal` interface) — the `internal` Thrift/tracing infrastructure is not consumer surface. The `Interop.Snowflake`/`Interop.FlightSql` siblings are REJECTED (no `osx-arm64` native asset).
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -71,13 +71,13 @@ the integration seams. The base query/metadata/result-stream surface is document
 |  [08]   | `MaximumRetryAttempts` / `RetryDelayMs`                         | parameter key | the driver-internal retry budget over transient BigQuery faults             |
 |  [09]   | `IncludeConstraintsWithGetObjects` / `IncludePublicProjectId`   | parameter key | metadata-pull policy (FK constraints, `bigquery-public-data` visibility)     |
 
-[ENTRYPOINT_SCOPE]: inherited base surface (documented in `api-arrow.md`)
+[ENTRYPOINT_SCOPE]: inherited base surface (`api-arrow.md`)
 - rail: query egress
 
 SQL execution is the base `Apache.Arrow.Adbc` surface: `AdbcStatement.SqlQuery` set + `ExecuteQuery()` ->
 `QueryResult.Stream` (`IArrowArrayStream`); parameter binding + `ExecuteUpdate` for DML; transaction
-properties on `AdbcConnection`. The driver overrides those abstract members; consumers compose them
-through `api-arrow.md`, not redefined here.
+properties on `AdbcConnection`. The driver overrides those abstract members; `api-arrow.md` owns that
+contract.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

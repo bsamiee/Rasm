@@ -555,14 +555,14 @@ flowchart LR
 
 One owner per axis; a new scalar, sample, or metric is a row, never a sibling surface.
 
-| [INDEX] | [AXIS/CONCERN]         | [OWNER]           | [KIND]                                                                    | [RAIL]                                    | [CASES] |
+| [INDEX] | [CONCERN]              | [OWNER]           | [KIND]                                                                    | [RAIL]                                    | [CASES] |
 | :-----: | :--------------------- | :---------------- | :------------------------------------------------------------------------ | :----------------------------------------- | :-----: |
 |  [01]   | Structural queries     | `Topologies`      | `[Union]` — kind/domain/orientation/components/containment/scalar         | `Operation → Eff<Env, Seq<TOut>>`          |    6    |
-|  [1a]   | Topology scalars       | `TopologyScalar`  | `[SmartEnum<int>]` + `[UseDelegateFromConstructor]` extract rows          | `Fin<object>` typed at the operation gate  |    8    |
-|  [02]   | Mesh queries           | `Meshes`          | `[Union]` — census/metric/shape/polygon/naked-edge/outline                | `Operation → Eff<Env, Seq<TOut>>`          |    7    |
-|  [2a]   | Sample census          | `MeshSampleKind`  | `[SmartEnum<int>]` — 5 bands via `MeshSampleGroup`, delegate rows          | `Fin<int>` per row                          |   32    |
-|  [2b]   | Face metrics           | `MeshMetric`      | `[SmartEnum<int>]` — ngon-aware measure delegates over ring metrics       | `Fin<MeshMetricSample>`                     |    6    |
-|  [2c]   | Receipts               | `MeshSample` / `MeshMetricSample` / `MeshFaceShape` | evidence-carrying `readonly record struct` family      | `IValidityEvidence` carriers               |    —    |
+|  [02]   | Topology scalars       | `TopologyScalar`  | `[SmartEnum<int>]` + `[UseDelegateFromConstructor]` extract rows          | `Fin<object>` typed at the operation gate  |    8    |
+|  [03]   | Mesh queries           | `Meshes`          | `[Union]` — census/metric/shape/polygon/naked-edge/outline                | `Operation → Eff<Env, Seq<TOut>>`          |    7    |
+|  [04]   | Sample census          | `MeshSampleKind`  | `[SmartEnum<int>]` — 5 bands via `MeshSampleGroup`, delegate rows          | `Fin<int>` per row                          |   32    |
+|  [05]   | Face metrics           | `MeshMetric`      | `[SmartEnum<int>]` — ngon-aware measure delegates over ring metrics       | `Fin<MeshMetricSample>`                     |    6    |
+|  [06]   | Receipts               | `MeshSample` / `MeshMetricSample` / `MeshFaceShape` | evidence-carrying `readonly record struct` family      | `IValidityEvidence` carriers               |    —    |
 
 Both fences are transcription-complete host captures: the full scalar/orientation/containment/component fold family over the one `OnGeometry` gate, and the complete sample census, metric measurement, and polygon-extraction machinery. The ring-metric mathematics is `Spatial/cloud` law; the `Stat` fold is `Domain/stats` law; the `TopologyProjection` carrier and the `Kind` capability web are `Domain/normalization` law — composed here, legislated there.
 

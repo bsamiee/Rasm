@@ -555,12 +555,23 @@ def resource_sample(pid: int, last_output: float) -> tuple[tuple[str, float], ..
 
 
 async def resource_monitor(pid: int, last_output: list[float], samples: list[tuple[tuple[str, float], ...]], tool: str) -> None:
-    """Append one resource sample per tick until cancelled."""
+    """Append one resource sample per tick until cancelled.
+
+    The first tick runs shielded, so a child that exits before the thread hop completes still
+    lands exactly one sampled row and its ``resource.sample`` event — the receipt telemetry
+    contract is at-least-one, never best-effort racing the process lifetime.
+    """
+
+    async def _tick(*, shield: bool) -> None:
+        with anyio.CancelScope(shield=shield):
+            sample = await to_thread.run_sync(resource_sample, pid, last_output[0], abandon_on_cancel=not shield)
+            samples.append(sample)
+            _LOG.info("resource.sample", tool=tool, pid=pid, **dict(sample))
+
+    await _tick(shield=True)
     while True:
-        sample = await to_thread.run_sync(resource_sample, pid, last_output[0], abandon_on_cancel=True)
-        samples.append(sample)
-        _LOG.info("resource.sample", tool=tool, pid=pid, **dict(sample))
         await anyio.sleep(_RESOURCE_SAMPLE_S)
+        await _tick(shield=False)
 
 
 def max_resources(samples: tuple[tuple[tuple[str, float], ...], ...]) -> tuple[tuple[str, float], ...]:

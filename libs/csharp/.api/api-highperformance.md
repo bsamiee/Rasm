@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_HIGHPERFORMANCE]
+# [RASM_API_HIGHPERFORMANCE]
 
 `CommunityToolkit.HighPerformance` supplies span planes, pooled ownership,
 ref carriers, tokenizers, stream projection extensions, and parallel helpers

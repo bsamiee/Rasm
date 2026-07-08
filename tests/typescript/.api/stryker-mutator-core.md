@@ -16,10 +16,10 @@
 
 [SERVICES]: the two programmatic entrypoints — the engine class the gauge runs and the argv wrapper it never touches.
 
-| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY / BOUNDARY]                                                          |
-| :-----: | :----------- | :------------ | :------------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [CAPABILITY]                                                                              |
+| :-----: | :----------- | :------------ | :---------------------------------------------------------------------------------------- |
 |  [01]   | `Stryker`    | class         | `new Stryker(cliOptions).runMutationTest()` → `Promise<MutantResult[]>` — the gauge entry |
-|  [02]   | `StrykerCli` | class         | `new StrykerCli(argv).run()` — the `stryker run` command wrapper; not the gauge path |
+|  [02]   | `StrykerCli` | class         | `new StrykerCli(argv).run()` — the `stryker run` command wrapper; not the gauge path      |
 
 ```ts contract
 import { Stryker, StrykerCli } from "@stryker-mutator/core"
@@ -100,15 +100,15 @@ This is exactly why the checker matters: it moves a doomed mutant to `CompileErr
 
 [PUBLIC_TYPE_SCOPE]: the `@stryker-mutator/api/plugin` loading ABI the host owns and both admitted plugins register through. A plugin is ONE parameterized descriptor (`PluginKind` × the three `declare*Plugin` forms), never a hardcoded runner/checker set; the sibling packages export `strykerPlugins: FactoryPlugin<PluginKind.*, ["$injector"]>[]` rows the host discovers by convention.
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY / BOUNDARY]                                                       |
-| :-----: | :-------------------------- | :------------ | :---------------------------------------------------------------------------- |
-|  [01]   | `PluginKind`                | enum          | `Checker \| TestRunner \| Reporter \| Ignore` — the plugin taxonomy            |
-|  [02]   | `PluginInterfaces`          | lookup type   | kind → the SPI interface a plugin of that kind implements                      |
-|  [03]   | `Plugins`                   | lookup type   | kind → the `Plugin<K>` DESCRIPTOR (class/factory/value), never the interface   |
-|  [04]   | `FactoryPlugin<K, Tokens>`  | interface     | `{ kind; name; factory }` — the DI-factory registration both admitted plugins use |
-|  [05]   | `ValuePlugin` / `ClassPlugin` | interface   | the value / class descriptor variants of `Plugin<K>`                           |
-|  [06]   | `declareFactoryPlugin`      | function      | type-checks a plugin's DI graph and returns a `FactoryPlugin<K, Tokens>`       |
-|  [07]   | `commonTokens` / `tokens`   | const / fn    | the DI token constants + the string-literal-tuple helper typing `["$injector"]` |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [CAPABILITY]                                                                      |
+| :-----: | :---------------------------- | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `PluginKind`                  | enum          | `Checker \| TestRunner \| Reporter \| Ignore` — the plugin taxonomy               |
+|  [02]   | `PluginInterfaces`            | lookup type   | kind → the SPI interface a plugin of that kind implements                         |
+|  [03]   | `Plugins`                     | lookup type   | kind → the `Plugin<K>` DESCRIPTOR (class/factory/value), never the interface      |
+|  [04]   | `FactoryPlugin<K, Tokens>`    | interface     | `{ kind; name; factory }` — the DI-factory registration both admitted plugins use |
+|  [05]   | `ValuePlugin` / `ClassPlugin` | interface     | the value / class descriptor variants of `Plugin<K>`                              |
+|  [06]   | `declareFactoryPlugin`        | function      | type-checks a plugin's DI graph and returns a `FactoryPlugin<K, Tokens>`          |
+|  [07]   | `commonTokens` / `tokens`     | const / fn    | the DI token constants + the string-literal-tuple helper typing `["$injector"]`   |
 
 ```ts contract
 // from @stryker-mutator/api/plugin — PluginKind selects the phase; the descriptor carries the DI factory.
@@ -129,7 +129,7 @@ declare const commonTokens: Readonly<{ getLogger: "getLogger"; injector: "$injec
 declare function tokens<TS extends string[]>(...tokensList: TS): TS       // string-literal tuple, e.g. tokens(commonTokens.injector)
 ```
 
-The four SPIs a plugin implements, keyed by `PluginKind`: `TestRunner` (`dryRun`/`mutantRun`; owned by `stryker-mutator-vitest-runner.md` [02]), `Checker` (`check`/`group?`; owned by `stryker-mutator-typescript-checker.md` [02]), `Reporter` ([05] below), and `Ignorer` (`shouldIgnore(path): string | undefined` — the Ignore SPI that suppresses mutants in matched code patterns). The mutation gauge registers a `FactoryPlugin<TestRunner>` and a `FactoryPlugin<Checker>`; a custom gauge reporter would register a `ValuePlugin<Reporter>` or `FactoryPlugin<Reporter>`.
+The four SPIs a plugin implements, keyed by `PluginKind`: `TestRunner` (`dryRun`/`mutantRun`; owned by `stryker-mutator-vitest-runner.md` [02]), `Checker` (`check`/`group?`; owned by `stryker-mutator-typescript-checker.md` [02]), `Reporter` ([05] below), and `Ignorer` (`shouldIgnore(path): string | undefined` — the Ignore SPI that suppresses mutants in matched code patterns). The mutation gauge registers a `FactoryPlugin<TestRunner>` and a `FactoryPlugin<Checker>`; a custom gauge reporter registers a `ValuePlugin<Reporter>` or `FactoryPlugin<Reporter>`.
 
 ## [05]-[REPORTER_AND_INSTRUMENT]
 
@@ -169,5 +169,5 @@ type CoveragePerTestId = Record<string, CoverageData>                           
 
 - Owns: mutation instrumentation, worker-process fan-out, per-mutant test execution, and kill-ratio scoring against `MutationScoreThresholds`; the programmatic `Stryker.runMutationTest()` entry; the canonical `@stryker-mutator/api` surface the host owns — `StrykerOptions`/`PartialStrykerOptions` ([02]), `MutantResult`/`MutantStatus` ([03]), the `PluginKind` plugin-loading ABI ([04]), and `Reporter` + the instrument channel ([05]).
 - Accept: `new Stryker({ mutate, testRunner: 'vitest', checkers: ['typescript'], coverageAnalysis: 'perTest', thresholds })` for the gauge; `MutationScoreThresholds.break` as the CI floor; `incremental` + `incrementalFile` to only re-run changed mutants; a custom `Reporter` to project `MutantResult[]` as gauge data; both plugin catalogs referencing THIS [02]/[03]/[04] rather than redefining the config schema, receipt, or ABI.
-- Reject: parsing CLI stdout instead of folding `runMutationTest()`'s `MutantResult[]` (use the programmatic engine); scoring `CompileError`/`RuntimeError`/`Ignored`/`Pending` as valid, or treating `Timeout` as undetected (DETECTED = `Killed + Timeout`, UNDETECTED = `Survived + NoCoverage` — [03]); dropping the typescript checker (uncompilable mutants would score as `Survived`); matching `MutantStatus`/`CheckStatus`/`MutantRunStatus` on message text rather than the token; documenting the internal `./check` lowercase `MutantStatus` enum as the receipt vocabulary (it is unexported — the receipt is the PascalCase union); any import from a `plane:runtime` folder — dev gauge only.
+- Reject: parsing CLI stdout instead of folding `runMutationTest()`'s `MutantResult[]` (use the programmatic engine); scoring `CompileError`/`RuntimeError`/`Ignored`/`Pending` as valid, or treating `Timeout` as undetected (DETECTED = `Killed + Timeout`, UNDETECTED = `Survived + NoCoverage` — [03]); dropping the typescript checker (uncompilable mutants score as `Survived`); matching `MutantStatus`/`CheckStatus`/`MutantRunStatus` on message text rather than the token; documenting the internal `./check` lowercase `MutantStatus` enum as the receipt vocabulary (it is unexported — the receipt is the PascalCase union); any import from a `plane:runtime` folder — dev gauge only.
 - Boundary: Stryker forks OS worker processes sized by `concurrency`; runs hold an exclusive per-language mutation lease. It is the slowest gauge — a full-suite mutation run is a scheduled/CI concern, `--mutation changed` the per-change lane.

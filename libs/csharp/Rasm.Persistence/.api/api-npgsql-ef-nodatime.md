@@ -119,14 +119,13 @@ usable only inside an EF query tree; `Sum`/`Average` return nullable (`Period?`/
 - `UseNodaTime()` chains onto the `api-npgsql-ef` `UseNpgsql(...)` options alongside `UseNetTopologySuite()` (`api-nts-ef`) and the Pgvector resolver (`api-pgvector-ef`) — three plugins on one `NpgsqlDbContextOptionsBuilder`, each contributing a `TypeMappingSourcePlugin` and translator plugins through the EF service graph; `AddEntityFrameworkNpgsqlNodaTime(this IServiceCollection)` is the explicit-DI mirror when the provider is registered manually
 - the mapped CLR types are the `api-nodatime` vocabulary; `api-nodatime-stj` (`ConfigureForNodaTime`/`WithIsoIntervalConverter`) carries the same `Instant`/`Interval`/`Period` across the System.Text.Json wire, so a value persisted to `timestamptz` and a value serialized into a snapshot frame share one clock model and never diverge
 - the `DbFunctions` SQL projections are the query-side surface the design composes: `Distance`/`Sum`/`Average` over durations feed retention/window aggregates, and `RangeAgg`/`RangeIntersectAgg` over `Interval`/`DateInterval` build the validity-window set algebra the temporal/time-travel queries read — these stay inside EF query trees and never client-evaluate
-- the `LegacyTimestampInstantMapping` (`Instant` → bare `timestamp`) exists for legacy columns only; the profile binds `Instant` → `timestamptz` through `TimestampTzInstantMapping`, so a wall-clock-without-zone column is the deleted shape
+- the profile binds `Instant` → `timestamptz` through `TimestampTzInstantMapping`; `LegacyTimestampInstantMapping` (`Instant` → bare `timestamp`) stays unbound
 
 [LOCAL_ADMISSION]:
 - NodaTime mapping enters only through the PostgreSQL store-profile declaration; persisted time semantics use NodaTime types per the temporal-values rail
 - range and multirange mappings are profile metadata, not public service families; the translator/scaffolding/options plugin types are internal EF service registrations, not a consumer surface
 - SQL function projections are query facts and stay inside profile queries
-- `Distance` overloads return `int` for all four NodaTime types (`Instant`/`ZonedDateTime`/`LocalDateTime`/`LocalDate`) — the PostgreSQL `<->` operator difference, never a `TimeSpan` or `Duration`; a consumer that expects a duration-typed distance from a NodaTime store contract is the named defect
-- all four `RangeIntersectAgg` overloads are decompile-verified: scalar `Interval`/`DateInterval` (returns the scalar) and multirange `Interval[]`/`DateInterval[]` (returns the array)
+- `Distance` overloads return `int` for all four NodaTime types (`Instant`/`ZonedDateTime`/`LocalDateTime`/`LocalDate`) — the PostgreSQL `<->` operator difference, never a `TimeSpan` or `Duration`
 
 [STACKING]:
 - owning provider: this plugin stacks onto `Npgsql.EntityFrameworkCore.PostgreSQL` (`api-npgsql-ef`) through the single `UseNodaTime()` call alongside `UseNetTopologySuite()` (`api-nts-ef`) and the Pgvector resolver (`api-pgvector-ef`) on one `NpgsqlDbContextOptionsBuilder`, so `Store/provisioning` admits all temporal/spatial/vector mappings in one provider declaration.

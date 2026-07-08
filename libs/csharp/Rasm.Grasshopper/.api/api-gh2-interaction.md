@@ -1,4 +1,4 @@
-# [API_GH2_INTERACTION]
+# [RASM_GRASSHOPPER_API_GH2_INTERACTION]
 
 Catalog scope: canvas interaction — focus/responsive registration, hover/dwell/context menus, snapping and alignment, drag interactions, and layout solving over document objects.
 

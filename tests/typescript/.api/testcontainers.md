@@ -14,15 +14,15 @@
 
 [PUBLIC_TYPE_SCOPE]: the one builder and its contract. `TestContainer` is the fluent interface; `GenericContainer` is the concrete builder (also `implements TestContainer`); `GenericContainerBuilder` is the `fromDockerfile` variant for a built image. Every `with*` returns `this` — the whole roster below is the parameterization surface, discriminated by which rows a lane sets, never by subclass.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]        | [CAPABILITY / BOUNDARY]                                                  |
-| :-----: | :-------------------------------- | :------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `GenericContainer`                | class `implements TestContainer` | `new GenericContainer(image)`; the one builder both rows use  |
-|  [02]   | `TestContainer`                   | interface            | the fluent `with*` contract; `start(): Promise<StartedTestContainer>`     |
-|  [03]   | `GenericContainerBuilder`         | class                | `GenericContainer.fromDockerfile(ctx).build()` — image-build variant      |
-|  [04]   | `Environment` / `Labels`          | record type          | `{ [k: string]: string }` — env + label rows                             |
-|  [05]   | `HealthCheck`                     | type                 | `{ test; interval?; timeout?; retries? }` — container-level healthcheck    |
-|  [06]   | `ResourcesQuota`                  | type                 | `{ memory?; cpu? }` — bounded resource envelope                          |
-|  [07]   | `ContentToCopy` / `FileToCopy`    | type                 | seed content/files into the image before start (init SQL, fixtures)       |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]                    | [CAPABILITY]                                                            |
+| :-----: | :----------------------------- | :------------------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `GenericContainer`             | class `implements TestContainer` | `new GenericContainer(image)`; the one builder both rows use            |
+|  [02]   | `TestContainer`                | interface                        | the fluent `with*` contract; `start(): Promise<StartedTestContainer>`   |
+|  [03]   | `GenericContainerBuilder`      | class                            | `GenericContainer.fromDockerfile(ctx).build()` — image-build variant    |
+|  [04]   | `Environment` / `Labels`       | record type                      | `{ [k: string]: string }` — env + label rows                            |
+|  [05]   | `HealthCheck`                  | type                             | `{ test; interval?; timeout?; retries? }` — container-level healthcheck |
+|  [06]   | `ResourcesQuota`               | type                             | `{ memory?; cpu? }` — bounded resource envelope                         |
+|  [07]   | `ContentToCopy` / `FileToCopy` | type                             | seed content/files into the image before start (init SQL, fixtures)     |
 
 ```ts contract
 // build/generic-container.d.ts — one builder; a lane is the SET of with* rows it applies. Every setter returns `this`.
@@ -51,13 +51,13 @@ declare class GenericContainer implements TestContainer {
 
 [PUBLIC_TYPE_SCOPE]: the started container — the port/exec/lifecycle surface a spec reads, and `AbstractStartedContainer`, the base a lane subclasses to expose a typed capability handle (e.g. a `getConnectionUri()` on the pg row). `StartedTestContainer extends AsyncDisposable` — the Effect scoped-release seam.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]        | [CAPABILITY / BOUNDARY]                                                  |
-| :-----: | :-------------------------------- | :------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `StartedTestContainer`            | interface `extends AsyncDisposable` | `getHost` / `getMappedPort` / `exec` / `stop` / `restart` / `logs` |
-|  [02]   | `AbstractStartedContainer`        | class `implements StartedTestContainer` | subclass base for a typed lane handle (delegates the base)  |
-|  [03]   | `StoppedTestContainer`            | interface            | post-stop handle; `copyArchiveFromContainer` for artifact capture         |
-|  [04]   | `ExecResult`                      | type                 | `{ output; stdout; stderr; exitCode }` — in-container command receipt     |
-|  [05]   | `ExecOptions`                     | type                 | `{ workingDir; user; env }` — exec context (run `psql`/`mc` as a user)   |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]                           | [CAPABILITY]                                                           |
+| :-----: | :------------------------- | :-------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `StartedTestContainer`     | interface `extends AsyncDisposable`     | `getHost` / `getMappedPort` / `exec` / `stop` / `restart` / `logs`     |
+|  [02]   | `AbstractStartedContainer` | class `implements StartedTestContainer` | subclass base for a typed lane handle (delegates the base)             |
+|  [03]   | `StoppedTestContainer`     | interface                               | post-stop handle; `copyArchiveFromContainer` for artifact capture      |
+|  [04]   | `ExecResult`               | type                                    | `{ output; stdout; stderr; exitCode }` — in-container command receipt  |
+|  [05]   | `ExecOptions`              | type                                    | `{ workingDir; user; env }` — exec context (run `psql`/`mc` as a user) |
 
 ```ts contract
 // build/test-container.d.ts — the started handle; getMappedPort is the whole point, AsyncDisposable is the Effect seam.
@@ -80,15 +80,15 @@ type ExecResult = { output: string; stdout: string; stderr: string; exitCode: nu
 
 `Wait` is the readiness-gate factory — a container is "started" only when its wait strategy resolves, so each lane's row includes a wait strategy matched to its image's ready signal. This is one parameterized family: `forLogMessage` for a pg ready-log, `forHttp(...).forStatusCode(...)` for an S3 health endpoint, `forHealthCheck` for a container `HEALTHCHECK`, `forAll` to compose. The `HttpWaitStrategy` carries its own fluent refinement chain.
 
-| [INDEX] | [SURFACE]                                              | [PRODUCES]           | [CAPABILITY]                                                     |
-| :-----: | :---------------------------------------------------- | :------------------- | :--------------------------------------------------------------- |
-|  [01]   | `Wait.forListeningPorts()`                            | `WaitStrategy`       | ready when exposed ports accept TCP (coarse default)             |
-|  [02]   | `Wait.forLogMessage(msg \| RegExp, times?)`           | `WaitStrategy`       | ready on a log line N times — the pg `ready to accept` gate      |
-|  [03]   | `Wait.forHealthCheck()`                               | `WaitStrategy`       | ready when the container `HEALTHCHECK` is healthy               |
-|  [04]   | `Wait.forHttp(path, port, opts?)`                     | `HttpWaitStrategy`   | ready on an HTTP probe — the S3 `/minio/health/live` gate        |
-|  [05]   | `Wait.forSuccessfulCommand(command)`                  | `ShellWaitStrategy`  | ready when an in-container command exits 0 (`pg_isready`)        |
-|  [06]   | `Wait.forAll([...])`                                  | `CompositeWaitStrategy` | conjoin gates (port + log + http) for a multi-signal image    |
-|  [07]   | `Wait.forOneShotStartup()`                            | `WaitStrategy`       | ready when a run-to-completion container exits                  |
+| [INDEX] | [SURFACE]                                   | [PRODUCES]              | [CAPABILITY]                                                |
+| :-----: | :------------------------------------------ | :---------------------- | :---------------------------------------------------------- |
+|  [01]   | `Wait.forListeningPorts()`                  | `WaitStrategy`          | ready when exposed ports accept TCP (coarse default)        |
+|  [02]   | `Wait.forLogMessage(msg \| RegExp, times?)` | `WaitStrategy`          | ready on a log line N times — the pg `ready to accept` gate |
+|  [03]   | `Wait.forHealthCheck()`                     | `WaitStrategy`          | ready when the container `HEALTHCHECK` is healthy           |
+|  [04]   | `Wait.forHttp(path, port, opts?)`           | `HttpWaitStrategy`      | ready on an HTTP probe — the S3 `/minio/health/live` gate   |
+|  [05]   | `Wait.forSuccessfulCommand(command)`        | `ShellWaitStrategy`     | ready when an in-container command exits 0 (`pg_isready`)   |
+|  [06]   | `Wait.forAll([...])`                        | `CompositeWaitStrategy` | conjoin gates (port + log + http) for a multi-signal image  |
+|  [07]   | `Wait.forOneShotStartup()`                  | `WaitStrategy`          | ready when a run-to-completion container exits              |
 
 ```ts contract
 // build/wait-strategies — the HTTP gate refines fluently; the pg + S3 rows differ only in which factory + refinements.
@@ -110,15 +110,15 @@ declare class HttpWaitStrategy {
 
 Cross-container wiring, runtime detection, image policy, and the multi-service compose lane — the surface a two-row harness (pg + store on one network) reaches for.
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]        | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :------------------------------------ | :------------------- | :------------------------------------------------------------------- |
-|  [01]   | `Network` / `StartedNetwork`          | class                | `new Network().start()`; `withNetwork(net)` wires containers together |
-|  [02]   | `TestContainers.exposeHostPorts(...)` | static               | forward host ports INTO containers (a host service reachable inside)  |
-|  [03]   | `PullPolicy` / `ImagePullPolicy`      | class + interface    | `PullPolicy.alwaysPull()` / `defaultPolicy()`; `{ shouldPull() }`     |
-|  [04]   | `getContainerRuntimeClient()`         | function             | `Promise<ContainerRuntimeClient>` — engine handle (info/image/network)|
-|  [05]   | `ImageName`                           | class                | `ImageName.fromString(str)` — registry/image/tag parse               |
-|  [06]   | `DockerComposeEnvironment`            | class                | multi-service lane; `.up()` → `StartedDockerComposeEnvironment`       |
-|  [07]   | `StartedDockerComposeEnvironment`     | class `AsyncDisposable` | `.getContainer(name).getMappedPort(p)`; `.down()`                 |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]           | [CAPABILITY]                                                           |
+| :-----: | :------------------------------------ | :---------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `Network` / `StartedNetwork`          | class                   | `new Network().start()`; `withNetwork(net)` wires containers together  |
+|  [02]   | `TestContainers.exposeHostPorts(...)` | static                  | forward host ports INTO containers (a host service reachable inside)   |
+|  [03]   | `PullPolicy` / `ImagePullPolicy`      | class + interface       | `PullPolicy.alwaysPull()` / `defaultPolicy()`; `{ shouldPull() }`      |
+|  [04]   | `getContainerRuntimeClient()`         | function                | `Promise<ContainerRuntimeClient>` — engine handle (info/image/network) |
+|  [05]   | `ImageName`                           | class                   | `ImageName.fromString(str)` — registry/image/tag parse                 |
+|  [06]   | `DockerComposeEnvironment`            | class                   | multi-service lane; `.up()` → `StartedDockerComposeEnvironment`        |
+|  [07]   | `StartedDockerComposeEnvironment`     | class `AsyncDisposable` | `.getContainer(name).getMappedPort(p)`; `.down()`                      |
 
 ```ts contract
 // build/network + test-containers + docker-compose-environment — the two-row wiring surface.

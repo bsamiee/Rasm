@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_GRPC_ASPNETCORE]
+# [RASM_API_GRPC_ASPNETCORE]
 
 `Grpc.AspNetCore` is a meta-package with no DLL assets — its `lib/<tfm>` folders carry `_._`
 placeholders. Server hosting code surfaces ship in its transitive `Grpc.AspNetCore.Server`

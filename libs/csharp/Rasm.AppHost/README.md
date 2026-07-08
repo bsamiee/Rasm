@@ -38,7 +38,7 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Every AppHost-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; substrate packages live in `[3]-[SUBSTRATE_PACKAGES]` below.
+Every AppHost-domain library the folder uses, planned or implemented. Versions are centralized in the one C# manifest and never pinned here; substrate packages live in `[03]-[SUBSTRATE_PACKAGES]` below.
 
 [HOSTING_LIFECYCLE]:
 - `Microsoft.Extensions.Hosting`
@@ -101,6 +101,9 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `Microsoft.Extensions.ServiceDiscovery`
 
 [PORTS_TRANSPORT]:
+- `Grpc.AspNetCore.HealthChecks`
+- `Grpc.AspNetCore.Web` — composition-root `UseGrpcWeb` middleware.
+- `Grpc.Core.Api`
 - `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 
 [PROVISIONING]:
@@ -162,6 +165,3 @@ Cross-cutting C# substrate libraries AppHost consumes; package charters live in 
 [WIRE_CODEGEN]:
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
-- `Grpc.AspNetCore.Web` — composition-root `UseGrpcWeb` middleware.
-- `Grpc.AspNetCore.HealthChecks`
-- `Grpc.Core.Api`

@@ -4,8 +4,14 @@
         <!-- BenchmarkDotNet rejects unoptimized benchmark assemblies; assay routes benchmarks through Release closure. -->
         <Optimize>true</Optimize>
     </PropertyGroup>
+    <!-- BenchmarkDotNet flows to the architecture suite so the registry-parity law reflects [Benchmark] sites typed. -->
     <ItemGroup Label="Benchmark Packages">
-        <PackageReference Include="BenchmarkDotNet" PrivateAssets="all" />
+        <PackageReference Include="BenchmarkDotNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Assembly Visibility">
+        <!-- Internal access is limited to the registry-parity law over BenchRegistry.Cases. -->
+        <InternalsVisibleTo Include="Rasm.Architecture.Tests" />
     </ItemGroup>
 
     <ItemGroup Label="Assembly Metadata">

@@ -1,4 +1,4 @@
-# [API_RHINOCOMMON_DOCUMENT]
+# [RASM_RHINO_API_RHINOCOMMON_DOCUMENT]
 
 Catalog scope: the `RhinoDoc` lifecycle, table, event, and undo surface the package composes — document state, object-table mutation, attributes, and the full document/view event families.
 

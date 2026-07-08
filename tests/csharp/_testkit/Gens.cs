@@ -136,6 +136,61 @@ public static class Gens {
     private static double UlpNudge(double value, int steps) =>
         Enumerable.Range(start: 0, count: Math.Abs(value: steps)).Aggregate(seed: value, func: (acc, _) => steps > 0 ? Math.BitIncrement(x: acc) : Math.BitDecrement(x: acc));
 
+    // --- [WIRE]
+    // Wire-safe hazard strings: every JSON hazard a codec must survive — controls, quotes,
+    // escapes, BMP unicode, astral pairs — never a lone surrogate no UTF-8 wire can carry.
+    public static readonly Gen<string> WireString = Gen.Frequency(
+        (40, Gen.Char[start: ' ', finish: '~'].Array[0, 24].Select(selector: static chars => new string(value: chars))),
+        (20, Gen.Char[start: '\u0080', finish: '\uD7FF'].Array[1, 12].Select(selector: static chars => new string(value: chars))),
+        (14, Gen.Int[start: 0x10000, finish: 0x10FFFF].Array[1, 4].Select(selector: static codes => string.Concat(values: codes.Select(selector: char.ConvertFromUtf32)))),
+        (14, Gen.OneOfConst("", "\"", "\\", "\r\n", "\t", "{", "}", "\u0000", "\u001B", "\uFFFD", "\U0001D518\U0001D52B\U0001D526")),
+        (12, Gen.Char[start: '\u0000', finish: '\u001F'].Array[1, 4].Select(selector: static chars => new string(value: chars))));
+    // Content payload bands: empty, single, small, large, and constant-run blocks so identity,
+    // codec, and chunking hazards all sample every run instead of arriving as rare accidents.
+    public static readonly Gen<byte[]> Payload = Gen.Frequency(
+        (40, Gen.Byte.Array[1, 64]),
+        (25, Gen.Byte.Array[65, 4096]),
+        (13, Gen.Const<byte[]>(value: [])),
+        (12, Gen.Byte.Array[1, 1]),
+        (10, Gen.Byte.Select(Gen.Int[start: 16, finish: 256], static (byte value, int count) => (byte[])[.. Enumerable.Repeat(element: value, count: count)])));
+    // One-byte-flip near-duplicate pairs: the canonical separation witness for content-key laws —
+    // a mint that cannot split a mutant pair cannot address content.
+    public static readonly Gen<(byte[] Original, byte[] Mutated)> Mutant =
+        Gen.Byte.Array[1, 256].SelectMany(selector: bytes => Gen.Int[start: 0, finish: bytes.Length - 1].Select(Gen.Int[start: 1, finish: 255],
+            (int index, int mask) => {
+                byte[] copy = [.. bytes];
+                copy[index] ^= (byte)mask;
+                return (Original: bytes, Mutated: copy);
+            }));
+
+    // --- [STAMPS]
+    // HLC stamp band: physical half is a NodaTime-style Unix tick long, logical half a monotone
+    // ulong; saturation edges ride as lanes so overflow seams sample every run.
+    public static readonly Gen<(long Physical, ulong Logical)> Hlc = Gen.Frequency(
+            (70, Gen.Long[start: 0L, finish: 3_155_378_975_999_999_999L]),
+            (30, Gen.OneOfConst(0L, 1L, 621_355_968_000_000_000L, long.MaxValue - 1L, long.MaxValue)))
+        .Select(Gen.Frequency((70, Gen.ULong[start: 0UL, finish: 4096UL]), (30, Gen.OneOfConst(0UL, 1UL, ulong.MaxValue - 1UL, ulong.MaxValue))),
+            static (long physical, ulong logical) => (Physical: physical, Logical: logical));
+
+    // --- [QUANTITIES]
+    // Seven SI base exponents ordered (mass, length, time, current, temperature, amount,
+    // luminosity); canonical rows include the energy/torque coincidence QuantityType must split.
+    // Every draw is a fresh array, so a mutating consumer never poisons the band.
+    public static readonly Gen<int[]> SiExponents = Gen.Frequency(
+            (70, Gen.Int[start: -4, finish: 4].Array[7]),
+            (30, Gen.OneOfConst<int[]>(
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0],
+                [1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0, 0],
+                [1, 1, -2, 0, 0, 0, 0],
+                [1, 2, -2, 0, 0, 0, 0],
+                [1, -1, -2, 0, 0, 0, 0])))
+        .Select(selector: static row => (int[])[.. row]);
+    // SI-normalized measure: magnitude rides the full finite hazard band under a dimension vector.
+    public static readonly Gen<(double Si, int[] Exponents)> Measure =
+        Finite.Select(SiExponents, static (double si, int[] exponents) => (Si: si, Exponents: exponents));
+
     // --- [RAIL]
     public static readonly Gen<Error> Faults = Gen.OneOfConst<Error>(
         new Fault.Missing(), new Fault.Rejected(), new Fault.Cancelled(), new Fault.Conflict());

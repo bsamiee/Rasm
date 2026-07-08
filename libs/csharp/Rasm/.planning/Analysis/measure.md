@@ -661,14 +661,14 @@ flowchart LR
 
 One owner per axis; a new measure, bound, or metric is a row or a case, never a sibling surface.
 
-| [INDEX] | [AXIS/CONCERN]        | [OWNER]             | [KIND]                                                                    | [RAIL]                                       | [CASES] |
+| [INDEX] | [CONCERN]             | [OWNER]             | [KIND]                                                                    | [RAIL]                                       | [CASES] |
 | :-----: | :-------------------- | :------------------ | :------------------------------------------------------------------------ | :------------------------------------------- | :-----: |
 |  [01]   | Measure vocabulary    | `Measure`           | `[Union]` — 3 cases spanning 11 factories over the mass coordinate       | `Operation → Eff<Env, Seq<TOut>>`            |    3    |
-|  [1a]   | Mass domain           | `MassKind`          | `[SmartEnum<int>]` + `Requirement` + compute/aggregate delegates          | `Fin<IDisposable>` leased handles            |    4    |
-|  [1b]   | Mass projection       | `MassProperty`      | `[SmartEnum<int>]` + moment columns + typed extract delegate              | `Fin<Seq<TValue>>` oracle-admitted           |    8    |
-|  [02]   | Bounding vocabulary   | `Bounds`            | `[Union]` — recovery/projection/metric/enclosing clusters                 | `Operation → Eff<Env, Seq<TOut>>`            |   15    |
-|  [03]   | Conformance vocabulary| `ConformanceMetric` | `[SmartEnum<int>]` + admission columns + projection delegate              | `Fin<Seq<TOut>>` through `Project<TOut>`     |    8    |
-|  [3a]   | Residual receipt      | `ResidualSample`    | `readonly record struct` + `IValidityEvidence` consistency law            | evidence carrier                             |    —    |
+|  [02]   | Mass domain           | `MassKind`          | `[SmartEnum<int>]` + `Requirement` + compute/aggregate delegates          | `Fin<IDisposable>` leased handles            |    4    |
+|  [03]   | Mass projection       | `MassProperty`      | `[SmartEnum<int>]` + moment columns + typed extract delegate              | `Fin<Seq<TValue>>` oracle-admitted           |    8    |
+|  [04]   | Bounding vocabulary   | `Bounds`            | `[Union]` — recovery/projection/metric/enclosing clusters                 | `Operation → Eff<Env, Seq<TOut>>`            |   15    |
+|  [05]   | Conformance vocabulary| `ConformanceMetric` | `[SmartEnum<int>]` + admission columns + projection delegate              | `Fin<Seq<TOut>>` through `Project<TOut>`     |    8    |
+|  [06]   | Residual receipt      | `ResidualSample`    | `readonly record struct` + `IValidityEvidence` consistency law            | evidence carrier                             |    —    |
 
 All three fences are transcription-complete host captures: the mass compute/aggregate/extract lattice with its lease discipline, the fifteen-modality bounds dispatch with the shared Ritter fold, and the metric-row residual pipeline. The `Stat`/`Distribution`/`SampleMoment` statistics substrate is `Domain/stats` law composed here; the support-distance projection is `Spatial/support` + `Processing/intent` law; the exact curve deviation is `Analysis/relations` law.
 

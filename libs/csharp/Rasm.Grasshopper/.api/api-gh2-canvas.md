@@ -1,4 +1,4 @@
-# [API_GH2_CANVAS]
+# [RASM_GRASSHOPPER_API_GH2_CANVAS]
 
 Catalog scope: the Grasshopper2 canvas — paint phases, picking, navigation/projection, window selection, wire rendering, skinning, and canvas-hosted editors.
 

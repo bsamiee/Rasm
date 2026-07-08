@@ -1,4 +1,4 @@
-# [API_ETO_DRAWING]
+# [RASM_RHINO_API_ETO_DRAWING]
 
 Catalog scope: the `Eto.Drawing` 2D vector/text/image surface — the full custom-drawing primitive set behind `Drawable` hosts and pipeline-neutral paint rails.
 

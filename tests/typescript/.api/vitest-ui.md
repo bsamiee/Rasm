@@ -14,13 +14,13 @@
 
 [ENTRYPOINT_SCOPE]: the live UI — a Vite plugin factory the runner mounts; the design enables it by config, not by import.
 
-| [INDEX] | [SURFACE]                                     | [FAMILY]         | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :-------------------------------------------- | :--------------- | :------------------------------------------------------------------- |
-|  [01]   | `default: (ctx: Vitest) => Vite.Plugin`       | plugin factory   | the dashboard app; mounted when `test.ui`/`--ui` is set              |
-|  [02]   | `test.ui: true` / `--ui`                      | activation       | serve the dashboard; requires `test.api` (a server port) open        |
-|  [03]   | `test.uiBase` (default `/__vitest__/`)        | mount path       | dashboard route on the API server                                   |
-|  [04]   | `test.open` (default `!CI`)                   | auto-open        | launch the browser at the dashboard on start                        |
-|  [05]   | `browser.ui: true`                            | browser mode     | embed the dashboard in browser mode with the live browser iframe    |
+| [INDEX] | [SURFACE]                               | [FAMILY]       | [CAPABILITY]                                                     |
+| :-----: | :-------------------------------------- | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `default: (ctx: Vitest) => Vite.Plugin` | plugin factory | the dashboard app; mounted when `test.ui`/`--ui` is set          |
+|  [02]   | `test.ui: true` / `--ui`                | activation     | serve the dashboard; requires `test.api` (a server port) open    |
+|  [03]   | `test.uiBase` (default `/__vitest__/`)  | mount path     | dashboard route on the API server                                |
+|  [04]   | `test.open` (default `!CI`)             | auto-open      | launch the browser at the dashboard on start                     |
+|  [05]   | `browser.ui: true`                      | browser mode   | embed the dashboard in browser mode with the live browser iframe |
 
 ```ts contract
 // index.d.ts — the default export is a Vite plugin factory; vitest mounts it, you never call it. Enable by config.
@@ -32,12 +32,12 @@ declare const _default: (ctx: Vitest) => Vite.Plugin; export { _default as defau
 
 [ENTRYPOINT_SCOPE]: the durable report — the `html` reporter, the UI frozen to a static bundle. This is the CI/artifact face; `reporters` is a `vitest` config row.
 
-| [INDEX] | [SURFACE]                                     | [FAMILY]         | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :-------------------------------------------- | :--------------- | :------------------------------------------------------------------- |
-|  [01]   | `./reporter` `default: Reporter`              | reporter         | the `html` builtin — resolved when `reporters` names `'html'`        |
-|  [02]   | `reporters: ['html']` / `['default','html']`  | activation       | emit the static report alongside other reporters                    |
-|  [03]   | `HTMLOptions.outputFile`                      | output           | the report path (default `html/index.html`); tuple form `['html', { outputFile }]` |
-|  [04]   | coverage `htmlDir`                            | embed            | the istanbul coverage HTML the report links (see `vitest-coverage-v8.md`) |
+| [INDEX] | [SURFACE]                                    | [FAMILY]   | [CAPABILITY]                                                                       |
+| :-----: | :------------------------------------------- | :--------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `./reporter` `default: Reporter`             | reporter   | the `html` builtin — resolved when `reporters` names `'html'`                      |
+|  [02]   | `reporters: ['html']` / `['default','html']` | activation | emit the static report alongside other reporters                                   |
+|  [03]   | `HTMLOptions.outputFile`                     | output     | the report path (default `html/index.html`); tuple form `['html', { outputFile }]` |
+|  [04]   | coverage `htmlDir`                           | embed      | the istanbul coverage HTML the report links (see `vitest-coverage-v8.md`)          |
 
 ```ts contract
 // reporter.d.ts — the html reporter is a Reporter (vitest/node); config names it, never imports it.

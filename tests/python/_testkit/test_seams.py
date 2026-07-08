@@ -2,15 +2,18 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+import time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+import anyio
 import msgspec
 import psutil
 import pytest
 
 from tests.python._testkit.seams import (
     Async,
+    autojump_backend,
     autospec_proc,
     Factory,
     FanOut,
@@ -51,6 +54,18 @@ async def test_async_shape_is_awaitable_and_records(monkeypatch: pytest.MonkeyPa
     probe.install(monkeypatch, owner, "op", Async("done"))
     assert await owner.op(1) == "done"
     assert probe.calls == [("op", (1,), {})]
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("anyio_backend", [pytest.param(autojump_backend(), id="autojump")])
+async def test_autojump_backend_collapses_virtual_time() -> None:
+    """An hour of sleeps and a fired deadline both prove in wall-milliseconds under the autojumping clock."""
+    start = time.perf_counter()
+    await anyio.sleep(3600)
+    with anyio.move_on_after(300) as scope:
+        await anyio.sleep(600)
+    assert scope.cancelled_caught, "the virtual deadline never fired"
+    assert time.perf_counter() - start < 5.0, "virtual time leaked into wall time"
 
 
 def test_fanout_shape_records_items_as_sole_positional(monkeypatch: pytest.MonkeyPatch) -> None:

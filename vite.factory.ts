@@ -75,11 +75,12 @@ const CfgSchema = S.Union(
 
 const ROOT_DIR = dirname(fileURLToPath(import.meta.url));
 const _ENV: BuildRuntimeEnv = process.env;
-const _B = {
+const B = Object.freeze({
     artifacts: { compression: { dir: 'entries', exts: ['.br', '.gz'] } },
     assets: ['bin', 'exr', 'fbx', 'glb', 'gltf', 'hdr', 'mtl', 'obj', 'wasm'],
     builder: { sharedConfigBuild: true, sharedPlugins: true },
     cache: { api: 300, cdn: 604800, max: 50 },
+    // Regex literals inside the exported anchor carry `as RegExp`: TS9013 under isolatedDeclarations otherwise.
     comp: { f: /\.(js|mjs|json|css|html|svg)$/i as RegExp, t: 10240 },
     csp: {
         'connect-src': ["'self'", 'https:', 'wss:', 'ws:'],
@@ -132,8 +133,7 @@ const _B = {
         sourcemap: true,
         template: 'treemap' as const,
     },
-} as const;
-const B: Readonly<typeof _B> = Object.freeze(_B);
+} as const);
 
 // --- [OPERATIONS] ------------------------------------------------------------
 
@@ -307,6 +307,9 @@ const config: {
             include: [...B.ssr.ext, 'react-aria-components', '@floating-ui/react', 'effect'],
         },
         plugins: plugins.app(c, prod),
+        // strictPort pins the preview endpoint: an e2e target's webServer row keys its readiness URL
+        // on this port, so a silent port drift can never strand the served-product lane.
+        preview: { port: c.port ?? B.port, strictPort: true },
         resolve: resolve(true),
         server: {
             cors: true,
@@ -421,4 +424,4 @@ const createConfig = (input: unknown): Effect.Effect<UserConfig, never, never> =
 
 // --- [EXPORTS] ---------------------------------------------------------------
 
-export { B, createConfig };
+export { createConfig };

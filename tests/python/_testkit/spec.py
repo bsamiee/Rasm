@@ -2,12 +2,18 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
-from collections.abc import Callable, Iterable  # noqa: TC003  # msgspec.Struct resolves annotations at runtime
+import cmath
+from collections.abc import Callable, Iterable, Mapping, Sequence  # noqa: TC003  # msgspec.Struct resolves annotations at runtime
+from contextlib import nullcontext
+import dataclasses
+from decimal import Decimal
+import fractions
 import functools
 import operator
-from typing import overload, Protocol, Self
+from typing import overload, Protocol, runtime_checkable, Self, TYPE_CHECKING
 
 from expression import Option, Result
+from expression.collections import Block
 from hypothesis import settings as hyp_settings, target
 from hypothesis.stateful import (
     Bundle,
@@ -22,8 +28,14 @@ from hypothesis.stateful import (
 )
 import msgspec
 import msgspec.json
+import msgspec.msgpack
+lazy import numpy as np
 
 from tests.python._testkit.runtime import PROFILE_MUTATION, PROFILE_STATEFUL
+
+
+if TYPE_CHECKING:
+    from contextlib import AbstractContextManager
 
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -36,6 +48,25 @@ class _Comparable(Protocol):
     """Structural bound for projection keys with total less-than ordering."""
 
     def __lt__(self, other: Self, /) -> bool: ...
+
+
+class RowCarrier(Protocol):
+    """Structural per-row failure scope; pytest's native ``subtests`` fixture satisfies it."""
+
+    def test(self, msg: str | None = None, **kwargs: object) -> AbstractContextManager[object]: ...
+
+
+type _Numeric = int | float | complex | Decimal | fractions.Fraction
+
+
+@runtime_checkable
+class _QuantityLike(Protocol):
+    """Structural quantity shape: pint and peers carry ``units`` plus ``magnitude``."""
+
+    @property
+    def units(self) -> object: ...
+    @property
+    def magnitude(self) -> object: ...
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -96,6 +127,109 @@ class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
 def _eq_law[T](left: T, right: T, eq: _Eq[T]) -> None:
     """Assert structural or custom equality and surface both sides on failure."""
     assert (eq if eq is not None else operator.eq)(left, right), f"law violated: {left!r} != {right!r}"
+
+
+# --- [TOLERANCE_ORACLES]
+
+
+def _num_close(a: _Numeric, b: _Numeric, rel_tol: float, abs_tol: float) -> bool:
+    # NaN pairs count as close: wire and solver laws compare degraded lanes, not IEEE ordering.
+    # The equality fast-path also admits matching infinities, where the difference is NaN.
+    fa, fb = complex(a), complex(b)
+    if fa == fb or (cmath.isnan(fa) and cmath.isnan(fb)):
+        return True
+    return abs(fa - fb) <= max(rel_tol * max(abs(fa), abs(fb)), abs_tol)
+
+
+def _rail_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
+    """Compare two rail carriers: matching tags recurse into the payload slot; tag drift reports the arm.
+
+    Returns:
+        Divergence at the payload's structural path, or ``None`` when the carriers are close.
+    """
+    match (a, b):
+        case (Result(tag="ok", ok=left), Result(tag="ok", ok=right)):
+            return _diverge(left, right, rel_tol, abs_tol, f"{path}.ok")
+        case (Result(tag="error", error=left), Result(tag="error", error=right)):
+            return _diverge(left, right, rel_tol, abs_tol, f"{path}.error")
+        case (Option(tag="some", some=left), Option(tag="some", some=right)):
+            return _diverge(left, right, rel_tol, abs_tol, f"{path}.some")
+        case (Option(tag="none"), Option(tag="none")):
+            return None
+        case _:
+            return f"{path}: rail tags differ: {a!r} != {b!r}"
+
+
+def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:  # noqa: PLR0911  # one arm per data shape; the closed dispatch owns every return
+    """Locate the first tolerance divergence between two values.
+
+    Returns:
+        Human-readable divergence at its structural path, or ``None`` when the values are close.
+    """
+    match (a, b):
+        case (bool(), _) | (_, bool()) | (str(), _) | (bytes(), _):
+            # Kind parity first: True == 1 in Python, but bool and int are distinct wire facts.
+            return None if isinstance(a, bool) == isinstance(b, bool) and a == b else f"{path}: {a!r} != {b!r}"
+        case (np.ndarray() | np.generic(), _) | (_, np.ndarray() | np.generic()):
+            left, right = np.asarray(a), np.asarray(b)
+            if left.shape != right.shape:
+                return f"{path}: shape {left.shape} != {right.shape}"
+            near = np.atleast_1d(np.isclose(left, right, rtol=rel_tol, atol=abs_tol, equal_nan=True))
+            if bool(near.all()):
+                return None
+            index = tuple(int(i) for i in np.argwhere(~near)[0])
+            return f"{path}{list(index)}: {np.atleast_1d(left)[index]!r} !~ {np.atleast_1d(right)[index]!r}"
+        case (
+            (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_a,
+            (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_b,
+        ):
+            return None if _num_close(num_a, num_b, rel_tol, abs_tol) else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
+        case (_QuantityLike() as qty_a, _QuantityLike() as qty_b):
+            # Quantity-shaped values (pint and peers): units match exactly, magnitudes compare recursively.
+            if qty_b.units != qty_a.units:
+                return f"{path}: units {qty_a.units!r} != {qty_b.units!r}"
+            return _diverge(qty_a.magnitude, qty_b.magnitude, rel_tol, abs_tol, f"{path}.magnitude")
+        case (Result(), Result()) | (Option(), Option()):
+            return _rail_diverge(a, b, rel_tol, abs_tol, path)
+        case (Block(), Block()):
+            return _diverge(tuple(a), tuple(b), rel_tol, abs_tol, path)
+        case (msgspec.Struct(), msgspec.Struct()) if type(a) is type(b):
+            fields: tuple[str, ...] = a.__struct_fields__
+            return next((d for f in fields if (d := _diverge(getattr(a, f), getattr(b, f), rel_tol, abs_tol, f"{path}.{f}")) is not None), None)
+        case _ if dataclasses.is_dataclass(a) and not isinstance(a, type) and type(a) is type(b):
+            names = (f.name for f in dataclasses.fields(a))
+            return next((d for f in names if (d := _diverge(getattr(a, f), getattr(b, f), rel_tol, abs_tol, f"{path}.{f}")) is not None), None)
+        case (Mapping(), Mapping()):
+            lookup = dict(b.items())
+            if set(a) != set(lookup):
+                return f"{path}: key sets differ: {sorted(map(repr, set(a) ^ set(lookup)))}"
+            return next((d for k, v in a.items() if (d := _diverge(v, lookup[k], rel_tol, abs_tol, f"{path}[{k!r}]")) is not None), None)
+        case (Sequence(), Sequence()):
+            if len(a) != len(b):
+                return f"{path}: length {len(a)} != {len(b)}"
+            pairs = zip(a, b, strict=True)
+            return next((d for i, (x, y) in enumerate(pairs) if (d := _diverge(x, y, rel_tol, abs_tol, f"{path}[{i}]")) is not None), None)
+        case _:
+            return None if a == b else f"{path}: {a!r} != {b!r}"
+
+
+def close(*, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> Callable[[object, object], bool]:
+    """Mint a tolerance equality policy for the ``eq`` slot of any algebraic oracle.
+
+    One structural dispatch owns every data shape: numbers (NaN pairs and matching infinities
+    close), arrays, quantity values, structs, dataclasses, ``Result``/``Option`` rails, ``Block``
+    collections, mappings, and sequences compare recursively under one tolerance.
+
+    Returns:
+        Equality policy closing over ``rel_tol``/``abs_tol``.
+    """
+    return lambda a, b: _diverge(a, b, rel_tol, abs_tol, "$") is None
+
+
+def assert_close(actual: object, expected: object, *, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> None:
+    """Assert recursive tolerance equality and name the first diverging structural path."""
+    divergence = _diverge(actual, expected, rel_tol, abs_tol, "$")
+    assert divergence is None, f"tolerance breach at {divergence}"
 
 
 # --- [ALGEBRAIC_ORACLES]
@@ -182,6 +316,7 @@ def metamorphic_sweep[T, R](x: T, f: Callable[[T], R], *relations: MetamorphicRe
         f: The function under test.
         *relations: Metamorphic relations to enforce against ``f(x)``.
     """
+    assert relations, "metamorphic_sweep folded zero relations — an empty sweep proves nothing"
     base = f(x)
     functools.reduce(lambda _, r: r.relate(base, f(r.transform(x))), relations, None)
 
@@ -208,39 +343,58 @@ def refutes[T](witness: T, law: Callable[..., None], *args: object, **kwargs: ob
 # --- [MATRIX_ORACLES]
 
 
-@overload
-def validity_matrix[T](cases: Iterable[ValidityCase[T]], valid: Callable[[T], bool]) -> None: ...
+def _row_scope(subtests: RowCarrier | None, label: str) -> AbstractContextManager[object]:
+    """Per-row scope: the carrier's independent subtest when present, pass-through otherwise.
+
+    Returns:
+        Context manager owning one matrix row's assertion.
+    """
+    return nullcontext() if subtests is None else subtests.test(msg=label)
 
 
 @overload
-def validity_matrix[T](cases: Iterable[tuple[str, T, bool]], valid: Callable[[T], bool]) -> None: ...
+def validity_matrix[T](cases: Iterable[ValidityCase[T]], valid: Callable[[T], bool], *, subtests: RowCarrier | None = None) -> None: ...
 
 
-def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool]) -> None:
+@overload
+def validity_matrix[T](cases: Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: RowCarrier | None = None) -> None: ...
+
+
+def validity_matrix[T](
+    cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: RowCarrier | None = None
+) -> None:
     """Assert each case's expected validity verdict.
 
     Args:
         cases: ``ValidityCase[T]`` instances or raw ``(label, value, expected)`` tuples.
         valid: Predicate returning True when the value is valid.
+        subtests: Optional row carrier; a failing row reports independently instead of stopping the fold.
     """
+    folded = 0
     for raw in cases:
         case_ = raw if isinstance(raw, ValidityCase) else ValidityCase(label=raw[0], value=raw[1], expected=raw[2])
-        actual = valid(case_.value)
-        assert actual == case_.expected, f"validity_matrix[{case_.label!r}]: expected {case_.expected}, got {actual} for {case_.value!r}"
+        folded += 1
+        with _row_scope(subtests, case_.label):
+            actual = valid(case_.value)
+            assert actual == case_.expected, f"validity_matrix[{case_.label!r}]: expected {case_.expected}, got {actual} for {case_.value!r}"
+    assert folded, "validity_matrix folded zero rows — an empty case set proves nothing"
 
 
-def support_matrix(*rows: tuple[str, Callable[[], bool], bool]) -> None:
+def support_matrix(*rows: tuple[str, Callable[[], bool], bool], subtests: RowCarrier | None = None) -> None:
     """Assert each labeled zero-argument probe returns the expected boolean.
 
     Args:
         *rows: Triples of ``(label, probe, expected)``.
+        subtests: Optional row carrier; a failing row reports independently instead of stopping the fold.
     """
+    assert rows, "support_matrix folded zero rows — an empty probe set proves nothing"
     for label, probe, expected in rows:
-        actual = probe()
-        assert actual == expected, f"support_matrix[{label!r}]: expected {expected}, got {actual}"
+        with _row_scope(subtests, label):
+            actual = probe()
+            assert actual == expected, f"support_matrix[{label!r}]: expected {expected}, got {actual}"
 
 
-def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[I], object]) -> None:
+def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[I], object], *, subtests: RowCarrier | None = None) -> None:
     """Assert each case's projection outcome.
 
     ``ProjectionCase.oracle`` computes the reference when present; otherwise ``supported_out`` is used.
@@ -248,16 +402,23 @@ def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[
     Args:
         cases: ProjectionCase[I] instances describing each projection scenario.
         project: The function under test mapping intent to output.
+        subtests: Optional row carrier; a failing row reports independently instead of stopping the fold.
     """
+    folded = 0
     for case_ in cases:
-        actual = project(case_.intent)
-        reference = case_.oracle(case_.intent) if case_.oracle is not None else case_.supported_out
-        assert actual == reference, f"projection_matrix[{case_.label!r}]: expected {reference!r}, got {actual!r} (intent={case_.intent!r})"
+        folded += 1
+        with _row_scope(subtests, case_.label):
+            actual = project(case_.intent)
+            reference = case_.oracle(case_.intent) if case_.oracle is not None else case_.supported_out
+            assert actual == reference, f"projection_matrix[{case_.label!r}]: expected {reference!r}, got {actual!r} (intent={case_.intent!r})"
+    assert folded, "projection_matrix folded zero rows — an empty case set proves nothing"
 
 
 # --- [ROP_ORACLES]
 
 _DEFAULT_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
+# Public wire-axis constant: `assert_roundtrip(value, T, codec=MSGPACK_CODEC)` proves the MessagePack leg.
+MSGPACK_CODEC: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder(order="deterministic")
 
 
 def assert_ok[T, E](result: Result[T, E], *, then: Callable[[T], None] | None = None) -> T:
@@ -367,14 +528,16 @@ def assert_none(opt: Option[object]) -> None:
             raise AssertionError(f"unexpected Option shape: {opt!r}")
 
 
-def assert_roundtrip[T](value: T, typ: type[T], *, codec: msgspec.json.Encoder | None = None) -> T:
+def assert_roundtrip[T](value: T, typ: type[T], *, codec: msgspec.json.Encoder | msgspec.msgpack.Encoder | None = None) -> T:
     """Assert deterministic encode, decode, and re-encode byte identity for a wire value.
 
-    The re-encode step catches non-deterministic codecs that structural equality misses.
+    The re-encode step catches non-deterministic codecs that structural equality misses. The
+    decode lane derives from the encoder family, so one oracle proves both production wire legs:
+    JSON by default, MessagePack when ``codec`` is a ``msgspec.msgpack.Encoder``.
 
     Args:
         value: The value to encode and round-trip.
-        typ: The target type for ``msgspec.json.decode``.
+        typ: The target type for the family decode.
         codec: Encoder to use; defaults to deterministic JSON ordering.
 
     Returns:
@@ -382,7 +545,7 @@ def assert_roundtrip[T](value: T, typ: type[T], *, codec: msgspec.json.Encoder |
     """
     enc = codec if codec is not None else _DEFAULT_ENCODER
     raw = enc.encode(value)
-    decoded: T = msgspec.json.decode(raw, type=typ)
+    decoded: T = msgspec.msgpack.decode(raw, type=typ) if isinstance(enc, msgspec.msgpack.Encoder) else msgspec.json.decode(raw, type=typ)
     assert decoded == value, f"decode mismatch for {typ.__name__}: {decoded!r} != {value!r}"
     reencoded = enc.encode(decoded)
     assert reencoded == raw, f"re-encode not byte-identical for {typ.__name__}: {reencoded!r} != {raw!r}"
@@ -413,6 +576,10 @@ __all__ = [
     "ValidityCase",
     "ProjectionCase",
     "MetamorphicRelation",
+    "RowCarrier",
+    "MSGPACK_CODEC",
+    "close",
+    "assert_close",
     "roundtrip",
     "identity",
     "idempotent",

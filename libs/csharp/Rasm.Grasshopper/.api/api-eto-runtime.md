@@ -1,4 +1,4 @@
-# [API_ETO_RUNTIME]
+# [RASM_GRASSHOPPER_API_ETO_RUNTIME]
 
 Catalog scope: the `Eto.Forms` runtime surface inside the GH2 process — application/thread marshalling, timers, input state, clipboard/drag-drop, notifications, and screen metrics.
 

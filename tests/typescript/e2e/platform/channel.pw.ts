@@ -2,19 +2,19 @@ import { Hermetic } from '@rasm/ts-testkit/e2e';
 import { expect, test } from '../fixtures.ts';
 
 test.describe('websocket lane', () => {
-    test('routeWebSocket serves a hermetic echo lane', async ({ hermetic, page }) => {
-        await page.routeWebSocket(`wss://rasm.test/ws`, (lane) => {
+    test('routeWebSocket serves a hermetic echo lane', async ({ page, target }) => {
+        await page.routeWebSocket(Hermetic.wire, (lane) => {
             lane.onMessage((message) => lane.send(`echo:${message}`));
         });
-        await hermetic.open('/echo');
+        await target.open('/echo');
         await expect(page.getByTestId('wire')).toHaveText('echo:ping');
     });
 
-    test('a closed lane surfaces as a verdict, never a silent pass', async ({ hermetic, page }) => {
-        await page.routeWebSocket(`wss://rasm.test/ws`, (lane) => {
+    test('a closed lane surfaces as a verdict, never a silent pass', async ({ page, target }) => {
+        await page.routeWebSocket(Hermetic.wire, (lane) => {
             void lane.close();
         });
-        await hermetic.open('/echo');
+        await target.open('/echo');
         await expect(page.getByTestId('wire')).toHaveText('closed');
     });
 });
@@ -29,11 +29,11 @@ test.describe('cohort isolation', () => {
         expect(new Set(held).size).toBe(held.length);
     });
 
-    test('one context shares storage across its pages — the isolation falsifier', async ({ context, hermetic, page }) => {
-        await hermetic.open('/store');
+    test('one context shares storage across its pages — the isolation falsifier', async ({ context, page, target }) => {
+        await target.open('/store');
         const held = await page.getByTestId('held').textContent();
         const twin = await context.newPage();
-        await twin.goto(`${Hermetic.origin}/store`);
+        await twin.goto(`${target.origin}/store`);
         await expect(twin.getByTestId('held')).toHaveText(held ?? '');
     });
 });

@@ -16,7 +16,6 @@
         <InternalsVisibleTo Include="Rasm.Bridge.Supervisor.Tests" />
     </ItemGroup>
     <ItemGroup Label="Supervisor Packages">
-        <PackageReference Include="Microsoft.Diagnostics.NETCore.Client" />
         <PackageReference Include="StreamJsonRpc" />
         <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>

@@ -1,4 +1,4 @@
-# [API_ETO_DRAWING]
+# [RASM_GRASSHOPPER_API_ETO_DRAWING]
 
 Catalog scope: the `Eto.Drawing` 2D vector/text/image surface behind canvas painting, wire rendering, icon drawing, and tooltip painters.
 

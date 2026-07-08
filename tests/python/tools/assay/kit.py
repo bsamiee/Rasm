@@ -4,6 +4,7 @@
 
 from collections.abc import Callable, Generator  # noqa: TC003  # runtime: Protocol and msgspec fields resolve these annotations
 from pathlib import Path
+import re
 from types import SimpleNamespace
 from typing import Final, override, Protocol, TYPE_CHECKING
 from unittest.mock import MagicMock
@@ -14,6 +15,7 @@ import msgspec
 import psutil as _psutil
 from upath import UPath
 
+from tests.python._testkit.runtime import REPO_ROOT
 from tests.python._testkit.seams import (
     Async as _Async,
     autospec_proc,
@@ -311,15 +313,46 @@ class SeamExecutor(msgspec.Struct, frozen=True, gc=False):
         return self.fan_fn(*args, **kwargs)  # type: ignore[return-value]  # ty: ignore[invalid-return-type]  # canned lane owns the Result shape
 
 
-class YakShape(msgspec.Struct, frozen=True, gc=False):
-    """Fake yak and MSBuild tree materializer."""
+def _yak_manifest() -> tuple[Path, str, str, str]:
+    """Parse the repo's lone yak-slugged project so kit defaults track the live manifest.
 
-    slug: str = "rasm-bridge"
-    project: Path = Path("apps/bridge/plugin.csproj")
-    assembly_name: str = "Rasm"
+    Mirrors the package rail's slug resolution law: exactly one slugged project under the
+    package roots; a renamed or duplicated manifest fails here by count, never drifts silently.
+
+    Returns:
+        Repo-relative project path, slug, assembly name, and workspace target framework.
+
+    Raises:
+        RuntimeError: When the package roots carry zero or several slugged manifests.
+    """
+    slugged = re.compile(r"<YakPackageSlug>([^<]+)</YakPackageSlug>")
+    matches = tuple(
+        (path.relative_to(REPO_ROOT), found.group(1), re.search(r"<AssemblyName>([^<]+)</AssemblyName>", text))
+        for root_name in package_rail._PACKAGE_ROOTS
+        for path in sorted((REPO_ROOT / root_name).rglob("*.csproj"))
+        if (found := slugged.search(text := path.read_text(encoding="utf-8"))) is not None
+    )
+    tfm = re.search(r"<TargetFramework>([^<]+)</TargetFramework>", (REPO_ROOT / "Directory.Build.props").read_text(encoding="utf-8"))
+    match (matches, tfm):
+        case ((project, slug, assembly),), re.Match() as framework:
+            return project, slug, assembly.group(1) if assembly is not None else slug, framework.group(1)
+        case _:
+            msg = f"expected one yak-slugged manifest under {package_rail._PACKAGE_ROOTS} and a workspace TargetFramework, found {len(matches)}"
+            raise RuntimeError(msg)
+
+
+_YAK_PROJECT, _YAK_SLUG, _YAK_ASSEMBLY, _TARGET_FRAMEWORK = _yak_manifest()
+
+
+class YakShape(msgspec.Struct, frozen=True, gc=False):
+    """Fake yak and MSBuild tree materializer; defaults mirror the repo's live yak manifest."""
+
+    slug: str = _YAK_SLUG
+    project: Path = _YAK_PROJECT
+    assembly_name: str = _YAK_ASSEMBLY
     target_ext: str = ".rhp"
-    target_framework: str = "net10.0"
-    package_pattern: str = "rasm-rh9_1-mac.yak"
+    target_framework: str = _TARGET_FRAMEWORK
+    package_pattern: str = f"{_YAK_SLUG}-rh9_1-mac.yak"
 
     def props(self, meta: package_rail.YakMeta) -> dict[str, str]:
         """Project materialized YakMeta into the MSBuild/yak property map.

@@ -1,4 +1,4 @@
-"""Law matrix for docs promotion, check folding, and outcome rows."""
+"""Law matrix for docs promotion, engine check construction, and NDJSON finding rows."""
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
@@ -9,7 +9,7 @@ import pytest
 
 from tests.python._testkit.spec import assert_error, assert_ok
 from tests.python.tools.assay.kit import SeamExecutor
-from tools.assay.core.model import Claim, Completed, Fault, RailStatus
+from tools.assay.core.model import Claim, Completed, Fault, RailStatus, receipt
 from tools.assay.rails.docs import check, DocsParams, FaultedPromotion
 
 
@@ -22,11 +22,19 @@ if TYPE_CHECKING:
 
 COVERS: tuple[object, ...] = (check, DocsParams, FaultedPromotion)
 
-_OK = Ok(Completed(("mmdc",), 0, status=RailStatus.OK))
-_FAILED = Ok(Completed(("mmdc",), 1, status=RailStatus.FAILED))
-_SKIP = Ok(Completed(("mmdc",), 0, status=RailStatus.SKIP))
-_FAULT_A = Fault(("mmdc",), RailStatus.FAULTED, "first fault")
-_FAULT_B = Fault(("mmdc",), RailStatus.UNSUPPORTED, "second fault")
+_OK = Ok(Completed(("engine",), 0, status=RailStatus.OK))
+_FAILED = Ok(Completed(("engine",), 1, status=RailStatus.FAILED))
+_SKIP = Ok(Completed(("engine",), 0, status=RailStatus.SKIP))
+_FAULT_A = Fault(("engine",), RailStatus.FAULTED, "first fault")
+_FAULT_B = Fault(("engine",), RailStatus.UNSUPPORTED, "second fault")
+
+# One NDJSON row per finding: ``check`` carries validate-mermaid findings, ``rule`` carries check-canon findings.
+_NDJSON = (
+    b'{"file":"docs/diagram.md","line":7,"status":"fail","detail":"broken edge","check":"graph-logic"}\n'
+    b'{"file":"docs/diagram.md","line":2,"status":"warn","detail":"weak label","rule":"canon-x"}\n'
+    b'{"file":"docs/diagram.md","line":1,"status":"ok","check":"render"}\n'
+    b"engine banner, never a finding row\n"
+)
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -48,11 +56,11 @@ def _check(
         ((_FAILED,), True, RailStatus.FAILED),  # strict never rewrites a real defect
         ((), False, RailStatus.EMPTY),
         ((), True, "raises"),
-        ((_SKIP,), True, "raises"),
+        ((_SKIP,), True, RailStatus.OK),  # SKIP ranks below the EMPTY fold seed, so a live fan promotes clean to OK
         ((Error(_FAULT_B),), False, "fault"),
         ((Error(_FAULT_A), Error(_FAULT_B)), False, "first-fault"),
     ],
-    ids=["ok", "failed-strict-preserved", "empty-not-strict", "empty-strict-raises", "skip-strict-raises", "fan-fault", "first-fault-wins"],
+    ids=["ok", "failed-strict-preserved", "empty-not-strict", "empty-strict-raises", "skip-promotes-ok", "fan-fault", "first-fault-wins"],
 )
 def test_check_promotion_and_fault_matrix(
     assay_root: AssayHarness,
@@ -60,7 +68,7 @@ def test_check_promotion_and_fault_matrix(
     strict: bool,  # noqa: FBT001  # parametrized bool flag
     expect: RailStatus | str,
 ) -> None:
-    """Check folds receipts onto one rail: strict promotes only EMPTY/SKIP, faults short-circuit first-wins."""
+    """Check folds receipts onto one rail: strict promotes only a checkless EMPTY, faults short-circuit first-wins."""
     match expect:
         case "raises":
             assert issubclass(FaultedPromotion, Exception)  # registry-catchable, never BaseException
@@ -79,11 +87,11 @@ def test_check_promotion_and_fault_matrix(
             pytest.fail(f"unmapped expectation row: {expect!r}")
 
 
-# --- [ROUTING_AND_SINKS]
+# --- [ENGINE_ROUTING]
 
 
-def test_check_routes_files_builds_per_file_argv_and_threads_dependencies(assay_root: AssayHarness) -> None:
-    """Check routes paths under settings.root, builds one mmdc Check per file with collision-free sinks, and forwards live deps to fan."""
+def test_check_builds_one_check_per_engine_per_file_and_threads_dependencies(assay_root: AssayHarness) -> None:
+    """Check routes paths under settings.root and builds one input-only Check per (engine, file); fan receives the live deps."""
     captured: list[Check] = []
     seen: dict[str, object] = {}
     executor = SeamExecutor(fan_fn=lambda checks, **kw: (captured.extend(checks), seen.update(checks=checks, **kw), (_OK,) * len(checks))[-1])
@@ -93,42 +101,36 @@ def test_check_routes_files_builds_per_file_argv_and_threads_dependencies(assay_
 
     assert_ok(check(assay_root.settings, scope, DocsParams(paths=files), executor))
 
-    assert len(captured) == 2, "settings.root routing finds harness-local files; cwd routing finds nothing"
-    sinks = []
-    for chk, src in zip(captured, files, strict=True):
+    assert len(captured) == 4, "the docs claim fans both skill engines over every routed file"
+    pairs = {(chk.tool.name, chk.args.input) for chk in captured}
+    assert pairs == {(engine, f) for engine in ("validate-mermaid", "check-canon") for f in files}, f"engine x file product broke: {pairs}"
+    scripts = {"validate-mermaid": "validate_mermaid.py", "check-canon": "check_canon.py"}
+    for chk in captured:
         cmd = chk.args.fill(chk.tool.command)
-        assert cmd[0] == "mmdc"
-        assert cmd[cmd.index("-i") + 1] == src
-        assert cmd[cmd.index("-a") + 1] == scope.path
-        sinks.append(cmd[cmd.index("-o") + 1])
-        assert sinks[-1].endswith(".md"), "argv terminates at the -o markdown sink, not a bare input positional"
-    assert len(set(sinks)) == 2, "same-basename files slug to distinct sinks"
+        assert cmd[:3] == ("uv", "run", "--no-project"), "engines launch through the project-free uv runner"
+        assert cmd[3].endswith(scripts[chk.tool.name]), f"{chk.tool.name} argv resolves the wrong engine script: {cmd[3]}"
+        assert cmd[-2:] == ("--json", chk.args.input), "argv terminates at --json plus the input file; assay never places a sink"
     assert seen["settings"] is assay_root.settings
     assert seen["scope"] is scope
     assert set(seen) >= {"checks", "settings", "scope", "routed"}, "no fan_out keyword is dropped"
 
 
-def test_check_folds_result_rows_severity_and_sink_artifacts(assay_root: AssayHarness) -> None:
-    """Check folds one source:<file>:1 row per routed file, stamps receipt severity, and rides produced sinks as artifacts."""
+# --- [FINDING_ROWS]
+
+
+def test_check_parses_ndjson_findings_and_keeps_crash_tails(assay_root: AssayHarness) -> None:
+    """Engine NDJSON fail/warn rows fold into typed finding rows; ok rows and banners vanish; an unparsable crash keeps fold's raw tail."""
     assay_root.write("docs/diagram.md", "# d")
-    scope = assay_root.scope(Claim.DOCS)
-    scope.ensure()
-    captured: list[Check] = []
-    probe = SeamExecutor(fan_fn=lambda checks, **_k: (captured.extend(checks), (_OK,))[-1])
-    check(assay_root.settings, scope, DocsParams(paths=("docs/diagram.md",)), probe)
-    cmd = captured[0].args.fill(captured[0].tool.command)
-    stem = cmd[cmd.index("-o") + 1].rsplit("/", 1)[-1].removesuffix(".md")  # sink stem learned from the public argv, not the private slugger
-    parts = scope.path.removeprefix(f"{scope.store.root}/").split("/")
-    scope.store.write_bytes(b"<svg/>", *parts, f"{stem}-1.svg")
-    scope.store.write_bytes(b"# out", *parts, f"{stem}.md")
+    parsed = assert_ok(_check(assay_root, (Ok(receipt(("engine",), 0, stdout=_NDJSON)),), paths=("docs/diagram.md",)))
+    assert [(m.id, m.severity, m.line, m.path, m.message) for m in parsed.results] == [
+        ("mermaid:graph-logic", "error", 7, "docs/diagram.md", "broken edge"),
+        ("mermaid:canon-x", "warning", 2, "docs/diagram.md", "weak label"),
+    ], f"NDJSON rows misfolded: {parsed.results}"
+    assert parsed.status is RailStatus.OK, "finding rows ride the report; status follows the process fold"
 
-    ok_report = assert_ok(_check(assay_root, (_OK,), paths=("docs/diagram.md",)))
-    assert [m.id for m in ok_report.results] == ["source:docs/diagram.md:1"]
-    assert ok_report.results[0].severity is None, "an exit-0 mmdc receipt folds to a non-failed row"
-    assert ok_report.status is RailStatus.OK, "EMPTY base + result rows promotes to OK"
-    artifact_names = {a.path.rsplit("/", 1)[-1] for a in ok_report.artifacts}
-    assert {f"{stem}-1.svg", f"{stem}.md"} <= artifact_names, "produced SVG + MD ride the envelope as Artifact rows"
-
-    bad_report = assert_ok(_check(assay_root, (_FAILED,), paths=("docs/diagram.md",)))
-    assert bad_report.status is RailStatus.FAILED, "a FAILED receipt is never promoted away"
-    assert bad_report.results[0].severity == "failed", "the FAILED receipt stamps the row severity"
+    crashed = assert_ok(
+        _check(assay_root, (Ok(receipt(("engine",), 1, stdout=b"Traceback (most recent call last): boom")),), paths=("docs/diagram.md",))
+    )
+    assert crashed.status is RailStatus.FAILED, "a FAILED receipt is never promoted away"
+    assert len(crashed.results) == 1 and "Traceback" in crashed.results[0].text, "an unparsable crash surfaces fold's raw defect tail"
+    assert crashed.results[0].severity == "failed", "the crash row carries the receipt severity"

@@ -577,14 +577,14 @@ flowchart LR
 
 One owner per axis; a new feature, projection, or aspect is a row, a case, or a fan arm — never a sibling surface.
 
-| [INDEX] | [AXIS/CONCERN]        | [OWNER]           | [KIND]                                                                     | [RAIL]                                     | [CASES] |
+| [INDEX] | [CONCERN]             | [OWNER]           | [KIND]                                                                     | [RAIL]                                     | [CASES] |
 | :-----: | :-------------------- | :---------------- | :-------------------------------------------------------------------------- | :------------------------------------------ | :-----: |
 |  [01]   | Curve provenance      | `CurveFeature`    | `[SmartEnum<int>]` closed feature vocabulary                                | row (pure)                                  |   14    |
-|  [1a]   | Edge taxonomy         | `EdgeDescriptor`  | internal `[Union]` + the `Features` derivation                              | `Matches → bool` (data-driven)              |    3    |
-|  [02]   | Curve selection       | `Curves`          | `[Union]` — 6 cases, 14 factories, 5 typed projections                      | `Operation → Eff<Env, Seq<TOut>>`           |    6    |
-|  [03]   | Face selection        | `Faces`           | `[Union]` — 3 cases fanned across 8 typed projections                       | `Operation → Eff<Env, Seq<TOut>>`           |    3    |
-|  [04]   | Point extraction      | `Points`          | `[Union]` — 5 cases, 6 factories                                            | `Operation → Eff<Env, Seq<TOut>>`           |    5    |
-|  [4a]   | Spread vocabulary     | `SpreadAspect`    | `[SmartEnum<int>]` + typed `Output` column                                  | `SpreadProject → Fin<Seq<TOut>>`            |    5    |
+|  [02]   | Edge taxonomy         | `EdgeDescriptor`  | internal `[Union]` + the `Features` derivation                              | `Matches → bool` (data-driven)              |    3    |
+|  [03]   | Curve selection       | `Curves`          | `[Union]` — 6 cases, 14 factories, 5 typed projections                      | `Operation → Eff<Env, Seq<TOut>>`           |    6    |
+|  [04]   | Face selection        | `Faces`           | `[Union]` — 3 cases fanned across 8 typed projections                       | `Operation → Eff<Env, Seq<TOut>>`           |    3    |
+|  [05]   | Point extraction      | `Points`          | `[Union]` — 5 cases, 6 factories                                            | `Operation → Eff<Env, Seq<TOut>>`           |    5    |
+|  [06]   | Spread vocabulary     | `SpreadAspect`    | `[SmartEnum<int>]` + typed `Output` column                                  | `SpreadProject → Fin<Seq<TOut>>`            |    5    |
 
 All three fences are transcription-complete host captures: the full edge/loop/segment/iso/silhouette extraction lattice over the carrier disposal fold, the lease-aware face decomposition with the `DetachFrom` ownership protocol, and the extrema/midpoint/vertex/control-point/spread extraction family. The carrier and its transfer protocol are `Domain/normalization` law; the evaluation and vertex lattices are `Domain/evaluation` law; the statistics are `Domain/stats` law; the eigendecomposition is `Numerics/matrix` law — composed here, legislated there.
 

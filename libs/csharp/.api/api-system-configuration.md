@@ -1,6 +1,6 @@
 # [RASM_API_SYSTEM_CONFIGURATION]
 
-`System.Configuration.ConfigurationManager` is the .NET XML configuration package for: `app.config`, `web.config`, app settings, connection strings, configuration sections, settings providers, validators, protected configuration, and file-map based load/save. It is centrally pinned as a host compile surface and transitive closure package. It is not the default configuration model for new host code; new runtime configuration composes `Microsoft.Extensions.Configuration`.
+`System.Configuration.ConfigurationManager` is the .NET XML configuration package for: `app.config`, `web.config`, app settings, connection strings, configuration sections, settings providers, validators, protected configuration, and file-map based load/save. It rides the graph as a transitive floor (log4net and `System.Diagnostics.PerformanceCounter` pull it), never as a direct reference. It is not the configuration model for host code; runtime configuration composes `Microsoft.Extensions.Configuration`.
 
 ## [01]-[PACKAGE_SURFACE]
 

@@ -236,7 +236,7 @@ flowchart LR
 
 One owner per axis; capability is a row, column, or factory fold, never a sibling surface. `[RAIL]` names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]            | [OWNER]               | [KIND]                                                                                       | [RAIL]                                             | [CASES] |
+| [INDEX] | [CONCERN]                 | [OWNER]               | [KIND]                                                                                       | [RAIL]                                             | [CASES] |
 | :-----: | :------------------------ | :-------------------- | :------------------------------------------------------------------------------------------- | :------------------------------------------------- | :-----: |
 |  [01]   | curve evaluation          | `CurveProjection`     | `[SmartEnum<int>]` delegate rows + `AdmitsMagnitude` column, 2 factory folds                 | `Project<TOut> → Fin<TOut>`                        |    9    |
 |  [02]   | surface evaluation        | `SurfaceProjection`   | `[SmartEnum<int>]` delegate rows + `WithCurvature` lease fold + `Derivatives` factory        | `Project<TOut> → Fin<TOut>`                        |   13    |

@@ -2,18 +2,22 @@
 
 # --- [RUNTIME_PRELUDE] ------------------------------------------------------------------
 
+from contextlib import contextmanager
 import enum
 import operator
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from expression import Error, Nothing, Ok, Some
+from expression.collections import Block
 from hypothesis import given, Phase, settings as hyp_settings, strategies as st
 import msgspec
 import pytest
+lazy import numpy as np
 
 from tests.python._testkit.spec import (
     absorbing,
+    assert_close,
     assert_error,
     assert_error_status,
     assert_none,
@@ -22,6 +26,7 @@ from tests.python._testkit.spec import (
     assert_some,
     associative,
     Bundle,
+    close,
     commutative,
     consumes,
     distributive,
@@ -37,6 +42,7 @@ from tests.python._testkit.spec import (
     MetamorphicRelation,
     model_based,
     monotone,
+    MSGPACK_CODEC,
     multiple,
     permutation_invariant,
     precondition,
@@ -54,7 +60,9 @@ from tests.python._testkit.spec import (
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Generator
+
+    from tests.python._testkit.spec import RowCarrier
 
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -97,6 +105,23 @@ class _Status(enum.StrEnum):
 class _Wire(msgspec.Struct, frozen=True):
     key: str
     rank: int = 0
+
+
+class _Recorder:
+    """Recording ``RowCarrier`` double: absorbs each row's breach instead of failing the fold."""
+
+    def __init__(self) -> None:
+        self.labels: list[str | None] = []
+        self.failures: list[str | None] = []
+
+    @contextmanager
+    def test(self, msg: str | None = None, **kwargs: object) -> Generator[None]:
+        _ = kwargs
+        self.labels.append(msg)
+        try:
+            yield
+        except AssertionError:
+            self.failures.append(msg)
 
 
 class _Ledger(RuleBasedStateMachine):
@@ -232,6 +257,39 @@ def test_support_matrix_gates_each_probe() -> None:
         support_matrix(("flipped", lambda: True, False))
 
 
+def test_matrix_folds_scope_rows_through_a_carrier_and_stop_without_one(subtests: RowCarrier) -> None:
+    """A row carrier keeps every matrix fold running past a breach with each failure in its own scope; a carrier-free fold stops at the breach."""
+    recorder = _Recorder()
+    validity_matrix([("first", 1, True), ("broken", -1, True), ("last", 2, True)], valid=lambda n: n > 0, subtests=recorder)
+    assert recorder.labels == ["first", "broken", "last"], f"a breach stopped the carried fold: {recorder.labels}"
+    assert recorder.failures == ["broken"], f"carrier missed or over-reported breaches: {recorder.failures}"
+    support_matrix(("hit", lambda: True, True), ("miss", lambda: True, False), subtests=recorder)
+    projection_matrix(
+        [ProjectionCase(label="off", intent=3, supported_out=7, oracle=None, unsupported_out=None)], project=lambda n: n * 2, subtests=recorder
+    )
+    assert recorder.failures == ["broken", "miss", "off"], f"a fold bypassed the carrier: {recorder.failures}"
+
+    calls: list[int] = []
+    with pytest.raises(AssertionError, match="broken"):
+        validity_matrix([("broken", -1, True), ("after", 2, True)], valid=lambda n: (calls.append(n), n > 0)[-1])
+    assert calls == [-1], f"carrier-free fold ran past the breach: {calls}"
+
+    # The live pytest-native subtests fixture satisfies the protocol; green rows leave the test green.
+    validity_matrix([("live", 3, True)], valid=lambda n: n > 0, subtests=subtests)
+
+
+def test_matrix_folds_refuse_empty_case_sets() -> None:
+    """A zero-row fold is a broken generator, never a green law: every matrix oracle refuses it by name."""
+    with pytest.raises(AssertionError, match="zero rows"):
+        validity_matrix([], valid=lambda n: n > 0)
+    with pytest.raises(AssertionError, match="zero rows"):
+        support_matrix()
+    with pytest.raises(AssertionError, match="zero rows"):
+        projection_matrix([], project=lambda n: n)
+    with pytest.raises(AssertionError, match="zero relations"):
+        metamorphic_sweep(1, lambda n: n)
+
+
 def test_metamorphic_sweep_enforces_every_relation() -> None:
     """Every relation must hold between source and follow-up outputs; one violation fails the sweep."""
 
@@ -245,6 +303,71 @@ def test_metamorphic_sweep_enforces_every_relation() -> None:
     metamorphic_sweep(5, lambda n: n, lawful)
     with pytest.raises(AssertionError, match="witness relation"):
         metamorphic_sweep(5, lambda n: n, lawful, MetamorphicRelation[int, int](name="broken", transform=lambda n: n * 2, relate=_breaks))
+
+
+# --- [TOLERANCE_ORACLES]
+
+
+class _Reading(msgspec.Struct, frozen=True):
+    label: str
+    values: tuple[float, ...]
+
+
+def test_close_dispatches_every_data_shape_and_names_the_diverging_path() -> None:
+    """One tolerance policy owns numbers, arrays, quantities, structs, rails, mappings, and sequences; the breach names its structural path."""
+    assert_close(1.0, 1.0 + 1e-12)
+    assert_close(float("nan"), float("nan"))
+    assert_close(float("inf"), float("inf"))
+    assert_close({"k": (1.0, 2.0)}, {"k": (1.0, 2.0 + 1e-12)})
+    assert_close(_Reading(label="a", values=(0.1, 0.2)), _Reading(label="a", values=(0.1, 0.2 + 1e-12)))
+    assert_close(np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([[1.0, 2.0], [3.0, 4.0 + 1e-12]]))
+    assert_close(SimpleNamespace(units="mm", magnitude=2.0), SimpleNamespace(units="mm", magnitude=2.0 + 1e-12))
+    assert_close(2, 2.5, abs_tol=0.5)
+
+    with pytest.raises(AssertionError, match=r"\$\.values\[1\]"):
+        assert_close(_Reading(label="a", values=(0.1, 0.2)), _Reading(label="a", values=(0.1, 0.9)))
+    with pytest.raises(AssertionError, match=r"\$\[1, 1\]"):
+        assert_close(np.array([[1.0, 2.0], [3.0, 4.0]]), np.array([[1.0, 2.0], [3.0, 9.0]]))
+    with pytest.raises(AssertionError, match="shape"):
+        assert_close(np.zeros(3), np.zeros(4))
+    with pytest.raises(AssertionError, match="units"):
+        assert_close(SimpleNamespace(units="mm", magnitude=2.0), SimpleNamespace(units="m", magnitude=2.0))
+    with pytest.raises(AssertionError, match="key sets"):
+        assert_close({"k": 1.0}, {"other": 1.0})
+    with pytest.raises(AssertionError, match="length"):
+        assert_close([1.0], [1.0, 2.0])
+    flag = True
+    with pytest.raises(AssertionError, match=r"\$:"):
+        assert_close(flag, 1)
+
+
+def test_close_recurses_rails_and_blocks_and_names_the_diverging_arm() -> None:
+    """Rail carriers and ``Block`` collections compare payload-recursively; a tag mismatch names the rail, a payload drift names its path."""
+    assert_close(Ok(_Reading(label="a", values=(0.1,))), Ok(_Reading(label="a", values=(0.1 + 1e-12,))))
+    assert_close(Error((1.0, 2.0)), Error((1.0, 2.0 + 1e-12)))
+    assert_close(Some(1.0), Some(1.0 + 1e-12))
+    assert_close(Nothing, Nothing)
+    assert_close(Block.of_seq([1.0, 2.0]), Block.of_seq([1.0, 2.0 + 1e-12]))
+
+    with pytest.raises(AssertionError, match=r"\$\.ok\.values\[0\]"):
+        assert_close(Ok(_Reading(label="a", values=(0.1,))), Ok(_Reading(label="a", values=(0.9,))))
+    with pytest.raises(AssertionError, match="rail tags differ"):
+        assert_close(Ok(1.0), Error(1.0))
+    with pytest.raises(AssertionError, match="rail tags differ"):
+        assert_close(Some(1.0), Nothing)
+    with pytest.raises(AssertionError, match=r"\$\[1\]"):
+        assert_close(Block.of_seq([1.0, 2.0]), Block.of_seq([1.0, 9.0]))
+    with pytest.raises(AssertionError, match="length"):
+        assert_close(Block.of_seq([1.0]), Block.of_seq([1.0, 2.0]))
+
+
+def test_close_policy_rides_the_algebraic_oracles_and_refutes() -> None:
+    """``close`` slots into every ``eq=`` axis: a tolerant law passes where exact equality breaks, and the witness still refutes."""
+    drift = lambda x: x + 1e-12  # noqa: E731  # one-expression law subject
+    with pytest.raises(AssertionError, match="law violated"):
+        identity(1.0, drift)
+    identity(1.0, drift, eq=close())
+    refutes(1.0, identity, lambda x: x + 0.5, eq=close())
 
 
 # --- [ROP_ORACLES]
@@ -279,10 +402,13 @@ def test_assert_error_status_matches_by_identity_not_equality() -> None:
 
 
 def test_assert_roundtrip_proves_byte_identity_and_fails_on_lossy_decode() -> None:
-    """A wire struct round-trips byte-identically; a shape-changing decode fails the equality arm."""
+    """A wire struct round-trips byte-identically on both wire legs; a shape-changing decode fails the equality arm."""
     assert assert_roundtrip(_Wire(key="a", rank=2), _Wire) == _Wire(key="a", rank=2)
+    assert assert_roundtrip(_Wire(key="a", rank=2), _Wire, codec=MSGPACK_CODEC) == _Wire(key="a", rank=2)
     with pytest.raises(AssertionError, match="decode mismatch"):
         assert_roundtrip((1, 2), list[int])
+    with pytest.raises(AssertionError, match="decode mismatch"):
+        assert_roundtrip((1, 2), list[int], codec=MSGPACK_CODEC)
 
 
 # --- [STATEFUL_MODEL_BASED]

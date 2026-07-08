@@ -37,8 +37,9 @@ describe('hermetic corpus', () => {
         Effect.sync(() => {
             const documents = Array.getSomes(Array.map(Hermetic.routes, Hermetic.page));
             expect(documents).toHaveLength(Hermetic.routes.length);
-            expect(Array.every(documents, (doc) => doc.startsWith('<!doctype html>'))).toBe(true);
+            expect(Array.every(documents, (doc) => doc.startsWith('<!doctype html><html lang="en">'))).toBe(true);
             expect(Hermetic.origin.startsWith('https://')).toBe(true);
+            expect(Hermetic.wire.startsWith('wss://')).toBe(true);
         }),
     );
 

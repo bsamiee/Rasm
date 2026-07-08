@@ -1,5 +1,5 @@
 import type { Vitest } from '@effect/vitest';
-import { Data, Effect, Equal, Exit, Schema } from 'effect';
+import { Data, Effect, Equal, Exit, type Order, Schema } from 'effect';
 import * as Arbitrary from 'effect/Arbitrary';
 import * as FastCheck from 'effect/FastCheck';
 import type * as TestServices from 'effect/TestServices';
@@ -13,6 +13,7 @@ declare namespace Law {
     };
     type Api<R> = Vitest.Methods<R> | Vitest.MethodsNonLive<R>;
     type Binary<A> = (left: A, right: A) => A;
+    type Dual<A, B> = { readonly to: (value: A) => B; readonly from: (image: B) => A };
     type Equals<A> = (self: A, that: A) => boolean;
     interface Shape<S, A extends Arbs, E, R> {
         readonly name: string;
@@ -70,7 +71,9 @@ const Law = {
     },
 
     // --- [STOCK_ROWS]
-    // The join-semilattice trio the CRDT merge algebra demands; each row stays witness-mandatory and rides the same audit.
+    // The merge-law quartet the CRDT algebra freezes (associativity, commutativity, idempotence, identity) plus the
+    // instance and operation rows every domain owner mints: lawful Order, lawful Equivalence, forward/inverse duals,
+    // and monotone advance. Each row stays witness-mandatory and rides the same audit; a new law is a row, never a mechanism.
     associative: <A>(
         options: Law.Stock<Law.Binary<A>, { readonly a: A; readonly b: A; readonly c: A }> & {
             readonly arb: FastCheck.Arbitrary<A>;
@@ -106,6 +109,116 @@ const Law = {
             name: options.name ?? 'combine is idempotent',
             arbitraries: { a: options.arb },
             predicate: (combine, { a }) => Effect.sync(() => (options.equals ?? Equal.equals)(combine(a, a), a)),
+            witness: options.witness,
+        }),
+    // The monoid closer of the merge quartet: the declared empty is a two-sided identity of combine.
+    identity: <A>(
+        options: Law.Stock<Law.Binary<A>, { readonly a: A }> & {
+            readonly arb: FastCheck.Arbitrary<A>;
+            readonly empty: A;
+            readonly equals?: Law.Equals<A>;
+        },
+    ): Law.Law<Law.Binary<A>> =>
+        Law.make({
+            name: options.name ?? 'combine holds its identity',
+            arbitraries: { a: options.arb },
+            predicate: (combine, { a }) =>
+                Effect.sync(() => {
+                    const alike = options.equals ?? Equal.equals;
+                    return alike(combine(options.empty, a), a) && alike(combine(a, options.empty), a);
+                }),
+            witness: options.witness,
+        }),
+    // Lawful equivalence in one row: reflexive, symmetric, and transitive over the generated domain.
+    equivalence: <A>(
+        options: Law.Stock<Law.Equals<A>, { readonly a: A; readonly b: A; readonly c: A }> & {
+            readonly arb: FastCheck.Arbitrary<A>;
+        },
+    ): Law.Law<Law.Equals<A>> =>
+        Law.make({
+            name: options.name ?? 'equivalence is reflexive, symmetric, and transitive',
+            arbitraries: { a: options.arb, b: options.arb, c: options.arb },
+            predicate: (alike, { a, b, c }) =>
+                Effect.sync(() => alike(a, a) && alike(a, b) === alike(b, a) && (!(alike(a, b) && alike(b, c)) || alike(a, c))),
+            witness: options.witness,
+        }),
+    // Lawful total order in one row: reflexive, comparison-antisymmetric, and transitive — the proof every
+    // Order instance a domain mints (clock order, rank order, key order) registers as one line.
+    order: <A>(
+        options: Law.Stock<Order.Order<A>, { readonly a: A; readonly b: A; readonly c: A }> & {
+            readonly arb: FastCheck.Arbitrary<A>;
+        },
+    ): Law.Law<Order.Order<A>> =>
+        Law.make({
+            name: options.name ?? 'order is a lawful total order',
+            arbitraries: { a: options.arb, b: options.arb, c: options.arb },
+            predicate: (compare, { a, b, c }) =>
+                Effect.sync(
+                    () =>
+                        compare(a, a) === 0 &&
+                        compare(a, b) === -compare(b, a) &&
+                        (!(compare(a, b) <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0),
+                ),
+            witness: options.witness,
+        }),
+    // Forward and inverse ride one subject: from recovers every value to emits — the codec-pair proof
+    // for any bidirectional seam a Schema round-trip cannot express.
+    inverse: <A, B>(
+        options: Law.Stock<Law.Dual<A, B>, { readonly a: A }> & {
+            readonly arb: FastCheck.Arbitrary<A>;
+            readonly equals?: Law.Equals<A>;
+        },
+    ): Law.Law<Law.Dual<A, B>> =>
+        Law.make({
+            name: options.name ?? 'from recovers every value to emits',
+            arbitraries: { a: options.arb },
+            predicate: (dual, { a }) => Effect.sync(() => (options.equals ?? Equal.equals)(dual.from(dual.to(a)), a)),
+            witness: options.witness,
+        }),
+    // Determinism: the subject yields the same value on every run over one input — the seeded-entropy
+    // and pure-projection law; a wall-clock or unseeded-random read is refuted by its own drift.
+    deterministic: <I, A, E, R>(
+        options: Law.Stock<(input: I) => Effect.Effect<A, E, R>, { readonly input: I }> & {
+            readonly arb: FastCheck.Arbitrary<I>;
+            readonly equals?: Law.Equals<A>;
+        },
+    ): Law.Law<(input: I) => Effect.Effect<A, E, R>, R> =>
+        Law.make({
+            name: options.name ?? 'operation is deterministic',
+            arbitraries: { input: options.arb },
+            predicate: (subject, { input }) =>
+                Effect.zipWith(subject(input), subject(input), (first, second) => (options.equals ?? Equal.equals)(first, second)),
+            witness: options.witness,
+        }),
+    // Homomorphism: the map commutes with combine — encode-then-merge equals merge-then-encode, the
+    // CRDT wire-seam law in one row.
+    homomorphic: <A, B>(
+        options: Law.Stock<(value: A) => B, { readonly a: A; readonly b: A }> & {
+            readonly arb: FastCheck.Arbitrary<A>;
+            readonly combine: Law.Binary<A>;
+            readonly combineImage: Law.Binary<B>;
+            readonly equals?: Law.Equals<B>;
+        },
+    ): Law.Law<(value: A) => B> =>
+        Law.make({
+            name: options.name ?? 'map commutes with combine',
+            arbitraries: { a: options.arb, b: options.arb },
+            predicate: (to, { a, b }) =>
+                Effect.sync(() => (options.equals ?? Equal.equals)(to(options.combine(a, b)), options.combineImage(to(a), to(b)))),
+            witness: options.witness,
+        }),
+    // Monotone advance: a step never regresses its subject under the declared order — the clock, sequence,
+    // and frontier law in one row.
+    monotone: <A>(
+        options: Law.Stock<(state: A) => A, { readonly a: A }> & {
+            readonly arb: FastCheck.Arbitrary<A>;
+            readonly order: Order.Order<A>;
+        },
+    ): Law.Law<(state: A) => A> =>
+        Law.make({
+            name: options.name ?? 'step never regresses',
+            arbitraries: { a: options.arb },
+            predicate: (step, { a }) => Effect.sync(() => options.order(a, step(a)) <= 0),
             witness: options.witness,
         }),
     // Upcast totality: the subject decoder succeeds over the whole generated input space — the event-spine version-fold proof.

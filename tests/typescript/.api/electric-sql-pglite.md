@@ -14,21 +14,21 @@
 
 [PUBLIC_TYPE_SCOPE]: the database handle and its result carriers — one interface owns every access mode.
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]        | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :--------------------------- | :------------------- | :------------------------------------------------------------------- |
-|  [01]   | `PGlite`                     | class                | the handle; `implements PGliteInterface, AsyncDisposable`            |
-|  [02]   | `PGliteInterface<T>`         | type (intersection)  | the full member contract + `InitializedExtensions<T>` namespaces      |
-|  [03]   | `BasePGlite`                 | abstract class       | shared `query`/`sql`/`exec`/`transaction`/`describeQuery` impl base   |
-|  [04]   | `Results<T>`                 | type                 | `{ rows: Row<T>[]; affectedRows?; fields: {name,dataTypeID}[]; blob? }` |
-|  [05]   | `Row<T>`                     | type alias           | `= T` — parametrized row shape (`rowMode:'object'` default)          |
-|  [06]   | `Transaction`                | interface            | scoped `query`/`sql`/`exec` + `rollback` + `listen` + `closed`        |
-|  [07]   | `QueryOptions`               | interface            | `rowMode`, `parsers`, `serializers`, `blob`, `onNotice`, `paramTypes` |
-|  [08]   | `PGliteOptions<TExtensions>` | interface            | construction bag — `dataDir`, `extensions`, `relaxedDurability`, fs   |
-|  [09]   | `DescribeQueryResult`        | type                 | prepared-statement param/result type descriptors                     |
-|  [10]   | `DumpDataDirResult`          | interface            | `{ tarball: Uint8Array; extension; filename }` — snapshot payload     |
-|  [11]   | `DebugLevel`                 | union `0..5`         | log verbosity                                                        |
-|  [12]   | `IdbFs` / `MemoryFS`         | class                | persistence backends — IndexedDB vs in-memory (unit lane default)    |
-|  [13]   | `Mutex`                      | class                | the single-connection serialization primitive `runExclusive` uses    |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [CAPABILITY]                                                            |
+| :-----: | :--------------------------- | :------------------ | :---------------------------------------------------------------------- |
+|  [01]   | `PGlite`                     | class               | the handle; `implements PGliteInterface, AsyncDisposable`               |
+|  [02]   | `PGliteInterface<T>`         | type (intersection) | the full member contract + `InitializedExtensions<T>` namespaces        |
+|  [03]   | `BasePGlite`                 | abstract class      | shared `query`/`sql`/`exec`/`transaction`/`describeQuery` impl base     |
+|  [04]   | `Results<T>`                 | type                | `{ rows: Row<T>[]; affectedRows?; fields: {name,dataTypeID}[]; blob? }` |
+|  [05]   | `Row<T>`                     | type alias          | `= T` — parametrized row shape (`rowMode:'object'` default)             |
+|  [06]   | `Transaction`                | interface           | scoped `query`/`sql`/`exec` + `rollback` + `listen` + `closed`          |
+|  [07]   | `QueryOptions`               | interface           | `rowMode`, `parsers`, `serializers`, `blob`, `onNotice`, `paramTypes`   |
+|  [08]   | `PGliteOptions<TExtensions>` | interface           | construction bag — `dataDir`, `extensions`, `relaxedDurability`, fs     |
+|  [09]   | `DescribeQueryResult`        | type                | prepared-statement param/result type descriptors                        |
+|  [10]   | `DumpDataDirResult`          | interface           | `{ tarball: Uint8Array; extension; filename }` — snapshot payload       |
+|  [11]   | `DebugLevel`                 | union `0..5`        | log verbosity                                                           |
+|  [12]   | `IdbFs` / `MemoryFS`         | class               | persistence backends — IndexedDB vs in-memory (unit lane default)       |
+|  [13]   | `Mutex`                      | class               | the single-connection serialization primitive `runExclusive` uses       |
 
 ```ts contract
 // dataDir absent ⇒ in-memory (the unit-lane default); prefer PGlite.create over `new` so extension namespaces type through.
@@ -83,12 +83,12 @@ interface PGliteOptions<TExtensions extends Extensions = Extensions> {
 
 `./template` composes SQL fragments without losing parametrization — the safe alternative to string concatenation in a spec's query builders.
 
-| [INDEX] | [SURFACE]                              | [PRODUCES]          | [CAPABILITY]                                          |
-| :-----: | :------------------------------------- | :------------------ | :---------------------------------------------------- |
-|  [01]   | `query` (tagged template)              | `TemplatedQuery`    | `{ query, params }` with `$n` placeholders assigned   |
-|  [02]   | `sql` (tagged template)                | `TemplateContainer` | nestable fragment — parametrized, composes into `query`|
-|  [03]   | `identifier` (tagged template)         | `TemplatePart`      | auto-escaped identifier (never a parameter)           |
-|  [04]   | `raw` (tagged template)                | `TemplatePart`      | verbatim string, no escaping/parametrization          |
+| [INDEX] | [SURFACE]                      | [PRODUCES]          | [CAPABILITY]                                            |
+| :-----: | :----------------------------- | :------------------ | :------------------------------------------------------ |
+|  [01]   | `query` (tagged template)      | `TemplatedQuery`    | `{ query, params }` with `$n` placeholders assigned     |
+|  [02]   | `sql` (tagged template)        | `TemplateContainer` | nestable fragment — parametrized, composes into `query` |
+|  [03]   | `identifier` (tagged template) | `TemplatePart`      | auto-escaped identifier (never a parameter)             |
+|  [04]   | `raw` (tagged template)        | `TemplatePart`      | verbatim string, no escaping/parametrization            |
 
 ```ts contract
 // query`SELECT * FROM ${identifier`t`} ${withFilter ? sql`WHERE a = ${x}` : sql``}`  → { query: 'SELECT * FROM "t" WHERE a = $1', params: [x] }
@@ -110,11 +110,11 @@ type Extensions = { [namespace: string]: Extension | URL }
 
 [SUBPATH: `./live`] — reactive queries for convergence/incremental-view specs. `live` is an `Extension`; `PGlite.create({ extensions: { live } })` types a `PGliteWithLive` whose `.live` namespace drives three modes:
 
-| [INDEX] | [SURFACE]                                      | [PRODUCES]           | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------- | :------------------- | :---------------------------------------------------- |
-|  [01]   | `live.query(sql, params?, cb?)`                | `LiveQuery<T>`       | full result set re-fired on any dependency change     |
-|  [02]   | `live.incrementalQuery(sql, params, key, cb?)` | `LiveQuery<T>`       | keyed diff-minimal re-materialization                 |
-|  [03]   | `live.changes(sql, params, key, cb?)`          | `LiveChanges<T>`     | `Change<T>[]` insert/update/delete stream by key      |
+| [INDEX] | [SURFACE]                                      | [PRODUCES]       | [CAPABILITY]                                      |
+| :-----: | :--------------------------------------------- | :--------------- | :------------------------------------------------ |
+|  [01]   | `live.query(sql, params?, cb?)`                | `LiveQuery<T>`   | full result set re-fired on any dependency change |
+|  [02]   | `live.incrementalQuery(sql, params, key, cb?)` | `LiveQuery<T>`   | keyed diff-minimal re-materialization             |
+|  [03]   | `live.changes(sql, params, key, cb?)`          | `LiveChanges<T>` | `Change<T>[]` insert/update/delete stream by key  |
 
 Each returns `{ initialResults, unsubscribe, refresh }` and accepts an options object (`LiveQueryOptions` with `signal?: AbortSignal`) as the alternative arity — one surface, request-shape discriminated.
 

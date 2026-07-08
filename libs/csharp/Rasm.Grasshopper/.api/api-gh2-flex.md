@@ -1,4 +1,4 @@
-# [API_GH2_FLEX]
+# [RASM_GRASSHOPPER_API_GH2_FLEX]
 
 Catalog scope: the Grasshopper2 flex/animation substrate — the UI-intent rail, paint hooks, repaint requests, motion pacing/springs, subscriptions, and the response vocabulary.
 

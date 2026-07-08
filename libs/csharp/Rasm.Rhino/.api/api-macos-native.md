@@ -1,4 +1,4 @@
-# [API_MACOS_NATIVE]
+# [RASM_RHINO_API_MACOS_NATIVE]
 
 Catalog scope: the macOS-native seam behind motion pacing and high-fidelity input — display-link vsync, reduce-motion accessibility, and screen-parameter observation. Every member is platform-gated; Windows paths pace on `UITimer`/idle.
 

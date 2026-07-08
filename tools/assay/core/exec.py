@@ -43,7 +43,6 @@ from tools.assay.core.govern import (
     remaining,
     reset_foreign_census,
     resource_monitor,
-    resource_sample,
     stall_monitor,
     stream_artifacts,
     touched,
@@ -307,7 +306,8 @@ async def _run_process_backend(plan: ExecPlan) -> Completed:  # closed local/rem
                                 stall,
                             )
                             tg.cancel_scope.cancel()
-                        resources = max_resources(tuple(samples) or (resource_sample(proc.pid, last_output[0]),))
+                        # The monitor's shielded first tick guarantees at least one sample.
+                        resources = max_resources(tuple(samples))
                         duration_ms = (time.monotonic() - started) * 1000.0
                         _LOG.info(
                             "process.end",

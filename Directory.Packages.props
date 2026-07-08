@@ -8,19 +8,14 @@
     <ItemGroup Label="Analyzer Tooling">
         <PackageVersion Include="Meziantou.Analyzer"                         Version="3.0.121" />
         <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"           Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Common"              Version="5.3.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"              Version="5.3.0" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"   Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common"   Version="5.3.0" />
-        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild"  Version="5.3.0" />
         <PackageVersion Include="Microsoft.VisualStudio.Threading.Analyzers" Version="18.7.23" />
         <PackageVersion Include="PolySharp"                                  Version="1.16.0" />
     </ItemGroup>
 
     <ItemGroup Label="Host Compile Surface">
-        <PackageVersion Include="System.Configuration.ConfigurationManager" Version="10.0.9" />
-        <PackageVersion Include="System.Drawing.Common"                     Version="10.0.9" />
-        <PackageVersion Include="System.IO.Packaging"                       Version="10.0.9" />
+        <PackageVersion Include="System.Drawing.Common" Version="10.0.9" />
     </ItemGroup>
 
     <ItemGroup Label="Foundational Core">
@@ -183,8 +178,6 @@
         <PackageVersion Include="FluentModbus"                                            Version="5.3.2" />
         <PackageVersion Include="FluentValidation"                                        Version="12.1.1" />
         <PackageVersion Include="FluentValidation.DependencyInjectionExtensions"          Version="12.1.1" />
-        <!-- log4net: transitive floor over BACnet -> PacketDotNet 0.19.3 -> log4net 2.0.8; lifts the NU1904-critical (GHSA-2cwj-8chv-9pp9) past the audit gate. -->
-        <PackageVersion Include="log4net"                                                 Version="3.3.2" />
         <PackageVersion Include="Microsoft.AspNetCore.Authorization"                      Version="10.0.9" />
         <PackageVersion Include="Microsoft.AspNetCore.JsonPatch.SystemTextJson"           Version="10.0.9" />
         <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent"                Version="3.2.4" />
@@ -212,7 +205,6 @@
         <PackageVersion Include="Microsoft.Extensions.Telemetry"                          Version="10.7.0" />
         <PackageVersion Include="Microsoft.Extensions.Telemetry.Abstractions"             Version="10.7.0" />
         <PackageVersion Include="Microsoft.IdentityModel.JsonWebTokens"                   Version="8.19.1" />
-        <PackageVersion Include="Microsoft.IdentityModel.Protocols"                       Version="8.19.1" />
         <PackageVersion Include="Microsoft.IdentityModel.Protocols.OpenIdConnect"         Version="8.19.1" />
         <PackageVersion Include="Microsoft.IdentityModel.Tokens"                          Version="8.19.1" />
         <PackageVersion Include="Microsoft.ML.Tokenizers"                                 Version="2.0.0" />
@@ -400,7 +392,9 @@
         <PackageVersion Include="BenchmarkDotNet"                                Version="0.15.8" />
         <PackageVersion Include="coverlet.MTP"                                   Version="10.0.1" />
         <PackageVersion Include="CsCheck"                                        Version="4.7.0" />
+        <PackageVersion Include="Microsoft.AspNetCore.TestHost"                  Version="10.0.9" />
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Analyzer.Testing" Version="1.1.4" />
+        <PackageVersion Include="Microsoft.Extensions.TimeProvider.Testing"      Version="10.7.0" />
         <PackageVersion Include="Microsoft.Testing.Extensions.CrashDump"         Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.HangDump"          Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Extensions.Retry"             Version="2.2.3" />
@@ -419,6 +413,10 @@
         <PackageVersion Include="Humanizer.Core"                                        Version="3.0.10" />
         <PackageVersion Include="Microsoft.Bcl.Memory"                                  Version="10.0.9" />
         <PackageVersion Include="Microsoft.Build.Framework"                             Version="18.7.1" />
+        <!-- Microsoft.CodeAnalysis.Common rides Microsoft.CodeAnalysis.CSharp; the Workspaces pair rides Microsoft.EntityFrameworkCore.Design and Microsoft.CodeAnalysis.CSharp.Workspaces. -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.Common"                         Version="5.3.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common"              Version="5.3.0" />
+        <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild"             Version="5.3.0" />
         <PackageVersion Include="Microsoft.Extensions.Caching.Memory"                   Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.DependencyModel"                  Version="10.0.9" />
@@ -426,6 +424,8 @@
         <PackageVersion Include="Microsoft.Extensions.Http"                             Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Logging"                          Version="10.0.9" />
         <PackageVersion Include="Microsoft.Extensions.Primitives"                       Version="10.0.9" />
+        <!-- Rides Microsoft.IdentityModel.Protocols.OpenIdConnect and OpenIddict.Client. -->
+        <PackageVersion Include="Microsoft.IdentityModel.Protocols"                     Version="8.19.1" />
         <PackageVersion Include="Microsoft.NET.StringTools"                             Version="18.7.1" />
         <PackageVersion Include="Microsoft.Testing.Extensions.Telemetry"                Version="2.2.3" />
         <PackageVersion Include="Microsoft.Testing.Platform"                            Version="2.2.3" />
@@ -444,6 +444,10 @@
         <PackageVersion Include="System.Composition.Hosting"                            Version="10.0.9" />
         <PackageVersion Include="System.Composition.Runtime"                            Version="10.0.9" />
         <PackageVersion Include="System.Composition.TypedParts"                         Version="10.0.9" />
+        <!-- Rides log4net and System.Diagnostics.PerformanceCounter (Microsoft.Extensions.Diagnostics.ResourceMonitoring). -->
+        <PackageVersion Include="System.Configuration.ConfigurationManager"             Version="10.0.9" />
+        <!-- Rides DocumentFormat.OpenXml.Framework. -->
+        <PackageVersion Include="System.IO.Packaging"                                   Version="10.0.9" />
         <PackageVersion Include="System.Management"                                     Version="10.0.9" />
         <PackageVersion Include="System.Memory"                                         Version="4.6.3" />
         <PackageVersion Include="System.Threading.RateLimiting"                         Version="10.0.9" />
@@ -454,6 +458,8 @@
         <PackageVersion Include="ClosedXML"                          Version="0.105.0" />
         <PackageVersion Include="EPPlus"                             Version="8.6.1" />
         <PackageVersion Include="Json.Net"                           Version="1.0.33" />
+        <!-- Rides BACnet -> PacketDotNet 0.19.3 -> log4net 2.0.8; the floor lifts the NU1904-critical (GHSA-2cwj-8chv-9pp9) past the audit gate. -->
+        <PackageVersion Include="log4net"                            Version="3.3.2" />
         <PackageVersion Include="Newtonsoft.Json"                    Version="13.0.4" />
         <PackageVersion Include="NJsonSchema"                        Version="11.6.1" />
         <PackageVersion Include="NJsonSchema.Annotations"            Version="11.6.1" />

@@ -199,6 +199,7 @@
     <ItemGroup Label="Test Packages">
         <PackageReference Include="coverlet.MTP" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
         <PackageReference Include="CsCheck" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true'" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true' or '$(IsTestKitProject)' == 'true'" />
         <PackageReference Include="Microsoft.Testing.Extensions.CrashDump" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
         <PackageReference Include="Microsoft.Testing.Extensions.HangDump" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
         <PackageReference Include="Microsoft.Testing.Extensions.Retry" PrivateAssets="all" Condition="'$(IsTestProject)' == 'true'" />
@@ -236,19 +237,11 @@
         <ProjectReference Include="$(TestScenarioKitRoot)Rasm.ScenarioKit.csproj" />
     </ItemGroup>
 
-    <PropertyGroup Label="Coverage" Condition="'$(IsTestProject)' == 'true'">
-        <CoverletOutputFormat>json,cobertura</CoverletOutputFormat>
-        <CoverletOutput>$(MSBuildThisFileDirectory).artifacts/coverage/$(MSBuildProjectName)/</CoverletOutput>
-        <CoverletInclude>[Rasm*]*,[Csp.*]*</CoverletInclude>
-        <CoverletExclude>[*Tests]*,[*TestKit]*</CoverletExclude>
-        <CoverletExcludeAssembliesWithoutSources>None</CoverletExcludeAssembliesWithoutSources>
-        <CoverletExcludeByFile>**/obj/**;**/*.Generated.cs;**/*.g.cs</CoverletExcludeByFile>
-        <CoverletExcludeByAttribute>System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute,System.CodeDom.Compiler.GeneratedCodeAttribute,System.Runtime.CompilerServices.CompilerGeneratedAttribute</CoverletExcludeByAttribute>
-        <CoverletSingleHit>false</CoverletSingleHit>
-        <CoverletUseSourceLink>false</CoverletUseSourceLink>
-        <CoverletSkipAutoProps>true</CoverletSkipAutoProps>
-        <CoverletDeterministicReport>true</CoverletDeterministicReport>
-        <CoverletIncludeTestAssembly>false</CoverletIncludeTestAssembly>
+    <!-- coverlet.MTP is CLI-configured; the coverlet.msbuild Coverlet* property family is inert under the MTP flavor.
+         RasmCoverage=true splices the activation tail into the MTP argument stream per test executable. -->
+    <PropertyGroup Label="Coverage" Condition="'$(IsTestProject)' == 'true' and '$(RasmCoverage)' == 'true'">
+        <RasmCoverageFormat Condition="'$(RasmCoverageFormat)' == ''">cobertura</RasmCoverageFormat>
+        <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --coverlet --coverlet-output-format $(RasmCoverageFormat) --coverlet-include "[Rasm*]*,[Csp.*]*" --coverlet-exclude "[*Tests]*,[*TestKit]*" --coverlet-file-prefix $(MSBuildProjectName)</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Workspace Usings" Condition="'$(IsLocalCSharpAnalyzerProject)' != 'true' and '$(UseWorkspaceLibraries)' == 'true'">

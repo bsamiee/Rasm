@@ -1,4 +1,4 @@
-# [API_MACOS_NATIVE]
+# [RASM_GRASSHOPPER_API_MACOS_NATIVE]
 
 Catalog scope: the macOS-native seam behind canvas motion cosmetics, gesture/pressure input, and vsync pacing inside the GH2 process. Every member is platform-gated; Windows paths pace on message-loop timers and skip the cosmetic layer.
 

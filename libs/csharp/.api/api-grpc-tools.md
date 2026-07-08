@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_GRPC_TOOLS]
+# [RASM_API_GRPC_TOOLS]
 
 `Grpc.Tools` supplies build-time protocol generation, MSBuild targets, `.proto`
 item metadata, compiler binaries, import protos, and generated client seams.

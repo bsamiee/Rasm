@@ -1,0 +1,20 @@
+language js(typescript, jsx)
+
+// BOUNDARY_ADMISSION promotion. Trigger: a raw `fetch` call in domain flow. Predicate: any global
+// fetch invocation outside an Effect.tryPromise/Effect.promise/Effect.tryMapPromise admission
+// callback — HTTP rides @effect/platform HttpClient on the requirement channel with typed faults,
+// retry Schedules, and traced spans; a bare fetch mints a second untyped rail beside it. Exemption:
+// fetch inside those callbacks is the sanctioned FFI seam the typed rail decodes.
+// FIRES: const eager = fetch('https://api.test/rows');
+// FIRES: const rows = async (url: string) => (await fetch(url)).json();
+// CLEAN: const admitted = Effect.tryPromise({ try: async () => (await fetch(url)).json(), catch: (cause) => new WireFault({ cause }) });
+// CLEAN: const wired = Effect.flatMap(HttpClient.HttpClient, (client) => client.get('/rows'));
+or {
+    `fetch($args)`,
+    `globalThis.fetch($args)`
+} as $hit where {
+    $hit <: not within `Effect.tryPromise($_)` ,
+    $hit <: not within `Effect.promise($_)` ,
+    $hit <: not within `Effect.tryMapPromise($_)` ,
+    register_diagnostic(span=$hit, message="Raw fetch in domain flow. HTTP is HttpClient material on the requirement channel — typed faults, Schedule retry, traced spans; a platform fetch survives only inside an Effect.tryPromise admission at its owning FFI seam.", severity="error")
+}

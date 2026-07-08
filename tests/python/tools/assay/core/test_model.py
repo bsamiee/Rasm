@@ -24,7 +24,6 @@ from tests.python.tools.assay.kit import (
     artifact_st,
     assert_counts_consistent,
     binds_st,
-    check_st,
     completed_st,
     counts_st,
     detail_st,
@@ -105,7 +104,6 @@ _DETAIL_VARIANTS: tuple[type[Detail], ...] = get_args(AnyDetail.__value__)
 _WIRE_ROWS: tuple[tuple[type[Base], st.SearchStrategy[Base]], ...] = (
     (Stage, stage_st),
     (Tool, tool_st),
-    (Check, check_st),
     (Artifact, artifact_st),
     (Completed, completed_st),
     (ExecReceipt, exec_receipt_st),
@@ -169,6 +167,22 @@ COVERS: tuple[object, ...] = (
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [WIRE_ROUNDTRIP]
+
+
+@spec(Check, law="execution_model_never_wire")
+def test_check_draws_live_paths_and_the_wire_encoder_refuses_them(check: Check) -> None:
+    """Check is the in-process execution plan, never a wire struct.
+
+    Drawn ``cwd`` Paths are live values, and the hook-free wire encoder refuses a cwd-bearing
+    Check by construction.
+    """
+    match check.cwd:
+        case None:
+            pass
+        case cwd:
+            assert isinstance(cwd, Path), f"cwd drew {cwd!r}, not a Path"
+            with pytest.raises(TypeError, match="unsupported"):
+                wire_encode(check)
 
 
 @pytest.mark.mutation

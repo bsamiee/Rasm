@@ -56,6 +56,7 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Avalonia`
 - `Avalonia.Desktop`
 - `Avalonia.Headless`
+- `Avalonia.Headless.XUnit` — `[AvaloniaFact]`/`[AvaloniaTheory]` per-test headless session carrier; the AppUi test-shell csproj carries the reference.
 - `Avalonia.Themes.Fluent`
 - `Avalonia.Fonts.Inter`
 - `Avalonia.Controls.DataGrid`
@@ -87,10 +88,10 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `SkiaSharp`
 - `SkiaSharp.HarfBuzz`
 - `SkiaSharp.NativeAssets.macOS`
-- `SkiaSharp.NativeAssets.Linux` — distribution-closure floor (central pin; the csproj carries the macOS natives)
-- `SkiaSharp.NativeAssets.Linux.NoDependencies` — distribution-closure floor (central pin)
+- `SkiaSharp.NativeAssets.Linux` — transitive distribution-closure floor (central pin only)
+- `SkiaSharp.NativeAssets.Linux.NoDependencies` — glibc-only Linux natives for the headless proof lane
 - `HarfBuzzSharp.NativeAssets.macOS`
-- `HarfBuzzSharp.NativeAssets.Linux` — distribution-closure floor (central pin)
+- `HarfBuzzSharp.NativeAssets.Linux` — transitive distribution-closure floor (central pin only)
 - `Svg.Controls.Skia.Avalonia`
 - `Svg.Skia`
 
@@ -112,7 +113,6 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `FluentIcons.Common`
 - `Markdig`
 - `PanAndZoom`
-- `Wacton.Unicolour`
 
 [LAYOUT]:
 - `Kiwi`
@@ -150,7 +150,6 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 [GRAPH_MAP_SURFACES]:
 - `NodeEditorAvalonia`
 - `Mapsui.Avalonia12`
-- `QuikGraph`
 
 [COLLABORATION_LOCALE]:
 - `LoroCs`
@@ -187,3 +186,9 @@ Substrate libraries from the C# registry that this folder consumes directly. Ful
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet`
+
+[GRAPH_ALGORITHM]:
+- `QuikGraph` — the parametric graph-canvas topology walks behind `Editing/graph.md`.
+
+[COLOR_SCIENCE]:
+- `Wacton.Unicolour` — perceptual color math for theme tokens, gamut-safe palettes, and contrast proofs.

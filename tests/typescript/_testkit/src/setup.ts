@@ -1,8 +1,12 @@
-// Boot-edge runner setup: structural Equal.equals equality for Effect data in every toEqual across the estate.
+// Boot-edge runner setup: structural Equal.equals equality for Effect data in every toEqual across
+// the estate — the unit lane and the browser lane boot through this one file.
 import { addEqualityTesters } from '@effect/vitest';
 
 addEqualityTesters();
 
 // VM container runtimes expose the daemon socket at /var/run/docker.sock inside the VM while DOCKER_HOST
 // names the host-side path Ryuk cannot mount; the daemon-side default holds for every runtime, env wins.
-process.env['TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE'] ??= '/var/run/docker.sock';
+// The write binds only where a process env exists, so the same boot file arms the browser lane.
+if (typeof process !== 'undefined') {
+    process.env['TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE'] ??= '/var/run/docker.sock';
+}

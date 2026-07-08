@@ -6,17 +6,17 @@ Authoring law for every Python spec, kit member, and tool suite under `tests/pyt
 
 `tests/python/_testkit` is the one project-agnostic kit; extend the owning module, never add a helper file:
 
-| [INDEX] | [MODULE]        | [OWNS]                                                                                                    |
-| :-----: | :-------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `spec.py`       | pure assertion oracles: algebraic laws, `refutes`, the matrix folds, `Result`/`Option` rail asserts, `assert_roundtrip`, `model_based` plus the stateful/guided-search vocabulary (`rule`, `initialize`, `precondition`, `invariant`, `Bundle`, `consumes`, `multiple`, `target`) |
-|  [02]   | `strategies.py` | `resolve(subject)` — the one Hypothesis strategy resolver over msgspec and pydantic-core schema algebras; defaulted struct fields sample presence and absence so the `UNSET`/omitted wire lane generates |
-|  [03]   | `seams.py`      | the `Shape` call-shape union (`Sync`/`Async`/`FanOut`/`Factory`), `SeamProbe`, `Loopback`, `loopback_server`/`grpc_loopback`, `VariantWriter`, `TmpRoot`/`tmp_root`, `NdjsonOracle`, `autospec_proc`, module-attr doubles |
-|  [04]   | `env.py`        | declarative environment doubles: `SshHost`, `RemoteFS`, `ObjectStore`, `Provisioned`, one polymorphic `provision` dispatch |
-|  [05]   | `bench.py`      | `BenchCase` registry rows, `case_params`/`run_bench`/`run_registry`, absolute-budget gates, sustained-regression detection |
-|  [06]   | `laws.py`       | `@spec` law registration, declarative `COVERS` consumption, `auto_exempt`, `LawRecord`/`MANIFEST`, SUT registration, `assert_law_coverage` — the law-coverage census gate |
-|  [07]   | `runtime.py`    | the pytest plugin: Hypothesis profiles + example database, marker auto-application, observability and profiling artifact routing |
+| [INDEX] | [MODULE]        | [OWNS]                                                                                                                                                                                                                                                                            |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `spec.py`       | pure assertion oracles: algebraic laws, `refutes`, the matrix folds, the `close`/`assert_close` tolerance algebra, `Result`/`Option` rail asserts, `assert_roundtrip` over both wire legs (`MSGPACK_CODEC`), `model_based` plus the stateful/guided-search vocabulary (`rule`, `initialize`, `precondition`, `invariant`, `Bundle`, `consumes`, `multiple`, `target`) |
+|  [02]   | `strategies.py` | `resolve(subject)` — the one Hypothesis strategy resolver over msgspec and pydantic-core schema algebras; defaulted struct fields sample presence and absence so the `UNSET`/omitted wire lane generates                                                                          |
+|  [03]   | `seams.py`      | the `Shape` call-shape union (`Sync`/`Async`/`FanOut`/`Factory`), `SeamProbe`, `Loopback`, `loopback_server`/`grpc_loopback`, `VariantWriter`, `TmpRoot`/`tmp_root`, `NdjsonOracle`, `autospec_proc`, module-attr doubles                                                         |
+|  [04]   | `env.py`        | declarative environment doubles: `SshHost`, `RemoteFS`, `ObjectStore`, `Provisioned`, one polymorphic `provision` dispatch                                                                                                                                                        |
+|  [05]   | `bench.py`      | `BenchCase` registry rows, `case_params`/`run_bench`/`run_registry`, absolute-budget gates, sustained-regression detection                                                                                                                                                        |
+|  [06]   | `laws.py`       | `@spec` law registration, declarative `COVERS` consumption, `auto_exempt`, `LawRecord`/`MANIFEST`, SUT registration (`register_sut` per conftest, `register_tree` from disk shape), `assert_law_coverage` — the law-coverage census gate                                          |
+|  [07]   | `runtime.py`    | the pytest plugin: Hypothesis profiles + example database, marker auto-application, observability and profiling artifact routing                                                                                                                                                  |
 
-`test_spec.py`, `test_strategies.py`, `test_seams.py`, `test_env.py`, and `test_policy.py` are the kit's own falsification suites: every oracle proven able to pass and to fail — the guided-search vocabulary included — the strategy resolver's constraint/omission/sign/type-form algebra (exclusive edges, decimal multiples, and digit budgets included), the seam substrate (call-shape recording, fixture writers, decode oracles, process doubles), environment doubles plus loopback capsules, and the SUT-agnostic policy meta-laws over registered packages, declared markers, benchmark hooks — including the sustained-regression fold — observability routing, the snapshot rail's report-versus-fix split, Hypothesis profile lane invariants, and litter containment. A kit capability without a falsification law here is unproven and gets deleted or proven, never trusted. Per-package suites live in `tests/python/libs/<package>/` mirroring `libs/python`, and each package `conftest.py` composes the shared kit instead of redeclaring it; tool suites live in `tests/python/tools/<tool>/`.
+`test_spec.py`, `test_strategies.py`, `test_seams.py`, `test_env.py`, `test_corpus.py`, and `test_policy.py` are the kit's own falsification suites: every oracle proven able to pass and to fail — the guided-search vocabulary included — the strategy resolver's constraint/omission/sign/type-form algebra (exclusive edges, decimal multiples, and digit budgets included), the seam substrate (call-shape recording, fixture writers, decode oracles, process doubles), environment doubles plus loopback capsules, and the SUT-agnostic policy meta-laws over registered packages, declared markers, benchmark hooks — including the sustained-regression fold — observability routing, the snapshot rail's report-versus-fix split, Hypothesis profile lane invariants, and litter containment. A kit capability without a falsification law here is unproven and gets deleted or proven, never trusted. Per-package suites live in `tests/python/libs/<package>/` mirroring `libs/python`, and each package `conftest.py` composes the shared kit instead of redeclaring it; tool suites live in `tests/python/tools/<tool>/`. The root `tests/python/conftest.py` is the one registration owner: `register_tree` derives every `libs/python` SUT from disk shape — a package registers the moment it carries source — so per-suite conftests compose fixtures and seams only, and a tool suite registers itself in its own conftest. Dev-plane package catalogs live in `tests/python/.api/`, one per test-stack package.
 
 ## [02]-[LAW_REGISTRATION]
 
@@ -39,8 +39,9 @@ Hypothesis profiles are registered once in `runtime.py` and selected by name: `r
 Algebraic, matrix, rail, and stateful proofs ride the kit oracles:
 - Algebraic families prove through the `spec` oracles — `roundtrip`, `identity`, `idempotent`, `involution`, `inverse`, `commutative`, `associative`, `distributive`, `absorbing`, `identity_element`, `monotone`, `permutation_invariant`, `metamorphic`, `metamorphic_sweep` — each parameterized by an explicit equality policy.
 - Every law family carries a refuting witness through `refutes`: a known-broken input the law must fail on, proving the law can fail at all.
-- Case families fold as matrices, never fact-per-case spam: `validity_matrix` over `ValidityCase` rows, `projection_matrix` over `ProjectionCase` rows, `support_matrix` over probe rows. A new case is a row.
-- Rail outcomes prove through `assert_ok`, `assert_error`, `assert_error_status`, `assert_some`, and `assert_none` — never truthiness checks or `isinstance` dances on the carrier.
+- Case families fold as matrices, never fact-per-case spam: `validity_matrix` over `ValidityCase` rows, `projection_matrix` over `ProjectionCase` rows, `support_matrix` over probe rows. A new case is a row, and a fold handed the `subtests` fixture (the `RowCarrier` protocol) reports every breached row independently instead of stopping at the first.
+- Rail outcomes prove through `assert_ok`, `assert_error`, `assert_error_status`, `assert_some`, and `assert_none` — never truthiness checks or `isinstance` dances on the carrier; `RuntimeRail` values are `expression` Results, so the same asserts own them and `attr="tag"` matches a `BoundaryFault` arm.
+- Numeric, array, quantity, struct, rail-carried, and container facts prove under one tolerance policy: `close(rel_tol=, abs_tol=)` slots into any oracle's `eq` axis, `Result`/`Option`/`Block` carriers compare payload-recursively, and `assert_close` names the first diverging structural path. Deadline, retry, and drain laws run in wall-microseconds under `autojump_backend`.
 - Stateful subjects prove through `model_based` over a `RuleBasedStateMachine` under the `rasm-stateful` profile, composing `rule`/`initialize`/`precondition`/`Bundle`/`consumes` from the kit surface; `target` guides search toward extremal observations under the `rasm-stress` profile's target phase. Process-boundary output decodes through `NdjsonOracle`, never string-contains scraping.
 
 ## [04]-[SEAMS]
@@ -51,19 +52,19 @@ Seam substitution dispatches on the `Shape` variant — `Sync`, `Async`, `FanOut
 
 The marker taxonomy is closed and declared in `pyproject.toml`; the runtime plugin auto-applies `network` and `property` from fixture and Hypothesis membership:
 
-| [INDEX] | [MARKER]     | [MEANING]                                                                              |
-| :-----: | :----------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `property`   | Hypothesis-driven law                                                                  |
-|  [02]   | `network`    | real INET sockets lifted: loopback servers or egress; excluded from mutation lanes     |
-|  [03]   | `subprocess` | spawns the real CLI in a child interpreter; excluded from mutation lanes               |
-|  [04]   | `benchmark`  | measurement session, excluded from the default run                                     |
-|  [05]   | `mutation`   | mutation-acceptance and survivor-triage laws                                           |
+| [INDEX] | [MARKER]     | [MEANING]                                                                          |
+| :-----: | :----------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `property`   | Hypothesis-driven law                                                              |
+|  [02]   | `network`    | real INET sockets lifted: loopback servers or egress; excluded from mutation lanes |
+|  [03]   | `subprocess` | spawns the real CLI in a child interpreter; excluded from mutation lanes           |
+|  [04]   | `benchmark`  | measurement session, excluded from the default run                                 |
+|  [05]   | `mutation`   | mutation-acceptance and survivor-triage laws                                       |
 
 The default run is the unit lane: sockets disabled through pytest-socket, benchmarks deselected, the `rasm` profile active. The `network` and `subprocess` markers are the Python spelling of the integration lane. The mutation lane is a staged gate under assay: mutmut policy lives in `pyproject.toml` `[tool.mutmut]` with the absolute-path coverage side-file `.config/coverage-mutmut.ini`, and `subprocess`-marked tests stay out because children execute the unmutated tree. The config's per-mutant timeout bounds cap any bare `mutmut run`; concurrency is CLI-owned (`--max-children`, assay-governed).
 
 ## [06]-[SNAPSHOTS]
 
-inline-snapshot owns genuine wire goldens only — payloads an independent producer emits — with storage under `.cache/inline-snapshot` and mismatch reporting that never auto-mutates snapshots. dirty-equals carries partial-structure assertions inside larger facts. inline-snapshot is also the Python round-trip rail for `tests/contracts/` assets under the corpus law in [tests/contracts/README.md](../contracts/README.md).
+inline-snapshot owns genuine wire goldens only — payloads an independent producer emits — with storage under `.cache/inline-snapshot` and mismatch reporting that never auto-mutates snapshots. dirty-equals carries partial-structure assertions inside larger facts. The contracts corpus rides `corpus.py`: `load_manifest` decodes `tests/contracts/MANIFEST.md`, the `audit` fold gates pin-state honesty and producer-anchor resolution, and `assert_corpus_roundtrip` proves byte-identical re-encode over every emitted `REAL` asset under the corpus law in [tests/contracts/README.md](../contracts/README.md).
 
 ## [07]-[DENSITY_AND_BANS]
 

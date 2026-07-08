@@ -56,6 +56,7 @@ declare namespace PgLane {
             schema: Schema.Schema<A, I, never>,
         ) => (statement: string, params?: ReadonlyArray<unknown>) => Effect.Effect<ReadonlyArray<A>, HarnessFault | ParseResult.ParseError>;
         readonly listen: (channel: string) => Effect.Effect<Mailbox.ReadonlyMailbox<string, HarnessFault>, HarnessFault, Scope.Scope>;
+        readonly sandbox: <A, E, R>(work: Effect.Effect<A, E, R>) => Effect.Effect<A, E | HarnessFault, R>;
     };
     type ContainerOptions = {
         readonly image: string;
@@ -118,6 +119,10 @@ class HarnessFault extends Data.TaggedError('HarnessFault')<{
             });
 }
 
+// Kit-internal rollback sentinel: the sandbox always fails its transaction with this carrier, so the
+// engine rolls back and the caller's verdict rides out intact.
+class _Rollback<A> extends Data.TaggedError('rasm-testkit/Rollback')<{ readonly verdict: A }> {}
+
 // --- [SERVICES] --------------------------------------------------------------------------
 
 class Loopback extends Context.Tag('rasm-testkit/Loopback')<
@@ -161,7 +166,12 @@ const _byKeyBytes: Order.Order<string> = (self, that) => {
     return left.length === right.length ? 0 : left.length < right.length ? -1 : 1;
 };
 
-const _lane = (exec: PgLane.Service['exec'], rows: PgLane.Service['rows'], listen: PgLane.Service['listen']): PgLane.Service => ({
+const _lane = (
+    exec: PgLane.Service['exec'],
+    rows: PgLane.Service['rows'],
+    listen: PgLane.Service['listen'],
+    sandbox: PgLane.Service['sandbox'],
+): PgLane.Service => ({
     exec,
     rows,
     decoded: (schema) => {
@@ -169,7 +179,30 @@ const _lane = (exec: PgLane.Service['exec'], rows: PgLane.Service['rows'], liste
         return (statement, params) => Effect.flatMap(rows(statement, params), decode);
     },
     listen,
+    sandbox,
 });
+
+// The single-connection sandbox: BEGIN/ROLLBACK brackets the work, so writes never outlive the test;
+// a failed rollback is a die — polluted lane state must never pass silently.
+const _bracketSandbox =
+    (exec: PgLane.Service['exec']): PgLane.Service['sandbox'] =>
+    (work) =>
+        Effect.acquireUseRelease(
+            exec('BEGIN'),
+            () => work,
+            () => Effect.orDie(exec('ROLLBACK')),
+        );
+
+// The pooled-driver sandbox: work joins the fiber-scoped transaction connection through
+// withTransaction, and the sentinel failure forces the engine's own rollback on every path.
+const _clientSandbox =
+    (pg: PgClient.PgClient): PgLane.Service['sandbox'] =>
+    <A, E, R>(work: Effect.Effect<A, E, R>) =>
+        pipe(
+            pg.withTransaction(Effect.flatMap(Effect.either(work), (verdict) => Effect.fail(new _Rollback({ verdict })))),
+            Effect.catchAll((fault) => (fault instanceof _Rollback ? Effect.succeed(fault.verdict) : Effect.fail(HarnessFault.engine('pg')(fault)))),
+            Effect.flatten,
+        );
 
 // Container rows are DATA on the one builder: a new lane is a row, never a new mechanism. Images are caller-owned — the polyglot pin lives in tests/containers.json, never in the kit.
 const Containers = {
@@ -304,6 +337,7 @@ const _pgFromClient = (seed?: string): Layer.Layer<PgLane, HarnessFault, PgClien
                 (statements) => Effect.asVoid(Effect.mapError(pg.unsafe(statements), fault)),
                 (statement, params) => Effect.mapError(pg.unsafe(statement, params === undefined ? undefined : [...params]), fault),
                 _pgClientListen(pg),
+                _clientSandbox(pg),
             );
             yield* seed === undefined ? Effect.void : lane.exec(seed);
             return lane;
@@ -327,14 +361,16 @@ const PgLanes = {
                 );
                 const seed = lane.seed;
                 yield* seed === undefined ? Effect.void : _guarded('pg', () => db.exec(seed));
+                const exec: PgLane.Service['exec'] = (statements) => Effect.asVoid(_guarded('pg', () => db.exec(statements)));
                 return _lane(
-                    (statements) => Effect.asVoid(_guarded('pg', () => db.exec(statements))),
+                    exec,
                     (statement, params) =>
                         Effect.map(
                             _guarded('pg', () => db.query(statement, params === undefined ? undefined : [...params])),
                             (result) => result.rows,
                         ),
                     _pgliteListen(db),
+                    _bracketSandbox(exec),
                 );
             }),
         );

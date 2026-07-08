@@ -12,15 +12,15 @@
 
 ## [01]-[PROVIDER_MODULE]
 
-[PUBLIC_TYPE_SCOPE]: the resolved provider — one class owns collect → remap → report → threshold; you configure it, never call it.
+[PUBLIC_TYPE_SCOPE]: the resolved provider — one class owns collect → remap → report → threshold; configuration is the whole contract — no spec calls it.
 
-| [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY]     | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :------------------------------------------- | :---------------- | :------------------------------------------------------------------- |
-|  [01]   | `default: CoverageProviderModule`            | module (`.`)      | `getProvider()` + `start/take/stopCoverage` worker hooks — what `provider:'v8'` loads |
-|  [02]   | `V8CoverageProvider` (`./provider`)          | class             | `extends BaseCoverageProvider implements CoverageProvider`; `name:"v8"` |
-|  [03]   | `BaseCoverageProvider` (from `vitest/node`)  | abstract base     | shared report/threshold engine both v8 + istanbul extend             |
-|  [04]   | `CoverageProvider`/`CoverageProviderModule`  | contract (`vitest/node`) | the interface a `customProviderModule` implements to add a provider row |
-|  [05]   | `ScriptCoverageWithOffset`                   | type              | `Profiler.ScriptCoverage` + `startOffset` — the raw V8 source frame  |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]            | [CAPABILITY]                                                                          |
+| :-----: | :------------------------------------------ | :----------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `default: CoverageProviderModule`           | module (`.`)             | `getProvider()` + `start/take/stopCoverage` worker hooks — what `provider:'v8'` loads |
+|  [02]   | `V8CoverageProvider` (`./provider`)         | class                    | `extends BaseCoverageProvider implements CoverageProvider`; `name:"v8"`               |
+|  [03]   | `BaseCoverageProvider` (from `vitest/node`) | abstract base            | shared report/threshold engine both v8 + istanbul extend                              |
+|  [04]   | `CoverageProvider`/`CoverageProviderModule` | contract (`vitest/node`) | the interface a `customProviderModule` implements to add a provider row               |
+|  [05]   | `ScriptCoverageWithOffset`                  | type                     | `Profiler.ScriptCoverage` + `startOffset` — the raw V8 source frame                   |
 
 ```ts contract
 // index.d.ts — the default export is the module vitest loads for provider:'v8'; you never construct it.
@@ -52,17 +52,17 @@ declare class BaseCoverageProvider {
 
 `test.coverage` is ONE `CoverageOptions` object — a `provider` discriminant plus include/report/threshold policy. This is the config the design's `defineConfig` binds; `coverageConfigDefaults` (from `vitest/config`) is the spread-in baseline.
 
-| [INDEX] | [FIELD]                                      | [SHAPE]                         | [CAPABILITY / BOUNDARY]                                          |
-| :-----: | :------------------------------------------- | :------------------------------ | :--------------------------------------------------------------- |
-|  [01]   | `provider`                                   | `"v8"\|"istanbul"\|"custom"`    | the discriminant; `'v8'` default loads THIS package              |
-|  [02]   | `enabled`                                     | `boolean`                       | `false` default; `--coverage` overrides                         |
-|  [03]   | `include`/`exclude`                          | `string[]` globs                | `exclude` checked after `include`; both source-side             |
-|  [04]   | `reporter`                                    | `Arrayable<CoverageReporter>` \| `[name, opts][]` | istanbul reporter roster (`text`/`html`/`html-spa`/`lcov`/`json`/`clover`/`cobertura`…); tuple form carries per-reporter options |
-|  [05]   | `reportsDirectory`/`htmlDir`/`reportOnFailure`| `string`/`boolean`              | output location; `htmlDir` is auto-set for `html`/`lcov`; `reportOnFailure` emits even when specs fail |
-|  [06]   | `thresholds`                                 | `Thresholds \| { [glob]: … }`   | the pass gate — see [03]                                        |
-|  [07]   | `clean`/`cleanOnRerun`/`skipFull`/`allowExternal`/`excludeAfterRemap` | `boolean` | lifecycle + report shaping; `excludeAfterRemap` re-applies excludes after AST remap |
-|  [08]   | `instrumenter`                               | `(o: InstrumenterOptions) => CoverageInstrumenter` | v4 experimental — plug a faster instrumenter (oxc/SWC) into the istanbul pipeline |
-|  [09]   | `customProviderModule`                       | `string`                        | module path a `provider:'custom'` loads — the extension point   |
+| [INDEX] | [FIELD]                                                               | [SHAPE]                                            | [CAPABILITY]                                                                                                                     |
+| :-----: | :-------------------------------------------------------------------- | :------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `provider`                                                            | `"v8"\|"istanbul"\|"custom"`                       | the discriminant; `'v8'` default loads THIS package                                                                              |
+|  [02]   | `enabled`                                                             | `boolean`                                          | `false` default; `--coverage` overrides                                                                                          |
+|  [03]   | `include`/`exclude`                                                   | `string[]` globs                                   | `exclude` checked after `include`; both source-side                                                                              |
+|  [04]   | `reporter`                                                            | `Arrayable<CoverageReporter>` \| `[name, opts][]`  | istanbul reporter roster (`text`/`html`/`html-spa`/`lcov`/`json`/`clover`/`cobertura`…); tuple form carries per-reporter options |
+|  [05]   | `reportsDirectory`/`htmlDir`/`reportOnFailure`                        | `string`/`boolean`                                 | output location; `htmlDir` is auto-set for `html`/`lcov`; `reportOnFailure` emits even when specs fail                           |
+|  [06]   | `thresholds`                                                          | `Thresholds \| { [glob]: … }`                      | the pass gate — see [03]                                                                                                         |
+|  [07]   | `clean`/`cleanOnRerun`/`skipFull`/`allowExternal`/`excludeAfterRemap` | `boolean`                                          | lifecycle + report shaping; `excludeAfterRemap` re-applies excludes after AST remap                                              |
+|  [08]   | `instrumenter`                                                        | `(o: InstrumenterOptions) => CoverageInstrumenter` | v4 experimental — plug a faster instrumenter (oxc/SWC) into the istanbul pipeline                                                |
+|  [09]   | `customProviderModule`                                                | `string`                                           | module path a `provider:'custom'` loads — the extension point                                                                    |
 
 ```ts contract
 interface CoverageOptions {

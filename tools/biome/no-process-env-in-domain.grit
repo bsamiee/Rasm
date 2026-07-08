@@ -1,0 +1,15 @@
+language js(typescript, jsx)
+
+// CAPABILITY_CHANNEL promotion. Trigger: an ambient `process.env` read in library code. Predicate:
+// any process.env member access — dot, bracket, or the bare bag — because configuration travels the
+// requirement channel as Config declared at the owner, and the composition root's ConfigProvider
+// owns the one environment read. Exemption: none in-pattern; config anchors sit outside the plugin
+// scope and spec/bench dialects ride the negated include globs.
+// FIRES: const url = process.env['API_URL'];
+// FIRES: const mode = process.env.NODE_ENV;
+// FIRES: const bag = { ...process.env };
+// CLEAN: const url = Config.string('API_URL');
+// CLEAN: const key = Config.redacted('API_KEY');
+`process.env` as $hit where {
+    register_diagnostic(span=$hit, message="Ambient process.env read in library code. Configuration travels the requirement channel: declare Config.string/Config.redacted at the owner and let the composition root's ConfigProvider own the environment read.", severity="error")
+}

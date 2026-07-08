@@ -267,14 +267,16 @@ def test_yakmeta_from_props_matrix(drop_key: str | None, assay_root: AssayHarnes
             assert key in e.message
 
 
-@spec(YakMeta, law="roundtrip_encode_clean")
-def test_yakmeta_roundtrip(m: YakMeta) -> None:
-    """YakMeta round-trips through msgspec JSON; Path-typed fields resolve to None via CustomType arm."""
-    none_path = m.manifest_dir is None or m.target_dir is None or m.yak_path is None
-    none_dir = m.package_dir is None or m.project_dir is None
-    if none_path or none_dir:
-        return
-    assert_roundtrip(m, YakMeta)
+@spec(YakMeta, law="drawn_meta_carries_real_paths")
+def test_yakmeta_drawn_paths_are_real(m: YakMeta) -> None:
+    """Every drawn YakMeta carries live Path values — the resolver's opaque-leaf lane generates, never a None placeholder.
+
+    YakMeta is an evaluation model, not a wire struct: msgspec owns no Path codec, and the plan
+    detail crosses the wire as the string-projected ``PackageRun``.
+    """
+    for field in ("manifest_dir", "target_dir", "yak_path", "package_dir", "project_dir"):
+        value = getattr(m, field)
+        assert isinstance(value, Path), f"{field} drew {value!r}, not a Path"
 
 
 # --- [EVALUATE_META_AND_PLAN]

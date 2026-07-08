@@ -50,12 +50,17 @@
             "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         { "path": "./tools/biome/no-domain-throw.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
+        { "path": "./tools/biome/no-fetch-in-domain.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
         {
             "path": "./tools/biome/no-mutable-accumulation.grit",
             "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-nullable-return.grit",
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+        },
+        {
+            "path": "./tools/biome/no-process-env-in-domain.grit",
             "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         { "path": "./tools/biome/no-rename-wrapper.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
@@ -100,6 +105,21 @@
             "trailingCommas": "all"
         }
     },
+    "overrides": [
+        {
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
+            "linter": {
+                "rules": {
+                    "style": {
+                        "noDefaultExport": "error"
+                    },
+                    "suspicious": {
+                        "noConsole": "error"
+                    }
+                }
+            }
+        }
+    ],
     "assist": {
         "enabled": true,
         "actions": {

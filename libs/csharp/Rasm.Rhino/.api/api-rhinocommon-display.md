@@ -1,4 +1,4 @@
-# [API_RHINOCOMMON_DISPLAY]
+# [RASM_RHINO_API_RHINOCOMMON_DISPLAY]
 
 Catalog scope: the view, viewport, camera, display-pipeline, conduit, and capture surface — everything between document geometry and pixels.
 

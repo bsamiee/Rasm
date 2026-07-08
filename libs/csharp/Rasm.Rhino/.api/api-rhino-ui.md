@@ -1,4 +1,4 @@
-# [API_RHINO_UI]
+# [RASM_RHINO_API_RHINO_UI]
 
 Catalog scope: the `Rhino.UI` native integration surface — panel registration, Eto bridging, native dialogs, page adapters, gumball, mouse callbacks, status/toolbar chrome.
 

@@ -4,24 +4,24 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 
 ## [01]-[LEDGER]
 
-| [INDEX] | [FIXTURE]               | [SEAM]              | [PRODUCER]                                              | [PAYLOAD]                    | [PIN]      |
-| :-----: | :---------------------- | :------------------ | :------------------------------------------------------ | :--------------------------- | :--------- |
-|  [01]   | CANONICAL_BYTE_IDENTITY | `content-identity`  | `csharp:Rasm/Geometry/Spatial/reconciliation`           | `wire-bytes` + `digest`      | REAL       |
-|  [02]   | MATERIAL_LAYER_GOLDEN   | `content-identity`  | `csharp:Rasm.Element/Projection/address`                | `wire-bytes` + `digest`      | DESIGN-PIN |
-|  [03]   | CLASH_GOLDEN            | `clash-golden`      | `csharp:Rasm/Geometry/Spatial/index`                    | `wire-bytes`                 | REAL       |
-|  [04]   | FAULT_TRIPLES           | `fault-triples`     | `csharp:Rasm.Compute/Runtime/channels`                  | `wire-bytes` + `canonical-json` | DESIGN-PIN |
-|  [05]   | CRDT_OP_SET             | `crdt-op-set`       | `csharp:Rasm.Persistence/Version/commits`               | `wire-bytes`                 | DESIGN-PIN |
-|  [06]   | GLB_BY_KEY              | `glb-by-key`        | `csharp:Rasm.Compute/Runtime/codecs`                    | `wire-bytes` + `digest`      | DESIGN-PIN |
-|  [07]   | HLC_TWO_HALF            | `hlc-two-half`      | `csharp:Rasm.AppHost/Runtime/ports`                     | `wire-bytes`                 | DESIGN-PIN |
-|  [08]   | IFC_WIRE                | `ifc-wire`          | `csharp:Rasm.Bim/Exchange/wire`                         | `wire-bytes` + `digest`      | DESIGN-PIN |
-|  [09]   | DESCRIPTOR_DRIFT        | `descriptor-drift`  | two descriptor sources, named in the entry              | `descriptor-set`             | DESIGN-PIN |
+| [INDEX] | [FIXTURE]               | [SEAM]             | [PRODUCER]                                 | [PAYLOAD]                       | [PIN]      |
+| :-----: | :---------------------- | :----------------- | :----------------------------------------- | :------------------------------ | :--------- |
+|  [01]   | CANONICAL_BYTE_IDENTITY | `content-identity` | `csharp:Rasm/Spatial/reconciliation`       | `wire-bytes` + `digest`         | REAL       |
+|  [02]   | MATERIAL_LAYER_GOLDEN   | `content-identity` | `csharp:Rasm.Element/Projection/address`   | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [03]   | CLASH_GOLDEN            | `clash-golden`     | `csharp:Rasm/Spatial/index`                | `wire-bytes`                    | REAL       |
+|  [04]   | FAULT_TRIPLES           | `fault-triples`    | `csharp:Rasm.Compute/Runtime/wire`         | `wire-bytes` + `canonical-json` | DESIGN-PIN |
+|  [05]   | CRDT_OP_SET             | `crdt-op-set`      | `csharp:Rasm.Persistence/Version/commits`  | `wire-bytes`                    | DESIGN-PIN |
+|  [06]   | GLB_BY_KEY              | `glb-by-key`       | `csharp:Rasm.Compute/Runtime/codecs`       | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [07]   | HLC_TWO_HALF            | `hlc-two-half`     | `csharp:Rasm.AppHost/Runtime/ports`        | `wire-bytes`                    | DESIGN-PIN |
+|  [08]   | IFC_WIRE                | `ifc-wire`         | `csharp:Rasm.Bim/Exchange/wire`            | `wire-bytes` + `digest`         | DESIGN-PIN |
+|  [09]   | DESCRIPTOR_DRIFT        | `descriptor-drift` | two descriptor sources, named in the entry | `descriptor-set`                | DESIGN-PIN |
 
 ## [02]-[ENTRIES]
 
 ### [02.1]-[CANONICAL_BYTE_IDENTITY]
 
 - Seam: `content-identity`
-- Producer: `csharp:Rasm/Geometry/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY`
+- Producer: `csharp:Rasm/Spatial/reconciliation#CANONICAL_BYTE_IDENTITY`
 - Consumers: `python:runtime/evidence/identity#SEED_REPRODUCTION`; `typescript:core/value/contentKey` (delegating sites `core/interchange/frame`, `runtime/browser/fetch`, `data/object/store`; readers in `tests/typescript/_testkit`); the C# shared-corpus harness under `tests/csharp`.
 - Payload: `wire-bytes` + `digest`
 - Pin: REAL
@@ -43,7 +43,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 ### [02.3]-[CLASH_GOLDEN]
 
 - Seam: `clash-golden`
-- Producer: `csharp:Rasm/Geometry/Spatial/index#CLASH_GOLDEN`
+- Producer: `csharp:Rasm/Spatial/index#CLASH_GOLDEN`
 - Consumers: `csharp:Rasm.Compute/Solver/clash#CLASH_GOLDEN` (the `ClashScale.NodeLinkPairs` descent decoding the pinned pair set); the two-sided byte-identity harness both pages assert.
 - Payload: `wire-bytes`
 - Pin: REAL
@@ -54,7 +54,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 ### [02.4]-[FAULT_TRIPLES]
 
 - Seam: `fault-triples`
-- Producer: `csharp:Rasm.Compute/Runtime/channels#FAULT_PROJECTION`
+- Producer: `csharp:Rasm.Compute/Runtime/wire#FAULT_PROJECTION`
 - Consumers: `typescript:core/interchange/codec` (`faultTagOf`/`FAULT_CTOR` reconstruction; unmapped packages fold to `Quarantine`). Python mints `FaultDetail` outbound but is not a package-keyed decoder, so the round-trip scope is C#-to-TypeScript.
 - Payload: `wire-bytes` + `canonical-json`
 - Pin: DESIGN-PIN
@@ -109,7 +109,7 @@ The corpus registry: one entry per committed cross-language fixture, instantiati
 ### [02.9]-[DESCRIPTOR_DRIFT]
 
 - Seam: `descriptor-drift`
-- Producer: `csharp:Rasm.Element/Graph/wire#WIRE_CODEC` (`Graph/element.proto`, the `rasm.element.v1` descriptor source) and `csharp:Rasm.Compute/Runtime/channels#CONTRACT_EVOLUTION` (the suite proto vocabulary) — one snapshot per descriptor source.
+- Producer: `csharp:Rasm.Element/Graph/wire#WIRE_CODEC` (`Graph/element.proto`, the `rasm.element.v1` descriptor source) and `csharp:Rasm.Compute/Runtime/wire#CONTRACT_EVOLUTION` (the suite proto vocabulary) — one snapshot per descriptor source.
 - Consumers: `typescript:core/interchange/contract` (the `Identical`/`Additive`/`Breaking` verdict at the dial).
 - Payload: `descriptor-set`
 - Pin: DESIGN-PIN

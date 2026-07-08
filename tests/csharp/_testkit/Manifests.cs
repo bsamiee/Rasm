@@ -1,4 +1,5 @@
 using System.Collections.Frozen;
+using System.IO.Hashing;
 using System.Xml.Linq;
 
 namespace Rasm.TestKit;
@@ -7,6 +8,12 @@ namespace Rasm.TestKit;
 // Parsed csproj projection: manifest facts only — reference topology and central-version
 // discipline. Package rosters are never asserted from here.
 public sealed record ProjectFacts(string RelativePath, FrozenSet<string> ProjectReferences, FrozenSet<string> VersionedPackages);
+
+// One content-addressed fixture: the key is the estate's seed-zero XxHash128 content spine over
+// the fixture bytes, so corpus identity, dedup, and production cache-parity laws read one key space.
+public sealed record CorpusEntry(FileInfo Source, string RelativePath, UInt128 Key) {
+    public byte[] Bytes() => File.ReadAllBytes(path: Source.FullName);
+}
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Manifests {
@@ -44,13 +51,51 @@ public static class Manifests {
             .Where(predicate: static path => path.EndsWith(value: ".csproj", comparisonType: StringComparison.Ordinal))
             .ToFrozenSet(StringComparer.Ordinal);
 
+    // Zero roots means the WHOLE workspace: enumeration derives from disk through a pruned walk,
+    // so a project landing at a brand-new top-level root can never silently skip a parity law.
     public static FrozenSet<string> DiskProjects(params string[] roots) {
         ArgumentNullException.ThrowIfNull(argument: roots);
-        return roots.SelectMany(root => Directory.Exists(path: PathOf(relativePath: root))
+        IEnumerable<string> files = roots.Length == 0
+            ? WalkProjects(directory: Workspace.Value.FullName)
+            : roots.SelectMany(root => Directory.Exists(path: PathOf(relativePath: root))
                 ? Directory.EnumerateFiles(path: PathOf(relativePath: root), searchPattern: "*.csproj", searchOption: SearchOption.AllDirectories)
-                : [])
+                : []);
+        return files
             .Select(path => Path.GetRelativePath(relativeTo: Workspace.Value.FullName, path: path).Replace(oldChar: '\\', newChar: '/'))
             .ToFrozenSet(StringComparer.Ordinal);
+    }
+
+    // Dot-prefixed trees, package stores, and build output never carry workspace csprojs; pruning
+    // them keeps the whole-tree walk cheap without a root roster that could go stale.
+    private static readonly FrozenSet<string> PrunedDirectories =
+        new[] { "bin", "node_modules", "obj" }.ToFrozenSet(StringComparer.Ordinal);
+
+    private static IEnumerable<string> WalkProjects(string directory) =>
+        Directory.EnumerateFiles(path: directory, searchPattern: "*.csproj")
+            .Concat(Directory.EnumerateDirectories(path: directory)
+                .Where(predicate: static child => Path.GetFileName(path: child) is { Length: > 0 } name
+                    && !name.StartsWith(value: '.') && !PrunedDirectories.Contains(name))
+                .SelectMany(WalkProjects));
+
+    // Golden-corpus discovery, one walk for both ingress shapes: a workspace-relative root joins
+    // committed fixtures to the parity laws, a DirectoryInfo roots a scratch corpus. Entries sort
+    // by path so discovery order is deterministic; an absent root is an empty corpus the gate refuses.
+    public static Seq<CorpusEntry> Corpus(string relativeRoot, string pattern) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: relativeRoot);
+        return Corpus(root: new DirectoryInfo(path: PathOf(relativePath: relativeRoot)), pattern: pattern);
+    }
+
+    public static Seq<CorpusEntry> Corpus(DirectoryInfo root, string pattern) {
+        ArgumentNullException.ThrowIfNull(argument: root);
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: pattern);
+        return !root.Exists
+            ? Seq<CorpusEntry>()
+            : toSeq(root.EnumerateFiles(searchPattern: pattern, searchOption: SearchOption.AllDirectories)
+                .OrderBy(keySelector: static file => file.FullName, comparer: StringComparer.Ordinal)
+                .Select(file => new CorpusEntry(
+                    Source: file,
+                    RelativePath: Path.GetRelativePath(relativeTo: root.FullName, path: file.FullName).Replace(oldChar: '\\', newChar: '/'),
+                    Key: XxHash128.HashToUInt128(source: File.ReadAllBytes(path: file.FullName)))));
     }
 
     public static FrozenSet<string> Files(string relativeRoot, string pattern) {

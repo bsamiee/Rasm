@@ -15,15 +15,15 @@ jsdom is the FIDELITY DOM of the `_testkit` unit lane: real `parse5` parsing, re
 
 [PUBLIC_TYPE_SCOPE]: the one construction owner and its instance surface — every access mode hangs off a `JSDOM`.
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [CAPABILITY / BOUNDARY]                                                    |
-| :-----: | :--------------------------- | :------------ | :------------------------------------------------------------------------- |
-|  [01]   | `JSDOM`                      | class         | the instance; `.window`, `.serialize()`, `.nodeLocation()`, `.reconfigure()` |
-|  [02]   | `JSDOM.fromURL` / `fromFile` | static async  | build from a fetched URL / a file path — the fixture-load path             |
-|  [03]   | `JSDOM.fragment(html)`       | static        | a bare `DocumentFragment`, no `Window` cost — the cheapest parse           |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]        | [CAPABILITY]                                                                 |
+| :-----: | :--------------------------- | :------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `JSDOM`                      | class                | the instance; `.window`, `.serialize()`, `.nodeLocation()`, `.reconfigure()` |
+|  [02]   | `JSDOM.fromURL` / `fromFile` | static async         | build from a fetched URL / a file path — the fixture-load path               |
+|  [03]   | `JSDOM.fragment(html)`       | static               | a bare `DocumentFragment`, no `Window` cost — the cheapest parse             |
 |  [04]   | `VirtualConsole`             | class (EventEmitter) | in-DOM console capture / forward; `jsdomError` event carries uncaught errors |
-|  [05]   | `CookieJar`                  | class         | a `tough-cookie` `CookieJar` subclass — the shared cookie store            |
-|  [06]   | `requestInterceptor`         | function      | build an `undici`-compatible interceptor that inspects/synthesizes requests |
-|  [07]   | `toughCookie`                | namespace     | the re-exported `tough-cookie` module (`Cookie`, `MemoryCookieStore`, …)   |
+|  [05]   | `CookieJar`                  | class                | a `tough-cookie` `CookieJar` subclass — the shared cookie store              |
+|  [06]   | `requestInterceptor`         | function             | build an `undici`-compatible interceptor that inspects/synthesizes requests  |
+|  [07]   | `toughCookie`                | namespace            | the re-exported `tough-cookie` module (`Cookie`, `MemoryCookieStore`, …)     |
 
 ```ts contract
 // SOURCE-VERIFIED shapes (no bundled .d.ts). runScripts absent ⇒ scripts do NOT run (the safe default); getInternalVMContext() throws unless runScripts was set.
@@ -73,11 +73,11 @@ Scripts inside the DOM using synchronous `XMLHttpRequest` bypass all resource cu
 
 ## [03]-[CONSOLE_AND_COOKIES]
 
-| [INDEX] | [SURFACE]                                        | [CAPABILITY]                                                                 |
-| :-----: | :----------------------------------------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `new VirtualConsole()` (an `EventEmitter`) + `.on(method, fn)` | subscribe to `log`/`warn`/`error`/`info`/`dir`/… and the `jsdomError` event |
-|  [02]   | `virtualConsole.forwardTo(console, { jsdomErrors? })` | mirror output to a real console; `jsdomErrors` = `undefined` (forward all) \| `string[]` (only those types) \| `"none"` — v29 dropped the pre-`forwardTo` `sendTo` |
-|  [03]   | `new CookieJar(store?, options?)`                | a `tough-cookie` jar; pass a shared jar to correlate cookies across instances |
+| [INDEX] | [SURFACE]                                                      | [CAPABILITY]                                                                                                                                                       |
+| :-----: | :------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `new VirtualConsole()` (an `EventEmitter`) + `.on(method, fn)` | subscribe to `log`/`warn`/`error`/`info`/`dir`/… and the `jsdomError` event                                                                                        |
+|  [02]   | `virtualConsole.forwardTo(console, { jsdomErrors? })`          | mirror output to a real console; `jsdomErrors` = `undefined` (forward all) \| `string[]` (only those types) \| `"none"` — v29 dropped the pre-`forwardTo` `sendTo` |
+|  [03]   | `new CookieJar(store?, options?)`                              | a `tough-cookie` jar; pass a shared jar to correlate cookies across instances                                                                                      |
 
 The `jsdomError` event on `VirtualConsole` is where uncaught in-DOM script errors and resource-load failures surface — a fidelity spec subscribes to it rather than letting jsdom default-forward to `console.error`. Match `jsdomError` categories (`"unhandled-exception"`, `"not-implemented"`, `"resource-loading"`) on the category token, never on message text.
 

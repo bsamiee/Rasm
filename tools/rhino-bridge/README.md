@@ -128,6 +128,12 @@ Text equivalent: Assay calls the supervisor; the supervisor reconciles host stat
 - `Contract`: JSON-RPC interfaces, wire records, status algebra, faults, events, selections, and `SessionEnvelope`.
 - `Gate`: fault-injection executable for supervisor kernels and optional live-host rows.
 
+[PACKAGES]:
+- `Contract`: `StreamJsonRpc` carries the RPC interfaces; `Thinktecture.Runtime.Extensions` and `Thinktecture.Runtime.Extensions.Json` generate the wire vocabulary and its JSON converters.
+- `Shell`: `StreamJsonRpc` serves the named pipe; `Thinktecture.Runtime.Extensions` generates the shell-local vocabulary.
+- `Supervisor`: `StreamJsonRpc` drives the pipe client; `System.IO.Hashing` `XxHash3` keys the staged closure into the `refs/<contentHash>` reference stage. Unload-leak forensics shells out to the `dotnet-gcdump` local tool.
+- `Cargo`, `Gate`, and `Stub` reference no packages directly: Cargo composes `Rasm.ScenarioKit` and the Contract closure, Gate rides the Supervisor closure, and Stub stays dependency-zero.
+
 ## [07]-[FILES]
 
 [ROOT]:
@@ -229,7 +235,7 @@ Scenario code does not write `#r`, `#load`, absolute build-output paths, local r
 The bridge starts no MCP listener of its own. MCP tooling runs through McNeel's Rhino MCP platform, registered out-of-band with the agent. Assay is NOT an MCP server: it is the deterministic typed-verification boundary, and the McNeel platform is the interactive conversational host. The two are orthogonal capabilities that share one live RhinoWIP session.
 
 [INSTALL]:
-- Add McNeel `Rhino-MCP-Platform` 0.1.5 to the Rhino 9.0 package store via the Rhino PackageManager (Yak).
+- Add the newest McNeel `Rhino-MCP-Platform` to the Rhino package store via the Rhino PackageManager (Yak).
 - The package provides the `rhino-mcp-router` stdio server; the bridge does not bundle, launch, or supervise it.
 
 [REGISTER]:

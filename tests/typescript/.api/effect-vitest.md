@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/vitest`
-- package: `@effect/vitest` (0.29.0, MIT, © Effectful Technologies)
+- package: `@effect/vitest` (`0.29.0`, MIT, © Effectful Technologies)
 - module format: ESM + CJS dual (`dist/esm` + `dist/cjs`, types `dist/dts`), `sideEffects: []`; exports `.` (the binding + `export * from "vitest"`) and `./utils` (Effect-aware assertions)
 - runtime target: dev/test only — a `devDependency`; the `tests/typescript/_architecture` suite asserts it never leaks into a runtime subpath or shipped bundle
 - peer: `vitest@^3.2.0` (both hard; `peerDependenciesMeta` is null), `effect@^3.21.0`; no runtime dependencies of its own. The admitted runner is `vitest@4.1.9` — one major ahead of the declared range; pnpm resolves the binding against it and the collector API (`test`/`expect`/`TestContext`) is stable across v3→v4, so the binding runs unmodified until a newer `@effect/vitest` widens the peer to `vitest@^4`
@@ -17,13 +17,13 @@
 [PUBLIC_TYPE_SCOPE]: the test-method families
 - rail: plane:dev
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]  | [CONSUMER]                                                              |
-| :-----: | :-------------------------------- | :------------- | :--------------------------------------------------------------------- |
-|  [01]   | `Vitest.Methods<R>`               | method set      | the `it` object — `effect`/`scoped`/`live`/`scopedLive`/`layer`/`prop`/`flakyTest` |
-|  [02]   | `Vitest.MethodsNonLive<R, X>`     | scoped method set | the `it` handed to an `it.layer` block — no `live`/`scopedLive`, carries the block's `R` |
-|  [03]   | `Vitest.Tester<R>`                | test collector  | a callable test (`it.effect`) with `.skip`/`.skipIf(c)`/`.runIf(c)`/`.only`/`.each`/`.fails`/`.prop` modifiers |
-|  [04]   | `Vitest.TestFunction<A, E, R, Args>` | test body    | `(...args) => Effect.Effect<A, E, R>` — the effectful body a Tester runs |
-|  [05]   | `Vitest.Arbitraries`              | generator spec  | `Array`/record of `Schema.Schema.Any \| FC.Arbitrary<any>` for `it.prop` |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]     | [CONSUMER]                                                                                                     |
+| :-----: | :----------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Vitest.Methods<R>`                  | method set        | the `it` object — `effect`/`scoped`/`live`/`scopedLive`/`layer`/`prop`/`flakyTest`                             |
+|  [02]   | `Vitest.MethodsNonLive<R, X>`        | scoped method set | the `it` handed to an `it.layer` block — no `live`/`scopedLive`, carries the block's `R`                       |
+|  [03]   | `Vitest.Tester<R>`                   | test collector    | a callable test (`it.effect`) with `.skip`/`.skipIf(c)`/`.runIf(c)`/`.only`/`.each`/`.fails`/`.prop` modifiers |
+|  [04]   | `Vitest.TestFunction<A, E, R, Args>` | test body         | `(...args) => Effect.Effect<A, E, R>` — the effectful body a Tester runs                                       |
+|  [05]   | `Vitest.Arbitraries`                 | generator spec    | `Array`/record of `Schema.Schema.Any \| FC.Arbitrary<any>` for `it.prop`                                       |
 
 [PUBLIC_TYPE_SCOPE]: the `Vitest` runner contract — full signatures (canonical owner; the folder overlays reference this block)
 - rail: plane:dev
@@ -173,40 +173,40 @@ function assertSuccess<A, E>(exit: Exit.Exit<A, E>, expected: A, ..._: Array<nev
 [ENTRYPOINT_SCOPE]: effect test collectors and their service context
 - rail: plane:dev
 
-| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]  | [CONSUMER]                                                   |
-| :-----: | :--------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `it.effect(name, (ctx) => Effect<A, E, TestServices>, timeout?)`       | deterministic   | every folder spec — runs under `TestClock`/`TestRandom`; virtual, seeded, fast |
-|  [02]   | `it.scoped(name, (ctx) => Effect<A, E, TestServices \| Scope>, …)`     | scoped          | `store`/`work`/`host` resource specs — a `Scope` is opened and closed per test |
-|  [03]   | `it.live(name, …)` / `it.scopedLive(name, …)`                          | real services   | specs needing wall-clock time, real randomness, or real I/O timing |
-|  [04]   | `it.effect.each(cases)(name, (…caseArgs) => Effect, …)`                | table           | data-driven law rows — the case row spreads into the effect body (`TestFunction<…, Array<T>>`), no appended `ctx` |
-|  [05]   | `it.effect.skip` / `.only` / `.fails` / `.skipIf(cond)` / `.runIf(cond)` | modifier      | conditional/expected-failure specs; `.fails` asserts the effect fails |
-|  [06]   | Effect-data assertions via `./utils` (full family in the `./utils` sub-block below): `assertSome`/`assertNone`/`assertRight`/`assertLeft`/`assertSuccess`/`assertFailure` + `Equal`-scalar/guard/throw asserts | assert | kit-driven specs — structural asserts over `Option`/`Either`/`Exit`, never raw `expect` or `._tag` |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                      | [ENTRY_FAMILY] | [CONSUMER]                                                                                                        |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `it.effect(name, (ctx) => Effect<A, E, TestServices>, timeout?)`                                                                                                                                               | deterministic  | every folder spec — runs under `TestClock`/`TestRandom`; virtual, seeded, fast                                    |
+|  [02]   | `it.scoped(name, (ctx) => Effect<A, E, TestServices \| Scope>, …)`                                                                                                                                             | scoped         | `store`/`work`/`host` resource specs — a `Scope` is opened and closed per test                                    |
+|  [03]   | `it.live(name, …)` / `it.scopedLive(name, …)`                                                                                                                                                                  | real services  | specs needing wall-clock time, real randomness, or real I/O timing                                                |
+|  [04]   | `it.effect.each(cases)(name, (…caseArgs) => Effect, …)`                                                                                                                                                        | table          | data-driven law rows — the case row spreads into the effect body (`TestFunction<…, Array<T>>`), no appended `ctx` |
+|  [05]   | `it.effect.skip` / `.only` / `.fails` / `.skipIf(cond)` / `.runIf(cond)`                                                                                                                                       | modifier       | conditional/expected-failure specs; `.fails` asserts the effect fails                                             |
+|  [06]   | Effect-data assertions via `./utils` (full family in the `./utils` sub-block below): `assertSome`/`assertNone`/`assertRight`/`assertLeft`/`assertSuccess`/`assertFailure` + `Equal`-scalar/guard/throw asserts | assert         | kit-driven specs — structural asserts over `Option`/`Either`/`Exit`, never raw `expect` or `._tag`                |
 
 [ENTRYPOINT_SCOPE]: layer-sharing, property testing, and flake control
 - rail: plane:dev
 
-| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]  | [CONSUMER]                                                   |
-| :-----: | :------------------------------------------------------------------------------------------ | :-------------- | :---------------------------------------------------------- |
-|  [01]   | `layer(rootLayer, { memoMap?, timeout?, excludeTestServices? })(name?, (it) => …)`          | share layer (opener) | the testkit harness layers (`tests/typescript/_testkit`) — the STANDALONE combinator: build a `Layer<R, E>` (container, pglite, `HttpServer`) once per block; consuming catalogs bind it as `layer(SharedLayer)(…)` |
-|  [02]   | `it.layer(childLayer, { timeout? })(name?, (it) => …)`                                       | share layer (nest)   | inside an open block only: extend the context with `Layer<R2, E, R>` (may require the block's `R`); inherits `R` + `ExcludeTestServices`, takes `timeout?` alone — no `memoMap`/`excludeTestServices` |
-|  [03]   | `it.prop(name, arbitraries, (values, ctx) => …, { fastCheck: { numRuns, seed } })`          | property        | the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) — Schema/`FC.Arbitrary` generators; sync predicate body (`MethodsNonLive.prop`); `fastCheck` params tune runs and seed |
-|  [04]   | `it.effect.prop(name, arbitraries, ({ ...values }, ctx) => Effect, …)`                       | effect property | any `Tester` carries `.prop`; here the case body is an `Effect` under `TestServices` (`Tester.prop`) |
-|  [05]   | `it.flakyTest(effect, timeout?)` / top-level `flakyTest(effect, timeout?)`                   | flake retry     | wrap a nondeterministic effect to retry until success or the `Duration` deadline; the typed `E` collapses to `never` on the result |
-|  [06]   | `addEqualityTesters()`                                                                       | equality setup  | one call so `expect(a).toEqual(b)` uses `Equal.equals` on Effect data (Chunk, Option, Data) |
-|  [07]   | top-level mirrors: `effect` / `scoped` / `live` / `scopedLive` / `prop` / `describeWrapped(name, f)` / `makeMethods(api)` | top-level | the same collectors as `it.*` when imported standalone; `describeWrapped` names an outer `describe`; `makeMethods` rebuilds `it` over a custom base `API` |
-|  [08]   | re-exports from `vitest`: `expect` / `describe` / `vi` / `beforeEach` / `afterAll`          | vitest surface   | lifecycle, mocking, and the assertion entry — one import for the whole spec |
+| [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY]       | [CONSUMER]                                                                                                                                                                                                          |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `layer(rootLayer, { memoMap?, timeout?, excludeTestServices? })(name?, (it) => …)`                                        | share layer (opener) | the testkit harness layers (`tests/typescript/_testkit`) — the STANDALONE combinator: build a `Layer<R, E>` (container, pglite, `HttpServer`) once per block; consuming catalogs bind it as `layer(SharedLayer)(…)` |
+|  [02]   | `it.layer(childLayer, { timeout? })(name?, (it) => …)`                                                                    | share layer (nest)   | inside an open block only: extend the context with `Layer<R2, E, R>` (may require the block's `R`); inherits `R` + `ExcludeTestServices`, takes `timeout?` alone — no `memoMap`/`excludeTestServices`               |
+|  [03]   | `it.prop(name, arbitraries, (values, ctx) => …, { fastCheck: { numRuns, seed } })`                                        | property             | the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`) — Schema/`FC.Arbitrary` generators; sync predicate body (`MethodsNonLive.prop`); `fastCheck` params tune runs and seed                         |
+|  [04]   | `it.effect.prop(name, arbitraries, ({ ...values }, ctx) => Effect, …)`                                                    | effect property      | any `Tester` carries `.prop`; here the case body is an `Effect` under `TestServices` (`Tester.prop`)                                                                                                                |
+|  [05]   | `it.flakyTest(effect, timeout?)` / top-level `flakyTest(effect, timeout?)`                                                | flake retry          | wrap a nondeterministic effect to retry until success or the `Duration` deadline; the typed `E` collapses to `never` on the result                                                                                  |
+|  [06]   | `addEqualityTesters()`                                                                                                    | equality setup       | one call so `expect(a).toEqual(b)` uses `Equal.equals` on Effect data (Chunk, Option, Data)                                                                                                                         |
+|  [07]   | top-level mirrors: `effect` / `scoped` / `live` / `scopedLive` / `prop` / `describeWrapped(name, f)` / `makeMethods(api)` | top-level            | the same collectors as `it.*` when imported standalone; `describeWrapped` names an outer `describe`; `makeMethods` rebuilds `it` over a custom base `API`                                                           |
+|  [08]   | re-exports from `vitest`: `expect` / `describe` / `vi` / `beforeEach` / `afterAll`                                        | vitest surface       | lifecycle, mocking, and the assertion entry — one import for the whole spec                                                                                                                                         |
 
 [ENTRYPOINT_SCOPE]: Effect-data assertions — the `./utils` subpath
 - rail: plane:dev
 
-| [INDEX] | [SURFACE]                                                                                   | [ASSERT_FAMILY]  | [CONSUMER]                                                   |
-| :-----: | :------------------------------------------------------------------------------------------ | :--------------- | :---------------------------------------------------------- |
-|  [01]   | `assertSome(o, a)` / `assertNone(o)`                                                         | `Option`         | narrow `Option<A>` to `Some`/`None` as a type guard, never an `._tag` read |
-|  [02]   | `assertRight(e, r)` / `assertLeft(e, l)`                                                     | `Either`         | narrow `Either<R, L>` to `Right`/`Left` with the expected value |
-|  [03]   | `assertSuccess(exit, a)` / `assertFailure(exit, cause)`                                      | `Exit`           | narrow a folded `Exit<A, E>` to its success value or failure `Cause` |
-|  [04]   | `strictEqual` / `deepStrictEqual` / `notDeepStrictEqual` / `assertEquals` `(actual, expected, msg?)` | `Equal` scalar | structural equality via the `Equal` trait — Chunk/Data/Option compare by value, not reference |
-|  [05]   | `assertTrue(x)` / `assertFalse(x)` / `assertInstanceOf(x, Ctor)`                             | guard            | boolean + instance guards that also narrow the static type |
-|  [06]   | `assertInclude(s, sub)` / `assertMatch(s, re)` / `throws(thunk, err?)` / `throwsAsync(thunk, err?)` / `doesNotThrow(thunk)` / `fail(msg)` | string / throw | substring/regex membership, throw-shape assertions, and an explicit `fail` |
+| [INDEX] | [SURFACE]                                                                                                                                 | [ASSERT_FAMILY] | [CONSUMER]                                                                                    |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `assertSome(o, a)` / `assertNone(o)`                                                                                                      | `Option`        | narrow `Option<A>` to `Some`/`None` as a type guard, never an `._tag` read                    |
+|  [02]   | `assertRight(e, r)` / `assertLeft(e, l)`                                                                                                  | `Either`        | narrow `Either<R, L>` to `Right`/`Left` with the expected value                               |
+|  [03]   | `assertSuccess(exit, a)` / `assertFailure(exit, cause)`                                                                                   | `Exit`          | narrow a folded `Exit<A, E>` to its success value or failure `Cause`                          |
+|  [04]   | `strictEqual` / `deepStrictEqual` / `notDeepStrictEqual` / `assertEquals` `(actual, expected, msg?)`                                      | `Equal` scalar  | structural equality via the `Equal` trait — Chunk/Data/Option compare by value, not reference |
+|  [05]   | `assertTrue(x)` / `assertFalse(x)` / `assertInstanceOf(x, Ctor)`                                                                          | guard           | boolean + instance guards that also narrow the static type                                    |
+|  [06]   | `assertInclude(s, sub)` / `assertMatch(s, re)` / `throws(thunk, err?)` / `throwsAsync(thunk, err?)` / `doesNotThrow(thunk)` / `fail(msg)` | string / throw  | substring/regex membership, throw-shape assertions, and an explicit `fail`                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

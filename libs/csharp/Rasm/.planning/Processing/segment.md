@@ -1135,7 +1135,7 @@ flowchart LR
 
 ## [07]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]                                     | [KIND]                                                                 | [RAIL]                                              | [CASES] |
+| [INDEX] | [CONCERN]           | [OWNER]                                     | [KIND]                                                                 | [RAIL]                                              | [CASES] |
 | :-----: | :------------------ | :------------------------------------------ | :---------------------------------------------------------------------- | :---------------------------------------------------- | :-----: |
 |  [01]   | Shape descriptors   | `MeshDescriptor` + descriptor arms          | `[Union]` over the `spectral` filter algebra; typed projection rows    | `DescribeShape<TOut> → Fin<TOut>`                    |    1    |
 |  [02]   | Blue-noise gate     | `MeshSamplingSpectrumReceipt` + gate arm    | low-frequency energy bound stamped into the `sample` receipt           | `ValidateSamplingSpectrum → Fin<SampleResult>`       |    —    |

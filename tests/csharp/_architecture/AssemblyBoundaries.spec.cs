@@ -27,8 +27,6 @@ internal static class HostFreeModel {
 
 // --- [OPERATIONS] --------------------------------------------------------------------------
 public sealed class AssemblyBoundaryLaws {
-    private static readonly string[] ProjectRoots = ["apps", "libs", "tests", "tools"];
-
     // HOST_BOUNDARY_REENTRY: host-boundary rows live on disk but stay out of Workspace.slnx until
     // kernel realization lands; the roster shrinks to empty when those slnx rows return.
     private static readonly string[] HostBoundaryRows = [
@@ -62,10 +60,12 @@ public sealed class AssemblyBoundaryLaws {
         Manifests.ProjectGraph(rows: Strata);
     }
 
+    // The disk side is the WHOLE workspace walk, never a root roster: a csproj landing at a new
+    // top-level root fails this law loudly instead of silently skipping slnx and CPM parity.
     [Fact]
     public void WorkspaceSolutionMatchesDiskAndCarriesTheScenarioHome() {
         FrozenSet<string> solution = Manifests.SolutionProjects();
-        FrozenSet<string> disk = Manifests.DiskProjects(roots: ProjectRoots);
+        FrozenSet<string> disk = Manifests.DiskProjects();
         Assert.Equal(
             expected: Sorted(rows: disk.Except(second: HostBoundaryRows, comparer: StringComparer.Ordinal)),
             actual: Sorted(rows: solution));
@@ -76,7 +76,7 @@ public sealed class AssemblyBoundaryLaws {
     [Fact]
     public void CentralVersioningHasNoProjectLocalDrift() {
         Spec.Holds(condition: Manifests.CentralOverridesDisabled(), label: "Directory.Packages.props must pin CentralPackageVersionOverrideEnabled to false");
-        Seq<(string Project, string Package)> rows = Manifests.VersionedPackageRows(roots: ProjectRoots);
+        Seq<(string Project, string Package)> rows = Manifests.VersionedPackageRows();
         Spec.Holds(condition: rows.IsEmpty, label: $"Version-attributed PackageReference rows breach CPM: {string.Join(separator: "; ", values: rows.Map(static row => $"{row.Project}:{row.Package}"))}");
     }
 

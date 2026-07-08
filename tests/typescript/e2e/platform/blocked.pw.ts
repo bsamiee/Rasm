@@ -11,4 +11,5 @@ test.describe('blocked scenario classes', () => {
     test.skip('auth login + storageState setup project — activation: security + edge + ui composition', () => {});
     test.skip('multi-client crdt sync — activation: store EventLog sync server + edge socket mount', () => {});
     test.skip('viewer render receipts — activation: ui/viewer scene rows + GLB_BY_KEY producer pin', () => {});
+    test.skip('gpu device-loss re-init — activation: ui/viewer scene backend-lost statechart', () => {});
 });

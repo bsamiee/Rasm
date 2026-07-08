@@ -11,23 +11,17 @@ messages plus the client-side `FlightClient` for reading and writing `RecordBatc
 over gRPC. `Apache.Arrow.Compression` supplies the concrete `Apache.Arrow.Ipc.ICompressionCodecFactory`
 (`CompressionCodecFactory`) that backs IPC-stream compression for the `Lz4Frame` and `Zstd` codecs.
 
-ABI floor (consumer `net10.0`, `Directory.Packages.props`): `Apache.Arrow`, `Apache.Arrow.Flight`,
-and `Apache.Arrow.Compression` all ride the same `23.0.0` line; `Apache.Arrow.Adbc` is on its own `0.23.0`
-line, so the ADBC surface is a pre-1.0 contract whose abstract-method set can break across minor
-bumps. The bound asset is `lib/net8.0` (no `net10.0` asset ships; net8.0 is the highest TFM and
-the consumed surface). All four packages are Apache-2.0. The `Apache.Arrow.Compression` closure is
-pure-managed AnyCPU with no native RID asset: its transitives `K4os.Compression.LZ4.Streams` `1.3.8`
-(itself over `K4os.Compression.LZ4` + `K4os.Hash.xxHash`) and `ZstdSharp.Port` `0.8.8` (a managed
-Zstandard port) carry the codec bodies. The `ICompressionCodecFactory` interface ships in core
-`Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec implementation ships in
+ABI floor (consumer `net10.0`): `Apache.Arrow`, `Apache.Arrow.Flight`, and `Apache.Arrow.Compression`
+ride one release line; `Apache.Arrow.Adbc` versions independently as a pre-1.0 contract. The bound
+asset is `lib/net8.0`, the highest TFM shipped, and all four packages are Apache-2.0. The
+`Apache.Arrow.Compression` closure is pure-managed AnyCPU with no native RID asset: its transitives
+`K4os.Compression.LZ4.Streams` (over `K4os.Compression.LZ4` + `K4os.Hash.xxHash`) and `ZstdSharp.Port`
+(a managed Zstandard port) carry the codec bodies. The `ICompressionCodecFactory` interface ships in
+core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec implementation ships in
 `Apache.Arrow.Compression` (admitted), so enabling IPC compression sets
 `IpcOptions.CompressionCodec = CompressionCodecType.Lz4Frame | Zstd` together with
 `IpcOptions.CompressionCodecFactory = new Apache.Arrow.Compression.CompressionCodecFactory()`. Setting
-`IpcOptions.CompressionCodec` without `CompressionCodecFactory` throws at write. This Arrow-IPC
-compression rail is DISTINCT from the snapshot-codec LZ4 rail (`#api-lz4`): that rail drives
-`LZ4Pickler`/`CompressionPolicy` over `K4os.Compression.LZ4` directly for standalone snapshot/blob
-frames; the Arrow factory drives the in-stream Arrow-IPC buffer codec via `K4os.Compression.LZ4.Streams`
-and `ZstdSharp.Port`. Never conflate the two — they are separate codecs over separate payloads.
+`IpcOptions.CompressionCodec` without `CompressionCodecFactory` throws at write.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -295,7 +289,7 @@ and `ZstdSharp.Port`. Never conflate the two — they are separate codecs over s
 [LOCAL_ADMISSION]:
 - One boundary, three transports: `IArrowArrayStream` (`Schema` + `ReadNextRecordBatchAsync`) is the single shape ADBC `QueryResult.Stream`, the IPC `ArrowStreamReader`, and the Flight `GetStream` call all yield, so the egress owner folds all three behind one async-enumerable and never forks a per-transport reader.
 - Callers compose `RecordBatch` via `RecordBatch.Builder` with typed `.Append<TArray>(name, nullable, …)` columns; `WriteStart`/`WriteStartAsync` emits the schema message and `WriteEnd`/`WriteEndAsync` emits the mandatory EOS terminator — a writer disposed without `WriteEnd` leaves a truncated stream the reader rejects.
-- IPC compression rides the admitted `Apache.Arrow.Compression` package: set `IpcOptions.CompressionCodec = CompressionCodecType.Lz4Frame` (or `Zstd`) AND `IpcOptions.CompressionCodecFactory = new Apache.Arrow.Compression.CompressionCodecFactory()`, optionally with `IpcOptions.CompressionLevel`. The package-owned `CompressionCodecFactory` is the concrete `ICompressionCodecFactory` for both codecs — LZ4-frame over the transitive `K4os.Compression.LZ4.Streams` and Zstandard over the transitive `ZstdSharp.Port` — so the egress owner NEVER hand-rolls a custom `ICompressionCodecFactory`. The codec enum alone is inert; the factory is mandatory. This Arrow-IPC compression rail is DISTINCT from the snapshot-codec LZ4 rail (`#api-lz4`), which drives `LZ4Pickler`/`CompressionPolicy` over `K4os.Compression.LZ4` directly for standalone snapshot/blob frames — the two rails compress different payloads through different codecs and never share configuration.
+- IPC compression rides the admitted `Apache.Arrow.Compression` package: set `IpcOptions.CompressionCodec = CompressionCodecType.Lz4Frame` (or `Zstd`) AND `IpcOptions.CompressionCodecFactory = new Apache.Arrow.Compression.CompressionCodecFactory()`, optionally with `IpcOptions.CompressionLevel`. The package-owned `CompressionCodecFactory` is the concrete `ICompressionCodecFactory` for both codecs — LZ4-frame over the transitive `K4os.Compression.LZ4.Streams` and Zstandard over the transitive `ZstdSharp.Port` — so the egress owner NEVER hand-rolls a custom `ICompressionCodecFactory`; the codec enum alone is inert. This Arrow-IPC buffer codec is DISTINCT from the snapshot-codec LZ4 rail (`#api-lz4`), which drives `LZ4Pickler`/`CompressionPolicy` over `K4os.Compression.LZ4` directly for standalone snapshot/blob frames.
 - ADBC drivers load via `AdbcDriver.Open(parameters)` then `AdbcDatabase.Connect(options)`; direct `AdbcConnection` construction is not the public path. The DuckDB ADBC driver (`#api-duckdb`) is the in-process analytical engine reached through this same `AdbcConnection`/`AdbcStatement` surface, so a federated query rail dispatches SQL or a `SubstraitPlan` and reads back one `IArrowArrayStream` — `ExecutePartitioned` + `ReadPartition` fan a large scan, `BulkIngest` lands a `RecordBatch` stream.
 - Flight `FlightClient` is constructed from a gRPC `ChannelBase`/`CallInvoker` (no static factory); connection lifetime, TLS, and credentials are caller-owned. The `Version/egress#EGRESS_SINK` `arrow-flight-push` sink and the `Query/columnar#ARROW_EGRESS` columnar stream are the two consumers — a Flight read is `GetInfo` → pick a `FlightEndpoint` → `GetStream(endpoint.Ticket)`; a Flight write is `StartPut(descriptor, schema)` then push batches on the duplex `RequestStream`.
 - Temporal columns map through NodaTime (`#api-nodatime`): an `Instant`/`ZonedDateTime` projects to `TimestampArray` (epoch-nanosecond) at the builder edge so the Arrow wire carries the same clock-seam the relational store uses, never a bare `DateTime`.

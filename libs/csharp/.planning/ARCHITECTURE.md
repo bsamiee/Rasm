@@ -21,7 +21,7 @@ libs/csharp/
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY] — GH2 host APIs; references only Rasm
 ```
 
-The planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY source packages: each carries durable host-bound source, `IDEAS.md`/`TASKLOG.md` card pools, and a folder `.api/` tier over its host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto), referencing only the `Rasm` kernel; their index docs and design pages arrive with conversion to planning folders.
+The planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY source packages: each carries durable host-bound source, `IDEAS.md`/`TASKLOG.md` card pools, and a folder `.api/` tier over its host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto), referencing only the `Rasm` kernel; index docs and design pages are planning-folder artifacts the HOST-BOUNDARY roots do not carry.
 
 ## [02]-[SEAMS]
 

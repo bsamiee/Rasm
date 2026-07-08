@@ -20,6 +20,9 @@ declare namespace K6 {
 
 const _ORIGIN = 'https://rasm.test';
 
+// The one websocket endpoint the corpus speaks: pages and route interceptors derive it, never respell it.
+const _WIRE = `${_ORIGIN.replace(/^https/, 'wss')}/ws`;
+
 // k6's documented exit contract: 0 = clean, 99 = thresholds breached; every other code is a crash.
 const _EXIT = { breach: 99, pass: 0 } as const;
 
@@ -41,7 +44,7 @@ setInterval(tick, 1000);
         body: `<output data-testid="wire">idle</output>
 <script>
 const wire = document.querySelector('[data-testid=wire]');
-const lane = new WebSocket('wss://rasm.test/ws');
+const lane = new WebSocket('${_WIRE}');
 lane.onopen = () => lane.send('ping');
 lane.onmessage = (event) => { wire.textContent = String(event.data); };
 lane.onerror = () => { wire.textContent = 'fault'; };
@@ -55,6 +58,20 @@ lane.onclose = () => { if (wire.textContent === 'idle') wire.textContent = 'clos
     '/panel': {
         title: 'panel',
         body: `<svg width="240" height="160" role="img" aria-label="panel"><rect x="8" y="8" width="104" height="64" fill="#1f6f8b"/><rect x="128" y="8" width="104" height="64" fill="#99a8b2"/><rect x="8" y="88" width="104" height="64" fill="#e8c547"/><rect x="128" y="88" width="104" height="64" fill="#30323d"/></svg>`,
+    },
+    '/pool': {
+        title: 'pool',
+        body: `<output data-testid="pool">idle</output><output data-testid="detached"></output>
+<script>
+const pool = document.querySelector('[data-testid=pool]');
+const body = 'onmessage = (event) => { const bytes = new Uint8Array(event.data); postMessage(bytes.reduce((sum, byte) => sum + byte, 0)); };';
+const lane = new Worker(URL.createObjectURL(new Blob([body], { type: 'text/javascript' })));
+lane.onmessage = (event) => { pool.textContent = 'sum:' + event.data; };
+lane.onerror = () => { pool.textContent = 'fault'; };
+const buffer = new Uint8Array([1, 2, 3, 4]).buffer;
+lane.postMessage(buffer, [buffer]);
+document.querySelector('[data-testid=detached]').textContent = String(buffer.byteLength === 0);
+</script>`,
     },
     '/passkey': {
         title: 'passkey',
@@ -114,14 +131,16 @@ class K6Fault extends Data.TaggedError('K6Fault')<{
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
+// lang rides the shell so every corpus document clears the axe html-has-lang gauge by construction.
 const _shell = (page: { readonly title: string; readonly body: string }): string =>
-    `<!doctype html><html><head><meta charset="utf-8"><title>${page.title}</title></head><body>${page.body}</body></html>`;
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${page.title}</title></head><body>${page.body}</body></html>`;
 
 const _summary = Schema.decode(Schema.parseJson(Summary), { errors: 'all' });
 
 const Hermetic = {
     origin: _ORIGIN,
     routes: Record.keys(_PAGES),
+    wire: _WIRE,
     page: (path: string): Option.Option<string> =>
         pipe(
             Option.liftPredicate(path, (candidate): candidate is Hermetic.Route => candidate in _PAGES),

@@ -2,7 +2,7 @@ import { FileSystem, Path } from '@effect/platform';
 import { NodeContext } from '@effect/platform-node';
 import { describe, expect, it, layer } from '@effect/vitest';
 import { Audit, Imports } from '@rasm/ts-testkit/gauges';
-import { Array, Effect, HashSet, Number, Option, pipe, Record, Schema } from 'effect';
+import { Array, Effect, HashMap, HashSet, Number, Option, pipe, Record, Schema } from 'effect';
 
 // --- [TYPES] -----------------------------------------------------------------------------
 
@@ -19,30 +19,90 @@ const _PRUNE = /(^|\/)(node_modules|dist|coverage|\.git|\.planning|\.api)(\/|$)/
 // The branch-wide migrator ban: DDL is idempotent declarative ensure, and PgMigrator has no legal importer.
 const _BANNED = [/^@effect\/sql\/Migrator/, /^@effect\/sql-pg\/PgMigrator/] as const;
 
-// Folder-scoped external admissions: each family is a zone, and the permitted [folder, family] pairs
-// below are the only legal crossings; an unlisted external package is substrate and stays unaudited.
-const _ADMISSIONS = [
-    { family: 'ext:jose', pattern: /^jose($|\/)/, zones: ['security'] },
-    { family: 'ext:arctic', pattern: /^arctic($|\/)/, zones: ['security'] },
-    { family: 'ext:webauthn', pattern: /^@simplewebauthn\//, zones: ['security'] },
-    { family: 'ext:oslo', pattern: /^@oslojs\//, zones: ['security'] },
-    { family: 'ext:sql', pattern: /^@effect\/sql($|-|\/)/, zones: ['data'] },
-    { family: 'ext:duckdb', pattern: /^@duckdb\//, zones: ['data'] },
-    { family: 'ext:tus', pattern: /^(@tus\/|tus-js-client($|\/))/, zones: ['data'] },
-    { family: 'ext:cluster', pattern: /^@effect\/(cluster|workflow|ai)($|-|\/)/, zones: ['runtime'] },
-    { family: 'ext:nats', pattern: /^@nats-io\//, zones: ['runtime'] },
-    { family: 'ext:openfeature', pattern: /^@openfeature\//, zones: ['runtime'] },
-    { family: 'ext:react', pattern: /^react($|-|\/)/, zones: ['ui'] },
-    { family: 'ext:pulumi', pattern: /^@pulumi(verse)?\//, zones: ['iac'] },
-] as const;
+// One external-family vocabulary: each family's specifier grammar is stated once; every admission
+// tier below is [zone, family] rows over this table, so a pattern can never drift between tiers.
+const _FAMILIES = {
+    'ext:jose': /^jose($|\/)/,
+    'ext:arctic': /^arctic($|\/)/,
+    'ext:webauthn': /^@simplewebauthn\//,
+    'ext:oslo': /^@oslojs\//,
+    'ext:argon2': /^@node-rs\/argon2($|\/)/,
+    'ext:otp': /^(@otplib\/|otplib($|\/))/,
+    'ext:doppler': /^@dopplerhq\//,
+    'ext:codec': /^(@bufbuild\/|@connectrpc\/|cbor-x($|\/)|@msgpack\/|rfc6902($|\/)|hash-wasm($|\/)|@electric-sql\/d2)/,
+    'ext:sql': /^@effect\/sql($|-|\/)/,
+    'ext:duckdb': /^@duckdb\//,
+    'ext:arrow': /^apache-arrow($|\/)/,
+    'ext:s3': /^@aws-sdk\//,
+    'ext:tus': /^@tus\//,
+    'ext:tus-client': /^tus-js-client($|\/)/,
+    'ext:remote': /^(ssh2|basic-ftp|webdav)($|\/)/,
+    'ext:file': /^(sharp|chokidar)($|\/)/,
+    'ext:cluster': /^@effect\/(cluster|workflow|ai|rpc)($|-|\/)/,
+    'ext:cli': /^@effect\/(cli|printer)($|-|\/)/,
+    'ext:mcp': /^@modelcontextprotocol\//,
+    'ext:nats': /^@nats-io\//,
+    'ext:openfeature': /^@openfeature\//,
+    'ext:otel': /^@opentelemetry\/(?!semantic-conventions)/,
+    'ext:office': /^(nodemailer|exceljs|jspdf|jszip|papaparse)($|\/)/,
+    'ext:shell': /^(workbox-|idb-keyval($|\/)|nuqs($|\/))/,
+    'ext:react': /^react($|-|\/)/,
+    'ext:aria': /^(@react-aria\/|@radix-ui\/|@floating-ui\/|cmdk($|\/)|vaul($|\/))/,
+    'ext:style':
+        /^(tailwind|tw-animate-css($|\/)|class-variance-authority($|\/)|clsx($|\/)|colorjs\.io($|\/)|lucide-react($|\/)|isomorphic-dompurify($|\/))/,
+    'ext:interact': /^(motion($|\/)|@use-gesture\/|@tanstack\/)/,
+    'ext:viz': /^(@perspective-dev\/|@observablehq\/|@visx\/|uplot($|\/)|d3($|-|\/))/,
+    'ext:spatial': /^(three($|\/)|@google\/model-viewer($|\/)|maplibre-gl($|\/)|@deck\.gl\/|@geoarrow\/|@turf\/|@lume\/kiwi($|\/)|typegpu($|\/))/,
+    'ext:pulumi': /^@pulumi(verse)?\//,
+} as const satisfies Record<`ext:${string}`, RegExp>;
 
-// The security sub-folder admissions ride the same engine at depth-2 zones.
-const _CRYPTO = [
-    { family: 'ext:jose', pattern: /^jose($|\/)/, zones: ['security/crypt'] },
-    { family: 'ext:oslo', pattern: /^@oslojs\//, zones: ['security/crypt'] },
-    { family: 'ext:arctic', pattern: /^arctic($|\/)/, zones: ['security/authn'] },
-    { family: 'ext:webauthn', pattern: /^@simplewebauthn\//, zones: ['security/authn'] },
-] as const;
+// Folder-scoped external admissions: the permitted [folder, family] crossings; an unlisted external
+// package is substrate and stays unaudited. A package two folders own by charter carries two rows.
+const _ADMISSIONS: ReadonlyArray<readonly [zone: string, family: keyof typeof _FAMILIES]> = [
+    ['core', 'ext:codec'],
+    ['security', 'ext:jose'],
+    ['security', 'ext:arctic'],
+    ['security', 'ext:webauthn'],
+    ['security', 'ext:oslo'],
+    ['security', 'ext:argon2'],
+    ['security', 'ext:otp'],
+    ['security', 'ext:doppler'],
+    ['data', 'ext:sql'],
+    ['data', 'ext:duckdb'],
+    ['data', 'ext:arrow'],
+    ['data', 'ext:s3'],
+    ['data', 'ext:tus'],
+    ['data', 'ext:remote'],
+    ['data', 'ext:file'],
+    ['runtime', 'ext:cluster'],
+    ['runtime', 'ext:cli'],
+    ['runtime', 'ext:mcp'],
+    ['runtime', 'ext:nats'],
+    ['runtime', 'ext:openfeature'],
+    ['runtime', 'ext:otel'],
+    ['runtime', 'ext:office'],
+    ['runtime', 'ext:shell'],
+    ['ui', 'ext:react'],
+    ['ui', 'ext:aria'],
+    ['ui', 'ext:style'],
+    ['ui', 'ext:interact'],
+    ['ui', 'ext:viz'],
+    ['ui', 'ext:spatial'],
+    ['ui', 'ext:arrow'],
+    ['ui', 'ext:tus-client'],
+    ['iac', 'ext:pulumi'],
+];
+
+// The security sub-folder admissions ride the same engine and the same vocabulary at depth-2 zones.
+const _CRYPTO: ReadonlyArray<readonly [zone: string, family: keyof typeof _FAMILIES]> = [
+    ['security/crypt', 'ext:jose'],
+    ['security/crypt', 'ext:oslo'],
+    ['security/crypt', 'ext:argon2'],
+    ['security/crypt', 'ext:doppler'],
+    ['security/authn', 'ext:arctic'],
+    ['security/authn', 'ext:webauthn'],
+    ['security/authn', 'ext:otp'],
+];
 
 // The runtime-direction law: an importing runtime may only reach the runtimes on its row. The keys
 // are the one canonical runtime vocabulary — the tag axis; the exports-map conditions project onto
@@ -141,12 +201,19 @@ const _acyclic = (rows: ReadonlyArray<LedgerRow>): boolean =>
         Array.isEmptyReadonlyArray,
     );
 
+// The one specifier-to-family projection every admission tier shares.
+const _familyOf = (specifier: string): Option.Option<string> =>
+    Option.map(
+        Array.findFirst(Record.toEntries(_FAMILIES), ([, pattern]) => pattern.test(specifier)),
+        ([family]) => family,
+    );
+
 const _rules = (rows: ReadonlyArray<LedgerRow>): Parameters<typeof Imports.verdict>[1] =>
     pipe(HashSet.fromIterable(Array.map(rows, (row) => row.folder)), (folders) => ({
         banned: [..._BANNED],
         permitted: Array.appendAll(
             Array.flatMap(rows, (row) => Array.map(row.edges, (edge) => [row.folder, edge] as const)),
-            Array.flatMap(_ADMISSIONS, (row) => Array.map(row.zones, (zone) => [zone, row.family] as const)),
+            _ADMISSIONS,
         ),
         zone: (path: string) => Option.filter(Array.head(_segments(path)), (head) => HashSet.has(folders, head)),
         zoneOf: (specifier: string, from: string) =>
@@ -154,15 +221,12 @@ const _rules = (rows: ReadonlyArray<LedgerRow>): Parameters<typeof Imports.verdi
                 ? Option.filter(Array.head(_resolved(from, specifier)), (head) => HashSet.has(folders, head))
                 : specifier.startsWith('@rasm/ts/')
                   ? Option.filter(Array.head(_segments(specifier.slice('@rasm/ts'.length))), (head) => HashSet.has(folders, head))
-                  : Option.map(
-                        Array.findFirst(_ADMISSIONS, (row) => row.pattern.test(specifier)),
-                        (row) => row.family,
-                    ),
+                  : _familyOf(specifier),
     }));
 
 const _cryptoRules: Parameters<typeof Imports.verdict>[1] = {
     banned: [],
-    permitted: Array.flatMap(_CRYPTO, (row) => Array.map(row.zones, (zone) => [zone, row.family] as const)),
+    permitted: _CRYPTO,
     zone: (path: string) =>
         pipe(
             _segments(path),
@@ -173,11 +237,7 @@ const _cryptoRules: Parameters<typeof Imports.verdict>[1] = {
                 ),
             Option.map((sub) => `security/${sub}`),
         ),
-    zoneOf: (specifier: string) =>
-        Option.map(
-            Array.findFirst(_CRYPTO, (row) => row.pattern.test(specifier)),
-            (row) => row.family,
-        ),
+    zoneOf: _familyOf,
 };
 
 const _drawn = (verdict: ReturnType<typeof Imports.verdict>): ReadonlyArray<string> =>
@@ -232,6 +292,20 @@ const _purity = (subpath: string, runtime: string, entry: string | Readonly<Reco
                   : [`${subpath} -> ${entry} (law: ${subpath}/src/index.ts)`]
               : [`${subpath}: a single-runtime folder is one unconditioned entrypoint`]
           : [`${subpath}: runtime '${runtime}' carries no exports law`];
+
+// The day a folder ships source its exports entries must resolve on disk — a shipped src/ beside a
+// phantom condition file is a breach the resolver surfaces downstream; an unshipped folder yields
+// zero findings, so the gauge stands armed without a vacuous claim about absent trees.
+const _unshipped = (
+    subpath: string,
+    entry: string | Readonly<Record<string, string>>,
+    present: (relative: string) => boolean,
+): ReadonlyArray<string> =>
+    present(`${subpath}/src`)
+        ? Array.filterMap(typeof entry === 'string' ? [entry] : Record.values(entry), (file) =>
+              present(file) ? Option.none() : Option.some(`${subpath}: ${file} is absent on disk`),
+          )
+        : [];
 
 const _tagged = (folder: string, tags: ReadonlyArray<string>): Option.Option<TagTriple> =>
     Option.all({
@@ -353,6 +427,29 @@ layer(NodeContext.layer)('edge ledger', (it) => {
         }),
     );
 
+    it.effect('every exports entry of a shipped folder resolves on disk; an unshipped folder stays armed', () =>
+        Effect.gen(function* () {
+            const fs = yield* FileSystem.FileSystem;
+            const path = yield* Path.Path;
+            const branch = path.join(_ROOT, 'libs/typescript');
+            const manifest = yield* Effect.orDie(_decodeBranch(yield* fs.readFileString(path.join(branch, 'package.json'))));
+            const entries = Record.toEntries(manifest.exports);
+            const probes = Array.flatMap(entries, ([subpath, entry]) => [
+                `${subpath}/src`,
+                ...(typeof entry === 'string' ? [entry] : Record.values(entry)),
+            ]);
+            const facts = yield* Effect.forEach(probes, (probe) =>
+                Effect.map(
+                    Effect.orElseSucceed(fs.exists(path.join(branch, probe)), () => false),
+                    (has) => [probe, has] as const,
+                ),
+            );
+            const held = HashMap.fromIterable(facts);
+            const present = (relative: string): boolean => Option.getOrElse(HashMap.get(held, relative), () => false);
+            expect(Array.flatMap(entries, ([subpath, entry]) => _unshipped(subpath, entry, present))).toEqual([]);
+        }),
+    );
+
     it.effect('the branch source audit runs the real table and stays honest while no source ships', () =>
         Effect.gen(function* () {
             const rows = yield* _ledger;
@@ -431,6 +528,62 @@ describe('gauge falsification', () => {
         expect(_purity('./iac', 'node', './iac/src/journal.ts')).not.toEqual([]);
         expect(_purity('./ui', 'browser', lawful)).not.toEqual([]);
         expect(_purity('./core', 'unresolved', './core/src/index.ts')).not.toEqual([]);
+    });
+
+    it('the shipped gauge demands entry files exactly where src exists', () => {
+        const entry = {
+            server: './core/src/server.ts',
+            browser: './core/src/browser.ts',
+            wasm: './core/src/wasm.ts',
+            default: './core/src/index.ts',
+        };
+        expect(_unshipped('./core', entry, () => false)).toEqual([]);
+        expect(_unshipped('./core', entry, (probe) => probe === './core/src')).toHaveLength(4);
+        expect(_unshipped('./core', entry, () => true)).toEqual([]);
+        expect(_unshipped('./ui', './ui/src/index.ts', (probe) => probe !== './ui/src/index.ts')).toEqual([
+            './ui: ./ui/src/index.ts is absent on disk',
+        ]);
+    });
+
+    it('every family claims its representative exactly once and refuses the near-miss', () => {
+        const rows: ReadonlyArray<readonly [family: string, representative: string, nearMiss: string]> = [
+            ['ext:jose', 'jose/jwks', 'josefine'],
+            ['ext:arctic', 'arctic', 'arctic-fox'],
+            ['ext:webauthn', '@simplewebauthn/server', '@simplewebauthn-fork/server'],
+            ['ext:oslo', '@oslojs/encoding', '@oslo/encoding'],
+            ['ext:argon2', '@node-rs/argon2', '@node-rs/bcrypt'],
+            ['ext:otp', 'otplib', 'otplib-next'],
+            ['ext:doppler', '@dopplerhq/node-sdk', '@doppler/node-sdk'],
+            ['ext:codec', '@bufbuild/protobuf', 'protobufjs'],
+            ['ext:codec', '@electric-sql/d2mini', '@electric-sql/pglite'],
+            ['ext:sql', '@effect/sql-pg', '@effect/sqlite'],
+            ['ext:duckdb', '@duckdb/node-api', 'duckdb'],
+            ['ext:arrow', 'apache-arrow', 'apache-arrow-old'],
+            ['ext:s3', '@aws-sdk/client-s3', 'aws-sdk'],
+            ['ext:tus', '@tus/server', 'tus'],
+            ['ext:tus-client', 'tus-js-client', 'tus-js'],
+            ['ext:remote', 'ssh2', 'ssh2-sftp-client'],
+            ['ext:file', 'sharp', 'sharpen'],
+            ['ext:cluster', '@effect/ai-anthropic', '@effect/aim'],
+            ['ext:cli', '@effect/printer-ansi', '@effect/print'],
+            ['ext:mcp', '@modelcontextprotocol/sdk', 'modelcontextprotocol'],
+            ['ext:nats', '@nats-io/jetstream', 'nats'],
+            ['ext:openfeature', '@openfeature/server-sdk', 'openfeature'],
+            ['ext:otel', '@opentelemetry/sdk-trace-node', '@opentelemetry/semantic-conventions'],
+            ['ext:office', 'papaparse', 'papaparse-lite'],
+            ['ext:shell', 'workbox-window', 'workbox'],
+            ['ext:react', 'react-dom/client', 'preact'],
+            ['ext:aria', '@react-aria/live-announcer', '@internationalized/date'],
+            ['ext:style', 'tailwind-merge', 'clsx-lite'],
+            ['ext:interact', '@tanstack/react-table', 'motion-dom-x'],
+            ['ext:viz', 'd3-scale', 'd3fc'],
+            ['ext:spatial', '@deck.gl/core', 'three-stdlib'],
+            ['ext:pulumi', '@pulumiverse/doppler', 'pulumi'],
+        ];
+        const claims = (specifier: string): ReadonlyArray<string> =>
+            Array.filterMap(Record.toEntries(_FAMILIES), ([family, pattern]) => (pattern.test(specifier) ? Option.some(family) : Option.none()));
+        expect(Array.flatMap(rows, ([family, representative]) => (claims(representative).join() === family ? [] : [representative]))).toEqual([]);
+        expect(Array.flatMap(rows, ([, , nearMiss]) => (Array.isEmptyReadonlyArray(claims(nearMiss)) ? [] : [nearMiss]))).toEqual([]);
     });
 
     it('a crypto admission outside its sub-folder is a violation', () => {

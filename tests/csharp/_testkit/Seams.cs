@@ -2,6 +2,7 @@ using System.Collections.Frozen;
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
+using Microsoft.Extensions.Time.Testing;
 using Xunit.Sdk;
 
 namespace Rasm.TestKit;
@@ -219,5 +220,48 @@ public sealed record NdjsonOracle<T>(JsonTypeInfo<T> Decoder, int ExpectLines = 
         ReadOnlySpan<byte> line = newline < 0 ? rest : rest[..newline];
         rest = newline < 0 ? [] : rest[(newline + 1)..];
         return line.Length > 0 && line[^1] == (byte)'\r' ? line[..^1] : line;
+    }
+}
+
+// --- [CLOCK]
+// One deterministic mark: the probe label and the exact schedule instant it fired at, measured
+// from the timeline's start — schedule truth, never post-advance residue.
+public sealed record ClockMark(string Label, TimeSpan Elapsed);
+
+// Timeline is the kit's one time substrate: a FakeTimeProvider under a typed mark log. The clock
+// injects wherever a SUT takes TimeProvider, probes register as timers, and Advance is the only
+// motion — schedule, retry, debounce, and expiry proofs become pure functions of the advance
+// script. A spec that sleeps or reads the wall clock is the named defect.
+public sealed class Timeline(DateTimeOffset? start = null) {
+    private readonly Atom<Seq<ClockMark>> marks = Atom(Seq<ClockMark>());
+
+    public FakeTimeProvider Clock { get; } = start is DateTimeOffset instant ? new FakeTimeProvider(startDateTime: instant) : new FakeTimeProvider();
+
+    public Seq<ClockMark> Marks => marks.Value;
+
+    // Advance fires every due crossing synchronously in schedule order and returns exactly the
+    // marks this advance produced, so a step's evidence never entangles with earlier steps.
+    public Seq<ClockMark> Advance(TimeSpan delta) {
+        int before = marks.Value.Count;
+        Clock.Advance(delta: delta);
+        return marks.Value.Skip(amount: before);
+    }
+
+    // A probe records one mark per firing at its schedule instant, DERIVED from the probe's own
+    // due/period arithmetic — a FakeTimeProvider callback observes the post-advance clock, so the
+    // schedule, never the clock read, is the instant of record. Disposal retires the probe.
+    public ITimer Probe(string label, TimeSpan due, TimeSpan? period = null) {
+        ArgumentException.ThrowIfNullOrWhiteSpace(argument: label);
+        TimeSpan origin = Clock.GetUtcNow() - Clock.Start;
+        TimeSpan beat = period ?? TimeSpan.Zero;
+        int[] fired = [0];
+        return Clock.CreateTimer(
+            callback: _ => {
+                int ordinal = Interlocked.Increment(location: ref fired[0]) - 1;
+                _ = marks.Swap(log => log.Add(new ClockMark(Label: label, Elapsed: origin + due + (beat * ordinal))));
+            },
+            state: null,
+            dueTime: due,
+            period: period ?? Timeout.InfiniteTimeSpan);
     }
 }

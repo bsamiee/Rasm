@@ -1,4 +1,4 @@
-# [RASM_APPHOST_API_NODATIME]
+# [RASM_API_NODATIME]
 
 `NodaTime` supplies semantic instants, local calendar values, offsets, zones, periods,
 durations, intervals, clocks, resolvers, and text patterns for AppHost receipts,

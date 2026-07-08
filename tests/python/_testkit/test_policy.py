@@ -24,7 +24,17 @@ import pytest
 
 from tests.python._testkit import laws as laws_mod
 from tests.python._testkit.bench import _series_from_storage, pytest_benchmark_update_json
-from tests.python._testkit.laws import assert_law_coverage, auto_exempt, consume_covers, LawRecord, MANIFEST, spec, Sut, uncollected_laws
+from tests.python._testkit.laws import (
+    assert_law_coverage,
+    auto_exempt,
+    consume_covers,
+    LawRecord,
+    MANIFEST,
+    register_tree,
+    spec,
+    Sut,
+    uncollected_laws,
+)
 from tests.python._testkit.runtime import PROFILE_DEFAULT, PROFILE_MUTATION, PROFILE_STATEFUL, REPO_ROOT
 from tests.python._testkit.spec import support_matrix
 
@@ -39,7 +49,7 @@ COVERS: tuple[object, ...] = (consume_covers,)
 
 _PYPROJECT: Path = REPO_ROOT / "pyproject.toml"
 
-_POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property"})
+_POLICY_MARKERS: frozenset[str] = frozenset({"benchmark", "mutation", "network", "property", "subprocess"})
 
 # Repo-root residency is a closed allowlist: an unlisted entry is tool litter (a tool ran unrouted from root)
 # or an unreviewed surface — route its output under .cache/ or .artifacts/, or review it and extend the roster.
@@ -69,6 +79,7 @@ _ROOT_ALLOWLIST: frozenset[str] = frozenset({
     "apps",
     "biome.json",
     "docs",
+    "doppler.yaml",
     "global.json",
     "libs",
     "node_modules",
@@ -209,6 +220,28 @@ def test_law_census_detects_partial_collection_and_gate_self_skips(
     assert "lawpkg_partial" not in uncollected_laws(), "census still partial after every law module imported"
     with pytest.raises(AssertionError, match="lawpkg_partial"):
         test_law_coverage_gate()
+
+
+def test_register_tree_registers_only_source_bearing_folders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disk shape drives registration: source-bearing folders register with derived suites; sourceless folders and loose files never do.
+
+    The live lane proves the repo derivation: every ``libs/python`` registration carries the
+    repo-relative dotted prefix and a suite under ``tests/python/libs``.
+    """
+    source = tmp_path / "src"
+    (source / "alpha").mkdir(parents=True)
+    (source / "alpha" / "__init__.py").write_text("", encoding="utf-8")
+    (source / "planning_only").mkdir()
+    (source / "stray.py").write_text("", encoding="utf-8")
+    suites = tmp_path / "suites"
+    monkeypatch.setattr(laws_mod, "SUT_PACKAGES", {})
+
+    assert register_tree(source, suites) == ("alpha",), "registration drifted from disk shape"
+    assert laws_mod.SUT_PACKAGES["alpha"].suite == suites / "alpha", "suite derivation broke"
+    assert register_tree(tmp_path / "absent", suites) == (), "a missing source root must register nothing"
+
+    live = register_tree(REPO_ROOT / "libs" / "python", REPO_ROOT / "tests" / "python" / "libs")
+    assert all(name.startswith("libs.python.") for name in live), f"repo-relative dotted derivation drifted: {live}"
 
 
 def test_registered_suts_carry_their_suite_roots() -> None:

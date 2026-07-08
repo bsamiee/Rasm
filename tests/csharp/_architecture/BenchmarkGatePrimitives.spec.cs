@@ -1,3 +1,4 @@
+using System.Reflection;
 using Rasm.Benchmarks;
 using Rasm.TestKit;
 
@@ -96,4 +97,51 @@ public sealed class BenchmarkGateLaws {
     public void ReadReportFailsTypedOnAnAbsentReport() =>
         Spec.Fail(result: Regression.ReadReport(path: Path.Combine(path1: Path.GetTempPath(), path2: "rasm-kit-absent-report.json")), then: static error =>
             Assert.Contains(expectedSubstring: "read failed", actualString: error.Message, comparisonType: StringComparison.Ordinal));
+
+    [Fact]
+    [Law(typeof(Regression), nameof(Regression.ReadReport), Member = nameof(Regression.ReadReport))]
+    public void ReadReportDecodesAFullReportAndFailsTypedOnMalformedOrNullJson() {
+        DirectoryInfo root = Directory.CreateTempSubdirectory(prefix: "rasm-bdn-");
+        try {
+            string good = Path.Combine(path1: root.FullName, path2: "report-full.json");
+            File.WriteAllText(path: good, contents: """{"Benchmarks":[{"FullName":"Kit.Fast","Statistics":{"Min":1.0,"Mean":3.0,"Median":2.0,"Q1":1.5,"Q3":2.5,"InterquartileRange":1.0}}]}""");
+            Spec.Succ(result: Regression.ReadReport(path: good), then: static report => {
+                BdnBenchmark row = Assert.Single(collection: report.Benchmarks);
+                Assert.Equal(expected: "Kit.Fast", actual: row.FullName);
+                Assert.Equal(expected: 2.0, actual: row.Statistics!.Median);
+            });
+            string broken = Path.Combine(path1: root.FullName, path2: "broken.json");
+            File.WriteAllText(path: broken, contents: "{not json");
+            Spec.Fail(result: Regression.ReadReport(path: broken), then: static error =>
+                Assert.Contains(expectedSubstring: "read failed", actualString: error.Message, comparisonType: StringComparison.Ordinal));
+            // A literal "null" body decodes to a null report: the empty-report guard fails typed, never NRE.
+            string empty = Path.Combine(path1: root.FullName, path2: "null.json");
+            File.WriteAllText(path: empty, contents: "null");
+            Spec.Fail(result: Regression.ReadReport(path: empty));
+        } finally {
+            root.Delete(recursive: true);
+        }
+    }
+
+    // The discovery-parity gate: a [Benchmark] landing in Rasm.Benchmarks without its registry row
+    // fails HERE, so a measurement can never exist silently ungated.
+    [Fact]
+    [Law(typeof(Regression), nameof(Regression.RegistryParity), Member = nameof(Regression.RegistryParity))]
+    public void RegistryParityNamesUngatedAndPhantomRowsAndHoldsForTheLiveAssembly() {
+        Spec.Succ(result: Regression.RegistryParity(
+            discovered: Seq("Kit.A", "Kit.B"),
+            cases: Seq(BdnRows.Case(fullName: "Kit.A"), BdnRows.Case(fullName: "Kit.B(N: 4)"))));
+        Spec.FailMany(result: Regression.RegistryParity(discovered: Seq("Kit.A"), cases: Seq(BdnRows.Case(fullName: "Kit.Ghost"))),
+            expectedCount: 2, "ungated benchmark: 'Kit.A'", "phantom registry row: 'Kit.Ghost'");
+        // Bare-prefix ownership is refused: "Kit.AB" is not owned by the "Kit.A" method key.
+        Spec.FailMany(result: Regression.RegistryParity(discovered: Seq("Kit.A"), cases: Seq(BdnRows.Case(fullName: "Kit.AB"))),
+            expectedCount: 2, "'Kit.A'", "'Kit.AB'");
+        Spec.Succ(result: Regression.RegistryParity(discovered: DiscoveredBenchmarks(), cases: BenchRegistry.Cases));
+    }
+
+    private static Seq<string> DiscoveredBenchmarks() =>
+        toSeq(typeof(Regression).Assembly.GetTypes())
+            .Bind(type => toSeq(type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly))
+                .Filter(predicate: static method => method.IsDefined(attributeType: typeof(BenchmarkDotNet.Attributes.BenchmarkAttribute), inherit: false))
+                .Map(method => $"{type.FullName}.{method.Name}"));
 }

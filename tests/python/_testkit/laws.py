@@ -275,6 +275,28 @@ def register_sut(package: str, *, exempt: frozenset[str] = frozenset(), suite: P
     )
 
 
+def register_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:
+    """Register every source-bearing package folder under ``source_root`` from disk shape.
+
+    A child folder registers only when it carries Python source; its dotted name derives from its
+    repo-relative path (bare folder name outside the repo, matching ``sys.path``-prepended roots)
+    and its suite is the same-named folder under ``suite_root``. A sourceless folder never
+    registers, so a planning-only tree adds zero census obligations until code lands.
+
+    Returns:
+        Registered dotted package names in folder order; empty when no folder carries source.
+    """
+    children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
+    names = tuple(
+        ".".join(child.relative_to(REPO_ROOT).parts) if child.is_relative_to(REPO_ROOT) else child.name
+        for child in children
+        if next(child.rglob("*.py"), None) is not None
+    )
+    for name in names:
+        register_sut(name, suite=suite_root / name.rsplit(".", 1)[-1])
+    return names
+
+
 def _module_name(py: Path) -> str:
     """Dotted name pytest's importlib mode assigns a repo law module.
 
@@ -335,4 +357,15 @@ def assert_law_coverage(*, only: frozenset[str] | None = None) -> None:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["spec", "consume_covers", "register_sut", "assert_law_coverage", "auto_exempt", "uncollected_laws", "MANIFEST", "LawRecord", "Sut"]
+__all__ = [
+    "spec",
+    "consume_covers",
+    "register_sut",
+    "register_tree",
+    "assert_law_coverage",
+    "auto_exempt",
+    "uncollected_laws",
+    "MANIFEST",
+    "LawRecord",
+    "Sut",
+]

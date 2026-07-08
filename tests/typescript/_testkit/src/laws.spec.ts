@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@effect/vitest';
-import { Effect, Schema } from 'effect';
+import { Effect, Order, Schema } from 'effect';
 import * as FastCheck from 'effect/FastCheck';
 import { Law, LawTautology } from './laws.ts';
 
@@ -115,6 +115,78 @@ describe('law registration', () => {
         Law.commutative({ arb: _INTS, equals: _SAME, witness: { label: 'subtraction foil', foil: (a, b) => a - b, args: { a: 1, b: 2 } } }),
         Law.associative({ arb: _INTS, equals: _SAME, witness: { label: 'subtraction foil', foil: (a, b) => a - b, args: { a: 1, b: 2, c: 3 } } }),
         Law.idempotent({ arb: _INTS, equals: _SAME, witness: { label: 'addition foil', foil: (a, b) => a + b, args: { a: 1 } } }),
+        // Math.min's identity over the bounded domain is its ceiling; subtraction against the same empty refutes.
+        Law.identity({ arb: _INTS, empty: 1000, equals: _SAME, witness: { label: 'subtraction foil', foil: (a, b) => a - b, args: { a: 1 } } }),
+    ]);
+});
+
+describe('equivalence law', () => {
+    Law.register(it, (self: number, that: number) => self === that, [
+        Law.equivalence({
+            arb: _INTS,
+            witness: { label: 'closeness pseudo-equivalence', foil: (self, that) => Math.abs(self - that) <= 1, args: { a: 0, b: 1, c: 2 } },
+        }),
+    ]);
+});
+
+describe('order law', () => {
+    Law.register(it, Order.number, [
+        Law.order({
+            arb: _INTS,
+            witness: { label: 'equality-refusing comparator', foil: (self, that) => (self <= that ? -1 : 1), args: { a: 1, b: 1, c: 1 } },
+        }),
+    ]);
+});
+
+describe('inverse law', () => {
+    Law.register(it, { to: (value: number) => String(value), from: Number }, [
+        Law.inverse({
+            arb: _INTS,
+            equals: _SAME,
+            witness: { label: 'sign-erasing dual', foil: { to: (value: number) => String(Math.abs(value)), from: Number }, args: { a: -1 } },
+        }),
+    ]);
+});
+
+describe('deterministic law', () => {
+    Law.register(it, (input: number) => Effect.succeed(input * 2), [
+        Law.deterministic({
+            arb: _INTS,
+            equals: _SAME,
+            witness: {
+                label: 'drifting reader',
+                foil: (() => {
+                    let drift = 0;
+                    return (input: number) => {
+                        drift += 1;
+                        return Effect.succeed(input + drift);
+                    };
+                })(),
+                args: { input: 0 },
+            },
+        }),
+    ]);
+});
+
+describe('homomorphic law', () => {
+    Law.register(it, (value: number) => value * 2, [
+        Law.homomorphic({
+            arb: _INTS,
+            combine: (a, b) => a + b,
+            combineImage: (a, b) => a + b,
+            equals: _SAME,
+            witness: { label: 'squaring map', foil: (value: number) => value * value, args: { a: 1, b: 2 } },
+        }),
+    ]);
+});
+
+describe('monotone law', () => {
+    Law.register(it, (state: number) => state + 1, [
+        Law.monotone({
+            arb: _INTS,
+            order: Order.number,
+            witness: { label: 'regressing step', foil: (state: number) => state - 1, args: { a: 0 } },
+        }),
     ]);
 });
 

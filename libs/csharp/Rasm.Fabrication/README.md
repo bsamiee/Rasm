@@ -68,9 +68,6 @@
 
 Domain libraries owned outside the C# substrate registry. NuGet versions are centralized in the one C# manifest and corroborated by this folder's `.api/`; `lib3mf` and `OpenCAMLib` are vendored — their pins and RID-keyed natives ride this folder (`vendor/runtimes/**`, their `.api` catalogs), outside NuGet restore.
 
-[POLYGON_ALGEBRA]:
-- `Clipper2`
-
 [CAD_IMPORT]:
 - `ACadSharp` — DWG/DXF 2D-profile read projection over the shared `CadDocument` model (Bim projects the mesh-bearing entities); DXF/DWG WRITE is the AppUi drafting leg, never a Fabrication arm.
 
@@ -131,6 +128,9 @@ Substrate cards this folder consumes from the registry. Full substrate law and p
 - `UnitsNet` — cut-parameter boundary + `Spec/tolerance` quantities (Speed/Length/RotationalSpeed/Pressure + Force/Power/Temperature/Angle/Torque overlay).
 - `MathNet.Numerics` — `Spec/capability` distribution-fit + Monte-Carlo tolerance-stackup; `Tooling/wear` Taylor log-log `Fit.Line`; the streaming-moment half stays kernel `Domain/stats`.
 
+[PLANAR_GEOMETRY]:
+- `Clipper2` — the `Geometry2D/algebra` line-space substrate: offset, variable-delta offset, Boolean/open-path clip, signed `Area`.
+
 [SIMD_SPANS]:
 - `System.Numerics.Tensors` — SIMD-lower the hot sampling folds across `Toolpath/motion`, `Nesting/nfp`, `Spec/capability`.
 - `CommunityToolkit.HighPerformance` — `Span2D`/`Memory2D` 2D grids for grayscale/uncut/engagement rasters and the `Verify/audit` layer census.
@@ -148,5 +148,3 @@ Substrate cards this folder consumes from the registry. Full substrate law and p
 - `xunit.v3.mtp-v2`
 - `CsCheck`
 - `coverlet.MTP`
-- `BenchmarkDotNet`
-- `Verify.XunitV3`

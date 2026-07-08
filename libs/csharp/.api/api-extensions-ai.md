@@ -1,4 +1,4 @@
-# [RASM_COMPUTE_API_EXTENSIONS_AI]
+# [RASM_API_EXTENSIONS_AI]
 
 `Microsoft.Extensions.AI.Abstractions` supplies provider-agnostic contracts for chat, embedding,
 image generation, speech-to-text, text-to-speech, realtime sessions, and hosted-file clients; the

@@ -14,13 +14,13 @@
 
 [ENTRYPOINT_SCOPE]: the provider function + its class — one `playwright(options?)` owns launch/connect/context/trace policy; browsers are config rows, not provider variants.
 
-| [INDEX] | [SYMBOL]                                        | [ENTRY_FAMILY]     | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :---------------------------------------------- | :----------------- | :------------------------------------------------------------------- |
-|  [01]   | `playwright(options?)`                          | provider factory   | → `BrowserProviderOption`; the value `browser.provider` takes         |
-|  [02]   | `PlaywrightProviderOptions`                     | options bag        | `launchOptions`/`connectOptions.wsEndpoint`/`contextOptions`/`actionTimeout`/`persistentContext` |
-|  [03]   | `PlaywrightBrowserProvider`                     | class (`BrowserProvider`) | drives Playwright — `getPage`/`getCommandsContext`/`getCDPSession`; `supportsParallelism` |
-|  [04]   | `_BrowserNames` augmentation (`browser.instances[].browser`) | ambient registration (NOT an export) | registers `"firefox"/"webkit"/"chromium"`; the same `declare module` also augments `BrowserCommandContext`, `UserEvent*Options`, `ScreenshotOptions`, `ToMatchScreenshotOptions`, `CDPSession` with Playwright's real shapes |
-|  [05]   | `defineBrowserCommand(fn)` (re-exported from `@vitest/browser`) | command factory | a typed server-side command callable from a spec via `commands`       |
+| [INDEX] | [SYMBOL]                                                        | [ENTRY_FAMILY]                       | [CAPABILITY]                                                                                                                                                                                                                 |
+| :-----: | :-------------------------------------------------------------- | :----------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `playwright(options?)`                                          | provider factory                     | → `BrowserProviderOption`; the value `browser.provider` takes                                                                                                                                                                |
+|  [02]   | `PlaywrightProviderOptions`                                     | options bag                          | `launchOptions`/`connectOptions.wsEndpoint`/`contextOptions`/`actionTimeout`/`persistentContext`                                                                                                                             |
+|  [03]   | `PlaywrightBrowserProvider`                                     | class (`BrowserProvider`)            | drives Playwright — `getPage`/`getCommandsContext`/`getCDPSession`; `supportsParallelism`                                                                                                                                    |
+|  [04]   | `_BrowserNames` augmentation (`browser.instances[].browser`)    | ambient registration (NOT an export) | registers `"firefox"/"webkit"/"chromium"`; the same `declare module` also augments `BrowserCommandContext`, `UserEvent*Options`, `ScreenshotOptions`, `ToMatchScreenshotOptions`, `CDPSession` with Playwright's real shapes |
+|  [05]   | `defineBrowserCommand(fn)` (re-exported from `@vitest/browser`) | command factory                      | a typed server-side command callable from a spec via `commands`                                                                                                                                                              |
 
 ```ts contract
 // The provider is a function call, NOT a string (v4). One call owns launch/connect/context/trace for every instance.
@@ -41,17 +41,17 @@ export { playwright, PlaywrightBrowserProvider, defineBrowserCommand }      // v
 
 `browser.instances[]` is the v4 collapse point: a MATRIX of browser rows over one provider, not a provider-per-browser config. Each row is a `BrowserInstanceOption` overriding per-instance `headless`/`viewport`/`locators`/`screenshotFailures`; the provider drives all of them.
 
-| [INDEX] | [FIELD]                                       | [SHAPE]                         | [CAPABILITY / BOUNDARY]                                          |
-| :-----: | :-------------------------------------------- | :------------------------------ | :--------------------------------------------------------------- |
-|  [01]   | `browser.enabled`                             | `boolean`                       | switch a project into browser mode                              |
-|  [02]   | `browser.provider`                            | `BrowserProviderOption`         | `playwright()` (or `webdriverio()`/`preview()` — `BrowserBuiltinProvider`) |
-|  [03]   | `browser.instances[]`                         | `BrowserInstanceOption[]`       | the browser matrix — `{ browser: 'chromium' }`, `{ browser: 'firefox', headless: false }`, … |
-|  [04]   | `browser.headless`                            | `boolean` (default `CI`)        | headed for debug, headless for CI/parallel                      |
-|  [05]   | `browser.viewport`                            | `{ width; height }` (414×896)   | default page size; per-instance overridable                     |
-|  [06]   | `browser.locators.testIdAttribute`            | `string` (`data-testid`)        | the attribute `getByTestId` resolves; `locators.exact`          |
-|  [07]   | `browser.trace`                               | `BrowserTraceViewMode \| { mode; tracesDir; screenshots; snapshots }` | Playwright trace for trace.playwright.dev — playwright-only |
-|  [08]   | `browser.screenshotFailures`/`screenshotDirectory` | `boolean`/`string`         | auto-capture on failure; artifact location                      |
-|  [09]   | `browser.ui`                                  | `boolean` (default `!CI`)       | embed the `@vitest/ui` dashboard with the live iframe           |
+| [INDEX] | [FIELD]                                            | [SHAPE]                                                               | [CAPABILITY]                                                                                 |
+| :-----: | :------------------------------------------------- | :-------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `browser.enabled`                                  | `boolean`                                                             | switch a project into browser mode                                                           |
+|  [02]   | `browser.provider`                                 | `BrowserProviderOption`                                               | `playwright()` (or `webdriverio()`/`preview()` — `BrowserBuiltinProvider`)                   |
+|  [03]   | `browser.instances[]`                              | `BrowserInstanceOption[]`                                             | the browser matrix — `{ browser: 'chromium' }`, `{ browser: 'firefox', headless: false }`, … |
+|  [04]   | `browser.headless`                                 | `boolean` (default `CI`)                                              | headed for debug, headless for CI/parallel                                                   |
+|  [05]   | `browser.viewport`                                 | `{ width; height }` (414×896)                                         | default page size; per-instance overridable                                                  |
+|  [06]   | `browser.locators.testIdAttribute`                 | `string` (`data-testid`)                                              | the attribute `getByTestId` resolves; `locators.exact`                                       |
+|  [07]   | `browser.trace`                                    | `BrowserTraceViewMode \| { mode; tracesDir; screenshots; snapshots }` | Playwright trace for trace.playwright.dev — playwright-only                                  |
+|  [08]   | `browser.screenshotFailures`/`screenshotDirectory` | `boolean`/`string`                                                    | auto-capture on failure; artifact location                                                   |
+|  [09]   | `browser.ui`                                       | `boolean` (default `!CI`)                                             | embed the `@vitest/ui` dashboard with the live iframe                                        |
 
 ```ts contract
 type BrowserBuiltinProvider = "webdriverio" | "playwright" | "preview"
@@ -67,17 +67,17 @@ interface BrowserInstanceOption {   // Omit<ProjectConfig, unsupported> + per-in
 
 [PUBLIC_TYPE_SCOPE]: what the provider ENABLES in a spec — the `vitest/browser` context (`@vitest/browser/context`). A browser spec drives the real page through these; the provider binds each to Playwright under the hood.
 
-| [INDEX] | [SYMBOL]                                        | [FAMILY]          | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :---------------------------------------------- | :---------------- | :------------------------------------------------------------------- |
-|  [01]   | `page: BrowserPage`                             | page handle       | `viewport(w,h)`/`screenshot(opts)`/`elementLocator(el)`/`mark`/`extend` + all `LocatorSelectors` |
-|  [02]   | `LocatorSelectors` on `page`/`Locator`          | locator           | `getByRole`/`getByText`/`getByTestId`/`getByLabelText`/`getByPlaceholder`/`getByAltText`/`getByTitle` |
-|  [03]   | `Locator`                                       | element handle    | chainable ARIA-first locator; `.click()`/`.screenshot()`/nested `getBy*` |
-|  [04]   | `userEvent: UserEvent`                          | interaction       | `click`/`dblClick`/`tripleClick`/`wheel`(4.1)/`fill`/`keyboard`/`selectOptions`/`hover`/`dragAndDrop`/`upload`; `setup`/`cleanup` |
-|  [05]   | `expect(el).toMatchScreenshot(opts?)`           | visual regression | pixel-diff against a stored baseline (`ScreenshotMatcherOptions`, custom `comparators`) |
-|  [06]   | `@vitest/browser/matchers`                      | DOM matchers      | retrying element assertions (`toBeVisible`/`toHaveText`/…) over async DOM |
-|  [07]   | `commands: BrowserCommands` · `defineBrowserCommand` | server bridge | `readFile`/`writeFile`/`removeFile` + custom Node-side commands from a browser spec |
-|  [08]   | `cdp(): CDPSession`                             | devtools          | Chrome DevTools Protocol — chromium/playwright only                 |
-|  [09]   | `server` · `utils`                              | context + debug   | `server` (platform/version/provider/browser/commands/config); `utils.debug`/`prettyDOM`   |
+| [INDEX] | [SYMBOL]                                             | [FAMILY]          | [CAPABILITY]                                                                                                                      |
+| :-----: | :--------------------------------------------------- | :---------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `page: BrowserPage`                                  | page handle       | `viewport(w,h)`/`screenshot(opts)`/`elementLocator(el)`/`mark`/`extend` + all `LocatorSelectors`                                  |
+|  [02]   | `LocatorSelectors` on `page`/`Locator`               | locator           | `getByRole`/`getByText`/`getByTestId`/`getByLabelText`/`getByPlaceholder`/`getByAltText`/`getByTitle`                             |
+|  [03]   | `Locator`                                            | element handle    | chainable ARIA-first locator; `.click()`/`.screenshot()`/nested `getBy*`                                                          |
+|  [04]   | `userEvent: UserEvent`                               | interaction       | `click`/`dblClick`/`tripleClick`/`wheel`(4.1)/`fill`/`keyboard`/`selectOptions`/`hover`/`dragAndDrop`/`upload`; `setup`/`cleanup` |
+|  [05]   | `expect(el).toMatchScreenshot(opts?)`                | visual regression | pixel-diff against a stored baseline (`ScreenshotMatcherOptions`, custom `comparators`)                                           |
+|  [06]   | `@vitest/browser/matchers`                           | DOM matchers      | retrying element assertions (`toBeVisible`/`toHaveText`/…) over async DOM                                                         |
+|  [07]   | `commands: BrowserCommands` · `defineBrowserCommand` | server bridge     | `readFile`/`writeFile`/`removeFile` + custom Node-side commands from a browser spec                                               |
+|  [08]   | `cdp(): CDPSession`                                  | devtools          | Chrome DevTools Protocol — chromium/playwright only                                                                               |
+|  [09]   | `server` · `utils`                                   | context + debug   | `server` (platform/version/provider/browser/commands/config); `utils.debug`/`prettyDOM`                                           |
 
 ```ts contract
 import { page, userEvent, commands, cdp, server } from 'vitest/browser'

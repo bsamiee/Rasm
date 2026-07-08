@@ -43,11 +43,7 @@ A component carries complete generative parametric data for the geometry a gener
 Domain packages admitted by this folder; versions are centralized in the one C# manifest and corroborated by this folder's `.api/`.
 
 [COLOR_SPECTRAL]:
-- `Wacton.Unicolour`
-- `Wacton.Unicolour.Datasets`
-
-[NUMERICS]:
-- `MathNet.Numerics`
+- `Wacton.Unicolour.Datasets` — reference observers, illuminants, and named datasets over the substrate `Wacton.Unicolour` owner.
 
 [SECTION_CATALOGUE]:
 - `VividOrange.Profiles.Catalogue` — AISC and EN typed profiles with `UnitsNet.Length` geometry; grounds the section seed in published data.
@@ -66,7 +62,8 @@ Domain packages admitted by this folder; versions are centralized in the one C# 
 - `VividOrange.Uncertainties.Quantities` — UnitsNet quantity uncertainty; value/unit/uncertainty travel the property surfaces; `IUncertainties` the floor.
 
 [WIRE_SERIALIZERS]:
-- `MessagePack` — binary appearance-interchange wire: source-generated resolver, `Lz4BlockArray`, `UntrustedData` hardening; analyzer proves `[Key]` coverage.
+- `MessagePack` — binary appearance-interchange wire: source-generated resolver, `Lz4BlockArray`, `UntrustedData` hardening.
+- `MessagePackAnalyzer` — build-only (`PrivateAssets=all`) companion proving `[Key]` coverage on every `[MessagePackObject]` wire record.
 
 [PROJECTS]:
 - `Rasm` — the kernel: `Rasm.Numerics` value-objects, the `IObjectFactory` admission floor, and the seed-zero `XxHash128` hash entry `ContentAddress` composes.
@@ -86,9 +83,13 @@ Substrate packages from the C# registry consumed by this folder; full registry a
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet`
+- `MathNet.Numerics` — capacity distribution fits and interaction-surface regression under `Component/capacity`
 
 [MEMORY_PLANES]:
 - `CommunityToolkit.HighPerformance` — dense planes: mips via `AsMemory2D` into a `ReadOnlyMemory2D<ShadeVec4>` pyramid; samplers read spans, never offsets.
 
 [GRAPH_ALGORITHM]:
 - `QuikGraph` — `Appearance/graph` folds the DAG into `AdjacencyGraph<PortId, SEdge<PortId>>` + `SourceFirstTopologicalSort`, replacing the Kahn walk.
+
+[COLOR_SCIENCE]:
+- `Wacton.Unicolour` — color-space conversion and perceptual difference under `Component/appearance` and the spectral datasets.

@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { FileSystem, Path } from '@effect/platform';
-import { Array, Context, Data, Effect, HashMap, Option, Order, pipe, Schema, String } from 'effect';
+import { Array, Context, Data, Effect, HashMap, Option, Order, pipe, Record, Schema, String } from 'effect';
 import { xxhash128 } from 'hash-wasm';
 
 // --- [TYPES] -----------------------------------------------------------------------------
@@ -107,7 +107,7 @@ const _pairs = (names: ReadonlyArray<string>): ReadonlyArray<Corpus.Pair> =>
         Array.filter(names, (name) => /.\.(bin|json)$/.test(name)),
         Array.groupBy((name) => name.replace(/\.(bin|json)$/, '')),
         (grouped) =>
-            Array.map(Object.entries(grouped), ([message, files]) => ({
+            Array.map(Record.toEntries(grouped), ([message, files]) => ({
                 message,
                 bin: Array.findFirst(files, (file) => file.endsWith(_EXTENSIONS.bin)),
                 json: Array.findFirst(files, (file) => file.endsWith(_EXTENSIONS.json)),
