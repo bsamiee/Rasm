@@ -23,7 +23,7 @@ The one acceptance/readiness oracle (`Rasm.Domain`). This page owns five surface
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -177,7 +177,7 @@ public sealed partial record Requirement {
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Collections.Frozen;
 using System.Linq.Expressions;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using Rhino;
 
 namespace Rasm.Domain;
@@ -247,7 +247,7 @@ internal static partial class OpAcceptance {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 
 namespace Rasm.Domain;
 

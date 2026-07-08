@@ -1,14 +1,14 @@
-# [nuqs] — the browser/route URL query-state codec: the framework-agnostic parse/serialize core, never a router
+# [TS_RUNTIME_API_NUQS]
 
 `nuqs` is a type-safe URL search-param state manager. `browser/route.md` consumes ONLY its framework-agnostic codec core from the `nuqs/server` entry — the `parseAs*` builder atoms, `createParser`, `createSerializer`, `createLoader`, `createStandardSchemaV1` — and composes it against the Navigation API: nuqs owns typed parse/serialize of the query string, the Navigation API owns traversal. That split IS the zero-routing-package law. The React `useQueryState`/`useQueryStates` hooks require a `nuqs/adapters/*` provider plus React and are outside the browser rail; the `nuqs/server` parsers, serializer, loader, and standard-schema are React-free in behavior, so a browser build tree-shakes to the codec alone — only `createSearchParamsCache` (the RSC cache) statically touches React, dropped when unused.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nuqs`
-- package: `nuqs` `2.9.0` — license `MIT`
+- package: `nuqs` `` — license `MIT`
 - module: pure ESM (`"type": "module"`); entries `nuqs` (React hooks + re-exported core) and `nuqs/server` (the framework-agnostic codec entry — the browser rail; its parsers/serializer/loader are React-free, only the RSC `createSearchParamsCache` imports React, tree-shaken when unused); types `dist/index.d.ts` / `dist/server.d.ts`
-- marker: `sideEffects` limited to `./dist/debug.js`; peer `@standard-schema/spec` (Standard Schema v1 interop); the `Options` type references React's `TransitionStartFunction` type-only, never a runtime pull
-- bound asset: TSDECL `node_modules/nuqs/dist/{index,server,parsers,defs}.d.ts` (`assay api resolve nuqs` → `2.9.0`, `restore: restored`)
+- marker: `sideEffects` limited to `./dist/debug.js`; peer `@standard-schema/spec` (Standard Schema catalog-bound interop); the `Options` type references React's `TransitionStartFunction` type-only, never a runtime pull
+- bound asset: TSDECL `node_modules/nuqs/dist/{index,server,parsers,defs}.d.ts` (`assay api resolve nuqs` → catalog-bound, `restore: restored`)
 - admission: folder-local `# browser` catalog group; version centralized in `pnpm-workspace.yaml`, never pinned here
 - role: `browser/route.md` (the R17 composition site — URL query-state typing over the Navigation-API router); `browser/route.md` folds the decoded params
 - rail: `browser/route`
@@ -43,20 +43,20 @@ Consumer note: `browser/route.md` declares one `ParserMap` per route; `.withDefa
 
 The atom roster — primitive scalars, closed-vocabulary refinements, and the two composite constructors that own everything richer. `parseAsJson` and `parseAsArrayOf` are the parameterized escape hatches; a custom shape is one of those under a Schema, never a new hand-rolled parser.
 
-| [INDEX] | [SYMBOL]                                          | [STATE_TYPE]  | [KIND]                              |
-| :-----: | :------------------------------------------------ | :------------ | :---------------------------------- |
-|  [01]   | `parseAsString` / `parseAsInteger` / `parseAsFloat` | `string`/`number` | scalar atoms                    |
-|  [02]   | `parseAsIndex` / `parseAsHex`                      | `number`      | offset/radix scalar atoms           |
-|  [03]   | `parseAsBoolean`                                   | `boolean`     | scalar atom                         |
-|  [04]   | `parseAsTimestamp` / `parseAsIsoDateTime` / `parseAsIsoDate` | `Date` | epoch-ms / ISO-8601 / date-only |
-|  [05]   | `parseAsStringEnum<E>(values)`                     | `E`           | closed enum vocabulary              |
-|  [06]   | `parseAsStringLiteral<L>(readonly values)`         | `L`           | closed string-literal vocabulary    |
-|  [07]   | `parseAsNumberLiteral<L>(readonly values)`         | `L`           | closed number-literal vocabulary    |
-|  [08]   | `parseAsJson<T>(validator \| StandardSchemaV1<T>)` | `T`           | validated JSON — the Schema seam    |
-|  [09]   | `parseAsArrayOf<I>(itemParser, separator?)`        | `I[]`         | delimited list over an item parser  |
-|  [10]   | `parseAsNativeArrayOf<I>(itemParser)`              | `I[]`         | repeated-key (`?k=a&k=b`) multi     |
+| [INDEX] | [SYMBOL] | [STATE_TYPE] | [KIND] |
+|:-----: |:------------------------------------------------ |:------------ |:---------------------------------- |
+| [01] | `parseAsString` / `parseAsInteger` / `parseAsFloat` | `string`/`number` | scalar atoms |
+| [02] | `parseAsIndex` / `parseAsHex` | `number` | offset/radix scalar atoms |
+| [03] | `parseAsBoolean` | `boolean` | scalar atom |
+| [04] | `parseAsTimestamp` / `parseAsIsoDateTime` / `parseAsIsoDate` | `Date` | epoch-ms / ISO-8601 / date-only |
+| [05] | `parseAsStringEnum<E>(values)` | `E` | closed enum vocabulary |
+| [06] | `parseAsStringLiteral<L>(readonly values)` | `L` | closed string-literal vocabulary |
+| [07] | `parseAsNumberLiteral<L>(readonly values)` | `L` | closed number-literal vocabulary |
+| [08] | `parseAsJson<T>(validator \| StandardSchemaV1<T>)` | `T` | validated JSON — the Schema seam |
+| [09] | `parseAsArrayOf<I>(itemParser, separator?)` | `I[]` | delimited list over an item parser |
+| [10] | `parseAsNativeArrayOf<I>(itemParser)` | `I[]` | repeated-key (`?k=a&k=b`) multi |
 
-Consumer note: `parseAsStringLiteral`/`parseAsNumberLiteral` type a URL param against a closed set exactly as a `Schema.Literal`; `parseAsJson(validator)` accepts any predicate or Standard Schema v1, so a kernel `Schema` (via `Schema.standardSchemaV1`) validates a structured query value in place.
+Consumer note: `parseAsStringLiteral`/`parseAsNumberLiteral` type a URL param against a closed set exactly as a `Schema.Literal`; `parseAsJson(validator)` accepts any predicate or Standard Schema catalog-bound, so a kernel `Schema` (via `Schema.standardSchemaV1`) validates a structured query value in place.
 
 ## [04]-[SERIALIZER_LOADER]
 
@@ -109,7 +109,7 @@ Consumer note: `createSerializer` honors ONLY `clearOnDefault` (plus `urlKeys`, 
 
 ## [07]-[STACKING]
 
-- kernel `Schema`: `parseAsJson(Schema.standardSchemaV1(RouteParamSchema))` feeds a kernel `Schema` (projected to Standard Schema v1) straight into the JSON parser — the URL param decodes once into a kernel-branded value, never a raw string. Conversely `createStandardSchemaV1(parsers)` hands the whole route's `ParserMap` to any Standard-Schema consumer.
+- kernel `Schema`: `parseAsJson(Schema.standardSchemaV1(RouteParamSchema))` feeds a kernel `Schema` (projected to Standard Schema catalog-bound) straight into the JSON parser — the URL param decodes once into a kernel-branded value, never a raw string. Conversely `createStandardSchemaV1(parsers)` hands the whole route's `ParserMap` to any Standard-Schema consumer.
 - `browser/route` Navigation API: nuqs is the codec, `navigation.navigate(url)` the traversal; a `navigate`-event listener re-runs `createLoader(parsers)(new URL(navigation.currentEntry.url))` to derive the current typed query state — zero routing package.
 - `effect` rails: the pure `createSerializer`/`createLoader` wrap in `Effect.sync`; the decoded param record drives `Match.value` route dispatch; a `SubscriptionRef` holds the current typed query state the `browser/route` admission folds read.
 - sibling `idb-keyval` (`browser/persist`): `set`/`get` the last-good serialized query string per route key so a cold boot `createLoader`-decodes the restored string to typed state before the Navigation API resolves the entry.

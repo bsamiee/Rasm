@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `AngouriMath`
 - package: `AngouriMath`
-- version: `1.4.0` (feed stable, active)
 - license: MIT
 - assembly: `AngouriMath`
 - namespace: `AngouriMath` (the `Entity` hierarchy), `static AngouriMath.MathS` (the parse/solve/build facade)

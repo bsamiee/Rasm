@@ -26,28 +26,28 @@ This catalog drives the `export/indesign#INDESIGN` `Idml`/`IdmlStep` owner: the 
 
 `IDMLPackage` is the document root — a `zipfile.ZipFile` subclass constructed over a real archive PATH (`IDMLPackage(filename, mode="r")`; a stream-backed handle leaves `self.filename` `None` and crashes the `@use_working_copy` `os.unlink`). Its introspection is LAZY (each property memoizes on first read and resets after a mutation), and the central authority is `xml_structure`: an lxml `_Element` reconstructed from `XML/BackingStory.xml` by walking every story file, against which every mutation anchor (`at`/`only`/`under`) is an XPath resolved through `_Element.xpath`. The InDesign element nodes (`XMLElement`/`Spread`/`Story`/`Page`/`BackingStory`/`Designmap`) are owner-internal — the rail reads counts off the lazy properties and resolves anchors against `xml_structure`, never reconstructing the InDesign node classes.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]      | [RAIL]                                                                                          |
-| :-----: | :-------------------------------- | :----------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | `IDMLPackage`                     | document root      | `zipfile.ZipFile` over the unzipped `.idml`; the mutation + introspection surface (`simple_idml.idml`) |
-|  [02]   | `xml_structure`                   | lxml tag tree      | `@property -> _Element`; the InDesign XML structure every `at`/`only` XPath resolves against     |
-|  [03]   | `xml_structure_tree`              | lxml ElementTree   | `@property -> ElementTree(xml_structure)`; the tree wrapper for absolute-XPath/XSLT use          |
-|  [04]   | `designmap`                       | designmap node     | `@property`; the `designmap.xml` root carrying `layer_nodes`/`spread_nodes` (layer + spread surgery anchor) |
-|  [05]   | `backing_story`                   | backing story      | `@property -> BackingStory`; `XML/BackingStory.xml`, the root of the XML-structure discovery walk |
-|  [06]   | `InDesignSoapException`           | SOAP fault         | `BaseException` raised by the InDesign-Server path (`simple_idml.exceptions`) — the OUT-OF-SCOPE arm |
-|  [07]   | `ZipInDesignPackage`              | print package      | `zipfile.ZipFile` over a native InDesign packaged `.zip`; `get_font_list`/`get_link_list` (`id_package`) |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `IDMLPackage` | document root | `zipfile.ZipFile` over the unzipped `.idml`; the mutation + introspection surface (`simple_idml.idml`) |
+| [02] | `xml_structure` | lxml tag tree | `@property -> _Element`; the InDesign XML structure every `at`/`only` XPath resolves against |
+| [03] | `xml_structure_tree` | lxml ElementTree | `@property -> ElementTree(xml_structure)`; the tree wrapper for absolute-XPath/XSLT use |
+| [04] | `designmap` | designmap node | `@property`; the `designmap.xml` root carrying `layer_nodes`/`spread_nodes` (layer + spread surgery anchor) |
+| [05] | `backing_story` | backing story | `@property -> BackingStory`; `XML/BackingStory.xml`, the root of the XML-structure discovery walk |
+| [06] | `InDesignSoapException` | SOAP fault | `BaseException` raised by the InDesign-Server path (`simple_idml.exceptions`) — the OUT-OF-SCOPE arm |
+| [07] | `ZipInDesignPackage` | print package | `zipfile.ZipFile` over a native InDesign packaged `.zip`; `get_font_list`/`get_link_list` (`id_package`) |
 
 [PUBLIC_TYPE_SCOPE]: the import-XML content-control attribute vocabulary (closed string constants)
 - rail: `export/indesign`
 
 `import_xml` reads three reserved markup-tag names off the source XML to decide per-element content handling — these are the InDesign XML-import control attributes, passed by NAMING them on the source tree, never as method arguments. They are the closed vocabulary the `IdmlStep.ImportXml` arm's source XML carries.
 
-| [INDEX] | [SYMBOL]            | [VALUE]                     | [EFFECT]                                                                                |
-| :-----: | :------------------ | :-------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `SETCONTENT_TAG`    | `"simpleidml-setcontent"`   | replace the anchored element's content with the imported node's content                 |
-|  [02]   | `IGNORECONTENT_TAG` | `"simpleidml-ignorecontent"`| import the node structurally but leave the destination content untouched                |
-|  [03]   | `FORCECONTENT_TAG`  | `"simpleidml-forcecontent"` | force content import even where the default merge would skip it                          |
-|  [04]   | `BACKINGSTORY`      | `"XML/BackingStory.xml"`    | the in-archive path of the backing story (the `xml_structure` discovery root)           |
-|  [05]   | `IdPkgNS`           | `"http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging"` | the IDML packaging XML namespace URI                        |
+| [INDEX] | [SYMBOL] | [VALUE] | [EFFECT] |
+| --- | --- | --- | --- |
+| [01] | `SETCONTENT_TAG` | `"simpleidml-setcontent"` | replace the anchored element's content with the imported node's content |
+| [02] | `IGNORECONTENT_TAG` | `"simpleidml-ignorecontent"` | import the node structurally but leave the destination content untouched |
+| [03] | `FORCECONTENT_TAG` | `"simpleidml-forcecontent"` | force content import even where the default merge would skip it |
+| [04] | `BACKINGSTORY` | `"XML/BackingStory.xml"` | the in-archive path of the backing story (the `xml_structure` discovery root) |
+| [05] | `IdPkgNS` | `"http://ns.adobe.com/AdobeInDesign/idml/1.0/packaging"` | the IDML packaging XML namespace URI |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -56,67 +56,67 @@ This catalog drives the `export/indesign#INDESIGN` `Idml`/`IdmlStep` owner: the 
 
 `IDMLPackage(filename, mode)` is the single constructor — `mode="r"` to open a designer template, `mode="w"` only inside the decorator's repackage step. Every MUTATION is decorated `@use_working_copy`: on first call it `extractall`s the archive to a `NamedTemporaryFile().name` temp tree, sets `working_copy_path`, runs the view function against the extracted tree, repackages the tree into a new `<tmp>.idml`, `os.unlink`s the original `self.filename`, `shutil.move`s the new archive over it, closes the input, `shutil.rmtree`s the temp tree, and RETURNS a fresh `IDMLPackage(new_filename)` — so the caller MUST thread the returned instance forward (`package = package.method(...)`) and a lost reference leaves an unclosed backing file the platform (notably Windows) cannot unlink. The `export/indesign#INDESIGN` `_mutate` worker threads each returned instance through one `contextlib.ExitStack` and spills every blob to a real path via `_spill` because the path-backed constructor + the `os.unlink(self.filename)` reject a `BytesIO`-backed package.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                  | [CAPABILITY]                                              |
-| :-----: | :--------------------------------- | :--------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `IDMLPackage`                      | `IDMLPackage(filename, mode="r", debug=False) -> IDMLPackage`                | open the unzipped `.idml` archive over a real path        |
-|  [02]   | `@use_working_copy`                | decorator (`simple_idml.decorators`); view returns `self`, decorator returns a FRESH `IDMLPackage` | extract -> mutate -> repackage -> swap -> reopen the archive per top-level mutation |
-|  [03]   | `IDMLPackage.export_xml`           | `export_xml(from_tag=None, encoding=None) -> str`                            | serialize the tagged XML content tree back out (the inverse of `import_xml`) |
-|  [04]   | `IDMLPackage.export_as_tree`       | `export_as_tree() -> dict`                                                   | the tagged content as a nested `{tag, attrs, content}` dict (children ride `content` beside text runs) |
-|  [05]   | `IDMLPackage.is_prefixed`          | `is_prefixed(prefix) -> bool`                                               | whether the package was already namespace-prefixed (idempotence guard)   |
-|  [06]   | `extras.create_idml_package_from_dir` | `create_idml_package_from_dir(src_dir, destination) -> None`            | build an `.idml` archive from an unzipped directory tree (the console-script body) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `IDMLPackage` | `IDMLPackage(filename, mode="r", debug=False) -> IDMLPackage` | open the unzipped `.idml` archive over a real path |
+| [02] | `@use_working_copy` | decorator (`simple_idml.decorators`); view returns `self`, decorator returns a FRESH `IDMLPackage` | extract -> mutate -> repackage -> swap -> reopen the archive per top-level mutation |
+| [03] | `IDMLPackage.export_xml` | `export_xml(from_tag=None, encoding=None) -> str` | serialize the tagged XML content tree back out (the inverse of `import_xml`) |
+| [04] | `IDMLPackage.export_as_tree` | `export_as_tree() -> dict` | the tagged content as a nested `{tag, attrs, content}` dict (children ride `content` beside text runs) |
+| [05] | `IDMLPackage.is_prefixed` | `is_prefixed(prefix) -> bool` | whether the package was already namespace-prefixed (idempotence guard) |
+| [06] | `extras.create_idml_package_from_dir` | `create_idml_package_from_dir(src_dir, destination) -> None` | build an `.idml` archive from an unzipped directory tree (the console-script body) |
 
 [ENTRYPOINT_SCOPE]: the sixteen `@use_working_copy` mutation algebra (the `IdmlStep`-eligible surface)
 - rail: `export/indesign`
 
 Each method returns `self` from the view body and a FRESH instance through the decorator. Fourteen are step-eligible (one `IdmlStep` case each); `prefix` is applied once on the base (`Idml.base`) and `add_page_from_idml` is the singular form the batch `add_pages_from_idml` folds. `insert_idml`/`add_pages_from_idml`/`import_xml`/`import_pdf`/`set_attributes`/`add_note`/`remove_content`/`xml_element_leaf_to_node` take an XPath `at` resolved against `xml_structure`; `insert_idml`/`add_pages_from_idml` ALSO read a source `only` XPath (`idml_package.xml_structure.xpath(only)[0]`, raising `IndexError` on a phantom); `remove_layer`/`remove_guides_on_layer`/`add_story_with_content` key the designmap/story files by id, NOT the XML tree.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                  | [CAPABILITY]                                              |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `IDMLPackage.prefix`                   | `prefix(prefix) -> IDMLPackage`                                              | namespace every `Self`/reference id with an alphanumeric `^\w+$` token (collision-free merge; base-only) |
-|  [02]   | `IDMLPackage.insert_idml`              | `insert_idml(idml_package, at, only) -> IDMLPackage`                         | merge a sub-template's tagged content (+ fonts/styles/graphics/tags/spreads/stories/layers) at the destination XPath |
-|  [03]   | `IDMLPackage.add_pages_from_idml`      | `add_pages_from_idml(idml_packages) -> IDMLPackage`                          | batch-fold `(package, page_number, at, only)` tuples, appending each source page + its stories/fonts/styles/tags |
-|  [04]   | `IDMLPackage.add_page_from_idml`       | `add_page_from_idml(idml_package, page_number, at, only) -> IDMLPackage`     | append ONE source page (the singular the batch folds; recto-aware new-spread allocation) |
-|  [05]   | `IDMLPackage.import_xml`               | `import_xml(xml, at) -> IDMLPackage`                                         | populate the tagged structure from an XML tree, honoring the `setcontent`/`ignorecontent`/`forcecontent` tags |
-|  [06]   | `IDMLPackage.import_pdf`               | `import_pdf(pdf_path, at, crop="CropContentVisibleLayers", page_number=1) -> IDMLPackage` | place a linked, re-croppable PDF page into the anchored block |
-|  [07]   | `IDMLPackage.set_attributes`           | `set_attributes(xpath, items, element_id=None) -> IDMLPackage`              | write page-item attributes; an `href` key relinks the image resource path (empty `href` removes the page item) |
-|  [08]   | `IDMLPackage.add_note`                 | `add_note(note, author, at, when=None) -> IDMLPackage`                       | attach an InDesign collaboration note to the anchored element (`when` defaults to now) |
-|  [09]   | `IDMLPackage.merge_layers`             | `merge_layers(with_name=None) -> IDMLPackage`                               | collapse every designmap layer into one and re-point spread-item layer references         |
-|  [10]   | `IDMLPackage.suffix_layers`            | `suffix_layers(suffix) -> IDMLPackage`                                       | append `suffix` to every designmap layer id (the layer-level analogue of `prefix`)        |
-|  [11]   | `IDMLPackage.remove_layer`             | `remove_layer(layer_id) -> IDMLPackage`                                      | drop the designmap layer and, transitively, its guides                                    |
-|  [12]   | `IDMLPackage.remove_orphan_layers`     | `remove_orphan_layers() -> IDMLPackage`                                      | drop every designmap layer no spread item references (niladic post-merge sweep)           |
-|  [13]   | `IDMLPackage.remove_guides_on_layer`   | `remove_guides_on_layer(layer_id) -> IDMLPackage`                            | strip a layer's guides while the layer itself stays (the narrower sibling of `remove_layer`) |
-|  [14]   | `IDMLPackage.remove_content`           | `remove_content(under) -> IDMLPackage`                                       | recursively clear the tagged content under the anchor (the template-reset inverse of `insert_idml`) |
-|  [15]   | `IDMLPackage.add_story_with_content`   | `add_story_with_content(story_id, xml_element_id, xml_element_tag) -> IDMLPackage` | mint a new story bound to an XML element and register it in the designmap  |
-|  [16]   | `IDMLPackage.xml_element_leaf_to_node` | `xml_element_leaf_to_node(xpath, xml_content_ref) -> IDMLPackage`            | promote a `Rectangle` leaf page-item to a `TextFrame` node so tagged content can nest beneath it |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `IDMLPackage.prefix` | `prefix(prefix) -> IDMLPackage` | namespace every `Self`/reference id with an alphanumeric `^w+$` token (collision-free merge; base-only) |
+| [02] | `IDMLPackage.insert_idml` | `insert_idml(idml_package, at, only) -> IDMLPackage` | merge a sub-template's tagged content (+ fonts/styles/graphics/tags/spreads/stories/layers) at the destination XPath |
+| [03] | `IDMLPackage.add_pages_from_idml` | `add_pages_from_idml(idml_packages) -> IDMLPackage` | batch-fold `(package, page_number, at, only)` tuples, appending each source page + its stories/fonts/styles/tags |
+| [04] | `IDMLPackage.add_page_from_idml` | `add_page_from_idml(idml_package, page_number, at, only) -> IDMLPackage` | append ONE source page (the singular the batch folds; recto-aware new-spread allocation) |
+| [05] | `IDMLPackage.import_xml` | `import_xml(xml, at) -> IDMLPackage` | populate the tagged structure from an XML tree, honoring the `setcontent`/`ignorecontent`/`forcecontent` tags |
+| [06] | `IDMLPackage.import_pdf` | `import_pdf(pdf_path, at, crop="CropContentVisibleLayers", page_number=1) -> IDMLPackage` | place a linked, re-croppable PDF page into the anchored block |
+| [07] | `IDMLPackage.set_attributes` | `set_attributes(xpath, items, element_id=None) -> IDMLPackage` | write page-item attributes; an `href` key relinks the image resource path (empty `href` removes the page item) |
+| [08] | `IDMLPackage.add_note` | `add_note(note, author, at, when=None) -> IDMLPackage` | attach an InDesign collaboration note to the anchored element (`when` defaults to now) |
+| [09] | `IDMLPackage.merge_layers` | `merge_layers(with_name=None) -> IDMLPackage` | collapse every designmap layer into one and re-point spread-item layer references |
+| [10] | `IDMLPackage.suffix_layers` | `suffix_layers(suffix) -> IDMLPackage` | append `suffix` to every designmap layer id (the layer-level analogue of `prefix`) |
+| [11] | `IDMLPackage.remove_layer` | `remove_layer(layer_id) -> IDMLPackage` | drop the designmap layer and, transitively, its guides |
+| [12] | `IDMLPackage.remove_orphan_layers` | `remove_orphan_layers() -> IDMLPackage` | drop every designmap layer no spread item references (niladic post-merge sweep) |
+| [13] | `IDMLPackage.remove_guides_on_layer` | `remove_guides_on_layer(layer_id) -> IDMLPackage` | strip a layer's guides while the layer itself stays (the narrower sibling of `remove_layer`) |
+| [14] | `IDMLPackage.remove_content` | `remove_content(under) -> IDMLPackage` | recursively clear the tagged content under the anchor (the template-reset inverse of `insert_idml`) |
+| [15] | `IDMLPackage.add_story_with_content` | `add_story_with_content(story_id, xml_element_id, xml_element_tag) -> IDMLPackage` | mint a new story bound to an XML element and register it in the designmap |
+| [16] | `IDMLPackage.xml_element_leaf_to_node` | `xml_element_leaf_to_node(xpath, xml_content_ref) -> IDMLPackage` | promote a `Rectangle` leaf page-item to a `TextFrame` node so tagged content can nest beneath it |
 
 [ENTRYPOINT_SCOPE]: the lazy introspection inventory (the `IdmlFact` evidence source) + the spread/story query family
 - rail: `export/indesign`
 
 These memoizing properties are the structural inventory `export/indesign#INDESIGN`'s `_mutate` reads off the FINAL instance (`len(spreads)`/`len(stories)`/`len(pages)`/`len(font_families)`/`len(style_groups)`/`len(referenced_layers)`/`len(tags)` + the `xml_structure.iter()` node count). The `get_*` query family resolves spread/story objects and page-item ids by name/xpath/id — the worker-internal lookups `set_attributes`/`import_pdf` ride; the rail discriminates by these, never an `isinstance` ladder over the InDesign node classes.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                  | [CAPABILITY]                                              |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `IDMLPackage.spreads` / `spreads_objects` / `last_spread` | `@property spreads -> list[str]`; `spreads_objects -> list[Spread]` | the `Spreads/` archive members / `Spread` objects / the trailing spread (append target) |
-|  [02]   | `IDMLPackage.pages`                    | `@property pages -> list[Page]`                                              | every page across all spreads (the page-count fact)       |
-|  [03]   | `IDMLPackage.stories` / `story_ids`    | `@property stories -> list[str]`; `story_ids -> list[str]`                   | the `Stories/` archive members / their extracted `Story_<id>` ids |
-|  [04]   | `IDMLPackage.tags` / `font_families` / `style_groups` | `@property -> list[_Element]` (deep-copied)                   | the markup tags / font-family / style-group resource elements — LISTS, so `len()` is the tag/font/style fact |
-|  [05]   | `IDMLPackage.style` / `style_mapping` / `graphic` | `@property -> Style` / `StyleMapping` / `Graphic`                | the Resources style / style-mapping / graphic resource OBJECTS (not `_Element`; the writable resource handles) |
-|  [06]   | `IDMLPackage.referenced_layers`        | `@property referenced_layers -> list[str]`                                   | the designmap layer ids a spread item actually references (the layer-count fact) |
-|  [07]   | `IDMLPackage.stories_for_node` / `story_ids_for_node` | `stories_for_node(node_path) -> list[str]`                    | the story files / ids beneath an XML-structure XPath (selective story extraction) |
-|  [08]   | `IDMLPackage.get_spread_object_by_xpath` / `_by_name` / `_by_id` | `get_spread_object_by_xpath(xpath) -> Spread \| None`             | resolve the `Spread` owning an anchored element (the `set_attributes`/`import_pdf` lookup) |
-|  [09]   | `IDMLPackage.get_story_object_by_xpath` / `get_story_by_xpath` | `get_story_object_by_xpath(xpath) -> Story`                     | resolve the `Story` owning an anchored element (the `set_attributes` write target) |
-|  [10]   | `IDMLPackage.get_element_content_id_by_xpath` / `get_active_layer_name` / `get_layer_id_by_name` | `get_element_content_id_by_xpath(xpath) -> str` | resolve a page-item content id / the active layer / a layer id by name |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `IDMLPackage.spreads` / `spreads_objects` / `last_spread` | `@property spreads -> list[str]`; `spreads_objects -> list[Spread]` | the `Spreads/` archive members / `Spread` objects / the trailing spread (append target) |
+| [02] | `IDMLPackage.pages` | `@property pages -> list[Page]` | every page across all spreads (the page-count fact) |
+| [03] | `IDMLPackage.stories` / `story_ids` | `@property stories -> list[str]`; `story_ids -> list[str]` | the `Stories/` archive members / their extracted `Story_<id>` ids |
+| [04] | `IDMLPackage.tags` / `font_families` / `style_groups` | `@property -> list[_Element]` (deep-copied) | the markup tags / font-family / style-group resource elements — LISTS, so `len()` is the tag/font/style fact |
+| [05] | `IDMLPackage.style` / `style_mapping` / `graphic` | `@property -> Style` / `StyleMapping` / `Graphic` | the Resources style / style-mapping / graphic resource OBJECTS (not `_Element`; the writable resource handles) |
+| [06] | `IDMLPackage.referenced_layers` | `@property referenced_layers -> list[str]` | the designmap layer ids a spread item actually references (the layer-count fact) |
+| [07] | `IDMLPackage.stories_for_node` / `story_ids_for_node` | `stories_for_node(node_path) -> list[str]` | the story files / ids beneath an XML-structure XPath (selective story extraction) |
+| [08] | `IDMLPackage.get_spread_object_by_xpath` / `_by_name` / `_by_id` | `get_spread_object_by_xpath(xpath) -> Spread \| None` | resolve the `Spread` owning an anchored element (the `set_attributes`/`import_pdf` lookup) |
+| [09] | `IDMLPackage.get_story_object_by_xpath` / `get_story_by_xpath` | `get_story_object_by_xpath(xpath) -> Story` | resolve the `Story` owning an anchored element (the `set_attributes` write target) |
+| [10] | `IDMLPackage.get_element_content_id_by_xpath` / `get_active_layer_name` / `get_layer_id_by_name` | `get_element_content_id_by_xpath(xpath) -> str` | resolve a page-item content id / the active layer / a layer id by name |
 
 [ENTRYPOINT_SCOPE]: the InDesign-Server SOAP conversion + native print-package arms (OUT-OF-SCOPE boundary record)
 - rail: `export/indesign` (rejected)
 
 `simple_idml.indesign.save_as`/`export_package_as` drive a LIVE InDesign Server over SOAP (`suds-py3`) through a co-mounted client/server working directory, rendering an `.idml` to `.indd`/`.pdf`/`.jpeg`/`.idml`/`.zip` by uploading a `.jsx` script — the rejected arm for the host-free engine, which owns neither a network InDesign Server seat nor a shared filesystem; the deliverable this rail produces is the editable `.idml` the designer opens directly. `id_package.ZipInDesignPackage` reads a native packaged InDesign `.zip`'s font/link manifest — a print-package INSPECTION arm, not part of the IDML mutation surface.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                  | [DISPOSITION]                                              |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | `indesign.save_as`                     | `save_as(src_path, formats_options, indesign_server_url, indesign_client_workdir, indesign_server_workdir, ...) -> list` | REJECT — live InDesign-Server SOAP render; no server seat / shared FS |
-|  [02]   | `indesign.export_package_as`           | `export_package_as(package_path, formats_options, indesign_server_url, ...) -> list` | REJECT — SOAP package-to-print render through the live server   |
-|  [03]   | `id_package.ZipInDesignPackage.get_font_list` / `get_link_list` | `get_font_list() -> list`; `get_link_list() -> list`        | inspection-only — native print-package font/link manifest, off the mutation rail |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [DISPOSITION] |
+| --- | --- | --- | --- |
+| [01] | `indesign.save_as` | `save_as(src_path, formats_options, indesign_server_url, indesign_client_workdir, indesign_server_workdir, ...) -> list` | REJECT — live InDesign-Server SOAP render; no server seat / shared FS |
+| [02] | `indesign.export_package_as` | `export_package_as(package_path, formats_options, indesign_server_url, ...) -> list` | REJECT — SOAP package-to-print render through the live server |
+| [03] | `id_package.ZipInDesignPackage.get_font_list` / `get_link_list` | `get_font_list() -> list`; `get_link_list() -> list` | inspection-only — native print-package font/link manifest, off the mutation rail |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -124,7 +124,7 @@ These memoizing properties are the structural inventory `export/indesign#INDESIG
 - import: `from simple_idml import idml` (then `idml.IDMLPackage(path)`) at boundary scope only — module-level import is banned by the manifest import policy; `from simple_idml import SETCONTENT_TAG, IGNORECONTENT_TAG, FORCECONTENT_TAG` only where the source XML for `import_xml` is authored. The `simple_idml.indesign`/`simple_idml.commands` SOAP modules (and the transitive `suds-py3`) are NEVER imported on the rail — a `suds` import is a sign the rejected server arm leaked in. No native gate exists: pure-Python over `zipfile`+`lxml` binds on cp315, so a missing import here is a packaging fault, never a host-capability gate.
 - construct axis: `idml.IDMLPackage(str(path))` is the single open over a REAL filesystem path — the constructor opens a `zipfile.ZipFile`, and the `@use_working_copy` decorator `os.unlink`s `self.filename` after each mutation, so a stream-backed (`BytesIO`) package whose `ZipFile.filename` is `None` crashes mid-decorator; the rail's `_spill` materializes every blob (`base.data`, each module/page source, each placed PDF) to a `NamedTemporaryFile(delete_on_close=False)` path kept open past `close()` and unlinked on `ExitStack` exit.
 - mutation-threading axis: every `@use_working_copy` method returns a FRESH `IDMLPackage(new_filename)` (extract -> mutate -> repackage -> `os.unlink(self.filename)` -> `shutil.move` -> reopen), so the fold THREADS the returned instance (`package = stack.enter_context(package.method(...))`) rather than reassigning one handle — a dropped reference leaves an unclosed backing file the platform cannot unlink, and a non-decorated read property (`xml_structure`/`spreads`/...) is called on the CURRENT instance, never a stale one. The base is opened ONCE and `prefix`ed once; the step fold runs over the one threaded package, NOT a per-op re-open.
-- anchor axis: every destination `at` / source `only` / `under` is an XPath resolved against the live `xml_structure` lxml `_Element` through `_Element.xpath` BEFORE the mutation — an empty result is the missing-anchor signal (raise `KeyError`) so `simple_idml` never fails mid-fold on a phantom anchor; `insert_idml`/`add_pages_from_idml` index `source.xml_structure.xpath(only)[0]` and raise `IndexError` on a phantom source selector, so the source `only` is validated against the SOURCE tree, the destination `at` against the DESTINATION tree, one guard keyed by which package it reads. Layer/story/content ids (`remove_layer`/`remove_guides_on_layer`/`add_story_with_content`/`xml_element_leaf_to_node`'s `xml_content_ref`) key the designmap/story files, NOT the XML tree — they are non-empty-checked but NEVER routed through the XPath resolver, which would wrongly reject a valid designmap id.
+- anchor axis: every destination `at` / source `only` / `under` is an XPath resolved against the live `xml_structure` lxml `_Element` through `_Element.xpath` BEFORE the mutation — an empty result is the missing-anchor signal (raise `KeyError`) so `simple_idml` never fails mid-fold on a phantom anchor; `insert_idml`/`add_pages_from_idml` index `source.xml_structure.xpath(only)[0]` and raise `IndexError` on a phantom source selector, so the source `only` is validated against the SOURCE tree, the destination `at` against the DESTINATION tree, one guard keyed by which package it reads. Layer/story/content ids (`remove_layer`/`remove_guides_on_layer`/`add_story_with_content`/`xml_element_leaf_to_node`'s `xml_content_ref`) key the designmap/story files, NOT the XML tree — they are non-empty-checked but NEVER routed through the XPath resolver, which does wrongly reject a valid designmap id.
 - prefix axis: `prefix(token)` enforces `^\w+$` (raising on a non-alphanumeric token) and namespaces every `Self`/reference id so a merged-in sub-template's ids cannot collide with the base — applied ONCE on the base and ONCE per source before `insert_idml`/`add_pages_from_idml`; `is_prefixed` is the idempotence guard. `suffix_layers` is the layer-id analogue keeping merged layers distinct.
 - import-content axis: `import_xml(xml, at)` reads the three reserved markup tags (`SETCONTENT_TAG`/`IGNORECONTENT_TAG`/`FORCECONTENT_TAG`) off the SOURCE XML to decide per-element content handling — pass them by NAMING them on the tree, never as method arguments; the bytes go straight to `import_xml`. This populates the tagged structure WITHOUT touching page geometry — the data/structure separation the IDML round-trip demands.
 - place axis: `import_pdf(pdf_path, at, crop="CropContentVisibleLayers", page_number=1)` places a LINKED PDF page — it writes `pdf_path` VERBATIM into the page item's `href` (via `set_attributes`) and the `<Link LinkResourceURI=…>` element, so the rail supplies the resource location as a `file:` URI string off `Path.as_uri()` (the method itself constructs no URI); the `crop` token is one of the eight Adobe `PDFCrop` members (`CropContent`/`CropContentVisibleLayers`/`CropContentAllLayers`/`CropArt`/`PDFCrop`/`CropTrim`/`CropBleed`/`CropMedia`) — the canonical `CROP_PDF` token is the `PDFCrop` spelling, the default is `CropContentVisibleLayers`, and the rail passes a `PdfCrop` `StrEnum` member's `.value`, never a hand-typed crop literal.

@@ -71,7 +71,7 @@ is created on first use or explicitly by `create_vlabel`/`create_elabel`.
 One polymorphic set-returning function runs every Cypher statement; the third `params agtype`
 argument is the parameterized form (referenced inside the query body as `$name`).
 
-```
+```sql
 ag_catalog.cypher(graph_name name = NULL, query_string cstring = NULL, params agtype = NULL) RETURNS SETOF record
 ```
 
@@ -134,7 +134,7 @@ view is the default synchronous counterpart.
 
 [AGE_TOPOLOGY]:
 - Preload-free, session-loaded: `age` registers no `shared_preload_libraries` row, so it is correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` preload value; install is `ServerExtension("age", PreloadGated: false)` whose `CreateSql` emits `CREATE EXTENSION IF NOT EXISTS age` through `Store/provisioning#SERVER_EXTENSIONS` `Declare`/`Migrate`. The per-session `LOAD 'age'` + `SET search_path = ag_catalog, "$user", public` is a connection-init obligation an `Npgsql` open-hook (or per-connection `SET`) issues — the one-shot `Extension` `CreateSql` cannot encode it, so a profile that runs Cypher must carry the session-load step, and a PL/pgSQL Cypher wrapper repeats `LOAD`/`search_path` in its own body.
-- Install ownership guard (`age` 1.7.0): `CREATE EXTENSION age` refuses to install into a pre-existing `ag_catalog` schema owned by a different role (ownership is compared directly, exact even for a superuser) — a provisioning profile that re-creates the extension must own `ag_catalog` or drop it first, so the install row is idempotent only against an `ag_catalog` the installing role owns.
+- Install ownership guard (`age`): `CREATE EXTENSION age` refuses to install into a pre-existing `ag_catalog` schema owned by a different role (ownership is compared directly, exact even for a superuser) — a provisioning profile that re-creates the extension must own `ag_catalog` or drop it first, so the install row is idempotent only against an `ag_catalog` the installing role owns.
 - VLE cache coherence: `age` installs the `age_invalidate_graph_cache()` trigger on each label's backing relation, so an SQL-level `INSERT`/`UPDATE`/`DELETE`/`TRUNCATE` against a label table (bypassing Cypher, e.g. a bulk loader) bumps the graph version and invalidates the `age_vle` caches — direct backing-relation writes stay coherent with subsequent `*`-range traversals.
 - No managed assembly, no EF translator: every Cypher statement rides raw `Npgsql`/`FromSql`/`SqlQuery` mapping `agtype` columns, and the mandatory `AS (col agtype, ...)` column-definition list is required by PostgreSQL's `RETURNS SETOF record` contract, never optional — an anonymous-record call without the list is the faulted spelling. The `agtype` columns are extracted to typed scalars through the registered SQL-level casts (`::int`/`::text`/`::jsonb`), never a hand-parsed text decode.
 - In-residence graph engine: `age` lives inside the one `PostgresServer` residence — a within-PG openCypher capability the OPTIONAL self-hosted `Query/cypher` lane gates behind `CypherEnablement`, demoted beneath the default in-process QuikGraph `Query/topology` view, never a cross-store query federator. Graph name, Cypher body, and `params agtype` arrive bound through the `GraphSession` `format('%L')` server-side composition, never a runtime-concatenated Cypher string.

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Redis`
 - package: `AspNetCore.HealthChecks.Redis`
-- version: `9.0.0`
 - license: `Apache-2.0`
 - assembly: `HealthChecks.Redis`
 - namespace: `HealthChecks.Redis`

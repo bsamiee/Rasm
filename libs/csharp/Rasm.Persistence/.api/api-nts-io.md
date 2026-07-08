@@ -10,7 +10,6 @@ binary and text IO in `NetTopologySuite.IO`.
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoJSON4STJ`
 - package: `NetTopologySuite.IO.GeoJSON4STJ`
-- version: `4.0.0`
 - license: BSD-3-Clause
 - assembly: `NetTopologySuite.IO.GeoJSON4STJ`
 - namespace: `NetTopologySuite.IO.Converters` (converters + attribute tables), `NetTopologySuite.Features`
@@ -22,7 +21,6 @@ binary and text IO in `NetTopologySuite.IO`.
 
 [PACKAGE_SURFACE]: `NetTopologySuite.IO.GeoPackage`
 - package: `NetTopologySuite.IO.GeoPackage`
-- version: `2.0.0`
 - license: BSD-3-Clause
 - assembly: `NetTopologySuite.IO.GeoPackage`
 - namespace: `NetTopologySuite.IO`
@@ -33,7 +31,6 @@ binary and text IO in `NetTopologySuite.IO`.
 
 [PACKAGE_SURFACE]: `NetTopologySuite` (IO surface)
 - package: `NetTopologySuite`
-- version: `2.6.0` (transitive floor pulled by the IO packages and Npgsql.NetTopologySuite)
 - license: BSD-3-Clause
 - assembly: `NetTopologySuite`
 - namespace: `NetTopologySuite.IO`, `NetTopologySuite.Geometries`

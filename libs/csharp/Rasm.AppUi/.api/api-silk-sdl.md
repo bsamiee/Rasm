@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Silk.NET.SDL`
 - package: `Silk.NET.SDL`
-- version: `2.23.0`
 - license: `MIT`
 - assembly: `Silk.NET.SDL`
 - consumer-tfm: `net6.0` (package multi-targets `net6.0`/`net5.0`/`netcoreapp3.1`/`netstandard2.1`/`netstandard2.0`; `net10.0` binds the highest available `net6.0` asset)

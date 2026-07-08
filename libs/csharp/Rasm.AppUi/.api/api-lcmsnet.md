@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `lcmsNET`
 - package: `lcmsNET`
-- version: `1.2.1`
 - license: MIT (expression)
 - assembly: `lcmsNET`
 - namespace: `lcmsNET` (every public type — handles, enums, colorimetric structs, and the `Cms` static hub)

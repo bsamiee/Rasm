@@ -1,4 +1,4 @@
-# [@effect/sql-sqlite-wasm] — the OPFS browser sqlite dialect driver: the worker-backed `SqliteClient` Layer behind `lane/wasm`, plus snapshot import/export and zero-copy worker transferables
+# [TS_DATA_API_EFFECT_SQL_SQLITE_WASM]
 
 `@effect/sql-sqlite-wasm` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to a WebAssembly sqlite (`@effect/wa-sqlite`) running inside a Web Worker over OPFS — the browser-runtime dialect lane `browser/persist` consumes. `SqliteClient` extends `SqlClient`, so the entire fragment DSL, `SqlSchema`/`SqlResolver`/`Model`, `withTransaction`, and `sql.reactive` run in the browser unchanged against a persistent OPFS-backed database; the driver adds its runtime-distinct surface — a two-path construction (`makeMemory` ephemeral in-thread vs `make` durable worker-backed OPFS), `export`/`import` for `Uint8Array` snapshot round-trips (the sync-overlay seed/restore and the memory-lane persistence path), and `currentTransferables`/`withTransferables` for zero-copy blob transfer across the worker boundary. `OpfsWorker.run` is the worker-side entry that owns the OPFS sync access handle (available only off the main thread). `updateValues: never` marks the dialect degradation; the wasm lane degrades deeper than the node lane (no server extensions, single-writer OPFS). No native dependency and no `better-sqlite3` — the peer is `@effect/wa-sqlite`.
 
@@ -6,9 +6,8 @@
 
 [PACKAGE_SURFACE]: `@effect/sql-sqlite-wasm`
 - package: `@effect/sql-sqlite-wasm`
-- version: `0.52.0`
 - license: `MIT`
-- effect-peer: `effect ^3.21.0`, `@effect/experimental ^0.60.0`, `@effect/sql ^0.51.0`, `@effect/wa-sqlite ^0.1.2` (REQUIRED — the WASM sqlite build; `.api/effect.md`, `.api/effect-experimental.md`, `.api/effect-sql.md`)
+- effect-peer: `effect ^catalog`, `@effect/experimental ^catalog`, `@effect/sql ^catalog`, `@effect/wa-sqlite ^catalog` (REQUIRED — the WASM sqlite build; `.api/effect.md`, `.api/effect-experimental.md`, `.api/effect-sql.md`)
 - dependency: none native — the sqlite engine is WebAssembly via the `@effect/wa-sqlite` peer; no `better-sqlite3`
 - module format: ESM + CJS dual (`dist/dts` typings); subpaths `@effect/sql-sqlite-wasm/SqliteClient`, `/SqliteMigrator`, `/OpfsWorker`, `/sqlite-wasm.d`; `sideEffects: []`
 - runtime: browser only (Web Worker + OPFS + Web Crypto) — the OPFS sync access handle requires a worker; not node/bun server (that is `@effect/sql-sqlite-node`, `.api/effect-sql-sqlite-node.md`)
@@ -21,15 +20,15 @@
 - rail: boundaries
 - `SqliteClient` is a superset of the neutral `SqlClient`; the catalog documents only what the wasm driver ADDS over `.api/effect-sql.md`. Two configs split the durability model: `SqliteClientMemoryConfig` is in-thread ephemeral (specs, scratch), `SqliteClientConfig` supplies the `worker` Effect that owns the OPFS-persistent database off the main thread.
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                            |
-| :-----: | :-------------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
-|  [01]   | `SqliteClient` (interface, extends `SqlClient`)      | `Context.Tag`     | the wasm lane client; usable as the neutral `SqlClient` OR for the snapshot members below |
-|  [02]   | `SqliteClient.export` (`Effect<Uint8Array, SqlError>`) | db snapshot     | whole-database serialization — sync-overlay seed export, `browser/persist` backup blob |
-|  [03]   | `SqliteClient.import(data)` (`→ Effect<void, SqlError>`) | db restore     | load a `Uint8Array` snapshot — seed/restore a fresh browser DB, the memory-lane persistence round-trip |
-|  [04]   | `SqliteClient.updateValues: never`                  | degradation       | the declared lane degradation (no multi-row `UPDATE … FROM`) — branch via `sql.onDialect` |
-|  [05]   | `SqliteClientConfig`                                | worker config     | `worker: Effect<Worker \| SharedWorker \| MessagePort, never, Scope>`, `installReactivityHooks?`, `spanAttributes?`, `transformResultNames?`/`transformQueryNames?` |
-|  [06]   | `SqliteClientMemoryConfig`                          | in-thread config  | `installReactivityHooks?`, `spanAttributes?`, name transforms — ephemeral, no OPFS |
-|  [07]   | `OpfsWorkerConfig`                                  | worker entry cfg  | `{ port: EventTarget & Pick<MessagePort, "postMessage" \| "close">, dbName }` — the worker-side bind params |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------- |:---------------- |:--------------------------------------------------------------- |
+| [01] | `SqliteClient` (interface, extends `SqlClient`) | `Context.Tag` | the wasm lane client; usable as the neutral `SqlClient` OR for the snapshot members below |
+| [02] | `SqliteClient.export` (`Effect<Uint8Array, SqlError>`) | db snapshot | whole-database serialization — sync-overlay seed export, `browser/persist` backup blob |
+| [03] | `SqliteClient.import(data)` (`→ Effect<void, SqlError>`) | db restore | load a `Uint8Array` snapshot — seed/restore a fresh browser DB, the memory-lane persistence round-trip |
+| [04] | `SqliteClient.updateValues: never` | degradation | the declared lane degradation (no multi-row `UPDATE … FROM`) — branch via `sql.onDialect` |
+| [05] | `SqliteClientConfig` | worker config | `worker: Effect<Worker \| SharedWorker \| MessagePort, never, Scope>`, `installReactivityHooks?`, `spanAttributes?`, `transformResultNames?`/`transformQueryNames?` |
+| [06] | `SqliteClientMemoryConfig` | in-thread config | `installReactivityHooks?`, `spanAttributes?`, name transforms — ephemeral, no OPFS |
+| [07] | `OpfsWorkerConfig` | worker entry cfg | `{ port: EventTarget & Pick<MessagePort, "postMessage" \| "close">, dbName }` — the worker-side bind params |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -37,15 +36,15 @@
 - rail: rails-and-effects
 - Two make paths select durability: `makeMemory`/`layerMemory` for ephemeral in-thread (specs, previews), `make`/`layer` for the durable OPFS lane whose `worker` Effect spawns/attaches the worker that runs `OpfsWorker.run`. `installReactivityHooks` wires `Reactivity` so `sql.reactive` drives `browser/persist` read-your-writes; `withTransferables` moves large `Uint8Array`s to the worker without a copy.
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `SqliteClient.layer(config)` → `Layer<SqliteClient \| SqlClient, ConfigError \| SqlError>`          | provide OPFS lane | the `./wasm` composition — the durable worker-backed browser journal/projection lane |
-|  [02]   | `SqliteClient.layerConfig(Config.Wrap<SqliteClientConfig>)` / `layerMemoryConfig(…)`               | provide lane   | config-sourced worker/memory lane; the parameterized form |
-|  [03]   | `SqliteClient.layerMemory(config)` / `makeMemory(config)` → `Effect<…, SqlError, Scope \| Reactivity>` | provide memory lane | ephemeral in-thread client for specs/previews — no OPFS persistence |
-|  [04]   | `SqliteClient.make(config)` → `Effect<SqliteClient, SqlError, Scope \| Reactivity>`                 | build client   | scoped worker-backed client; the `config.worker` Effect owns the OPFS worker lifetime |
-|  [05]   | `OpfsWorker.run({ port, dbName })` → `Effect<void, SqlError>`                                       | worker entry   | the worker-thread program binding wa-sqlite to the OPFS sync access handle for `dbName` |
-|  [06]   | `SqliteClient.withTransferables(list)(effect)` / `currentTransferables` (`FiberRef`)               | zero-copy      | transfer (not copy) `Uint8Array` payloads across the worker boundary — `import`/`export` blob moves |
-|  [07]   | `client.export` / `client.import(data)`                                                            | snapshot io    | seed/restore the browser DB; the sync-overlay bootstrap and the memory-lane persistence path |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
+| [01] | `SqliteClient.layer(config)` → `Layer<SqliteClient \| SqlClient, ConfigError \| SqlError>` | provide OPFS lane | the `./wasm` composition — the durable worker-backed browser journal/projection lane |
+| [02] | `SqliteClient.layerConfig(Config.Wrap<SqliteClientConfig>)` / `layerMemoryConfig(…)` | provide lane | config-sourced worker/memory lane; the parameterized form |
+| [03] | `SqliteClient.layerMemory(config)` / `makeMemory(config)` → `Effect<…, SqlError, Scope \| Reactivity>` | provide memory lane | ephemeral in-thread client for specs/previews — no OPFS persistence |
+| [04] | `SqliteClient.make(config)` → `Effect<SqliteClient, SqlError, Scope \| Reactivity>` | build client | scoped worker-backed client; the `config.worker` Effect owns the OPFS worker lifetime |
+| [05] | `OpfsWorker.run({ port, dbName })` → `Effect<void, SqlError>` | worker entry | the worker-thread program binding wa-sqlite to the OPFS sync access handle for `dbName` |
+| [06] | `SqliteClient.withTransferables(list)(effect)` / `currentTransferables` (`FiberRef`) | zero-copy | transfer (not copy) `Uint8Array` payloads across the worker boundary — `import`/`export` blob moves |
+| [07] | `client.export` / `client.import(data)` | snapshot io | seed/restore the browser DB; the sync-overlay bootstrap and the memory-lane persistence path |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

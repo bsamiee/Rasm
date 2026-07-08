@@ -1,12 +1,11 @@
-# [@perspective-dev/viewer-charts] — the WebGL chart-family plugin the viewer element selects by name
+# [TS_UI_API_PERSPECTIVE_DEV_VIEWER_CHARTS]
 
-`@perspective-dev/viewer-charts` is the default chart plugin family for `<perspective-viewer>`: the bare root import evaluates the bundled renderer and registers the full chart roster — series charts (`X Bar`, `Y Bar`, `Y Area`, `X/Y Line`, `X/Y Scatter`), hierarchical charts (`Treemap`, `Sunburst`), `Heatmap`/`Density`, financial charts (`Candlestick`, `OHLC`), and the map family (`Map Scatter`, `Map Line`, `Map Density`) — each selectable through the config's `plugin` field and `restore`, with axis, color, size, label, and tooltip channels driven by the config's column assignments. The package bundles its rendering stack (zero runtime deps) and supersedes the trailing `viewer-d3fc` per-chart subpaths; chart-level options ride `plugin_config` inside the one config value, never element attributes.
+`@perspective-dev/viewer-charts` is the default chart plugin family for `<perspective-viewer>`: the bare root import evaluates the bundled renderer and registers the full chart roster — series charts (`X Bar`, `Y Bar`, `Y Area`, `X/Y Line`, `X/Y Scatter`), hierarchical charts (`Treemap`, `Sunburst`), `Heatmap`/`Density`, financial charts (`Candlestick`, `OHLC`), and the map family (`Map Scatter`, `Map Line`, `Map Density`) — each selectable through the config's `plugin` field and `restore`, with axis, color, size, label, and tooltip channels driven by the config's column assignments. The package bundles its rendering stack (zero runtime deps) and supersedes the trailing `viewer-d catalogfc` per-chart subpaths; chart-level options ride `plugin_config` inside the one config value, never element attributes.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@perspective-dev/viewer-charts`
 - package: `@perspective-dev/viewer-charts`
-- version: `4.5.1`
 - license: `Apache-2.0`
 - deps: none — the rendering stack is bundled
 - module: ESM only — exports `.` (`types: dist/esm/index.d.ts`, `default: dist/esm/perspective-viewer-charts.js`), plus `./src/*`/`./dist/*` passthroughs
@@ -19,11 +18,11 @@
 [PUBLIC_TYPE_SCOPE]: selective registration and the interaction event details
 - rail: view/chart
 
-| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]    | [CONSUMER / BOUNDARY]                                                             |
-| :-----: | :------------------------------------------------ | :--------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `register(...plugin_names: string[]): void`       | selective entry  | narrows the registered roster to named charts when a build carries only a subset; the bare import registers all |
-|  [02]   | `PerspectiveSelectDetail`                          | event detail     | the `detail` payload of chart selection events — pairs with the viewer's click/select seam |
-|  [03]   | `PerspectiveClickDetail` (type)                    | event detail     | the click event `detail` shape — row values and config under the pointer          |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------ |:--------------- |:--------------------------------------------------------------------------------- |
+| [01] | `register(...plugin_names: string[]): void` | selective entry | narrows the registered roster to named charts when a build carries only a subset; the bare import registers all |
+| [02] | `PerspectiveSelectDetail` | event detail | the `detail` payload of chart selection events — pairs with the viewer's click/select seam |
+| [03] | `PerspectiveClickDetail` (type) | event detail | the click event `detail` shape — row values and config under the pointer |
 
 ## [03]-[INTEGRATION]
 

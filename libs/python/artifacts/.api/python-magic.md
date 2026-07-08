@@ -23,10 +23,10 @@
 
 The cookie carries a `threading.Lock` (`Magic.lock`) so a single cookie is reusable across calls under the worker's GIL; the `_handle509Bug` instance method returns `application/octet-stream` for the known libmagic 5.09 null-MIME quirk rather than raising. The fault is a single narrow exception synthesized by the two `ctypes` errcheck hooks (`errorcheck_null` on a NULL return, `errorcheck_negative_one` on a `-1` return) — the owner lifts it to the file-control fault rail at the boundary, never letting it escape as a bare exception into domain logic.
 
-| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]  | [CAPABILITY]                                                                          |
-| :-----: | :--------------- | :-------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `Magic`          | detector cookie | a configured libmagic handle owning `flags: int`, `cookie` (the `magic_t` C void\*), and `lock: threading.Lock`; lazily `magic_load`s the database in `__init__` |
-|  [02]   | `MagicException` | engine fault    | a libmagic call returned NULL/-1; carries `.message` (the `magic_error` C string, `None` on the 5.09 null bug) |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Magic` | detector cookie | a configured libmagic handle owning `flags: int`, `cookie` (the `magic_t` C void*), and `lock: threading.Lock`; lazily `magic_load`s the database in `init` |
+| [02] | `MagicException` | engine fault | a libmagic call returned NULL/-1; carries `.message` (the `magic_error` C string, `None` on the 5.09 null bug) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -35,55 +35,55 @@ The cookie carries a `threading.Lock` (`Magic.lock`) so a single cookie is reusa
 
 The module functions own an internal `_instances`-cached default cookie keyed by the `mime` boolean (`_get_magic_type(mime)` builds `Magic(mime=mime)` once per boolean and reuses it); they expose ONLY the `mime` switch (description vs MIME-type). A richer flag policy — encoding, extension, compression look-through, keep-going, params — requires holding a `Magic` cookie, which is why the `Detect` owner constructs cookies rather than calling these rows.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                      | [CAPABILITY]                                            |
-| :-----: | :---------------------- | :------------------------------------------------ | :------------------------------------------------------ |
-|  [01]   | `from_buffer`           | `from_buffer(buffer: bytes \| str, mime: bool = False) -> str` | detect from in-memory bytes (a `str` is `utf-8`-coerced with `errors='replace'`) |
-|  [02]   | `from_file`             | `from_file(filename: bytes \| str \| PathLike, mime: bool = False) -> str` | detect from a path (`PathLike` accepted; opens once to raise `FileNotFoundError`/`IOError` before sniffing) |
-|  [03]   | `from_descriptor`       | `from_descriptor(fd: int, mime: bool = False) -> str` | detect from an open file descriptor (int) |
-|  [04]   | `version`               | `version() -> int`                                | libmagic version (e.g. `541`); raises `NotImplementedError` when `magic_version` is absent on an ancient lib |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `from_buffer` | `from_buffer(buffer: bytes \| str, mime: bool = False) -> str` | detect from in-memory bytes (a `str` is `utf-8`-coerced with `errors='replace'`) |
+| [02] | `from_file` | `from_file(filename: bytes \| str \| PathLike, mime: bool = False) -> str` | detect from a path (`PathLike` accepted; opens once to raise `FileNotFoundError`/`IOError` before sniffing) |
+| [03] | `from_descriptor` | `from_descriptor(fd: int, mime: bool = False) -> str` | detect from an open file descriptor (int) |
+| [04] | `version` | `version() -> int` | libmagic version (e.g. `541`); raises `NotImplementedError` when `magic_version` is absent on an ancient lib |
 
 [ENTRYPOINT_SCOPE]: configured cookie
 - rail: file control
 
 `Magic.__init__` is where every detection flag lives; the per-call methods take only the source and return the cooked string under the cookie's flags. One cookie per flag-policy is the canonical owner — the flags are NOT per-call arguments. The cookie auto-applies `setparam(MAGIC_PARAM_NAME_MAX, 64)` in `__init__` (the issue-190 fixed-internal-limit workaround) and tolerates a libmagic that rejects that call. The `Magic.from_descriptor` cookie method takes NO per-call `mime` override (unlike the module row), so the `Detect` worker excludes it — the gated `to_process` worker cannot resolve a parent-process file descriptor; only `Buffer`→`from_buffer` and `File`→`from_file` cross the seam.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                  | [CAPABILITY]                                                         |
-| :-----: | :--------------------- | :-------------------------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `Magic`                | `Magic(mime=False, magic_file=None, mime_encoding=False, keep_going=False, uncompress=False, raw=False, extension=False)` | construct a flag-pinned detector cookie over a custom or system DB; `extension=True` raises `NotImplementedError` when `version() < 524` |
-|  [02]   | `Magic.from_buffer`    | `Magic.from_buffer(buf: bytes \| str) -> str`                                                 | detect from bytes under the cookie flags (thread-locked); a `str` is `utf-8`-encoded before the C call |
-|  [03]   | `Magic.from_file`      | `Magic.from_file(filename: bytes \| str \| PathLike) -> str`                                  | detect from a path under the cookie flags (opens once to verify, then locks) |
-|  [04]   | `Magic.from_descriptor`| `Magic.from_descriptor(fd: int) -> str`                                                       | detect from a descriptor under the cookie flags — EXCLUDED by the `Detect` worker (a parent-process fd does not cross the process seam) |
-|  [05]   | `Magic.setparam`       | `Magic.setparam(param: int, val: int) -> int`                                                | tune a libmagic limit (a `MAGIC_PARAM_*` ordinal); raises `MagicException` if libmagic lacks the param |
-|  [06]   | `Magic.getparam`       | `Magic.getparam(param: int) -> int`                                                          | read a current libmagic limit                                       |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Magic` | `Magic(mime=False, magic_file=None, mime_encoding=False, keep_going=False, uncompress=False, raw=False, extension=False)` | construct a flag-pinned detector cookie over a custom or system DB; `extension=True` raises `NotImplementedError` when `version() < 524` |
+| [02] | `Magic.from_buffer` | `Magic.from_buffer(buf: bytes \| str) -> str` | detect from bytes under the cookie flags (thread-locked); a `str` is `utf-8`-encoded before the C call |
+| [03] | `Magic.from_file` | `Magic.from_file(filename: bytes \| str \| PathLike) -> str` | detect from a path under the cookie flags (opens once to verify, then locks) |
+| [04] | `Magic.from_descriptor` | `Magic.from_descriptor(fd: int) -> str` | detect from a descriptor under the cookie flags — EXCLUDED by the `Detect` worker (a parent-process fd does not cross the process seam) |
+| [05] | `Magic.setparam` | `Magic.setparam(param: int, val: int) -> int` | tune a libmagic limit (a `MAGIC_PARAM_*` ordinal); raises `MagicException` if libmagic lacks the param |
+| [06] | `Magic.getparam` | `Magic.getparam(param: int) -> int` | read a current libmagic limit |
 
 [ENTRYPOINT_SCOPE]: flag and param vocabulary
 - rail: file control
 
 The constructor booleans set the underlying `MAGIC_*` bitmask; the `MAGIC_PARAM_*` ordinals address `setparam`/`getparam`. Compose the booleans, never the raw bits. The owner pins exactly ONE output boolean per facet — `Magic(mime=True)` then `Magic(mime_encoding=True)` as separate cookies — because `Magic(mime=True, mime_encoding=True)` returns the COMBINED `text/plain; charset=utf-8` form, not two facets; this is the `_FACET_FLAG` one-flag-per-cook law the `Detect` owner binds.
 
-| [INDEX] | [FLAG_BOOLEAN]   | [MAGIC_BIT]            | [EFFECT]                                                            |
-| :-----: | :--------------- | :-------------------- | :----------------------------------------------------------------- |
-|  [01]   | `mime`           | `MAGIC_MIME_TYPE` (`0x10`) | return the MIME type (`application/pdf`) instead of a description    |
-|  [02]   | `mime_encoding`  | `MAGIC_MIME_ENCODING` (`0x400`) | return the charset (`utf-8`, `binary`)                              |
-|  [03]   | `extension`      | `MAGIC_EXTENSION` (`0x1000000`) | return a `/`-separated valid-extension list; requires libmagic `>= 524` (else `NotImplementedError`) |
-|  [04]   | `uncompress`     | `MAGIC_COMPRESS` (`0x4`) | sniff inside gzip/bzip2/xz containers                               |
-|  [05]   | `keep_going`     | `MAGIC_CONTINUE` (`0x20`) | return all matches separated by `\n- `, not just the first         |
-|  [06]   | `raw`            | `MAGIC_RAW` (`0x100`)  | do not translate unprintable characters                            |
-|  [07]   | `magic_file=`    | (passed to `magic_load`) | load a custom compiled `.mgc` or text magic database instead of the system default |
-|  [08]   | `MAGIC_NO_CHECK_*` | `COMPRESS`/`TAR`/`SOFT`/`APPTYPE`/`ELF`/`ASCII`/`TROFF`/`FORTRAN`/`TOKENS` | disable a libmagic test class to narrow the check set on an untrusted/latency-bounded ingest (raw-bit composition, no constructor boolean) |
-|  [09]   | `MAGIC_PARAM_*`  | (param ordinals)      | `INDIR_MAX`(0)/`NAME_MAX`(1)/`REGEX_MAX`(5)/`BYTES_MAX`(6) recursion/name/regex/byte caps plus `ELF_PHNUM_MAX`(2)/`ELF_SHNUM_MAX`(3)/`ELF_NOTES_MAX`(4) ELF-table caps for `setparam`/`getparam` — the magic-bomb/ELF-bomb defense |
+| [INDEX] | [FLAG_BOOLEAN] | [MAGIC_BIT] | [EFFECT] |
+| --- | --- | --- | --- |
+| [01] | `mime` | `MAGIC_MIME_TYPE` (`0x10`) | return the MIME type (`application/pdf`) instead of a description |
+| [02] | `mime_encoding` | `MAGIC_MIME_ENCODING` (`0x400`) | return the charset (`utf-8`, `binary`) |
+| [03] | `extension` | `MAGIC_EXTENSION` (`0x1000000`) | return a `/`-separated valid-extension list; requires libmagic `>= 524` (else `NotImplementedError`) |
+| [04] | `uncompress` | `MAGIC_COMPRESS` (`0x4`) | sniff inside gzip/bzip2/xz containers |
+| [05] | `keep_going` | `MAGIC_CONTINUE` (`0x20`) | return all matches separated by `n- `, not just the first |
+| [06] | `raw` | `MAGIC_RAW` (`0x100`) | do not translate unprintable characters |
+| [07] | `magic_file=` | (passed to `magic_load`) | load a custom compiled `.mgc` or text magic database instead of the system default |
+| [08] | `MAGIC_NO_CHECK_*` | `COMPRESS`/`TAR`/`SOFT`/`APPTYPE`/`ELF`/`ASCII`/`TROFF`/`FORTRAN`/`TOKENS` | disable a libmagic test class to narrow the check set on an untrusted/latency-bounded ingest (raw-bit composition, no constructor boolean) |
+| [09] | `MAGIC_PARAM_*` | (param ordinals) | `INDIR_MAX`(0)/`NAME_MAX`(1)/`REGEX_MAX`(5)/`BYTES_MAX`(6) recursion/name/regex/byte caps plus `ELF_PHNUM_MAX`(2)/`ELF_SHNUM_MAX`(3)/`ELF_NOTES_MAX`(4) ELF-table caps for `setparam`/`getparam` — the magic-bomb/ELF-bomb defense |
 
 [ENTRYPOINT_SCOPE]: loader and module substrate (mechanics, not call surface)
 - rail: file control
 
 `magic.loader.load_lib` is the native-resolution mechanism the import guard depends on, not a surface the owner calls. It iterates `_lib_candidates()` (`ctypes.util.find_library('magic')`, then platform-specific paths: `/opt/local/lib`, `/usr/local/lib`, `/opt/homebrew/lib`, the Homebrew Cellar glob on darwin; `libmagic`/`magic1`/`cygmagic-1`/`libmagic-1`/`msys-magic-1` DLL prefixes on win32; `libmagic.so.1` on linux) and raises `ImportError('failed to find libmagic')` when none load — the provisioning fault the owner surfaces, distinct from a content fault. `maybe_decode` (`utf-8`/`backslashreplace`) and `coerce_filename` are the C-string boundary coercions every cooked return crosses.
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                         | [CAPABILITY]                                                                  |
-| :-----: | :------------------- | :--------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `magic.loader.load_lib` | `load_lib() -> ctypes.CDLL`                       | resolve and load the host `libmagic`; `ImportError` when no candidate loads — the import-time provisioning gate |
-|  [02]   | `errorcheck_null` / `errorcheck_negative_one` | `(result, func, args) -> result` | the `ctypes` errcheck hooks synthesizing `MagicException(magic_error(...))` on a NULL/`-1` C return |
-|  [03]   | `maybe_decode`       | `maybe_decode(s: bytes \| str) -> str`               | decode a libmagic C-string return as `utf-8`/`backslashreplace` (file-charset metadata never aborts the cook) |
-|  [04]   | `magic.magic_setflags` | `magic_setflags(cookie: magic_t, flags: c_int) -> c_int` | the module-level `ctypes` binding (`magic/__init__.py`: `restype=c_int`, `argtypes=[magic_t, c_int]`) applying a recomputed `MAGIC_*` bitmask onto a LIVE `Magic.cookie` after construction — the mechanism the `MAGIC_NO_CHECK_*` check-set narrowing (flag row `[08]`) rides, since those bits have no constructor boolean; `detect#DETECT`'s `_cookie` calls it to narrow the check set on an untrusted ingest, targeting the cookie's own `Magic.cookie`/`Magic.flags` attributes |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `magic.loader.load_lib` | `load_lib() -> ctypes.CDLL` | resolve and load the host `libmagic`; `ImportError` when no candidate loads — the import-time provisioning gate |
+| [02] | `errorcheck_null` / `errorcheck_negative_one` | `(result, func, args) -> result` | the `ctypes` errcheck hooks synthesizing `MagicException(magic_error(...))` on a NULL/`-1` C return |
+| [03] | `maybe_decode` | `maybe_decode(s: bytes \| str) -> str` | decode a libmagic C-string return as `utf-8`/`backslashreplace` (file-charset metadata never aborts the cook) |
+| [04] | `magic.magic_setflags` | `magic_setflags(cookie: magic_t, flags: c_int) -> c_int` | the module-level `ctypes` binding (`magic/init.py`: `restype=c_int`, `argtypes=[magic_t, c_int]`) applying a recomputed `MAGIC_*` bitmask onto a LIVE `Magic.cookie` after construction — the mechanism the `MAGIC_NO_CHECK_*` check-set narrowing (flag row `[08]`) rides, since those bits have no constructor boolean; `detect#DETECT`'s `_cookie` calls it to narrow the check set on an untrusted ingest, targeting the cookie's own `Magic.cookie`/`Magic.flags` attributes |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -101,7 +101,7 @@ The constructor booleans set the underlying `MAGIC_*` bitmask; the `MAGIC_PARAM_
 - `exchange/detect#DETECT` ownership: `python-magic` is the WORKER-BAND libmagic arm the `Detect` owner composes (`detect.md` `[02]-[DETECT]`). The owner's `DetectPolicy` folds the `DetectFlag` set (`uncompress`/`keep_going`/`raw`) onto every facet cookie, the `MagicParam` `MAGIC_PARAM_*` caps through `setparam`, and the custom `.mgc` `magic_file` into one value; the `DetectProfile` (`MIME`/`DESCRIBE`/`IDENTITY`) selects the `MagicFacet` tuple via `_PROFILE_FACETS`; the `MagicFacet`→`Magic`-boolean mapping is `_FACET_FLAG`. The owner reads the cooked strings into `DetectIdentity` and folds the MIME through `MediaClass.of`/`Container.of` (the exact-then-longest-prefix `_classified` fold over `_MEDIA_CLASS`/`_CONTAINER`), splits the `extension` slash-list (dropping the `???` token) into the `extensions` tuple, splits the `keep_going` multi-match into `matches`, and folds `media_class`/`container`/`extensions`/`matches`/`Source.claimed` into the `Trust` verdict (`IDENTIFIED`/`AMBIGUOUS`/`MISMATCH`/`UNKNOWN`). The `_handle509Bug` floor and the broad libmagic database — recognizing the niche leaf signatures `puremagic.magic_data.json` lacks — are the strict-stronger axis this worker-band fallback retains under the categorical-best mandate.
 - worker-band vs in-process law (universal `libs/python/.api` stacking): because libmagic is OFF the loader path, the `Detect` owner runs this arm through `anyio.to_process.run_sync(..., limiter=WORKER_BAND)` (`anyio.md` `to_process` process-dispatch row; the shared `WORKER_BAND` `CapacityLimiter` from `rasm.runtime.lanes`, never the default process limiter `to_process.current_default_process_limiter()`), recovers a transient worker death with `stamina.AsyncRetryingCaller(attempts=3, timeout=30.0).on(BrokenWorkerProcess)` → a `BoundAsyncRetryingCaller` (`stamina.md` caller-build + `.on` binding rows), and rails the exhausted failure through `async_boundary`/`RuntimeRail`. The same `WORKER_BAND` lane `exchange/metadata#METADATA` (`pyexiftool`) and `graphic/raster/io#RASTER` (`pyvips`) cross — the universal native-arm seam. This is the EXACT inverse of the `puremagic` peer, which drops the `to_process` crossing, the `WORKER_BAND` limiter, the `BrokenWorkerProcess` retry, and the process-pickle seam because it has no native dependency to reify; only a deliberately latency-bounded sniff there moves to `anyio.to_thread.run_sync` (a thread, never a process).
 - model + result stacking (universal `libs/python/.api`): the cooked strings fold into the frozen `DetectIdentity` `msgspec.Struct` (`msgspec.md` `Struct` row, `frozen=True, gc=False`) the worker pickles back across the seam; a consumer renders it to OpenTelemetry span attributes through `msgspec.to_builtins(identity, str_keys=True)` (`msgspec.md` `to_builtins`/span-attribute rows), never a forwarding `facts()` hop. `expression.tagged_union` owns the two-source `Source` (`Buffer`/`File`) discriminant the `from_buffer`/`from_file` rows dispatch under (`expression.md` `tagged_union` row), `expression.Result`/`RuntimeRail` carries the railed verdict, and `Block` carries the batch traversal `traversed(..., by=Disposition)` folds. `beartype` validates the `bytes`/`PathLike` ingress shapes at the boundary; the `setparam` `MAGIC_PARAM_*` caps are the per-call ints the policy supplies, not a numpy concern.
-- categorical-best vs `puremagic` (the supersession evidence the brief demands per-page): on the DEFAULT path `puremagic` is strictly stronger (pure-Python, no native crossing, the `zip_scanner`/`cfbf_scanner` deep-scan resolving OOXML/ODF/legacy-Office to the EXACT subtype where libmagic floors a `.docx` to `application/zip` and a `.doc` to `application/CDFV2`, the float-confidence ranking). `python-magic`/libmagic is retained ONLY on its one distinct strict-stronger axis — the BROAD compiled magic database recognizing the long tail of niche binary/leaf signatures `magic_data.json` does not carry — composed in the worker band, never the default sniff. The libmagic `MAGIC_MIME_ENCODING` charset facet is the worker-band parallel of `puremagic`'s `text_scanner.decode_any` `(text, encoding)`; the `MAGIC_PARAM_*` recursion/ELF-bomb caps have no `puremagic` analogue (it has no recursive magic-indirection engine to bomb), so an untrusted ingest that must use the broad database hardens through `setparam` here where `puremagic` would set `PUREMAGIC_DEEPSCAN=0`.
+- categorical-best vs `puremagic` (the supersession evidence the brief demands per-page): on the DEFAULT path `puremagic` is strictly stronger (pure-Python, no native crossing, the `zip_scanner`/`cfbf_scanner` deep-scan resolving OOXML/ODF/legacy-Office to the EXACT subtype where libmagic floors a `.docx` to `application/zip` and a `.doc` to `application/CDFV2`, the float-confidence ranking). `python-magic`/libmagic is retained ONLY on its one distinct strict-stronger axis — the BROAD compiled magic database recognizing the long tail of niche binary/leaf signatures `magic_data.json` does not carry — composed in the worker band, never the default sniff. The libmagic `MAGIC_MIME_ENCODING` charset facet is the worker-band parallel of `puremagic`'s `text_scanner.decode_any` `(text, encoding)`; the `MAGIC_PARAM_*` recursion/ELF-bomb caps have no `puremagic` analogue (it has no recursive magic-indirection engine to bomb), so an untrusted ingest that must use the broad database hardens through `setparam` here where `puremagic` does set `PUREMAGIC_DEEPSCAN=0`.
 
 [RAIL_LAW]:
 - Package: `python-magic`

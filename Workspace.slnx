@@ -77,8 +77,8 @@
     <Project Path="tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj" />
   </Folder>
   <Folder Name="/tests/csharp/tools/rhino-bridge/">
-    <Project Path="tests/csharp/tools/rhino-bridge/Contract/Contract.csproj" />
-    <Project Path="tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj" />
+    <Project Path="tests/csharp/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj" />
+    <Project Path="tests/csharp/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/" />
   <Folder Name="/tools/cs-analyzer/">

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `DeltaLake.Net`
 - package: `DeltaLake.Net`
-- version: `0.32.0`
 - license: MIT
 - assembly: `DeltaLake` (the package id is `DeltaLake.Net`; the bound assembly and root namespace are `DeltaLake`)
 - namespace: `DeltaLake.Table`, `DeltaLake.Interfaces`, `DeltaLake.Errors`, `DeltaLake.Extensions` (the consumer surface); `DeltaLake.Bridge`, `DeltaLake.Bridge.Interop`, `DeltaLake.Kernel.*` are the internal `delta-rs`/`delta-kernel` FFI plumbing — not a consumer API

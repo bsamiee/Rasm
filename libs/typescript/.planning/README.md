@@ -23,7 +23,6 @@ The branch substrate every folder builds on, catalogued at `libs/typescript/.api
 - `@effect/platform` — the platform service contracts; `-node`/`-bun` bindings back runtime exec and serve, `-browser` backs the browser condition and ui.
 - `@effect/experimental` — overlay lanes: `DurableQueue`, `PersistedCache`, `RateLimiter`, `EventLog`, the serializable `Machine`; never the record of truth.
 - `@effect/opentelemetry` — the OTLP bridge; the runtime otel sub-domain owns the wire, every folder emits through the core `Convention` vocabulary.
-- `ssh2` — the in-process SSHv2 root behind the remote-transfer rail; the external `rsync`/`scp` binaries ride `@effect/platform` `Command`.
 - `@effect/vitest` — the spec runner binding `@rasm/ts-testkit` combinators to colocated specs; catalogued at the dev-tool tier `tests/typescript/.api/`.
 
 ## [03]-[API_CATALOGUE_LAW]

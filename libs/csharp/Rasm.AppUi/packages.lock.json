@@ -2068,14 +2068,6 @@
           "Microsoft.IdentityModel.Abstractions": "8.19.1"
         }
       },
-      "Microsoft.IdentityModel.Protocols": {
-        "type": "Transitive",
-        "resolved": "8.19.1",
-        "contentHash": "7jtpdKFIncGCmob3y3LnSHihCYtmw8mlPFI+DV5rdx4YFOfCVlNQ9RhtLAQnjC9kges1+w/8BCnAN3QhqOc0ng==",
-        "dependencies": {
-          "Microsoft.IdentityModel.Tokens": "8.19.1"
-        }
-      },
       "Microsoft.JSInterop": {
         "type": "Transitive",
         "resolved": "9.0.0",
@@ -4322,6 +4314,15 @@
         "requested": "[8.19.1, )",
         "resolved": "8.19.1",
         "contentHash": "6eeY+y2QFyjj3XnCz/8gJdoP5smYHTS9ow1bw2nsZzDIPjPhBZlackYTIduSMipVpxnoT/B62LkrXX2jPggOXg==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Tokens": "8.19.1"
+        }
+      },
+      "Microsoft.IdentityModel.Protocols": {
+        "type": "CentralTransitive",
+        "requested": "[8.19.1, )",
+        "resolved": "8.19.1",
+        "contentHash": "7jtpdKFIncGCmob3y3LnSHihCYtmw8mlPFI+DV5rdx4YFOfCVlNQ9RhtLAQnjC9kges1+w/8BCnAN3QhqOc0ng==",
         "dependencies": {
           "Microsoft.IdentityModel.Tokens": "8.19.1"
         }

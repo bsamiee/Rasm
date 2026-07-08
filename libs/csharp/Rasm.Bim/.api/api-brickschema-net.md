@@ -1,6 +1,6 @@
 # [RASM_BIM_API_BRICKSCHEMA_NET]
 
-`BrickSchema.Net` is the .NET runtime object model + JSON-LD codec for the Brick ontology — the
+`BrickSchema.Net` is the.NET runtime object model + JSON-LD codec for the Brick ontology — the
 uniform building-systems metadata schema. It is not a static vocabulary: it is a live graph of
 `BrickEntity` nodes managed by a `BrickSchemaManager`, where every node (the equipment/point/
 location/measurable/collection/device taxonomy of ~280 generated classes) carries string-typed
@@ -16,13 +16,12 @@ analytics); it is not a geometry, IFC-authoring, or simulation owner.
 
 [PACKAGE_SURFACE]: `BrickSchema.Net`
 - package: `BrickSchema.Net`
-- version: `1.3.30`
 - license: MIT
 - assembly: `BrickSchema.Net`
 - namespace: `BrickSchema.Net` (core graph), `.Classes` (+ `.Equipments`/`.Equipments.HVACType`/`.Chillers`/`.TerminalUnits`, `.Points`, `.Locations`, `.Measureable`, `.Collection`/`.Loop`, `.Devices`), `.Relationships`, `.Behaviors`, `.EntityProperties`, `.Shapes`, `.Helpers`
 - asset: `net7.0`; the `net10.0` consumer binds `lib/net7.0` (single TFM, binds forward)
 - serialization: `Newtonsoft.Json` (the Brick graph persists as JSON-LD through `BrickSchemaManager.LoadSchema`/`SaveSchema`)
-- transitive-floor: `Newtonsoft.Json` (`13.0.3`), `Microsoft.Extensions.Logging.Abstractions` (`7.0.1` — `ILogger` for `BrickBehavior` analytics)
+- transitive-floor: `Newtonsoft.Json`, `Microsoft.Extensions.Logging.Abstractions` ( — `ILogger` for `BrickBehavior` analytics)
 - rail: building-systems
 
 ## [02]-[PUBLIC_TYPES]
@@ -35,71 +34,71 @@ Everything is a `BrickEntity`; the four base derivations (`BrickClass`, `BrickRe
 `BrickShape`, `BrickBehavior`) are the kinds of node, and `BrickSchemaManager` is the graph that
 holds, persists, and queries them.
 
-| [INDEX] | [SYMBOL]             | [RAIL]           | [CAPABILITY]                                                                                                                                  |
-| :-----: | :------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `BrickSchemaManager` | building-systems | the graph: `ctor()`/`ctor(brickFilePath)`, `LoadSchema`/`SaveSchema` (JSON-LD), `AddEntity<T>`, `GetEntity`/`GetEntities`/`GetEntities<T>`, `SearchEntities(predicate)`, `UpdateEntity`, `IsEntity`/`IsTag`/`GetTag`, behavior registry queries |
-|  [02]   | `BrickEntity`        | building-systems | base node: `Id`, `Type`, `Properties` (`List<EntityProperty>`), `Relationships` (`List<BrickRelationship>`), `Shapes` (`List<BrickShape>`), `Behaviors` (`List<BrickBehavior>`); typed property + relationship-traversal + behavior-value surface |
-|  [03]   | `BrickClass`         | building-systems | `: BrickEntity` — a typed taxonomy node (the Brick class identity); `Tag : BrickClass` adds `GetEntities()` (entities bearing the tag)        |
-|  [04]   | `EntityProperty`     | building-systems | `Id`/`Type`/`Name`/`Value` (string) with `SetValue<T>`/`GetValue<T>` typed conversion; `ctor(id,type,name,value)` — the property cell        |
-|  [05]   | `PropertiesEnum`     | building-systems | the canonical property keys: `Name`/`Description`/`BrickClass`/`Info`/`Value`/`Timestamp`/`ValueQuality`/`Behaviors`/`PollRate`/`Running`/`Insight`/… |
+| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
+|:-----: |:------------------- |:--------------- |:------------------------------------------------------------------------------------------------------------------------------------------ |
+| [01] | `BrickSchemaManager` | building-systems | the graph: `ctor()`/`ctor(brickFilePath)`, `LoadSchema`/`SaveSchema` (JSON-LD), `AddEntity<T>`, `GetEntity`/`GetEntities`/`GetEntities<T>`, `SearchEntities(predicate)`, `UpdateEntity`, `IsEntity`/`IsTag`/`GetTag`, behavior registry queries |
+| [02] | `BrickEntity` | building-systems | base node: `Id`, `Type`, `Properties` (`List<EntityProperty>`), `Relationships` (`List<BrickRelationship>`), `Shapes` (`List<BrickShape>`), `Behaviors` (`List<BrickBehavior>`); typed property + relationship-traversal + behavior-value surface |
+| [03] | `BrickClass` | building-systems | `: BrickEntity` — a typed taxonomy node (the Brick class identity); `Tag: BrickClass` adds `GetEntities()` (entities bearing the tag) |
+| [04] | `EntityProperty` | building-systems | `Id`/`Type`/`Name`/`Value` (string) with `SetValue<T>`/`GetValue<T>` typed conversion; `ctor(id,type,name,value)` — the property cell |
+| [05] | `PropertiesEnum` | building-systems | the canonical property keys: `Name`/`Description`/`BrickClass`/`Info`/`Value`/`Timestamp`/`ValueQuality`/`Behaviors`/`PollRate`/`Running`/`Insight`/… |
 
 [PUBLIC_TYPE_SCOPE]: relationship edges
 - namespace: `BrickSchema.Net.Relationships`
 - rail: building-systems
 
-The Brick relationship algebra — each is a `BrickRelationship : BrickEntity` directed edge
+The Brick relationship algebra — each is a `BrickRelationship: BrickEntity` directed edge
 between two nodes; traversal is via the `BrickEntity.Get*` helpers, not raw list walking.
 
-| [INDEX] | [SYMBOL]                                | [RAIL]           | [CAPABILITY]                                                                  |
-| :-----: | :-------------------------------------- | :--------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `Fedby` / `PointOf` / `PartOf` / `LocationOf` | building-systems | the core topology: feeds (flow), has-point (telemetry), is-part-of (composition), located-in (space) |
-|  [02]   | `MeterBy` / `SubmeterOf`                 | building-systems | metering hierarchy (a load metered by a meter; a submeter under a meter)      |
-|  [03]   | `AssociatedWith` / `TagOf`              | building-systems | generic association; tag membership (`Tag`↔entity)                            |
+| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
+|:-----: |:-------------------------------------- |:--------------- |:--------------------------------------------------------------------------- |
+| [01] | `Fedby` / `PointOf` / `PartOf` / `LocationOf` | building-systems | the core topology: feeds (flow), has-point (telemetry), is-part-of (composition), located-in (space) |
+| [02] | `MeterBy` / `SubmeterOf` | building-systems | metering hierarchy (a load metered by a meter; a submeter under a meter) |
+| [03] | `AssociatedWith` / `TagOf` | building-systems | generic association; tag membership (`Tag`↔entity) |
 
 [PUBLIC_TYPE_SCOPE]: shapes — validation and analytic rules
 - namespace: `BrickSchema.Net.Shapes`, `BrickSchema.Net`
 - rail: building-systems
 
-`BrickShape : BrickEntity` is the SHACL-like constraint/rule node; the concrete shapes are the
+`BrickShape: BrickEntity` is the SHACL-like constraint/rule node; the concrete shapes are the
 built-in analytic and lifecycle rules attached to entities.
 
-| [INDEX] | [SYMBOL]                                            | [RAIL]           | [CAPABILITY]                                                                          |
-| :-----: | :-------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `BrickShape`                                        | building-systems | base validation/rule shape (`Clone()`); the constraint node attached via `BrickEntity.Shapes` |
-|  [02]   | `Aggregation` / `AggregationMode`                   | building-systems | time-series roll-up shape — `Aggregation.AggregateByInterval(series, intervalMinutes, mode)` resamples then folds point streams; nested `AggregationMode` = `Min`/`Count`/`Mean`/`Sum`/`Median` (the complete set) |
-|  [03]   | `BuildingMeterRule`                                 | building-systems | domain analytic shape — building-level metering rule reconciling submetered loads against the building meter (`ChillerLoadCOP` is NOT a shape: it is a plain `Load`/`COP` value pair under `.Classes.Equipments.HVACType.Chillers`) |
-|  [04]   | `Deprecation` / `DeprecationRule` / `DeprecationRuleForInstances` | building-systems | schema-migration shapes that mark and rewrite deprecated classes/instances |
-|  [05]   | `BACnetReference`                                   | building-systems | the BACnet object-binding shape (maps a Brick `Point` to a live BACnet object/property) |
+| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
+|:-----: |:-------------------------------------------------- |:--------------- |:----------------------------------------------------------------------------------- |
+| [01] | `BrickShape` | building-systems | base validation/rule shape (`Clone()`); the constraint node attached via `BrickEntity.Shapes` |
+| [02] | `Aggregation` / `AggregationMode` | building-systems | time-series roll-up shape — `Aggregation.AggregateByInterval(series, intervalMinutes, mode)` resamples then folds point streams; nested `AggregationMode` = `Min`/`Count`/`Mean`/`Sum`/`Median` (the complete set) |
+| [03] | `BuildingMeterRule` | building-systems | domain analytic shape — building-level metering rule reconciling submetered loads against the building meter (`ChillerLoadCOP` is NOT a shape: it is a plain `Load`/`COP` value pair under `.Classes.Equipments.HVACType.Chillers`) |
+| [04] | `Deprecation` / `DeprecationRule` / `DeprecationRuleForInstances` | building-systems | schema-migration shapes that mark and rewrite deprecated classes/instances |
+| [05] | `BACnetReference` | building-systems | the BACnet object-binding shape (maps a Brick `Point` to a live BACnet object/property) |
 
 [PUBLIC_TYPE_SCOPE]: behaviors — runtime analytics
 - namespace: `BrickSchema.Net`, `BrickSchema.Net.Behaviors`
 - rail: building-systems
 
-`BrickBehavior : BrickEntity` is the executable analytic attached to an entity — a timer-driven
+`BrickBehavior: BrickEntity` is the executable analytic attached to an entity — a timer-driven
 computation that emits an `Insight`/`Resolution` and a conformance/`Weight`.
 
-| [INDEX] | [SYMBOL]               | [RAIL]           | [CAPABILITY]                                                                                                       |
-| :-----: | :--------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BrickBehavior`        | building-systems | lifecycle: `ctor(behaviorMode, behaviorName, weight, ILogger?)`, `Start`/`Stop`/`Execute`/`OnTimerTick`, `IsRunning`, `SetLogger(ILogger?)`, `SetConformance(double)`, `SetBehaviorValue<T>`, `Description`/`Insight`/`Resolution`/`Info`/`Weight`/`LastExecutionStart`/`End`/`Parent` |
-|  [02]   | `BehaviorValue`        | building-systems | a behavior output cell (value + weight) the entity stores and reads back                                          |
-|  [03]   | `BehaviorReturnCodes`  | building-systems | execution result: `NotImplemented`(=-1)/`Good`(=0)/`Skip`(=1)/`HasWarning`(=10)/`HasError`(=50)/`HasException`(=100) |
+| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
+|:-----: |:--------------------- |:--------------- |:--------------------------------------------------------------------------------------------------------------- |
+| [01] | `BrickBehavior` | building-systems | lifecycle: `ctor(behaviorMode, behaviorName, weight, ILogger?)`, `Start`/`Stop`/`Execute`/`OnTimerTick`, `IsRunning`, `SetLogger(ILogger?)`, `SetConformance(double)`, `SetBehaviorValue<T>`, `Description`/`Insight`/`Resolution`/`Info`/`Weight`/`LastExecutionStart`/`End`/`Parent` |
+| [02] | `BehaviorValue` | building-systems | a behavior output cell (value + weight) the entity stores and reads back |
+| [03] | `BehaviorReturnCodes` | building-systems | execution result: `NotImplemented`(=-1)/`Good`(=0)/`Skip`(=1)/`HasWarning`(=10)/`HasError`(=50)/`HasException`(=100) |
 
 [PUBLIC_TYPE_SCOPE]: taxonomy and device classes
 - namespace: `BrickSchema.Net.Classes.*`
 - rail: building-systems
 
-The generated Brick class taxonomy (`BrickClass` subclasses) — the vocabulary you instantiate
+The generated Brick class taxonomy (`BrickClass` subclasses) — the vocabulary the caller instantiate
 through `AddEntity<T>`. Do not enumerate them as separate surfaces; they are one polymorphic
 family discriminated by the `<T>` argument.
 
-| [INDEX] | [NAMESPACE]                          | [RAIL]           | [CAPABILITY]                                                                                       |
-| :-----: | :----------------------------------- | :--------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `.Classes.Equipments` (+ `.HVACType`/`.Chillers`/`.TerminalUnits`) | building-systems | `AHU`/`VAV`/`CAV`/`Chiller`(`Absorption`/`Centrifugal`)/`Boiler`/`CoolingTower`/`Pump`/`Fan`/`Damper`/`Valve`/`Compressor`/`Condenser`/… |
-|  [02]   | `.Classes.Points`                    | building-systems | the telemetry vocabulary — sensors, setpoints, commands, status, alarms, parameters               |
-|  [03]   | `.Classes.Locations`                 | building-systems | spatial vocabulary — `Building`/`Floor`/`Room`/`Zone`/`Space`/`CommonSpace`                        |
-|  [04]   | `.Classes.Measureable`               | building-systems | quantities + substances — `Temperature`/`Pressure`/`ActivePower`/`ActiveEnergy`/`Air`/`ChilledWater`/`HotWater`/… |
-|  [05]   | `.Classes.Collection` (+ `.Loop`)    | building-systems | grouping — `Loop`(`Air`/`Water`/`ChilledWater`/`HotWater`)/`System`/`Portfolio`/`PVArray`          |
-|  [06]   | `.Classes.Devices`                   | building-systems | BMS hardware — `BACnetDevice`/`ModbusDevice`/`Workstation`/`Server`/`Camera`                       |
+| [INDEX] | [NAMESPACE] | [RAIL] | [CAPABILITY] |
+|:-----: |:----------------------------------- |:--------------- |:----------------------------------------------------------------------------------------------- |
+| [01] | `.Classes.Equipments` (+ `.HVACType`/`.Chillers`/`.TerminalUnits`) | building-systems | `AHU`/`VAV`/`CAV`/`Chiller`(`Absorption`/`Centrifugal`)/`Boiler`/`CoolingTower`/`Pump`/`Fan`/`Damper`/`Valve`/`Compressor`/`Condenser`/… |
+| [02] | `.Classes.Points` | building-systems | the telemetry vocabulary — sensors, setpoints, commands, status, alarms, parameters |
+| [03] | `.Classes.Locations` | building-systems | spatial vocabulary — `Building`/`Floor`/`Room`/`Zone`/`Space`/`CommonSpace` |
+| [04] | `.Classes.Measureable` | building-systems | quantities + substances — `Temperature`/`Pressure`/`ActivePower`/`ActiveEnergy`/`Air`/`ChilledWater`/`HotWater`/… |
+| [05] | `.Classes.Collection` (+ `.Loop`) | building-systems | grouping — `Loop`(`Air`/`Water`/`ChilledWater`/`HotWater`)/`System`/`Portfolio`/`PVArray` |
+| [06] | `.Classes.Devices` | building-systems | BMS hardware — `BACnetDevice`/`ModbusDevice`/`Workstation`/`Server`/`Camera` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -107,37 +106,37 @@ family discriminated by the `<T>` argument.
 - namespace: `BrickSchema.Net`
 - rail: building-systems
 
-| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                                  | [CAPABILITY]                                                                  |
-| :-----: | :----------------------- | :--------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `AddEntity<T>`           | `<T>(string? id = null, string? name = null) where T:BrickEntity,new() → T`  | the canonical polymorphic create — `<T>` IS the Brick class; typed factory sugar (`AddEquipmentHVACChiller`/`AddCollectionLoopAir`/…) wraps this |
-|  [02]   | `GetEntity` / `GetEntities` / `GetEntities<T>` | `(string id, bool byReference=false) → BrickEntity?` · `<T>(bool byReference=false) → List<BrickEntity>` | id lookup / full roster / type-filtered roster (`byReference` = live node vs clone) |
-|  [03]   | `SearchEntities`         | `(Func<dynamic,bool> predicate) → List<dynamic>`                             | predicate query over the graph (the single search entry — no `GetByX` family) |
-|  [04]   | `UpdateEntity` / `IsEntity` / `IsTag` / `GetTag` | `(dynamic) → bool` · `(string) → bool` · `(string, bool=false) → Tag?` | upsert / existence / tag membership                                          |
-|  [05]   | `LoadSchema` / `SaveSchema` | `(string jsonLdFilePath)` · `() / (string jsonLdFilePath)`               | JSON-LD graph read / write (round-trips the whole entity graph)              |
-|  [06]   | `GetBehaviors` / `GetEquipmentBehaviors` / `GetRegisteredEquipmentBehaviors` / `GetEquipments` | `(List<string> ids, bool byReference=false)` / `(string equipmentId, …)` | behavior + equipment registry queries |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:----------------------- |:--------------------------------------------------------------------------- |:--------------------------------------------------------------------------- |
+| [01] | `AddEntity<T>` | `<T>(string? id = null, string? name = null) where T:BrickEntity,new() → T` | the canonical polymorphic create — `<T>` IS the Brick class; typed factory sugar (`AddEquipmentHVACChiller`/`AddCollectionLoopAir`/…) wraps this |
+| [02] | `GetEntity` / `GetEntities` / `GetEntities<T>` | `(string id, bool byReference=false) → BrickEntity?` · `<T>(bool byReference=false) → List<BrickEntity>` | id lookup / full roster / type-filtered roster (`byReference` = live node vs clone) |
+| [03] | `SearchEntities` | `(Func<dynamic,bool> predicate) → List<dynamic>` | predicate query over the graph (the single search entry — no `GetByX` family) |
+| [04] | `UpdateEntity` / `IsEntity` / `IsTag` / `GetTag` | `(dynamic) → bool` · `(string) → bool` · `(string, bool=false) → Tag?` | upsert / existence / tag membership |
+| [05] | `LoadSchema` / `SaveSchema` | `(string jsonLdFilePath)` · `() / (string jsonLdFilePath)` | JSON-LD graph read / write (round-trips the whole entity graph) |
+| [06] | `GetBehaviors` / `GetEquipmentBehaviors` / `GetRegisteredEquipmentBehaviors` / `GetEquipments` | `(List<string> ids, bool byReference=false)` / `(string equipmentId, …)` | behavior + equipment registry queries |
 
 [ENTRYPOINT_SCOPE]: entity properties, relationships, behaviors (`BrickEntity`)
 - namespace: `BrickSchema.Net`
 - rail: building-systems
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                              | [CAPABILITY]                                                            |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `AddOrUpdateProperty<T>` / `GetProperty<T>` | `<T>(string\|PropertiesEnum, T)` · `<T>(string\|PropertiesEnum) → T?` | typed property set/get (string-backed `EntityProperty` with conversion) |
-|  [02]   | relationship traversal          | `GetChildEntities`/`GetFedEntitites`/`GetMeterEntities`/`GetPartEntitites`/`GetPointEntities`/`GetPointEntity(tag)` · `GetFeedingParent`/`GetMeetingParent`/`GetPartOfParent`/`GetPointOfParent` | walk the typed edges in either direction without raw list access |
-|  [03]   | `AddRelationship<T>` / `AddShape<T>` / `GetRelationships` / `GetShapes` / `GetTags` | `<T>(string parentId) where T:BrickRelationship,new() → T` · `<T>() where T:BrickShape,new() → T` · `() → List<BrickRelationship>\|List<BrickShape>\|List<Tag>` | polymorphic edge/shape create (the typed `AddRelationshipFedBy`/`AddRelationshipPointOf`/… and `AddShapeAggregation`/… sugar wraps these) + edge / shape / tag enumeration |
-|  [04]   | `AddBehavior` / `RemoveBehavior` / `GetBehaviors` | `(BrickBehavior) → BrickBehavior` · `(string\|BrickBehavior)` · `(bool\|string type)` | attach/detach/read runtime analytics                            |
-|  [05]   | `SetBehaviorValue<T>` / `GetBehaviorValue<T>` / `GetBehaviorValue<T,U>` | `(behaviorId, valueName, T)` · `<T>(behaviorId, valueName) → T?` · `<T,U>(…) → (T? Value, U? Weight)` | behavior-output cells (value, value+weight) |
-|  [06]   | `Clone`                         | `() → BrickEntity` (covariant per subtype)                              | structural deep copy of a node                                         |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------ |:----------------------------------------------------------------------- |:-------------------------------------------------------------------- |
+| [01] | `AddOrUpdateProperty<T>` / `GetProperty<T>` | `<T>(string\| PropertiesEnum, T)` · `<T>(string\| PropertiesEnum) → T?` | typed property set/get (string-backed `EntityProperty` with conversion) |
+| [02] | relationship traversal | `GetChildEntities`/`GetFedEntitites`/`GetMeterEntities`/`GetPartEntitites`/`GetPointEntities`/`GetPointEntity(tag)` · `GetFeedingParent`/`GetMeetingParent`/`GetPartOfParent`/`GetPointOfParent` | walk the typed edges in either direction without raw list access |
+| [03] | `AddRelationship<T>` / `AddShape<T>` / `GetRelationships` / `GetShapes` / `GetTags` | `<T>(string parentId) where T:BrickRelationship,new() → T` · `<T>() where T:BrickShape,new() → T` · `() → List<BrickRelationship>\| List<BrickShape>\| List<Tag>` | polymorphic edge/shape create (the typed `AddRelationshipFedBy`/`AddRelationshipPointOf`/… and `AddShapeAggregation`/… sugar wraps these) + edge / shape / tag enumeration |
+| [04] | `AddBehavior` / `RemoveBehavior` / `GetBehaviors` | `(BrickBehavior) → BrickBehavior` · `(string\| BrickBehavior)` · `(bool\| string type)` | attach/detach/read runtime analytics |
+| [05] | `SetBehaviorValue<T>` / `GetBehaviorValue<T>` / `GetBehaviorValue<T,U>` | `(behaviorId, valueName, T)` · `<T>(behaviorId, valueName) → T?` · `<T,U>(…) → (T? Value, U? Weight)` | behavior-output cells (value, value+weight) |
+| [06] | `Clone` | `() → BrickEntity` (covariant per subtype) | structural deep copy of a node |
 
 [ENTRYPOINT_SCOPE]: behavior execution (`BrickBehavior`)
 - namespace: `BrickSchema.Net`
 - rail: building-systems
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                          | [CAPABILITY]                                                  |
-| :-----: | :------------------------------- | :------------------------------------ | :---------------------------------------------------------- |
-|  [01]   | `Start` / `Stop` / `Execute` / `OnTimerTick` | `()`                       | analytic lifecycle (timer-driven or explicit run)            |
-|  [02]   | `SetConformance` / `SetBehaviorValue<T>` | `(double) → BehaviorValue` · `<T>(valueName, T) → BehaviorValue` | emit a conformance score / a named output |
-|  [03]   | `SetLogger`                      | `(ILogger?)`                          | bind `Microsoft.Extensions.Logging` for behavior diagnostics |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------- |:------------------------------------ |:---------------------------------------------------------- |
+| [01] | `Start` / `Stop` / `Execute` / `OnTimerTick` | `()` | analytic lifecycle (timer-driven or explicit run) |
+| [02] | `SetConformance` / `SetBehaviorValue<T>` | `(double) → BehaviorValue` · `<T>(valueName, T) → BehaviorValue` | emit a conformance score / a named output |
+| [03] | `SetLogger` | `(ILogger?)` | bind `Microsoft.Extensions.Logging` for behavior diagnostics |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

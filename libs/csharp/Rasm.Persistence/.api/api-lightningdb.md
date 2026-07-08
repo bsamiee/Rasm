@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `LightningDB`
 - package: `LightningDB`
-- version: `0.22.0`
 - assembly: `LightningDB`
 - namespace: `LightningDB`, `LightningDB.Native`, `LightningDB.Comparers`
 - license: MIT (`<license type="file">LICENSE</license>`)

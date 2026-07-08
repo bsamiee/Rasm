@@ -1,14 +1,14 @@
-# [@opentelemetry/sdk-trace-base] — the runtime-neutral trace SDK leg of the bridging pin block
+# [TS_RUNTIME_API_OPENTELEMETRY_SDK_TRACE_BASE]
 
 `@opentelemetry/sdk-trace-base` owns the trace-export pipeline the SDK-bridge lane wires into: the `SpanProcessor` → `SpanExporter` contract, the `Sampler` algebra, the `IdGenerator`, and the `TracerConfig` construction bag `BasicTracerProvider` reads. `otel/emit` never touches it directly — `@effect/opentelemetry` `NodeSdk`/`WebSdk` construct the provider from a `Configuration` whose `spanProcessor`/`tracerConfig` slots ARE this package's `SpanProcessor` and `TracerConfig` (verified: `NodeSdk.d.ts` imports `SpanProcessor, TracerConfig` from here). `sdk-trace-node` re-exports this entire surface and adds only `NodeTracerProvider`, so this leg is the one place the trace roster is defined. It is a `[R3]` collapse target: when the native `@effect/opentelemetry` `Otlp` lane reaches parity the whole `@opentelemetry/sdk-*` block retires and only `semantic-conventions` survives.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-base`
-- package: `@opentelemetry/sdk-trace-base` · version `2.8.0` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-trace-base` · version `` · license `Apache-2.0`
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`, `module`); flat barrel, no `exports` subpath map, one `.d.ts` per concern under `build/src/{export,sampler,platform}`.
-- asset: TSDECL `build/src/index.d.ts` (`assay api resolve @opentelemetry/sdk-trace-base` → `2.8.0`, restored).
-- peer: `@opentelemetry/api >=1.3.0 <1.10.0` — the version-pinned API contract; deps `@opentelemetry/core` (`ExportResult`/`ExportResultCode`/`InstrumentationScope`), `@opentelemetry/resources` (`Resource`), `@opentelemetry/semantic-conventions`.
+- asset: TSDECL `build/src/index.d.ts` (restored).
+- peer: `@opentelemetry/api >=catalog <catalog` — the version-pinned API contract; deps `@opentelemetry/core` (`ExportResult`/`ExportResultCode`/`InstrumentationScope`), `@opentelemetry/resources` (`Resource`), `@opentelemetry/semantic-conventions`.
 - runtime: runtime-neutral — the `./platform` conditional export swaps the node crypto `RandomIdGenerator` + `BatchSpanProcessor<BufferConfig>` for the browser `Math.random` generator + `BatchSpanProcessor<BatchSpanProcessorBrowserConfig>`; no fork in consumer code.
 - plane: `plane:runtime`, edge-ledger-fenced to `scope:runtime` — no folder outside `telemetry` imports it.
 - rail: observability/sdk-bridge; `[R3]` collapse target — only `semantic-conventions` survives the pin-block retirement.
@@ -18,14 +18,14 @@
 
 `BasicTracerProvider` is the platform-extensible provider (`NodeTracerProvider`/`WebTracerProvider` subclass it); `TracerConfig` is its one construction bag, and every axis on it — sampler, limits, id generator, processor list — is a policy value, never a subclass. Under the effect facade `tracerConfig` is `Omit<TracerConfig, "resource">` — identity enters through the facade `Configuration`'s own resource options (or the `Resource` layer), so a consumer never sets `TracerConfig.resource`.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [CONSUMER / BOUNDARY]                                                  |
-| :-----: | :-------------------------------- | :------------ | :--------------------------------------------------------------------- |
-|  [01]   | `BasicTracerProvider`             | class         | `implements TracerProvider`; base for `NodeTracerProvider` (sdk-trace-node) |
-|  [02]   | `TracerConfig`                    | interface     | provider bag — `sampler`/`spanLimits`/`idGenerator`/`spanProcessors`   |
-|  [03]   | `SpanLimits` / `GeneralLimits`    | interface     | per-span vs global attribute/link/event count + value-length caps      |
-|  [04]   | `SDKRegistrationConfig`           | interface     | `propagator?`/`contextManager?` for the global `register()` path       |
-|  [05]   | `ReadableSpan` / `Span`           | type          | the recorded-span read shape; `Span = APISpan & ReadableSpan`          |
-|  [06]   | `TimedEvent`                      | type          | a span event with `HrTime` — the `events[]` element                    |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------- |:------------ |:--------------------------------------------------------------------- |
+| [01] | `BasicTracerProvider` | class | `implements TracerProvider`; base for `NodeTracerProvider` (sdk-trace-node) |
+| [02] | `TracerConfig` | interface | provider bag — `sampler`/`spanLimits`/`idGenerator`/`spanProcessors` |
+| [03] | `SpanLimits` / `GeneralLimits` | interface | per-span vs global attribute/link/event count + value-length caps |
+| [04] | `SDKRegistrationConfig` | interface | `propagator?`/`contextManager?` for the global `register()` path |
+| [05] | `ReadableSpan` / `Span` | type | the recorded-span read shape; `Span = APISpan & ReadableSpan` |
+| [06] | `TimedEvent` | type | a span event with `HrTime` — the `events[]` element |
 
 ```ts contract
 // The construction bag. Under @effect/opentelemetry tracerConfig omits `resource` — the facade's own resource slot owns identity.
@@ -59,16 +59,16 @@ interface ReadableSpan {
 
 The pipeline is TWO parameterized interfaces, not a fixed set of pairs. `SpanProcessor` owns the start/end/flush lifecycle; `SpanExporter` owns the format/transport. The built-in classes are ROWS on those interfaces — `Simple` (per-span, synchronous, diagnostics-only), `Batch` (queued, the production row, parameterized on `BufferConfig`), `Noop` (drop) — and a custom transport is a new `SpanExporter`, a custom lifecycle a new `SpanProcessor`, never a fork. `BatchSpanProcessor` is the `./platform` specialization of the internal `BatchSpanProcessorBase<T extends BufferConfig>` — node binds `T = BufferConfig`, browser `T = BatchSpanProcessorBrowserConfig`.
 
-| [INDEX] | [SYMBOL]                              | [KIND]                    | [CAPABILITY / BOUNDARY]                                          |
-| :-----: | :------------------------------------ | :------------------------ | :--------------------------------------------------------------- |
-|  [01]   | `SpanProcessor`                       | interface                 | `onStart`/`onEnding?`/`onEnd`/`forceFlush`/`shutdown` lifecycle   |
-|  [02]   | `SimpleSpanProcessor`                 | class                     | one export per ended span; sync; diagnostics/test only           |
-|  [03]   | `BatchSpanProcessor`                  | class (`./platform`)      | queued batch export; the production row; `BufferConfig`-tuned    |
-|  [04]   | `NoopSpanProcessor`                   | class                     | drop-all — the disabled-signal row                               |
-|  [05]   | `BufferConfig` / `BatchSpanProcessorBrowserConfig` | interface    | batch tuning; browser adds `disableAutoFlushOnDocumentHide`      |
-|  [06]   | `SpanExporter`                        | interface                 | `export(spans, cb)`/`shutdown`/`forceFlush?` — format + transport |
-|  [07]   | `ConsoleSpanExporter`                 | class                     | stdout diagnostics                                               |
-|  [08]   | `InMemorySpanExporter`                | class                     | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane     |
+| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
+|:-----: |:------------------------------------ |:------------------------ |:--------------------------------------------------------------- |
+| [01] | `SpanProcessor` | interface | `onStart`/`onEnding?`/`onEnd`/`forceFlush`/`shutdown` lifecycle |
+| [02] | `SimpleSpanProcessor` | class | one export per ended span; sync; diagnostics/test only |
+| [03] | `BatchSpanProcessor` | class (`./platform`) | queued batch export; the production row; `BufferConfig`-tuned |
+| [04] | `NoopSpanProcessor` | class | drop-all — the disabled-signal row |
+| [05] | `BufferConfig` / `BatchSpanProcessorBrowserConfig` | interface | batch tuning; browser adds `disableAutoFlushOnDocumentHide` |
+| [06] | `SpanExporter` | interface | `export(spans, cb)`/`shutdown`/`forceFlush?` — format + transport |
+| [07] | `ConsoleSpanExporter` | class | stdout diagnostics |
+| [08] | `InMemorySpanExporter` | class | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane |
 
 ```ts contract
 interface SpanProcessor {
@@ -97,14 +97,14 @@ declare class InMemorySpanExporter implements SpanExporter { getFinishedSpans():
 
 Sampling is ONE interface (`Sampler.shouldSample` → `SamplingResult`) with four built-in rows; `ParentBasedSampler` is a COMBINATOR that delegates by parent trace-flags/remoteness, so head-based policy composes from the roster rather than forking a class. `IdGenerator` is the trace/span-id source, `RandomIdGenerator` its `./platform` row (node: `crypto`; browser: `Math.random`).
 
-| [INDEX] | [SYMBOL]                          | [KIND]              | [CONFIG AXIS / DECISION]                                        |
-| :-----: | :-------------------------------- | :------------------ | :-------------------------------------------------------------- |
-|  [01]   | `Sampler` / `SamplingResult`      | interface           | `shouldSample(ctx, traceId, name, kind, attrs, links)`          |
-|  [02]   | `SamplingDecision`                | enum                | `NOT_RECORD` / `RECORD` / `RECORD_AND_SAMPLED`                   |
-|  [03]   | `AlwaysOnSampler` / `AlwaysOffSampler` | class          | unconditional record / drop                                     |
-|  [04]   | `TraceIdRatioBasedSampler`        | class               | `constructor(ratio?)` — deterministic head sampling by trace-id |
-|  [05]   | `ParentBasedSampler`              | class (combinator)  | delegates to `{ root, remote/localParent{Sampled,NotSampled} }` |
-|  [06]   | `IdGenerator` / `RandomIdGenerator` | interface/class   | 32-hex trace id + 16-hex span id; platform-random               |
+| [INDEX] | [SYMBOL] | [KIND] | [CONFIG_AXIS_DECISION] |
+|:-----: |:-------------------------------- |:------------------ |:-------------------------------------------------------------- |
+| [01] | `Sampler` / `SamplingResult` | interface | `shouldSample(ctx, traceId, name, kind, attrs, links)` |
+| [02] | `SamplingDecision` | enum | `NOT_RECORD` / `RECORD` / `RECORD_AND_SAMPLED` |
+| [03] | `AlwaysOnSampler` / `AlwaysOffSampler` | class | unconditional record / drop |
+| [04] | `TraceIdRatioBasedSampler` | class | `constructor(ratio?)` — deterministic head sampling by trace-id |
+| [05] | `ParentBasedSampler` | class (combinator) | delegates to `{ root, remote/localParent{Sampled,NotSampled} }` |
+| [06] | `IdGenerator` / `RandomIdGenerator` | interface/class | 32-hex trace id + 16-hex span id; platform-random |
 
 ```ts contract
 interface Sampler {
@@ -123,10 +123,10 @@ interface IdGenerator { generateTraceId(): string; generateSpanId(): string }
 
 ## [05]-[STACKING]
 
-- [STACK: `@effect/opentelemetry` `NodeSdk`/`WebSdk`] — the primary consumer. `NodeSdk.Configuration.spanProcessor: SpanProcessor | ReadonlyArray<SpanProcessor>` and `tracerConfig: Omit<TracerConfig, "resource">` are exactly this package's types (verified import). Effect wires them via `layerTracerProvider(spanProcessor, tracerConfig)` and constructs the provider; `otel/emit` passes `new BatchSpanProcessor(otlpExporter)` and a `{ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) }) }` tracerConfig — never a `BasicTracerProvider` directly, and never `TracerConfig.resource` (the facade's resource options own identity).
-- [STACK: sibling `exporter-trace-otlp-http`] — `OTLPTraceExporter implements SpanExporter`; a `BatchSpanProcessor(new OTLPTraceExporter(opts))` is the production trace pipeline. The `SpanExporter` interface is defined HERE; the OTLP-HTTP sibling and any vendor exporter are rows on it. `ExportResult`/`ExportResultCode` (the `resultCallback` payload) come from `@opentelemetry/core`.
-- [STACK: `@opentelemetry/resources` + `semantic-conventions`] — `TracerConfig.resource: Resource` carries the `AppIdentity`-derived resource; `ReadableSpan.attributes` keys are `semantic-conventions` vocabulary rows (`telemetry/core/observe/convention`), never string literals. `semantic-conventions` is the sole survivor of the `[R3]` collapse.
-- [STACK: effect-native instrumentation] — application code emits through `Effect.withSpan`; the facade's `Tracer` bridge feeds those spans into this pipeline. No `plane:runtime` folder imports `sdk-trace-base` (edge-ledger `scope:runtime` ban); the pipeline is constructed once at the composition root.
+- Stack with `@effect/opentelemetry` `NodeSdk`/`WebSdk`: the primary consumer. `NodeSdk.Configuration.spanProcessor: SpanProcessor | ReadonlyArray<SpanProcessor>` and `tracerConfig: Omit<TracerConfig, "resource">` are exactly this package's types (verified import). Effect wires them via `layerTracerProvider(spanProcessor, tracerConfig)` and constructs the provider; `otel/emit` passes `new BatchSpanProcessor(otlpExporter)` and a `{ sampler: new ParentBasedSampler({ root: new TraceIdRatioBasedSampler(ratio) }) }` tracerConfig — never a `BasicTracerProvider` directly, and never `TracerConfig.resource` (the facade's resource options own identity).
+- Stack with sibling `exporter-trace-otlp-http`: `OTLPTraceExporter implements SpanExporter`; a `BatchSpanProcessor(new OTLPTraceExporter(opts))` is the production trace pipeline. The `SpanExporter` interface is defined HERE; the OTLP-HTTP sibling and any vendor exporter are rows on it. `ExportResult`/`ExportResultCode` (the `resultCallback` payload) come from `@opentelemetry/core`.
+- Stack with `@opentelemetry/resources` + `semantic-conventions`: `TracerConfig.resource: Resource` carries the `AppIdentity`-derived resource; `ReadableSpan.attributes` keys are `semantic-conventions` vocabulary rows (`telemetry/core/observe/convention`), never string literals. `semantic-conventions` is the sole survivor of the `[R3]` collapse.
+- Stack with effect-native instrumentation: application code emits through `Effect.withSpan`; the facade's `Tracer` bridge feeds those spans into this pipeline. No `plane:runtime` folder imports `sdk-trace-base` (edge-ledger `scope:runtime` ban); the pipeline is constructed once at the composition root.
 
 ## [06]-[RAIL_LAW]
 

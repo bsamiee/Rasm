@@ -14,7 +14,6 @@ services. Wire admission and the EF plugin pair — neither stands alone.
 
 [PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
 - package: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
-- version: `10.0.2`
 - license: `PostgreSQL`
 - assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite`
 - namespace: `Microsoft.EntityFrameworkCore` (builder), `Npgsql.EntityFrameworkCore.PostgreSQL.*` (plugins)
@@ -25,7 +24,6 @@ services. Wire admission and the EF plugin pair — neither stands alone.
 
 [PACKAGE_SURFACE]: `Npgsql.NetTopologySuite`
 - package: `Npgsql.NetTopologySuite`
-- version: `10.0.3`
 - license: `PostgreSQL`
 - assembly: `Npgsql.NetTopologySuite`
 - namespace: `Npgsql`
@@ -37,7 +35,6 @@ services. Wire admission and the EF plugin pair — neither stands alone.
 
 [PACKAGE_SURFACE]: `NetTopologySuite`
 - package: `NetTopologySuite`
-- version: `2.6.0` (transitive via `Npgsql.NetTopologySuite`)
 - license: `BSD-3-Clause`
 - assembly: `NetTopologySuite`
 - namespace: `NetTopologySuite.Geometries`

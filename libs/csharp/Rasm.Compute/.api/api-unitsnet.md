@@ -50,7 +50,7 @@ policy the `Symbolic/units` and `Symbolic/dimensional` pages compose.
 - Affine families (`Temperature`) carry an offset — sum/aggregate at the canonical absolute scale, never across display offsets.
 
 [RAIL_LAW]:
-- Package: `UnitsNet` 5.75.0 (MIT-0)
+- Package: `UnitsNet` (MIT-0)
 - Owns: source-generated quantity/unit algebra, the SI dimension vector, culture-scoped parse/format, and conversion/abbreviation policy
 - Accept: measured unit-aware execution input at the boundary, canonicalized once to an SI raw double
 - Reject: raw numeric unit comments; a UnitsNet type on an interior signature or a wire; `GenericMathExtensions`/`DecimalGenericMathExtensions`/`UnitFormatter`/`IDecimalQuantity` (the first two do not exist, the third is internal, the fourth is `[Obsolete]`)

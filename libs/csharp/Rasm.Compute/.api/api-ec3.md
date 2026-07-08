@@ -34,7 +34,7 @@ documented for completeness and never called from Compute.
 - rail: embodied-carbon
 - note: the three reads that feed the LCA Assessment lane. Search and statistics take the Open Material Filter (OMF) string; a single-EPD read takes the openXPD UUID. Search/statistics return the envelope `{ "payload": …, "meta": … }`; the by-UUID read returns a bare `Epd`. Pagination is `page_number`/`page_size` query params; `meta.paging` reports `total_count`/`total_pages`/`page_size` for the streaming pager.
 
-| [INDEX] | [METHOD + PATH]              | [QUERY / BODY]                                  | [RESPONSE]                                              | [CONSUMER / STACK NOTE]                                                                                       |
+| [INDEX] | [METHOD_PATH]              | [QUERY_BODY]                                  | [RESPONSE]                                              | [CONSUMER_STACK_NOTE]                                                                                       |
 | :-----: | :--------------------------- | :---------------------------------------------- | :----------------------------------------------------- | :----------------------------------------------------------------------------------------------------------- |
 |  [01]   | `GET /v2/epds/search`        | `omf` (OMF string), `page_number`, `page_size`  | `{ payload: Epd[], meta: EpdSearchMeta }`              | the per-product EPD query; iterate pages until `meta.paging.total_pages`; each `Epd.impacts[method].gwp.A1A2A3.mean` is a kgCO2e-per-declared-unit datum |
 |  [02]   | `GET /v2/epds/statistics`    | `omf` (OMF string)                              | `{ payload: StatisticsDto, meta: EpdStatisticsMeta }` | category-scoped GWP distribution; `achievable_target` (20th pct), `conservative_estimate` (80th pct), `average`, `pct50_gwp` are the LCA reference lines |
@@ -44,7 +44,7 @@ documented for completeness and never called from Compute.
 [ENDPOINT_SCOPE]: supporting reads
 - rail: embodied-carbon
 
-| [INDEX] | [METHOD + PATH]                  | [RESPONSE]            | [NOTE]                                                                       |
+| [INDEX] | [METHOD_PATH]                  | [RESPONSE]            | [NOTE]                                                                       |
 | :-----: | :------------------------------- | :-------------------- | :-------------------------------------------------------------------------- |
 |  [01]   | `GET /pcrs/{uuid}`               | `Pcr`                 | Product Category Rule a declaration was issued under (provenance)            |
 |  [02]   | `GET /generic_estimates/{uuid}`  | `GenericEstimate`     | average-dataset fallback when no product EPD exists for a material           |
@@ -56,7 +56,7 @@ documented for completeness and never called from Compute.
 - rail: embodied-carbon
 - note: these require READ WRITE token scope and EPD-Creator permission. Rasm is a carbon consumer, never a declaration publisher, so the client exposes none of these.
 
-| [INDEX] | [METHOD + PATH]                          | [BODY]            | [NOTE]                                                          |
+| [INDEX] | [METHOD_PATH]                          | [BODY]            | [NOTE]                                                          |
 | :-----: | :--------------------------------------- | :---------------- | :------------------------------------------------------------- |
 |  [01]   | `POST /epds`                             | `Epd`             | create a new declaration                                        |
 |  [02]   | `PUT /epds/{id}`                         | `Epd`             | replace an existing declaration                                 |
@@ -74,7 +74,7 @@ documented for completeness and never called from Compute.
 - rail: embodied-carbon
 - note: search/statistics/list endpoints wrap the result in a generic envelope; the Compute decoder reads `payload` for data and `meta.paging` for the streaming cursor. The by-UUID reads skip the envelope and return the bare document. JSON keys carrying a `-` (LCIA scope names) require an explicit `[JsonPropertyName]` alias in the source-gen context.
 
-| [INDEX] | [JSON SHAPE]            | [FIELDS]                                                                                                                      | [CONSUMER NOTE]                                                                |
+| [INDEX] | [JSON_SHAPE]            | [FIELDS]                                                                                                                      | [CONSUMER_NOTE]                                                                |
 | :-----: | :--------------------- | :--------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------- |
 |  [01]   | envelope               | `payload` (the typed result — `Epd[]` / `StatisticsDto` / preview list); `meta` (typed per endpoint)                          | `payload` is the only field the data fold reads; `meta` drives paging + warnings |
 |  [02]   | `meta.paging`          | `total_count:int`; `total_pages:int`; `page_size:int`                                                                         | streaming-pager termination: stop when `page_number > total_pages`             |
@@ -102,7 +102,7 @@ documented for completeness and never called from Compute.
 - rail: embodied-carbon
 - note: the consumed declaration shape. `declared_unit`/`kg_per_declared_unit` canonicalize through UnitsNet at the boundary; `impacts` is the embodied-carbon source. `specs` is the sector-specific functional spec dict (e.g. `concrete.strength_28d`) used to author OMF filters, not decoded structurally.
 
-| [INDEX] | [FIELD]                                                       | [TYPE]              | [CONSUMER NOTE]                                                       |
+| [INDEX] | [FIELD]                                                       | [TYPE]              | [CONSUMER_NOTE]                                                       |
 | :-----: | :----------------------------------------------------------- | :------------------ | :------------------------------------------------------------------- |
 |  [01]   | `id`                                                         | openXPD UUID `str?` | the EPD identity; key for the by-UUID read and the EC3 deep link      |
 |  [02]   | `doctype` / `openepd_version`                                | `str`               | `"openEPD"` + format version; doctype-match guards the decoder        |
@@ -126,7 +126,7 @@ documented for completeness and never called from Compute.
 - rail: embodied-carbon
 - note: `Impacts` is a JSON object keyed by LCIA method name → `ImpactSet`; `ImpactSet` is keyed by impact-category name → `ScopeSet`; `ScopeSet` is keyed by EN 15978 life-cycle module → `Measurement`. The decoder selects `impacts["EN 15978:2011"].gwp` (or `["IPCC AR6"].gwp` / `["TRACI 2.1"].gwp`) then folds the module measurements.
 
-| [INDEX] | [LEVEL]                | [KEYS]                                                                                                                                                                      | [CONSUMER NOTE]                                                                 |
+| [INDEX] | [LEVEL]                | [KEYS]                                                                                                                                                                      | [CONSUMER_NOTE]                                                                 |
 | :-----: | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------- |
 |  [01]   | `Impacts` (method map) | `LCIAMethod` value → `ImpactSet`                                                                                                                                           | pick the method matching the Assessment route; `Unknown LCIA` is the fallback bucket |
 |  [02]   | `ImpactSet` (category) | `gwp`; `gwp-fossil`; `gwp-biogenic`; `gwp-luluc`; `gwp-nonCO2`; `GWP-GHG`; `odp`; `ap`; `ep`/`ep-marine`/`ep-fresh`/`ep-terr`; `pocp`; `WDP`; `PM`; `IRP`; `ETP-fw`; `HTP-c`; `HTP-nc`; `SQP`; `ADP-mineral`; `ADP-fossil` | `gwp` is the headline carbon; the `gwp-*` split is required when GWP is decomposed; hyphenated keys need JSON aliases |
@@ -136,7 +136,7 @@ documented for completeness and never called from Compute.
 [WIRE_TYPE_SCOPE]: leaf value types
 - rail: embodied-carbon
 
-| [INDEX] | [TYPE]         | [FIELDS]                                                                                                                  | [CONSUMER NOTE]                                                                  |
+| [INDEX] | [TYPE]         | [FIELDS]                                                                                                                  | [CONSUMER_NOTE]                                                                  |
 | :-----: | :------------- | :---------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
 |  [01]   | `Measurement`  | `mean:float`; `unit:str?`; `rsd:float?` (relative std dev = σ/mean); `dist:Distribution?`                                | the LCIA scope leaf; GWP `mean` is kgCO2e; `rsd`/`dist` carry the uncertainty the solver propagates |
 |  [02]   | `Amount`       | `qty:float?` (≥0); `unit:str?` (SI preferred, e.g. `kg`)                                                                  | unit-bearing quantity with no uncertainty; canonicalized once through UnitsNet   |

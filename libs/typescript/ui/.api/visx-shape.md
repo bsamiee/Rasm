@@ -1,24 +1,24 @@
-# [@visx/shape] — d3-shape generators as React SVG components: accessor-driven lines/areas/bars/arcs/links/stacks, the geometry roster of the bespoke chart spine
+# [TS_UI_API_VISX_SHAPE]
 
 [PACKAGE_SURFACE]:
 - package: `@visx/shape` · license `MIT`
-- module: dual ESM/CJS via conditional `exports`; peers `react` + `@types/react` 18||19 (React 19 native at v4, `prop-types` dropped).
+- module: dual ESM/CJS via conditional `exports`; peers `react` + `@types/react` 18||19 (React 19 native at catalog-bound, `prop-types` dropped).
 - asset: deps `@visx/curve` `@visx/group` `@visx/scale` `@visx/vendor` (the pinned d3 bundle) + `classnames`; curves are consumed INTERNALLY — no `curve*` member re-exports from this entry.
 - plane: `plane:runtime` (W4 `ui`); rail: the visx chart spine — geometry components under `.api/visx-axis.md` / over `.api/visx-scale.md`.
 
-`@visx/shape` renders `d3-shape` generators as components: each takes `data` plus accessor props (`x={(d) => xScale(getDate(d))}`), computes the path via the vendored generator, and emits a plain SVG element that participates fully in React — token classes, RAC-adjacent handlers, per-element a11y. This is exactly the capability split against Plot: every path here is an addressable React element. Components pair with children-as-function escape hatches (receive the computed path/generator for custom rendering), and the `D3ShapeFactories` re-exports (`arc` `area` `line` `pie` `radialLine` `stack` as config-object wrappers) cover headless geometry when no element should render.
+`@visx/shape` renders `d3-shape` generators as components: each takes `data` plus accessor props (`x={(d) => xScale(getDate(d))}`), computes the path via the vendored generator, and emits a plain SVG element that participates fully in React — token classes, RAC-adjacent handlers, per-element a11y. This is exactly the capability split against Plot: every path here is an addressable React element. Components pair with children-as-function escape hatches (receive the computed path/generator for custom rendering), and the `D3ShapeFactories` re-exports (`arc` `area` `line` `pie` `radialLine` `stack` as config-object wrappers) cover headless geometry when no element must render.
 
 ## [01]-[COMPONENT_ROSTER]
 
-| [INDEX] | [FAMILY]   | [COMPONENTS]                                                                                                          | [AXIS / NOTE]                                              |
-| :-----: | :--------- | :----------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | line       | `LinePath` `Line` `LineRadial` `SplitLinePath`                                                                             | `LinePath` = data line (accessors + `curve` + `defined`); `Line` = two-point segment; `SplitLinePath` = per-segment styling |
-|  [02]   | area       | `Area` `AreaClosed` `AreaStack` `Stack`                                                                                    | `AreaClosed` closes to a scale's zero; stacks take `keys` + offset/order policy |
-|  [03]   | bar        | `Bar` `BarRounded` `BarGroup` `BarGroupHorizontal` `BarStack` `BarStackHorizontal`                                          | `Bar` = one rect; group/stack variants fold a band scale + keys into laid-out rects via children-as-function |
-|  [04]   | radial     | `Arc` `Pie`                                                                                                                | generator props (`innerRadius`/`padAngle`/…); `Pie` children-as-function exposes arcs for custom slice rendering |
-|  [05]   | link       | `LinkHorizontal` `LinkVertical` `LinkRadial` + `Link{Horizontal,Vertical,Radial}{Curve,Line,Step}` (+ matching `path*` factories) | hierarchy/graph edges; 12 typed variants on one source/target accessor shape |
-|  [06]   | point/region | `Circle` `Polygon` (+`getPoints`/`getPoint`) `Threshold`                                                                 | `Threshold` shades above/below-crossing regions between two series |
-|  [07]   | policy/utils | `stackOffset`/`STACK_OFFSETS`/`STACK_OFFSET_NAMES` `stackOrder`/`STACK_ORDERS`/`STACK_ORDER_NAMES` · `getX` `getY` `getSource` `getTarget` `getFirstItem` `getSecondItem` `getBandwidth` `degreesToRadians` · `D3ShapeFactories` (`arc` `area` `line` `pie` `radialLine` `stack`) | stack policy vocabularies as named tables; accessor defaults; headless generator escape |
+| [INDEX] | [FAMILY] | [COMPONENTS] | [AXIS_NOTE] |
+|:-----: |:--------- |:----------------------------------------------------------------------------------------------------------------------- |:----------------------------------------------------------- |
+| [01] | line | `LinePath` `Line` `LineRadial` `SplitLinePath` | `LinePath` = data line (accessors + `curve` + `defined`); `Line` = two-point segment; `SplitLinePath` = per-segment styling |
+| [02] | area | `Area` `AreaClosed` `AreaStack` `Stack` | `AreaClosed` closes to a scale's zero; stacks take `keys` + offset/order policy |
+| [03] | bar | `Bar` `BarRounded` `BarGroup` `BarGroupHorizontal` `BarStack` `BarStackHorizontal` | `Bar` = one rect; group/stack variants fold a band scale + keys into laid-out rects via children-as-function |
+| [04] | radial | `Arc` `Pie` | generator props (`innerRadius`/`padAngle`/…); `Pie` children-as-function exposes arcs for custom slice rendering |
+| [05] | link | `LinkHorizontal` `LinkVertical` `LinkRadial` + `Link{Horizontal,Vertical,Radial}{Curve,Line,Step}` (+ matching `path*` factories) | hierarchy/graph edges; 12 typed variants on one source/target accessor shape |
+| [06] | point/region | `Circle` `Polygon` (+`getPoints`/`getPoint`) `Threshold` | `Threshold` shades above/below-crossing regions between two series |
+| [07] | policy/utils | `stackOffset`/`STACK_OFFSETS`/`STACK_OFFSET_NAMES` `stackOrder`/`STACK_ORDERS`/`STACK_ORDER_NAMES` · `getX` `getY` `getSource` `getTarget` `getFirstItem` `getSecondItem` `getBandwidth` `degreesToRadians` · `D3ShapeFactories` (`arc` `area` `line` `pie` `radialLine` `stack`) | stack policy vocabularies as named tables; accessor defaults; headless generator escape |
 
 ```ts contract
 // Accessor-driven: scales close over the accessors, the component emits one styleable SVG element.

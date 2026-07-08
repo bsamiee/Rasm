@@ -1,9 +1,9 @@
-# [@observablehq/plot] — the grammar-of-graphics owner for exploratory-statistical charts: one `plot(options)` entry, marks over channels, transforms as option rewriters, scales/legends/facets inferred
+# [TS_UI_API_OBSERVABLEHQ_PLOT]
 
 [PACKAGE_SURFACE]:
 - package: `@observablehq/plot` · license `ISC`
-- module: `type: module`, ships ESM SOURCE directly (`main`/`module`/`default` → `src/index.js`, `umd` fallback build); `sideEffects: ["./src/index.js"]` — the entry is not tree-shakable past itself.
-- asset: `types: src/index.d.ts`; deps: the whole `d3` metapackage (`.api/d3.md`), `interval-tree-1d`, `isoformat`; no peers.
+- module: `type: module`, ships ESM SOURCE directly (`main`/`module`/`default` → `src/index.js`, `umd` recovery build); `sideEffects: ["./src/index.js"]` — the entry is not tree-shakable past itself.
+- asset: `types: src/index.d.ts`; deps: the whole `d catalog` metapackage (`.api/d3.md`), `interval-tree- catalogd`, `isoformat`; no peers.
 - runtime: builds a detached SVG/figure element headlessly from data — browser or any DOM implementation; no React coupling.
 - plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, the statistical-charting lane.
 - rail: `ui` data-viz — the one-call exploratory/analytical chart owner.
@@ -30,31 +30,31 @@ declare function marks(...marks: Markish[]): CompoundMark                       
 
 Directional twins encode the fixed axis (`barY` = vertical bars); several families ship NO bare form — `barX/barY`, `ruleX/ruleY`, `tickX/tickY`, `linearRegressionX/Y`, `differenceX/Y`, `waffleX/Y` only.
 
-| [INDEX] | [FAMILY]      | [MARKS]                                                                                                     | [AXIS / NOTE]                                     |
-| :-----: | :------------ | :----------------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | point         | `dot` `dotX` `dotY` `circle` `hexagon`                                                                        | `circle`/`hexagon` = `dot` with fixed `symbol`      |
-|  [02]   | line/area     | `line` `lineX` `lineY` · `area` `areaX` `areaY` · `differenceX` `differenceY` · `bollingerX` `bollingerY` (+ `bollinger` map helper) | series via `z`; curves via `curve` option           |
-|  [03]   | bar/rect/cell | `barX` `barY` · `rect` `rectX` `rectY` · `cell` `cellX` `cellY` · `waffleX` `waffleY`                          | bars = band scale; rects = quantitative intervals   |
-|  [04]   | annotation    | `text` `textX` `textY` · `ruleX` `ruleY` · `tickX` `tickY` · `frame` · `image` · `link` `arrow` `vector` `vectorX` `vectorY` `spike` | `spike` = `vector` shape variant                    |
-|  [05]   | statistical   | `boxX` `boxY` · `linearRegressionX` `linearRegressionY` · `density` · `raster` `contour` (+ `interpolateNone`/`interpolateNearest`/`interpolatorBarycentric`/`interpolatorRandomWalk` spatial interpolators) | box = composite dot+bar+tick+rule                   |
-|  [06]   | hierarchy/graph | `tree` `cluster` · `delaunayLink` `delaunayMesh` `hull` `voronoi` `voronoiMesh`                              | tree/cluster ride `treeNode`/`treeLink` transforms  |
-|  [07]   | geo           | `geo` `sphere` `graticule`                                                                                     | GeoJSON under the `projection` option               |
-|  [08]   | axes/grids    | `axisX` `axisY` `axisFx` `axisFy` · `gridX` `gridY` `gridFx` `gridFy`                                          | explicit only when the inferred axis needs override |
-|  [09]   | interaction   | `tip` · `crosshair` `crosshairX` `crosshairY` · `pointer` `pointerX` `pointerY`                                | see [04]                                            |
-|  [10]   | auto          | `auto` `autoSpec`                                                                                              | heuristic mark/transform selection from channels    |
+| [INDEX] | [FAMILY] | [MARKS] | [AXIS_NOTE] |
+|:-----: |:------------ |:----------------------------------------------------------------------------------------------------------- |:------------------------------------------------- |
+| [01] | point | `dot` `dotX` `dotY` `circle` `hexagon` | `circle`/`hexagon` = `dot` with fixed `symbol` |
+| [02] | line/area | `line` `lineX` `lineY` · `area` `areaX` `areaY` · `differenceX` `differenceY` · `bollingerX` `bollingerY` (+ `bollinger` map helper) | series via `z`; curves via `curve` option |
+| [03] | bar/rect/cell | `barX` `barY` · `rect` `rectX` `rectY` · `cell` `cellX` `cellY` · `waffleX` `waffleY` | bars = band scale; rects = quantitative intervals |
+| [04] | annotation | `text` `textX` `textY` · `ruleX` `ruleY` · `tickX` `tickY` · `frame` · `image` · `link` `arrow` `vector` `vectorX` `vectorY` `spike` | `spike` = `vector` shape variant |
+| [05] | statistical | `boxX` `boxY` · `linearRegressionX` `linearRegressionY` · `density` · `raster` `contour` (+ `interpolateNone`/`interpolateNearest`/`interpolatorBarycentric`/`interpolatorRandomWalk` spatial interpolators) | box = composite dot+bar+tick+rule |
+| [06] | hierarchy/graph | `tree` `cluster` · `delaunayLink` `delaunayMesh` `hull` `voronoi` `voronoiMesh` | tree/cluster ride `treeNode`/`treeLink` transforms |
+| [07] | geo | `geo` `sphere` `graticule` | GeoJSON under the `projection` option |
+| [08] | axes/grids | `axisX` `axisY` `axisFx` `axisFy` · `gridX` `gridY` `gridFx` `gridFy` | explicit only when the inferred axis needs override |
+| [09] | interaction | `tip` · `crosshair` `crosshairX` `crosshairY` · `pointer` `pointerX` `pointerY` | see [04] |
+| [10] | auto | `auto` `autoSpec` | heuristic mark/transform selection from channels |
 
 ## [03]-[TRANSFORM_ROSTER]
 
 Transforms rewrite a mark's options — grouping/binning/stacking happen in the options value, never in a pre-shaped copy of the data.
 
-| [INDEX] | [FAMILY]  | [TRANSFORMS]                                                                                                       | [ROLE]                                          |
-| :-----: | :-------- | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------ |
-|  [01]   | reduce    | `bin` `binX` `binY` · `group` `groupX` `groupY` `groupZ` · `find`                                                     | histogram/categorical aggregation with reducer vocab |
-|  [02]   | layout    | `stackX` `stackY` (+`stackX1/X2/Y1/Y2`) · `dodgeX` `dodgeY` · `hexbin` · `shiftX` `shiftY`                             | stacking, beeswarm dodge, hex aggregation, lag/lead |
-|  [03]   | window    | `windowX` `windowY` `window` · `normalizeX` `normalizeY` `normalize`                                                  | moving aggregates, index-relative normalization    |
-|  [04]   | select    | `select` `selectFirst` `selectLast` `selectMinX` `selectMinY` `selectMaxX` `selectMaxY`                               | labeling extremes/endpoints                        |
-|  [05]   | basic     | `map` `mapX` `mapY` · `filter` `reverse` `sort` `shuffle` · `transform` `initializer`                                 | the primitives every derived transform composes    |
-|  [06]   | spatial   | `centroid` `geoCentroid` · `treeNode` `treeLink`                                                                       | geometry→point projection, hierarchy edges         |
+| [INDEX] | [FAMILY] | [TRANSFORMS] | [ROLE] |
+|:-----: |:-------- |:------------------------------------------------------------------------------------------------------------------ |:------------------------------------------------ |
+| [01] | reduce | `bin` `binX` `binY` · `group` `groupX` `groupY` `groupZ` · `find` | histogram/categorical aggregation with reducer vocab |
+| [02] | layout | `stackX` `stackY` (+`stackX1/X2/Y1/Y2`) · `dodgeX` `dodgeY` · `hexbin` · `shiftX` `shiftY` | stacking, beeswarm dodge, hex aggregation, lag/lead |
+| [03] | window | `windowX` `windowY` `window` · `normalizeX` `normalizeY` `normalize` | moving aggregates, index-relative normalization |
+| [04] | select | `select` `selectFirst` `selectLast` `selectMinX` `selectMinY` `selectMaxX` `selectMaxY` | labeling extremes/endpoints |
+| [05] | basic | `map` `mapX` `mapY` · `filter` `reverse` `sort` `shuffle` · `transform` `initializer` | the primitives every derived transform composes |
+| [06] | spatial | `centroid` `geoCentroid` · `treeNode` `treeLink` | geometry→point projection, hierarchy edges |
 
 Helpers: `valueof(data, value, type?)` `column(source?)` `identity` `indexOf`; formatters `formatNumber(locale?)` `formatMonth` `formatWeekday` `formatIsoDate`; intervals `timeInterval(period)` `utcInterval(period)` `numberInterval(period)` — Plot interval names are plain periods (`"day"`, `"3 months"`), never d3's compound `"utcDay"` spellings.
 

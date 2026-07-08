@@ -1,10 +1,10 @@
-# [@radix-ui/react-slot] — the asChild polymorphic-element merge: clone one child, compose props/refs/handlers onto it
+# [TS_UI_API_RADIX_UI_REACT_SLOT]
 
 [PACKAGE_SURFACE]:
-- package: `@radix-ui/react-slot` · version `1.3.0` · license `MIT`
+- package: `@radix-ui/react-slot` · version `` · license `MIT`
 - module: dual — `dist/index.mjs` (ESM `module`/`import`) + `dist/index.js` (CJS `main`/`require`); `sideEffects: false`; one `.` barrel, no subpaths.
-- asset: `dist/index.d.ts` (`assay api resolve @radix-ui/react-slot` → catalog-bound `1.3.0`, `restore: restored`). The pnpm store also carries transitive `1.2.3`/`1.2.4` copies pulled by `cmdk`/`vaul`; the consumer-bound asset is the `pnpm-workspace.yaml` catalog `1.3.0` (top-level symlink), never the fallback copies `assay` may decompile.
-- runtime: React render-time only — no DOM read, no effect, no async. Internalizes `@radix-ui/react-compose-refs@1.1.3` (the ref-merge primitive) as its single dependency.
+- asset: `dist/index.d.ts` (-bound `catalog`, `restore: restored`). The pnpm store also carries transitive `catalog`/`catalog` copies pulled by `cmdk`/`vaul`; the consumer-bound asset is the `pnpm-workspace.yaml` catalog `catalog` (top-level symlink), never the recovery copies `assay` may decompile.
+- runtime: React render-time only — no DOM read, no effect, no async. Internalizes `@radix-ui/react-compose-refs@catalog` (the ref-merge primitive) as its single dependency.
 - marker: importing the module globally augments `react`'s `ReactElement` with `$$typeof?: symbol | string` (a `declare module 'react'` type-surface side-effect, not runtime).
 - plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, catalogued here.
 - rail: `ui/view` composition — the `asChild` element-override primitive.
@@ -16,13 +16,13 @@
 
 The surface is one factory plus its zero-config instance, and a `Slottable` marker for sibling interleave. `createSlot`/`createSlottable` are the parameterized mechanism; `Slot`/`Slottable` are the default instances — never a hand-rolled clone per component.
 
-| [INDEX] | [SYMBOL]                            | [KIND]     | [CAPABILITY / BOUNDARY]                                                       |
-| :-----: | :---------------------------------- | :--------- | :--------------------------------------------------------------------------- |
-|  [01]   | `createSlot<Elem, Props>(ownerName)` | factory    | mints a named `Slot`; `ownerName` rides devtools + the single-child invariant |
-|  [02]   | `Slot` (= `Root`)                   | component  | `createSlot('Slot')` — the default merge instance; `Root` is the same value   |
-|  [03]   | `SlotProps<Elem, Props>`            | type       | `Props & { children?: ReactNode }` — the props merged onto the child          |
-|  [04]   | `createSlottable(ownerName)`        | factory    | mints a named `Slottable` marker (carries the `__radixId` brand)              |
-|  [05]   | `Slottable` (`SlottableComponent`)  | component  | marks the child that receives the merge among static siblings                 |
+| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
+|:-----: |:---------------------------------- |:--------- |:--------------------------------------------------------------------------- |
+| [01] | `createSlot<Elem, Props>(ownerName)` | factory | mints a named `Slot`; `ownerName` rides devtools + the single-child invariant |
+| [02] | `Slot` (= `Root`) | component | `createSlot('Slot')` — the default merge instance; `Root` is the same value |
+| [03] | `SlotProps<Elem, Props>` | type | `Props & { children?: ReactNode }` — the props merged onto the child |
+| [04] | `createSlottable(ownerName)` | factory | mints a named `Slottable` marker (carries the `__radixId` brand) |
+| [05] | `Slottable` (`SlottableComponent`) | component | marks the child that receives the merge among static siblings |
 
 ```ts contract
 // The factory IS the mechanism: one named Slot per owner component. Slot = createSlot('Slot'); Root aliases Slot.
@@ -59,11 +59,11 @@ export { Slot as Root, Slot, type SlotProps, Slottable, createSlot, createSlotta
 
 [STACK: `Slot` + `@radix-ui/react-label` / `@radix-ui/react-separator` (`.api/radix-ui-react-label.md`, `.api/radix-ui-react-separator.md`)] — the sibling radix composition primitives are built on `@radix-ui/react-primitive`, which is `Slot` under an `asChild` flag; a radix `Label`/`Separator` inherits this exact merge, so the composition-plane primitives share one polymorphism mechanism rather than each re-cloning.
 
-[STACK: `Slot` + `@effect-atom` (`.api/effect-atom-atom-react.md`)] — the merged child can be an atom-driven element: `useAtomValue` resolves the element props (`href`, `isDisabled`) the `Slot` forwards; the state binding stays the one fold (`ONE_FOLD_ONE_BINDING`), and `Slot` only relays the resolved props onto the host element.
+[STACK: `Slot` + `@effect-atom` (`.api/effect-atom-atom-react.md`)] — the merged child is an atom-driven element: `useAtomValue` resolves the element props (`href`, `isDisabled`) the `Slot` forwards; the state binding stays the one fold (`ONE_FOLD_ONE_BINDING`), and `Slot` only relays the resolved props onto the host element.
 
 ## [04]-[RAIL_LAW]
 
 - Owns: the `asChild` element-override merge — clone one child, compose props/refs/event-handlers onto it — plus the `createSlot(name)` factory and the `Slottable` sibling-interleave marker.
 - Accept: `<Slot {...props}>{singleChild}</Slot>` for polymorphic atoms; `createSlot(ownerName)` to name an atom's slot; `Slottable` to interleave static siblings around the slotted child; `cva`/`clsx`/`twMerge` classes forwarded through `Slot className`.
 - Reject: a hand-written `React.cloneElement`/manual prop-merge where `Slot` owns the reconciliation; `Slot` on a react-aria component (its `render` prop owns element override); more than one element child (or a bare text/fragment) under a Slot; a second `asChild` layer over an element already overridden by RAC `render`.
-- Boundary: render-time only, no runtime side-effect; the module type-augments `react`'s `ReactElement` on import. Handlers chain (both fire), `style`/`className` merge, other props child-wins; refs compose via the internalized `@radix-ui/react-compose-refs`. The bound asset is the catalog `1.3.0`, not the transitive `1.2.3`/`1.2.4` store copies.
+- Boundary: render-time only, no runtime side-effect; the module type-augments `react`'s `ReactElement` on import. Handlers chain (both fire), `style`/`className` merge, other props child-wins; refs compose via the internalized `@radix-ui/react-compose-refs`. The bound asset is the catalog-owned declaration surface; transitive store copies are ignored.

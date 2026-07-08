@@ -123,7 +123,7 @@
 
 [CANVAS_ENTRYPOINTS]: draw, layer, clip, and transform — rail: visuals
 
-| [INDEX] | [SURFACE]                 | [SURFACE_ROOT] | [CALL_SHAPE / NOTE]                                              |
+| [INDEX] | [SURFACE]                 | [SURFACE_ROOT] | [CALL_SHAPE_NOTE]                                              |
 | :-----: | :------------------------ | :------------- | :-------------------------------------------------------------- |
 |  [01]   | `DrawPath`                | `SKCanvas`     | `(SKPath, SKPaint)` — fill/stroke per paint `Style`             |
 |  [02]   | `DrawRoundRect`           | `SKCanvas`     | `(SKRoundRect, SKPaint)` per-corner rounding                    |
@@ -148,7 +148,7 @@
 [PATH_CONSTRUCTION_ENTRYPOINTS]: `SKPath` contour building, shape adds, and transform — rail: visuals
 - surface-root: `SKPath` (`new SKPath()` empty; `new SKPath(SKPath)` copy)
 
-| [INDEX] | [SURFACE]                                            | [CALL_SHAPE / NOTE]                                            |
+| [INDEX] | [SURFACE]                                            | [CALL_SHAPE_NOTE]                                            |
 | :-----: | :--------------------------------------------------- | :------------------------------------------------------------ |
 |  [01]   | `MoveTo` / `LineTo`                                  | `(SKPoint)` or `(float x, float y)` — start contour / straight segment |
 |  [02]   | `QuadTo` / `ConicTo` / `CubicTo`                     | quadratic / rational-quadratic / cubic Bézier segments        |
@@ -162,7 +162,7 @@
 
 [SURFACE_IMAGE_ENTRYPOINTS]: surface allocation, snapshot, codec, and pixel transfer — rail: visuals
 
-| [INDEX] | [SURFACE]               | [SURFACE_ROOT] | [CALL_SHAPE / NOTE]                                                      |
+| [INDEX] | [SURFACE]               | [SURFACE_ROOT] | [CALL_SHAPE_NOTE]                                                      |
 | :-----: | :---------------------- | :------------- | :---------------------------------------------------------------------- |
 |  [01]   | `Create`                | `SKSurface`    | `(SKImageInfo)` raster, or `(GRRecordingContext, budgeted, info, samples, origin, props)` GPU |
 |  [02]   | `Snapshot`              | `SKSurface`    | `()` -> immutable `SKImage` (zero-copy where possible)                  |
@@ -182,7 +182,7 @@
 
 [DOCUMENT_AND_COLOR_ENTRYPOINTS]: paged export and color-managed reproject — rail: visuals
 
-| [INDEX] | [SURFACE]                | [SURFACE_ROOT] | [CALL_SHAPE / NOTE]                                            |
+| [INDEX] | [SURFACE]                | [SURFACE_ROOT] | [CALL_SHAPE_NOTE]                                            |
 | :-----: | :----------------------- | :------------- | :------------------------------------------------------------ |
 |  [01]   | `CreatePdf`              | `SKDocument`   | `(Stream, SKDocumentPdfMetadata)` — title/author/PDF/A flags  |
 |  [02]   | `CreateXps`              | `SKDocument`   | `(Stream, dpi)` Windows-only backend                          |
@@ -200,7 +200,7 @@
 
 [TEXT_AND_FONT_ENTRYPOINTS]: typeface resolution, measurement, and glyph geometry — rail: visuals
 
-| [INDEX] | [SURFACE]              | [SURFACE_ROOT]      | [CALL_SHAPE / NOTE]                                       |
+| [INDEX] | [SURFACE]              | [SURFACE_ROOT]      | [CALL_SHAPE_NOTE]                                       |
 | :-----: | :--------------------- | :------------------ | :------------------------------------------------------- |
 |  [01]   | `MatchCharacter`       | `SKFontManager`     | `(familyName, weight, width, slant, bcp47[], codepoint)` system fallback |
 |  [02]   | `Default` / `MatchFamily` / `CreateTypeface` | `SKFontManager` | static process registry / family lookup / `(Stream, index)` embedded face |
@@ -212,7 +212,7 @@
 
 [PAINT_PIPELINE_ENTRYPOINTS]: shader, filter, effect, and runtime-SkSL construction — rail: visuals
 
-| [INDEX] | [SURFACE]                       | [SURFACE_ROOT]    | [CALL_SHAPE / NOTE]                                                 |
+| [INDEX] | [SURFACE]                       | [SURFACE_ROOT]    | [CALL_SHAPE_NOTE]                                                 |
 | :-----: | :------------------------------ | :---------------- | :----------------------------------------------------------------- |
 |  [01]   | `Shader`/`ColorFilter`/`ImageFilter`/`MaskFilter`/`PathEffect` | `SKPaint` | settable pipeline slots composed per draw          |
 |  [02]   | `BlendMode` / `Style` / `StrokeWidth` / `StrokeCap` / `IsAntialias` | `SKPaint` | composition + stroke state                    |
@@ -232,7 +232,7 @@
 
 [GPU_ENTRYPOINTS]: backend context creation and frame submission — rail: visuals
 
-| [INDEX] | [SURFACE]                     | [SURFACE_ROOT]  | [CALL_SHAPE / NOTE]                                            |
+| [INDEX] | [SURFACE]                     | [SURFACE_ROOT]  | [CALL_SHAPE_NOTE]                                            |
 | :-----: | :---------------------------- | :-------------- | :------------------------------------------------------------ |
 |  [01]   | `CreateGl`                    | `GRContext`     | `()` / `(GRGlInterface)` / `(GRGlInterface, GRContextOptions)` |
 |  [02]   | `CreateVulkan`                | `GRContext`     | `(GRVkBackendContext, GRContextOptions?)`                     |

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `PollinationSDK` (Compute cloud-run-dispatch slice)
 - package: `PollinationSDK`
-- version: `1.10.0`
 - license: MIT (Pollination / Ladybug Tools)
 - canonical catalog: `libs/csharp/Rasm.Persistence/.api/api-pollination-sdk.md` (durable half + full SDK surface)
 - assembly: `PollinationSDK`; namespace `PollinationSDK.Wrapper` (the dispatch surface Compute composes)

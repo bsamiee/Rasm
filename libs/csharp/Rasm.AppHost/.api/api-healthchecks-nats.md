@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Nats`
 - package: `AspNetCore.HealthChecks.Nats`
-- version: `9.0.0`
 - license: `Apache-2.0`
 - assembly: `HealthChecks.Nats`
 - namespace: `HealthChecks.Nats`
@@ -25,7 +24,7 @@
 | :-----: | :----------------- | :------------------- | :----------------------------------------------------------- |
 |  [01]   | `NatsHealthCheck`  | `IHealthCheck` probe | NATS connection reachability over an injected `INatsConnection` |
 
-The 9.0.0 probe carries NO options type, NO probe-message factory, and NO result-detail dictionary — the connection health IS the reachability signal (contrast the Kafka probe's `KafkaHealthCheckOptions`/`MessageBuilder`). The registration extension `NatsHealthCheckBuilderExtensions` is the only other public type.
+The probe carries NO options type, NO probe-message factory, and NO result-detail dictionary — the connection health IS the reachability signal (contrast the Kafka probe's `KafkaHealthCheckOptions`/`MessageBuilder`). The registration extension `NatsHealthCheckBuilderExtensions` is the only other public type.
 
 ## [03]-[ENTRYPOINTS]
 

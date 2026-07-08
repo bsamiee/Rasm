@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Ara3D.BimOpenSchema`
 - package: `Ara3D.BimOpenSchema`
-- version: `1.0.1`
 - license: MIT (`licenses.nuget.org/MIT` — Ara3D; `github.com/ara3d/bim-open-schema`)
 - assembly: `Ara3D.BimOpenSchema`
 - namespace: `Ara3D.BimOpenSchema`
@@ -18,7 +17,6 @@
 
 [PACKAGE_SURFACE]: `Ara3D.BimOpenSchema.IO`
 - package: `Ara3D.BimOpenSchema.IO`
-- version: `1.0.1`
 - license: MIT (`licenses.nuget.org/MIT` — Ara3D)
 - assembly: `Ara3D.BimOpenSchema.IO`
 - namespace: `Ara3D.BimOpenSchema.IO`
@@ -70,7 +68,7 @@
 |  [02]   | `builder.AddDocument`                              | `DocumentIndex AddDocument(string title, string pathName)`               | intern a source document                             |
 |  [03]   | `builder.AddDescriptor`                            | `DescriptorIndex AddDescriptor(string name, string units, string group, ParameterType pt)` | intern a parameter descriptor (name/units/group) |
 |  [04]   | `builder.AddString` / `AddPoint`                  | `StringIndex AddString(string)` / `PointIndex AddPoint(Point)`           | intern a string / a 3D point                         |
-|  [05]   | `builder.AddParameter`                             | `void AddParameter(EntityIndex e, double|int|string|EntityIndex|PointIndex|Point val, DescriptorIndex d)` | bind a typed parameter value to an entity (6 value overloads — `PointIndex` binds a pre-interned point, `Point` interns inline) |
+|  [05]   | `builder.AddParameter`                             | `void AddParameter(EntityIndex e, double\|int\|string\|EntityIndex\|PointIndex\|Point val, DescriptorIndex d)` | bind a typed parameter value to an entity (6 value overloads — `PointIndex` binds a pre-interned point, `Point` interns inline) |
 |  [06]   | `builder.AddParameter`                             | `void AddParameter(EntityIndex e, <T> val, string name, string units, string group)` | bind + intern descriptor inline (6 value overloads: `double`/`int`/`string`/`EntityIndex`/`PointIndex`/`Point`)  |
 |  [07]   | `builder.AddRelation`                             | `void AddRelation(EntityIndex a, EntityIndex b, RelationType rt)`         | add a typed graph edge                               |
 |  [08]   | `builder.Data`                                     | field `BimData`                                                          | the accumulated columnar model                        |
@@ -80,7 +78,7 @@
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                | [CAPABILITY]                                                        |
 | :-----: | :--------------------------------- | :--------------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `data.Get`                         | `Get(this BimData, StringIndex|EntityIndex|DocumentIndex|PointIndex|RelationIndex|DescriptorIndex)` | polymorphic index resolve — one `Get` per index type returns its row |
+|  [01]   | `data.Get`                         | `Get(this BimData, StringIndex\|EntityIndex\|DocumentIndex\|PointIndex\|RelationIndex\|DescriptorIndex)` | polymorphic index resolve — one `Get` per index type returns its row |
 |  [02]   | `data.EntityIndices` / `…Indices`  | `IEnumerable<EntityIndex> EntityIndices(this BimData)`      | per-column index enumerators (`Document`/`Descriptor`/`String`/`Point`) |
 |  [03]   | `data.ToDataSet`                   | `IDataSet ToDataSet(this BimData)`                          | project the eleven columns to a named `Ara3D.DataTable` `IDataSet` — the analytics bridge |
 |  [04]   | `set.ToBimData`                    | `BimData ToBimData(this IDataSet)`                          | round-trip an `IDataSet` back to a `BimData`                         |
@@ -98,7 +96,7 @@
 |  [03]   | `data.WriteToExcel`                      | `void WriteToExcel(this BimData, FilePath)`                              | an `.xlsx` workbook, one worksheet per table         |
 |  [04]   | `data.WriteToJson`                       | `void WriteToJson(this BimData, FilePath, bool withIndenting, bool withZip)` | System.Text.Json (optionally gzipped)          |
 |  [05]   | `fp.ReadBimDataFromParquetZip` / `…Async`| `BimData ReadBimDataFromParquetZip(this FilePath)` / `Task<BimData> …Async`| read a Parquet-zip back to a `BimData`              |
-|  [06]   | `fp.ReadBimDataFromJson[Zip]` / `…Async` | `BimData ReadBimDataFromJson(this FilePath|Stream)` / `…Zip` / `…Async`   | read JSON (optionally gzipped) back to a `BimData`  |
+|  [06]   | `fp.ReadBimDataFromJson[Zip]` / `…Async` | `BimData ReadBimDataFromJson(this FilePath\|Stream)` / `…Zip` / `…Async`   | read JSON (optionally gzipped) back to a `BimData`  |
 
 [ENTRYPOINT_SCOPE]: columnar IO over `Ara3D.DataTable` — `DuckDbUtils` / `ParquetUtils` / `ExcelUtils`
 - rail: analytics-exchange
@@ -109,10 +107,10 @@
 |  [02]   | `conn.ReadTable` / `ToDataSet<T>`  | `IDataTable ReadTable(this DuckDBConnection, string)` / `IDataSet ToDataSet<T>(this DuckDBConnection)` | read DuckDB tables back into `Ara3D.DataTable`   |
 |  [03]   | `conn.ReadColumnValues<T>`         | `T[] ReadColumnValues<T>(this DuckDBConnection, string table, string column)`                          | typed single-column read                          |
 |  [04]   | `conn.GetTableNames`               | `IReadOnlyList<string> GetTableNames(this DuckDBConnection, bool includeViews = false)`               | enumerate base tables                            |
-|  [05]   | `table.WriteParquetAsync`          | `Task WriteParquetAsync(this IDataTable, FilePath|Stream, CompressionLevel = Optimal, CompressionMethod = Brotli)` | one table -> a `.parquet` stream      |
+|  [05]   | `table.WriteParquetAsync`          | `Task WriteParquetAsync(this IDataTable, FilePath\|Stream, CompressionLevel = Optimal, CompressionMethod = Brotli)` | one table -> a `.parquet` stream      |
 |  [06]   | `set.WriteParquetToZipAsync`       | `Task WriteParquetToZipAsync(this IDataSet, string zipPath, CompressionMethod = Brotli, CompressionLevel = Optimal)` | all tables -> a zip of `.parquet`     |
-|  [07]   | `fp.ReadParquetAsync` / `…FromZipAsync` | `Task<IDataTable> ReadParquetAsync(this FilePath|Stream, string? name)` / `Task<IDataSet> ReadParquetFromZipAsync(this FilePath)` | read Parquet back |
-|  [08]   | `set.WriteToExcel`                 | `void WriteToExcel(this IDataSet|IDataTable, FilePath)`                                                | ClosedXML workbook (sheet names sanitized + de-duped) |
+|  [07]   | `fp.ReadParquetAsync` / `…FromZipAsync` | `Task<IDataTable> ReadParquetAsync(this FilePath\|Stream, string? name)` / `Task<IDataSet> ReadParquetFromZipAsync(this FilePath)` | read Parquet back |
+|  [08]   | `set.WriteToExcel`                 | `void WriteToExcel(this IDataSet\|IDataTable, FilePath)`                                                | ClosedXML workbook (sheet names sanitized + de-duped) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -126,7 +124,7 @@
 - The DuckDB writer suffixes each table name with that projection ordinal (`Points_0`, `Strings_1`, `Descriptors_2`, …, `Entities_4`, `DoubleParameters_6`, …, `PointParameters_10`) and round-trips by `GetTableNames` -> `ReadTable`; a consumer querying the `.duckdb` directly must reference the suffixed names by this exact order.
 - Consumed generic traversal surface (`Ara3D.DataTable`, decompile-verified on the restored assembly — the in-corpus DEBUG-IL absorption made these the load-bearing members `Query/columnar#WriteFrames` binds to synthesize the eleven `CREATE OR REPLACE TABLE` + `DuckDBAppender` writes):
 
-| [INDEX] | [MEMBER]                             | [SHAPE]                                        | [CONSUMER BINDING]                                          |
+| [INDEX] | [MEMBER]                             | [SHAPE]                                        | [CONSUMER_BINDING]                                          |
 | :-----: | :----------------------------------- | :--------------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | `IDataSet.Tables`                    | `IReadOnlyList<IDataTable>`                     | the fixed-ordinal table walk (`Select((held, index) => …)`)   |
 |  [02]   | `IDataTable.Name`                    | `string`                                        | the `<Name>_<n>` trust-gated table identifier                 |

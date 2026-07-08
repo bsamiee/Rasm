@@ -4,7 +4,7 @@
 `CreateHandler` mints an `HttpMessageHandler` over the request pipeline with no
 socket, the handler source the `RemoteTransport.InProcess` row injects into
 `GrpcChannelOptions.HttpHandler` (verified present on the admitted `Grpc.Net.Client`
-2.80.0) to dial a `GrpcChannel.ForAddress` against the suite gRPC services without a
+) to dial a `GrpcChannel.ForAddress` against the suite gRPC services without a
 live remote — the test-only seam that proves cross-process hand-off in-process.
 Version `10.0.9` is MIT, rides the `Microsoft.Extensions` 10.0.x servicing line, and
 ships `lib/net10.0` (the consumer TFM is exact, no fallback). The handler stacks with
@@ -69,9 +69,9 @@ over the in-memory pipeline.
 |  [02]   | `TestServer.Services`                 | accessor        | reads the server `IServiceProvider`   |
 |  [03]   | `TestServer.Features`                 | accessor        | reads the server `IFeatureCollection` |
 |  [04]   | `TestServer.Host`                     | accessor        | reads the backing `IWebHost` (throws if constructed over an `IServiceProvider`, not an `IWebHostBuilder`) |
-|  [04]   | `TestServer.AllowSynchronousIO`       | option property | permits synchronous body access       |
-|  [05]   | `TestServer.PreserveExecutionContext` | option property | flows the ambient execution context   |
-|  [06]   | `TestServerOptions.BaseAddress`       | option property | seeds the server base `Uri`           |
+|  [05]   | `TestServer.AllowSynchronousIO`       | option property | permits synchronous body access       |
+|  [06]   | `TestServer.PreserveExecutionContext` | option property | flows the ambient execution context   |
+|  [07]   | `TestServerOptions.BaseAddress`       | option property | seeds the server base `Uri`           |
 
 [ENTRYPOINT_SCOPE]: builder and host registration operations
 - rail: in-process-transport

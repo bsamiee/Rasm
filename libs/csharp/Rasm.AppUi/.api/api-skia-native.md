@@ -53,7 +53,7 @@
 [TARGET_ASSETS]: buildTransitive target groups, per package (not shared — only macOS ships the macOS-workload targets)
 - rail: visuals
 
-| [INDEX] | [PACKAGE]                                  | [buildTransitive TFMs]                         | [ROLE]                          |
+| [INDEX] | [PACKAGE]                                  | [BUILDTRANSITIVE_TFMS]                         | [ROLE]                          |
 | :-----: | :----------------------------------------- | :--------------------------------------------- | :------------------------------ |
 |  [01]   | `SkiaSharp.NativeAssets.macOS`             | `net10.0-macos26.2`, `net9.0-macos15.0`, `net48`, `net462` | macOS-workload + legacy `.targets` |
 |  [02]   | `SkiaSharp.NativeAssets.Linux.NoDependencies` | `net48`, `net462`                           | legacy `.targets`; net10 RID-copies via SDK graph |

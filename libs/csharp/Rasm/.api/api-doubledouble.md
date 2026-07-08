@@ -11,7 +11,7 @@ type. Unlike `ExtendedNumerics.BigRational` (which implements no generic-math in
 interfaces, every arithmetic/comparison/equality operator interface, and the full
 parse/format surface (`IParsable`/`ISpanParsable`/`IUtf8SpanParsable` +
 `IFormattable`/`ISpanFormattable`/`IUtf8SpanFormattable`) — so a generic numeric kernel
-written `where T : INumber<T>` (or any function-group constraint) binds `ddouble` directly
+written `where T: INumber<T>` (or any function-group constraint) binds `ddouble` directly
 with no hand-typing, and `MathNet.Numerics`/`System.Numerics.Tensors` `double` code lifts
 to 106-bit by substituting the type parameter. On top of the number contract it ships a
 large self-contained special-function library (gamma/beta, error/Fresnel, Bessel/Airy/
@@ -28,13 +28,12 @@ two doubles, so it is a fast deterministic refinement of `double`, never an exac
 
 [PACKAGE_SURFACE]: `TYoshimura.DoubleDouble`
 - package: `TYoshimura.DoubleDouble`
-- version: `5.0.8`
 - license: MIT (T.Yoshimura; `github.com/tk-yoshimura/DoubleDouble`)
 - assembly: `DoubleDouble.dll`
 - namespace: `DoubleDouble` (the `ddouble` value + extension/converter siblings); `DoubleDouble.Utils` (`ResourceUnpack` coefficient-table deserialization — not consumer surface)
 - target: single-target `lib/net10.0` only — no multi-target fallback ambiguity, the `net10.0` consumer binds the one shipped asset
 - asset: pure-managed runtime library, AnyCPU, no native runtime and ZERO package dependencies (`System.Numerics.BigInteger` is the only BCL touch, for the `BigInteger` conversion); a source-generated `System.Text.RegularExpressions.Generated` parser backs `Parse`
-- abi: full `System.Numerics` generic-math — a kernel constrained `where T : INumber<T>` / `IFloatingPointConstants<T>` / `I{Power,Root,Exponential,Logarithmic,Trigonometric,Hyperbolic}Functions<T>` binds `ddouble` with no adapter; the lowercase type name `ddouble` is the public spelling
+- abi: full `System.Numerics` generic-math — a kernel constrained `where T: INumber<T>` / `IFloatingPointConstants<T>` / `I{Power,Root,Exponential,Logarithmic,Trigonometric,Hyperbolic}Functions<T>` binds `ddouble` with no adapter; the lowercase type name `ddouble` is the public spelling
 - rail: middle-precision FP (106-bit double-double)
 
 ## [02]-[PUBLIC_TYPES]
@@ -47,12 +46,12 @@ into LINQ aggregation, binary I/O, and `System.Text.Json`. The package's `UInt12
 `FloatSplitter`, `IntegerSplitter`, `SeriesUtil`, and the per-function `Consts` kernels are
 `internal` implementation detail — none is part of the consumed surface.
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]                   | [CAPABILITY]                                                                                          |
-| :-----: | :----------------------------- | :------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `ddouble`                      | the double-double number         | `readonly struct`; full `INumber<ddouble>` generic-math + operators + the special-function library; opaque hi/lo (no public field/property exposing the representation) |
-|  [02]   | `DoubleDoubleEnumerableExpand` | LINQ aggregation extensions      | `static`; `Sum`/`Average`/`Min`/`Max`/`MinIndex`/`MaxIndex` over `IEnumerable<ddouble>`/`IReadOnlyList<ddouble>` at 106-bit accumulation |
-|  [03]   | `DoubleDoubleIOExpand`         | binary serialization extensions  | `static`; `BinaryWriter.Write(ddouble)` / `BinaryReader.ReadDDouble()` round-trip the exact hi/lo bits |
-|  [04]   | `DDoubleJsonConverter`         | `System.Text.Json` converter     | `JsonConverter<ddouble>`; register on `JsonSerializerOptions.Converters` to (de)serialize `ddouble` losslessly |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+|:-----: |:----------------------------- |:------------------------------- |:--------------------------------------------------------------------------------------------------- |
+| [01] | `ddouble` | the double-double number | `readonly struct`; full `INumber<ddouble>` generic-math + operators + the special-function library; opaque hi/lo (no public field/property exposing the representation) |
+| [02] | `DoubleDoubleEnumerableExpand` | LINQ aggregation extensions | `static`; `Sum`/`Average`/`Min`/`Max`/`MinIndex`/`MaxIndex` over `IEnumerable<ddouble>`/`IReadOnlyList<ddouble>` at 106-bit accumulation |
+| [03] | `DoubleDoubleIOExpand` | binary serialization extensions | `static`; `BinaryWriter.Write(ddouble)` / `BinaryReader.ReadDDouble()` round-trip the exact hi/lo bits |
+| [04] | `DDoubleJsonConverter` | `System.Text.Json` converter | `JsonConverter<ddouble>`; register on `JsonSerializerOptions.Converters` to (de)serialize `ddouble` losslessly |
 
 ## [03]-[NUMERIC_CONTRACT]
 
@@ -65,16 +64,16 @@ incl. `BigInteger`, and from `double`/`decimal`/`string`) and `Parse`/`TryParse`
 `BigInteger` conversion is the bridge down from the `BigRational` exact tier into the 106-bit
 tier; the `double` conversion is the bridge up from the conservative `double` filter.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `implicit operator ddouble(double / int / uint / long / ulong)`            | conversion     | lossless widening of any primitive integer / IEEE `double` into `ddouble` |
-|  [02]   | `implicit operator ddouble(BigInteger)`                                    | conversion     | lossless `BigInteger` -> `ddouble` (the bridge down from the `BigRational` tier) |
-|  [03]   | `implicit operator ddouble(decimal)`                                       | conversion     | `decimal` -> `ddouble` (exact within the 106-bit significand)        |
-|  [04]   | `implicit operator ddouble(string)`                                        | conversion     | parse-on-assignment — a string literal widens straight to `ddouble` (forwards to `Parse`; full-precision decimal-literal regex) |
-|  [05]   | `implicit operator ddouble((int sign, int exponent, ulong hi, ulong lo))`  | conversion     | construct from a raw bit-tuple (round-trips the `(sign,exp,hi,lo)` decomposition) |
-|  [06]   | `explicit operator double / float / int / uint / long / ulong / decimal (ddouble)` | conversion | narrowing readout (rounds to the target precision — boundary only)   |
-|  [07]   | `ddouble.Parse(string / ReadOnlySpan<char>[, NumberStyles][, IFormatProvider])` | static factory | parse a decimal literal at full precision (regex-backed)             |
-|  [08]   | `ddouble.TryParse(... , out ddouble result)`                               | static (no-throw) | the `ISpanParsable`/`IParsable` no-throw parse mirror; all four `string`/span × style overloads + the bare `(string, out)` form |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `implicit operator ddouble(double / int / uint / long / ulong)` | conversion | lossless widening of any primitive integer / IEEE `double` into `ddouble` |
+| [02] | `implicit operator ddouble(BigInteger)` | conversion | lossless `BigInteger` -> `ddouble` (the bridge down from the `BigRational` tier) |
+| [03] | `implicit operator ddouble(decimal)` | conversion | `decimal` -> `ddouble` (exact within the 106-bit significand) |
+| [04] | `implicit operator ddouble(string)` | conversion | parse-on-assignment — a string literal widens straight to `ddouble` (forwards to `Parse`; full-precision decimal-literal regex) |
+| [05] | `implicit operator ddouble((int sign, int exponent, ulong hi, ulong lo))` | conversion | construct from a raw bit-tuple (round-trips the `(sign,exp,hi,lo)` decomposition) |
+| [06] | `explicit operator double / float / int / uint / long / ulong / decimal (ddouble)` | conversion | narrowing readout (rounds to the target precision — boundary only) |
+| [07] | `ddouble.Parse(string / ReadOnlySpan<char>[, NumberStyles][, IFormatProvider])` | static factory | parse a decimal literal at full precision (regex-backed) |
+| [08] | `ddouble.TryParse(..., out ddouble result)` | static (no-throw) | the `ISpanParsable`/`IParsable` no-throw parse mirror; all four `string`/span × style overloads + the bare `(string, out)` form |
 
 [CONTRACT_SCOPE]: identity, limit, and named mathematical constants
 - rail: middle-precision FP
@@ -84,16 +83,16 @@ The generic-math identity/limit anchors are properties; the mathematical constan
 named-constant set is far broader than `Pi`/`E` — it is the type's reference table for
 double-double-accurate constants.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `ddouble.Zero` / `One` / `MinusOne` / `PlusZero` / `MinusZero`             | static prop    | additive/multiplicative identities + signed zeros                    |
-|  [02]   | `ddouble.AdditiveIdentity` / `MultiplicativeIdentity` / `NegativeOne`      | static prop    | `INumberBase`/`ISignedNumber` identity contract                      |
-|  [03]   | `ddouble.NaN` / `PositiveInfinity` / `NegativeInfinity`                    | static prop    | non-finite anchors                                                   |
-|  [04]   | `ddouble.Epsilon` / `MaxValue` / `MinValue`                               | static prop    | `IMinMaxValue` range + smallest subnormal                            |
-|  [05]   | `ddouble.NormalMinExponent` (`const int = -968`) / `DecimalDigits` (`const int = 31`) | const | normal-range exponent floor; guaranteed decimal digits               |
-|  [06]   | `ddouble.Pi` / `E` / `RcpPi` / `RcpE` / `Ln2` / `Lb10` / `Lg2` / `LbE` / `Sqrt2` / `Point5` | static readonly | `IFloatingPointConstants` Pi/E + log/sqrt anchors at 106-bit  |
-|  [07]   | `ddouble.EulerGamma` / `CatalanG` / `GoldenRatio` / `GlaisherA` / `Zeta3`..`Zeta9` / `LemniscatePi` / `ErdosBorwein` / `LambertOmega` (+ ~20 more named constants) | static readonly | reference table of double-double-accurate mathematical constants |
-|  [08]   | `ddouble.BernoulliSequence` / `Factorial` / `TaylorSequence` / `StieltjesGamma` | static prop (`ReadOnlyCollection<ddouble>`) | precomputed 106-bit Bernoulli / factorial / Taylor / Stieltjes coefficient tables |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `ddouble.Zero` / `One` / `MinusOne` / `PlusZero` / `MinusZero` | static prop | additive/multiplicative identities + signed zeros |
+| [02] | `ddouble.AdditiveIdentity` / `MultiplicativeIdentity` / `NegativeOne` | static prop | `INumberBase`/`ISignedNumber` identity contract |
+| [03] | `ddouble.NaN` / `PositiveInfinity` / `NegativeInfinity` | static prop | non-finite anchors |
+| [04] | `ddouble.Epsilon` / `MaxValue` / `MinValue` | static prop | `IMinMaxValue` range + smallest subnormal |
+| [05] | `ddouble.NormalMinExponent` (`const int = -968`) / `DecimalDigits` (`const int = 31`) | const | normal-range exponent floor; guaranteed decimal digits |
+| [06] | `ddouble.Pi` / `E` / `RcpPi` / `RcpE` / `Ln2` / `Lb10` / `Lg2` / `LbE` / `Sqrt2` / `Point5` | static readonly | `IFloatingPointConstants` Pi/E + log/sqrt anchors at 106-bit |
+| [07] | `ddouble.EulerGamma` / `CatalanG` / `GoldenRatio` / `GlaisherA` / `Zeta3`..`Zeta9` / `LemniscatePi` / `ErdosBorwein` / `LambertOmega` (+ ~20 more named constants) | static readonly | reference table of double-double-accurate mathematical constants |
+| [08] | `ddouble.BernoulliSequence` / `Factorial` / `TaylorSequence` / `StieltjesGamma` | static prop (`ReadOnlyCollection<ddouble>`) | precomputed 106-bit Bernoulli / factorial / Taylor / Stieltjes coefficient tables |
 
 [CONTRACT_SCOPE]: arithmetic, comparison, and IEEE classification
 - rail: middle-precision FP
@@ -104,34 +103,34 @@ allocation), plus `checked` increment/decrement. Comparison is total (`< <= > >=
 each with primitive mixed overloads) and `CompareTo`/`Equals`/`GetHashCode`. Classification
 is the full `INumberBase` static predicate set.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `operator + - * / %` (`ddouble`×`ddouble`, and mixed `ddouble`×{`double`,`int`,`uint`,`long`,`ulong`} both orders) | operator | error-free-transform arithmetic; mixed overloads avoid a widening step |
-|  [02]   | `operator + - ` (unary) / `++` / `--` / `checked ++` / `checked --`        | operator       | unary sign / increment / overflow-checked increment                  |
-|  [03]   | `operator < <= > >= == !=` (`ddouble`×`ddouble` + mixed primitive overloads) | operator     | total ordering / equality without a widening conversion              |
-|  [04]   | `ddouble.Sign(value)` (`int`)                                              | static         | `-1`/`0`/`+1` exact sign of the hi/lo value — the predicate sign readout |
-|  [05]   | `ddouble.Abs` / `CopySign` / `MaxMagnitude` / `MinMagnitude` / `MaxMagnitudeNumber` / `MinMagnitudeNumber` | static | magnitude + sign-transfer (`INumberBase`)                       |
-|  [06]   | `ddouble.Min` / `Max` (2/3/4-arg) / `Clamp(v,min,max)`                     | static         | n-ary min/max + clamp                                                |
-|  [07]   | `ddouble.IsNaN` / `IsFinite` / `IsInfinity` / `IsPositiveInfinity` / `IsNegativeInfinity` / `IsNormal` / `IsSubnormal` / `IsZero` / `IsPlusZero` / `IsMinusZero` / `IsInteger` / `IsEvenInteger` / `IsOddInteger` / `IsPositive` / `IsNegative` / `IsCanonical` / `IsRealNumber` / `IsImaginaryNumber` / `IsComplexNumber` | static (`bool`) | full IEEE + `INumberBase` classification (a real-only type: `IsRealNumber`/`IsCanonical` are always true on a finite value, `IsImaginaryNumber`/`IsComplexNumber` always false) |
-|  [08]   | `ddouble.CompareTo` / `Equals(ddouble)` / `Equals(x,y)` / `GetHashCode()` | instance/static | `IComparable<T>`/`IEquatable<T>`/`IEqualityComparer<ddouble>` contract |
-|  [09]   | `ddouble.Floor` / `Ceiling` / `Round` / `Truncate`                        | static         | rounding to integral `ddouble`                                       |
-|  [10]   | `ddouble.Ldexp(x,n)` / `ScaleB(x,n)` (`int`/`long`) / `Frexp(x)` (`(int exp, ddouble value)`) / `ILogB(x)` (`int`) / `BitIncrement` / `BitDecrement` / `TruncateMantissa(x,keep_bits)` | static | exponent scale / decompose (`Frexp`) / binary-exponent extract (`ILogB`), ULP step, mantissa truncation (bit-level control) |
-|  [11]   | `ddouble.AdjustScale(int exp, ddouble x)` / `AdjustScale(int exp, (ddouble,ddouble))` / `…(…,ddouble,ddouble)` / `…(…,ddouble,ddouble,ddouble)` | static | shared-exponent alignment of a 1-/2-/3-/4-component tuple — returns `(int exp, … scaled)` so a coordinate tuple normalizes to one binary exponent before an error-free-transform determinant (the geometry-predicate scaling primitive) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `operator + - * / %` (`ddouble`×`ddouble`, and mixed `ddouble`×{`double`,`int`,`uint`,`long`,`ulong`} both orders) | operator | error-free-transform arithmetic; mixed overloads avoid a widening step |
+| [02] | `operator + - ` (unary) / `++` / `--` / `checked ++` / `checked --` | operator | unary sign / increment / overflow-checked increment |
+| [03] | `operator < <= > >= == !=` (`ddouble`×`ddouble` + mixed primitive overloads) | operator | total ordering / equality without a widening conversion |
+| [04] | `ddouble.Sign(value)` (`int`) | static | `-1`/`0`/`+1` exact sign of the hi/lo value — the predicate sign readout |
+| [05] | `ddouble.Abs` / `CopySign` / `MaxMagnitude` / `MinMagnitude` / `MaxMagnitudeNumber` / `MinMagnitudeNumber` | static | magnitude + sign-transfer (`INumberBase`) |
+| [06] | `ddouble.Min` / `Max` (2/3/4-arg) / `Clamp(v,min,max)` | static | n-ary min/max + clamp |
+| [07] | `ddouble.IsNaN` / `IsFinite` / `IsInfinity` / `IsPositiveInfinity` / `IsNegativeInfinity` / `IsNormal` / `IsSubnormal` / `IsZero` / `IsPlusZero` / `IsMinusZero` / `IsInteger` / `IsEvenInteger` / `IsOddInteger` / `IsPositive` / `IsNegative` / `IsCanonical` / `IsRealNumber` / `IsImaginaryNumber` / `IsComplexNumber` | static (`bool`) | full IEEE + `INumberBase` classification (a real-only type: `IsRealNumber`/`IsCanonical` are always true on a finite value, `IsImaginaryNumber`/`IsComplexNumber` always false) |
+| [08] | `ddouble.CompareTo` / `Equals(ddouble)` / `Equals(x,y)` / `GetHashCode()` | instance/static | `IComparable<T>`/`IEquatable<T>`/`IEqualityComparer<ddouble>` contract |
+| [09] | `ddouble.Floor` / `Ceiling` / `Round` / `Truncate` | static | rounding to integral `ddouble` |
+| [10] | `ddouble.Ldexp(x,n)` / `ScaleB(x,n)` (`int`/`long`) / `Frexp(x)` (`(int exp, ddouble value)`) / `ILogB(x)` (`int`) / `BitIncrement` / `BitDecrement` / `TruncateMantissa(x,keep_bits)` | static | exponent scale / decompose (`Frexp`) / binary-exponent extract (`ILogB`), ULP step, mantissa truncation (bit-level control) |
+| [11] | `ddouble.AdjustScale(int exp, ddouble x)` / `AdjustScale(int exp, (ddouble,ddouble))` / `…(…,ddouble,ddouble)` / `…(…,ddouble,ddouble,ddouble)` | static | shared-exponent alignment of a 1-/2-/3-/4-component tuple — returns `(int exp, … scaled)` so a coordinate tuple normalizes to one binary exponent before an error-free-transform determinant (the geometry-predicate scaling primitive) |
 
 [CONTRACT_SCOPE]: `INumberBase` generic-math conversion (cross-`T` interop)
 - rail: middle-precision FP
 
 The `TryConvertFrom*`/`TryConvertTo*` triad is the generic bridge: it converts between
 `ddouble` and ANY `INumberBase<TOther>` under checked/saturating/truncating rounding, so a
-polymorphic kernel `where T : INumber<T>` round-trips a `ddouble` operand to/from any other
+polymorphic kernel `where T: INumber<T>` round-trips a `ddouble` operand to/from any other
 generic-math type (e.g. `double`, `Half`, `decimal`, a third-party big-float) without a
 hand-coded conversion table.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `ddouble.TryConvertFromChecked / FromSaturating / FromTruncating<TOther>(TOther, out ddouble)` | static (no-throw) | `INumberBase<TOther>` -> `ddouble` under the three rounding modes |
-|  [02]   | `ddouble.TryConvertToChecked / ToSaturating / ToTruncating<TOther>(ddouble, out TOther)` | static (no-throw) | `ddouble` -> any `INumberBase<TOther>` under the three rounding modes |
-|  [03]   | `ddouble.TryFormat(Span<char>, out int, ReadOnlySpan<char> format, IFormatProvider)` / `ToString([format][, provider])` | instance | `ISpanFormattable`/`IFormattable` render (UTF-8 mirrors via `IUtf8SpanFormattable`) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `ddouble.TryConvertFromChecked / FromSaturating / FromTruncating<TOther>(TOther, out ddouble)` | static (no-throw) | `INumberBase<TOther>` -> `ddouble` under the three rounding modes |
+| [02] | `ddouble.TryConvertToChecked / ToSaturating / ToTruncating<TOther>(ddouble, out TOther)` | static (no-throw) | `ddouble` -> any `INumberBase<TOther>` under the three rounding modes |
+| [03] | `ddouble.TryFormat(Span<char>, out int, ReadOnlySpan<char> format, IFormatProvider)` / `ToString([format][, provider])` | instance | `ISpanFormattable`/`IFormattable` render (UTF-8 mirrors via `IUtf8SpanFormattable`) |
 
 ## [04]-[ELEMENTARY_AND_SPECIAL_FUNCTIONS]
 
@@ -143,14 +142,14 @@ These satisfy `IPowerFunctions`/`IRootFunctions`/`IExponentialFunctions`/
 106-bit implementations for free. `Pow1p`/`Pow2m1`/`Exp*M1`/`Log*P1` are the
 accuracy-preserving near-1/near-0 variants, and `Rcp` is the fast double-double reciprocal.
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `Pow(x,y)` / `Pow(x,long n)` / `Pow1p(x,y)` / `Pow2(x)` / `Pow2m1(x)` / `Pow10(x)` | general / integer power, `(1+x)^y`, base-2/base-10 power, `2^x − 1`  |
-|  [02]   | `Sqrt(x)` / `Cbrt(x)` / `RootN(x,int n)` / `Square(x)` / `Cube(x)` / `Rcp(x)` | square / cube / n-th root, `x²`/`x³`, reciprocal                     |
-|  [03]   | `Hypot(x,y)` / `Hypot(x,y,z)` / `Agm(a,b)` / `GeometricMean(a,b[,c])`      | overflow-safe Euclidean norm (2D/3D), arithmetic-geometric mean, geometric mean |
-|  [04]   | `Exp(x)` / `Exp2(x)` / `Exp10(x)` / `Expm1(x)` / `Exp2M1(x)` / `Exp10M1(x)` | base-e/2/10 exponential + `eˣ − 1` accuracy variants                 |
-|  [05]   | `Log(x)` / `Log(x,b)` / `Log2(x)` / `Log10(x)` / `Log1p(x)` / `LogP1(x)` / `Log2P1(x)` / `Log10P1(x)` | natural / arbitrary-base / base-2/10 log + `log(1+x)` variants      |
-|  [06]   | `Expit(x)` / `Logit(x)` / `Bump(x)`                                        | logistic sigmoid, logit, smooth bump — ready statistical/activation kernels |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `Pow(x,y)` / `Pow(x,long n)` / `Pow1p(x,y)` / `Pow2(x)` / `Pow2m1(x)` / `Pow10(x)` | general / integer power, `(1+x)^y`, base-2/base-10 power, `2^x − 1` |
+| [02] | `Sqrt(x)` / `Cbrt(x)` / `RootN(x,int n)` / `Square(x)` / `Cube(x)` / `Rcp(x)` | square / cube / n-th root, `x²`/`x³`, reciprocal |
+| [03] | `Hypot(x,y)` / `Hypot(x,y,z)` / `Agm(a,b)` / `GeometricMean(a,b[,c])` | overflow-safe Euclidean norm (2D/3D), arithmetic-geometric mean, geometric mean |
+| [04] | `Exp(x)` / `Exp2(x)` / `Exp10(x)` / `Expm1(x)` / `Exp2M1(x)` / `Exp10M1(x)` | base-e/2/10 exponential + `eˣ − 1` accuracy variants |
+| [05] | `Log(x)` / `Log(x,b)` / `Log2(x)` / `Log10(x)` / `Log1p(x)` / `LogP1(x)` / `Log2P1(x)` / `Log10P1(x)` | natural / arbitrary-base / base-2/10 log + `log(1+x)` variants |
+| [06] | `Expit(x)` / `Logit(x)` / `Bump(x)` | logistic sigmoid, logit, smooth bump — ready statistical/activation kernels |
 
 [FUNCTION_SCOPE]: trigonometric, hyperbolic, and their inverses
 - rail: middle-precision FP
@@ -159,13 +158,13 @@ Satisfies `ITrigonometricFunctions`/`IHyperbolicFunctions`. Includes the `*Pi` a
 half-turns variants (exact at rational multiples of pi) and the `Sinc`/`Sinhc`/`Jinc`
 cardinal forms used in signal/optics kernels.
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `Sin` / `Cos` / `Tan` / `Asin` / `Acos` / `Atan` / `Atan2(y,x)`           | circular trig + 2-arg arctangent                                     |
-|  [02]   | `SinCos(x)` (`(ddouble Sin, ddouble Cos)`) / `SinCosPi(x)` (`(ddouble SinPi, ddouble CosPi)`) | fused sine+cosine in one argument reduction — the rotation-matrix / polar-to-Cartesian primitive (one range-reduce, two outputs) |
-|  [03]   | `SinPi` / `CosPi` / `TanPi` / `AsinPi` / `AcosPi` / `AtanPi` / `Atan2Pi`  | half-turn (×pi) argument variants — exact at rational angle multiples |
-|  [04]   | `Sinh` / `Cosh` / `Tanh` / `Asinh` / `Acosh` / `Atanh`                     | hyperbolic + inverse hyperbolic                                      |
-|  [05]   | `Sinc(x[,normalized])` / `Sinhc(x)` / `Jinc(x)`                            | sine-cardinal (normalized/unnormalized), hyperbolic sinc, jinc (J1-cardinal) |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `Sin` / `Cos` / `Tan` / `Asin` / `Acos` / `Atan` / `Atan2(y,x)` | circular trig + 2-arg arctangent |
+| [02] | `SinCos(x)` (`(ddouble Sin, ddouble Cos)`) / `SinCosPi(x)` (`(ddouble SinPi, ddouble CosPi)`) | fused sine+cosine in one argument reduction — the rotation-matrix / polar-to-Cartesian primitive (one range-reduce, two outputs) |
+| [03] | `SinPi` / `CosPi` / `TanPi` / `AsinPi` / `AcosPi` / `AtanPi` / `Atan2Pi` | half-turn (×pi) argument variants — exact at rational angle multiples |
+| [04] | `Sinh` / `Cosh` / `Tanh` / `Asinh` / `Acosh` / `Atanh` | hyperbolic + inverse hyperbolic |
+| [05] | `Sinc(x[,normalized])` / `Sinhc(x)` / `Jinc(x)` | sine-cardinal (normalized/unnormalized), hyperbolic sinc, jinc (J1-cardinal) |
 
 [FUNCTION_SCOPE]: gamma, beta, digamma, and incomplete forms
 - rail: middle-precision FP
@@ -174,24 +173,24 @@ The full gamma/beta tower at 106-bit, including the log-space, reciprocal, inver
 regularized incomplete forms required for distribution-tail and Bayesian work where
 `double`-precision `MathNet` loses digits.
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `Gamma(x)` / `LogGamma(x)` / `RcpGamma(x)` / `InverseGamma(x)`             | gamma, log-gamma, reciprocal-gamma, functional inverse               |
-|  [02]   | `Digamma(x)` / `InverseDigamma(x)` / `Polygamma(int n, x)`                 | digamma ψ, its inverse, n-th polygamma                               |
-|  [03]   | `Beta(a,b)` / `LogBeta(a,b)` / `IncompleteBeta(x,a,b)` / `IncompleteBetaRegularized(x,a,b)` / `InverseIncompleteBeta(x,a,b)` | beta, log-beta, (regularized/inverse) incomplete beta |
-|  [04]   | `LowerIncompleteGamma(nu,x)` / `UpperIncompleteGamma(nu,x)` / `…Regularized` / `InverseLowerIncompleteGamma` / `InverseUpperIncompleteGamma` | (regularized/inverse) lower & upper incomplete gamma |
-|  [05]   | `Binomial(int n,int k)` / `HarmonicNumber(int n)` / `BarnesG(x)` / `LogBarnesG(x)` | binomial coefficient, harmonic number, Barnes G + log-Barnes G       |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `Gamma(x)` / `LogGamma(x)` / `RcpGamma(x)` / `InverseGamma(x)` | gamma, log-gamma, reciprocal-gamma, functional inverse |
+| [02] | `Digamma(x)` / `InverseDigamma(x)` / `Polygamma(int n, x)` | digamma ψ, its inverse, n-th polygamma |
+| [03] | `Beta(a,b)` / `LogBeta(a,b)` / `IncompleteBeta(x,a,b)` / `IncompleteBetaRegularized(x,a,b)` / `InverseIncompleteBeta(x,a,b)` | beta, log-beta, (regularized/inverse) incomplete beta |
+| [04] | `LowerIncompleteGamma(nu,x)` / `UpperIncompleteGamma(nu,x)` / `…Regularized` / `InverseLowerIncompleteGamma` / `InverseUpperIncompleteGamma` | (regularized/inverse) lower & upper incomplete gamma |
+| [05] | `Binomial(int n,int k)` / `HarmonicNumber(int n)` / `BarnesG(x)` / `LogBarnesG(x)` | binomial coefficient, harmonic number, Barnes G + log-Barnes G |
 
 [FUNCTION_SCOPE]: error, Fresnel, Dawson, and the integral functions
 - rail: middle-precision FP
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `Erf(x)` / `Erfc(x)` / `Erfcx(x)` / `Erfi(x)` / `InverseErf(x)` / `InverseErfc(x)` | error, complementary, scaled-complementary, imaginary error + inverses |
-|  [02]   | `FresnelC(x)` / `FresnelS(x)` / `FresnelF(x)` / `FresnelG(x)` / `DawsonF(x)` | Fresnel cosine/sine + auxiliary f/g, Dawson F                        |
-|  [03]   | `Ei(x)` / `Ein(x)` / `Li(x)` / `En(int n,x)`                              | exponential integral Ei, entire Ein, logarithmic integral li, generalized Eₙ |
-|  [04]   | `Si(x[,limit_zero])` / `Ci(x)` / `Shi(x)` / `Chi(x)` / `Ti(x)`            | sine / cosine / hyperbolic-sine / hyperbolic-cosine / arctangent integrals |
-|  [05]   | `OwenT(h,a)`                                                              | Owen's T (bivariate-normal orthant probability)                      |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `Erf(x)` / `Erfc(x)` / `Erfcx(x)` / `Erfi(x)` / `InverseErf(x)` / `InverseErfc(x)` | error, complementary, scaled-complementary, imaginary error + inverses |
+| [02] | `FresnelC(x)` / `FresnelS(x)` / `FresnelF(x)` / `FresnelG(x)` / `DawsonF(x)` | Fresnel cosine/sine + auxiliary f/g, Dawson F |
+| [03] | `Ei(x)` / `Ein(x)` / `Li(x)` / `En(int n,x)` | exponential integral Ei, entire Ein, logarithmic integral li, generalized Eₙ |
+| [04] | `Si(x[,limit_zero])` / `Ci(x)` / `Shi(x)` / `Chi(x)` / `Ti(x)` | sine / cosine / hyperbolic-sine / hyperbolic-cosine / arctangent integrals |
+| [05] | `OwenT(h,a)` | Owen's T (bivariate-normal orthant probability) |
 
 [FUNCTION_SCOPE]: Bessel, Airy, Scorer, Struve, and Anger-Weber
 - rail: middle-precision FP
@@ -199,13 +198,13 @@ regularized incomplete forms required for distribution-tail and Bayesian work wh
 Integer-order and real-order (`ddouble nu`) Bessel families with an optional `scale` flag
 (exponentially-scaled `I`/`K` to avoid over/underflow); the Airy/Scorer/Struve companions.
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `BesselJ(nu,x)` / `BesselY(nu,x)` / `BesselI(nu,x[,scale])` / `BesselK(nu,x[,scale])` | real-order Bessel J/Y/I/K; `scale` toggles exponential scaling for I/K |
-|  [02]   | `BesselJ(int n,x)` / `BesselY(int n,x)` / `BesselI(int n,x[,scale])` / `BesselK(int n,x[,scale])` | integer-order overloads                                |
-|  [03]   | `AiryAi(x)` / `AiryBi(x)` / `ScorerGi(x)` / `ScorerHi(x)`                  | Airy Ai/Bi + Scorer Gi/Hi (inhomogeneous Airy)                       |
-|  [04]   | `StruveH(int n,x)` / `StruveK(int n,x)` / `StruveL(int n,x)` / `StruveM(int n,x)` | Struve H/K and modified Struve L/M                              |
-|  [05]   | `AngerJ(int n,x)` / `WeberE(int n,x)`                                      | Anger J and Weber E functions                                        |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `BesselJ(nu,x)` / `BesselY(nu,x)` / `BesselI(nu,x[,scale])` / `BesselK(nu,x[,scale])` | real-order Bessel J/Y/I/K; `scale` toggles exponential scaling for I/K |
+| [02] | `BesselJ(int n,x)` / `BesselY(int n,x)` / `BesselI(int n,x[,scale])` / `BesselK(int n,x[,scale])` | integer-order overloads |
+| [03] | `AiryAi(x)` / `AiryBi(x)` / `ScorerGi(x)` / `ScorerHi(x)` | Airy Ai/Bi + Scorer Gi/Hi (inhomogeneous Airy) |
+| [04] | `StruveH(int n,x)` / `StruveK(int n,x)` / `StruveL(int n,x)` / `StruveM(int n,x)` | Struve H/K and modified Struve L/M |
+| [05] | `AngerJ(int n,x)` / `WeberE(int n,x)` | Anger J and Weber E functions |
 
 [FUNCTION_SCOPE]: elliptic integrals and Jacobi elliptic functions
 - rail: middle-precision FP
@@ -214,24 +213,24 @@ Both Legendre-form (`EllipticK`/`E`/`F`/`Pi`, complete and incomplete) and the s
 Carlson forms (`RC`/`RD`/`RF`/`RG`/`RJ`), plus the Jacobi amplitude/sn/cn/dn and their
 inverses, and the theta functions — the parameter convention is the parameter `m` (= k²).
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `EllipticK(m)` / `EllipticE(m)` / `EllipticE(x,m)` / `EllipticF(x,m)` / `EllipticPi(n,m)` / `EllipticPi(n,x,m)` | complete & incomplete Legendre elliptic integrals K/E/F/Π |
-|  [02]   | `CarlsonRC(x,y)` / `CarlsonRD(x,y,z)` / `CarlsonRF(x,y,z)` / `CarlsonRG(x,y,z)` / `CarlsonRJ(x,y,z,rho)` | symmetric Carlson elliptic integrals (numerically robust basis) |
-|  [03]   | `JacobiSn(x,m)` / `JacobiCn(x,m)` / `JacobiDn(x,m)` / `JacobiAm(x,m)`      | Jacobi elliptic sn/cn/dn + amplitude                                 |
-|  [04]   | `JacobiArcSn(x,m)` / `JacobiArcCn(x,m)` / `JacobiArcDn(x,m)`               | inverse Jacobi elliptic functions                                    |
-|  [05]   | `EllipticTheta(int a,x,q)` / `EulerQ(q)` / `LogEulerQ(q)`                  | Jacobi theta θₐ, Euler function ∏(1−qⁿ) + its log                    |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `EllipticK(m)` / `EllipticE(m)` / `EllipticE(x,m)` / `EllipticF(x,m)` / `EllipticPi(n,m)` / `EllipticPi(n,x,m)` | complete & incomplete Legendre elliptic integrals K/E/F/Π |
+| [02] | `CarlsonRC(x,y)` / `CarlsonRD(x,y,z)` / `CarlsonRF(x,y,z)` / `CarlsonRG(x,y,z)` / `CarlsonRJ(x,y,z,rho)` | symmetric Carlson elliptic integrals (numerically robust basis) |
+| [03] | `JacobiSn(x,m)` / `JacobiCn(x,m)` / `JacobiDn(x,m)` / `JacobiAm(x,m)` | Jacobi elliptic sn/cn/dn + amplitude |
+| [04] | `JacobiArcSn(x,m)` / `JacobiArcCn(x,m)` / `JacobiArcDn(x,m)` | inverse Jacobi elliptic functions |
+| [05] | `EllipticTheta(int a,x,q)` / `EulerQ(q)` / `LogEulerQ(q)` | Jacobi theta θₐ, Euler function ∏(1−qⁿ) + its log |
 
 [FUNCTION_SCOPE]: zeta family, Clausen, Kepler, and special transcendentals
 - rail: middle-precision FP
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `RiemannZeta(x)` / `HurwitzZeta(x,a)` / `DirichletEta(x)` / `Polylog(int n,x)` | Riemann/Hurwitz zeta, Dirichlet eta, polylogarithm Liₙ            |
-|  [02]   | `Clausen(x[,normalized])` / `LambertW(x)`                                  | Clausen Cl₂, Lambert W (principal branch)                            |
-|  [03]   | `KeplerE(m,e[,centered])` / `Bernoulli(int n,x[,centered])`               | Kepler-equation eccentric-anomaly solve; Bernoulli polynomial Bₙ(x)  |
-|  [04]   | `MathieuA(int n,q)` / `MathieuB(int n,q)` / `MathieuC(int n,q,x)` / `MathieuS(int n,q,x)` | Mathieu characteristic values a/b + even/odd Mathieu functions |
-|  [05]   | `Cyclotomic(int n,x)`                                                      | n-th cyclotomic polynomial Φₙ(x) evaluated at `ddouble`              |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `RiemannZeta(x)` / `HurwitzZeta(x,a)` / `DirichletEta(x)` / `Polylog(int n,x)` | Riemann/Hurwitz zeta, Dirichlet eta, polylogarithm Liₙ |
+| [02] | `Clausen(x[,normalized])` / `LambertW(x)` | Clausen Cl₂, Lambert W (principal branch) |
+| [03] | `KeplerE(m,e[,centered])` / `Bernoulli(int n,x[,centered])` | Kepler-equation eccentric-anomaly solve; Bernoulli polynomial Bₙ(x) |
+| [04] | `MathieuA(int n,q)` / `MathieuB(int n,q)` / `MathieuC(int n,q,x)` / `MathieuS(int n,q,x)` | Mathieu characteristic values a/b + even/odd Mathieu functions |
+| [05] | `Cyclotomic(int n,x)` | n-th cyclotomic polynomial Φₙ(x) evaluated at `ddouble` |
 
 [FUNCTION_SCOPE]: orthogonal polynomials
 - rail: middle-precision FP
@@ -239,13 +238,13 @@ inverses, and the theta functions — the parameter convention is the parameter 
 The classical orthogonal-polynomial families evaluated at 106-bit — the building blocks for
 spectral methods, Gauss quadrature node generation, and Zernike optical analysis.
 
-| [INDEX] | [SURFACE]                                                                  | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | `LegendreP(int n,x)` / `LegendreP(int n,int m,x)`                          | Legendre P + associated Legendre Pₙᵐ                                 |
-|  [02]   | `ChebyshevT(int n,x)` / `ChebyshevU(int n,x)`                              | Chebyshev first/second kind                                          |
-|  [03]   | `HermiteH(int n,x)` / `LaguerreL(int n,x)` / `LaguerreL(int n,alpha,x)`    | Hermite (physicists') + (associated) Laguerre                        |
-|  [04]   | `GegenbauerC(int n,alpha,x)` / `JacobiP(int n,alpha,beta,x)`               | Gegenbauer (ultraspherical) + Jacobi polynomials                     |
-|  [05]   | `ZernikeR(int n,int m,x)`                                                  | Zernike radial polynomial Rₙᵐ                                        |
+| [INDEX] | [SURFACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | `LegendreP(int n,x)` / `LegendreP(int n,int m,x)` | Legendre P + associated Legendre Pₙᵐ |
+| [02] | `ChebyshevT(int n,x)` / `ChebyshevU(int n,x)` | Chebyshev first/second kind |
+| [03] | `HermiteH(int n,x)` / `LaguerreL(int n,x)` / `LaguerreL(int n,alpha,x)` | Hermite (physicists') + (associated) Laguerre |
+| [04] | `GegenbauerC(int n,alpha,x)` / `JacobiP(int n,alpha,beta,x)` | Gegenbauer (ultraspherical) + Jacobi polynomials |
+| [05] | `ZernikeR(int n,int m,x)` | Zernike radial polynomial Rₙᵐ |
 
 ## [05]-[IMPLEMENTATION_LAW]
 
@@ -254,7 +253,7 @@ spectral methods, Gauss quadrature node generation, and Zernike optical analysis
 - construction: NO public constructor — build only via the implicit widening conversions (incl. `BigInteger`/`decimal`/the bit-tuple) or `Parse`/`TryParse`; never hand-assemble a hi/lo pair.
 - precision boundary: precision is FIXED at two doubles. `ddouble` is a deterministic refinement of `double`, NOT an arbitrary-precision/exact type — it cannot stand in for the `BigRational` exact `Sign` oracle, and a result that needs more than ~106 bits must escalate to `Fraction`.
 - error-free transforms: arithmetic uses FMA `TwoProduct` + Knuth/Dekker `TwoSum` identical to the in-house `Expansion` kernel, so the 106-bit middle stage and the `Expansion` exact branch share one rounding model and agree on the sign of a determinant up to the 106-bit resolution.
-- generic math: `ddouble` IS the full `INumber<ddouble>`/`INumberBase<ddouble>` + every function-group interface; a kernel `where T : INumber<T>` / `IFloatingPointConstants<T>` / `I{Power,Root,Exponential,Logarithmic,Trigonometric,Hyperbolic}Functions<T>` binds `ddouble` with zero adapter, and `TryConvertFrom*`/`TryConvertTo*` move values to/from any other `INumberBase<TOther>`.
+- generic math: `ddouble` IS the full `INumber<ddouble>`/`INumberBase<ddouble>` + every function-group interface; a kernel `where T: INumber<T>` / `IFloatingPointConstants<T>` / `I{Power,Root,Exponential,Logarithmic,Trigonometric,Hyperbolic}Functions<T>` binds `ddouble` with zero adapter, and `TryConvertFrom*`/`TryConvertTo*` move values to/from any other `INumberBase<TOther>`.
 
 [LOCAL_ADMISSION]:
 - `ddouble` is the MIDDLE precision tier (`.planning/Numerics/predicates#PRECISION_LADDER`): interior `double` (`NumericsPolicy`) -> `ddouble` 106-bit -> `Expansion` sign-exact -> `Fraction` exact-rational adjudication. The predicate recomputes the determinant in `ddouble` when the `double` filter's error bound brackets zero; the cheap 106-bit refinement resolves the near-degenerate sign for the vast majority of non-trivial cases, so the `Expansion`/`Fraction` branches fire only on the genuinely sub-106-bit-degenerate residue.
@@ -272,5 +271,5 @@ spectral methods, Gauss quadrature node generation, and Zernike optical analysis
 [RAIL_LAW]:
 - Package: `TYoshimura.DoubleDouble`
 - Owns: the 106-bit double-double number `ddouble` — full `INumber<ddouble>`/`INumberBase<ddouble>` generic math, the complete operator/comparison/classification/parse/format contract, the `TryConvertFrom*`/`TryConvertTo*` cross-`T` bridge, the named-constant table, and the double-double-precision special-function library (gamma/beta, error/Fresnel, Bessel/Airy/Struve, elliptic + Jacobi, integral functions, zeta/polylog/polygamma, orthogonal polynomials, Owen's T, Lambert W, Mathieu); the `DoubleDoubleEnumerableExpand`/`DoubleDoubleIOExpand`/`DDoubleJsonConverter` siblings for LINQ aggregation, binary I/O, and JSON.
-- Accept: the predicate middle tier (recompute the determinant in `ddouble`, read `Sign`, escalate only the indeterminate residue to `Expansion`/`Fraction`); a generic numeric kernel `where T : INumber<T>` (or a function-group constraint) bound to `ddouble`; accuracy-critical special-function/quadrature evaluation that loses digits at `double`; lossless 106-bit (de)serialization via the converter / IO extensions.
+- Accept: the predicate middle tier (recompute the determinant in `ddouble`, read `Sign`, escalate only the indeterminate residue to `Expansion`/`Fraction`); a generic numeric kernel `where T: INumber<T>` (or a function-group constraint) bound to `ddouble`; accuracy-critical special-function/quadrature evaluation that loses digits at `double`; lossless 106-bit (de)serialization via the converter / IO extensions.
 - Reject: treating `ddouble` as an exact/arbitrary-precision oracle (it is fixed two-double precision — use `Fraction` for the exact `Sign`); hand-assembling a hi/lo pair or reading a non-existent `Hi`/`Lo` property (no public constructor, opaque representation); narrowing `ddouble` to `double` mid-adjudication; re-hosting a whole MathNet distribution/solver on `ddouble` by hand when only the special-function evaluation needs the precision; documenting an `internal` `Consts`-kernel helper (`Coef`/`Value`/`Kernel`/`SeriesValue`/`ErfcGt*`/`PadeApprox` and the `Asymptotic`/`Iter`/`Q0` family) as public API — they are implementation detail, never the consumed surface.

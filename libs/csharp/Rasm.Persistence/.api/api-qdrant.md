@@ -6,12 +6,11 @@
 
 [PACKAGE_SURFACE]: `Qdrant.Client`
 - package: `Qdrant.Client`
-- version: `1.18.1`
 - license: Apache-2.0
 - assembly: `Qdrant.Client`
 - namespace: `Qdrant.Client` (façade), `Qdrant.Client.Grpc` (protobuf model + generated service clients)
 - target: multi-target (`net6.0`, `netstandard2.0`, `net462`); the `net10.0` consumer binds `lib/net6.0` — pure-managed AnyCPU, no native runtime
-- companion: transitive `Grpc.Net.Client` (channel), `Google.Protobuf` (wire model), `Grpc.Net.ClientFactory` (DI); all ride existing central gRPC rows (`Grpc.Net.Client` 2.80.0, `Google.Protobuf` 3.35.1)
+- companion: transitive `Grpc.Net.Client` (channel), `Google.Protobuf` (wire model), `Grpc.Net.ClientFactory` (DI); all ride existing central gRPC rows (`Grpc.Net.Client`, `Google.Protobuf`)
 - xml docs: `Qdrant.Client.xml` ships beside the assembly; member intent is doc-comment-sourced
 - rail: vector-store-scaleout
 
@@ -53,7 +52,7 @@
 [PUBLIC_TYPE_SCOPE]: point, payload, and filter model (`Qdrant.Client.Grpc`)
 - rail: vector-store-scaleout
 
-`PointStruct` is one upsertable point (`PointId` + `Vectors` + payload `Value` map); `Vectors`/`Vector`/`NamedVectors`/`SparseVector` carry the dense/named/sparse vector payloads; `Document` carries raw text/image for server-side inference (Qdrant computes the embedding). `Filter` composes `Condition`s (must/should/must_not) over payload fields for server-side push-down; `PayloadIncludeSelector`/`WithPayloadSelector`/`WithVectorsSelector` shape the returned payload/vectors. `PayloadSchemaType`/`FieldType`/`TokenizerType` drive payload-index creation (keyword/integer/float/geo/text/datetime/uuid).
+`PointStruct` is one upsertable point (`PointId` + `Vectors` + payload `Value` map); `Vectors`/`Vector`/`NamedVectors`/`SparseVector` carry the dense/named/sparse vector payloads; `Document` carries raw text/image for server-side inference (Qdrant computes the embedding). `Filter` composes `Condition`s (`must`/`should`/`must_not`) over payload fields for server-side push-down; `PayloadIncludeSelector`/`WithPayloadSelector`/`WithVectorsSelector` shape the returned payload/vectors. `PayloadSchemaType`/`FieldType`/`TokenizerType` drive payload-index creation (keyword/integer/float/geo/text/datetime/uuid).
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [RAIL]                                  |
 | :-----: | :------------------------ | :-------------- | :-------------------------------------- |

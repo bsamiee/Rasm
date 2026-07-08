@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `cslsqp`
 - package: `cslsqp` (SOURCE-VENDORED from the live `oberbichler/cslsqp`; feed-verified ABSENT from public NuGet — vendored source is the ruled admission form until its release lands)
-- version: vendored at the admitted HEAD (tracked as a vendored-source revision, not a pin)
 - license: ISC
 - assembly: vendored source compiled in-tree
 - namespace: `CsLsqp`
@@ -26,5 +25,5 @@
 
 [RAIL_LAW]:
 - Owns: the smooth constrained-NLP (SQP) kernel — one row on the one `OptimizerKind` axis
-- Accept: a continuous sizing/calibration NLP with bounds and inequality constraints and a smooth (ideally hyperdual-authored) objective
+- Accept: a continuous sizing/calibration NLP with bounds and inequality constraints and a smooth hyperdual-authored objective where the objective owner supplies sensitivities
 - Reject: a second gradient mechanism beside the `Sensitivity` family; a mixed-integer lowering (the exact rows own it); a NuGet pin before the upstream release lands (the vendored tree is the source of truth)

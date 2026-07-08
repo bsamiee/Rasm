@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `bodong.PropertyModels` 12.0.0
+[PACKAGE_SURFACE]: `bodong.PropertyModels`
 - package: `bodong.PropertyModels`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/PropertyModels.dll`); the package multi-targets net8.0 / net9.0 / net10.0
@@ -12,7 +12,7 @@
 - namespace: `PropertyModels.Collections`, `PropertyModels.ComponentModel` (reactive base, command/undo, editor-hint attributes), `PropertyModels.ComponentModel.DataAnnotations` (validation/condition/enum-filter attributes), `PropertyModels.Extensions`, `PropertyModels.Localization`, `PropertyModels.Utils`
 - rail: inspectors
 
-[PACKAGE_SURFACE]: `bodong.Avalonia.PropertyGrid` 12.0.4.1
+[PACKAGE_SURFACE]: `bodong.Avalonia.PropertyGrid`
 - package: `bodong.Avalonia.PropertyGrid` (floor-pinned over its open `>= 12.0.0` range)
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Avalonia.PropertyGrid.dll`)

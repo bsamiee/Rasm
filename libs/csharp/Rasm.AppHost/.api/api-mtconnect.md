@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `MTConnect.NET-Common`
 - package: `MTConnect.NET-Common`
-- version: `6.9.0.2`
 - license: `MIT`
 - assembly: `MTConnect.NET-Common`
 - namespace: `MTConnect.Adapters`, `MTConnect.Input`, `MTConnect.Observations`, `MTConnect.Streams`, `MTConnect.Devices`, `MTConnect.Assets.CuttingTools`, `MTConnect.Clients`, `MTConnect.Formatters`

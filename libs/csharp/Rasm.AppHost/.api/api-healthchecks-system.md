@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.System`
 - package: `AspNetCore.HealthChecks.System`
-- version: `9.0.0`
 - license: `Apache-2.0`
 - assembly: `HealthChecks.System`
 - namespace: `HealthChecks.System`

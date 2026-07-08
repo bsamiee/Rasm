@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `MTConnect.NET-Common`
 - package: `MTConnect.NET-Common`
-- version: `6.9.0.2` (centrally pinned)
 - license: `MIT` (TrakHound/MTConnect.NET)
 - assembly: `MTConnect.NET-Common`
 - namespace consumed: `MTConnect.Assets.CuttingTools`, `.CuttingTools.Measurements`, `MTConnect.Assets` (the `Asset` base + `AssetValidationResult`), `MTConnect` (root — the `MTConnectVersions` schema-version constants the `IsValid(Version)` check reads) — the broader `MTConnect.Devices`/`.Observations`/`.Streams`/`.Agents`/`.Configurations` namespaces ship in this same assembly but are OUT of the fabrication scope

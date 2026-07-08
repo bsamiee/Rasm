@@ -1,11 +1,11 @@
-# [jszip] — archive bundling for multi-artifact work/report jobs
+# [TS_RUNTIME_API_JSZIP]
 
 `jszip` is the ZIP container `runtime/src/work/report.ts` uses to bundle a multi-artifact report — several PDFs, spreadsheets, and CSVs — into one downloadable archive, and to read an inbound archive back into typed entries. Its surface is a single mutable `JSZip` tree: one polymorphic `file` that adds an entry when given `(path, data, options)`, fetches an entry when given `(path)`, and matches by pattern when given a `RegExp`; `folder` for nested roots; `forEach`/`filter`/`remove` for traversal; and a type-indexed serialization family — `generateAsync<T>` returns the container as any `OutputByType` member (`uint8array`, `nodebuffer`, `arraybuffer`, `blob`, `base64`, `string`), `generateNodeStream` returns a Node `Readable`, and `generateInternalStream` returns a `JSZipStreamHelper` event source with `on`/`accumulate`/`pause`/`resume`. `loadAsync` deserializes, exposing each `JSZipObject` with a lazy `async<T>` byte accessor, a `nodeStream`, and the `unsafeOriginalName` that flags a zip-slip path. Compression is a policy pair — `STORE` or `DEFLATE` with a `level`, plus `streamFiles` for low-memory generation — never a method per codec. The library is imperative and `Promise`-returning; the owner internalizes it once: `Effect.tryPromise` lifts `generateAsync`/`loadAsync`, the `Uint8Array` result flows to `FileSystem.writeFile` or a nodemailer attachment, and `generateInternalStream` bridges to an Effect `Stream` through `Stream.async` so a large bundle streams rather than buffering.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jszip`
-- package: `jszip` (3.10.1, `MIT OR GPL-3.0-or-later` — take the MIT arm, © Stuart Knightley); declarations bundled (`index.d.ts`)
+- package: `jszip` (`MIT OR GPL-3.0-or-later` — take the MIT arm, © Stuart Knightley); declarations bundled (`index.d.ts`)
 - module format: CJS (`main: lib/index`, no `module`/`exports` map); the `JSZip` value is `export =` (import as `import JSZip = require("jszip")` or esModuleInterop default); no deep-import subpaths
 - runtime target: isomorphic. Runtime dependencies `pako` (DEFLATE), `lie` (Promise polyfill), `readable-stream`, `setimmediate`; no native addon — compression is pure-JS `pako`, so it is CPU-bound and belongs off the main path for large archives
 - asset: JS runtime + bundled `.d.ts`; `JSZipSupport` (`arraybuffer`/`uint8array`/`blob`/`nodebuffer`) reports the runtime's available output types via the static `support` field
@@ -16,52 +16,52 @@
 [PUBLIC_TYPE_SCOPE]: the container tree and its entries
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CONSUMER]                                                              |
-| :-----: | :------------------------------------------------ | :---------------- | :--------------------------------------------------------------------- |
-|  [01]   | `JSZip`                                            | archive tree       | the mutable owner — `files` map, `file`/`folder`/`forEach`/`filter`/`remove`, `generate*`, `loadAsync`, static `support`/`version`/`external` |
-|  [02]   | `JSZip.JSZipObject`                               | entry              | `name`, `dir`, `date`, `comment`, `unixPermissions`/`dosPermissions`, `options`; `async<T>(type)`, `nodeStream()`; `unsafeOriginalName` flags a zip-slip path |
-|  [03]   | `InputByType` / `JSZip.InputType`                 | input codomain     | the `file` data union — `string`, `uint8array`, `arraybuffer`, `blob`, `nodebuffer`, `base64`, `array`, `binarystring`, `stream`; each accepted directly or as a `Promise` |
-|  [04]   | `OutputByType` / `JSZip.OutputType`               | output codomain    | the `generateAsync<T>` return index — `uint8array`/`nodebuffer` for Node egress, `blob`/`base64`/`arraybuffer` for browser/transport |
-|  [05]   | `JSZip.JSZipMetadata`                             | progress receipt   | `{ percent, currentFile }` — the `onUpdate` payload the owner folds into a `Ref`/`Metric` for durable-job progress |
-|  [06]   | `JSZip.JSZipStreamHelper<T>`                      | event source       | `generateInternalStream` return — `on("data"\|"end"\|"error")`, `accumulate`, `pause`, `resume`; the seam bridged to an Effect `Stream` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------ |:---------------- |:--------------------------------------------------------------------- |
+| [01] | `JSZip` | archive tree | the mutable owner — `files` map, `file`/`folder`/`forEach`/`filter`/`remove`, `generate*`, `loadAsync`, static `support`/`version`/`external` |
+| [02] | `JSZip.JSZipObject` | entry | `name`, `dir`, `date`, `comment`, `unixPermissions`/`dosPermissions`, `options`; `async<T>(type)`, `nodeStream()`; `unsafeOriginalName` flags a zip-slip path |
+| [03] | `InputByType` / `JSZip.InputType` | input codomain | the `file` data union — `string`, `uint8array`, `arraybuffer`, `blob`, `nodebuffer`, `base64`, `array`, `binarystring`, `stream`; each accepted directly or as a `Promise` |
+| [04] | `OutputByType` / `JSZip.OutputType` | output codomain | the `generateAsync<T>` return index — `uint8array`/`nodebuffer` for Node egress, `blob`/`base64`/`arraybuffer` for browser/transport |
+| [05] | `JSZip.JSZipMetadata` | progress receipt | `{ percent, currentFile }` — the `onUpdate` payload the owner folds into a `Ref`/`Metric` for durable-job progress |
+| [06] | `JSZip.JSZipStreamHelper<T>` | event source | `generateInternalStream` return — `on("data"\|"end"\|"error")`, `accumulate`, `pause`, `resume`; the seam bridged to an Effect `Stream` |
 
 [PUBLIC_TYPE_SCOPE]: compression and load policy
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CONSUMER]                                                              |
-| :-----: | :------------------------------------------------ | :---------------- | :--------------------------------------------------------------------- |
-|  [01]   | `Compression` = `"STORE" \| "DEFLATE"`            | codec policy       | the per-entry and per-archive compression discriminant; a policy value, never a method family |
-|  [02]   | `CompressionOptions` = `{ level: number }`        | codec tuning       | DEFLATE level `1` (speed) → `9` (ratio); ignored under `STORE` |
-|  [03]   | `JSZipFileOptions`                                | entry policy       | `compression`/`compressionOptions`, `date`, `comment`, `base64`, `binary`, `createFolders`, `dir`, `unixPermissions`/`dosPermissions` — per-`file` metadata |
-|  [04]   | `JSZipGeneratorOptions<T>`                        | serialize policy   | `type`, `compression`, `mimeType`, `comment`, `platform` (`DOS`/`UNIX`), `streamFiles`, `encodeFileName` — the archive-wide egress policy |
-|  [05]   | `JSZipLoadOptions`                                | deserialize policy | `checkCRC32` (integrity gate), `base64`, `createFolders`, `optimizedBinaryString`, `decodeFileName` — inbound-archive decode |
-|  [06]   | `JSZip.OnUpdateCallback` / `DataEventCallback<T>` | progress hooks     | `(metadata) => void` streamed generation progress; the `data`/`end`/`error` event callbacks on the stream helper |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------ |:---------------- |:--------------------------------------------------------------------- |
+| [01] | `Compression` = `"STORE" \| "DEFLATE"` | codec policy | the per-entry and per-archive compression discriminant; a policy value, never a method family |
+| [02] | `CompressionOptions` = `{ level: number }` | codec tuning | DEFLATE level `1` (speed) → `9` (ratio); ignored under `STORE` |
+| [03] | `JSZipFileOptions` | entry policy | `compression`/`compressionOptions`, `date`, `comment`, `base64`, `binary`, `createFolders`, `dir`, `unixPermissions`/`dosPermissions` — per-`file` metadata |
+| [04] | `JSZipGeneratorOptions<T>` | serialize policy | `type`, `compression`, `mimeType`, `comment`, `platform` (`DOS`/`UNIX`), `streamFiles`, `encodeFileName` — the archive-wide egress policy |
+| [05] | `JSZipLoadOptions` | deserialize policy | `checkCRC32` (integrity gate), `base64`, `createFolders`, `optimizedBinaryString`, `decodeFileName` — inbound-archive decode |
+| [06] | `JSZip.OnUpdateCallback` / `DataEventCallback<T>` | progress hooks | `(metadata) => void` streamed generation progress; the `data`/`end`/`error` event callbacks on the stream helper |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build, traverse, and read the tree
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                        |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `new JSZip()` / `JSZip()`                                                                     | construct        | `report` bundle root; the owner builds one tree per durable job inside `Effect.sync` |
-|  [02]   | `zip.file<T>(path, data, options?)` → `this`                                                  | add entry        | polymorphic write — `data` is any `InputByType[T]` or its `Promise`; chainable, folded over the artifact list |
-|  [03]   | `zip.file(path)` → `JSZipObject \| null` / `zip.file(re)` → `JSZipObject[]`                    | read entry       | the same name discriminates: `string` fetches one entry (`null`-absent), `RegExp` matches many — one polymorphic accessor |
-|  [04]   | `zip.folder(name)` → `JSZip \| null` / `zip.remove(path)` / `zip.forEach(cb)` / `zip.filter(p)`| traverse         | nested-root scoping, deletion, and iteration/predicate selection over `files` |
-|  [05]   | `zip.generateAsync<T>(options?, onUpdate?)` → `Promise<OutputByType[T]>`                      | serialize        | the primary egress — `{ type: "uint8array" }` yields the bytes; `Effect.tryPromise`-lifted; `onUpdate` folds progress |
-|  [06]   | `zip.generateNodeStream(options?, onUpdate?)` → `NodeJS.ReadableStream`                       | serialize stream | the Node streaming egress; `NodeStream.fromReadable` lifts it to an Effect `Stream<Uint8Array>` for a memory-bounded bundle |
-|  [07]   | `zip.generateInternalStream<T>(options?)` → `JSZipStreamHelper<OutputByType[T]>`              | serialize events | the runtime-neutral streaming egress; `Stream.async` bridges `on("data"\|"end"\|"error")` to an Effect `Stream` |
-|  [08]   | `zip.loadAsync(data, options?)` → `Promise<JSZip>`                                            | deserialize      | inbound-archive decode with `checkCRC32` integrity; `Effect.tryPromise`-lifted; entries read lazily via `JSZipObject.async` |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------------------------------------- |:-------------- |:--------------------------------------------------------------- |
+| [01] | `new JSZip()` / `JSZip()` | construct | `report` bundle root; the owner builds one tree per durable job inside `Effect.sync` |
+| [02] | `zip.file<T>(path, data, options?)` → `this` | add entry | polymorphic write — `data` is any `InputByType[T]` or its `Promise`; chainable, folded over the artifact list |
+| [03] | `zip.file(path)` → `JSZipObject \| null` / `zip.file(re)` → `JSZipObject[]` | read entry | the same name discriminates: `string` fetches one entry (`null`-absent), `RegExp` matches many — one polymorphic accessor |
+| [04] | `zip.folder(name)` → `JSZip \| null` / `zip.remove(path)` / `zip.forEach(cb)` / `zip.filter(p)`| traverse | nested-root scoping, deletion, and iteration/predicate selection over `files` |
+| [05] | `zip.generateAsync<T>(options?, onUpdate?)` → `Promise<OutputByType[T]>` | serialize | the primary egress — `{ type: "uint8array" }` yields the bytes; `Effect.tryPromise`-lifted; `onUpdate` folds progress |
+| [06] | `zip.generateNodeStream(options?, onUpdate?)` → `NodeJS.ReadableStream` | serialize stream | the Node streaming egress; `NodeStream.fromReadable` lifts it to an Effect `Stream<Uint8Array>` for a memory-bounded bundle |
+| [07] | `zip.generateInternalStream<T>(options?)` → `JSZipStreamHelper<OutputByType[T]>` | serialize events | the runtime-neutral streaming egress; `Stream.async` bridges `on("data"\|"end"\|"error")` to an Effect `Stream` |
+| [08] | `zip.loadAsync(data, options?)` → `Promise<JSZip>` | deserialize | inbound-archive decode with `checkCRC32` integrity; `Effect.tryPromise`-lifted; entries read lazily via `JSZipObject.async` |
 
 [ENTRYPOINT_SCOPE]: entry byte access and capability probe
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                        |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `entry.async<T>(type, onUpdate?)` → `Promise<OutputByType[T]>`                                | lazy read        | decompress one loaded entry to bytes on demand; `Effect.tryPromise`-lifted, decoded through the entry's `Schema` |
-|  [02]   | `entry.nodeStream(type?, onUpdate?)` → `NodeJS.ReadableStream`                                | lazy stream      | stream one large entry out without full decompression; bridged with `NodeStream.fromReadable` |
-|  [03]   | `entry.unsafeOriginalName`                                                                    | zip-slip flag    | the raw archived path that may contain `..`; the owner validates it against a resolved root before any `FileSystem.writeFile` |
-|  [04]   | `JSZip.support` / `JSZip.version` / `JSZip.external.Promise`                                  | runtime probe    | `support.uint8array`/`nodebuffer` gate the chosen output `type`; `external.Promise` is left at the native `Promise` |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------------------------------------- |:-------------- |:--------------------------------------------------------------- |
+| [01] | `entry.async<T>(type, onUpdate?)` → `Promise<OutputByType[T]>` | lazy read | decompress one loaded entry to bytes on demand; `Effect.tryPromise`-lifted, decoded through the entry's `Schema` |
+| [02] | `entry.nodeStream(type?, onUpdate?)` → `NodeJS.ReadableStream` | lazy stream | stream one large entry out without full decompression; bridged with `NodeStream.fromReadable` |
+| [03] | `entry.unsafeOriginalName` | zip-slip flag | the raw archived path that may contain `..`; the owner validates it against a resolved root before any `FileSystem.writeFile` |
+| [04] | `JSZip.support` / `JSZip.version` / `JSZip.external.Promise` | runtime probe | `support.uint8array`/`nodebuffer` gate the chosen output `type`; `external.Promise` is left at the native `Promise` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

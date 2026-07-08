@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Confluent.SchemaRegistry.Serdes.Json`
 - package: `Confluent.SchemaRegistry.Serdes.Json`
-- version: `2.14.2`
 - license: Apache-2.0
 - assembly: `Confluent.SchemaRegistry.Serdes.Json`
 - namespace: `Confluent.SchemaRegistry.Serdes`
@@ -90,7 +89,8 @@
 - `DeserializeAsync(ReadOnlyMemory<byte> data, bool isNull, SerializationContext context)` parses the JSON into `T`; `isNull` returns the tombstone path. The registry-less ctor (`new JsonDeserializer<T>(config?)`) decodes id framing only without a registry fetch — admitted only where validation/evolution is not enforced.
 
 [LOCAL_ADMISSION]:
-- The JSON serde is the human-readable, externally-consumable leg of the changefeed egress: built once per stream, mounted on the `Confluent.Kafka` `SetValueSerializer`/`SetValueDeserializer` slot, sharing the single `CachedSchemaRegistryClient` with the Avro and Protobuf serdes. The codec is fixed at build, never per call. It is chosen for the topics whose downstream consumers want self-describing JSON under registry-enforced schema (the external-integration egress), where Avro/Protobuf binary would force a codec on the consumer.
+[JSON_SERDE_EGRESS]:
+The JSON serde is the human-readable, externally-consumable leg of the changefeed egress: built once per stream, mounted on the `Confluent.Kafka` `SetValueSerializer`/`SetValueDeserializer` slot, sharing the single `CachedSchemaRegistryClient` with the Avro and Protobuf serdes. The codec is fixed at build, never per call. It is chosen for topics whose downstream consumers want self-describing JSON under registry-enforced schema.
 - `T` is the projection record of the op event (a `class`, satisfying the constraint); the generated `JsonSchema` is registered out-of-band so the serde never auto-evolves the contract. Production sets `AutoRegisterSchemas = false` and `Validate = true`, registering the schema under a `Backward`/`FullTransitive` `Compatibility` level so an invalid or incompatible document is rejected at the codec rather than reaching a consumer. `LatestCompatibilityStrict = true` hardens the producer against publishing under a stale schema.
 - Field-level encryption rides the shared `RuleRegistry`: a `DomainRule` of `RuleMode.WriteRead` naming a field-encryption `IRuleExecutor` (JSON string fields tagged in the schema `Metadata` sensitive-field set, validated first when `ValidateBeforeDomainRules = true`) wraps/unwraps per-field DEKs against the `Element/identity#KEY_ENVELOPE` `EnvelopeKeyring` KMS clients (the `KmsProvider` axis owned at `Element/identity#KMS_CUSTODY`) — the same rule engine the Avro and Protobuf serdes use.
 - This serde and the CloudEvents JSON formatter occupy orthogonal slots and never compete: `CloudNative.CloudEvents.SystemTextJson` (`JsonEventFormatter`) frames the CloudEvents envelope structure (`id`/`source`/`type`/`time` plus attributes) that rides the `Message<TKey, TValue>` headers/body, while this serde is the registry-governed codec for the payload body `Data`. The README admission "distinct from the CloudEvents JSON envelope formatter" is exactly this split — the envelope is CloudEvents+STJ, the validated body is this serde. `api-cloudevents` records the reciprocal seam from the envelope side.

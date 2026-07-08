@@ -49,10 +49,10 @@
 |  [01]   | `FeatureProvider`          | provider base     | abstract resolution contract |
 |  [02]   | `InMemoryProvider`         | provider          | config-backed evaluation     |
 |  [03]   | `Flag<T>`                  | flag definition   | variant map plus evaluator   |
-|  [03a]  | `Flag`                     | flag interface    | non-generic base (`bool Disabled`) `Flag<T>` implements; the `InMemoryProvider` flag-map value type |
-|  [04]   | `ResolutionDetails<T>`     | provider result   | resolved value and reason    |
-|  [05]   | `FlagEvaluationDetails<T>` | client result     | client-facing detail carrier |
-|  [06]   | `Metadata`                 | provider metadata | provider name                |
+|  [04]  | `Flag`                     | flag interface    | non-generic base (`bool Disabled`) `Flag<T>` implements; the `InMemoryProvider` flag-map value type |
+|  [05]   | `ResolutionDetails<T>`     | provider result   | resolved value and reason    |
+|  [06]   | `FlagEvaluationDetails<T>` | client result     | client-facing detail carrier |
+|  [07]   | `Metadata`                 | provider metadata | provider name                |
 
 [PUBLIC_TYPE_SCOPE]: outcome vocabulary family
 - rail: features

@@ -6,12 +6,11 @@
 
 [PACKAGE_SURFACE]: `Minio`
 - package: `Minio`
-- version: `7.0.0`
 - assembly: `Minio`
 - namespace: `Minio`, `Minio.ApiEndpoints` (the `IBucketOperations`/`IObjectOperations` op contracts `IMinioClient` derives from), `Minio.Credentials` (`IClientProvider` + the credential-provider family), `Minio.DataModel`, `Minio.DataModel.Args`, `Minio.DataModel.Result`, `Minio.DataModel.Response`, `Minio.DataModel.Encryption`, `Minio.DataModel.Tags`, `Minio.DataModel.Select`, `Minio.DataModel.Notification`, `Minio.DataModel.ILM`, `Minio.DataModel.ObjectLock`, `Minio.DataModel.Replication`, `Minio.Exceptions`, `Minio.Handlers`
 - license: Apache-2.0 (`<license type="expression">Apache-2.0</license>`)
 - target framework: `net8.0` asset on the `net10.0` floor (package ships `net8.0`/`netstandard2.0`; net8.0 wins NuGet precedence — there is no `net10.0` asset, so the consumer binds the `net8.0` lib)
-- dependencies: `System.Reactive` 6.0.1 (the `IObservable<>` bucket-notification stream), `CommunityToolkit.HighPerformance` 8.4.0 (co-consumed substrate), `System.IO.Hashing` 9.0.4 (the content-hash substrate), `Microsoft.Extensions.Logging`/`DependencyInjection.Abstractions` 9.0.4
+- dependencies: `System.Reactive` (the `IObservable<>` bucket-notification stream), `CommunityToolkit.HighPerformance` (co-consumed substrate), `System.IO.Hashing` (the content-hash substrate), `Microsoft.Extensions.Logging`/`DependencyInjection.Abstractions`
 - asset: runtime library, pure-managed AnyCPU (no native — HTTP/S3 protocol over `HttpClient`)
 - rail: object-store (self-hosted S3)
 
@@ -35,7 +34,7 @@
 
 The operation surface is a `*Args` builder hierarchy (`RequestArgs` → `BucketArgs<T>` → `ObjectArgs<T>` → `EncryptionArgs<T>` → `ObjectVersionArgs<T>` → `ObjectConditionalQueryArgs<T>` → `ObjectWriteArgs<T>`), each exposing fluent `With*` setters returning `T`. Every operation takes its matching args object — there is no positional-parameter form.
 
-| [INDEX] | [SYMBOL]                       | [BUILDS]            | [KEY SETTERS / CAPABILITY]                                          |
+| [INDEX] | [SYMBOL]                       | [BUILDS]            | [KEY_SETTERS_CAPABILITY]                                          |
 | :-----: | :----------------------------- | :------------------ | :------------------------------------------------------------------ |
 |  [01]   | `MakeBucketArgs`               | bucket create       | `WithBucket`/`WithLocation`/`WithObjectLock`                       |
 |  [02]   | `BucketExistsArgs` / `RemoveBucketArgs` | bucket head/drop | `WithBucket`                                                       |
@@ -65,10 +64,10 @@ The operation surface is a `*Args` builder hierarchy (`RequestArgs` → `BucketA
 |  [05]   | `CopyConditions`                  | conditions    | `SetMatchETag`/`SetMatchETagNone`/`SetModified`/`SetUnmodified`/`SetReplaceMetadataDirective` — the conditional-copy seal |
 |  [06]   | `DeleteError` / `DeletedObject`   | bulk result   | per-object outcome of `RemoveObjectsAsync`                        |
 |  [07]   | `Minio.DataModel.Encryption.SSEC` / `SSEKMS` / `SSES3` (`: IServerSideEncryption`) | SSE | customer-key / KMS / S3-managed server-side encryption modes |
-|  [07a]  | `Minio.DataModel.ObjectLock.ObjectRetentionConfiguration` / `ObjectRetentionMode` | WORM | `ObjectRetentionConfiguration(DateTime date, ObjectRetentionMode mode)` + `ObjectRetentionMode.GOVERNANCE`/`.COMPLIANCE` — the put-side `WithRetentionConfiguration` retention-until stance |
-|  [08]   | `ProgressReport` / `IProgress<ProgressReport>` | progress | per-byte upload/download progress callback                       |
-|  [09]   | `Minio.DataModel.Select.*` (`CSVInputOptions`/`JSONInputOptions`/`ParquetInputOptions`/`SelectResponseStream`) | S3 Select IO | input/output serialization for server-side `SELECT` |
-|  [10]   | `Minio.DataModel.Notification.*` (`BucketNotification`/`EventType`/`MinioNotificationRaw`) | notification | bucket event configuration + the raw event payload |
+|  [08]  | `Minio.DataModel.ObjectLock.ObjectRetentionConfiguration` / `ObjectRetentionMode` | WORM | retention-until mode carried into `WithRetentionConfiguration` |
+|  [09]   | `ProgressReport` / `IProgress<ProgressReport>` | progress | per-byte upload/download progress callback                       |
+|  [10]   | `Minio.DataModel.Select.*` (`CSVInputOptions`/`JSONInputOptions`/`ParquetInputOptions`/`SelectResponseStream`) | S3 Select IO | input/output serialization for server-side `SELECT` |
+|  [11]   | `Minio.DataModel.Notification.*` (`BucketNotification`/`EventType`/`MinioNotificationRaw`) | notification | bucket event configuration + the raw event payload |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -127,7 +126,7 @@ The operation surface is a `*Args` builder hierarchy (`RequestArgs` → `BucketA
 [BOUNDARY_FAULTS]: the `Minio.Exceptions` family lifted at the object-store edge
 - rail: object-store
 
-| [INDEX] | [THROWN]                          | [DISCRIMINANT / CASE]                                          |
+| [INDEX] | [THROWN]                          | [DISCRIMINANT_CASE]                                          |
 | :-----: | :-------------------------------- | :------------------------------------------------------------ |
 |  [01]   | `MinioException`                  | the base — `ServerMessage`/`ServerResponse`/`Response` (`ResponseResult`) |
 |  [02]   | `BucketNotFoundException` / `ObjectNotFoundException` | the absent → `Option.None` boundary projection |
@@ -148,7 +147,7 @@ The operation surface is a `*Args` builder hierarchy (`RequestArgs` → `BucketA
 - write-once seal: the inherited `ObjectConditionalQueryArgs<T>.WithMatchETag`/`WithNotMatchETag` (on `StatObjectArgs`/`GetObjectArgs`/`PutObjectArgs`) and `CopyConditions.SetMatchETag`/`SetMatchETagNone` are the optimistic-concurrency edge — a racing second writer to the same content-key `412`s (`PreconditionFailedException`), folded to `RemoteStoreFault.Conflict` and treated as success since the content is identical by hash, the same write-once law `api-objectstore#WRITE_ONCE_SEAL` states for the cloud providers.
 - content-hash descriptor: `ObjectStat.ETag` + `ObjectStat.MetaData` is the content-hash/identity evidence the `Element/codec` content-addressed spine and `Query/cache` index read, the `XxHash128` (`System.IO.Hashing`) content key being the object name — Minio stores the bytes, the settled `#ARTIFACT_FRAMES` frame law owns framing.
 - self-provisioned tier residence: a self-hosted S3 engine (pgsty/minio continuation image, Ceph RGW) is the server the `Store/provisioning` tier reaches, the on-prem counterpart to the cloud buckets — the `Store ← Rasm.AppHost/Observability # [HEALTH_PROBE]` reachability probe folds the S3 endpoint health into the same `HealthContributorRow` as Npgsql/Redis.
-- S3 Select pushdown: `SelectObjectContentAsync` over a CSV/JSON/**Parquet** object pushes a server-side `SELECT` into the store, the object-store analogue of the `Query/columnar` columnar pushdown — a stored `ParquetSharp`-written object is queried in place without a full GET.
+- S3 Select pushdown: `SelectObjectContentAsync` over a CSV/JSON/Parquet object pushes a server-side `SELECT` into the store, the object-store analogue of the `Query/columnar` columnar pushdown — a stored `ParquetSharp`-written object is queried in place without a full GET.
 - Reactive change feed: `ListenBucketNotificationsAsync` → `IObservable<MinioNotificationRaw>` (`System.Reactive`) is an external object-mutation stream a `Version/ledger` ingress can fold, distinct from the internal op-log changefeed.
 - credential acquisition is connection input handed over by app roots (`IClientProvider`, access/secret keys) per the `api-objectstore` law, never a Persistence fence member.
 

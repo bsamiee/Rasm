@@ -1,4 +1,4 @@
-# [@perspective-dev/client] — the WASM+Arrow streaming pivot engine: one Client owning Tables, one View protocol carrying group/split/aggregate/filter/sort/expressions, Arrow deltas end to end
+# [TS_UI_API_PERSPECTIVE_DEV_CLIENT]
 
 [PACKAGE_SURFACE]:
 - package: `@perspective-dev/client` · license `Apache-2.0` — the LIVE scope (`perspective-dev/perspective`); the `@finos/perspective` scope is dead and never cited.
@@ -41,17 +41,17 @@ interface Table {
 
 ## [02]-[VIEW_PROTOCOL]
 
-The `ViewConfigUpdate` value is the whole query surface (current spellings — the legacy `row_pivots`/`column_pivots` names are dead):
+The `ViewConfigUpdate` value is the whole query surface (current spellings — the retired `row_pivots`/`column_pivots` names are dead):
 
-| [INDEX] | [FIELD]                          | [SHAPE]                                                                            | [ROLE]                                              |
-| :-----: | :------------------------------- | :----------------------------------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `group_by` / `split_by`          | `string[]`                                                                            | row pivots / column pivots                              |
-|  [02]   | `columns`                        | `(string \| null)[]`                                                                  | projected columns                                       |
-|  [03]   | `aggregates`                     | `Record<string, string \| [string, string[]]>`                                        | per-column aggregate; tuple form for dependent aggregates (`min by`/`max by`/`weighted mean`) |
-|  [04]   | `filter` + `filter_op`           | `[column, operator, term][]` · `"and" \| "or"`                                        | predicate rows                                          |
-|  [05]   | `sort`                           | `[column, "asc" \| "desc" \| "col asc" \| "col desc" \| "asc abs" \| "desc abs" \| …][]` | sort rows incl. column-axis and absolute variants       |
-|  [06]   | `expressions`                    | `Record<string, string>`                                                              | ExprTK computed columns — validated via `table.validate_expressions` |
-|  [07]   | `group_by_depth` / `group_rollup_mode` | `number` · `"rollup" \| "flat" \| "total"`                                       | tree depth and rollup presentation                      |
+| [INDEX] | [FIELD] | [SHAPE] | [ROLE] |
+|:-----: |:------------------------------- |:----------------------------------------------------------------------------------- |:----------------------------------------------------- |
+| [01] | `group_by` / `split_by` | `string[]` | row pivots / column pivots |
+| [02] | `columns` | `(string \| null)[]` | projected columns |
+| [03] | `aggregates` | `Record<string, string \| [string, string[]]>` | per-column aggregate; tuple form for dependent aggregates (`min by`/`max by`/`weighted mean`) |
+| [04] | `filter` + `filter_op` | `[column, operator, term][]` · `"and" \| "or"` | predicate rows |
+| [05] | `sort` | `[column, "asc" \| "desc" \| "col asc" \| "col desc" \| "asc abs" \| "desc abs" \| …][]` | sort rows incl. column-axis and absolute variants |
+| [06] | `expressions` | `Record<string, string>` | ExprTK computed columns — validated via `table.validate_expressions` |
+| [07] | `group_by_depth` / `group_rollup_mode` | `number` · `"rollup" \| "flat" \| "total"` | tree depth and rollup presentation |
 
 Aggregate roster (numeric): `sum` `abs sum` `sum not null` `avg` `mean` `count` `distinct count` `dominant` `first` `last` `last by index` `high` `low` `max` `min` `high minus low` `last minus first` `median` `q1` `q3` `pct sum parent` `pct sum total` `stddev` `var` `unique` `weighted mean` `min by` `max by`; string adds `join`, date/datetime and boolean carry the applicable subset.
 

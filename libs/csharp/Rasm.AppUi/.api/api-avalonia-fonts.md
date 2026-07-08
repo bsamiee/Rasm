@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Fonts.Inter`
 - package: `Avalonia.Fonts.Inter`
-- version: `12.0.5`
 - license: `MIT` (package); the embedded Inter faces ship under the SIL Open Font License 1.1
 - assembly: `Avalonia.Fonts.Inter` (AnyCPU IL, managed-only)
 - build-floor: `net10.0` (consumer-bound asset; `net8.0` fallback present, not bound)
@@ -25,7 +24,7 @@
 |  [01]   | `InterFontCollection`   | `sealed class InterFontCollection : EmbeddedFontCollection` | Inter family owner  |
 |  [02]   | `AppBuilderExtension`   | `static class` (namespace `Avalonia`)                       | builder admission   |
 
-`InterFontCollection()` is parameterless and hard-codes its two URIs to the base: `base(new Uri("fonts:Inter"), new Uri("avares://Avalonia.Fonts.Inter/Assets"))`. The first is the **family key** (`FontFamily = "fonts:Inter#Inter"` once loaded); the second is the asset root the base scans.
+`InterFontCollection()` is parameterless and hard-codes its two URIs to the base: `base(new Uri("fonts:Inter"), new Uri("avares://Avalonia.Fonts.Inter/Assets"))`. The first is the family key (`FontFamily = "fonts:Inter#Inter"` once loaded); the second is the asset root the base scans.
 
 [BOUNDARY_TYPES]: composed from `Avalonia.Base`, NOT defined here — the typography owner binds these directly
 - rail: typography
@@ -68,7 +67,7 @@ The collection synthesizes intermediate weights/italics from these six faces thr
 ## [04]-[INTEGRATION_LAW]
 
 [TYPOGRAPHY_RAIL_LAW]:
-- Stack: `WithInterFont` is the **default-family leg** of the app-builder font pass; the Theme typography owner composes it alongside `ConfigureFonts`-registered icon/mono collections so every AppUi modality resolves type through one registry, then sets `Application.Resources` / control `FontFamily` to `fonts:Inter#Inter`.
+- Stack: `WithInterFont` is the default-family leg of the app-builder font pass; the Theme typography owner composes it alongside `ConfigureFonts`-registered icon/mono collections so every AppUi modality resolves type through one registry, then sets `Application.Resources` / control `FontFamily` to `fonts:Inter#Inter`.
 - Accept: typography roles bind to the embedded `fonts:Inter` family (or a sibling embedded collection) so render output is byte-identical across the macOS desktop and the headless raster backend — no host font probing.
 - Reject: system-font assumptions, per-host fallback families as public package behavior, or a hand-rolled `EmbeddedFontCollection` subclass when `InterFontCollection` already owns the Inter asset root.
 

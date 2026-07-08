@@ -15,13 +15,12 @@ materials.
 
 [PACKAGE_SURFACE]: `dotbim`
 - package: `dotbim`
-- version: `1.2.0`
 - license: MIT
 - assembly: `dotbim`
 - namespace: `dotbim`
 - asset: `netstandard2.0` only; the `net10.0` consumer binds `lib/netstandard2.0` (single TFM, binds forward)
 - serialization: `System.Text.Json` (every public member carries a snake_case `[JsonPropertyName]`; the `.bim` wire is STJ, not Newtonsoft)
-- transitive-floor: `System.Text.Json` (`8.0.5`; inbox-superseded on `net10.0`)
+- transitive-floor: `System.Text.Json` (; inbox-superseded on `net10.0`)
 - rail: interchange
 
 ## [02]-[PUBLIC_TYPES]
@@ -34,21 +33,21 @@ The wire is deliberately flat: `File` owns a `Meshes` pool and an `Elements` lis
 `Element` is one placement of one pooled mesh (the instancing seam — many elements share one
 `Mesh` by `MeshId`).
 
-| [INDEX] | [SYMBOL]   | [RAIL]      | [CAPABILITY]                                                                                                                              |
-| :-----: | :--------- | :---------- | :-------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `File`     | interchange | document root: `SchemaVersion` (`"schema_version"`), `Meshes` (`List<Mesh>`), `Elements` (`List<Element>`), `Info` (`Dictionary<string,string>`); instance `Save(path, format)` + static `Read(path)` |
-|  [02]   | `Mesh`     | interchange | shared geometry: `MeshId` (`"mesh_id"`, the pool key — setter throws `ArgumentException` when `< 0`), `Coordinates` (`List<double>`, flat XYZ triples), `Indices` (`List<int>`, triangle vertex indices) |
-|  [03]   | `Element`  | interchange | placed instance: `MeshId` (mesh reference), `Vector` (translation), `Rotation` (quaternion), `Guid` (validated identity), `Type`, `Color`, `FaceColors` (`List<int>`, per-face RGBA stream), `Info` (`Dictionary<string,string>`) |
+| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
+|:-----: |:--------- |:---------- |:-------------------------------------------------------------------------------------------------------------------------------------- |
+| [01] | `File` | interchange | document root: `SchemaVersion` (`"schema_version"`), `Meshes` (`List<Mesh>`), `Elements` (`List<Element>`), `Info` (`Dictionary<string,string>`); instance `Save(path, format)` + static `Read(path)` |
+| [02] | `Mesh` | interchange | shared geometry: `MeshId` (`"mesh_id"`, the pool key — setter throws `ArgumentException` when `< 0`), `Coordinates` (`List<double>`, flat XYZ triples), `Indices` (`List<int>`, triangle vertex indices) |
+| [03] | `Element` | interchange | placed instance: `MeshId` (mesh reference), `Vector` (translation), `Rotation` (quaternion), `Guid` (validated identity), `Type`, `Color`, `FaceColors` (`List<int>`, per-face RGBA stream), `Info` (`Dictionary<string,string>`) |
 
 [PUBLIC_TYPE_SCOPE]: placement and color value types
 - namespace: `dotbim`
 - rail: interchange
 
-| [INDEX] | [SYMBOL]    | [RAIL]      | [CAPABILITY]                                                                                                  |
-| :-----: | :---------- | :---------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Vector`    | interchange | `struct` translation: `X`/`Y`/`Z` (`double`, `"x"`/`"y"`/`"z"`) — the element origin in model space          |
-|  [02]   | `Rotation`  | interchange | `struct` orientation as a quaternion: `Qx`/`Qy`/`Qz`/`Qw` (`double`, `"qx"`…`"qw"`) — NOT Euler angles      |
-|  [03]   | `Color`     | interchange | `struct` RGBA: `R`/`G`/`B`/`A` (`int`, `"r"`…`"a"`) — each setter throws `ArgumentException` outside `0..255` |
+| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
+|:-----: |:---------- |:---------- |:---------------------------------------------------------------------------------------------------------- |
+| [01] | `Vector` | interchange | `struct` translation: `X`/`Y`/`Z` (`double`, `"x"`/`"y"`/`"z"`) — the element origin in model space |
+| [02] | `Rotation` | interchange | `struct` orientation as a quaternion: `Qx`/`Qy`/`Qz`/`Qw` (`double`, `"qx"`…`"qw"`) — NOT Euler angles |
+| [03] | `Color` | interchange | `struct` RGBA: `R`/`G`/`B`/`A` (`int`, `"r"`…`"a"`) — each setter throws `ArgumentException` outside `0..255` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -59,10 +58,10 @@ The wire is deliberately flat: `File` owns a `Meshes` pool and an `Elements` lis
 The codec is the two `File` members; there is no separate reader/writer/options type. Both
 enforce the `.bim` extension and route through `System.Text.Json`.
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                              | [CAPABILITY]                                                                                  |
-| :-----: | :----------------- | :---------------------------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `File.Read`        | `static (string path) → File`             | `JsonSerializer.Deserialize<File>` of the file text; throws `ArgumentException` unless `path` ends `.bim` |
-|  [02]   | `File.Save`        | `(string path, bool format = true)`       | `JsonSerializer.Serialize` (`WriteIndented = format`) to `path`; throws unless `path` ends `.bim` |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:----------------- |:---------------------------------------- |:------------------------------------------------------------------------------------------- |
+| [01] | `File.Read` | `static (string path) → File` | `JsonSerializer.Deserialize<File>` of the file text; throws `ArgumentException` unless `path` ends `.bim` |
+| [02] | `File.Save` | `(string path, bool format = true)` | `JsonSerializer.Serialize` (`WriteIndented = format`) to `path`; throws unless `path` ends `.bim` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

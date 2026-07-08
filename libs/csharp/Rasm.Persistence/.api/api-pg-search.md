@@ -49,13 +49,13 @@ operators compose inside an `@@@` expression.
 ## [04]-[PDB_BUILDERS]
 
 The `pdb.*` query builders the `Bm25Predicate` union projects to the right of `@@@`. The cast-wrapper
-modifiers (`::pdb.*`) compose over any inner predicate and **stack** in cast order
+modifiers (`::pdb.*`) compose over any inner predicate and stack in cast order
 (`'shose'::pdb.fuzzy(2)::pdb.boost(2)` applies typo tolerance then a score multiplier).
 
 | [INDEX] | [BUILDER]            | [SIGNATURE]                                                                | [SEMANTICS]                              |
 | :-----: | :------------------- | :------------------------------------------------------------------------- | :--------------------------------------- |
 |  [01]   | `pdb.parse`          | `pdb.parse('q', lenient => bool, conjunction_mode => bool)`                | free-text Tantivy query-string parse     |
-|  [02]   | `pdb.match`          | `pdb.match('q', distance => n, prefix => bool, conjunction_mode => bool)`  | analyzed (tokenized) per-field match carrying its own per-match fuzzy `distance`/`prefix` — the `Bm25Predicate.Match` case (distinct from the `|||`/`&&&` bare-column operators) |
+|  [02]   | `pdb.match`          | `pdb.match('q', distance => n, prefix => bool, conjunction_mode => bool)`  | analyzed per-field fuzzy match |
 |  [03]   | `pdb.range_term`     | `pdb.range_term('v', relation => 'r', range_type => 't')`                  | range-membership term                    |
 |  [04]   | `pdb.phrase_prefix`  | `pdb.phrase_prefix(ARRAY['a','b'], max_expansions => n)`                   | phrase with prefix-expanded last term    |
 |  [05]   | `pdb.more_like_this` | `pdb.more_like_this('doc_id', fields => ARRAY[...], max_query_terms => n)` | similar-document retrieval (key-anchored)|

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Melanchall.DryWetMidi`
 - package: `Melanchall.DryWetMidi`
-- version: `8.0.3`
 - license: `MIT`
 - assembly: `Melanchall.DryWetMidi`
 - consumer-tfm: `netstandard2.0` (package ships only `netstandard2.0`/`net45`; `net10.0` binds the `netstandard2.0` asset)

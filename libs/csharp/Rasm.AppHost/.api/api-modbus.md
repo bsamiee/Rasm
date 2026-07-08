@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `FluentModbus`
 - package: `FluentModbus`
-- version: `5.3.2`
 - license: `MIT`
 - assembly: `FluentModbus`
 - namespace: `FluentModbus`

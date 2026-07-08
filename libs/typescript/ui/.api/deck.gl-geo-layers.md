@@ -1,4 +1,4 @@
-# [@deck.gl/geo-layers] — geospatial layer rows: tiles, terrain, trips; scope:viewer project-local
+# [TS_UI_API_DECK_GL_GEO_LAYERS]
 
 `@deck.gl/geo-layers` is the geospatial composite tier the `ui/viewer/geo/layers` plane composes over `@deck.gl/layers`: the `TileLayer` streaming engine (with its pluggable `Tileset2D` indexer and `Tile2DHeader` cache), its payload specializations (`MVTLayer` vector tiles, `TerrainLayer` Martini meshes, `Tile3DLayer` OGC 3D Tiles), the `TripsLayer` time-animated path, the `WMSLayer` image-source binding, and the discrete-global-grid cell family. That cell family is one parameterized pattern, not five layers: `GeoCellLayer` (abstract, `indexToBounds()` → `PolygonLayer`) is specialized only by the index accessor — `S2Layer.getS2Token`, `QuadkeyLayer.getQuadkey`, `GeohashLayer.getGeohash`, `A5Layer.getPentagon`, `H3ClusterLayer.getHexagons` — with `H3HexagonLayer` the high-precision GPU sibling. Most rows are `CompositeLayer` subclasses reusing the `@deck.gl/layers` marks (`TileLayer`/cell family/`Tile3DLayer` render sublayers); `TripsLayer` and the deprecated `GreatCircleLayer` are primitive-`Layer` subclasses (`PathLayer`/`ArcLayer`). This catalog documents the tiling/streaming machinery and the per-scheme accessors, deferring the base `Layer`/`Accessor`/`Viewport` surface to `.api/deck.gl-core.md`, the mark vocabulary to `.api/deck.gl-layers.md`, the `Tile3DLayer` glTF/mesh rendering to `.api/deck.gl-mesh-layers.md`, and the `extensions` pack to `.api/deck.gl-extensions.md`. `scope:viewer` project-local.
 
@@ -6,10 +6,9 @@
 
 [PACKAGE_SURFACE]: `@deck.gl/geo-layers`
 - package: `@deck.gl/geo-layers`
-- version: `9.3.5`
 - license: `MIT`
 - abi: browser WebGL2/WebGPU via `@deck.gl/core`; worker-backed tile parsing via loaders.gl worker pools
-- peer (`~9.3.0` deck family, `^4.4.x` loaders): the deck peers are admitted centrally with their own catalogs — `@deck.gl/core` (`CompositeLayer`/`Viewport`/`Accessor`, `.api/deck.gl-core.md`), `@deck.gl/layers` (`PolygonLayer`/`PathLayer`/`GeoJsonLayer`/`ScatterplotLayer` the composites render, `.api/deck.gl-layers.md`), `@deck.gl/mesh-layers` (`Tile3DLayer`'s glTF via `SimpleMeshLayer`/`ScenegraphLayer`, `.api/deck.gl-mesh-layers.md`), `@deck.gl/extensions` (the `LayerExtension` pack the `extensions` prop consumes, `.api/deck.gl-extensions.md`); the substrate stays transitive/deck-owned — `@luma.gl/core`+`/engine`+`/gltf`+`/shadertools`, `@loaders.gl/core`+`/mvt`+`/3d-tiles`+`/terrain`+`/wms`+`/tiles`+`/gis` (tile decoders), `@math.gl/core`+`/web-mercator`+`/culling` (tile-index + frustum math), `h3-js`/`a5-js`/`long` (DGGS index → boundary)
+- peer (`~catalog` deck family, catalog loaders): the deck peers are admitted centrally with their own catalogs — `@deck.gl/core` (`CompositeLayer`/`Viewport`/`Accessor`, `.api/deck.gl-core.md`), `@deck.gl/layers` (`PolygonLayer`/`PathLayer`/`GeoJsonLayer`/`ScatterplotLayer` the composites render, `.api/deck.gl-layers.md`), `@deck.gl/mesh-layers` (`Tile3DLayer`'s glTF via `SimpleMeshLayer`/`ScenegraphLayer`, `.api/deck.gl-mesh-layers.md`), `@deck.gl/extensions` (the `LayerExtension` pack the `extensions` prop consumes, `.api/deck.gl-extensions.md`); the substrate stays transitive/deck-owned — `@luma.gl/core`+`/engine`+`/gltf`+`/shadertools`, `@loaders.gl/core`+`/mvt`+`/3d-tiles`+`/terrain`+`/wms`+`/tiles`+`/gis` (tile decoders), `@math.gl/core`+`/web-mercator`+`/culling` (tile-index + frustum math), `h3-js`/`a5-js`/`long` (DGGS index → boundary)
 - catalog-verdict: KEEP — the tiling + DGGS + terrain + 3D-tiles tier; no lower-level substitute
 - runtime: `scope:viewer` project-local; tile fetch/parse is async + worker-backed, layers are declarative
 - modules: `TileLayer`, `MVTLayer`, `TerrainLayer`, `Tile3DLayer`, `TripsLayer`, `H3HexagonLayer`, `H3ClusterLayer`, `S2Layer`, `QuadkeyLayer`, `GeohashLayer`, `A5Layer`, `_GeoCellLayer`, `_WMSLayer`, `GreatCircleLayer` (deprecated), `_Tileset2D`/`_Tile2DHeader`
@@ -19,8 +18,8 @@
 [TYPE_SCOPE]: `TileLayer` — the generic viewport-driven tile streamer; one engine parameterized by tile-payload type `DataT`, the `getTileData` loader, and the `renderSubLayers` renderer.
 - `TileLayer` computes visible tile indices from the `Viewport`, calls `getTileData(props: TileLoadProps): Promise<DataT>` per tile (bounded by `maxRequests`/`debounceTime`), caches results in `Tile2DHeader`s (`maxCacheSize`/`maxCacheByteSize`, `refinementStrategy` for load-in behavior), and renders each via `renderSubLayers({tile, data, _offset})`. `Tileset2D` is swappable (`TilesetClass`) for non-XYZ schemes. The `onTileLoad`/`onTileUnload`/`onTileError`/`onViewportLoad` callbacks are one tile-lifecycle family.
 
-| [INDEX] | [SYMBOL] | [SIGNATURE / KEY PROPS] | [CONSUMER / BOUNDARY] |
-| :-----: | :------- | :---------------------- | :-------------------- |
+| [INDEX] | [SYMBOL] | [SIGNATURE_KEY_PROPS] | [CONSUMER_BOUNDARY] |
+|:-----: |:------- |:---------------------- |:-------------------- |
 | [01] | `TileLayer<DataT>` (composite) | `data: URLTemplate`; `getTileData: (TileLoadProps) => Promise<DataT>`, `renderSubLayers: (props & {tile,data,_offset}) => Layer\|LayersList`, `TilesetClass?` | the streaming base; raster/vector/mesh tiles |
 | [02] | `TileLayerProps` cache/zoom axis | `tileSize`, `minZoom`/`maxZoom`, `zoomOffset`, `extent`, `zRange`, `maxCacheSize`/`maxCacheByteSize`, `maxRequests`, `debounceTime`, `refinementStrategy`, `visibleMin/MaxZoom` | fetch throttling + cache + LOD policy |
 | [03] | tile-lifecycle callbacks | `onTileLoad(tile)`, `onTileUnload(tile)`, `onTileError(err,tile)`, `onViewportLoad(tiles)` | one callback family; `onViewportLoad` = all-visible-loaded gate |
@@ -34,8 +33,8 @@
 [TYPE_SCOPE]: `TileLayer` specialized by payload — vector tiles, terrain meshes, 3D-tile hierarchies. Each fixes `DataT`, `getTileData`, and `renderSubLayers` for its format.
 - `MVTLayer` decodes Mapbox Vector Tiles (binary by default) and renders through `GeoJsonLayer`, adding cross-tile feature highlight; `TerrainLayer` reconstructs a Martini mesh from an RGB-encoded elevation raster and drapes a texture; `Tile3DLayer` streams an OGC 3D Tiles / I3S hierarchy (its own `Tileset3D`, not `Tileset2D`).
 
-| [INDEX] | [SYMBOL] | [DISTINCTIVE SURFACE] | [CONSUMER / BOUNDARY] |
-| :-----: | :------- | :-------------------- | :-------------------- |
+| [INDEX] | [SYMBOL] | [DISTINCTIVE_SURFACE] | [CONSUMER_BOUNDARY] |
+|:-----: |:------- |:-------------------- |:-------------------- |
 | [01] | `MVTLayer<FeatProps>` | `data: TileJson \| URLTemplate`; `binary` (default true), `uniqueIdProperty`, `highlightedFeatureId`, `loaders`; all `GeoJsonLayer` accessors; `getRenderedFeatures(maxFeatures?): Feature[]`, `MVTLayerPickingInfo` adds `tile` | vector basemaps/overlays; cross-tile feature highlight |
 | [02] | `TerrainLayer` | `elevationData: URLTemplate`, `texture?`, `elevationDecoder: {rScaler,gScaler,bScaler,offset}`, `meshMaxError` (Martini tolerance), `bounds`, `color`, `wireframe`, `material` | 3D terrain surface; RGB height → mesh |
 | [03] | `Tile3DLayer<DataT>` | `data: string` (tileset.json), `getPointColor`, `pointSize`, `onTilesetLoad(Tileset3D)`, `onTileLoad(Tile3D)`, `onTileUnload`, `onTileError`, `_getMeshColor`, `loaders` | photogrammetry/BIM/point-cloud 3D tiles (b3dm/pnts/i3s) |
@@ -45,8 +44,8 @@
 [TYPE_SCOPE]: the discrete-global-grid cell family — one `GeoCellLayer` pattern discriminated by index scheme — plus the time-animated `TripsLayer` and the `WMSLayer` image binding.
 - `GeoCellLayer` (abstract composite) implements `indexToBounds()` to map a cell index → polygon boundary and renders through `PolygonLayer`; each concrete cell layer supplies only the index accessor and the index→boundary decode. `S2`/`Quadkey`/`Geohash`/`A5`/`H3Cluster` are this one pattern with a different DGGS; `H3HexagonLayer` is the specialized high-precision GPU path (extends `PolygonLayer` directly, adds `highPrecision`/`coverage`/`centerHexagon`). Treat the cell family as one parameterized row keyed by index scheme, not five layers.
 
-| [INDEX] | [SYMBOL] | [INDEX ACCESSOR / DISTINCTIVE] | [CONSUMER / BOUNDARY] |
-| :-----: | :------- | :---------------------------- | :-------------------- |
+| [INDEX] | [SYMBOL] | [INDEX_ACCESSOR_DISTINCTIVE] | [CONSUMER_BOUNDARY] |
+|:-----: |:------- |:---------------------------- |:-------------------- |
 | [01] | `_GeoCellLayer<DataT>` (abstract) | `indexToBounds(): Partial<props>`; inherits all `PolygonLayer` accessors (`getFillColor`/`getLineColor`/`getElevation`/`extruded`/…) | the cell-family base; specialize the index decode |
 | [02] | `S2Layer<DataT>` | `getS2Token: (d) => string` | S2 quadtree cells |
 | [03] | `QuadkeyLayer<DataT>` | `getQuadkey: (d) => string` | Bing/quadkey tile cells |
@@ -76,7 +75,7 @@
 [LOCAL_ADMISSION]:
 - imported only inside `ui/viewer` (`scope:viewer`); tile fetch/parse is async and worker-backed.
 - treat the DGGS cell family as one parameterized surface keyed by index scheme; adding a grid is one `GeoCellLayer` subclass, never five parallel layers.
-- `_`-prefixed exports (`_GeoCellLayer`, `_WMSLayer`, `_Tileset2D`, `_Tile2DHeader`) are experimental/advanced — instantiate the concrete cell layers and `TileLayer`; reach for `_Tileset2D`/`_Tile2DHeader` only to author a custom indexer.
+- `_`-prefixed exports (`_GeoCellLayer`, `_WMSLayer`, `_Tileset2D`, `_Tile2DHeader`) are overlay/advanced — instantiate the concrete cell layers and `TileLayer`; reach for `_Tileset2D`/`_Tile2DHeader` only to author a custom indexer.
 - `GreatCircleLayer` is deprecated → `ArcLayer{greatCircle:true}`; `TerrainLayer.workerUrl` is deprecated → `loadOptions.terrain.workerUrl`.
 - `Tile3DLayer` uses `Tileset3D` (3D-tiles), not `Tileset2D` — its cache/LOD is governed by the tileset hierarchy, not the 2D tile props; it renders glTF/b3dm through the admitted `@deck.gl/mesh-layers` peer (`SimpleMeshLayer`/`ScenegraphLayer`; `.api/deck.gl-mesh-layers.md`), the peer that must resolve or `Tile3DLayer` and mesh tiles fail.
 - the `@deck.gl/mesh-layers`/`@deck.gl/extensions` peers are admitted centrally in `pnpm-workspace.yaml` (own catalogs `.api/deck.gl-mesh-layers.md`/`.api/deck.gl-extensions.md`), so `Tile3DLayer` mesh rendering and the `extensions` prop resolve concretely — no longer transitive-only.

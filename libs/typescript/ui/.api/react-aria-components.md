@@ -1,10 +1,10 @@
-# [react-aria-components] — the headless accessible component spine: one render-props + context + slot pattern, ~65 components as seed data on it
+# [TS_UI_API_REACT_ARIA_COMPONENTS]
 
 [PACKAGE_SURFACE]:
-- package: `react-aria-components` · version `1.19.0` · license `Apache-2.0`
+- package: `react-aria-components` · version `` · license `Apache-2.0`
 - module: dual — `dist/exports/index.mjs` (ESM) + `dist/exports/index.cjs` (CJS); per-component subpaths (`react-aria-components/Button`, …) via `exports["./*"]`; `./i18n` + `./i18n/*` locale bundles. `sideEffects: ["*.css"]` — the headless core is pure; only the optional bundled stylesheet side-effects. `client-only` import ⇒ client-tier (RSC boundary).
-- asset: `dist/types/exports/index.d.ts` + ~80 per-component `.d.ts` (`assay api resolve react-aria-components` → `1.19.0`, `restore: restored`, 79 declaration assets).
-- runtime: React 19 render-time; internalizes `react-aria@3.50.0` (behavior/ARIA hooks) + `react-stately@3.48.0` (collection/selection/form state) + `@internationalized/date@^3.12` (calendar/date values) + `@react-types/shared` (the shared vocab). Peer react/react-dom 19.
+- asset: `dist/types/exports/index.d.ts` + ~80 per-component `.d.ts` (`restore: restored`, 79 declaration assets).
+- runtime: React 19 render-time; internalizes `react-aria@catalog` (behavior/ARIA hooks) + `react-stately@catalog` (collection/selection/form state) + `@internationalized/date catalog` (calendar/date values) + `@react-types/shared` (the shared vocab). Peer react/react-dom 19.
 - plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, the headless spine every `view` row composes.
 - rail: `ui/view` — the accessible component spine.
 - role: `view/primitive.md` (the component spine + toast/live-region) and `view/compose.md` (Schema→aria FormBinding, picker, table/virtual, floating-anchor/sheet rows).
@@ -46,18 +46,18 @@ Consumer note: styling rarely needs the function form — the `data-*` selectors
 
 The roster — each row a family of the `Xxx` / `XxxContext` / `XxxStateContext` triple. Every `XxxProps extends Aria<Xxx>Props, RenderProps<XxxRenderProps>, SlotProps` plus a shared DOM-attributes base; each `XxxRenderProps` exposes the boolean/data state (`isHovered`, `isSelected`, `isDisabled`, `isPending`, `isOpen`, …) as `data-*` selectors. This is SEED DATA on [01], not a distinct API per row.
 
-| [INDEX] | [FAMILY]     | [COMPONENTS]                                                                                     | [STATE / AXIS]                                                        |
-| :-----: | :----------- | :---------------------------------------------------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | actions      | `Button` `ToggleButton` `ToggleButtonGroup` `Link` `FileTrigger`                                 | press/toggle/upload; `ButtonRenderProps.isPending`/`isDisabled`        |
-|  [02]   | collections  | `ListBox` `GridList` `Menu` `Table` `Tree` `TagGroup` `Tabs` `Breadcrumbs` `Toolbar`             | react-stately collection state; selection/sort/drag on the [03] engine |
-|  [03]   | pickers      | `Select` `ComboBox` `Autocomplete`                                                               | collection + overlay + `useFilter` locale matching                    |
-|  [04]   | overlays     | `DialogTrigger` `Dialog` `Modal` `ModalOverlay` `Popover` `Tooltip`(`Trigger`) `OverlayArrow`    | focus-trap + dismiss + positioning (`Placement`)                      |
-|  [05]   | fields       | `Form` `FieldError` `Label` `Input` `TextField` `TextArea` `SearchField` `NumberField`           | `validationBehavior` + `ValidationResult`                             |
-|  [06]   | toggles      | `Checkbox`(`Group`) `RadioGroup` `Switch` `Slider` `Meter` `ProgressBar`                         | react-stately toggle/slider/number state                             |
-|  [07]   | date/time    | `Calendar` `RangeCalendar` `DateField` `TimeField` `DatePicker` `DateRangePicker`                | `@internationalized/date` (`DateValue`/`TimeValue`/`DateRange`)        |
-|  [08]   | color        | `ColorPicker` `ColorArea` `ColorField` `ColorSlider` `ColorWheel` `ColorSwatch`(`Picker`) `ColorThumb` | `parseColor`/`getColorChannels`; `Color`/`ColorSpace`/`ColorChannel` |
-|  [09]   | structure    | `Group` `Separator` `Heading` `Header` `Text` `Keyboard` `Disclosure`(`Group`)                  | labeling/structure primitives                                        |
-|  [10]   | interaction  | `Pressable` `Focusable` `VisuallyHidden`                                                         | raw press/focus/SR-only on the aria spine                            |
+| [INDEX] | [FAMILY] | [COMPONENTS] | [STATE_AXIS] |
+|:-----: |:----------- |:---------------------------------------------------------------------------------------------- |:------------------------------------------------------------------- |
+| [01] | actions | `Button` `ToggleButton` `ToggleButtonGroup` `Link` `FileTrigger` | press/toggle/upload; `ButtonRenderProps.isPending`/`isDisabled` |
+| [02] | collections | `ListBox` `GridList` `Menu` `Table` `Tree` `TagGroup` `Tabs` `Breadcrumbs` `Toolbar` | react-stately collection state; selection/sort/drag on the [03] engine |
+| [03] | pickers | `Select` `ComboBox` `Autocomplete` | collection + overlay + `useFilter` locale matching |
+| [04] | overlays | `DialogTrigger` `Dialog` `Modal` `ModalOverlay` `Popover` `Tooltip`(`Trigger`) `OverlayArrow` | focus-trap + dismiss + positioning (`Placement`) |
+| [05] | fields | `Form` `FieldError` `Label` `Input` `TextField` `TextArea` `SearchField` `NumberField` | `validationBehavior` + `ValidationResult` |
+| [06] | toggles | `Checkbox`(`Group`) `RadioGroup` `Switch` `Slider` `Meter` `ProgressBar` | react-stately toggle/slider/number state |
+| [07] | date/time | `Calendar` `RangeCalendar` `DateField` `TimeField` `DatePicker` `DateRangePicker` | `@internationalized/date` (`DateValue`/`TimeValue`/`DateRange`) |
+| [08] | color | `ColorPicker` `ColorArea` `ColorField` `ColorSlider` `ColorWheel` `ColorSwatch`(`Picker`) `ColorThumb` | `parseColor`/`getColorChannels`; `Color`/`ColorSpace`/`ColorChannel` |
+| [09] | structure | `Group` `Separator` `Heading` `Header` `Text` `Keyboard` `Disclosure`(`Group`) | labeling/structure primitives |
+| [10] | interaction | `Pressable` `Focusable` `VisuallyHidden` | raw press/focus/SR-only on the aria spine |
 
 Consumer note: each component also exports `XxxContext` (inject props via `Provider`) and, where stateful, `XxxStateContext` (read the react-stately state — `ListStateContext`, `TableStateContext`, `OverlayTriggerStateContext`, `SelectStateContext`, `RootMenuTriggerStateContext`, `TooltipTriggerStateContext`, `TabListStateContext`, …). Compound composition reads the state context rather than prop-drilling.
 
@@ -111,7 +111,7 @@ The advanced surfaces beyond the roster — the pieces a dense compose/primitive
 
 [STACK: render dispatch + `effect/Match` (`.api/effect.md`)] — a `children`/`className` function dispatches the render state with `Match.value(renderProps)` for closed-arm styling; `renderEmptyState`/the `*LoadMoreItem` arms dispatch the `AsyncListData` status through `Match.tagsExhaustive`.
 
-[STACK: `I18nProvider`/`useLocale` + intl plane (`.api/react-aria.md`)] — the intl/format rows compose `I18nProvider` over native `Intl` keyed by the kernel `Locale` brand; RAC reads locale from it, `./i18n/*` bundles localize built-in component strings, and `useFilter` supplies the locale-aware ComboBox/Autocomplete matcher.
+[STACK: `I1 catalognProvider`/`useLocale` + intl plane (`.api/react-aria.md`)] — the intl/format rows compose `I1 catalognProvider` over native `Intl` keyed by the kernel `Locale` brand; RAC reads locale from it, `./i18n/*` bundles localize built-in component strings, and `useFilter` supplies the locale-aware ComboBox/Autocomplete matcher.
 
 [BOUNDARY: RAC vs sibling owners] — `Table`/`Virtualizer` (RAC: accessible interactive collection, selection/sort/resize/drag) vs `@tanstack/react-table`/`@tanstack/react-virtual` (`.api/tanstack-react-table.md`, `.api/tanstack-react-virtual.md`: headless data-grid modeling, arbitrary DOM virtualization) — accessible collection = RAC, heavy grid/faceting model = TanStack; where a heavy TanStack-modeled grid needs accessibility, the react-aria `grid`/`row`/`columnheader`/`gridcell` ARIA + roving-keyboard spine wraps the headless TanStack rows (react-aria semantics over the TanStack model), and `aria-rowcount`/`aria-rowindex` stay on the full logical count while `@tanstack/react-virtual` mounts only the visible span. `Popover`/`Tooltip` (RAC aria overlay + `Placement`) vs `@floating-ui/react` (`.api/floating-ui-react.md`: bespoke non-aria anchoring, presence-cursor cohort) — one positioner per node. `Autocomplete` (in-field filtering) vs `cmdk` (`.api/cmdk.md`: the global command palette). `Modal` vs `vaul` (`.api/vaul.md`: touch-drag bottom sheet). `Label`/`Separator`/`VisuallyHidden`/`render` (aria spine) vs the radix `.api/radix-ui-*` primitives (non-aria styling plane) — never a radix `Label` inside an RAC field. `SharedElementTransition` composes the `act/transition` native View Transitions owner; RAC `children` rendering decoded wire HTML sanitizes through `isomorphic-dompurify` (`.api/isomorphic-dompurify.md`) first; async collections wrap in `react-error-boundary` (`.api/react-error-boundary.md`) around `renderEmptyState`.
 
@@ -120,4 +120,4 @@ The advanced surfaces beyond the roster — the pieces a dense compose/primitive
 - Owns: the headless accessible component spine — the render-props + context + slot mechanism, the `Xxx`/`XxxContext`/`XxxStateContext` triple, the collection/overlay/form/date/color families, the shared collection engine (`Collection`/`CollectionBuilder`/`Virtualizer`/layouts/drag-drop), toast, and the i18n/router/SSR/filter infra.
 - Accept: composing the [01] pattern (not memorizing per-component APIs); `data-*` tailwind variants for state styling, the `className`/`children` function only where a variant cannot reach; `composeRenderProps` for styled wrappers; `Provider` for context collapse; `validationBehavior:'aria'` + `FieldError` fed by `Schema.standardSchemaV1`; controlled props bound to the atom; `I18nProvider`/`useLocale` over the intl plane; `createLeafComponent`/`createBranchComponent` for custom items; `Virtualizer` + a layout for large collections.
 - Reject: hand-rolling accessibility a component owns; a `className` string where a `data-*` variant expresses the state; nested `XContext.Provider` towers where `Provider` collapses them; `useListData` for state the atom binding owns; double-positioning an aria overlay with floating-ui; a radix `Label`/`Separator`/`VisuallyHidden` inside an aria field; importing the bundled `*.css` (style via tailwind); shipping `UNSTABLE_*` toast / `SharedElementTransition` without noting the pre-stable marker.
-- Boundary: `sideEffects: ["*.css"]` — the headless core is pure, only the optional stylesheet side-effects; `client-only` ⇒ client-tier (RSC boundary). Internalizes `react-aria@3.50.0` + `react-stately@3.48.0` + `@internationalized/date`; peer react/react-dom 19. Per-component subpaths + `./i18n/*` locale bundles. `UNSTABLE_`/`SharedElement*` are pre-stable API.
+- Boundary: `sideEffects: ["*.css"]` — the headless core is pure, only the optional stylesheet side-effects; `client-only` ⇒ client-tier (RSC boundary). Internalizes `react-aria@catalog` + `react-stately@catalog` + `@internationalized/date`; peer react/react-dom 19. Per-component subpaths + `./i18n/*` locale bundles. `UNSTABLE_`/`SharedElement*` are pre-stable API.

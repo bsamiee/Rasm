@@ -44,7 +44,10 @@ catalog documents its `SharpGLTF.Schema2.Tiles3D` surface at depth.
 - namespace: `SharpGLTF`
 - asset: net10.0, net8.0, net6.0, netstandard2.1, netstandard2.0 (consumer binds `net10.0`)
 - rail: geometry
-- consumer: transitive-only — pulled by `SharpGLTF.Toolkit` (`packages.lock.json` Toolkit→Runtime 1.0.6), explicitly version-pinned in the central manifest for central control, catalogued here for completeness, and registered by NO Compute README row and consumed by NO Compute design page. The `SceneTemplate`/`SceneInstance`/`RuntimeOptions` runtime-decode-plus-instancing surface is the `Rasm.Bim` glTF-import owner reached at `Runtime/codecs#TESSELLATION_BRIDGE` — the two-hop IFC-to-geometry re-import decodes the companion GLB through the Bim glTF import rail, so a Compute-side `SceneTemplate.CreateInstance` runtime decode is the deleted form. Only `SharpGLTF.Core` (the raw glTF-extension write surface `Runtime/codecs.md` composes), `SharpGLTF.Toolkit` (the `SceneBuilder`/`MeshBuilder` author path), and `SharpGLTF.Ext.3DTiles` (below — the Compute-owned leaf-body extension emitter) are direct Compute consumers.
+- consumer: transitive-only — pulled by `SharpGLTF.Toolkit`, catalogued here for completeness, and registered by NO Compute README row and consumed by NO Compute design page.
+
+[RUNTIME_DECODE_OWNER]:
+The `SceneTemplate`/`SceneInstance`/`RuntimeOptions` runtime-decode-plus-instancing surface is the `Rasm.Bim` glTF-import owner reached at `Runtime/codecs#TESSELLATION_BRIDGE`. The two-hop IFC-to-geometry re-import decodes the companion GLB through the Bim glTF import rail, so a Compute-side `SceneTemplate.CreateInstance` runtime decode is the deleted form. Only `SharpGLTF.Core`, `SharpGLTF.Toolkit`, and `SharpGLTF.Ext.3DTiles` are direct Compute consumers.
 
 [PACKAGE_SURFACE]: `SharpGLTF.Ext.3DTiles`
 - package: `SharpGLTF.Ext.3DTiles` (`1.0.6`)
@@ -484,9 +487,9 @@ The `EXT_structural_metadata` + `EXT_mesh_features` glTF extension schema the `R
 - `Validation` (`ValidationMode`) — validation strictness; applies at both read and write time through the matching settings class
 
 [COMPRESSION_LAW]:
-- `SharpGLTF.Core` 1.0.6 ships **no Draco encode surface and no meshopt encode surface** in this build; the package has zero types matching `KHR_draco_mesh_compression` or `EXT_meshopt_compression` in the decompiled assembly scope.
-- KHR_draco_mesh_compression read-side support can be registered via `ExtensionsFactory.RegisterExtension<MeshPrimitive, TDracoExt>(name)` when a separately compiled Draco decode adapter is provided by the caller; the core library carries only the extension framework, not the codec.
-- EXT_meshopt_compression and vertex quantization helpers are not present in Core 1.0.6; these are caller-provided or require a separate SharpGLTF extension package if available.
+- `SharpGLTF.Core` ships no Draco encode surface and no meshopt encode surface in this build; the package has zero types matching `KHR_draco_mesh_compression` or `EXT_meshopt_compression` in the decompiled assembly scope.
+- KHR_draco_mesh_compression read-side support registers via `ExtensionsFactory.RegisterExtension<MeshPrimitive, TDracoExt>(name)` when a separately compiled Draco decode adapter is provided by the caller; the core library carries only the extension framework, not the codec.
+- EXT_meshopt_compression and vertex quantization helpers are not present in Core; these are caller-provided or require a separate SharpGLTF extension package if available.
 - Consumers requiring Draco decode must supply a `JsonSerializable`-derived extension class and register it before any read call; no encode path exists in this version.
 
 [EXTENSION_REGISTRATION]:

@@ -38,8 +38,6 @@ Every domain library this folder owns directly, planned or implemented. Versions
 - `stamina`
 - `opentelemetry-instrumentation-grpc`
 - `grpcio-health-checking`
-- `obstore`
-- `fsspec`
 - `universal-pathlib`
 
 [SCHEDULING]:
@@ -55,9 +53,6 @@ Every domain library this folder owns directly, planned or implemented. Versions
 - `tree-sitter`
 - `tree-sitter-python`
 - `tree-sitter-typescript`
-
-[COMPRESSION]:
-- `lz4`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -81,6 +76,13 @@ Branch-wide substrate packages this folder consumes; the canonical registry and 
 
 [IDENTITY]:
 - `xxhash`
+
+[TRANSPORT]:
+- `fsspec`
+- `obstore`
+
+[COMPRESSION]:
+- `lz4`
 
 [WIRE_CODEGEN]:
 - `protobuf`

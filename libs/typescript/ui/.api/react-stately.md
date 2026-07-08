@@ -1,4 +1,4 @@
-# [react-stately] — the collection/selection/overlay STATE half of react-aria: one `use<Pattern>State(props) → <Pattern>State` family over a shared `Collection`/`Node` + `SelectionManager` substrate, plus the mutable client data hooks (`useListData`/`useAsyncList`/`useTreeData`) that bridge dynamic collections to the Effect data plane
+# [TS_UI_API_REACT_STATELY]
 
 `react-stately` is the framework-agnostic state layer beneath the react-aria spine — the meta-package re-exporting every `@react-stately/*` hook. Its shape is one parameterized pattern, not a heap of unrelated hooks: for each ARIA design pattern P there is a `use<P>State(props) → <P>State` hook that owns *only* P's interaction state (which item is focused/selected, whether an overlay is open, the segments of a date being edited, a slider's thumb positions), and the matching react-aria `use<P>` behavior hook (`.api/react-aria.md`) and react-aria-components `<P>` component (`.api/react-aria-components.md`) consume that state object. Every collection-backed pattern folds over the same substrate — `Collection<Node<T>>` (the normalized item tree) and `MultipleSelectionManager`/`MultipleSelectionState` (the selection model, exposed as the `.selectionManager` property) — so selection, focus, and disabled semantics are defined once and reused across list/tree/table/menu/combobox. The state it holds is *ephemeral and interaction-local*; domain/app state is the `@effect-atom` fold (`.api/effect-atom-atom-react.md`), and the seam between them is the mutable data hooks (`useListData`/`useAsyncList`/`useTreeData`), whose `load`/mutation surface is where an Effect runtime feeds a dynamic collection. Because react-aria-components bundles state+behavior+DOM, this package is used *directly* only when composing a custom primitive below RAC or driving a dynamic collection; the standalone hooks are the escape hatch, not the default.
 
@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `react-stately`
 - package: `react-stately` (umbrella re-export of the `@react-stately/*` scope)
-- version: `3.48.0`
 - license: `Apache-2.0` (© Adobe)
 - module format: ESM/CJS dual (`import`/`require` conditions) with a per-hook `./*` subpath mirroring each `@react-stately/*` module; `sideEffects` clean, so the barrel tree-shakes to the used hooks
 - runtime target: isomorphic (renderer-agnostic state — no DOM); pairs with react-aria for behavior and a renderer for DOM; peer `react`/`react-dom` `^19`
@@ -21,28 +20,28 @@
 - rail: shapes
 - These are defined once and reused across every collection-backed pattern — a `use<P>State` result exposes a selection manager (`MultipleSelectionManager`, the `.selectionManager` property) over a `Collection<Node<T>>`, so selection/focus/disabled semantics never fork per widget.
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                            |
-| :-----: | :------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
-|  [01]   | `Collection<T>` / `Node<T>` / `Key`                            | item tree          | the normalized collection every list/tree/table/menu state exposes; `Node` carries `key`/`value`/`rendered`/`childNodes` |
-|  [02]   | `MultipleSelectionManager` (`state.selectionManager`)         | selection engine   | the imperative select/toggle/anchor interface every selectable state exposes as `.selectionManager`; shared across patterns |
-|  [03]   | `MultipleSelectionState` / `SingleSelectionState` / `FocusState` | selection state   | the reactive selection/focus cells a behavior hook reads; `useMultipleSelectionState` builds them standalone |
-|  [04]   | `Selection` / `SelectionMode` / `SelectionBehavior` / `DisabledBehavior` | selection vocab | the closed value sets (`"single"`/`"multiple"`/`"none"`, `"toggle"`/`"replace"`, disabled `"selection"`/`"all"`) a props row selects by value |
-|  [05]   | `SortDescriptor` / `Orientation`                              | collection axis    | table column sort direction, list/tab orientation — the discriminants `view/compose` table and tab rows carry |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------- |:---------------- |:--------------------------------------------------------------- |
+| [01] | `Collection<T>` / `Node<T>` / `Key` | item tree | the normalized collection every list/tree/table/menu state exposes; `Node` carries `key`/`value`/`rendered`/`childNodes` |
+| [02] | `MultipleSelectionManager` (`state.selectionManager`) | selection engine | the imperative select/toggle/anchor interface every selectable state exposes as `.selectionManager`; shared across patterns |
+| [03] | `MultipleSelectionState` / `SingleSelectionState` / `FocusState` | selection state | the reactive selection/focus cells a behavior hook reads; `useMultipleSelectionState` builds them standalone |
+| [04] | `Selection` / `SelectionMode` / `SelectionBehavior` / `DisabledBehavior` | selection vocab | the closed value sets (`"single"`/`"multiple"`/`"none"`, `"toggle"`/`"replace"`, disabled `"selection"`/`"all"`) a props row selects by value |
+| [05] | `SortDescriptor` / `Orientation` | collection axis | table column sort direction, list/tab orientation — the discriminants `view/compose` table and tab rows carry |
 
 [PUBLIC_TYPE_SCOPE]: the per-pattern `<P>State` / `<P>Props` / `<P>StateOptions` families
 - rail: shapes
 - One triple per ARIA pattern: `<P>Props` is the caller input, `<P>StateOptions` the constructor input, `<P>State` the returned handle. They are a family indexed by pattern, not parallel designs — the table names the axes, not every member.
 
-| [INDEX] | [SYMBOL FAMILY]                                                | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                            |
-| :-----: | :------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------- |
-|  [01]   | `ListState` / `TreeState` / `TableState` / `SingleSelectListState` | collection state | `view/compose` list/tree/table/virtual rows; `TableState` carries `collection`/`sortDescriptor`/`selectionManager` |
-|  [02]   | `ComboBoxState` / `SelectState` / `MenuTriggerState` / `TabListState` | picker/menu state | combobox/select/menu/tabs — collection + selection + open state; `view/compose` picker + command-palette rows |
-|  [03]   | `ToggleState` / `CheckboxGroupState` / `RadioGroupState` / `NumberFieldState` / `SearchFieldState` / `SliderState` | field/value state | `view/primitive` form fields; each owns its committed value + validation, fed by `Schema`→aria `FormBinding` |
-|  [04]   | `OverlayTriggerState` / `TooltipTriggerState` / `DisclosureState` / `DisclosureGroupState` | overlay state | `view/compose` popover/sheet/tooltip/accordion open-close; `floating-ui` anchors the positioned surface |
-|  [05]   | `CalendarState` / `RangeCalendarState` / `DatePickerState` / `DateFieldState` / `TimeFieldState` | date/time state | latent date-picker `view` rows over `@internationalized/date` values (`DateValue`/`DateRange`/`DateSegment`) |
-|  [06]   | `ColorPickerState` / `ColorAreaState` / `ColorFieldState` / `ColorSliderState` / `ColorWheelState` | color state | color-picker `view` rows; `Color`/`ColorFormat`/`ColorChannel` from `parseColor`; composes `colorjs.io` for space math |
-|  [07]   | `ToastState<T>` / `QueuedToast<T>` / `ToastStateProps`         | toast queue        | `view/primitive` toast/announce rows; the queue backs the live-region announce (`@react-aria/live-announcer`) |
-|  [08]   | `ListData<T>` / `AsyncListData<T>` / `TreeData<T>` / `AsyncListLoadOptions` | mutable data store | the client collection the async/dynamic `view` rows mutate; the bridge to the Effect data plane |
+| [INDEX] | [SYMBOL_FAMILY] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------- |:---------------- |:--------------------------------------------------------------- |
+| [01] | `ListState` / `TreeState` / `TableState` / `SingleSelectListState` | collection state | `view/compose` list/tree/table/virtual rows; `TableState` carries `collection`/`sortDescriptor`/`selectionManager` |
+| [02] | `ComboBoxState` / `SelectState` / `MenuTriggerState` / `TabListState` | picker/menu state | combobox/select/menu/tabs — collection + selection + open state; `view/compose` picker + command-palette rows |
+| [03] | `ToggleState` / `CheckboxGroupState` / `RadioGroupState` / `NumberFieldState` / `SearchFieldState` / `SliderState` | field/value state | `view/primitive` form fields; each owns its committed value + validation, fed by `Schema`→aria `FormBinding` |
+| [04] | `OverlayTriggerState` / `TooltipTriggerState` / `DisclosureState` / `DisclosureGroupState` | overlay state | `view/compose` popover/sheet/tooltip/accordion open-close; `floating-ui` anchors the positioned surface |
+| [05] | `CalendarState` / `RangeCalendarState` / `DatePickerState` / `DateFieldState` / `TimeFieldState` | date/time state | latent date-picker `view` rows over `@internationalized/date` values (`DateValue`/`DateRange`/`DateSegment`) |
+| [06] | `ColorPickerState` / `ColorAreaState` / `ColorFieldState` / `ColorSliderState` / `ColorWheelState` | color state | color-picker `view` rows; `Color`/`ColorFormat`/`ColorChannel` from `parseColor`; composes `colorjs.io` for space math |
+| [07] | `ToastState<T>` / `QueuedToast<T>` / `ToastStateProps` | toast queue | `view/primitive` toast/announce rows; the queue backs the live-region announce (`@react-aria/live-announcer`) |
+| [08] | `ListData<T>` / `AsyncListData<T>` / `TreeData<T>` / `AsyncListLoadOptions` | mutable data store | the client collection the async/dynamic `view` rows mutate; the bridge to the Effect data plane |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -50,39 +49,39 @@
 - rail: surfaces-and-dispatch
 - The one place react-stately touches app data: `useListData`/`useTreeData` hold a mutable collection with insert/remove/move/update fold operators, and `useAsyncList` adds paginated/sorted async loading. The `load`/`sort` callbacks are the seam where an `@effect-atom` value or an `Effect` runtime feeds the collection — never domain state re-modelled inside the hook.
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `useListData({ initialItems, getKey, initialSelectedKeys, filter })` → `ListData<T>`   | list store     | `view/compose` editable list/table; `.items`/`.selectedKeys` + `insert`/`remove`/`move`/`update`/`append`/`prepend` folds |
-|  [02]   | `useAsyncList({ load, sort, getKey, initialSelectedKeys })` → `AsyncListData<T>`        | async store    | server-fed collection; `load({ signal, cursor, filterText, sortDescriptor })` is the Effect-run boundary; `.loadingState`/`.reload`/`.loadMore` |
-|  [03]   | `useTreeData({ initialItems, getKey, getChildren })` → `TreeData<T>`                    | tree store     | hierarchical `view` (BIM spatial tree); `insert`/`move`/`remove`/`update` maintain the parent/child fold |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
+| [01] | `useListData({ initialItems, getKey, initialSelectedKeys, filter })` → `ListData<T>` | list store | `view/compose` editable list/table; `.items`/`.selectedKeys` + `insert`/`remove`/`move`/`update`/`append`/`prepend` folds |
+| [02] | `useAsyncList({ load, sort, getKey, initialSelectedKeys })` → `AsyncListData<T>` | async store | server-fed collection; `load({ signal, cursor, filterText, sortDescriptor })` is the Effect-run boundary; `.loadingState`/`.reload`/`.loadMore` |
+| [03] | `useTreeData({ initialItems, getKey, getChildren })` → `TreeData<T>` | tree store | hierarchical `view` (BIM spatial tree); `insert`/`move`/`remove`/`update` maintain the parent/child fold |
 
 [ENTRYPOINT_SCOPE]: collection builders and collection-backed state
 - rail: surfaces-and-dispatch
 - `Item`/`Section`/`useCollection` are the low-level collection builders (RAC ships its own JSX collection components over the same substrate); the `use*State` hooks build the reactive `Collection` + `SelectionManager` a behavior hook drives. `UNSTABLE_useFiltered*` layer a filter predicate over an existing collection (command-palette).
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `Item` / `Section` / `useCollection(props, factory, context?)`                         | collection build | static/dynamic collection authoring; RAC's `<Collection>`/`<Item>` are the shipped surface over this |
-|  [02]   | `useListState(props)` / `useSingleSelectListState(props)` / `useTreeState(props)`       | list/tree state | exposes `.collection` + `.selectionManager`; single-select variant for select/combobox listboxes |
-|  [03]   | `useTableState(props)` / `useTableColumnResizeState(props, tableState)` + `TableHeader`/`TableBody`/`Column`/`Row`/`Cell` | table state | `view/compose` table — column collection, sort, row selection, column resize; `@tanstack/react-virtual` virtualizes rows |
-|  [04]   | `UNSTABLE_useFilteredListState(state, filterFn)` / `UNSTABLE_useFilteredTableState(...)`| filtered view   | command-palette (`cmdk`) / type-ahead filtering over a built collection without rebuilding it |
-|  [05]   | `useMultipleSelectionState(props)` → `MultipleSelectionState`                           | selection state | a standalone selection model when composing a custom selectable primitive below RAC |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
+| [01] | `Item` / `Section` / `useCollection(props, factory, context?)` | collection build | static/dynamic collection authoring; RAC's `<Collection>`/`<Item>` are the shipped surface over this |
+| [02] | `useListState(props)` / `useSingleSelectListState(props)` / `useTreeState(props)` | list/tree state | exposes `.collection` + `.selectionManager`; single-select variant for select/combobox listboxes |
+| [03] | `useTableState(props)` / `useTableColumnResizeState(props, tableState)` + `TableHeader`/`TableBody`/`Column`/`Row`/`Cell` | table state | `view/compose` table — column collection, sort, row selection, column resize; `@tanstack/react-virtual` virtualizes rows |
+| [04] | `UNSTABLE_useFilteredListState(state, filterFn)` / `UNSTABLE_useFilteredTableState(...)`| filtered view | command-palette (`cmdk`) / type-ahead filtering over a built collection without rebuilding it |
+| [05] | `useMultipleSelectionState(props)` → `MultipleSelectionState` | selection state | a standalone selection model when composing a custom selectable primitive below RAC |
 
 [ENTRYPOINT_SCOPE]: field/value, overlay-trigger, and the specialized state hooks
 - rail: surfaces-and-dispatch
 - The rest of the family: value-owning field state, overlay open/close state, and the date/color/toast/dnd/virtualizer specializations. Each is `use<P>State(props) → <P>State` consumed by the matching react-aria behavior hook; the folder reaches them through RAC unless composing a custom primitive.
 
-| [INDEX] | [SURFACE FAMILY]                                                                       | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `useToggleState` / `useToggleGroupState` / `useCheckboxGroupState` / `useRadioGroupState` | boolean/group field | checkbox/switch/radio `view/primitive` rows; group state owns the shared value + validation |
-|  [02]   | `useNumberFieldState` / `useSearchFieldState` / `useSliderState` / `useSelectState` / `useComboBoxState` | value field | numeric/search/slider/select/combobox; committed value + `Schema` validation via `FormValidationContext` |
-|  [03]   | `useOverlayTriggerState` / `useMenuTriggerState` / `useSubmenuTriggerState` / `useTooltipTriggerState` / `useDisclosureState` / `useDisclosureGroupState` / `useTabListState` | open/trigger state | popover/menu/submenu/tooltip/accordion/tabs open-close; `floating-ui` positions the overlay surface |
-|  [04]   | `useCalendarState` / `useRangeCalendarState` / `useDatePickerState` / `useDateRangePickerState` / `useDateFieldState` / `useTimeFieldState` | date/time state | latent date `view` rows; `@internationalized/date` values, `DateSegment` editing — `intl/format` owns display |
-|  [05]   | `parseColor` / `getColorChannels` / `useColorPickerState` / `useColorAreaState` / `useColorFieldState` / `useColorChannelFieldState` / `useColorSliderState` / `useColorWheelState` | color state | color-picker `view`; `parseColor(str) → Color`, channel math pairs with `colorjs.io` (`.api/colorjs.io.md`) |
-|  [06]   | `useToastState` / `useToastQueue` / `ToastQueue`                                        | toast queue    | `view/primitive` toast; `ToastQueue` is the standalone imperative queue backing the live-region announce |
-|  [07]   | `useDraggableCollectionState` / `useDroppableCollectionState`                           | dnd state      | drag-and-drop reorder over a collection; `allows-dragging`/`drop-target` tw-rac variants style the affordance |
-|  [08]   | `useVirtualizerState` + `Layout`/`ListLayout`/`GridLayout`/`TableLayout`/`WaterfallLayout` + `Rect`/`Size`/`Point`/`LayoutInfo`/`ReusableView` | virtualizer | react-aria's built-in virtualizer; `view/compose` chooses it or `@tanstack/react-virtual` per collection |
-|  [09]   | `FormValidationContext` (built by `@react-stately/form`'s internal `useFormValidationState`) | validation ctx | the umbrella-exported form-validity seam — `@react-stately/form`'s `useFormValidationState` builds the `FormValidationState` a react-aria field hook consumes internally; `FormValidationContext` injects server/schema errors — the `Schema`→aria `FormBinding` sink |
+| [INDEX] | [SURFACE_FAMILY] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
+| [01] | `useToggleState` / `useToggleGroupState` / `useCheckboxGroupState` / `useRadioGroupState` | boolean/group field | checkbox/switch/radio `view/primitive` rows; group state owns the shared value + validation |
+| [02] | `useNumberFieldState` / `useSearchFieldState` / `useSliderState` / `useSelectState` / `useComboBoxState` | value field | numeric/search/slider/select/combobox; committed value + `Schema` validation via `FormValidationContext` |
+| [03] | `useOverlayTriggerState` / `useMenuTriggerState` / `useSubmenuTriggerState` / `useTooltipTriggerState` / `useDisclosureState` / `useDisclosureGroupState` / `useTabListState` | open/trigger state | popover/menu/submenu/tooltip/accordion/tabs open-close; `floating-ui` positions the overlay surface |
+| [04] | `useCalendarState` / `useRangeCalendarState` / `useDatePickerState` / `useDateRangePickerState` / `useDateFieldState` / `useTimeFieldState` | date/time state | latent date `view` rows; `@internationalized/date` values, `DateSegment` editing — `intl/format` owns display |
+| [05] | `parseColor` / `getColorChannels` / `useColorPickerState` / `useColorAreaState` / `useColorFieldState` / `useColorChannelFieldState` / `useColorSliderState` / `useColorWheelState` | color state | color-picker `view`; `parseColor(str) → Color`, channel math pairs with `colorjs.io` (`.api/colorjs.io.md`) |
+| [06] | `useToastState` / `useToastQueue` / `ToastQueue` | toast queue | `view/primitive` toast; `ToastQueue` is the standalone imperative queue backing the live-region announce |
+| [07] | `useDraggableCollectionState` / `useDroppableCollectionState` | dnd state | drag-and-drop reorder over a collection; `allows-dragging`/`drop-target` tw-rac variants style the affordance |
+| [08] | `useVirtualizerState` + `Layout`/`ListLayout`/`GridLayout`/`TableLayout`/`WaterfallLayout` + `Rect`/`Size`/`Point`/`LayoutInfo`/`ReusableView` | virtualizer | react-aria's built-in virtualizer; `view/compose` chooses it or `@tanstack/react-virtual` per collection |
+| [09] | `FormValidationContext` (built by `@react-stately/form`'s internal `useFormValidationState`) | validation ctx | the umbrella-exported form-validity seam — `@react-stately/form`'s `useFormValidationState` builds the `FormValidationState` a react-aria field hook consumes internally; `FormValidationContext` injects server/schema errors — the `Schema`→aria `FormBinding` sink |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

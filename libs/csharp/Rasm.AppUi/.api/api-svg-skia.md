@@ -4,8 +4,8 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Svg.Controls.Skia.Avalonia` 12.0.0.13 + `Svg.Skia` 5.1.1
-- package: `Svg.Controls.Skia.Avalonia` (Avalonia control layer); the `SKSvg` engine ships in the separately-pinned `Svg.Skia` 5.1.1 package, with `Svg.Model` / `Svg.Custom` / the Fizzler-CSS and `ShimSkiaSharp` model assemblies transitive under it
+[PACKAGE_SURFACE]: `Svg.Controls.Skia.Avalonia` + `Svg.Skia`
+- package: `Svg.Controls.Skia.Avalonia` (Avalonia control layer); the `SKSvg` engine ships in the separately-pinned `Svg.Skia` package, with `Svg.Model` / `Svg.Custom` / the Fizzler-CSS and `ShimSkiaSharp` model assemblies transitive under it
 - license: MIT (`Svg.Skia` family)
 - floor: `net10.0` consumer; both assemblies resolve from `lib/net10.0` (`Svg.Controls.Skia.Avalonia.dll`, `Svg.Skia.dll`)
 - assembly: `Svg.Controls.Skia.Avalonia` (control/image/source/draw-op), `Svg.Skia` (`SKSvg` engine, parameters, scene/selection model)
@@ -141,7 +141,7 @@ Assembly-provenance note: the scene / animation / interaction types live in the 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SVG_ASSET_LAW]:
-- Package: `Svg.Controls.Skia.Avalonia` over `Svg.Skia` 5.1.1
+- Package: `Svg.Controls.Skia.Avalonia` over `Svg.Skia`
 - Owns: SVG and Android-VectorDrawable asset controls, source loading (path / stream / string / URI / pre-parsed document / `IServiceProvider` base-URI), retained scene rendering with incremental mutation, SMIL animation, pointer/access-key interaction, built-in viewer pan/zoom, text selection, and `SKPicture` output.
 - Accept: SVG and VectorDrawable assets enter the same asset rail as raster and generated visual evidence; a vector asset retains `SvgSource` (`Svg`/`Picture`/`Parameters`) and exposes a live `SKSvg` engine.
 - Reject: bitmap-only asset policy; treating the SVG as an opaque blob without `SvgSource`/`SKSvg` state; re-rendering the whole picture on a single-element change when `TryApplyRetainedSceneMutationAndRender` re-renders only the dirty region.

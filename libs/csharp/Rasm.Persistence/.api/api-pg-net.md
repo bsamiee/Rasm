@@ -64,7 +64,7 @@ The request queue and the background-worker controls. The worker is one per clus
 `pg_net.batch_size` rows per iteration, deletes successful queue rows, and opportunistically purges
 `net._http_response` rows older than `pg_net.ttl` while processing.
 
-| [INDEX] | [SURFACE]                  | [SHAPE / SIGNATURE]                                                              | [SEMANTICS]                              |
+| [INDEX] | [SURFACE]                  | [SHAPE_SIGNATURE]                                                              | [SEMANTICS]                              |
 | :-----: | :------------------------- | :------------------------------------------------------------------------------ | :--------------------------------------- |
 |  [01]   | `net.http_request_queue`   | UNLOGGED `(id bigserial, method net.http_method, url text, headers jsonb, body bytea, timeout_milliseconds int)` | the request queue; a direct INSERT does NOT wake the worker |
 |  [02]   | `pg_net.ttl`               | GUC `string` (interval), default `'6 hours'` (`SIGHUP`)                          | max lifetime of `net._http_response` rows |

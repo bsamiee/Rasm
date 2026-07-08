@@ -22,8 +22,7 @@ generic math — they are plain `IComparable<T>`/`IEquatable<T>` values composed
 
 [PACKAGE_SURFACE]: `PeterO.Numbers`
 - package: `PeterO.Numbers`
-- version: `1.8.2`
-- license: **CC0-1.0** (Peter Occil; public-domain dedication — NOT MIT; `github.com/peteroupc/Numbers`)
+- license: CC0-1.0 (Peter Occil; public-domain dedication — NOT MIT; `github.com/peteroupc/Numbers`)
 - assembly: `Numbers.dll` (the assembly name is `Numbers`, NOT `PeterO.Numbers`)
 - namespace: `PeterO.Numbers` (`EInteger`/`EDecimal`/`EFloat`/`ERational`/`EContext`/`ERounding`/`ETrapException` + the `EDecimals`/`EFloats`/`Extras` general-arithmetic-spec static helpers)
 - target: multi-target (`lib/net20`, `lib/net40`, `lib/netstandard1.0`); the `net10.0` consumer binds `lib/netstandard1.0` — the highest available is `netstandard1.0`, so there is NO `net5.0`+ asset and NO `Span<char>` parse overload; the surface is the netstandard1.0 ABI on every modern runtime
@@ -45,14 +44,14 @@ arithmetic machinery — never the consumed surface even where a `IRadixMathHelp
 interface implementation leaks `public` (`GetMantissa`/`GetExponent`/`CreateNewWithFlags`/
 `GetRadix` on `EFloat`/`EDecimal` are interface plumbing, not consumer API).
 
-| [INDEX] | [SYMBOL]    | [PACKAGE_ROLE]                       | [CAPABILITY]                                                                                          |
-| :-----: | :---------- | :----------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `EInteger`  | arbitrary-precision integer          | `sealed class`; self-contained `uint[]` bignum; `Add`/`Subtract`/`Multiply`/`DivRem`/`Pow`/`Gcd`/`Sqrt`/`Mod`/`ModPow`, exact `Sign`/`CompareTo`, `FromBytes`/`ToBytes` — the EXACT integer the predicate determinant numerators/denominators are built from |
-|  [02]   | `EFloat`    | arbitrary-precision binary FP        | `sealed class`; mantissa×2^exponent; every op `EContext`-parameterized; `Sqrt`/`Pow`/`Exp`/`Log`, exact under `EContext.Unlimited` for the dyadic-coordinate determinant — the INDEPENDENT binary exact adjudicator between `ddouble` and `Fraction` |
-|  [03]   | `EDecimal`  | arbitrary-precision decimal FP       | `sealed class`; mantissa×10^exponent; the General Decimal Arithmetic (IEEE 754-2008 decimal) carrier — exact decimal I/O and human-readable rounding, NOT the geometry interior tier |
-|  [04]   | `ERational` | arbitrary-precision rational         | `sealed class`; `EInteger Numerator`/`Denominator`; exact `Sign`/`CompareTo`/`ToLowestTerms`, `CompareToBinary(EFloat)`/`CompareToDecimal(EDecimal)` cross-tier compare — a THIRD independent exact-rational oracle parallel to `Fraction` in a different library |
-|  [05]   | `EContext`  | precision / rounding / exponent policy | `sealed class`; `Precision`/`Rounding`/`EMin`/`EMax`/`Traps`/`Flags`; the `Unlimited` (exact), `Binary64`/`Binary128`/`Decimal*` IEEE, and `ForPrecision`/`ForRounding` factories — the policy EVERY rounding op consumes |
-|  [06]   | `ERounding` | rounding-mode discriminant           | `enum`; `None`/`Up`/`Down`/`Ceiling`/`Floor`/`HalfUp`/`HalfDown`/`HalfEven`/`Odd`/`ZeroFiveUp`/`OddOrZeroFiveUp` — `Floor`/`Ceiling` are the directed-rounding modes for an interval/bracket filter; `None` raises on inexact (exact-proof mode) |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+|:-----: |:---------- |:----------------------------------- |:--------------------------------------------------------------------------------------------------- |
+| [01] | `EInteger` | arbitrary-precision integer | `sealed class`; self-contained `uint[]` bignum; `Add`/`Subtract`/`Multiply`/`DivRem`/`Pow`/`Gcd`/`Sqrt`/`Mod`/`ModPow`, exact `Sign`/`CompareTo`, `FromBytes`/`ToBytes` — the EXACT integer the predicate determinant numerators/denominators are built from |
+| [02] | `EFloat` | arbitrary-precision binary FP | `sealed class`; mantissa×2^exponent; every op `EContext`-parameterized; `Sqrt`/`Pow`/`Exp`/`Log`, exact under `EContext.Unlimited` for the dyadic-coordinate determinant — the INDEPENDENT binary exact adjudicator between `ddouble` and `Fraction` |
+| [03] | `EDecimal` | arbitrary-precision decimal FP | `sealed class`; mantissa×10^exponent; the General Decimal Arithmetic (IEEE 754-2008 decimal) carrier — exact decimal I/O and human-readable rounding, NOT the geometry interior tier |
+| [04] | `ERational` | arbitrary-precision rational | `sealed class`; `EInteger Numerator`/`Denominator`; exact `Sign`/`CompareTo`/`ToLowestTerms`, `CompareToBinary(EFloat)`/`CompareToDecimal(EDecimal)` cross-tier compare — a THIRD independent exact-rational oracle parallel to `Fraction` in a different library |
+| [05] | `EContext` | precision / rounding / exponent policy | `sealed class`; `Precision`/`Rounding`/`EMin`/`EMax`/`Traps`/`Flags`; the `Unlimited` (exact), `Binary64`/`Binary128`/`Decimal*` IEEE, and `ForPrecision`/`ForRounding` factories — the policy EVERY rounding op consumes |
+| [06] | `ERounding` | rounding-mode discriminant | `enum`; `None`/`Up`/`Down`/`Ceiling`/`Floor`/`HalfUp`/`HalfDown`/`HalfEven`/`Odd`/`ZeroFiveUp`/`OddOrZeroFiveUp` — `Floor`/`Ceiling` are the directed-rounding modes for an interval/bracket filter; `None` raises on inexact (exact-proof mode) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -65,16 +64,16 @@ exact mode the predicate determinant runs under; `Binary64`/`Binary128` mirror I
 IEEE-754 condition accounting — under `WithBlankFlags()` an operation records whether it was
 `FlagInexact`, so an exact result is PROVABLY exact (no inexact flag raised).
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `EContext.Unlimited` / `UnlimitedHalfEven`                                  | static field   | exact arithmetic, unlimited precision, no exponent clamp — the predicate adjudication context (`ERounding.None`/`HalfEven`) |
-|  [02]   | `EContext.Binary16/32/64/128` / `Decimal32/64/128` / `CliDecimal` / `Basic` | static field  | preconfigured IEEE-754 binary + decimal interchange contexts (precision + exponent range + `HalfEven`) |
-|  [03]   | `EContext.ForPrecision(int)` / `ForPrecisionAndRounding(int, ERounding)` / `ForRounding(ERounding)` | static factory | derive a context by digit precision and/or rounding mode (`precision=0` = unlimited) |
-|  [04]   | `new EContext(int precision, ERounding, int expMin, int expMax, bool clampNormalExponents)` / `(EInteger …)` | constructor | full custom context (small-int or `EInteger` precision + exponent bounds) |
-|  [05]   | `EContext.WithRounding(ERounding)` / `WithPrecision(int)` / `WithExponentRange(int,int)` / `WithExponentClamp(bool)` / `WithSimplified(bool)` / `WithPrecisionInBits(bool)` / `WithUnlimitedExponents()` | builder | immutable derivation of a modified context |
-|  [06]   | `EContext.WithBlankFlags()` / `WithNoFlags()` / `WithTraps(int)` / `WithNoFlagsOrTraps()` / `GetNontrapping()` | builder | enable/disable IEEE condition-flag recording and trap raising |
-|  [07]   | `EContext.Flags` / `HasFlags` / `HasFlagsOrTraps` / `Traps`                 | instance prop  | read the raised condition flags (`FlagInexact`/`FlagInvalid`/…) after an operation — the exactness proof readout |
-|  [08]   | `EContext.FlagInexact` / `FlagInvalid` / `FlagDivideByZero` / `FlagOverflow` / `FlagUnderflow` / `FlagSubnormal` / `FlagRounded` / `FlagClamped` / `FlagLostDigits` | const int | the IEEE-754 condition-flag bit constants (OR-combined into `Flags`/`Traps`) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `EContext.Unlimited` / `UnlimitedHalfEven` | static field | exact arithmetic, unlimited precision, no exponent clamp — the predicate adjudication context (`ERounding.None`/`HalfEven`) |
+| [02] | `EContext.Binary16/32/64/128` / `Decimal32/64/128` / `CliDecimal` / `Basic` | static field | preconfigured IEEE-754 binary + decimal interchange contexts (precision + exponent range + `HalfEven`) |
+| [03] | `EContext.ForPrecision(int)` / `ForPrecisionAndRounding(int, ERounding)` / `ForRounding(ERounding)` | static factory | derive a context by digit precision and/or rounding mode (`precision=0` = unlimited) |
+| [04] | `new EContext(int precision, ERounding, int expMin, int expMax, bool clampNormalExponents)` / `(EInteger …)` | constructor | full custom context (small-int or `EInteger` precision + exponent bounds) |
+| [05] | `EContext.WithRounding(ERounding)` / `WithPrecision(int)` / `WithExponentRange(int,int)` / `WithExponentClamp(bool)` / `WithSimplified(bool)` / `WithPrecisionInBits(bool)` / `WithUnlimitedExponents()` | builder | immutable derivation of a modified context |
+| [06] | `EContext.WithBlankFlags()` / `WithNoFlags()` / `WithTraps(int)` / `WithNoFlagsOrTraps()` / `GetNontrapping()` | builder | enable/disable IEEE condition-flag recording and trap raising |
+| [07] | `EContext.Flags` / `HasFlags` / `HasFlagsOrTraps` / `Traps` | instance prop | read the raised condition flags (`FlagInexact`/`FlagInvalid`/…) after an operation — the exactness proof readout |
+| [08] | `EContext.FlagInexact` / `FlagInvalid` / `FlagDivideByZero` / `FlagOverflow` / `FlagUnderflow` / `FlagSubnormal` / `FlagRounded` / `FlagClamped` / `FlagLostDigits` | const int | the IEEE-754 condition-flag bit constants (OR-combined into `Flags`/`Traps`) |
 
 [ENTRYPOINT_SCOPE]: `EFloat` — the arbitrary-precision binary tier (the predicate adjudicator)
 - rail: arbitrary-precision exact adjudicator
@@ -86,21 +85,21 @@ Arithmetic without an `EContext` (or with `EContext.Unlimited`) is exact; with a
 precision context it rounds per `ERounding`. The predicate computes the determinant in `EFloat`
 under `Unlimited`, reads `Sign`, and discards the value.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `EFloat.FromDouble(double)` / `FromSingle(float)` / `FromDoubleBits(long)` / `FromSingleBits(int)` | static factory | LOSSLESS lift of an IEEE binary float (every finite `double` is exactly dyadic — no rounding) |
-|  [02]   | `EFloat.FromEInteger(EInteger)` / `Create(EInteger mantissa, EInteger exponent)` / `Create(long, int)` | static factory | exact `mantissa × 2^exponent` construction from the big-integer tier |
-|  [03]   | `EFloat.FromString(string[, EContext])` / `FromString(string, int offset, int length[, EContext])` | static factory | parse a decimal/hex literal (rounded into `ctx` precision; `byte[]`/`char[]` overloads — NO `ReadOnlySpan<char>` on netstandard1.0) |
-|  [04]   | `EFloat.Zero` / `One` / `Ten` / `NaN` / `SignalingNaN` / `PositiveInfinity` / `NegativeInfinity` / `NegativeZero` | static field | canonical anchors + non-finite values |
-|  [05]   | `EFloat.Add/Subtract/Multiply/Divide(EFloat[, EContext])` (+ `int`/`long` operand overloads) | instance | exact (no `ctx` / `Unlimited`) or rounded (finite `ctx`) binary FP arithmetic — the determinant accumulation |
-|  [06]   | `EFloat.Sqrt(EContext)` / `SquareRoot(EContext)` / `Pow(EFloat / int[, EContext])` / `Exp(ctx)` / `Log(ctx)` / `Log10(ctx)` / `LogN(EFloat, ctx)` | instance | square root / power / transcendental (REQUIRE a finite `ctx` — irrational results are inexact) |
-|  [07]   | `EFloat.Abs([ctx])` / `Negate([ctx])` / `CopySign(EFloat)` / `Reduce(ctx)` / `Plus(ctx)`     | instance | magnitude / sign / trailing-zero reduction |
-|  [08]   | `EFloat.Sign` / `IsZero` / `IsNegative` / `IsFinite` / `IsNaN()` / `IsInfinity()` / `IsSignalingNaN()` | instance prop/method | exact sign + IEEE classification — `Sign` is the predicate verdict readout |
-|  [09]   | `EFloat.CompareTo(EFloat / int / long)` / `CompareToValue(...)` / `CompareToTotal([ctx])` / `CompareToSignal(EFloat, ctx)` | instance | value ordering vs IEEE total-order (`CompareToTotal` orders NaN/±0) |
-|  [10]   | `EFloat.RoundToExponent(EInteger, ctx)` / `RoundToExponentExact(EInteger, ERounding)` / `RoundToIntegerExact(ctx)` / `RoundToPrecision(ctx)` / `Quantize(EFloat, ctx)` | instance | directed rounding to a target exponent/precision (the interval-bracket primitive with `ERounding.Floor`/`Ceiling`) |
-|  [11]   | `EFloat.ScaleByPowerOfTwo(int / EInteger[, ctx])` / `Ulp()` / `NextPlus(ctx)` / `NextMinus(ctx)` / `Increment()` / `Decrement()` | instance | binary exponent scale, ULP step, adjacent-value walk — interval-filter endpoints |
-|  [12]   | `EFloat.ToEInteger()` / `ToEIntegerExact()` / `ToEIntegerIfExact()` / `ToSizedEInteger(int)` / `ToDouble()` / `ToSingle()` / `ToInt32Checked()` / `ToEDecimal()` | instance | narrowing readout (`*Exact`/`*IfExact` throw/null on a non-integer; `ToDouble` is the lossy boundary readout) |
-|  [13]   | `EFloat.Mantissa` / `UnsignedMantissa` / `Exponent` / `Precision()`         | instance prop  | the `EInteger` significand + binary exponent + significant-digit count (decomposition for an exact bound) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `EFloat.FromDouble(double)` / `FromSingle(float)` / `FromDoubleBits(long)` / `FromSingleBits(int)` | static factory | LOSSLESS lift of an IEEE binary float (every finite `double` is exactly dyadic — no rounding) |
+| [02] | `EFloat.FromEInteger(EInteger)` / `Create(EInteger mantissa, EInteger exponent)` / `Create(long, int)` | static factory | exact `mantissa × 2^exponent` construction from the big-integer tier |
+| [03] | `EFloat.FromString(string[, EContext])` / `FromString(string, int offset, int length[, EContext])` | static factory | parse a decimal/hex literal (rounded into `ctx` precision; `byte[]`/`char[]` overloads — NO `ReadOnlySpan<char>` on netstandard1.0) |
+| [04] | `EFloat.Zero` / `One` / `Ten` / `NaN` / `SignalingNaN` / `PositiveInfinity` / `NegativeInfinity` / `NegativeZero` | static field | canonical anchors + non-finite values |
+| [05] | `EFloat.Add/Subtract/Multiply/Divide(EFloat[, EContext])` (+ `int`/`long` operand overloads) | instance | exact (no `ctx` / `Unlimited`) or rounded (finite `ctx`) binary FP arithmetic — the determinant accumulation |
+| [06] | `EFloat.Sqrt(EContext)` / `SquareRoot(EContext)` / `Pow(EFloat / int[, EContext])` / `Exp(ctx)` / `Log(ctx)` / `Log10(ctx)` / `LogN(EFloat, ctx)` | instance | square root / power / transcendental (REQUIRE a finite `ctx` — irrational results are inexact) |
+| [07] | `EFloat.Abs([ctx])` / `Negate([ctx])` / `CopySign(EFloat)` / `Reduce(ctx)` / `Plus(ctx)` | instance | magnitude / sign / trailing-zero reduction |
+| [08] | `EFloat.Sign` / `IsZero` / `IsNegative` / `IsFinite` / `IsNaN()` / `IsInfinity()` / `IsSignalingNaN()` | instance prop/method | exact sign + IEEE classification — `Sign` is the predicate verdict readout |
+| [09] | `EFloat.CompareTo(EFloat / int / long)` / `CompareToValue(...)` / `CompareToTotal([ctx])` / `CompareToSignal(EFloat, ctx)` | instance | value ordering vs IEEE total-order (`CompareToTotal` orders NaN/±0) |
+| [10] | `EFloat.RoundToExponent(EInteger, ctx)` / `RoundToExponentExact(EInteger, ERounding)` / `RoundToIntegerExact(ctx)` / `RoundToPrecision(ctx)` / `Quantize(EFloat, ctx)` | instance | directed rounding to a target exponent/precision (the interval-bracket primitive with `ERounding.Floor`/`Ceiling`) |
+| [11] | `EFloat.ScaleByPowerOfTwo(int / EInteger[, ctx])` / `Ulp()` / `NextPlus(ctx)` / `NextMinus(ctx)` / `Increment()` / `Decrement()` | instance | binary exponent scale, ULP step, adjacent-value walk — interval-filter endpoints |
+| [12] | `EFloat.ToEInteger()` / `ToEIntegerExact()` / `ToEIntegerIfExact()` / `ToSizedEInteger(int)` / `ToDouble()` / `ToSingle()` / `ToInt32Checked()` / `ToEDecimal()` | instance | narrowing readout (`*Exact`/`*IfExact` throw/null on a non-integer; `ToDouble` is the lossy boundary readout) |
+| [13] | `EFloat.Mantissa` / `UnsignedMantissa` / `Exponent` / `Precision()` | instance prop | the `EInteger` significand + binary exponent + significant-digit count (decomposition for an exact bound) |
 
 [ENTRYPOINT_SCOPE]: `ERational` — the independent exact-rational oracle
 - rail: arbitrary-precision exact adjudicator
@@ -111,16 +110,16 @@ under `Unlimited`, reads `Sign`, and discards the value.
 `CompareToDecimal` compare an `ERational` against an `EFloat`/`EDecimal` EXACTLY across tiers —
 the cross-representation bridge a differential predicate test compares against.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `ERational.Create(EInteger numerator, EInteger denominator)` / `Create(int, int)` / `Create(long, long)` | static factory | exact rational from a numerator/denominator pair |
-|  [02]   | `ERational.FromEInteger(EInteger)` / `FromEFloat(EFloat)` / `FromEDecimal(EDecimal)` / `FromDouble(double)` / `FromDoubleBits(long)` / `FromSingle(float)` / `FromDecimal(decimal)` / `FromInt32/64(...)` | static factory | LOSSLESS lift of any integer / IEEE float / `EFloat` / `EDecimal` into an exact rational |
-|  [03]   | `ERational.FromString(string)` / `FromString(byte[] / char[][, offset, length])`            | static factory | parse a rational literal (NO span overload on netstandard1.0) |
-|  [04]   | `ERational.Numerator` / `Denominator` / `Sign` / `IsZero` / `IsInteger()` / `IsFinite`      | instance prop/method | exact `EInteger` numerator/denominator + exact sign / zero / integrality test — the oracle verdict |
-|  [05]   | `ERational.Add/Subtract/Multiply/Divide(ERational)` (+ `int`/`long` overloads) / `Remainder(ERational)` | instance | exact infinite-precision rational arithmetic |
-|  [06]   | `ERational.ToLowestTerms()` / `Abs()` / `Negate()` / `CopySign(ERational)` / `Increment()` / `Decrement()` | instance | canonicalize to lowest terms / sign transforms |
-|  [07]   | `ERational.CompareTo(ERational / int / long)` / `CompareToValue(...)` / `CompareToBinary(EFloat)` / `CompareToDecimal(EDecimal)` / `CompareToTotal(ERational)` | instance | total exact ordering — `CompareToBinary`/`CompareToDecimal` are the EXACT cross-tier comparisons (rational vs binary/decimal float) |
-|  [08]   | `ERational.ToEInteger()` / `ToEIntegerIfExact()` / `ToSizedEInteger(int)` / `ToDouble()` / `ToInt32Checked()` | instance | narrowing readout (`ToDouble` lossy boundary; `*IfExact` exact-or-null) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `ERational.Create(EInteger numerator, EInteger denominator)` / `Create(int, int)` / `Create(long, long)` | static factory | exact rational from a numerator/denominator pair |
+| [02] | `ERational.FromEInteger(EInteger)` / `FromEFloat(EFloat)` / `FromEDecimal(EDecimal)` / `FromDouble(double)` / `FromDoubleBits(long)` / `FromSingle(float)` / `FromDecimal(decimal)` / `FromInt32/64(...)` | static factory | LOSSLESS lift of any integer / IEEE float / `EFloat` / `EDecimal` into an exact rational |
+| [03] | `ERational.FromString(string)` / `FromString(byte[] / char[][, offset, length])` | static factory | parse a rational literal (NO span overload on netstandard1.0) |
+| [04] | `ERational.Numerator` / `Denominator` / `Sign` / `IsZero` / `IsInteger()` / `IsFinite` | instance prop/method | exact `EInteger` numerator/denominator + exact sign / zero / integrality test — the oracle verdict |
+| [05] | `ERational.Add/Subtract/Multiply/Divide(ERational)` (+ `int`/`long` overloads) / `Remainder(ERational)` | instance | exact infinite-precision rational arithmetic |
+| [06] | `ERational.ToLowestTerms()` / `Abs()` / `Negate()` / `CopySign(ERational)` / `Increment()` / `Decrement()` | instance | canonicalize to lowest terms / sign transforms |
+| [07] | `ERational.CompareTo(ERational / int / long)` / `CompareToValue(...)` / `CompareToBinary(EFloat)` / `CompareToDecimal(EDecimal)` / `CompareToTotal(ERational)` | instance | total exact ordering — `CompareToBinary`/`CompareToDecimal` are the EXACT cross-tier comparisons (rational vs binary/decimal float) |
+| [08] | `ERational.ToEInteger()` / `ToEIntegerIfExact()` / `ToSizedEInteger(int)` / `ToDouble()` / `ToInt32Checked()` | instance | narrowing readout (`ToDouble` lossy boundary; `*IfExact` exact-or-null) |
 
 [ENTRYPOINT_SCOPE]: `EInteger` — the exact big-integer the determinant builds from
 - rail: arbitrary-precision exact adjudicator
@@ -129,13 +128,13 @@ the cross-representation bridge a differential predicate test compares against.
 binary mantissas are built from — decoupled from `System.Numerics.BigInteger` and from the
 `Fraction` representation, so the two exact oracles share NO underlying integer type.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `EInteger.Zero` / `One` / `FromInt32(int)` / `FromInt64(long)` / `FromString(string)` / `FromBytes(byte[], bool littleEndian)` | static factory | exact integer construction (incl. raw two's-complement bytes) |
-|  [02]   | `EInteger.Add/Subtract/Multiply/Divide(EInteger)` (+ `int`/`long`) / `DivRem(EInteger[, out])` / `Mod(EInteger)` / `Remainder(...)` | instance/static | exact integer arithmetic + combined quotient/remainder |
-|  [03]   | `EInteger.Pow(int / long / EInteger)` / `Sqrt()` / `Gcd(EInteger)` / `ModPow(EInteger pow, EInteger mod)` / `Abs()` / `Negate()` | instance | exact power / integer square root / GCD / modular exponentiation |
-|  [04]   | `EInteger.Sign` / `IsZero` / `IsEven` / `CompareTo(EInteger / int / long)` / `GetSignedBit(int)` / `GetSignedBitLength()` | instance | exact sign / parity / ordering / bit inspection |
-|  [05]   | `EInteger.ToBytes(bool littleEndian)` / `ToInt64Checked()` / `ToInt32Checked()` / `ToString()`  | instance | narrowing / serialization readout |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `EInteger.Zero` / `One` / `FromInt32(int)` / `FromInt64(long)` / `FromString(string)` / `FromBytes(byte[], bool littleEndian)` | static factory | exact integer construction (incl. raw two's-complement bytes) |
+| [02] | `EInteger.Add/Subtract/Multiply/Divide(EInteger)` (+ `int`/`long`) / `DivRem(EInteger[, out])` / `Mod(EInteger)` / `Remainder(...)` | instance/static | exact integer arithmetic + combined quotient/remainder |
+| [03] | `EInteger.Pow(int / long / EInteger)` / `Sqrt()` / `Gcd(EInteger)` / `ModPow(EInteger pow, EInteger mod)` / `Abs()` / `Negate()` | instance | exact power / integer square root / GCD / modular exponentiation |
+| [04] | `EInteger.Sign` / `IsZero` / `IsEven` / `CompareTo(EInteger / int / long)` / `GetSignedBit(int)` / `GetSignedBitLength()` | instance | exact sign / parity / ordering / bit inspection |
+| [05] | `EInteger.ToBytes(bool littleEndian)` / `ToInt64Checked()` / `ToInt32Checked()` / `ToString()` | instance | narrowing / serialization readout |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -156,7 +155,7 @@ binary mantissas are built from — decoupled from `System.Numerics.BigInteger` 
 [STACKING_LAW]:
 - precision ladder: `EFloat`/`ERational` slot ABOVE `TYoshimura.DoubleDouble` (`api-doubledouble`, fixed 106-bit) and the `Expansion` branch, at the SAME exact-adjudication altitude as `ExtendedNumerics.BigRational` (`api-bigrational`) but in an independent library — the kernel escalates tier-by-tier and only the indeterminate residue reaches an arbitrary-precision oracle, so the heap cost is paid on the measure-zero degenerate set.
 - vs BigRational (`api-bigrational`): `Fraction`/`BigRational` are the `System.Numerics.BigInteger`-backed exact-rational oracle and the predicate law-matrix's PRIMARY ground truth; `ERational` is a SECOND, independently-implemented exact rational, and `EFloat` is an exact BINARY adjudicator with no rational analogue in `ExtendedNumerics`. The two are differential cross-checks of one another, not substitutes — never collapse the determinant onto a single oracle when the design's robustness claim rests on two unrelated implementations agreeing.
-- vs DoubleDouble (`api-doubledouble`): `ddouble` is the fast fixed-precision (106-bit) middle tier with full `INumber<T>` generic math; `EFloat`/`ERational` are the slow UNBOUNDED-precision exact tier with NO generic math. `ddouble` resolves the bulk; `EFloat`/`ERational` adjudicate only what `ddouble` cannot — the division is precision-vs-cost, and an `EFloat` operand never flows through a generic `where T : INumber<T>` kernel (it must be hand-typed).
+- vs DoubleDouble (`api-doubledouble`): `ddouble` is the fast fixed-precision (106-bit) middle tier with full `INumber<T>` generic math; `EFloat`/`ERational` are the slow UNBOUNDED-precision exact tier with NO generic math. `ddouble` resolves the bulk; `EFloat`/`ERational` adjudicate only what `ddouble` cannot — the division is precision-vs-cost, and an `EFloat` operand never flows through a generic `where T: INumber<T>` kernel (it must be hand-typed).
 - vs Expansion (in-house): the `Expansion` sign-exact branch is the kernel's own Shewchuk-style adaptive floating-point expansion; `EFloat` under `Unlimited` is an external arbitrary-precision binary FP. They compute the same determinant sign by different algorithms in different representations, so a `CsCheck` differential test (`Expansion.Sign` vs `EFloat.Sign` vs `Fraction.Sign` vs `ERational.Sign`) is a four-way agreement invariant, not a self-comparison.
 
 [RAIL_LAW]:

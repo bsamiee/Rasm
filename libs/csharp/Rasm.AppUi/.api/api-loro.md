@@ -6,12 +6,11 @@
 
 [PACKAGE_SURFACE]: `LoroCs`
 - package: `LoroCs`
-- version: `1.13.6`
 - assembly: `LoroCs` (single shipped managed assembly)
 - namespace: `LoroCs` (one flat namespace — containers, value/diff unions, FFI plumbing, and exceptions all live here)
 - license: MIT (`<license type="expression">MIT</license>`)
 - build-floor: ships only `lib/netstandard2.0` (no `net8.0`+ asset); the `net10.0` consumer binds `netstandard2.0` forward — the documented surface
-- native asset: the loro Rust core ships as `runtimes/osx-arm64/native/loro.dylib` (UniFFI P/Invoke `_UniFFILib` over the native lib); **outside-Rhino / companion only** — the native dylib firebreaks it out of any in-Rhino plugin ALC, the same posture as the other native AppUi rows
+- native asset: the loro Rust core ships as `runtimes/osx-arm64/native/loro.dylib` (UniFFI P/Invoke `_UniFFILib` over the native lib); outside-Rhino / companion only — the native dylib firebreaks it out of any in-Rhino plugin ALC, the same posture as the other native AppUi rows
 - xml-doc: none shipped (no `.xml` beside the assembly; member intent is the UniFFI-generated signature)
 - dependencies: zero managed NuGet deps (`netstandard2.0` group is empty; the binding self-contains its FFI marshalling)
 - rail: collaboration
@@ -37,7 +36,7 @@
 - rail: collaboration
 - these are sealed-by-construction `abstract record` roots with one leaf `record` per case — the dispatch surface the editing/diff rails fold over, never a parallel enum
 
-| [INDEX] | [UNION (`abstract record`)] | [LEAF CASES]                                                 | [CONSUMER]                          |
+| [INDEX] | [UNION_ABSTRACT_RECORD] | [LEAF_CASES]                                                 | [CONSUMER]                          |
 | :-----: | :-------------------------- | :----------------------------------------------------------- | :---------------------------------- |
 |  [01]   | `LoroValue`                 | `Null`/`Bool(bool)`/`Double(double)`/`I64(long)`/`Binary(byte[])`/`String(string)`/`List(LoroValue[])`/`Map(Dictionary<string,LoroValue>)`/`Container(ContainerId)` | the leaf value carried by every container |
 |  [02]   | `Diff`                      | `Text(TextDelta[])`/`List(ListDiffItem[])`/`Map(MapDelta)`/`Tree(TreeDiff)`/`Counter(double)`/`Unknown` | the subscriber event payload (per-container change) |
@@ -70,7 +69,7 @@
 [ENUMS]: the bounded vocabularies
 - rail: collaboration
 
-| [INDEX] | [SYMBOL]                | [CASES / CAPABILITY]                                          |
+| [INDEX] | [SYMBOL]                | [CASES_CAPABILITY]                                          |
 | :-----: | :---------------------- | :----------------------------------------------------------- |
 |  [01]   | `Side`                  | `Left`/`Right` — cursor stickiness side                      |
 |  [02]   | `PosType`               | `Bytes`/`Unicode`/`Utf16` — text index space (the tri-encoding axis) |
@@ -85,7 +84,7 @@
 [DOC_LIFECYCLE]: import / export / commit / time-travel on `LoroDoc`
 - rail: collaboration
 
-| [INDEX] | [SURFACE]                                  | [SHAPE / CAPABILITY]                                          |
+| [INDEX] | [SURFACE]                                  | [SHAPE_CAPABILITY]                                          |
 | :-----: | :----------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | `new LoroDoc()`                            | a fresh empty document (auto-commit on)                      |
 |  [02]   | `byte[] Export(ExportMode mode)`           | the one polymorphic export — snapshot / shallow / updates / state-only by case |
@@ -117,7 +116,7 @@
 - rail: collaboration
 - every `Subscribe*` returns a `Subscription` (`IDisposable`); the callback delegate receives the typed event. Hold the subscription for its lifetime, dispose to detach.
 
-| [INDEX] | [SURFACE]                                          | [FIRES ON]                                                   |
+| [INDEX] | [SURFACE]                                          | [FIRES_ON]                                                   |
 | :-----: | :------------------------------------------------- | :---------------------------------------------------------- |
 |  [01]   | `Subscription SubscribeRoot(Subscriber)`           | any change to any container (the whole-document diff feed)  |
 |  [02]   | `Subscription Subscribe(ContainerId, Subscriber)`  | changes to one container only                               |
@@ -127,7 +126,7 @@
 [CONTAINER_OPS]: the per-kind editing surface (the dense vocabularies the editing rail composes)
 - rail: collaboration
 
-| [INDEX] | [CONTAINER]       | [KEY OPS]                                                     |
+| [INDEX] | [CONTAINER]       | [KEY_OPS]                                                     |
 | :-----: | :---------------- | :----------------------------------------------------------- |
 |  [01]   | `LoroText`        | `Insert(pos, s)`/`Delete(pos, len)`/`Splice(pos, len, s)`/`Update(s, UpdateOptions)` (whole-doc diff-update); `Mark(from, to, key, value)`/`Unmark` rich-text marks; `Cursor? GetCursor(pos, Side)`; `TextDelta[] ToDelta()`/`ApplyDelta`; tri-encoding `*Utf8`/`*Utf16`/unicode forms + `ConvertPos(index, PosType from, PosType to)` |
 |  [02]   | `LoroMap`         | `Insert(key, v)`/`Get(key)`/`Delete(key)`/`Keys()`/`Values()`; `Ensure*Mergeable(key)` (idempotent nested-container create); `Insert*Container`/`GetOrCreate*Container(key, child)`; `ulong? GetLastEditor(key)` |
@@ -153,7 +152,7 @@
 - rail: collaboration
 - all throw types derive from `LoroException` (with `LoroEncodeException`, `CannotFindRelativePosition`, `ChangeTravelException`, `JsonPathException`, `UpdateTimeoutException` as intermediate roots); the boundary folds them to the editing rail's typed failures.
 
-| [INDEX] | [THROWN ROOT / LEAF]                                         | [DISCRIMINANT / CAUSE]                                       |
+| [INDEX] | [THROWN_ROOT_LEAF]                                         | [DISCRIMINANT_CAUSE]                                       |
 | :-----: | :---------------------------------------------------------- | :---------------------------------------------------------- |
 |  [01]   | `DecodeException` / `DecodeChecksumMismatchException` / `DecodeDataCorruptionException` / `DecodeVersionVectorException` | a corrupt / incompatible imported op-log byte stream         |
 |  [02]   | `IncompatibleFutureEncodingException` / `ImportUnsupportedEncodingMode` / `ImportUpdatesThatDependsOnOutdatedVersion` | an op-log from a newer/incompatible loro version or a missing-dependency import |

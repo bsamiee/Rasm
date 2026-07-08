@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenCAMLib`
-- package: `OpenCAMLib` (vendored — no NuGet; central manifest carries the RID-native asset rows, this folder's `.csproj` the `PackageReference`)
-- version: `2023.01.11` (upstream release; the SHARED `libocl` archives)
+- package: `OpenCAMLib` (vendored — no NuGet artifact; the `extern "C"` shim + `[LibraryImport]` bindings compile into `Rasm.Fabrication`, the RID-keyed SHARED `libocl` rides `vendor/runtimes` through the folder `.csproj`'s `Exists`-gated `Content` group, LFS-carried, outside NuGet restore)
 - license: `LGPL-2.1` — dynamic-link P/Invoke through the separate replaceable `libocl.dylib`/`.so`/`.dll` satisfies §6; `libocl` stays dynamically linked, never statically folded into the shim
 - assembly: managed `Rasm.Fabrication` P/Invoke shim (source-generated `[LibraryImport]`); no managed assembly ships upstream
 - namespace: `ocl` (C++ engine); the C-shim exports flat `extern "C"` functions, the managed side owns the `OpenCamLib`-shaped local surface
@@ -123,10 +122,11 @@
 - The Boost.Python binding files (`ocl_cutters.cpp`/`ocl_dropcutter.cpp`/`ocl_algo.cpp`/`ocl_geometry.cpp`) are the exact member-by-member shim blueprint — Boost.Python, NOT pybind11/emscripten; the shim re-exports exactly the members those files expose
 
 [LOCAL_ADMISSION]:
-- `Toolpath/surface#SurfacePath.Sample` owns cutter POSITIONING through this engine: the `CutterForm` axis picks the `MillingCutter` ctor at the P/Invoke edge (flat→`CylCutter`, ball→`BallCutter`, bull→`BullCutter`, taper→`ConeCutter`, compound→the `Comp…` forms), the `MeshSpace` triangle buffer marshals to `setSTL`, and the strategy row picks the operation: waterline/Z-level roughing → `Waterline`/`AdaptiveWaterline` `getLoops`, drop-cutter finishing → `BatchDropCutter`/`PathDropCutter` `getCLPoints`, adaptive-error paths → `AdaptivePathDropCutter` with `setCosLimit`
+- `Toolpath/surface#SurfacePath.Sample` owns cutter POSITIONING through this engine: the `CutterForm` axis picks the `MillingCutter` ctor at the P/Invoke edge (`CylCutter`/`BallCutter`/`BullCutter`/`ConeCutter`/`Comp…`), and the `MeshSpace` triangle buffer marshals to `setSTL`
+- The strategy row picks the operation: waterline roughing → `Waterline`/`AdaptiveWaterline` `getLoops`, drop-cutter finishing → `BatchDropCutter`/`PathDropCutter` `getCLPoints`, adaptive-error → `AdaptivePathDropCutter` `setCosLimit`
 - Path LAYOUT is NEVER this engine's: geodesic-parallel/constant-stepover isolines, flowline/morph streamlines, and flank/swarf cross-field orientation compose the kernel on-mesh machinery (`geodesics.md`/`extract.md`/`flow.md`/`segment.md`); OCL owns only the Z-height/contact sampling AT the laid-out sample points — a Fabrication-side on-mesh re-implementation is the forbidden `[V2]` defect
 - Drop-cutter non-convergence and empty CL-clouds raise `Toolpath` `SampleStalled` 2713 `(SurfaceStrategy strategy, int iteration)` at the shim boundary, distinct from the `Toolpath/partition` Voronoi `PartitionDegenerate` 2723
-- The author-kernel SDF drop-cutter over the kernel `[V8]` distance-field lane (`Spatial/fields.md#SignedDistanceFromMesh`, K8) is the recorded admission-abandonment FALLBACK only: it re-derives per-cutter-form contact (flat/bull/cone are the cutter-solid lower envelope, NOT a mesh-SDF iso-offset), is resolution-bound where OCL is analytically exact, degrades waterline to marching-squares, and is calendar-hostage to the unlanded kernel SDF lane — strictly heavier on both axes, so the shim is the ruled path
+- The author-kernel SDF drop-cutter over the kernel `[V8]` distance-field lane (`Spatial/fields.md#SignedDistanceFromMesh`, K8) is the admission-abandonment FALLBACK: it re-derives per-cutter-form contact (flat/bull/cone are the cutter-solid lower envelope, NOT a mesh-SDF iso-offset), is resolution-bound where OCL is analytically exact, degrades waterline to marching-squares, and is calendar-hostage to the unlanded kernel SDF lane — the shim is the ruled path
 - Golden-fixture gated: the shim + native asset admit only against a committed cutter-location golden fixture per RID (the LGPL native-engine admission gate)
 
 [RAIL_LAW]:

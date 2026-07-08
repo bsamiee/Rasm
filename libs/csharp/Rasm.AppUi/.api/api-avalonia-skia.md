@@ -5,12 +5,12 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Skia`
-- package: `Avalonia.Skia` (12.0.5, MIT)
+- package: `Avalonia.Skia` (MIT)
 - assembly: `Avalonia.Skia` (consumer-bound `lib/net8.0`; net10 binds this asset)
 - namespace: `Avalonia` (`UseSkia`, `SkiaOptions`, `SkiaPlatform`)
 - namespace: `Avalonia.Skia` (lease contracts, `SkiaSharpExtensions`, `ISkiaSurface`)
 - namespace: `Avalonia.Skia.Helpers` (`DrawingContextHelper`, `ImageSavingHelper`, `PixelFormatHelper`)
-- asset: runtime library (SkiaSharp 3.119.4 + HarfBuzz natives are the centrally-pinned runtime family)
+- asset: runtime library (SkiaSharp + HarfBuzz natives are the centrally-pinned runtime family)
 - rail: visuals
 
 ## [02]-[PUBLIC_TYPES]

@@ -1,27 +1,27 @@
-# [@effect/ai-openai] — the OpenAI provider Layer family: LanguageModel/EmbeddingModel rows on the capability-asymmetry table
+# [TS_RUNTIME_API_EFFECT_AI_OPENAI]
 
-`@effect/ai-openai` 0.40.1 · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-openai/OpenAiClient`) · marker TSDECL `node_modules/@effect/ai-openai/dist/dts/*.d.ts` · peers `@effect/ai@^0.36`, `@effect/platform@^0.96`, `@effect/experimental@^0.60`, `effect@^3.21` · tier node|browser (`FetchHttpClient.layer`)
+`@effect/ai-openai` catalog · MIT · dual CJS+ESM, `sideEffects:[]`, per-module `exports` subpaths (`@effect/ai-openai/OpenAiClient`) · marker TSDECL `node_modules/@effect/ai-openai/dist/dts/*.d.ts` · peers `@effect/ai`, `@effect/platform`, `@effect/experimental`, `effect` through catalog ownership · tier node|browser (`FetchHttpClient.layer`)
 
-The OpenAI binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`EmbeddingModel`/`Tokenizer`/`Tool`/`Telemetry` tags against the OpenAI **Responses** API. It is the ONLY admitted provider carrying all four asymmetry capabilities — language model, embeddings (two batching modalities), tokenizer, and a provider-namespaced GenAI telemetry module — so `ai/model.ts` reads it as the fully-populated reference row of the capability-asymmetry table, and `ai/embed.ts` binds its `EmbeddingModel` to the `store/retrieve` `Embedder` port. Eight owner modules re-export through the barrel (`OpenAiClient`, `OpenAiConfig`, `OpenAiEmbeddingModel`, `OpenAiLanguageModel`, `OpenAiTelemetry`, `OpenAiTokenizer`, `OpenAiTool`, `Generated`); every provider-facing symbol below is one parameterized surface, and the OpenAI wire corpus (`Generated`) is a category with named anchors, never enumerated. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
+The OpenAI binding onto `@effect/ai`: it resolves the provider-agnostic `LanguageModel`/`EmbeddingModel`/`Tokenizer`/`Tool`/`Telemetry` tags against the OpenAI Responses API. It is the ONLY admitted provider carrying all four asymmetry capabilities — language model, embeddings (two batching modalities), tokenizer, and a provider-namespaced GenAI telemetry module — so `ai/model.ts` reads it as the fully-populated reference row of the capability-asymmetry table, and `ai/embed.ts` binds its `EmbeddingModel` to the `store/retrieve` `Embedder` port. Eight owner modules re-export through the barrel (`OpenAiClient`, `OpenAiConfig`, `OpenAiEmbeddingModel`, `OpenAiLanguageModel`, `OpenAiTelemetry`, `OpenAiTokenizer`, `OpenAiTool`, `Generated`); every provider-facing symbol below is one parameterized surface, and the OpenAI wire corpus (`Generated`) is a category with named anchors, never enumerated. Success/failure flows through the core `AiError.AiError`; all I/O is `Effect`/`Stream`.
 
-## [01]-[ASYMMETRY] — the row `ai/model.ts` folds
+## [01]-[ASYMMETRY]
 
 The provider is ONE row with asymmetry columns; a new provider is a row, never a fork. OpenAI's columns against the four admitted siblings (the contrast is the whole point of the table):
 
-| [COLUMN]              | [OpenAI]                                  | anthropic | google        | bedrock          |
-| :-------------------- | :---------------------------------------- | :-------- | :------------ | :--------------- |
-| provider id           | `"openai"`                                | anthropic | google        | amazon-bedrock   |
-| language model        | `OpenAiLanguageModel` (Responses)         | Messages  | generateContent | Converse       |
-| embedding model       | `OpenAiEmbeddingModel` (batched+dataloader) | —       | raw client    | —                |
-| tokenizer             | `OpenAiTokenizer.make({model})`           | value     | —             | —                |
-| provider-defined tools | 4 (`OpenAiTool`)                          | 5 families | 4            | 8 (Anthropic-on-Bedrock) |
-| telemetry module      | `OpenAiTelemetry`                         | —         | —             | —                |
-| model-id kind         | `ChatModel \| ModelIdsResponsesEnum` enum | 21-id enum | free `string` | 91-id enum      |
-| auth                  | `Redacted` apiKey + org/project           | apiKey + version | apiKey  | SigV4 keys       |
-| per-request Config tag | `OpenAiLanguageModel/Config` (`strict`, `verbosity`) | +`disableParallelToolCalls` | +`toolConfig` | Converse fields |
-| streaming fold        | `ResponseStreamEvent` (49-member union)   | 8-member  | response re-emit | 11-member     |
+| [INDEX] | [COLUMN] | [OPENAI] | [ANTHROPIC] | [GOOGLE] | [BEDROCK] |
+| :-----: | :------ | :------ | :--------- | :------ | :------- |
+| [01] | provider id | `"openai"` | anthropic | google | amazon-bedrock |
+| [02] | language model | `OpenAiLanguageModel` (Responses) | Messages | generateContent | Converse |
+| [03] | embedding model | `OpenAiEmbeddingModel` (batched+dataloader) | — | raw client | — |
+| [04] | tokenizer | `OpenAiTokenizer.make({model})` | value | — | — |
+| [05] | provider-defined tools | 4 (`OpenAiTool`) | 5 families | 4 | 8 (Anthropic-on-Bedrock) |
+| [06] | telemetry module | `OpenAiTelemetry` | — | — | — |
+| [07] | model-id kind | `ChatModel \| ModelIdsResponsesEnum` enum | 21-id enum | free `string` | 91-id enum |
+| [08] | auth | `Redacted` apiKey + org/project | apiKey + version | apiKey | SigV4 keys |
+| [09] | per-request Config tag | `OpenAiLanguageModel/Config` (`strict`, `verbosity`) | +`disableParallelToolCalls` | +`toolConfig` | Converse fields |
+| [10] | streaming fold | `ResponseStreamEvent` (49-member union) | 8-member | response re-emit | 11-member |
 
-## [02]-[CLIENT] — transport owner, constructor triple, streaming fold
+## [02]-[CLIENT]
 
 `OpenAiClient` is a `Context.TagClass` (id `@effect/ai-openai/OpenAiClient`) wrapping the generated REST `Client` plus curated Responses/embedding entrypoints. `client` is the low-level escape hatch (section [09]); `createResponse`/`createResponseStream`/`createEmbedding` are the curated rails; `streamRequest` decodes an arbitrary SSE response against a `Schema` for uncurated endpoints.
 
@@ -60,7 +60,7 @@ class LogProbs    { token: string; logprob: number; top_logprobs: ReadonlyArray<
 class SummaryPart { type: "summary_text"; text: string }
 ```
 
-## [03]-[LANGUAGE_MODEL] — the row constructor, per-request Config, boundary augmentations
+## [03]-[LANGUAGE_MODEL]
 
 `OpenAiLanguageModel` binds the Responses API onto the core `LanguageModel`/`Model` contracts. The model argument is the widened `(string & {}) | Model` — the enum drives autocomplete without rejecting newer ids. ONE model/layer family: `model`/`modelWithTokenizer` return a provider-tagged `AiModel.Model<"openai", …>` (both a `Layer` and an `Effect<Layer>`); `layer`/`layerWithTokenizer` install the tag directly; `make` yields the raw `Service`; `withConfigOverride` is the dual per-effect Config scope. `*WithTokenizer` folds `Tokenizer.Tokenizer` into the provides set (section [05]).
 
@@ -88,18 +88,18 @@ namespace Config {
 
 The module `declare module`-augments `@effect/ai/Prompt` and `@effect/ai/Response` with an optional `openai` key — ONE boundary-hook pattern; internal code reads canonical `@effect/ai` shapes, the edge maps these slots:
 
-| [AUGMENTS]        | [INTERFACES]                                                        | [`openai` slot]                                      |
-| :---------------- | :----------------------------------------------------------------- | :--------------------------------------------------- |
-| `Prompt`          | `FilePartOptions`                                                   | `imageDetail?: ImageDetail.Encoded`                  |
-| `Prompt`          | `ReasoningPartOptions`                                              | `itemId?`, `encryptedContent?`                       |
-| `Prompt`          | `TextPartOptions`, `ToolCallPartOptions`                            | `itemId?`                                            |
-| `Response`        | `TextPartMetadata`                                                  | `itemId?`, `refusal?`                                |
-| `Response`        | `TextStartPartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolCallPartMetadata` | `itemId?` (+ `encryptedContent?` on reasoning part/start/end) |
-| `Response`        | `DocumentSourcePartMetadata`                                        | `{ type:"file_citation"; index }`                    |
-| `Response`        | `UrlSourcePartMetadata`                                             | `{ type:"url_citation"; startIndex; endIndex }`      |
-| `Response`        | `FinishPartMetadata`                                                | `serviceTier?: "default"\|"auto"\|"flex"\|"scale"\|"priority"` |
+| [INDEX] | [AUGMENTS] | [INTERFACES] | [OPENAI_SLOT] |
+| :-----: | :-------- | :---------- | :----------- |
+| [01] | `Prompt` | `FilePartOptions` | `imageDetail?: ImageDetail.Encoded` |
+| [02] | `Prompt` | `ReasoningPartOptions` | `itemId?`, `encryptedContent?` |
+| [03] | `Prompt` | `TextPartOptions`, `ToolCallPartOptions` | `itemId?` |
+| [04] | `Response` | `TextPartMetadata` | `itemId?`, `refusal?` |
+| [05] | `Response` | `TextStartPartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolCallPartMetadata` | `itemId?`, reasoning `encryptedContent?` |
+| [06] | `Response` | `DocumentSourcePartMetadata` | `{ type:"file_citation"; index }` |
+| [07] | `Response` | `UrlSourcePartMetadata` | `{ type:"url_citation"; startIndex; endIndex }` |
+| [08] | `Response` | `FinishPartMetadata` | `serviceTier?: "default"\|"auto"\|"flex"\|"scale"\|"priority"` |
 
-## [04]-[EMBEDDING_MODEL] — two batching modalities behind one polymorphic entry
+## [04]-[EMBEDDING_MODEL]
 
 `OpenAiEmbeddingModel` is the only provider `EmbeddingModel` binding — the `ai/embed.ts` source of the `store/retrieve` `Embedder` port. ONE polymorphic `model` discriminates on `mode`: `"batched"` coalesces calls up to `maxBatchSize` with an optional bounded `{capacity, timeToLive}` cache; `"data-loader"` windows requests over a `Duration`. `makeDataLoader` requires `Scope` (background batcher); the layers scope internally. `Config` (tag `@effect/ai-openai/OpenAiEmbeddingModel/Config`) is the `CreateEmbeddingRequest` minus `input`, made partial, with `Batched`/`DataLoader` extensions.
 
@@ -119,7 +119,7 @@ namespace Config {
 }
 ```
 
-## [05]-[TOKENIZER] — the `ai/model.ts` budget binding
+## [05]-[TOKENIZER]
 
 `OpenAiTokenizer.make` is pure (no Effect wrapper), keyed by model; `layer` provides the `Tokenizer.Tokenizer` tag dependency-free. `OpenAiLanguageModel.layerWithTokenizer`/`modelWithTokenizer` fold it in implicitly. This is one of the two tokenizer owners `ai/model.ts` budgets read (the other is `AnthropicTokenizer`).
 
@@ -128,22 +128,22 @@ declare const make:  (options: { readonly model: string }) => Tokenizer.Service
 declare const layer: (options: { readonly model: string }) => Layer.Layer<Tokenizer.Tokenizer>
 ```
 
-## [06]-[TOOL] — provider-defined tool family as one pattern + roster
+## [06]-[TOOL]
 
 `OpenAiTool` exports four provider-executed tool constructors, each ONE instance of the same shape: `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"OpenAi<Name>", { args; parameters; success; failure; failureMode: Mode extends undefined ? "error" : Mode }, false>`. The provider runs them (`requiresHandler=false`); the app collects them with `Toolkit.make(...)` and projects them through `ai/tool.ts`. The four rows:
 
-| [CTOR]             | [tag]                     | [args]                                                                 | [parameters]                    | [success]                                                    |
-| :----------------- | :------------------------ | :-------------------------------------------------------------------- | :------------------------------ | :----------------------------------------------------------- |
-| `CodeInterpreter`  | `OpenAiCodeInterpreter`   | `container: string \| { type:"auto"; file_ids? }`                     | `{ code: NullOr<String>; container_id }` | `NullOr<Array<CodeInterpreterOutputLogs \| CodeInterpreterOutputImage>>` |
-| `FileSearch`       | `OpenAiFileSearch`        | `vector_store_ids`, `max_num_results?`, `ranking_options?`, `filters?` | `Tool.EmptyParams`             | `{ status; queries; results? }` (`SchemaClass`)              |
-| `WebSearch`        | `OpenAiWebSearch`         | `user_location?`, `search_context_size?`, `filters.allowed_domains?`  | `{ action: search\|open_page\|find }` | `{ status: WebSearchToolCallStatus }`                 |
-| `WebSearchPreview` | `OpenAiWebSearchPreview`  | `user_location?`, `search_context_size?`                              | `{ action: search\|open_page\|find }` | `{ status: WebSearchToolCallStatus }`                 |
+| [INDEX] | [CTOR] | [TAG] | [ARGS] | [PARAMETERS] | [SUCCESS] |
+| :-----: | :---- | :--- | :---- | :---------- | :------- |
+| [01] | `CodeInterpreter` | `OpenAiCodeInterpreter` | `container: string \| { type:"auto"; file_ids? }` | `{ code: NullOr<String>; container_id }` | `NullOr<Array<CodeInterpreterOutputLogs \| CodeInterpreterOutputImage>>` |
+| [02] | `FileSearch` | `OpenAiFileSearch` | `vector_store_ids`, `max_num_results?`, `ranking_options?`, `filters?` | `Tool.EmptyParams` | `{ status; queries; results? }` (`SchemaClass`) |
+| [03] | `WebSearch` | `OpenAiWebSearch` | `user_location?`, `search_context_size?`, `filters.allowed_domains?` | `{ action: search\|open_page\|find }` | `{ status: WebSearchToolCallStatus }` |
+| [04] | `WebSearchPreview` | `OpenAiWebSearchPreview` | `user_location?`, `search_context_size?` | `{ action: search\|open_page\|find }` | `{ status: WebSearchToolCallStatus }` |
 
 `FileSearch.filters` is the canonical OpenAI filter algebra — a comparison node `{ type:"eq"|"ne"|"gt"|"gte"|"lt"|"lte"; key; value: string|number|boolean|ReadonlyArray<string|number> }` or a compound node `{ type:"and"|"or"; filters: ReadonlyArray<comparison> }`. `failure` is `Schema.Never` on all four; `Mode` threads the failure-routing policy into the static type.
 
-## [07]-[TELEMETRY] — GenAI OpenTelemetry attribute owner
+## [07]-[TELEMETRY]
 
-`OpenAiTelemetry` extends the core `Telemetry` GenAI attribute set with OpenAI-namespaced request/response attributes. `addGenAIAnnotations` is dual and mutates the `effect/Tracer` `Span` in place — the one boundary-kernel mutation in the package, and the seam onto `@effect/opentelemetry`. Upstream carries a known defect: both request and response attribute groups are prefixed `gen_ai.openai.request` (the response group should read `.response`); consumers reading raw attribute keys must account for it.
+`OpenAiTelemetry` extends the core `Telemetry` GenAI attribute set with OpenAI-namespaced request/response attributes. `addGenAIAnnotations` is dual and mutates the `effect/Tracer` `Span` in place — the one boundary-kernel mutation in the package, and the seam onto `@effect/opentelemetry`. Upstream carries a known defect: both request and response attribute groups are prefixed `gen_ai.openai.request` (the response group must read `.response`); consumers reading raw attribute keys must account for it.
 
 ```ts contract
 type OpenAiTelemetryAttributes = Simplify<Telemetry.GenAITelemetryAttributes
@@ -158,7 +158,7 @@ type OpenAiTelemetryAttributeOptions = Telemetry.GenAITelemetryAttributeOptions 
 declare const addGenAIAnnotations: ((options: OpenAiTelemetryAttributeOptions) => (span: Span) => void) & ((span: Span, options: OpenAiTelemetryAttributeOptions) => void)
 ```
 
-## [08]-[CONFIG] — per-effect HttpClient transform overlay
+## [08]-[CONFIG]
 
 `OpenAiConfig` (`Context.TagClass`, id `@effect/ai-openai/OpenAiConfig`, `static getOrUndefined`) is the request-scoped client transform — the one surface for a per-region/per-request `HttpClient` mutation without rebuilding transport. Distinct from the layer-construction `transformClient`: `withClientTransform` scopes onto any `Effect`, dual data-first/data-last.
 
@@ -167,7 +167,7 @@ namespace OpenAiConfig { interface Service { readonly transformClient?: (client:
 declare const withClientTransform: { (t: (c: HttpClient) => HttpClient): <A,E,R>(self) => …; <A,E,R>(self, t): … }
 ```
 
-## [09]-[GENERATED] — OpenAPI wire corpus as category + anchors
+## [09]-[GENERATED]
 
 `Generated` is the machine-generated OpenAI REST surface: ~1238 `Schema.Class`/`Schema.Literals` owners plus the `make` Client factory, a 219-method `Client` interface, and the `ClientError` rail. It is not enumerated — the owner modules reach it through named anchors, and planning code reaches REST via `OpenAiClient.Service.client.<operationId>(...)`, never by importing individual schemas. Load-bearing anchors (exact spelling):
 
@@ -189,7 +189,7 @@ interface ClientError<Tag extends string, E> { readonly _tag: Tag; readonly requ
 
 `OpenAiClient.make`/`layer*` build the `Generated.Client` internally; planning code never calls `Generated.make` directly. Curated `createResponse`/`createResponseStream`/`createEmbedding` are the entry points; raw `client.*` is the escape hatch for uncurated endpoints.
 
-## [10]-[INTEGRATION] — how the row stacks into single rails
+## [10]-[INTEGRATION]
 
 - Universal Effect rails: provider choice is a single composition-root `Layer` swap — every provider's `model(...)` produces the same `LanguageModel.LanguageModel` tag, so `OpenAiLanguageModel.model("gpt-…")` ↔ any sibling is one line in `ai/model.ts`. `Redacted` + `Config` own credential resolution (`layerConfig`); `Stream` folds `ResponseStreamEvent`; `Schema` decodes `Config`/tool-params/responses; `Duration` bounds the embedding cache/window; `Match.discriminator("type")`/`Effect.catchTag` dispatch the streaming union and the `AiError` rail. Compose the stack top-down: `Effect.provide(OpenAiLanguageModel.model(id))` over `OpenAiClient.layer({ apiKey })` over an `HttpClient` layer.
 - `@effect/platform` seam: every `layer*` requires `HttpClient.HttpClient` — the `net/client` default-policy row (timeout/retry/proxy) provides it; browser binds `FetchHttpClient.layer`, node binds `NodeHttpClient.layer`. `streamRequest` takes an `HttpClientRequest` for uncurated SSE endpoints.

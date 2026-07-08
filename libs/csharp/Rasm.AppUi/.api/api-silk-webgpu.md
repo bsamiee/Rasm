@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU`
 - package: `Silk.NET.WebGPU`
 - package: `Silk.NET.WebGPU.Native.WGPU` (native `wgpu_native` runtime, RID-fanned)
-- version: `2.23.0`
 - license: MIT (expression)
 - assembly: `Silk.NET.WebGPU`
 - namespace: `Silk.NET.WebGPU` (function-table root, descriptors, enums, callback delegates, platform-source structs)
@@ -16,7 +15,7 @@
 - asset: runtime library + native wgpu binaries
 - depends: `Silk.NET.Core`, `Silk.NET.Maths`
 - rail: visuals
-- note: there is **no `Silk.NET.WebGPU.Extensions.Dawn` package or namespace** in this binding — the admitted vendor extension is `Silk.NET.WebGPU.Extensions.WGPU` (`api-silk-webgpu-wgpu.md`), which carries `DevicePoll`, native log callbacks, full-adapter enumeration, indirect multi-draw, and push-constants. The native backend is `wgpu_native` (`Silk.NET.WebGPU.Native.WGPU`); `BackendType` then auto-negotiates D3D12/Vulkan/Metal under it.
+- note: there is no `Silk.NET.WebGPU.Extensions.Dawn` package or namespace in this binding — the admitted vendor extension is `Silk.NET.WebGPU.Extensions.WGPU` (`api-silk-webgpu-wgpu.md`), which carries `DevicePoll`, native log callbacks, full-adapter enumeration, indirect multi-draw, and push-constants. The native backend is `wgpu_native` (`Silk.NET.WebGPU.Native.WGPU`); `BackendType` then auto-negotiates D3D12/Vulkan/Metal under it.
 
 ## [02]-[PUBLIC_TYPES]
 

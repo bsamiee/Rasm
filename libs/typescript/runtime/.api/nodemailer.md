@@ -1,11 +1,11 @@
-# [nodemailer] — the one mail-egress owner behind the work/deliver durable job
+# [TS_RUNTIME_API_NODEMAILER]
 
 `nodemailer` is the SMTP/mail transport `runtime/src/work/deliver.ts` internalizes as the single mail-egress owner: one polymorphic `createTransport` that discriminates on the transport-option shape — plain SMTP, a pooled SMTP connection set, AWS SESv2, `sendmail`, an in-memory `stream`, or a `json` sink — returning a `Transporter` whose `sendMail` sends one RFC-5322 message and whose `verify` proves the connection. The message is one rich `Options` shape (`from`/`to`/`cc`/`bcc`/`replyTo`, `subject`, `text`/`html`/`amp`/`watchHtml`, `icalEvent`, `attachments`/`alternatives`, `headers`, `list` for `List-Unsubscribe`, `dkim`, `priority`, `disableFileAccess`/`disableUrlAccess`), and every send returns a `SentMessageInfo` receipt (`accepted`/`rejected`/`rejectedErrors`/`messageId`/`response`/`envelopeTime`). Authentication is a discriminated union — `LOGIN` credentials, `OAUTH2` via the built-in `XOAuth2` refresh-token flow, or a `CUSTOM` handler — DKIM message signing is native (`domainName`/`keySelector`/`privateKey`), pooling carries `maxConnections`/`maxMessages`/`rateLimit`/`rateDelta`, and `wellKnown` resolves a provider name to host/port. The library is callback-and-`Promise`-based; the owner wraps it once: `Effect.tryPromise` lifts `sendMail`/`verify`, every secret (`pass`, `clientSecret`, `refreshToken`, DKIM `privateKey`) arrives as `Redacted` from `Config.redacted`, the `Transporter` is a scoped `Layer` service closed on teardown, and a durable mail job retries on `SMTPError.code` classification through a `Schedule` budget.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `nodemailer`
-- package: `nodemailer` (9.0.3, MIT-0 — no attribution clause, © Andris Reinman); declarations via `@types/nodemailer` (8.0.1, MIT, DefinitelyTyped)
+- package: `nodemailer` (MIT-0 — no attribution clause, © Andris Reinman); declarations via `@types/nodemailer` (MIT, DefinitelyTyped)
 - module format: CJS (`main: lib/nodemailer.js`, no `module`/`exports` map); named factory exports (`createTransport`, `createTestAccount`, `getTestMessageUrl`); transport classes are internal, reached through `createTransport`
 - runtime target: Node-only — binds `node:net`/`node:tls`/`node:stream`/`node:dns` for SMTP; no browser build, no native addon. SESv2 is structural (`SES: { sesClient, SendEmailCommand }`), so `@aws-sdk/client-sesv2` is an optional app dependency, never bundled
 - peer/asset: runtime has zero npm dependencies; the DKIM, XOAuth2, and MIME machinery are in-tree. `@types/node` is a transitive type dependency
@@ -16,54 +16,54 @@
 [PUBLIC_TYPE_SCOPE]: the transporter, the message, and the send receipt
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CONSUMER]                                                              |
-| :-----: | :------------------------------------------------ | :---------------- | :--------------------------------------------------------------------- |
-|  [01]   | `Transporter<T, D>` = `Mail<T, D>`                | egress service     | the `EventEmitter` owner — `sendMail`, `verify`, `close`, `isIdle`, `use`; the `Layer`-wrapped service `mail` provides |
-|  [02]   | `Mail.Options` (= `SendMailOptions`)             | message shape      | the one message contract — addresses, `subject`, `text`/`html`/`amp`/`watchHtml`, `icalEvent`, `attachments`, `alternatives`, `headers`, `list`, `dkim`, `priority`, `envelope`, `disableFileAccess`/`disableUrlAccess` |
-|  [03]   | `Mail.Address`                                    | address value      | `{ name?, address }` — the structured recipient; Nodemailer escapes `Name <email>` formatting |
-|  [04]   | `Mail.Attachment`                                 | attachment         | `content` (`string`/`Buffer`/`Readable`) or `path`; `cid` for inline images, `contentType`, `contentTransferEncoding`, `encoding`, `contentDisposition`, `raw` — where a `report`/jszip byte artifact attaches |
-|  [05]   | `Mail.ListHeaders` / `Mail.Headers`              | header shape        | the `list` key builds `List-Unsubscribe`/`List-Help` — the suppression/unsubscribe seam `mail` rows against |
-|  [06]   | `SentMessageInfo` (`SMTP`/`SES`/`stream` variants)| send receipt       | `accepted`/`rejected`/`rejectedErrors`/`pending`, `messageId`, `response`, `envelope`, `envelopeTime`/`messageTime`/`messageSize` — the durable-job delivery evidence |
-|  [07]   | `Transport<T, D>`                                 | plugin contract    | `{ name, version, send, verify?, close? }` — the custom-transport interface for a bespoke egress backend |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------ |:---------------- |:--------------------------------------------------------------------- |
+| [01] | `Transporter<T, D>` = `Mail<T, D>` | egress service | the `EventEmitter` owner — `sendMail`, `verify`, `close`, `isIdle`, `use`; the `Layer`-wrapped service `mail` provides |
+| [02] | `Mail.Options` (= `SendMailOptions`) | message shape | the one message contract — addresses, `subject`, `text`/`html`/`amp`/`watchHtml`, `icalEvent`, `attachments`, `alternatives`, `headers`, `list`, `dkim`, `priority`, `envelope`, `disableFileAccess`/`disableUrlAccess` |
+| [03] | `Mail.Address` | address value | `{ name?, address }` — the structured recipient; Nodemailer escapes `Name <email>` formatting |
+| [04] | `Mail.Attachment` | attachment | `content` (`string`/`Buffer`/`Readable`) or `path`; `cid` for inline images, `contentType`, `contentTransferEncoding`, `encoding`, `contentDisposition`, `raw` — where a `report`/jszip byte artifact attaches |
+| [05] | `Mail.ListHeaders` / `Mail.Headers` | header shape | the `list` key builds `List-Unsubscribe`/`List-Help` — the suppression/unsubscribe seam `mail` rows against |
+| [06] | `SentMessageInfo` (`SMTP`/`SES`/`stream` variants)| send receipt | `accepted`/`rejected`/`rejectedErrors`/`pending`, `messageId`, `response`, `envelope`, `envelopeTime`/`messageTime`/`messageSize` — the durable-job delivery evidence |
+| [07] | `Transport<T, D>` | plugin contract | `{ name, version, send, verify?, close? }` — the custom-transport interface for a bespoke egress backend |
 
 [PUBLIC_TYPE_SCOPE]: connection, authentication, and signing policy
 - rail: system-apis
 
-| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [CONSUMER]                                                              |
-| :-----: | :------------------------------------------------ | :---------------- | :--------------------------------------------------------------------- |
-|  [01]   | `SMTPConnection.Options`                          | connection policy  | `host`/`port`/`secure`/`requireTLS`/`opportunisticTLS`/`ignoreTLS`, `tls`, `auth`, `connectionTimeout`/`greetingTimeout`/`socketTimeout`/`dnsTimeout`, `authMethod`, `lmtp` — the SMTP dial policy |
-|  [02]   | `SMTPPool.Options`                                | pool policy        | `pool: true`, `maxConnections`, `maxMessages`, `rateLimit`, `rateDelta` — bounded concurrency + shared rate limit for bulk sends |
-|  [03]   | `AuthenticationType` (`LOGIN`/`OAUTH2`/`CUSTOM`) | auth union         | the discriminated credential — `Credentials { user, pass }`, `XOAuth2.Options`, or a `CustomAuthenticationHandlers` map; secrets held as `Redacted` |
-|  [04]   | `XOAuth2.Options` / `XOAuth2.Token`              | oauth flow         | `clientId`/`clientSecret`/`refreshToken`/`accessToken`/`accessUrl`/`privateKey`; the `token` event carries a refreshed `{ user, accessToken, expires }` |
-|  [05]   | `DKIM.Options` (`SingleKeyOptions`/`MultipleKeysOptions`) | signing policy | `domainName`, `keySelector`, `privateKey` (PEM), `hashAlgo`, `headerFieldNames`/`skipFields`, `cacheDir`/`cacheTreshold` — native RFC-6376 message signing |
-|  [06]   | `SMTPConnection.DSNOptions`                       | delivery notify    | `notify` (`SUCCESS`/`FAILURE`/`DELAY`/`NEVER`), `ret`, `envid`, `orcpt` — RFC-3461 delivery-status requests |
-|  [07]   | `SMTPConnection.SMTPError` / `shared.Logger`      | fault / log        | `code` (e.g. `EAUTH`), `response`, `responseCode`, `command` — the retry-classification discriminant; `Logger` is the `trace`→`fatal` sink swapped for `structlog`/`telemetry` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------ |:---------------- |:--------------------------------------------------------------------- |
+| [01] | `SMTPConnection.Options` | connection policy | `host`/`port`/`secure`/`requireTLS`/`opportunisticTLS`/`ignoreTLS`, `tls`, `auth`, `connectionTimeout`/`greetingTimeout`/`socketTimeout`/`dnsTimeout`, `authMethod`, `lmtp` — the SMTP dial policy |
+| [02] | `SMTPPool.Options` | pool policy | `pool: true`, `maxConnections`, `maxMessages`, `rateLimit`, `rateDelta` — bounded concurrency + shared rate limit for bulk sends |
+| [03] | `AuthenticationType` (`LOGIN`/`OAUTH2`/`CUSTOM`) | auth union | the discriminated credential — `Credentials { user, pass }`, `XOAuth2.Options`, or a `CustomAuthenticationHandlers` map; secrets held as `Redacted` |
+| [04] | `XOAuth2.Options` / `XOAuth2.Token` | oauth flow | `clientId`/`clientSecret`/`refreshToken`/`accessToken`/`accessUrl`/`privateKey`; the `token` event carries a refreshed `{ user, accessToken, expires }` |
+| [05] | `DKIM.Options` (`SingleKeyOptions`/`MultipleKeysOptions`) | signing policy | `domainName`, `keySelector`, `privateKey` (PEM), `hashAlgo`, `headerFieldNames`/`skipFields`, `cacheDir`/`cacheTreshold` — native RFC-6376 message signing |
+| [06] | `SMTPConnection.DSNOptions` | delivery notify | `notify` (`SUCCESS`/`FAILURE`/`DELAY`/`NEVER`), `ret`, `envid`, `orcpt` — RFC-3461 delivery-status requests |
+| [07] | `SMTPConnection.SMTPError` / `shared.Logger` | fault / log | `code` (e.g. `EAUTH`), `response`, `responseCode`, `command` — the retry-classification discriminant; `Logger` is the `trace`→`fatal` sink swapped for `structlog`/`telemetry` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a transport, send, and verify
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                        |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `createTransport(options, defaults?)` → `Transporter`                                         | construct        | one polymorphic factory — the option shape (`pool`/`SES`/`streamTransport`/`jsonTransport`/`sendmail`/SMTP) selects the modality; built once inside `Layer.scoped` |
-|  [02]   | `transporter.sendMail(message, cb?)` → `Promise<T>`                                           | send             | the durable-job egress — `Effect.tryPromise`-lifted; the `message` is `Schema`-encoded, secrets pre-resolved from `Redacted` |
-|  [03]   | `transporter.verify(cb?)` → `Promise<true>`                                                   | preflight        | connection/credential probe at `Layer` build or a health activity; fails into the `Effect` channel on `SMTPError` |
-|  [04]   | `transporter.close()` / `transporter.isIdle()`                                                | lifetime         | `close` is the scoped-`Layer` finalizer draining pool sockets; `isIdle` gates the outbox relay against free pool slots |
-|  [05]   | `transporter.use(step, plugin)` → `this` / `transporter.setupProxy(url)` / `transporter.set("proxy_handler_socks5"\|…, fn)` | plugin / proxy | `"compile"`/`"stream"` message-mutation steps — a canonical header/footer or tenant-tag stamp; `setupProxy`/the `proxy_handler_*` setters route SMTP egress through an HTTP/SOCKS proxy |
-|  [06]   | `transporter.on("idle"\|"error"\|"token", cb)`                                                | events           | pool backpressure (`idle`), transport failure (`error`), and OAuth2 refresh (`token`) bridged to a `Queue`/`SubscriptionRef` |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------------------------------------- |:-------------- |:--------------------------------------------------------------- |
+| [01] | `createTransport(options, defaults?)` → `Transporter` | construct | one polymorphic factory — the option shape (`pool`/`SES`/`streamTransport`/`jsonTransport`/`sendmail`/SMTP) selects the modality; built once inside `Layer.scoped` |
+| [02] | `transporter.sendMail(message, cb?)` → `Promise<T>` | send | the durable-job egress — `Effect.tryPromise`-lifted; the `message` is `Schema`-encoded, secrets pre-resolved from `Redacted` |
+| [03] | `transporter.verify(cb?)` → `Promise<true>` | preflight | connection/credential probe at `Layer` build or a health activity; fails into the `Effect` channel on `SMTPError` |
+| [04] | `transporter.close()` / `transporter.isIdle()` | lifetime | `close` is the scoped-`Layer` finalizer draining pool sockets; `isIdle` gates the outbox relay against free pool slots |
+| [05] | `transporter.use(step, plugin)` → `this` / `transporter.setupProxy(url)` / `transporter.set("proxy_handler_socks5"\|…, fn)` | plugin / proxy | `"compile"`/`"stream"` message-mutation steps — a canonical header/footer or tenant-tag stamp; `setupProxy`/the `proxy_handler_*` setters route SMTP egress through an HTTP/SOCKS proxy |
+| [06] | `transporter.on("idle"\|"error"\|"token", cb)` | events | pool backpressure (`idle`), transport failure (`error`), and OAuth2 refresh (`token`) bridged to a `Queue`/`SubscriptionRef` |
 
 [ENTRYPOINT_SCOPE]: provider resolution, OAuth2, and test sinks
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                        |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `wellKnown(key)` → `SMTPConnection.Options \| false`                                          | provider lookup  | resolves `"Gmail"`/`"SendGrid"`/an alias to host/port/secure so `mail` names a provider instead of hardcoding the dial |
-|  [02]   | `shared.parseConnectionUrl(url)` → `SMTPConnection.Options`                                   | url decode       | decodes a `smtp://user:pass@host:port` `Config` value into structured options at the boundary |
-|  [03]   | `XOAuth2#getToken(renew, cb)` / `#generateToken(cb)` / `#buildXOAuth2Token(accessToken)`     | oauth token      | the refresh-token → access-token flow behind `OAUTH2` auth; the owner caches the `token` event value in a `Ref` under `Redacted` |
-|  [04]   | `DKIM#sign(input, extraOptions?)` → `PassThrough`                                             | dkim sign        | native message signing; keys arrive as `Redacted` PEM from `Config`, never inline in the message |
-|  [05]   | `createTestAccount(apiUrl?)` → `Promise<TestAccount>` / `getTestMessageUrl(info)` → `string \| false` | test sink | Ethereal capture for kit-driven specs/staging — a real SMTP inbox with a preview URL, no live delivery |
-|  [06]   | `streamTransport`/`jsonTransport` options                                                     | inspect sink     | `{ streamTransport: true, buffer }` yields the raw MIME `Buffer`/`Readable`; `{ jsonTransport: true }` yields the message as JSON — the deterministic kit-driven spec and dry-run modalities |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------------------------------------- |:-------------- |:--------------------------------------------------------------- |
+| [01] | `wellKnown(key)` → `SMTPConnection.Options \| false` | provider lookup | resolves `"Gmail"`/`"SendGrid"`/an alias to host/port/secure so `mail` names a provider instead of hardcoding the dial |
+| [02] | `shared.parseConnectionUrl(url)` → `SMTPConnection.Options` | url decode | decodes a `smtp://user:pass@host:port` `Config` value into structured options at the boundary |
+| [03] | `XOAuth2#getToken(renew, cb)` / `#generateToken(cb)` / `#buildXOAuth2Token(accessToken)` | oauth token | the refresh-token → access-token flow behind `OAUTH2` auth; the owner caches the `token` event value in a `Ref` under `Redacted` |
+| [04] | `DKIM#sign(input, extraOptions?)` → `PassThrough` | dkim sign | native message signing; keys arrive as `Redacted` PEM from `Config`, never inline in the message |
+| [05] | `createTestAccount(apiUrl?)` → `Promise<TestAccount>` / `getTestMessageUrl(info)` → `string \| false` | test sink | Ethereal capture for kit-driven specs/staging — a real SMTP inbox with a preview URL, no live delivery |
+| [06] | `streamTransport`/`jsonTransport` options | inspect sink | `{ streamTransport: true, buffer }` yields the raw MIME `Buffer`/`Readable`; `{ jsonTransport: true }` yields the message as JSON — the deterministic kit-driven spec and dry-run modalities |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

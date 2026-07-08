@@ -11,7 +11,6 @@ key column's `nvarchar(n)` is policy data, not a per-column annotation.
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- version: `10.4.0` (rides the `Thinktecture.Runtime.Extensions` 10.4.0 core generator line)
 - license: file LICENSE.md (Pawel Gerr; permissive, source on GitHub)
 - assembly: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - core package: `Thinktecture.Runtime.Extensions` (the generator + `IObjectFactory`/`IConvertible` contracts)
@@ -80,8 +79,8 @@ The convention plugin (`ThinktectureConventionsPlugin`, `ThinktectureConventionS
 
 | [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY]     | [CAPABILITY]                                                  |
 | :-----: | :------------------------------------------------------------------------------ | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `ModelBuilder.AddThinktectureValueConverters([Configuration | useConstructorForRead, configure])` | model register | adds converters to every property of every entity type |
-|  [02]   | `EntityTypeBuilder(<T>).AddThinktectureValueConverters([Configuration | useConstructorForRead, addConvertersForOwnedTypes, configure])` | entity register | per-entity, optionally cascading into owned types |
+|  [01]   | `ModelBuilder.AddThinktectureValueConverters([Configuration \| useConstructorForRead, configure])` | model register | adds converters to every property of every entity type |
+|  [02]   | `EntityTypeBuilder(<T>).AddThinktectureValueConverters([Configuration \| useConstructorForRead, addConvertersForOwnedTypes, configure])` | entity register | per-entity, optionally cascading into owned types |
 |  [03]   | `OwnedNavigationBuilder(<TEntity, TRelatedEntity>).AddThinktectureValueConverters(…)` | owned nav register | adds converters for owned-navigation properties         |
 |  [04]   | `ComplexPropertyBuilder(<TComplex>).AddThinktectureValueConverters(…)`           | complex register   | adds converters for the members of a complex property        |
 
@@ -90,7 +89,7 @@ The convention plugin (`ThinktectureConventionsPlugin`, `ThinktectureConventionS
 
 | [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]     | [CAPABILITY]                                              |
 | :-----: | :------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------- |
-|  [01]   | `PropertyBuilder<T>.HasThinktectureValueConverter([useConstructorForRead | Configuration])` | property register | converter on one scalar property              |
+|  [01]   | `PropertyBuilder<T>.HasThinktectureValueConverter([useConstructorForRead \| Configuration])` | property register | converter on one scalar property              |
 |  [02]   | `ComplexTypePropertyBuilder<T>.HasThinktectureValueConverter(…)`           | complex register   | converter on one complex-type member                     |
 |  [03]   | `PrimitiveCollectionBuilder<T>.HasThinktectureValueConverter(…)`           | collection register | converter on one primitive-collection element           |
 |  [04]   | `ThinktectureValueConverterFactory.Create<T, TKey>(bool useConstructorForRead = true)` | factory call | builds a `ValueConverter<T, TKey>` directly when EF cannot resolve it |

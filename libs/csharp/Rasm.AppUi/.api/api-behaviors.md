@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_BEHAVIORS]
 
-`Xaml.Behaviors.Avalonia` 12.0.0.1 (MIT) is a meta-package: it has no `lib/`
+`Xaml.Behaviors.Avalonia` (MIT) is a meta-package: it has no `lib/`
 asset of its own, only `net10.0`/`net8.0` dependency groups that pull seven
 managed behavior assemblies — `Xaml.Behaviors.Interactivity` (the kernel),
 `Xaml.Behaviors.Interactions` (core + file-system + network), `.Interactions.Custom`
@@ -16,9 +16,9 @@ clipboard, and HTTP plumbing.
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Xaml.Behaviors.Avalonia` (meta) -> seven managed assemblies
-- package: `Xaml.Behaviors.Avalonia` 12.0.0.1
+- package: `Xaml.Behaviors.Avalonia`
 - license: MIT
-- asset: meta-package (no `lib/`); resolves to seven `lib/net8.0` assemblies + `Avalonia` 12.0.0
+- asset: meta-package (no `lib/`); resolves to seven `lib/net8.0` assemblies + `Avalonia`
 - consumer-bound TFM: `net8.0` assets under a `net10.0` consumer (no net10 lib ships)
 - namespace root: `Avalonia.Xaml.Interactivity`, `Avalonia.Xaml.Interactions.*`
 - rail: behaviors
@@ -42,7 +42,7 @@ The kernel is the only surface internal Rasm code derives from; everything else
 is XAML-attached. Bases are `AvaloniaObject`/`StyledElement` subclasses, so they
 participate in styling, binding, and resource inheritance.
 
-| [INDEX] | [SYMBOL]                     | [BASE / SHAPE]                                  | [RAIL]                          |
+| [INDEX] | [SYMBOL]                     | [BASE_SHAPE]                                  | [RAIL]                          |
 | :-----: | :--------------------------- | :--------------------------------------------- | :------------------------------ |
 |  [01]   | `IBehavior`                  | `{ AssociatedObject; Attach(AvaloniaObject?); Detach(); }` | behavior contract    |
 |  [02]   | `ITrigger`                   | `: IBehavior`                                  | trigger contract                |

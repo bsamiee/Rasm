@@ -19,7 +19,7 @@ the consumed surface). All four packages are Apache-2.0. The `Apache.Arrow.Compr
 pure-managed AnyCPU with no native RID asset: its transitives `K4os.Compression.LZ4.Streams` `1.3.8`
 (itself over `K4os.Compression.LZ4` + `K4os.Hash.xxHash`) and `ZstdSharp.Port` `0.8.8` (a managed
 Zstandard port) carry the codec bodies. The `ICompressionCodecFactory` interface ships in core
-`Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec **implementation** ships in
+`Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec implementation ships in
 `Apache.Arrow.Compression` (admitted), so enabling IPC compression sets
 `IpcOptions.CompressionCodec = CompressionCodecType.Lz4Frame | Zstd` together with
 `IpcOptions.CompressionCodecFactory = new Apache.Arrow.Compression.CompressionCodecFactory()`. Setting
@@ -54,7 +54,6 @@ and `ZstdSharp.Port`. Never conflate the two — they are separate codecs over s
 
 [PACKAGE_SURFACE]: `Apache.Arrow.Compression`
 - package: `Apache.Arrow.Compression`
-- version: `23.0.0`
 - license: Apache-2.0
 - assembly: `Apache.Arrow.Compression`
 - namespace: `Apache.Arrow.Compression`

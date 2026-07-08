@@ -4,7 +4,7 @@
 `SQLitePCL.raw` 1:1 P/Invoke surface for the embedded SQLite store profile. The bundle ships no
 managed `lib` assembly — it is a pure native-asset + initializer graph: it pins
 `SQLitePCLRaw.config.e_sqlite3` (the `Batteries`/`Batteries_V2` initializer that calls
-`raw.SetProvider`) and `SourceGear.sqlite3` (the SQLite **3.50.4** engine, shipped as `e_sqlite3`
+`raw.SetProvider`) and `SourceGear.sqlite3` (the SQLite engine, shipped as `e_sqlite3`
 native binaries for 31 RIDs). The store rail composes the low-level `raw.sqlite3_*` calls that
 `Microsoft.Data.Sqlite` (`api-sqlite`) does not expose — backup, snapshot, WAL checkpoint,
 per-connection db_config, and serialize/deserialize — reaching them through the
@@ -14,7 +14,6 @@ per-connection db_config, and serialize/deserialize — reaching them through th
 
 [PACKAGE_SURFACE]: `SQLitePCLRaw.bundle_e_sqlite3`
 - package: `SQLitePCLRaw.bundle_e_sqlite3`
-- version: `3.0.3` (direct `Directory.Packages.props` pin; overrides the `2.1.11` transitive constraint the `Microsoft.Data.Sqlite` graph requests)
 - license: `Apache-2.0` (bundle/provider/core); native `SourceGear.sqlite3` is public-domain SQLite
 - assembly: none — native-asset + initializer bundle, no managed `lib` DLL (resolves with `primary_assembly == None`)
 - runtime assembly carrying `raw`: `SQLitePCLRaw.core` `3.0.3` (`lib/net8.0`, the consumer-bound TFM)
@@ -63,7 +62,7 @@ The handle types are `sqlite3` (connection), `sqlite3_backup`, and `sqlite3_snap
 below is a `public static` on `SQLitePCL.raw` and is reached via `SqliteConnection.Handle`
 (`sqlite3?`). Status is an `int` return checked against the `[RAW_CONSTANTS]` codes.
 
-[RAW_SIGNATURES]: decompile-verified `SQLitePCL.raw` member signatures (`SQLitePCLRaw.core` 3.0.3)
+[RAW_SIGNATURES]: decompile-verified `SQLitePCL.raw` member signatures (`SQLitePCLRaw.core`)
 - rail: store-provider
 
 ```csharp generated

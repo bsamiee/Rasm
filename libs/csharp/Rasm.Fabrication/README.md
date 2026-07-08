@@ -66,13 +66,13 @@
 
 ## [02]-[DOMAIN_PACKAGES]
 
-Domain libraries owned outside the C# substrate registry. Versions are centralized in the one C# manifest and corroborated by this folder's `.api/`.
+Domain libraries owned outside the C# substrate registry. NuGet versions are centralized in the one C# manifest and corroborated by this folder's `.api/`; `lib3mf` and `OpenCAMLib` are vendored — their pins and RID-keyed natives ride this folder (`vendor/runtimes/**`, their `.api` catalogs), outside NuGet restore.
 
 [POLYGON_ALGEBRA]:
 - `Clipper2`
 
 [CAD_IMPORT]:
-- `ACadSharp` — DWG/DXF read at the `Rasm.Bim` interchange seam for 2D profile ingress; DXF/DWG WRITE is the AppUi drafting leg, never a Fabrication arm.
+- `ACadSharp` — DWG/DXF 2D-profile read projection over the shared `CadDocument` model (Bim projects the mesh-bearing entities); DXF/DWG WRITE is the AppUi drafting leg, never a Fabrication arm.
 
 [STEEL_FABRICATION_EXCHANGE]:
 - `DSTV.Net` — DSTV/NC1 steel fabrication exchange for profile-cut programs, saw/drill/punch data, and shop-machine handoff beside the neutral G-code AST; `KA` bend blocks feed `Forming/sheet`.
@@ -142,7 +142,10 @@ Substrate cards this folder consumes from the registry. Full substrate law and p
 - `QuikGraph` — the `Fixturing/setups` operation-precedence + datum-lineage graph, the `Fixturing/assembly` join-precedence DAG, and the `Toolpath/link` tour/routing (the magazine-eviction greedy stays hand-rolled).
 
 [TEST_SUBSTRATE]:
-- `xunit.v3.core`
+- `xunit.v3.assert`
+- `xunit.v3.common`
+- `xunit.v3.extensibility.core`
+- `xunit.v3.mtp-v2`
 - `CsCheck`
 - `coverlet.MTP`
 - `BenchmarkDotNet`

@@ -350,7 +350,7 @@ def _canonical_carrier_skew(raw: dict[object, object]) -> str | None:
     return (
         "installed forge-provision is older than the Rasm provision adapter; "
         "expected schema-v3 carriers resources, artifacts, services, ports, extensions, and tools; "
-        f"missing {missing[0]}; use the packaged Parametric_Forge forge-provision after redeploy, then rerun: "
+        f"missing {missing[0]}; update the schema-v3 `forge-provision` on PATH, then rerun: "
         f"uv run python -m tools.assay provision {_wire(raw.get('command')) or '<verb>'}"
     )
 

@@ -1,6 +1,6 @@
 # [RASM_PERSISTENCE_API_CLOUDEVENTS]
 
-`CloudNative.CloudEvents` is the CNCF reference SDK for the CloudEvents v1.0 envelope: the
+`CloudNative.CloudEvents` is the CNCF reference SDK for the CloudEvents `CloudEventsSpecVersion.V1_0` envelope: the
 mutable sealed `CloudEvent` in-memory event, the `CloudEventAttribute`/`CloudEventAttributeType`
 typed attribute algebra, the `CloudEventsSpecVersion` schema, and the abstract
 `CloudEventFormatter` encode/decode contract that every protocol/format binding extends.
@@ -18,7 +18,6 @@ asset documented by `api-kafka`, never in these three assemblies.
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents`
 - package: `CloudNative.CloudEvents`
-- version: `2.9.0`
 - license: `Apache-2.0`
 - assembly: `CloudNative.CloudEvents` (`lib/net8.0` binds for the `net10.0` consumer; `netstandard2.0`/`netstandard2.1` are fallback assets)
 - namespace: `CloudNative.CloudEvents`, `CloudNative.CloudEvents.Extensions`, `CloudNative.CloudEvents.Core`, `CloudNative.CloudEvents.Http`
@@ -27,16 +26,14 @@ asset documented by `api-kafka`, never in these three assemblies.
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.Kafka`
 - package: `CloudNative.CloudEvents.Kafka`
-- version: `3.9.0`
 - license: `Apache-2.0`
-- assembly: `CloudNative.CloudEvents.Kafka` (`lib/net10.0` first-class asset at 3.9.0; `net8.0`/`netstandard2.0` are fallback assets)
+- assembly: `CloudNative.CloudEvents.Kafka` (`lib/net10.0` first-class asset at; `net8.0`/`netstandard2.0` are fallback assets)
 - namespace: `CloudNative.CloudEvents.Kafka`
 - asset: pure-managed library; depends on `Confluent.Kafka` (native `librdkafka.redist` rides that package, see `api-kafka`)
 - rail: sync-egress
 
 [PACKAGE_SURFACE]: `CloudNative.CloudEvents.SystemTextJson`
 - package: `CloudNative.CloudEvents.SystemTextJson`
-- version: `2.9.0`
 - license: `Apache-2.0`
 - assembly: `CloudNative.CloudEvents.SystemTextJson` (`lib/net8.0` binds for the `net10.0` consumer)
 - namespace: `CloudNative.CloudEvents.SystemTextJson`
@@ -153,7 +150,7 @@ asset documented by `api-kafka`, never in these three assemblies.
 
 [CLOUDEVENTS_TOPOLOGY]:
 - core namespace `CloudNative.CloudEvents` carries `CloudEvent`, `CloudEventAttribute`, `CloudEventAttributeType`, `CloudEventsSpecVersion`, `ContentMode`, `CloudEventFormatter`, and `CloudEventFormatterAttribute`; extension accessors (`Partitioning`/`Sampling`/`Sequence`) live in `CloudNative.CloudEvents.Extensions`; byte/mime/validation glue lives in `CloudNative.CloudEvents.Core` (`BinaryDataUtilities`, `MimeUtilities`, `Validation`); an HTTP binding lives in `CloudNative.CloudEvents.Http` and is unused by Persistence (Kafka is the transport).
-- `CloudEvent` is mutable and sealed; `Data` is `object?` and round-trips through whatever `CloudEventFormatter` encodes it — a raw `byte[]`/`ReadOnlyMemory<byte>` with `DataContentType = application/octet-stream`, or a POCO under `JsonEventFormatter<T>`. The v1.0 required context attributes are `id`, `source`, `type`; optional are `subject`, `datacontenttype`, `dataschema`, `time`. `IsValid` checks required completeness; `Validate()` throws on the gap.
+- `CloudEvent` is mutable and sealed; `Data` is `object?` and round-trips through whatever `CloudEventFormatter` encodes it — a raw `byte[]`/`ReadOnlyMemory<byte>` with `DataContentType = application/octet-stream`, or a POCO under `JsonEventFormatter<T>`. The `CloudEventsSpecVersion.V1_0` required context attributes are `id`, `source`, `type`; optional are `subject`, `datacontenttype`, `dataschema`, `time`. `IsValid` checks required completeness; `Validate` throws on the gap.
 - `CloudEventAttributeType` is the closed value-type algebra: `Boolean`, `Integer`, `String`, `Binary`, `Uri`, `UriReference`, `Timestamp` — each a static singleton exposing `Parse`/`Format`/`Validate`/`ClrType`. `CloudEventAttribute.CreateExtension(name, type[, validator])` declares an extension; `CreateRequired`/`CreateOptional` are the spec-version context-attribute factories.
 - `ContentMode` is two cases: `Structured` packs the entire event (attributes + data) into the body under `application/cloudevents+json`; `Binary` places attributes in transport metadata (Kafka `ce_*` headers) and only `Data` in the body. A header-filtering broker reads attributes without parsing the body only in `Binary` mode.
 - `CloudEventFormatter` is the abstract codec every binding extends: `EncodeStructuredModeMessage`/`EncodeBinaryModeEventData`/`EncodeBatchModeMessage` and the `Decode*`/`Decode*Async` mirror, plus `GetOrInferDataContentType`. `JsonEventFormatter` is the System.Text.Json implementation taking `JsonSerializerOptions`/`JsonDocumentOptions`; `JsonEventFormatter<T>` overrides only the binary-mode `Data` codec so the payload deserialises to `T`. `ToKafkaMessage` accepts the `CloudEventFormatter` base, so a `JsonEventFormatter` instance binds directly.
@@ -176,6 +173,6 @@ asset documented by `api-kafka`, never in these three assemblies.
 
 [RAIL_LAW]:
 - Packages: `CloudNative.CloudEvents`, `CloudNative.CloudEvents.Kafka`, `CloudNative.CloudEvents.SystemTextJson`
-- Owns: the CloudEvents v1.0 envelope, the Kafka protocol binding, and the System.Text.Json formatter for the redacted-changefeed egress wire
+- Owns: the CloudEvents `CloudEventsSpecVersion.V1_0` envelope, the Kafka protocol binding, and the System.Text.Json formatter for the redacted-changefeed egress wire
 - Accept: `CloudEvent` construction with typed `CloudEventAttribute`s, one shared `JsonEventFormatter`/`JsonEventFormatter<T>`, `ToKafkaMessage`/`ToCloudEvent` with explicit `ContentMode.Binary`, partition key via `Partitioning`, trace/redaction as extension attributes
 - Reject: hand-rolled CloudEvents JSON layout, manual `ce_` Kafka header construction, raw `Message<string?, byte[]>` assembly bypassing `KafkaExtensions`, a per-event formatter instance, or a second envelope shape parallel to the one CloudEvents projection

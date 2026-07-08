@@ -138,12 +138,12 @@
           "MathNet.Numerics": "[6.0.0-beta2, )",
           "NodaTime": "[3.3.2, )",
           "OcctNet.Wrapper": "[0.1.1, )",
-          "OpenCAMLib": "[2023.1.11, )",
           "PicoGK": "[2.2.0, )",
           "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.Element": "[1.0.0, )",
           "RectangleBinPack.CSharp": "[1.0.4, )",
+          "Rhino3dm": "[8.17.0, )",
           "Riok.Mapperly": "[4.3.1, )",
           "Robots": "[2.2.2, )",
           "SharpVoronoiLib": "[1.2.0, )",
@@ -151,8 +151,7 @@
           "System.Numerics.Tensors": "[10.0.9, )",
           "Thinktecture.Runtime.Extensions": "[10.4.0, )",
           "UnitsNet": "[5.75.0, )",
-          "geometry3Sharp": "[1.0.324, )",
-          "lib3mf": "[2.5.0, )"
+          "geometry3Sharp": "[1.0.324, )"
         }
       },
       "ACadSharp": {

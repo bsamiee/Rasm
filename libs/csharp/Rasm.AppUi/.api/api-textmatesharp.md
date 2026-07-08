@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `TextMateSharp`
 - package: `TextMateSharp`
-- version: `2.0.3`
 - license: `MIT`
 - assembly: `TextMateSharp`
 - build-floor: `netstandard2.0` (single TFM; the `net10.0` consumer binds this asset directly — no TFM-precedence ambiguity)
@@ -17,7 +16,6 @@
 
 [PACKAGE_SURFACE]: `TextMateSharp.Grammars`
 - package: `TextMateSharp.Grammars`
-- version: `2.0.3`
 - license: `MIT`
 - assembly: `TextMateSharp.Grammars`
 - build-floor: `netstandard2.0` (single TFM)

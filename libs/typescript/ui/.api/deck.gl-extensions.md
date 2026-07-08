@@ -1,4 +1,4 @@
-# [@deck.gl/extensions] — the LayerExtension capability-injection pack; scope:viewer project-local
+# [TS_UI_API_DECK_GL_EXTENSIONS]
 
 `@deck.gl/extensions` is the concrete `LayerExtension` roster the `ui/viewer/geo` plane feeds into any layer's `extensions` prop — the polymorphic capability-injection seam `@deck.gl/core` ships ONLY the base of. Every export is one `LayerExtension<OptionsT>` subclass that injects a GPU capability (filter, brush, dash, pattern-fill, collision-declutter, mask, clip, terrain-drape) into ANY `@deck.gl/layers`/`@deck.gl/geo-layers` layer without subclassing it: `layer.props.extensions = [new DataFilterExtension({filterSize: 2}), new MaskExtension()]`. The one discriminant every extension shares is options-vs-props — the constructor `OptionsT` are static shader-compilation switches that bake the GPU code path (`filterSize`, `dash`, `pattern`, `categorySize`), while the runtime props (`filterRange`, `getDashArray`, `getFillPattern`, `maskId`) are per-frame values + core `Accessor`s read off the host layer and memoized by `updateTriggers` exactly like the layer's own accessors. So the pack is ten capability rows over one `LayerExtension` × any-layer seam, never ten layer variants. This catalog documents each extension's options + injected-props axis, deferring the `LayerExtension` base, the `extensions` prop, and `Accessor`/`UpdateParameters` to `.api/deck.gl-core.md`. `scope:viewer` project-local.
 
@@ -6,21 +6,20 @@
 
 [PACKAGE_SURFACE]: `@deck.gl/extensions`
 - package: `@deck.gl/extensions`
-- version: `9.3.5`
 - license: `MIT`
 - abi: browser WebGL2/WebGPU via `@deck.gl/core`'s luma.gl `Device`; each extension injects a `@luma.gl/shadertools` `ShaderModule`
-- peer (`~9.3.0`): `@deck.gl/core` (the `LayerExtension` base, the `extensions` layer prop, `Accessor`, `Layer`, `LayerContext`, `UpdateParameters`), `@luma.gl/core`, `@luma.gl/engine`; deps `@luma.gl/shadertools` (`ShaderModule`), `@luma.gl/webgl`, `@math.gl/core`
+- peer (`~catalog`): `@deck.gl/core` (the `LayerExtension` base, the `extensions` layer prop, `Accessor`, `Layer`, `LayerContext`, `UpdateParameters`), `@luma.gl/core`, `@luma.gl/engine`; deps `@luma.gl/shadertools` (`ShaderModule`), `@luma.gl/webgl`, `@math.gl/core`
 - catalog-verdict: KEEP — the concrete `LayerExtension` roster core ships only the base of; required `@deck.gl/geo-layers` peer (the `extensions` prop pack); admitted centrally
 - runtime: `scope:viewer` project-local; each extension is a value in a layer's `extensions` array, resolved per-frame with the layer
-- modules: `DataFilterExtension`, `BrushingExtension`, `PathStyleExtension`, `FillStyleExtension`, `CollisionFilterExtension`, `MaskExtension`, `ClipExtension`, `Fp64Extension` (deprecated), `_TerrainExtension` (experimental), `project64`
+- modules: `DataFilterExtension`, `BrushingExtension`, `PathStyleExtension`, `FillStyleExtension`, `CollisionFilterExtension`, `MaskExtension`, `ClipExtension`, `Fp64Extension` (deprecated), `_TerrainExtension` (overlay), `project64`
 
 ## [02]-[EXTENSION_ROSTER]
 
 [TYPE_SCOPE]: the `LayerExtension` capability rows — one class per GPU capability, each constructed with static option toggles and reading its runtime props off the host layer; add instances to any layer's `extensions: LayerExtension[]`.
 - `LayerExtension<OptionsT>` (the core base) exposes `getShaders`/`initializeState`/`updateState`/`draw`/`finalizeState` the layer calls at each lifecycle phase; a subclass injects a `ShaderModule` + attributes + props. Options recompile the GPU path; props toggle at runtime.
 
-| [INDEX] | [SYMBOL] | [CONSTRUCTOR OPTIONS] | [INJECTED PROPS] | [CONSUMER / BOUNDARY] |
-| :-----: | :------- | :-------------------- | :--------------- | :-------------------- |
+| [INDEX] | [SYMBOL] | [CONSTRUCTOR_OPTIONS] | [INJECTED_PROPS] | [CONSUMER_BOUNDARY] |
+|:-----: |:------- |:-------------------- |:--------------- |:-------------------- |
 | [01] | `DataFilterExtension` | `{filterSize?:0-4, categorySize?:0-4, fp64?, countItems?}` | `getFilterValue`/`getFilterCategory` accessors, `filterRange`/`filterSoftRange`/`filterEnabled`/`filterCategories`/`filterTransformSize`/`filterTransformColor`, `onFilteredItemsChange` | GPU show/hide by numeric range or category on any layer; time-window slider |
 | [02] | `BrushingExtension` | `{}` | `brushingEnabled`, `brushingRadius` (m), `brushingTarget:'source'\|'target'\|'source_target'\|'custom'`, `getBrushingTarget` | reveal objects within a radius of the pointer |
 | [03] | `PathStyleExtension` | `{dash?, offset?, highPrecisionDash?}` | `getDashArray`/`getOffset` accessors, `dashJustified`, `dashGapPickable` | dashed/offset lines on `PathLayer`/`ScatterplotLayer`/composites |
@@ -28,8 +27,8 @@
 | [05] | `CollisionFilterExtension` | `{}` | `collisionEnabled`, `collisionGroup`, `getCollisionPriority`, `collisionTestProps` | hide overlapping objects (label/icon declutter) |
 | [06] | `MaskExtension` | `{}` | `maskId`, `maskByInstance`, `maskInverted` | geofence show/hide keyed to a mask layer (`operation:'mask'`) |
 | [07] | `ClipExtension` | `{}` | `clipBounds:[left,bottom,right,top]`, `clipByInstance` | rectangular clip of a layer's rendered region |
-| [08] | `Fp64Extension` | `{}` `@deprecated` | — | legacy 64-bit projection precision (superseded by default precision + `DataFilterExtension{fp64}`) |
-| [09] | `_TerrainExtension` | `{}` experimental | `terrainDrawMode:'offset'\|'drape'` | drape/offset a layer onto the `TerrainLayer` surface |
+| [08] | `Fp64Extension` | `{}` `@deprecated` | — | retired 64-bit projection precision (superseded by default precision + `DataFilterExtension{fp64}`) |
+| [09] | `_TerrainExtension` | `{}` overlay | `terrainDrawMode:'offset'\|'drape'` | drape/offset a layer onto the `TerrainLayer` surface |
 | [10] | `project64` | — (`ShaderModule<{viewport}>`) | — | the fp64 projection shader module `Fp64Extension` injects; not instantiated directly |
 
 ## [03]-[IMPLEMENTATION_LAW]
@@ -50,7 +49,7 @@
 - imported only inside `ui/viewer` (`scope:viewer`); each extension is a declarative value in a layer's `extensions` array, never a stateful service.
 - one `LayerExtension` pattern keyed by capability — adding a capability is one extension in the array, never a layer subclass or a parallel prop.
 - options (constructor) recompile the GPU path, props toggle at runtime — never conflate; a runtime toggle is a prop, a capability switch is a construction option.
-- `Fp64Extension` is `@deprecated` (default precision + `DataFilterExtension{fp64}` supersede it); `_TerrainExtension` is experimental (underscore); `project64` is the internal fp64 shader module, not instantiated directly.
+- `Fp64Extension` is `@deprecated` (default precision + `DataFilterExtension{fp64}` supersede it); `_TerrainExtension` is overlay (underscore); `project64` is the internal fp64 shader module, not instantiated directly.
 - required peer of `@deck.gl/geo-layers` (the `extensions` prop pack); admitting it centrally in `pnpm-workspace.yaml` is what lets the `extensions` prop resolve concrete extensions in production.
 
 [RAIL_LAW]:

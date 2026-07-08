@@ -70,7 +70,6 @@ dependencies = [
     "onnxruntime; python_version<'3.15'",            # [COMPUTE]: model runtime
     "optimistix; python_version<'3.15'",             # [COMPUTE]: JAX nonlinear solvers and adjoint VJP
     "pandas",                                        # [DATA]: dataframe substrate
-    "pandas-stubs",
     "pandera",                                       # [DATA]: schema and quality-rule contracts
     "pdal",                                          # [GEOMETRY]: point-cloud pipeline
     "pint",                                          # [COMPUTE]: unit registry and quantity arithmetic
@@ -104,7 +103,7 @@ dependencies = [
     "interpax; python_version<'3.15'",               # [COMPUTE]: JAX interpolation and splines
     "quadax; python_version<'3.15'",                 # [COMPUTE]: JAX adaptive quadrature
     "optax; python_version<'3.15'",                  # [COMPUTE]: first-order JAX optimizers for optimistix
-    "jaxtyping; python_version<'3.15'",              # [COMPUTE]: JAX array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype)
+    "jaxtyping",                                     # [COMPUTE]: array/PyTree shape-and-dtype contracts, jaxtyped(typechecker=beartype); jax-free at import
     "cvxpy<1.9",                                     # [COMPUTE]: disciplined convex optimization; 1.9 pulls sparsediffpy whose OpenMP CMake build fails (no cp315 wheel)
     "manifold3d",                                    # [GEOMETRY]: robust mesh booleans
     "sectionproperties",                             # [GEOMETRY]: cross-section property solver enrichment
@@ -115,7 +114,6 @@ dependencies = [
     "scikit-image; python_version<'3.15'",           # [ARTIFACTS]: image processing; Cython codegen fails on 3.15 (no cp315 wheel)
     "scikit-learn",                                  # [COMPUTE]: classical ML and ONNX export
     "scipy",                                         # [COMPUTE]: numerical algorithms
-    "scipy-stubs",
     "shapely",                                       # [DATA]: planar operations
     "sparse; python_version<'3.15'",                 # [COMPUTE]: sparse n-D arrays
     "sympy",                                         # [COMPUTE]: symbolic expressions beside the python-flint/mpmath ground domains
@@ -239,7 +237,7 @@ dependencies = [
     "python-calamine; python_version<'3.15'",        # [ARTIFACTS]: fast xlsx/xlsb/xls/ods reader
     "uniseg",                                        # [ARTIFACTS]: Unicode line, word, and grapheme segmentation
     "usd-core; python_version<'3.15'",               # [ARTIFACTS]: USD/USDZ scene packaging
-    "zxing-cpp; python_version<'3.15'",              # [ARTIFACTS]: 2D matrix codes encode and decode
+    "zxing-cpp",                                     # [ARTIFACTS]: 2D matrix codes encode and decode
     "stream-unzip",                                  # [ARTIFACTS]: bounded-memory streaming unzip inverse for stream-zip
     "pdf-oxide",                                     # [ARTIFACTS]: Rust PDF extract/render/create/forms (abi3)
     "PhotoshopAPI; python_version<'3.15'",           # [ARTIFACTS]: native PSD/PSB layered-document writer (wheels-only, no cp315 wheel/sdist; source-build is a Forge follow-up)
@@ -252,7 +250,7 @@ dependencies = [
     "PyICU; python_version<'3.15'",                  # [ARTIFACTS]: ICU locale line-break/bidi/collation (sdist-only, needs ICU native)
     "pyelk",                                         # [ARTIFACTS]: ELK layered/orthogonal/ports/nesting diagram layout
     "fast-sugiyama",                                 # [ARTIFACTS]: fast Sugiyama layered placement replacing grandalf placement
-    "kiwisolver; python_version<'3.15'",             # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
+    "kiwisolver",                                    # [ARTIFACTS]: Cassowary constraint layout solver promoted to a direct surface
     "ziafont",                                       # [ARTIFACTS]: font glyph text-to-SVG-path
     "ziamath",                                       # [ARTIFACTS]: math-to-SVG rendering
     "schemdraw",                                     # [ARTIFACTS]: native-SVG schematic diagrams
@@ -264,6 +262,7 @@ dependencies = [
 [dependency-groups]
 dev = [
     "annotated-types",  # typed constraint metadata pydantic consumes; Field stubs cap multiple_of at int | float
+    "brotli-stubs",
     "coverage",
     "dirty-equals",
     "grimp",
@@ -272,23 +271,31 @@ dev = [
     "inline-snapshot",
     "moto[server]",
     "mypy",
+    "pandas-stubs",
+    "pyarrow-stubs",
     "pytest",
     "pytest-benchmark",
     "pytest-cov",
-    "pytest-deadfixtures",
     "pytest-randomly",
-    "pytest-rerunfailures",
     "pytest-socket",
     "pytest-timeout",
     "pytest-xdist",
     "ruff>=0.15.20,<0.16",  # preview rule set moves per minor; the band holds the vetted gate stable
     "s3fs",                 # object-store testkit backend over moto S3
+    "scipy-stubs",
     "squawk-cli",
     "ty",
-    "types-lxml",
+    "types-geopandas",
     "types-grpcio",
+    "types-grpcio-health-checking",
+    "types-lxml",
     "types-networkx",
+    "types-openpyxl",
+    "types-protobuf",
     "types-psutil",
+    "types-pyphen",
+    "types-reportlab",
+    "types-shapely",
     "validate-pyproject[all]",
 ]
 mutation = ["mutmut"]

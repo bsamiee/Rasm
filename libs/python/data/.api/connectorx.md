@@ -22,7 +22,7 @@
 [ENTRYPOINTS]:
 - primary read: `read_sql(conn, query, *, return_type='pandas', protocol=None, partition_on=None, partition_range=None, partition_num=None, index_col=None, strategy=None, pre_execution_query=None, **kwargs) -> pd.DataFrame | pl.DataFrame | pa.Table | pa.RecordBatchReader | mpd.DataFrame | dd.DataFrame`.
 - pandas alias: `read_sql_pandas(sql, con, index_col=None, protocol=None, partition_on=None, partition_range=None, partition_num=None, pre_execution_queries=None) -> pd.DataFrame` — `con` accepts `str`/`ConnectionUrl`/federation `dict`; this is the SQLAlchemy-shaped positional alias, not a distinct capability.
-- partition planning: `partition_sql(conn, query, partition_on, partition_num, partition_range=None) -> list[str]` — returns the explicit per-partition subqueries the planner would run, for inspection or hand-tuned re-issue.
+- partition planning: `partition_sql(conn, query, partition_on, partition_num, partition_range=None) -> list[str]` — returns the explicit per-partition subqueries the planner does run, for inspection or hand-tuned re-issue.
 - schema probe: `get_meta(conn, query, protocol=None) -> pd.DataFrame` — returns an empty frame carrying the resolved column dtypes without fetching rows.
 - connection rewrite: `rewrite_conn(conn, protocol=None) -> tuple[str, Protocol]` — normalizes a DSN/`ConnectionUrl` and resolves the default protocol for the backend.
 - reconstruction helpers: `reconstruct_arrow(result) -> pa.Table`, `reconstruct_arrow_rb(results) -> pa.RecordBatchReader`, `reconstruct_pandas(df_infos) -> pd.DataFrame` — internal FFI reassembly entries the high-level `return_type` rail dispatches into; consume `read_sql(return_type=...)`, not these directly.

@@ -196,4 +196,3 @@ Upward ProjectReferences (alignment by contract, never a sibling peer reference)
 [TEST_SUBSTRATE]:
 - `Verify.XunitV3`
 - `BenchmarkDotNet`
-- `NodaTime.Testing`

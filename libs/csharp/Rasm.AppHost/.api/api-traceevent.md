@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Microsoft.Diagnostics.Tracing.TraceEvent`
 - package: `Microsoft.Diagnostics.Tracing.TraceEvent`
-- version: `3.2.4`
 - license: `MIT`
 - assembly: `Microsoft.Diagnostics.Tracing.TraceEvent`
 - namespace: `Microsoft.Diagnostics.Tracing` (source/session), `Microsoft.Diagnostics.Tracing.Etlx` (TraceLog), `Microsoft.Diagnostics.Tracing.Parsers` (provider parsers), `Microsoft.Diagnostics.Tracing.Session` (live ETW)
@@ -65,7 +64,7 @@
 - the decode idiom is subscribe-then-pump: construct a `TraceEventDispatcher` (`EventPipeEventSource` for nettrace, `ETWTraceEventSource` for `.etl`), register typed callbacks on a parser (`source.Clr.GCHeapStats += e => ...`, `source.Dynamic.All += ...`), then `source.Process()` drives the stream to EOF firing every callback synchronously on the pump thread; the `TraceEvent` record passed to a callback is REUSED per event, so any retained field must be copied (`e.Clone()`).
 - `EventPipeEventSource` supports nettrace format versions 3-6; it is cross-platform (netstandard2.0) and is the correct decoder for the `EventPipeSession.EventStream` on macOS/Linux/Windows. `ETWTraceEventSource`/`TraceEventSession` are Windows-only ETW paths; the AppHost host-neutral spine uses the EventPipe path and treats live ETW as a Windows-host capture option only.
 - `TraceLog.OpenOrConvert` builds the indexed `.etlx` (call stacks resolved, events time-ordered) when stack-attributed analysis is needed; the streaming `EventPipeEventSource.Process()` path is the low-overhead default for a bounded capture window.
-- GCDUMP BOUNDARY: this 3.2.4 assembly ships NO managed-heap-graph reader — `DotNetHeapDumpGraphReader`, `GCHeapDump`, and `MemoryGraph` are absent from every shipped assembly (verified against the restored package). The `.gcdump` graph format has no owner in this catalog; a heap-object-graph artifact routes to its own maintained owner (the `dotnet-gcdump` tool), never a phantom type asserted here. This package owns event-STREAM decode, not heap-GRAPH capture.
+- GCDUMP BOUNDARY: this assembly ships NO managed-heap-graph reader — `DotNetHeapDumpGraphReader`, `GCHeapDump`, and `MemoryGraph` are absent from every shipped assembly (verified against the restored package). The `.gcdump` graph format has no owner in this catalog; a heap-object-graph artifact routes to its own maintained owner (the `dotnet-gcdump` tool), never a phantom type asserted here. This package owns event-STREAM decode, not heap-GRAPH capture.
 
 [LOCAL_ADMISSION]:
 - TraceEvent is the decode half of the support-bundle event artifact: `api-diagnostics-client.md` `DiagnosticsClient.StartEventPipeSession` produces the `EventStream`, and `new EventPipeEventSource(stream)` here decodes it; the two compose one `event-trace` `SupportArtifact` row (`Observability/bundles#CAPTURE_PIPELINE`), never two capture paths.
@@ -83,4 +82,4 @@
 - Package: `Microsoft.Diagnostics.Tracing.TraceEvent`
 - Owns: ETW/EventPipe event-STREAM decode into typed `TraceEvent` records for the support-bundle event artifact
 - Accept: the `EventPipeSession.EventStream`, a policy-driven parser/provider set, and a bounded pump inside the capture window
-- Reject: a `.gcdump` heap-GRAPH claim (no such type in 3.2.4 — routes to `dotnet-gcdump`), a retained un-cloned `TraceEvent` record, an unbounded live ETW session on the host-neutral path, or a thrown decode fault crossing the bundle pipeline
+- Reject: a `.gcdump` heap-GRAPH claim (no such type in — routes to `dotnet-gcdump`), a retained un-cloned `TraceEvent` record, an unbounded live ETW session on the host-neutral path, or a thrown decode fault crossing the bundle pipeline

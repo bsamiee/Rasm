@@ -8,7 +8,6 @@
 
 [PACKAGE_SURFACE]: `PicoGK`
 - package: `PicoGK`
-- version: `2.2.0` (centrally pinned)
 - license: `Apache-2.0` (LEAP71; nuspec `<license type="expression">Apache-2.0</license>`)
 - assembly: `PicoGK`
 - namespace: `PicoGK` (single namespace; rich XML doc ships as `lib/net9.0/PicoGK.xml`)

@@ -5,10 +5,10 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.Input`
-- package: `Silk.NET.Input` (2.23.0, MIT, meta — no assembly; nuspec deps are `Silk.NET.Input.Common`/`.Glfw`/`.Sdl`, all `exclude=Build,Analyzers`)
-- package: `Silk.NET.Input.Common` (2.23.0, MIT — carries the assembly; consumer net10 binds `lib/net5.0`)
-- package: `Silk.NET.Input.Glfw` (2.23.0 — `[InputPlatform]` backend, reflection-loaded)
-- package: `Silk.NET.Input.Sdl` (2.23.0 — `[InputPlatform]` backend, osx-arm64 controller/haptic path)
+- package: `Silk.NET.Input` (MIT, meta — no assembly; nuspec deps are `Silk.NET.Input.Common`/`.Glfw`/`.Sdl`, all `exclude=Build,Analyzers`)
+- package: `Silk.NET.Input.Common` (MIT — carries the assembly; consumer net10 binds `lib/net5.0`)
+- package: `Silk.NET.Input.Glfw` (— `[InputPlatform]` backend, reflection-loaded)
+- package: `Silk.NET.Input.Sdl` (— `[InputPlatform]` backend, osx-arm64 controller/haptic path)
 - assembly: `Silk.NET.Input.Common`
 - namespace: `Silk.NET.Input` (single public namespace)
 - asset: runtime library + reflection-loaded backend assemblies (`Silk.NET.Input.Sdl`, `Silk.NET.Input.Glfw`)

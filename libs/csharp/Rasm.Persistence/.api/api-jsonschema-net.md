@@ -14,7 +14,6 @@ per-keyword failure rail.
 
 [PACKAGE_SURFACE]: `JsonSchema.Net`
 - package: `JsonSchema.Net`
-- version: `9.2.2`
 - license: MIT (the OSI license) with an Open Source Maintenance Fee EULA on the binary release — a monthly maintenance fee applies to revenue-generating users at or above US$10,000 annual gross revenue (this CORRECTS the design-page `Apache-2.0` assumption; the source is MIT, the binary carries the OSMF EULA)
 - assembly: `JsonSchema.Net`
 - namespace: `Json.Schema`, `Json.Schema.Serialization`

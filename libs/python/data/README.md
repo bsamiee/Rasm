@@ -101,7 +101,6 @@ DuckDB loadable extensions back plan and table-format rows without a pip depende
 - `h5netcdf` — pure-h5py netCDF-4 engine backing `FieldEngine.H5NETCDF`; rejects the netCDF-C lossy-quantization keys.
 
 [MESH_INTERCHANGE]:
-- `meshio`
 - `trimesh`
 - `rhino3dm`
 - `lazrs`
@@ -120,7 +119,6 @@ DuckDB loadable extensions back plan and table-format rows without a pip depende
 - `premise` — prospective ecoinvent background-database transformer over IAM scenarios.
 
 [OBJECT_STORE]:
-- `obstore`
 - `obspec-utils` — multi-store `ObjectStoreRegistry` router companion to `obstore`.
 
 ## [03]-[SUBSTRATE_PACKAGES]
@@ -139,5 +137,9 @@ Cross-cutting Python substrate libraries this folder directly consumes; these ar
 [NUMERIC_SUBSTRATE]:
 - `numpy`
 
+[MESH_INTERCHANGE]:
+- `meshio`
+
 [TRANSPORT]:
 - `fsspec` — Filesystem-resolution substrate beneath `universal-pathlib`; the `UPath.fs` handle threads into the DuckDB scan session via `register_filesystem`.
+- `obstore` — Object-store substrate for content-keyed egress, conditional mutation, Arrow listing, credentials, retry, and fsspec adaptation.

@@ -117,7 +117,7 @@ _HOST_SPECS: dict[str, tuple[str, str]] = {
     "rhino-ui": ("Rhino.UI.dll", "Rhino.UI.xml"),
 }
 HOST_KEYS: frozenset[str] = frozenset(_HOST_SPECS)
-_RHINO_BUNDLES: tuple[str, ...] = ("/Applications/RhinoWIP.app", "/Applications/Rhino 8.app")
+_RHINO_BUNDLE: str = "/Applications/RhinoWIP.app"
 _RESOURCE_ROOT: str = "Contents/Frameworks/RhCore.framework/Versions/Current/Resources"
 _BUILD_PROPS: str = "Directory.Build.props"
 _PACKAGES_PROPS: str = "Directory.Packages.props"
@@ -381,12 +381,16 @@ def _fingerprint(paths: tuple[Path, ...]) -> str:
 
 
 def rhino_app(settings: AssaySettings) -> Path | None:
-    """Locate the Rhino app bundle: the worktree ``rhino-app`` symlink wins, else the first installed bundle.
+    """Locate the Rhino app bundle: worktree ``rhino-app`` symlink, then ``RHINO_WIP_APP_PATH``, then the installed RhinoWIP bundle.
 
     Returns:
         Bundle path, or ``None`` when no bundle is present.
     """
-    candidates = (Path(str(settings.root)) / "rhino-app", *(Path(b) for b in _RHINO_BUNDLES))  # bundle resolution is local-fs; UPath -> Path
+    candidates = (  # bundle resolution is local-fs; UPath -> Path; mirrors the rhino-bridge host contract
+        Path(str(settings.root)) / "rhino-app",
+        *((Path(settings.rhino_wip_app_path),) if settings.rhino_wip_app_path else ()),
+        Path(_RHINO_BUNDLE),
+    )
     return next((c for c in candidates if c.is_dir()), None)
 
 

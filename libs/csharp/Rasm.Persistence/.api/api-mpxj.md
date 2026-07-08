@@ -19,7 +19,6 @@ is the consumer's), only the parse/serialize round-trip.
 
 [PACKAGE_SURFACE]: `MPXJ.Net`
 - package: `MPXJ.Net`
-- version: `16.5.0`
 - license: `LGPL-2.1-or-later` (weak copyleft — dynamic-link `PackageReference`, separate assembly, no source contamination)
 - assembly: `MPXJ.Net` (multi-target `net6.0` + `net472`; the `lib/net6.0/MPXJ.Net.dll` is the asset the `net10.0` consumer binds — `net472` is the legacy fallback)
 - namespace: `MPXJ.Net` (IKVM-proxied over the Java `net.sf.mpxj.*`)
@@ -61,11 +60,11 @@ the Java handle into canonical code.
 
 | [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                                              |
 | :-----: | :----------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------- |
-|  [01]   | `new UniversalProjectReader().Read(string fileName|Stream)` → `ProjectFile`            | read (auto)    | format-sniffs the input and dispatches to the right concrete reader — the one entry the lane needs |
-|  [02]   | `UniversalProjectReader.ReadAll(string|Stream)` → `IList<ProjectFile>`                 | read (multi)   | for container formats (e.g. a P6 XER with multiple projects) returning every project |
-|  [03]   | `UniversalProjectReader.GetProjectReaderProxy(string|Stream)` → `IProjectReaderProxy`  | read (proxy)   | the typed proxy when the concrete reader must be configured before `Read` |
-|  [04]   | `IProjectReader.Read(string|Stream)` → `ProjectFile`                                   | read (typed)   | the per-format contract: `PrimaveraXERFileReader`/`PrimaveraPMFileReader`/`MPPReader`/`MSPDIReader`/`MPXReader`/`AstaFileReader`/`PhoenixReader`/`SDEFReader`/… each implement it |
-|  [05]   | `new UniversalProjectWriter(FileFormat).Write(ProjectFile, string fileName|Stream)`     | write          | serialize to a target format; `Write(IList<ProjectFile>, …)` for multi-project containers |
+|  [01]   | `new UniversalProjectReader().Read(string fileName\|Stream)` → `ProjectFile`            | read (auto)    | format-sniffs the input and dispatches to the right concrete reader — the one entry the lane needs |
+|  [02]   | `UniversalProjectReader.ReadAll(string\|Stream)` → `IList<ProjectFile>`                 | read (multi)   | for container formats (e.g. a P6 XER with multiple projects) returning every project |
+|  [03]   | `UniversalProjectReader.GetProjectReaderProxy(string\|Stream)` → `IProjectReaderProxy`  | read (proxy)   | the typed proxy when the concrete reader must be configured before `Read` |
+|  [04]   | `IProjectReader.Read(string\|Stream)` → `ProjectFile`                                   | read (typed)   | concrete per-format reader contract |
+|  [05]   | `new UniversalProjectWriter(FileFormat).Write(ProjectFile, string fileName\|Stream)`     | write          | serialize to a target format; `Write(IList<ProjectFile>, …)` for multi-project containers |
 |  [06]   | `IProjectWriter.Write(ProjectFile, …)`                                                 | write (typed)  | the per-format writer contract: `PrimaveraPMFileWriter`/`PrimaveraXERFileWriter`/`MSPDIWriter`/`MPXWriter`/`JsonWriter`/`PlannerWriter`/`SDEFWriter` |
 |  [07]   | `FileFormat`                                                                          | enum           | the writable target set: `JSON` / `MPX` / `MSPDI` / `PLANNER` / `PMXML` / `XER` / `SDEF` |
 |  [08]   | `Relation.Builder(ProjectFile).PredecessorTask(t).SuccessorTask(t).Type(rt).Lag(d).Build()` | mutate         | construct a dependency edge when SYNTHESIZING a schedule to write out     |

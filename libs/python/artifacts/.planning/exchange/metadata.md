@@ -4,7 +4,9 @@ The descriptive-metadata read/write owner at the exchange boundary. `Metadata` i
 
 ## [01]-[INDEX]
 
-- [01]-[METADATA]: the one descriptive-metadata owner — a two-case `read`/`write` `expression.from_logical` materialization; the `MetaBind` (`MERGE`/`REPLACE`/`STRIP`) write disposition; the `@runtime retry retry` weave over the `exiftool -stay_open` spawn transient and the `@beartype(conf=FAULT_CONF)` ingress contract the sibling exchange owners carry; the `(ContentKey, MetaFacts, bytes)` evidence triple the consumer projects onto the `core/receipt#RECEIPT` `ArtifactReceipt.Metadata` case the ARCHITECTURE `[02]-[SEAMS]` `exchange/metadata → core/receipt` edge names. The `Iptc4xmpExt:DigitalSourceType` content-origin field is the UNSIGNED descriptive AI-provenance label, distinct from and beside the SIGNED `exchange/credential#CREDENTIAL` C2PA `DigitalSource` assertion. The abandoned `exif` package is replaced (`pyexiftool` the categorical-best cross-format superset beyond its reach); `iptcinfo3`/`python-xmp-toolkit`/`pyvips` are superseded on this carrier by the one cross-format pass — flagged for the final `pyproject` reconciliation, never re-composed here.
+- [01]-[METADATA]: the one descriptive-metadata owner — a two-case `read`/`write` `expression.from_logical` materialization; the `MetaBind` (`MERGE`/`REPLACE`/`STRIP`) write disposition; the `@runtime retry retry` weave over the `exiftool -stay_open` spawn transient; and the `@beartype(conf=FAULT_CONF)` ingress contract sibling exchange owners carry.
+- [02]-[METADATA_EVIDENCE]: the `(ContentKey, MetaFacts, bytes)` evidence triple projects onto the `core/receipt#RECEIPT` `ArtifactReceipt.Metadata` case the ARCHITECTURE `[02]-[SEAMS]` `exchange/metadata → core/receipt` edge names.
+- [03]-[METADATA_PROVENANCE]: `Iptc4xmpExt:DigitalSourceType` is the UNSIGNED descriptive AI-provenance label, distinct from the SIGNED `exchange/credential#CREDENTIAL` C2PA `DigitalSource` assertion. The abandoned `exif` package is replaced by `pyexiftool`.
 
 ## [02]-[METADATA]
 
@@ -421,8 +423,8 @@ def _icc_header(profile: "ImageCms.ImageCmsProfile", /) -> dict[str, object]:
 
 # --- [RASTER_CARRIER] -------------------------------------------------------------------
 # The RASTER cluster crosses the `WORKER_BAND` `to_process` band. The categorical-best cross-format provider
-# folds EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE pass, replacing the abandoned `exif` (JPEG-EXIF-IFD
-# only) and superseding the former four-provider split (`iptcinfo3` IIM + libxmp XMP + pillow ICC + libvips).
+# folds EXIF + IPTC + XMP + ICC + GPS + maker-notes in ONE pass, replacing the abandoned `exif` JPEG-EXIF-only arm
+# and superseding the former per-standard provider split.
 def _exiftool_read(payload: bytes) -> MetaFacts:
     with NamedTemporaryFile(suffix=".img", delete_on_close=False) as tmp:  # Exemption: exiftool reads a real path, not a stream
         tmp.write(payload)

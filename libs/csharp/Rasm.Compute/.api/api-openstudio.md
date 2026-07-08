@@ -9,7 +9,7 @@ surfaces, layered constructions, opaque/glazing materials, thermal zones — all
 forward-translates it to an EnergyPlus IDF `Workspace`, then reads the post-run results `SqlFile`. It
 neither runs nor bundles the EnergyPlus solver: the binary is a PARAMETERIZED subprocess resolved
 through the `Analysis/energy#TOOLCHAIN_BOUNDARY` `EnergyToolchain` (env-var → configured-path →
-bundled-fallback) and version-locked to the SWIG version (OpenStudio 3.11.0 → EnergyPlus 25.2.0). The
+bundled-fallback) and version-locked to the SWIG version (OpenStudio → EnergyPlus). The
 managed `OpenStudio.dll` (5390 generated types, namespace `OpenStudio`) marshals into a bundled native
 runtime (`libopenstudiolib.dylib` + the three `libopenstudio_*_csharp.dylib` SWIG shims); every
 wrapper owns a native handle and is `IDisposable`. This is the SIMULATION concern only — it is the
@@ -22,7 +22,6 @@ this catalog never re-authors an IFC↔OSM semantic translator.
 
 [PACKAGE_SURFACE]: `NREL.OpenStudio.macOS-arm64`
 - package: `NREL.OpenStudio.macOS-arm64`
-- version: `3.11.0`
 - license: NREL OpenStudio License (the `LICENSE.md` at `github.com/NREL/OpenStudio` — a permissive BSD-3-Clause-derived license; the nuspec carries a `licenseUrl`, no SPDX expression)
 - assembly: `OpenStudio` (`lib/netstandard2.0/OpenStudio.dll`, the managed SWIG wrapper; binds forward under net10.0)
 - namespace: `OpenStudio` (the full 5390-type generated surface: the model/translator/utility domain types plus the `Optional<T>` (~743) and `*Vector` (~722) SWIG marshaling families) + the per-SWIG-module `OpenStudio*PINVOKE` marshaling classes (`OpenStudioModelPINVOKE`, `OpenStudioModelResourcesPINVOKE`, `OpenStudioEnergyPlusPINVOKE`, `OpenStudioUtilitiesSqlPINVOKE`, …)
@@ -140,7 +139,7 @@ top-level `Model`, the translator, and the file/optional/vector handles are brac
 
 [SIMULATION_BOUNDARY]:
 - OpenStudio BUILDS the model and READS the results — it neither runs nor bundles the EnergyPlus solver. The EnergyPlus binary is a PARAMETERIZED subprocess resolved through `Analysis/energy#TOOLCHAIN_BOUNDARY` `EnergyToolchain.Resolve` (`ENERGYPLUS_EXE` → `OPENSTUDIO_ENERGYPLUSDIR` → configured-path → the OpenStudio package's bundled-runtime fallback), never a hardcoded path; an unresolved binary rails `ComputeFault.ToolchainUnresolved` with the full probe trail.
-- the version-lock is load-bearing: EnergyPlus MUST track the OpenStudio SWIG version — OpenStudio 3.11.0 forward-translates the IDF the version-matched EnergyPlus 25.2.0 consumes; the mismatched standalone 26.1.0 is NEVER selected (the IDF schema tracks the SWIG version), and a resolved-binary version mismatch folds a warning fact into the receipt. `Parametric_Forge` is a DEV/CI probe toolchain only (point `OPENSTUDIO_ENERGYPLUSDIR` at the OpenStudio-bundled 25.2.0); a SHIPPED app owns its own EnergyPlus provisioning.
+- the version-lock is load-bearing: EnergyPlus MUST track the OpenStudio SWIG version — OpenStudio forward-translates the IDF the version-matched EnergyPlus consumes; the mismatched standalone is NEVER selected (the IDF schema tracks the SWIG version), and a resolved-binary version mismatch folds a warning fact into the receipt. `Parametric_Forge` is a DEV/CI probe toolchain only (point `OPENSTUDIO_ENERGYPLUSDIR` at the OpenStudio-bundled); a SHIPPED app owns its own EnergyPlus provisioning.
 
 [STACKING] — the whole-building-energy simulation lane of the Compute Analysis rail:
 - with the `Rasm.Element` `ElementGraph` (via `Analysis/energy#MODEL_BUILD`): the runner reads the graph's spatial Object nodes → `Space`/`ThermalZone`, bounding surfaces → `Surface(Point3dVector, Model)`, `MaterialComposition.LayerSet` → `Construction.setLayers(MaterialVector)` over `StandardOpaqueMaterial`/`StandardGlazing` carrying the seam `MaterialPropertySet.Thermal` conductivity/thickness; the model is built from the canonical seam graph (already lowered from IFC by Bim's projector) — never re-authored from IFC here, the IFC↔OSM semantic exchange being the Bim concern.
@@ -150,10 +149,10 @@ top-level `Model`, the translator, and the file/optional/vector handles are brac
 
 [LOCAL_ADMISSION]:
 - the energy model is BUILT in-process from the seam `ElementGraph` (`new Model()` + the `new Space`/`Surface`/`Construction`/`StandardOpaqueMaterial` model-object folds), forward-translated through `new EnergyPlusForwardTranslator().translateModel`, run as the `EnergyToolchain`-resolved subprocess, and read back through `new SqlFile(toPath(path))` — loading an `.osm`/IFC and re-authoring an OSM model from IFC in Compute is the rejected form (that is the Bim semantic-exchange owner).
-- the rejected forms are: a hardcoded EnergyPlus path (use the parameterized `EnergyToolchain`); selecting a version-mismatched EnergyPlus (the 3.11.0→25.2.0 lock holds); calling `get()` on an unchecked `Optional`/`OptionalDouble`; passing a raw `string` where a `Path` is required; leaking native handles by skipping `Dispose`; `using`-disposing a model-owned object; and assuming the osx-arm64 runtime on another platform.
+- the rejected forms are: a hardcoded EnergyPlus path (use the parameterized `EnergyToolchain`); selecting a version-mismatched EnergyPlus (the → lock holds); calling `get` on an unchecked `Optional`/`OptionalDouble`; passing a raw `string` where a `Path` is required; leaking native handles by skipping `Dispose`; `using`-disposing a model-owned object; and assuming the osx-arm64 runtime on another platform.
 
 [RAIL_LAW]:
 - Package: `NREL.OpenStudio.macOS-arm64` (assembly `OpenStudio`)
 - Owns: the in-process OSM `Model` build from the seam graph, the `EnergyPlusForwardTranslator` OSM→IDF forward translation, the `SqlFile` EnergyPlus-results read, the weather/IDF file marshaling, and the SWIG native-handle discipline — the `Analysis/energy#SIMULATION_RUN` whole-building-energy lane
-- Accept: model build from the `Rasm.Element` `ElementGraph` (via `Analysis/energy#MODEL_BUILD`), OSM→IDF forward translation, the EnergyPlus subprocess driven by the parameterized `EnergyToolchain` (version-locked 3.11.0→25.2.0), the `SqlFile` annual-result read lowered onto the `Analysis/assessment` fact stream, the content-keyed result/artifact rails
+- Accept: model build from the `Rasm.Element` `ElementGraph` (via `Analysis/energy#MODEL_BUILD`), OSM→IDF forward translation, the EnergyPlus subprocess driven by the parameterized `EnergyToolchain` (version-locked →), the `SqlFile` annual-result read lowered onto the `Analysis/assessment` fact stream, the content-keyed result/artifact rails
 - Reject: IFC↔OSM/gbXML SEMANTIC exchange and OSM authoring/version-upgrade from disk (the Bim `Rasm.Bim/.api/api-openstudio` owner — the disjoint folder-specific framing of the same pin); running the EnergyPlus solver inside this binding (the resolved subprocess does — OpenStudio produces its input and reads its output); HBJSON authoring (`HoneybeeSchema`) and IFC semantics (GeometryGym); re-authoring the energy model from IFC here (the seam graph is the source); calling `get()` on an unchecked SWIG optional; leaking `OpenStudio.*` handles past the runner boundary; cross-platform native portability (each RID admits its own package)

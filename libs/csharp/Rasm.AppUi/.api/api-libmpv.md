@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `HanumanInstitute.LibMpv`
 - package: `HanumanInstitute.LibMpv`
 - package: `HanumanInstitute.LibMpv.Avalonia`
-- version: `0.10.1`
 - license: MIT (expression)
 - assembly: `HanumanInstitute.LibMpv`
 - assembly: `HanumanInstitute.LibMpv.Avalonia`
@@ -201,4 +200,4 @@
 - Reject: a bundled libmpv native binary, a hand-rolled mpv command/property marshaller, or `NativeControlHost` airspace embedding when the OpenGL path serves the surface
 
 > [!IMPORTANT]
-> The libmpv native runtime (`libmpv` >= 0.40.0) is provisioned at the app-host distribution layer through `brew`, `apt`, or a side-loaded binary. These assemblies bind it at load time and never ship it.
+> The libmpv native runtime (`libmpv` is provisioned at the app-host distribution layer through `brew`, `apt`, or a side-loaded binary. These assemblies bind it at load time and never ship it.

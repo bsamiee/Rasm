@@ -46,16 +46,16 @@ compute/
 
 ```text seams
 graduation            →  csharp:Rasm.Compute            # [GRADUATION]: HandoffAxis graduation evidence crosses OUTWARD only; C# never imports back
-graduation/codegen    ←  csharp:Rasm.Compute            # [WIRE]: EvidenceBundle offline evidence wire — msgspec bytes at rest, no shapes row until gRPC
+graduation/codegen    ←  csharp:Rasm.Compute            # [WIRE]: EvidenceBundle offline evidence wire — msgspec bytes at rest, no shapes row until
 solvers/receipt       →  csharp:Rasm.Compute            # [PROJECTION]: SolverReceipt convergence verdict
-graduation            ←  python:geometry/graduation     # [GRADUATION]: GeometryHandoff receipts decoded through the one carrier fence; geometry owns the mint
-graduation            ←  python:artifacts/core/receipt  # [GRADUATION]: graduates projects ArtifactReceipt into HandoffAxis(artifact=) — artifacts-side producer
-numerics/array        ←  python:runtime/evidence        # [CONTENT_KEY]: ContentIdentity under CANONICAL_POLICY + ParityReceipt layout proof; never re-mints
+graduation            ←  python:geometry/graduation     # [GRADUATION]: GeometryHandoff receipts decoded through the one carrier fence; geometry owns
+graduation            ←  python:artifacts/core/receipt  # [GRADUATION]: graduates projects ArtifactReceipt into HandoffAxis(artifact=) —
+numerics/array        ←  python:runtime/evidence        # [CONTENT_KEY]: ContentIdentity under CANONICAL_POLICY + ParityReceipt layout proof; never
 experiments/model     →  python:runtime/transport/roots # [BOUNDARY]: ResourceRef/UPath model-asset path resolution
 numerics/quantity     ⇄  csharp:Rasm.Compute            # [WIRE]: QuantityFamily SI canonicalization over the wire to host-free peers
-experiments/study     ←  python:data/tabular            # [SHAPE]: FrameAdmission/FrameInterop DOE-frame arm; columnar.arrow_bytes the render-seam egress
+experiments/study     ←  python:data/tabular            # [SHAPE]: FrameAdmission/FrameInterop DOE-frame arm; columnar.arrow_bytes the render-seam
 analysis              ←  python:artifacts/media         # [SHAPE]: SignalOp spectral/filter/resample + analytic-signal centroid/envelope substitutes
-*                     →  graduation/handoff             # [RECEIPT]: EvidenceScope/evidence_run weave + REDACTION on every page; producers add graduation
+*                     →  graduation/handoff             # [RECEIPT]: EvidenceScope/evidence_run weave + REDACTION on every page; producers add
 analysis/signal       →  analysis/transform             # [SHAPE]: SpectralReadout carrier
 analysis/signal       →  numerics/array                 # [SHAPE]: ArrayPayload admission
 analysis/spatial      →  numerics/array                 # [SHAPE]: ArrayPayload admission

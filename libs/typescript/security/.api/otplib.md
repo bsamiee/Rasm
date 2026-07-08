@@ -1,18 +1,17 @@
-# [otplib] — the v13 strategy-discriminated TOTP/HOTP rail with a swappable crypto/base32 port; admitted in authn only
+# [TS_SECURITY_API_OTPLIB]
 
-`otplib` at v13 is a ground-up rewrite — the legacy `authenticator`/`totp`/`hotp` singletons and their `.generate()`/`.check()` methods are **gone**. The surface is now an options-object, async-first, result-typed rail with one strategy discriminant (`'totp' | 'hotp'`) and a plugin substrate: crypto and base32 are **ports** (`CryptoPlugin`/`Base32Plugin`), so `authn/otp` binds HMAC to the *same* primitive `sign/crypto` owns instead of pulling a second crypto stack. It owns the second-factor rows (`generate`/`verify`/`generateSecret`/`generateURI`), the discriminated `VerifyResult` (`{ valid, delta }`) whose `delta` drives HOTP counter resync and TOTP drift detection, parameterized verification windows (`epochTolerance`/`counterTolerance` as `number | [past, future]`), validation `guardrails`, and `hooks` for non-standard variants (Steam Guard). Recovery/backup codes are *not* an otplib feature — they compose `generateSecret` (or the `@oslojs/crypto` RNG) with a `sign/crypto` digest-at-rest.
+`otplib` at catalog-bound is a ground-up rewrite — the retired `authenticator`/`totp`/`hotp` singletons and their `.generate()`/`.check()` methods are gone. The surface is now an options-object, async-first, result-typed rail with one strategy discriminant (`'totp' | 'hotp'`) and a plugin substrate: crypto and base32 are ports (`CryptoPlugin`/`Base32Plugin`), so `authn/otp` binds HMAC to the *same* primitive `sign/crypto` owns instead of pulling a second crypto stack. It owns the second-factor rows (`generate`/`verify`/`generateSecret`/`generateURI`), the discriminated `VerifyResult` (`{ valid, delta }`) whose `delta` drives HOTP counter resync and TOTP drift detection, parameterized verification windows (`epochTolerance`/`counterTolerance` as `number | [past, future]`), validation `guardrails`, and `hooks` for non-standard variants (Steam Guard). Recovery/backup codes are *not* an otplib feature — they compose `generateSecret` (or the `@oslojs/crypto` RNG) with a `sign/crypto` digest-at-rest.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `otplib`
 - package: `otplib` (metapackage re-exporting `@otplib/core`/`totp`/`hotp` + the default `plugin-crypto-noble`/`plugin-base32-scure`)
-- version: `13.4.1`
 - license: `MIT`
 - module: dual ESM (`import` → `dist/index.js`) + CJS (`require` → `dist/index.cjs`); subpaths `.` (all) · `./functional` · `./class`
 - effect-boundary: `generate`/`verify` return `Promise` → `Effect.tryPromise({ try, catch })`; `generateSync`/`verifySync` throw `HMACError` → `Effect.try`; `VerifyResult` narrows on `.valid`. `.api/effect.md`
-- catalog-verdict: KEEP — the one RFC-4226/6238 TOTP/HOTP owner; the v13 plugin port is what makes it composable with `sign/crypto` rather than a closed crypto silo
+- catalog-verdict: KEEP — the one RFC-4226/6238 TOTP/HOTP owner; the catalog-bound plugin port is what makes it composable with `sign/crypto` rather than a closed crypto silo
 - runtime: `runtime:neutral` — pure JS; the default `NobleCryptoPlugin` (`@noble/hashes`) is browser+node, and swapping the port removes even that
-- LEGACY_BAN: no `authenticator`, `totp`, `hotp` *singletons*; no `.check()`; a design page citing the v12 API is a phantom
+- LEGACY_BAN: no `authenticator`, `totp`, `hotp` *singletons*; no `.check()`; a design page citing the catalog-bound API is a phantom
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -20,27 +19,27 @@
 - rail: authn/otp
 - `OTPStrategy` is the one discriminant. Options are additive: verify extends generate with `token` + tolerance. `VerifyResult` is a tagged-by-boolean union — `delta` exists on both `valid: true` arms; the TOTP arm additionally carries `timeStep`/`epoch`. Narrow `if (result.valid)`, then `"timeStep" in result` for the TOTP-only fields.
 
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                        |
-| :-----: | :-------------------------------------------------------------------------- | :---------------- | :---------------------------------------------------------- |
-|  [01]   | `OTPStrategy = 'totp' \| 'hotp'`                                             | strategy value    | the one dispatch key; `generate`/`verify`/`OTP` route on it  |
-|  [02]   | `VerifyResult = { valid: true; delta; epoch; timeStep }` (TOTP) `\| { valid: true; delta }` (HOTP) `\| { valid: false }` | tagged result     | `delta` → HOTP counter resync (`counter + delta + 1`) / TOTP drift; TOTP-only `timeStep` → RFC-6238 step number (the `afterTimeStep` replay floor), `epoch` → matched period start |
-|  [03]   | `OTPFunctionalOptions` / `OTPVerifyFunctionalOptions` (functional rail) · `OTPGenerateOptions` / `OTPVerifyOptions` (class rail — NO `strategy`/`crypto`/`base32` fields) | option algebra | `secret`, `strategy`, `algorithm`, `digits`, `period`/`epoch`/`t0` (TOTP), `counter` (HOTP); verify adds `token`, `epochTolerance`/`counterTolerance`, and `afterTimeStep` — the native TOTP replay floor rejecting `timeStep <= afterTimeStep`; a functional `verify` call types against `OTPVerifyFunctionalOptions`, never the class-rail `OTPVerifyOptions` the root also exports |
-|  [04]   | `OTPAuthOptions` `{ crypto?: CryptoPlugin; base32?: Base32Plugin }`          | plugin override   | the port-injection slot on every entry                       |
-|  [05]   | `HashAlgorithm = 'sha1' \| 'sha256' \| 'sha512'` (root) · `digits` numeric field (default 6) | primitive params  | authenticator-compat defaults (`sha1`/6-digit); raise per policy |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------------------- |:---------------- |:---------------------------------------------------------- |
+| [01] | `OTPStrategy = 'totp' \| 'hotp'` | strategy value | the one dispatch key; `generate`/`verify`/`OTP` route on it |
+| [02] | `VerifyResult = { valid: true; delta; epoch; timeStep }` (TOTP) `\| { valid: true; delta }` (HOTP) `\| { valid: false }` | tagged result | `delta` → HOTP counter resync (`counter + delta + 1`) / TOTP drift; TOTP-only `timeStep` → RFC-6238 step number (the `afterTimeStep` replay floor), `epoch` → matched period start |
+| [03] | `OTPFunctionalOptions` / `OTPVerifyFunctionalOptions` (functional rail) · `OTPGenerateOptions` / `OTPVerifyOptions` (class rail — NO `strategy`/`crypto`/`base32` fields) | option algebra | `secret`, `strategy`, `algorithm`, `digits`, `period`/`epoch`/`t0` (TOTP), `counter` (HOTP); verify adds `token`, `epochTolerance`/`counterTolerance`, and `afterTimeStep` — the native TOTP replay floor rejecting `timeStep <= afterTimeStep`; a functional `verify` call types against `OTPVerifyFunctionalOptions`, never the class-rail `OTPVerifyOptions` the root also exports |
+| [04] | `OTPAuthOptions` `{ crypto?: CryptoPlugin; base32?: Base32Plugin }` | plugin override | the port-injection slot on every entry |
+| [05] | `HashAlgorithm = 'sha1' \| 'sha256' \| 'sha512'` (root) · `digits` numeric field (default 6) | primitive params | authenticator-compat defaults (`sha1`/6-digit); raise per policy |
 
 [PUBLIC_TYPE_SCOPE]: the plugin ports — the swap point that makes crypto shared, not siloed
 - rail: authn/otp ← sign/crypto
 - `CryptoPlugin`/`Base32Plugin` are structural ports exported from the `otplib` root — satisfy one with a plain object literal, no factory needed. The named `create*Plugin` factories, the `*Context` wrappers, and the `OTPHooks`/`Digits` types live in `@otplib/core` — a direct catalog pin with its own catalogue (`.api/otplib-core.md`); reach for them by sub-import only when named construction beats a literal. This is the seam by which otplib HMAC rides `@oslojs/crypto`.
 
-| [INDEX] | [SYMBOL]                                                                          | [SOURCE]       | [CONSUMER / BOUNDARY]                                        |
-| :-----: | :------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
-|  [01]   | `CryptoPlugin { name; hmac(alg,key,data); randomBytes(len); constantTimeEqual(a,b) }` | `otplib` root  | structural crypto port; satisfied by a `sign/crypto` object over `@oslojs/crypto` |
-|  [02]   | `Base32Plugin { name; encode(data,opts?); decode(str) }`                          | `otplib` root  | structural base32 port; default `ScureBase32Plugin`, swap to `@oslojs/encoding` base32 |
-|  [03]   | `NobleCryptoPlugin` / `ScureBase32Plugin`                                         | `otplib` root  | the bundled defaults (`@noble/hashes` / `@scure/base32`)    |
-|  [04]   | `createCryptoPlugin({ name?, hmac, randomBytes, constantTimeEqual? })` / `createBase32Plugin({ name?, encode, decode })` / `stringToBytes` | `@otplib/core` (factory) · root (`stringToBytes`) | named plugin construction — optional; a plain object satisfies the port |
-|  [05]   | `OTPHooks { encodeToken?; validateToken?; truncateDigest? }`                      | `@otplib/core` | non-standard OTP (Steam Guard alphabet, custom truncation); reached via the `hooks?` option field |
-|  [06]   | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)`                 | `otplib` root  | validation caps — `Partial<OTPGuardrailsConfig>` over `MIN_SECRET_BYTES`/`MAX_SECRET_BYTES`/`MIN_PERIOD`/`MAX_PERIOD`/`MAX_COUNTER`/`MAX_WINDOW` (UPPER_SNAKE keys; no digits guardrail — `digits` is an option field) |
-|  [07]   | `OTPResult<T,E>` / `wrapResult` / `wrapResultAsync`                               | `otplib` root  | optional never-throw wrapping of an entry into a tagged result |
+| [INDEX] | [SYMBOL] | [SOURCE] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------- |:------------- |:---------------------------------------------------------- |
+| [01] | `CryptoPlugin { name; hmac(alg,key,data); randomBytes(len); constantTimeEqual(a,b) }` | `otplib` root | structural crypto port; satisfied by a `sign/crypto` object over `@oslojs/crypto` |
+| [02] | `Base32Plugin { name; encode(data,opts?); decode(str) }` | `otplib` root | structural base32 port; default `ScureBase32Plugin`, swap to `@oslojs/encoding` base32 |
+| [03] | `NobleCryptoPlugin` / `ScureBase32Plugin` | `otplib` root | the bundled defaults (`@noble/hashes` / `@scure/base32`) |
+| [04] | `createCryptoPlugin({ name?, hmac, randomBytes, constantTimeEqual? })` / `createBase32Plugin({ name?, encode, decode })` / `stringToBytes` | `@otplib/core` (factory) · root (`stringToBytes`) | named plugin construction — optional; a plain object satisfies the port |
+| [05] | `OTPHooks { encodeToken?; validateToken?; truncateDigest? }` | `@otplib/core` | non-standard OTP (Steam Guard alphabet, custom truncation); reached via the `hooks?` option field |
+| [06] | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)` | `otplib` root | validation caps — `Partial<OTPGuardrailsConfig>` over `MIN_SECRET_BYTES`/`MAX_SECRET_BYTES`/`MIN_PERIOD`/`MAX_PERIOD`/`MAX_COUNTER`/`MAX_WINDOW` (UPPER_SNAKE keys; no digits guardrail — `digits` is an option field) |
+| [07] | `OTPResult<T,E>` / `wrapResult` / `wrapResultAsync` | `otplib` root | optional never-throw wrapping of an entry into a tagged result |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -48,22 +47,22 @@
 - rail: authn/otp
 - `strategy` selects TOTP vs HOTP as a *value*; the same call shape serves both (HOTP requires `counter`, TOTP uses `period`/`epoch`). Prefer `generate`/`verify` (async, plugin-agnostic); the `*Sync` mirror needs a sync-HMAC plugin.
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :--------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `generate(options: OTPGenerateOptions): Promise<string>` / `generateSync(...)` | mint token     | `authn/otp` challenge issuance; `Effect.tryPromise`/`Effect.try` |
-|  [02]   | `verify(options: OTPVerifyOptions): Promise<VerifyResult>` / `verifySync(...)` | check token    | second-factor verify; constant-time internally; narrow `.valid` |
-|  [03]   | `generateSecret(options?: { length?; crypto?; base32? }): string`             | mint secret    | Base32 shared secret at enrollment (default 20 bytes/160-bit) |
-|  [04]   | `generateURI({ strategy?, issuer, label, secret, algorithm?, digits?, period?, counter? }): string` | provisioning   | `otpauth://` URI for QR enrollment at the `ui` edge      |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:--------------------------------------------------------------------------- |:------------- |:------------------------------------------------------- |
+| [01] | `generate(options: OTPGenerateOptions): Promise<string>` / `generateSync(...)` | mint token | `authn/otp` challenge issuance; `Effect.tryPromise`/`Effect.try` |
+| [02] | `verify(options: OTPVerifyOptions): Promise<VerifyResult>` / `verifySync(...)` | check token | second-factor verify; constant-time internally; narrow `.valid` |
+| [03] | `generateSecret(options?: { length?; crypto?; base32? }): string` | mint secret | Base32 shared secret at enrollment (default 20 bytes/160-bit) |
+| [04] | `generateURI({ strategy?, issuer, label, secret, algorithm?, digits?, period?, counter? }): string` | provisioning | `otpauth://` URI for QR enrollment at the `ui` edge |
 
 [ENTRYPOINT_SCOPE]: the class rail — strategy-fixed specializations over the same options
 - rail: authn/otp
 - `OTP` is the strategy-dynamic wrapper (constructed once with `{ strategy, crypto, base32, guardrails }`); `TOTP`/`HOTP` are the fixed-strategy classes with the tighter per-strategy signatures. Use a class when the plugin/guardrail config is fixed for a subject and reused across calls.
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :--------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `new OTP({ strategy?, crypto?, base32?, guardrails? })` → `.generate`/`.verify`/`.generateSecret`/`.generateURI`/`.getStrategy` | unified class | pre-bound plugin/guardrail config reused per subject     |
-|  [02]   | `new TOTP(options)` → `.generate`/`.verify(token, opts?)` · `getRemainingTime()` / `getTimeStepUsed()` | TOTP class     | time-window UI (seconds-left), `afterTimeStep` replay guard |
-|  [03]   | `new HOTP(options)` → `.generate(counter, opts?)` / `.verify({ token, counter, counterTolerance? })` / `.toURI(counter?)` | HOTP class     | counter-based codes; `delta` resync                      |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:--------------------------------------------------------------------------- |:------------- |:------------------------------------------------------- |
+| [01] | `new OTP({ strategy?, crypto?, base32?, guardrails? })` → `.generate`/`.verify`/`.generateSecret`/`.generateURI`/`.getStrategy` | unified class | pre-bound plugin/guardrail config reused per subject |
+| [02] | `new TOTP(options)` → `.generate`/`.verify(token, opts?)` · `getRemainingTime()` / `getTimeStepUsed()` | TOTP class | time-window UI (seconds-left), `afterTimeStep` replay guard |
+| [03] | `new HOTP(options)` → `.generate(counter, opts?)` / `.verify({ token, counter, counterTolerance? })` / `.toURI(counter?)` | HOTP class | counter-based codes; `delta` resync |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -89,4 +88,4 @@
 - Package: `otplib`
 - Owns: RFC-4226 HOTP + RFC-6238 TOTP mint/verify, the discriminated `VerifyResult` with `delta` resync, parameterized `epoch`/`counter` tolerance windows, `generateSecret`/`generateURI` enrollment, `guardrails`/`hooks`, and the `CryptoPlugin`/`Base32Plugin` ports
 - Accept: `strategy` as the one discriminant, `generate`/`verify` async entries under `Effect.tryPromise`, `VerifyResult.delta` for HOTP resync, tolerance as `number | [past, future]`, the `{ crypto }` port bound to a `sign/crypto` plugin over `@oslojs/crypto`, `hooks` for non-standard variants
-- Reject: the v12 `authenticator`/`totp`/`hotp` singletons and `.check()` (a phantom), a `generateTotp`/`generateHotp` name fork, throwing on a wrong code (it returns `{ valid: false }`), an enumerated tolerance-variant family, a second HMAC/crypto stack when the `CryptoPlugin` port bridges `sign/crypto`, treating recovery codes as an otplib feature, any import outside `authn/`
+- Reject: the catalog-bound `authenticator`/`totp`/`hotp` singletons and `.check()` (a phantom), a `generateTotp`/`generateHotp` name fork, throwing on a wrong code (it returns `{ valid: false }`), an enumerated tolerance-variant family, a second HMAC/crypto stack when the `CryptoPlugin` port bridges `sign/crypto`, treating recovery codes as an otplib feature, any import outside `authn/`

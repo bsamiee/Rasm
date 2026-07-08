@@ -16,92 +16,92 @@
 [PUBLIC_TYPE_SCOPE]: minimizer solver types
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]       | [KEY_SIGNATURE]                                                            |
-| :-----: | :---------------- | :------------------ | :------------------------------------------------------------------------- |
-|  [01]   | `BFGS`            | quasi-Newton        | `(rtol, atol, norm=max_norm, use_inverse=True, verbose=False)`             |
-|  [02]   | `DFP`             | quasi-Newton        | `(rtol, atol, norm=max_norm, use_inverse=True, verbose=False)`             |
-|  [03]   | `LBFGS`           | limited-memory BFGS | `(rtol, atol, norm=max_norm, use_inverse=True, history_length=10, verbose=False)` |
-|  [04]   | `GradientDescent` | first-order         | `(learning_rate, rtol, atol, norm=max_norm)`                              |
-|  [05]   | `NonlinearCG`     | nonlinear CG        | `(rtol, atol, norm=max_norm, method=polak_ribiere, search=BacktrackingArmijo(...))` |
-|  [06]   | `NelderMead`      | derivative-free     | `(rtol, atol, norm=max_norm, rdelta=0.05, adelta=0.00025)`                 |
-|  [07]   | `OptaxMinimiser`  | Optax wrapper       | `(optim, rtol, atol, norm=max_norm, verbose=False)` — wraps any `optax` optimizer as an `AbstractMinimiser` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [KEY_SIGNATURE] |
+| --- | --- | --- | --- |
+| [01] | `BFGS` | quasi-Newton | `(rtol, atol, norm=max_norm, use_inverse=True, verbose=False)` |
+| [02] | `DFP` | quasi-Newton | `(rtol, atol, norm=max_norm, use_inverse=True, verbose=False)` |
+| [03] | `LBFGS` | limited-memory BFGS | `(rtol, atol, norm=max_norm, use_inverse=True, history_length=10, verbose=False)` |
+| [04] | `GradientDescent` | first-order | `(learning_rate, rtol, atol, norm=max_norm)` |
+| [05] | `NonlinearCG` | nonlinear CG | `(rtol, atol, norm=max_norm, method=polak_ribiere, search=BacktrackingArmijo(...))` |
+| [06] | `NelderMead` | derivative-free | `(rtol, atol, norm=max_norm, rdelta=0.05, adelta=0.00025)` |
+| [07] | `OptaxMinimiser` | Optax wrapper | `(optim, rtol, atol, norm=max_norm, verbose=False)` — wraps any `optax` optimizer as an `AbstractMinimiser` |
 
 [PUBLIC_TYPE_SCOPE]: root-finder, fixed-point, and 1-D solver types
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [KEY_SIGNATURE]                                                                          |
-| :-----: | :-------------------- | :--------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `Newton`              | Newton method    | `(rtol, atol, norm=max_norm, kappa=0.01, linear_solver=AutoLinearSolver(well_posed=None), cauchy_termination=True)` |
-|  [02]   | `Chord`               | chord method     | `(rtol, atol, norm=max_norm, kappa=0.01, linear_solver=AutoLinearSolver(well_posed=None), cauchy_termination=True)` |
-|  [03]   | `Bisection`           | 1-D bisection    | `(rtol, atol, flip='detect', expand_if_necessary=False)` — carries NO bracket on the constructor; requires the entry `options=dict(lower=, upper=)` bracketing the root, e.g. `root_find(..., options=dict(lower=0, upper=1))` |
-|  [04]   | `GoldenSearch`        | 1-D minimization | `(rtol, atol)` golden-section bracketing minimiser — carries NO bracket on the constructor; requires the entry `options=dict(lower=, upper=)` bracketing the minimum, and IGNORES `y0` (the golden-ratio interval split is the sole region specifier) |
-|  [05]   | `FixedPointIteration` | Banach iteration | `(rtol, atol, norm=max_norm, damp=0.0)`                                                   |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [KEY_SIGNATURE] |
+| --- | --- | --- | --- |
+| [01] | `Newton` | Newton method | `(rtol, atol, norm=max_norm, kappa=0.01, linear_solver=AutoLinearSolver(well_posed=None), cauchy_termination=True)` |
+| [02] | `Chord` | chord method | `(rtol, atol, norm=max_norm, kappa=0.01, linear_solver=AutoLinearSolver(well_posed=None), cauchy_termination=True)` |
+| [03] | `Bisection` | 1-D bisection | `(rtol, atol, flip='detect', expand_if_necessary=False)` — carries NO bracket on the constructor; requires the entry `options=dict(lower=, upper=)` bracketing the root, e.g. `root_find(..., options=dict(lower=0, upper=1))` |
+| [04] | `GoldenSearch` | 1-D minimization | `(rtol, atol)` golden-section bracketing minimiser — carries NO bracket on the constructor; requires the entry `options=dict(lower=, upper=)` bracketing the minimum, and IGNORES `y0` (the golden-ratio interval split is the sole region specifier) |
+| [05] | `FixedPointIteration` | Banach iteration | `(rtol, atol, norm=max_norm, damp=0.0)` |
 
 [PUBLIC_TYPE_SCOPE]: least-squares solver types
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]         | [KEY_SIGNATURE]                                                                          |
-| :-----: | :--------------------------- | :-------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `GaussNewton`                | Gauss-Newton          | `(rtol, atol, norm=max_norm, linear_solver=AutoLinearSolver(well_posed=None), verbose=False)` |
-|  [02]   | `LevenbergMarquardt`         | Levenberg-Marquardt   | `(rtol, atol, norm=max_norm, linear_solver=QR(), verbose=False)` (classical trust region) |
-|  [03]   | `IndirectLevenbergMarquardt` | iterative LM          | `(rtol, atol, norm=max_norm, lambda_0=1.0, linear_solver=AutoLinearSolver(well_posed=False), root_finder=Newton(rtol=0.01, atol=0.01), verbose=False)` |
-|  [04]   | `Dogleg`                     | dogleg trust-region   | `(rtol, atol, norm=max_norm, linear_solver=AutoLinearSolver(well_posed=None), verbose=False)` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [KEY_SIGNATURE] |
+| --- | --- | --- | --- |
+| [01] | `GaussNewton` | Gauss-Newton | `(rtol, atol, norm=max_norm, linear_solver=AutoLinearSolver(well_posed=None), verbose=False)` |
+| [02] | `LevenbergMarquardt` | Levenberg-Marquardt | `(rtol, atol, norm=max_norm, linear_solver=QR(), verbose=False)` (classical trust region) |
+| [03] | `IndirectLevenbergMarquardt` | iterative LM | `(rtol, atol, norm=max_norm, lambda_0=1.0, linear_solver=AutoLinearSolver(well_posed=False), root_finder=Newton(rtol=0.01, atol=0.01), verbose=False)` |
+| [04] | `Dogleg` | dogleg trust-region | `(rtol, atol, norm=max_norm, linear_solver=AutoLinearSolver(well_posed=None), verbose=False)` |
 
 [PUBLIC_TYPE_SCOPE]: `BestSoFar*` solver wrappers
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [CAPABILITY]                                                            |
-| :-----: | :---------------------- | :-------------- | :--------------------------------------------------------------------- |
-|  [01]   | `BestSoFarMinimiser(solver)`   | minimiser wrapper | returns the best (lowest-objective) iterate seen, not the final one |
-|  [02]   | `BestSoFarLeastSquares(solver)` | LS wrapper      | best iterate by residual-sum-of-squares                              |
-|  [03]   | `BestSoFarRootFinder(solver)`  | root wrapper    | best iterate by residual norm                                        |
-|  [04]   | `BestSoFarFixedPoint(solver)`  | fixed-point wrapper | best iterate by fixed-point residual                             |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `BestSoFarMinimiser(solver)` | minimiser wrapper | returns the best (lowest-objective) iterate seen, not the final one |
+| [02] | `BestSoFarLeastSquares(solver)` | LS wrapper | best iterate by residual-sum-of-squares |
+| [03] | `BestSoFarRootFinder(solver)` | root wrapper | best iterate by residual norm |
+| [04] | `BestSoFarFixedPoint(solver)` | fixed-point wrapper | best iterate by fixed-point residual |
 
 [PUBLIC_TYPE_SCOPE]: descent strategies, searches, and abstract bases
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                                        |
-| :-----: | :----------------------------- | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `BacktrackingArmijo`           | line search   | `(decrease_factor=0.5, slope=0.1, ...)` Armijo backtracking         |
-|  [02]   | `LearningRate`                 | search        | constant learning-rate step                                        |
-|  [03]   | `ClassicalTrustRegion` / `LinearTrustRegion` | trust region | classical / linear-model trust-region acceptance      |
-|  [04]   | `NewtonDescent` / `SteepestDescent` / `NonlinearCGDescent` / `DoglegDescent` | descent step | direction generators composed with a search |
-|  [05]   | `DampedNewtonDescent(linear_solver=AutoLinearSolver(well_posed=None))` / `IndirectDampedNewtonDescent` | descent step | LM-style damped Newton (direct / iterative-solve) |
-|  [06]   | `FunctionInfo`                 | tag union     | descent-input tags `Eval`/`EvalGrad`/`EvalGradHessian`/`EvalGradHessianInv`/`Residual`/`ResidualJac` |
-|  [07]   | `AbstractMinimiser` / `AbstractLeastSquaresSolver` / `AbstractRootFinder` / `AbstractFixedPointSolver` | solver base | the four problem-class solver bases (subclass to author a custom solver) |
-|  [08]   | `AbstractQuasiNewton` / `AbstractBFGS` / `AbstractDFP` / `AbstractLBFGS` / `AbstractGaussNewton` / `AbstractGradientDescent` | solver base | quasi-Newton/GN/GD specializations |
-|  [09]   | `AbstractDescent` / `AbstractSearch` / `AbstractAdjoint` / `AbstractIterativeSolver` | strategy base | descent/search/adjoint/iterative-solver extension points |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `BacktrackingArmijo` | line search | `(decrease_factor=0.5, slope=0.1, ...)` Armijo backtracking |
+| [02] | `LearningRate` | search | constant learning-rate step |
+| [03] | `ClassicalTrustRegion` / `LinearTrustRegion` | trust region | classical / linear-model trust-region acceptance |
+| [04] | `NewtonDescent` / `SteepestDescent` / `NonlinearCGDescent` / `DoglegDescent` | descent step | direction generators composed with a search |
+| [05] | `DampedNewtonDescent(linear_solver=AutoLinearSolver(well_posed=None))` / `IndirectDampedNewtonDescent` | descent step | LM-style damped Newton (direct / iterative-solve) |
+| [06] | `FunctionInfo` | tag union | descent-input tags `Eval`/`EvalGrad`/`EvalGradHessian`/`EvalGradHessianInv`/`Residual`/`ResidualJac` |
+| [07] | `AbstractMinimiser` / `AbstractLeastSquaresSolver` / `AbstractRootFinder` / `AbstractFixedPointSolver` | solver base | the four problem-class solver bases (subclass to author a custom solver) |
+| [08] | `AbstractQuasiNewton` / `AbstractBFGS` / `AbstractDFP` / `AbstractLBFGS` / `AbstractGaussNewton` / `AbstractGradientDescent` | solver base | quasi-Newton/GN/GD specializations |
+| [09] | `AbstractDescent` / `AbstractSearch` / `AbstractAdjoint` / `AbstractIterativeSolver` | strategy base | descent/search/adjoint/iterative-solver extension points |
 
 [PUBLIC_TYPE_SCOPE]: adjoint and result types
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]  | [CAPABILITY]                                                                                                      |
-| :-----: | :--------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Solution`                   | result carrier | fields `value: Y`, `result: RESULTS`, `aux: Aux`, `stats: dict[str, PyTree]`, `state` (generic over `Y`/`Aux`)   |
-|  [02]   | `RESULTS`                    | termination enum (`equinox.Enumeration`) | members `successful` (the zero code), `max_steps_reached`, `nonlinear_max_steps_reached`, `nonlinear_divergence`, `singular`, `breakdown`, `stagnation`, `nonfinite`, `conlim`, `nonfinite_input`; a member is an `equinox.EnumerationItem` exposing ONLY `_value` (the int code) and `_enumeration` (the class) — NO `.name`/`.value` member-name attribute, and `RESULTS[item]` returns the human MESSAGE, so the member-name key is recoverable only by inverting the class `_name_to_item` map; `RESULTS.promote(item)` is inheritance-widening (lifts a member from a parent `Enumeration` to a subclass, raising `ValueError` on a same-class member) NOT a vmap reduction, and `RESULTS.where(pred, a, b)` is the branchless `jnp.where` 2-way select — the worst-case batched-`vmap` aggregation is `jnp.max` over the `_value` codes plus the `_name_to_item` inversion, never `promote` |
-|  [03]   | `ImplicitAdjoint`            | adjoint        | `(linear_solver=AutoLinearSolver(well_posed=None))` — implicit-function-theorem gradients (one `lineax` solve per backward) |
-|  [04]   | `RecursiveCheckpointAdjoint` | adjoint        | `(checkpoints=None)` — backpropagation through the solver iterations with checkpointing                          |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Solution` | result carrier | fields `value: Y`, `result: RESULTS`, `aux: Aux`, `stats: dict[str, PyTree]`, `state` (generic over `Y`/`Aux`) |
+| [02] | `RESULTS` | termination enum (`equinox.Enumeration`) | members `successful` (the zero code), `max_steps_reached`, `nonlinear_max_steps_reached`, `nonlinear_divergence`, `singular`, `breakdown`, `stagnation`, `nonfinite`, `conlim`, `nonfinite_input`; a member is an `equinox.EnumerationItem` exposing ONLY `_value` (the int code) and `_enumeration` (the class) — NO `.name`/`.value` member-name attribute, and `RESULTS[item]` returns the human MESSAGE, so the member-name key is recoverable only by inverting the class `_name_to_item` map; `RESULTS.promote(item)` is inheritance-widening (lifts a member from a parent `Enumeration` to a subclass, raising `ValueError` on a same-class member) NOT a vmap reduction, and `RESULTS.where(pred, a, b)` is the branchless `jnp.where` 2-way select — the worst-case batched-`vmap` aggregation is `jnp.max` over the `_value` codes plus the `_name_to_item` inversion, never `promote` |
+| [03] | `ImplicitAdjoint` | adjoint | `(linear_solver=AutoLinearSolver(well_posed=None))` — implicit-function-theorem gradients (one `lineax` solve per backward) |
+| [04] | `RecursiveCheckpointAdjoint` | adjoint | `(checkpoints=None)` — backpropagation through the solver iterations with checkpointing |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: unified solve entry points
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SURFACE]                                                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `minimise(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | minimise       | scalar `fn(y, args) -> scalar` |
-|  [02]   | `least_squares(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | least squares | residual `fn(y, args) -> residuals` |
-|  [03]   | `root_find(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | root find      | `fn(y, args) -> 0`             |
-|  [04]   | `fixed_point(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | fixed point    | `fn(y, args) -> y`             |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `minimise(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | minimise | scalar `fn(y, args) -> scalar` |
+| [02] | `least_squares(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | least squares | residual `fn(y, args) -> residuals` |
+| [03] | `root_find(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | root find | `fn(y, args) -> 0` |
+| [04] | `fixed_point(fn, solver, y0, args=None, options=None, *, has_aux=False, max_steps=256, adjoint=ImplicitAdjoint(), throw=True, tags=frozenset())` → `Solution[Y, Aux]` | fixed point | `fn(y, args) -> y` |
 
 [ENTRYPOINT_SCOPE]: norm functions, CG β-coefficients, and the scipy-compat shim
 - rail: differentiable nonlinear optimization
 
-| [INDEX] | [SURFACE]              | [SIGNATURE / CAPABILITY]                          | [RAIL]                |
-| :-----: | :--------------------- | :------------------------------------------------ | :-------------------- |
-|  [01]   | `max_norm(x)` / `rms_norm(x)` / `two_norm(x)` | `(PyTree[Array]) → Shaped[Array, '']` | Chebyshev (L∞) / RMS / Euclidean (L2) termination norm |
-|  [02]   | `polak_ribiere` / `fletcher_reeves` / `hestenes_stiefel` / `dai_yuan` | `(grad, grad_prev, y_diff) → scalar` | nonlinear-CG β-coefficient (the `NonlinearCG(method=)`) |
-|  [03]   | `compat.minimize(fun, x0, args=(), *, method, tol=None, options=None)` → `compat.OptimizeResults` | scipy-`optimize.minimize`-compatible signature over `BFGS`/`NelderMead` |
+| [INDEX] | [SURFACE] | [SIGNATURE_CAPABILITY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `max_norm(x)` / `rms_norm(x)` / `two_norm(x)` | `(PyTree[Array]) → Shaped[Array, '']` | Chebyshev (L∞) / RMS / Euclidean (L2) termination norm |
+| [02] | `polak_ribiere` / `fletcher_reeves` / `hestenes_stiefel` / `dai_yuan` | `(grad, grad_prev, y_diff) → scalar` | nonlinear-CG β-coefficient (the `NonlinearCG(method=)`) |
+| [03] | `compat.minimize(fun, x0, args=(), *, method, tol=None, options=None)` → `compat.OptimizeResults` | scipy-`optimize.minimize`-compatible signature over `BFGS`/`NelderMead` |  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `SkiaSharp.HarfBuzz`
 - package: `SkiaSharp.HarfBuzz`
-- version: `3.119.4`
 - license: `MIT`
 - assembly: `SkiaSharp.HarfBuzz`
 - namespace: `SkiaSharp.HarfBuzz`

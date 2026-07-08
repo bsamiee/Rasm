@@ -22,36 +22,36 @@
 - rail: object-store
 
 | [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-| :-----: | :------- | :------------ | :----- |
-|  [01]   | `obspec_utils.protocols.ReadableStore` | `@runtime_checkable Protocol` | full read interface — composes `obspec.{Get,GetAsync,GetRange,GetRangeAsync,GetRanges,GetRangesAsync,Head,HeadAsync}`; the structural type every wrapper accepts and `obstore`'s read stores satisfy; upstream warns it may change, so a consumer SHOULD pin its own narrower protocol for stable typing |
-|  [02]   | `obspec_utils.protocols.ReadableFile` | `@runtime_checkable Protocol` | minimal seekable handle — `read(size=-1, /)`, `seek(offset, whence=0, /)`, `tell()`; the contract every reader satisfies, so a reader drops into any API expecting a file object (`h5py.File`, `zarr`, `netCDF4`) |
-|  [03]   | `obspec_utils.typing.Url` / `obspec_utils.typing.Path` | `TypeAlias = str` | registry key and trailing-path string aliases (semantic, not branded) |
+| --- | --- | --- | --- |
+| [01] | `obspec_utils.protocols.ReadableStore` | `@runtime_checkable Protocol` | full read interface — composes `obspec.{Get,GetAsync,GetRange,GetRangeAsync,GetRanges,GetRangesAsync,Head,HeadAsync}`; the structural type every wrapper accepts and `obstore`'s read stores satisfy; upstream warns it may change, so a consumer SHOULD pin its own narrower protocol for stable typing |
+| [02] | `obspec_utils.protocols.ReadableFile` | `@runtime_checkable Protocol` | minimal seekable handle — `read(size=-1, /)`, `seek(offset, whence=0, /)`, `tell()`; the contract every reader satisfies, so a reader drops into any API expecting a file object (`h5py.File`, `zarr`, `netCDF4`) |
+| [03] | `obspec_utils.typing.Url` / `obspec_utils.typing.Path` | `TypeAlias = str` | registry key and trailing-path string aliases (semantic, not branded) |
 
 [PUBLIC_TYPE_SCOPE]: registry
 - rail: object-store
 
 | [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-| :-----: | :------- | :------------ | :----- |
-|  [01]   | `obspec_utils.registry.ObjectStoreRegistry[T]` | generic registry | `Generic[T]`, `T` bound by `obspec.Get`; maps `(scheme, netloc)` + a path-segment tree to stores; longest-prefix `resolve`; async context manager that opens/closes session-bearing stores |
-|  [02]   | `obspec_utils.registry.UrlKey` | `namedtuple(scheme, netloc)` | the primary registry key (URL scheme + authority); built by `get_url_key` |
-|  [03]   | `obspec_utils.registry.PathEntry[T]` | path-segment tree node | `Generic[T]` node holding an optional `store` plus `children`; `iter_stores()` and `lookup(path) -> (store, depth) | None` implement longest-match traversal (internal to the registry, importable) |
+| --- | --- | --- | --- |
+| [01] | `obspec_utils.registry.ObjectStoreRegistry[T]` | generic registry | `Generic[T]`, `T` bound by `obspec.Get`; maps `(scheme, netloc)` + a path-segment tree to stores; longest-prefix `resolve`; async context manager that opens/closes session-bearing stores |
+| [02] | `obspec_utils.registry.UrlKey` | `namedtuple(scheme, netloc)` | the primary registry key (URL scheme + authority); built by `get_url_key` |
+| [03] | `obspec_utils.registry.PathEntry[T]` | path-segment tree node | `Generic[T]` node holding an optional `store` plus `children`; `iter_stores()` and `lookup(path) -> (store, depth) \| None` implement longest-match traversal (internal to the registry, importable) |
 
 [PUBLIC_TYPE_SCOPE]: concrete store
 - rail: object-store
 
 | [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-| :-----: | :------- | :------------ | :----- |
-|  [01]   | `obspec_utils.stores.AiohttpStore` | `ReadableStore` impl | `aiohttp`-backed HTTP/HTTPS store for generic endpoints (THREDDS, NASA outside AWS region) where `obstore.store.HTTPStore` WebDAV/S3 semantics are wrong; async context manager reuses one `ClientSession`; `base_url`/`headers`/`timeout` |
-|  [02]   | `obspec_utils.stores.AiohttpGetResult` | `@dataclass(obspec.GetResult)` | sync get result — `buffer()`, `meta`, `attributes`, `range`, `__iter__` |
-|  [03]   | `obspec_utils.stores.AiohttpGetResultAsync` | `@dataclass(obspec.GetResultAsync)` | async get result — `buffer_async()`, `meta`, `attributes`, `range`, `__aiter__` |
+| --- | --- | --- | --- |
+| [01] | `obspec_utils.stores.AiohttpStore` | `ReadableStore` impl | `aiohttp`-backed HTTP/HTTPS store for generic endpoints (THREDDS, NASA outside AWS region) where `obstore.store.HTTPStore` WebDAV/S3 semantics are wrong; async context manager reuses one `ClientSession`; `base_url`/`headers`/`timeout` |
+| [02] | `obspec_utils.stores.AiohttpGetResult` | `@dataclass(obspec.GetResult)` | sync get result — `buffer()`, `meta`, `attributes`, `range`, `iter` |
+| [03] | `obspec_utils.stores.AiohttpGetResultAsync` | `@dataclass(obspec.GetResultAsync)` | async get result — `buffer_async()`, `meta`, `attributes`, `range`, `aiter` |
 
 [PUBLIC_TYPE_SCOPE]: trace records
 - rail: observability
 
 | [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-| :-----: | :------- | :------------ | :----- |
-|  [01]   | `obspec_utils.wrappers.RequestTrace` | `@dataclass` | collection of `RequestRecord` with analysis — `add(...)`, `clear()`, `to_dataframe()` (lazy `pandas`), `summary() -> dict`, `total_bytes`, `total_requests`, `requests` |
-|  [02]   | `obspec_utils.wrappers.RequestRecord` | `@dataclass` | one range request — `path`, `start`, `length`, `end`, `timestamp`, `duration`, `method` (`get`/`get_range`/`get_ranges`/`head`), `range_style` (`end`/`length`) |
+| --- | --- | --- | --- |
+| [01] | `obspec_utils.wrappers.RequestTrace` | `@dataclass` | collection of `RequestRecord` with analysis — `add(...)`, `clear()`, `to_dataframe()` (lazy `pandas`), `summary() -> dict`, `total_bytes`, `total_requests`, `requests` |
+| [02] | `obspec_utils.wrappers.RequestRecord` | `@dataclass` | one range request — `path`, `start`, `length`, `end`, `timestamp`, `duration`, `method` (`get`/`get_range`/`get_ranges`/`head`), `range_style` (`end`/`length`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -59,23 +59,23 @@
 - rail: object-store
 
 | [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-|  [01]   | `ObjectStoreRegistry(stores: dict[Url, T] | None = None)` | construct | seed the registry from a `{url: store}` map; each entry is `register`ed |
-|  [02]   | `registry.register(url: Url, store: T) -> None` | bind | register/replace a store under a URL; navigates the path-segment tree |
-|  [03]   | `registry.resolve(url: Url) -> tuple[T, Path]` | route | longest-prefix match by `(scheme, netloc)` then path segments; strips the store's `prefix`/`url` prefix; raises `ValueError` on no match |
-|  [04]   | `async with registry: ...` | lifecycle | `__aenter__`/`__aexit__` open/close every registered store implementing the async-context protocol (e.g. `AiohttpStore` session); non-session stores (`S3Store`) pass through untouched |
-|  [05]   | `get_url_key(url: Url) -> UrlKey` | key | parse a URL to its `(scheme, netloc)` key; raises `ValueError` if schemeless |
-|  [06]   | `path_segments(path: str) -> Iterator[str]` | split | non-empty path segments (drops empties, unlike `urllib.parse`) |
+| --- | --- | --- | --- |
+| [01] | `ObjectStoreRegistry(stores: dict[Url, T] \| None = None)` | construct | seed the registry from a `{url: store}` map; each entry is `register`ed |
+| [02] | `registry.register(url: Url, store: T) -> None` | bind | register/replace a store under a URL; navigates the path-segment tree |
+| [03] | `registry.resolve(url: Url) -> tuple[T, Path]` | route | longest-prefix match by `(scheme, netloc)` then path segments; strips the store's `prefix`/`url` prefix; raises `ValueError` on no match |
+| [04] | `async with registry: ...` | lifecycle | `aenter`/`aexit` open/close every registered store implementing the async-context protocol (e.g. `AiohttpStore` session); non-session stores (`S3Store`) pass through untouched |
+| [05] | `get_url_key(url: Url) -> UrlKey` | key | parse a URL to its `(scheme, netloc)` key; raises `ValueError` if schemeless |
+| [06] | `path_segments(path: str) -> Iterator[str]` | split | non-empty path segments (drops empties, unlike `urllib.parse`) |
 
 [ENTRYPOINT_SCOPE]: glob discovery
 - rail: object-store
 
 | [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-|  [01]   | `glob(store: obspec.List, pattern: str) -> Iterator[str]` | sync paths | match object paths against a glob pattern; yields paths |
-|  [02]   | `glob_objects(store: obspec.List, pattern: str) -> Iterator[ObjectMeta]` | sync meta | same match; yields full `ObjectMeta` (`path`/`last_modified`/`size`/`e_tag`/`version`) |
-|  [03]   | `glob_async(store: obspec.ListAsync, pattern: str) -> AsyncIterator[str]` | async paths | async mirror over `list_async` |
-|  [04]   | `glob_objects_async(store: obspec.ListAsync, pattern: str) -> AsyncIterator[ObjectMeta]` | async meta | async mirror yielding `ObjectMeta` |
+| --- | --- | --- | --- |
+| [01] | `glob(store: obspec.List, pattern: str) -> Iterator[str]` | sync paths | match object paths against a glob pattern; yields paths |
+| [02] | `glob_objects(store: obspec.List, pattern: str) -> Iterator[ObjectMeta]` | sync meta | same match; yields full `ObjectMeta` (`path`/`last_modified`/`size`/`e_tag`/`version`) |
+| [03] | `glob_async(store: obspec.ListAsync, pattern: str) -> AsyncIterator[str]` | async paths | async mirror over `list_async` |
+| [04] | `glob_objects_async(store: obspec.ListAsync, pattern: str) -> AsyncIterator[ObjectMeta]` | async meta | async mirror yielding `ObjectMeta` |
 
 `pattern` supports `*` (within a segment), `**` (recursive across segments), `?` (one char), `[abc]`/`[a-z]`/`[!abc]` (class/range/negation). The literal leading prefix is extracted and passed to `store.list(prefix=...)` so listing is server-side narrowed before regex filtering — never a full-bucket scan when the pattern is anchored.
 
@@ -83,11 +83,11 @@
 - rail: object-store
 
 | [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-|  [01]   | `BufferedStoreReader(store, path, buffer_size=1 MiB)` | sequential | on-demand `get_range` reads with read-ahead buffer; best for forward streaming with rare back-seeks; `Store = Get+GetRange+Head` |
-|  [02]   | `EagerStoreReader(store, path, request_size=12 MiB, file_size=None, max_concurrent_requests=18)` | whole-file | fetches the entire file at construction via concurrent `get_ranges` (Icechunk strategy), serves all reads from RAM; pass `file_size` to skip the `head`; `Store = Get+GetRanges+Head` |
-|  [03]   | `BlockStoreReader(store, path, block_size=1 MiB, max_cached_blocks=64)` | sparse | fixed-size blocks fetched via concurrent `get_ranges` with bounded LRU cache (`block_size × max_cached_blocks` memory cap); best for many non-contiguous reads of a large file; `Store = Get+GetRanges+Head` |
-|  [04]   | `ParallelStoreReader(store, path, chunk_size=1 MiB, max_cached_chunks=64)` | DEPRECATED | `BlockStoreReader` alias emitting `DeprecationWarning`; removed after v0.12 — do not use |
+| --- | --- | --- | --- |
+| [01] | `BufferedStoreReader(store, path, buffer_size=1 MiB)` | sequential | on-demand `get_range` reads with read-ahead buffer; best for forward streaming with rare back-seeks; `Store = Get+GetRange+Head` |
+| [02] | `EagerStoreReader(store, path, request_size=12 MiB, file_size=None, max_concurrent_requests=18)` | whole-file | fetches the entire file at construction via concurrent `get_ranges` (Icechunk strategy), serves all reads from RAM; pass `file_size` to skip the `head`; `Store = Get+GetRanges+Head` |
+| [03] | `BlockStoreReader(store, path, block_size=1 MiB, max_cached_blocks=64)` | sparse | fixed-size blocks fetched via concurrent `get_ranges` with bounded LRU cache (`block_size × max_cached_blocks` memory cap); best for many non-contiguous reads of a large file; `Store = Get+GetRanges+Head` |
+| [04] | `ParallelStoreReader(store, path, chunk_size=1 MiB, max_cached_chunks=64)` | DEPRECATED | `BlockStoreReader` alias emitting `DeprecationWarning`; removed after v0.12 — do not use |
 
 Every reader implements `ReadableFile` plus `readall()`, `readable()`/`seekable()`/`writable()`, `close()`, and the context-manager protocol, so it is a drop-in seekable handle for `h5py.File(reader)`, `zarr`, or `netCDF4`.
 
@@ -95,20 +95,20 @@ Every reader implements `ReadableFile` plus `readall()`, `readable()`/`seekable(
 - rail: object-store
 
 | [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-|  [01]   | `CachingReadableStore(store, max_size=256 MiB)` | LRU cache | caches whole objects in an `obstore.MemoryStore` on first access; thread-safe (`threading.Lock`); serves later `get`/`get_range`/`get_ranges` from cache; `clear_cache()`, `cache_size`, `cached_paths`; picklable (`__reduce__` ships a fresh empty cache for `ProcessPool`/Dask workers); context manager clears on exit; transparent `__getattr__` forwarding of non-cached methods |
-|  [02]   | `SplittingReadableStore(store, request_size=12 MiB, max_concurrent_requests=18)` | request splitting | rewrites a large `get`/`get_async` into concurrent `get_ranges` (Icechunk strategy); `head`s the size, splits, concatenates; small files fall through to a single `get`; range methods pass through unchanged |
-|  [03]   | `TracingReadableStore(store, trace, *, on_request=None)` | tracing | records every `get`/`get_range`/`get_ranges`/`head` into a `RequestTrace` with auto-timing (records even on exception); optional `on_request(RequestRecord)` callback for live logging/telemetry; transparent delegate |
+| --- | --- | --- | --- |
+| [01] | `CachingReadableStore(store, max_size=256 MiB)` | LRU cache | caches whole objects in an `obstore.MemoryStore` on first access; thread-safe (`threading.Lock`); serves later `get`/`get_range`/`get_ranges` from cache; `clear_cache()`, `cache_size`, `cached_paths`; picklable (`reduce` ships a fresh empty cache for `ProcessPool`/Dask workers); context manager clears on exit; transparent `getattr` forwarding of non-cached methods |
+| [02] | `SplittingReadableStore(store, request_size=12 MiB, max_concurrent_requests=18)` | request splitting | rewrites a large `get`/`get_async` into concurrent `get_ranges` (Icechunk strategy); `head`s the size, splits, concatenates; small files fall through to a single `get`; range methods pass through unchanged |
+| [03] | `TracingReadableStore(store, trace, *, on_request=None)` | tracing | records every `get`/`get_range`/`get_ranges`/`head` into a `RequestTrace` with auto-timing (records even on exception); optional `on_request(RequestRecord)` callback for live logging/telemetry; transparent delegate |
 
 [ENTRYPOINT_SCOPE]: AiohttpStore operations (sync + async mirror)
 - rail: object-store
 
 | [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| :-----: | :-------- | :------------- | :----- |
-|  [01]   | `store.get(path, *, options=None)` / `store.get_async(...)` | get | download object; `options` carries `range` (tuple, `OffsetRange`, `SuffixRange`) and conditionals; sync wraps async via `asyncio.run` |
-|  [02]   | `store.get_range(path, *, start, end=None, length=None)` / `..._async` | range | HTTP `Range` request (obspec end-exclusive → HTTP inclusive); either `end` or `length` required |
-|  [03]   | `store.get_ranges(path, *, starts, ends=None, lengths=None)` / `..._async` | multi-range | concurrent ranges via `asyncio.gather` over the managed session |
-|  [04]   | `store.head(path)` / `store.head_async(path)` | head | `HEAD` request parsed into `ObjectMeta` (size from `Content-Length`/`Content-Range`, `e_tag`, `last_modified`) |
+| --- | --- | --- | --- |
+| [01] | `store.get(path, *, options=None)` / `store.get_async(...)` | get | download object; `options` carries `range` (tuple, `OffsetRange`, `SuffixRange`) and conditionals; sync wraps async via `asyncio.run` |
+| [02] | `store.get_range(path, *, start, end=None, length=None)` / `..._async` | range | HTTP `Range` request (obspec end-exclusive → HTTP inclusive); either `end` or `length` required |
+| [03] | `store.get_ranges(path, *, starts, ends=None, lengths=None)` / `..._async` | multi-range | concurrent ranges via `asyncio.gather` over the managed session |
+| [04] | `store.head(path)` / `store.head_async(path)` | head | `HEAD` request parsed into `ObjectMeta` (size from `Content-Length`/`Content-Range`, `e_tag`, `last_modified`) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

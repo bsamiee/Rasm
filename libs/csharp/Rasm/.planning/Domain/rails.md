@@ -24,7 +24,7 @@ The namespace mirrors the folder path and is consumer-pinned: the union-ops gene
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -95,7 +95,7 @@ public sealed class GenerateUnionOpsAttribute : Attribute;
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 
 namespace Rasm.Domain;
 
@@ -193,7 +193,7 @@ public abstract partial record Lease<T> where T : class, IDisposable {
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Numerics.Tensors;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using Rhino;
 
 namespace Rasm.Domain;

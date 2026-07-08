@@ -3,7 +3,7 @@
 `FastCDC.Net` supplies the FastCDC normalized gear-hash content-defined chunker over an
 in-memory `byte[]`: one stateful one-shot `FastCdc` instance lazily yields an
 `IEnumerable<Chunk>` of `(Hash, Offset, Length)` cut descriptors whose boundaries survive an
-interior insertion that would shift every fixed-window boundary, so the snapshot/versioning rail
+interior insertion that shifts every fixed-window boundary, so the snapshot/versioning rail
 re-stores only the chunks an edit actually changes. The gear-hash `Chunk.Hash` is a 32-bit
 boundary marker, never a dedup identity — the content key is `XxHash128` over the chunk bytes,
 computed downstream by `System.IO.Hashing`. This is the opaque-byte chunker for snapshot frames
@@ -13,7 +13,6 @@ and the object-store multipart window; it owns no stream or file IO and no conte
 
 [PACKAGE_SURFACE]: `FastCDC.Net`
 - package: `FastCDC.Net`
-- version: `1.0.1`
 - license: `MIT OR Apache-2.0`
 - assembly: `FastCdc.Net` (single-target `net7.0`; the `net10.0` consumer binds the one `lib/net7.0` asset)
 - namespace: `FastCdc.Net`

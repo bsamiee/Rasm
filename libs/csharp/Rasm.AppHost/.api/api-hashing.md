@@ -1,50 +1,8 @@
 # [RASM_APPHOST_API_HASHING]
 
-`System.IO.Hashing` supplies non-cryptographic hashing algorithms for snapshot
-identity, cache keys, receipt fingerprints, benchmark indexes, and support
-bundle correlation.
+Full surface and stacking: `libs/csharp/.api/api-hashing.md` (shared-tier canonical owner).
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.IO.Hashing`
-- package: `System.IO.Hashing`
-- assembly: `System.IO.Hashing`
-- namespace: `System.IO.Hashing`
-- asset: runtime library
-- rail: snapshot-identity
-
-## [02]-[PUBLIC_TYPES]
-
-[PUBLIC_TYPE_SCOPE]: hashing surfaces
-- rail: snapshot-identity
-
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]             |
-| :-----: | :------------------------------ | :----------------- | :----------------------- |
-|  [01]   | `NonCryptographicHashAlgorithm` | algorithm base     | defines hash lifecycle   |
-|  [02]   | `XxHash32`                      | hash algorithm     | computes 32-bit hash     |
-|  [03]   | `XxHash64`                      | hash algorithm     | computes 64-bit hash     |
-|  [04]   | `XxHash3`                       | hash algorithm     | computes 64-bit hash     |
-|  [05]   | `XxHash128`                     | hash algorithm     | computes 128-bit hash    |
-|  [06]   | `Crc32`                         | checksum algorithm | computes 32-bit checksum |
-|  [07]   | `Crc64`                         | checksum algorithm | computes 64-bit checksum |
-
-## [03]-[ENTRYPOINTS]
-
-[ENTRYPOINT_SCOPE]: hash operations
-- rail: snapshot-identity
-
-| [INDEX] | [SURFACE]         | [CALL_SHAPE]  | [CAPABILITY]           |
-| :-----: | :---------------- | :------------ | :--------------------- |
-|  [01]   | `Hash`            | static call   | computes hash bytes    |
-|  [02]   | `HashToUInt32`    | static call   | computes 32-bit value  |
-|  [03]   | `HashToUInt64`    | static call   | computes 64-bit value  |
-|  [04]   | `HashToUInt128`   | static call   | computes 128-bit value |
-|  [05]   | `Append`          | instance call | appends payload bytes  |
-|  [06]   | `GetCurrentHash`  | instance call | reads current hash     |
-|  [07]   | `GetHashAndReset` | instance call | finalizes and resets   |
-|  [08]   | `Reset`           | instance call | resets hash state      |
-
-## [04]-[IMPLEMENTATION_LAW]
+## [01]-[IMPLEMENTATION_LAW]
 
 [IDENTITY_PROFILE]:
 - namespace: `System.IO.Hashing`

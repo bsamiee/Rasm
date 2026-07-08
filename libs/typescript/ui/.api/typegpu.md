@@ -1,4 +1,4 @@
-# [typegpu] — typed WebGPU compute outside the scene graph: schema-typed buffers, TS-authored kernels resolved to WGSL, one root owning device, resources, and pipelines
+# [TS_UI_API_TYPEGPU]
 
 [PACKAGE_SURFACE]:
 - package: `typegpu` · license `MIT`
@@ -8,7 +8,7 @@
 - types: the shipped `.d.ts` references `GPUDevice`/`GPUBuffer`/… as BARE AMBIENT globals — nothing resolves without `@webgpu/types` (`.api/webgpu-types.md`) in the consuming tsconfig `types` array; `scope:viewer` project-local, like every WebGPU surface.
 - plane: `plane:runtime` (W4 `ui`, `scope:viewer`); rail: standalone GPGPU compute.
 
-`typegpu` is the typed GPGPU owner for data-parallel kernels that live OUTSIDE a three scene — geometry post-processing, simulation steps, analytic folds over large buffers. Its design is one root object (`TgpuRoot`) owning the `GPUDevice` and every resource, a `d.*` schema vocabulary that types buffers end-to-end (the `msgspec`-for-VRAM move: the schema IS the layout, `d.Infer<T>` IS the TS type), and kernels authored as TS functions the build transform + `tgpu.resolve` lower to WGSL — no hand-written shader strings, no untyped bind indices. It carries NO fallback: WebGPU-absent environments never construct a root, so admission is capability-gated behind the same `navigator.gpu` probe the viewer already runs, with the CPU/worker path as the degrade arm. Compute that lives INSIDE a three scene stays on `three/tsl` — two altitudes of one concern, split by scene residency, never two engines on one kernel.
+`typegpu` is the typed GPGPU owner for data-parallel kernels that live OUTSIDE a three scene — geometry post-processing, simulation steps, analytic folds over large buffers. Its design is one root object (`TgpuRoot`) owning the `GPUDevice` and every resource, a `d.*` schema vocabulary that types buffers end-to-end (the `msgspec`-for-VRAM move: the schema IS the layout, `d.Infer<T>` IS the TS type), and kernels authored as TS functions the build transform + `tgpu.resolve` lower to WGSL — no hand-written shader strings, no untyped bind indices. It carries NO recovery: WebGPU-absent environments never construct a root, so admission is capability-gated behind the same `navigator.gpu` probe the viewer already runs, with the CPU/worker path as the degrade arm. Compute that lives INSIDE a three scene stays on `three/tsl` — two altitudes of one concern, split by scene residency, never two engines on one kernel.
 
 ## [01]-[ROOT_AND_RESOURCES]
 
@@ -39,15 +39,15 @@ Render-pipeline authoring (`withVertex`/`beginRenderPass`) is `'~unstable'` and 
 
 `typegpu/data` (`import * as d from 'typegpu/data'`) is the one layout vocabulary — WGSL memory rules (alignment, padding, host-shareability) enforced at the type level.
 
-| [INDEX] | [FAMILY]    | [MEMBERS]                                                                                       | [ROLE]                                             |
-| :-----: | :---------- | :------------------------------------------------------------------------------------------------ | :--------------------------------------------------- |
-|  [01]   | scalar      | `d.f32` `d.f16` `d.u32` `d.i32` `d.bool`                                                            | element types                                        |
-|  [02]   | vector      | `d.vec2f`/`3f`/`4f` · `vec2u`/`3u`/`4u` · `vec2i`/`3i`/`4i` · `vec2h`/`3h`/`4h`                     | callable constructors AND schema nodes               |
-|  [03]   | matrix      | `d.mat2x2f` `d.mat3x3f` `d.mat4x4f`                                                                 | column-major WGSL layout                             |
-|  [04]   | composite   | `d.struct({...})` `d.arrayOf(type, n)` `d.atomic(d.u32 \| d.i32)`                                    | the buffer shapes; struct fields are ordered rows    |
-|  [05]   | loose       | `d.disarrayOf` `d.unstruct`                                                                          | packed non-host-shareable vertex-data layouts        |
-|  [06]   | attributes  | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate`                        | explicit layout/IO decoration                        |
-|  [07]   | inference   | `d.Infer<T>`                                                                                         | schema → TS value type; the end-to-end typing seam   |
+| [INDEX] | [FAMILY] | [MEMBERS] | [ROLE] |
+|:-----: |:---------- |:------------------------------------------------------------------------------------------------ |:--------------------------------------------------- |
+| [01] | scalar | `d.f32` `d.f16` `d.u32` `d.i32` `d.bool` | element types |
+| [02] | vector | `d.vec2f`/`3f`/`4f` · `vec2u`/`3u`/`4u` · `vec2i`/`3i`/`4i` · `vec2h`/`3h`/`4h` | callable constructors AND schema nodes |
+| [03] | matrix | `d.mat2x2f` `d.mat3x3f` `d.mat4x4f` | column-major WGSL layout |
+| [04] | composite | `d.struct({...})` `d.arrayOf(type, n)` `d.atomic(d.u32 \| d.i32)` | the buffer shapes; struct fields are ordered rows |
+| [05] | loose | `d.disarrayOf` `d.unstruct` | packed non-host-shareable vertex-data layouts |
+| [06] | attributes | `d.size(n, T)` `d.align(n, T)` `d.location(n, T)` `d.builtin` `d.interpolate` | explicit layout/IO decoration |
+| [07] | inference | `d.Infer<T>` | schema → TS value type; the end-to-end typing seam |
 
 ## [03]-[KERNELS_AND_RESOLUTION]
 

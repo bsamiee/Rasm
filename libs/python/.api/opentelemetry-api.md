@@ -53,23 +53,23 @@
 [PUBLIC_TYPE_SCOPE]: logs and context family
 - rail: observability
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                                   |
-| :-----: | :------------------ | :------------ | :------------------------------------------------------- |
-|  [01]   | `LoggerProvider`    | abstract      | logger factory contract                                  |
-|  [02]   | `Logger`            | abstract      | log record emission contract                             |
-|  [03]   | `LogRecord`         | value         | structured log record carrier                            |
-|  [04]   | `SeverityNumber`    | enum          | severity levels `TRACE1`..`FATAL4`                       |
-|  [05]   | `Context`           | value         | immutable propagation context                            |
-|  [06]   | `Token`             | value         | context attachment token                                 |
-|  [07]   | `TextMapPropagator` | abstract      | carrier-based context propagator                         |
-|  [08]   | `Getter[CarrierT]`  | protocol      | generic carrier read protocol (`get`/`keys`)             |
-|  [09]   | `Setter[CarrierT]`  | protocol      | generic carrier write protocol (`set`)                   |
-|  [10]   | `DefaultGetter`     | value         | default getter; reads list-valued headers, returns first |
-|  [11]   | `DefaultSetter`     | value         | default setter for dict-like header carriers             |
-|  [12]   | `CarrierT`          | type var      | carrier type parameter for `Getter`/`Setter`             |
-|  [13]   | `TraceContextTextMapPropagator` | concrete | `TextMapPropagator` W3C `traceparent`/`tracestate` codec (`opentelemetry.trace.propagation.tracecontext`) |
-|  [14]   | `W3CBaggagePropagator`          | concrete | `TextMapPropagator` W3C `baggage` header codec (`opentelemetry.baggage.propagation`) |
-|  [15]   | `CompositePropagator`           | concrete | `TextMapPropagator` fan-out chaining trace-context + baggage over one carrier (`opentelemetry.propagators.composite`) |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY] | [RAIL]                                                                                                                |
+| :-----: | :------------------------------ | :------------ | :-------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `LoggerProvider`                | abstract      | logger factory contract                                                                                               |
+|  [02]   | `Logger`                        | abstract      | log record emission contract                                                                                          |
+|  [03]   | `LogRecord`                     | value         | structured log record carrier                                                                                         |
+|  [04]   | `SeverityNumber`                | enum          | severity levels `TRACE1`..`FATAL4`                                                                                    |
+|  [05]   | `Context`                       | value         | immutable propagation context                                                                                         |
+|  [06]   | `Token`                         | value         | context attachment token                                                                                              |
+|  [07]   | `TextMapPropagator`             | abstract      | carrier-based context propagator                                                                                      |
+|  [08]   | `Getter[CarrierT]`              | protocol      | generic carrier read protocol (`get`/`keys`)                                                                          |
+|  [09]   | `Setter[CarrierT]`              | protocol      | generic carrier write protocol (`set`)                                                                                |
+|  [10]   | `DefaultGetter`                 | value         | default getter; reads list-valued headers, returns first                                                              |
+|  [11]   | `DefaultSetter`                 | value         | default setter for dict-like header carriers                                                                          |
+|  [12]   | `CarrierT`                      | type var      | carrier type parameter for `Getter`/`Setter`                                                                          |
+|  [13]   | `TraceContextTextMapPropagator` | concrete      | `TextMapPropagator` W3C `traceparent`/`tracestate` codec (`opentelemetry.trace.propagation.tracecontext`)             |
+|  [14]   | `W3CBaggagePropagator`          | concrete      | `TextMapPropagator` W3C `baggage` header codec (`opentelemetry.baggage.propagation`)                                  |
+|  [15]   | `CompositePropagator`           | concrete      | `TextMapPropagator` fan-out chaining trace-context + baggage over one carrier (`opentelemetry.propagators.composite`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -121,24 +121,24 @@
 [ENTRYPOINT_SCOPE]: context and propagation
 - rail: observability
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                                        |
-| :-----: | :----------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `context.get_current()`                                            | context        | current active context                        |
-|  [02]   | `context.attach(context)`                                          | context        | activate context, return token                |
-|  [03]   | `context.detach(token)`                                            | context        | restore previous context                      |
-|  [04]   | `context.get_value(key, context)`                                  | context        | read value from context                       |
-|  [05]   | `context.set_value(key, value, context)`                           | context        | derive context with new value                 |
-|  [06]   | `context.create_key(keyname)`                                      | context        | mint a unique context key string              |
-|  [07]   | `baggage.set_baggage(name, value, context)`                        | baggage        | derive context with baggage entry             |
-|  [08]   | `baggage.get_baggage(name, context)`                               | baggage        | read one baggage value                        |
-|  [09]   | `baggage.get_all(context)`                                         | baggage        | read full baggage mapping                     |
-|  [10]   | `baggage.remove_baggage(name, context)` / `baggage.clear(context)` | baggage        | drop one / all baggage entries                |
-|  [11]   | `propagate.extract(carrier, context, getter)`                      | propagation    | decode context from carrier (custom `Getter`) |
-|  [12]   | `propagate.inject(carrier, context, setter)`                       | propagation    | encode context into carrier (custom `Setter`) |
-|  [13]   | `propagate.get_global_textmap()`                                   | propagation    | global composite propagator                   |
-|  [14]   | `propagate.set_global_textmap(propagator)`                         | propagation    | install composite propagator                  |
-|  [15]   | `TraceContextTextMapPropagator()`                                  | propagator     | construct the W3C trace-context codec (`opentelemetry.trace.propagation.tracecontext`) |
-|  [16]   | `W3CBaggagePropagator()`                                           | propagator     | construct the W3C baggage codec (`opentelemetry.baggage.propagation`) |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                                                                                                                   |
+| :-----: | :----------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `context.get_current()`                                            | context        | current active context                                                                                                   |
+|  [02]   | `context.attach(context)`                                          | context        | activate context, return token                                                                                           |
+|  [03]   | `context.detach(token)`                                            | context        | restore previous context                                                                                                 |
+|  [04]   | `context.get_value(key, context)`                                  | context        | read value from context                                                                                                  |
+|  [05]   | `context.set_value(key, value, context)`                           | context        | derive context with new value                                                                                            |
+|  [06]   | `context.create_key(keyname)`                                      | context        | mint a unique context key string                                                                                         |
+|  [07]   | `baggage.set_baggage(name, value, context)`                        | baggage        | derive context with baggage entry                                                                                        |
+|  [08]   | `baggage.get_baggage(name, context)`                               | baggage        | read one baggage value                                                                                                   |
+|  [09]   | `baggage.get_all(context)`                                         | baggage        | read full baggage mapping                                                                                                |
+|  [10]   | `baggage.remove_baggage(name, context)` / `baggage.clear(context)` | baggage        | drop one / all baggage entries                                                                                           |
+|  [11]   | `propagate.extract(carrier, context, getter)`                      | propagation    | decode context from carrier (custom `Getter`)                                                                            |
+|  [12]   | `propagate.inject(carrier, context, setter)`                       | propagation    | encode context into carrier (custom `Setter`)                                                                            |
+|  [13]   | `propagate.get_global_textmap()`                                   | propagation    | global composite propagator                                                                                              |
+|  [14]   | `propagate.set_global_textmap(propagator)`                         | propagation    | install composite propagator                                                                                             |
+|  [15]   | `TraceContextTextMapPropagator()`                                  | propagator     | construct the W3C trace-context codec (`opentelemetry.trace.propagation.tracecontext`)                                   |
+|  [16]   | `W3CBaggagePropagator()`                                           | propagator     | construct the W3C baggage codec (`opentelemetry.baggage.propagation`)                                                    |
 |  [17]   | `CompositePropagator(propagators)`                                 | propagator     | chain a `Sequence[TextMapPropagator]` into one; install via `set_global_textmap` (`opentelemetry.propagators.composite`) |
 
 [ENTRYPOINT_SCOPE]: logs API

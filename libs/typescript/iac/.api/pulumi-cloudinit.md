@@ -21,26 +21,26 @@
 - rail: cluster-bootstrap
 - `getConfigOutput` is the canonical spelling: parts thread the graph as `Input`s, and `rendered` lands as an `Output<string>` a host-provisioning resource consumes as user-data. `getConfig` is the eager `Promise` mirror for an `async` program body — the same `run`/`runOutput` symmetry `@pulumi/command` carries. The `Config` resource is the provider-deprecated twin (identical fields, `rendered` as a resource output plus `static get`/`isInstance`); never author it new.
 
-| [INDEX] | [SURFACE] | [SHAPE / BOUNDARY] |
-| :-----: | :-------- | :----------------- |
-|  [01]   | `getConfigOutput(GetConfigOutputArgs, InvokeOutputOptions?)` | `Output<GetConfigResult>`; graph-threaded render (all fields `Input`-wrapped) |
-|  [02]   | `getConfig(GetConfigArgs, InvokeOptions?)` | `Promise<GetConfigResult>`; eager render, plain-valued args |
-|  [03]   | `GetConfigResult.rendered` | `string` — the assembled user-data body; `.id` is its checksum |
-|  [04]   | `gzip` / `base64Encode` | `boolean` toggles; set explicitly per consuming boundary, never left ambient |
-|  [05]   | `boundary` | `string` — custom MIME part separator when the default collides with content |
-|  [06]   | `class Config` | DEPRECATED resource twin (`ConfigArgs.parts: Input<Input<ConfigPart>[]>`, `rendered: Output<string>`); never author it new |
-|  [07]   | `Provider` | empty-args `ProviderResource` marker; the render carries no credential |
+| [INDEX] | [SURFACE] | [SHAPE_BOUNDARY] |
+|:-----: |:-------- |:----------------- |
+| [01] | `getConfigOutput(GetConfigOutputArgs, InvokeOutputOptions?)` | `Output<GetConfigResult>`; graph-threaded render (all fields `Input`-wrapped) |
+| [02] | `getConfig(GetConfigArgs, InvokeOptions?)` | `Promise<GetConfigResult>`; eager render, plain-valued args |
+| [03] | `GetConfigResult.rendered` | `string` — the assembled user-data body; `.id` is its checksum |
+| [04] | `gzip` / `base64Encode` | `boolean` toggles; set explicitly per consuming boundary, never left ambient |
+| [05] | `boundary` | `string` — custom MIME part separator when the default collides with content |
+| [06] | `class Config` | DEPRECATED resource twin (`ConfigArgs.parts: Input<Input<ConfigPart>[]>`, `rendered: Output<string>`); never author it new |
+| [07] | `Provider` | empty-args `ProviderResource` marker; the render carries no credential |
 
 [PART_SCOPE]: `GetConfigPartArgs` — the one part shape
 - rail: cluster-bootstrap
 - A part is one typed MIME segment; the `parts` array order is the cloud-init execution order. `contentType` selects the handler, `mergeType` is the cloud-init merge-strategy directive that lets multiple `text/cloud-config` parts compose instead of overwrite.
 
 | [INDEX] | [FIELD] | [TYPE] | [MEANING] |
-| :-----: | :------ | :----- | :-------- |
-|  [01]   | `content` | `Input<string>` (required) | the segment body; binds rendered templates and upstream `Output`s |
-|  [02]   | `contentType` | `Input<string>` | MIME handler selector — `text/cloud-config` for declarative YAML, `text/x-shellscript` for imperative steps |
-|  [03]   | `filename` | `Input<string>` | part identity inside the archive; keys per-part instance state |
-|  [04]   | `mergeType` | `Input<string>` | merge-strategy directive combining multiple `text/cloud-config` parts |
+|:-----: |:------ |:----- |:-------- |
+| [01] | `content` | `Input<string>` (required) | the segment body; binds rendered templates and upstream `Output`s |
+| [02] | `contentType` | `Input<string>` | MIME handler selector — `text/cloud-config` for declarative YAML, `text/x-shellscript` for imperative steps |
+| [03] | `filename` | `Input<string>` | part identity inside the archive; keys per-part instance state |
+| [04] | `mergeType` | `Input<string>` | merge-strategy directive combining multiple `text/cloud-config` parts |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

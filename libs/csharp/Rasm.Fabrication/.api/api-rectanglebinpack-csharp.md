@@ -8,7 +8,6 @@ The packers are STATEFUL and INCREMENTAL: each is constructed (or `Init`-reset) 
 
 [PACKAGE_SURFACE]: `RectangleBinPack.CSharp`
 - package: `RectangleBinPack.CSharp`
-- version: `1.0.4`
 - license: `MIT`
 - assembly: `RectangleBinPacking` (`lib/netstandard2.0/RectangleBinPacking.dll` — SINGLE TFM, the only asset; the assembly name diverges from the package id)
 - namespace: `RectangleBinPacking`
@@ -58,9 +57,9 @@ The packers are STATEFUL and INCREMENTAL: each is constructed (or `Init`-reset) 
 |  [05]   | `SkylineBinPack(int width, int height, bool useWasteMap)`          | `SkylineBinPack`  | construct; `useWasteMap` enables the internal Guillotine waste-map recycling of skyline gaps |
 |  [06]   | `GuillotineBinPack(int width, int height)`                         | `GuillotineBinPack` | construct over a bin extent (no rotation flag — guillotine geometry is axis-fixed) |
 |  [07]   | `void MergeFreeRectangles()`                                       | `GuillotineBinPack` | coalesce adjacent free rectangles after a batch of inserts — the post-pack defragmentation that recovers contiguous remnant area |
-|  [07b]  | `List<Rect> UsedRectangles` / `List<Rect> FreeRectangles`         | `GuillotineBinPack` | the placement and free lists (public get, private set) — the second packer exposing remnant geometry, read after `MergeFreeRectangles` for the saw-cut leftover ledger |
-|  [08]   | `ShelfBinPack(int width, int height, bool useWasteMap)`            | `ShelfBinPack`    | construct; `useWasteMap` enables the internal Guillotine waste-map for the dead area under each shelf |
-|  [09]   | `SingleBinPack(int width, int height)`                             | `SingleBinPack`   | construct over a sheet extent for the homogeneous mass-cut yield query |
+|  [08]  | `List<Rect> UsedRectangles` / `List<Rect> FreeRectangles`         | `GuillotineBinPack` | placement and free lists for remnant geometry |
+|  [09]   | `ShelfBinPack(int width, int height, bool useWasteMap)`            | `ShelfBinPack`    | construct; `useWasteMap` enables the internal Guillotine waste-map for the dead area under each shelf |
+|  [10]   | `SingleBinPack(int width, int height)`                             | `SingleBinPack`   | construct over a sheet extent for the homogeneous mass-cut yield query |
 
 ## [03]-[ENTRYPOINTS]
 

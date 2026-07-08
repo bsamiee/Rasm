@@ -1,8 +1,6 @@
 # [RASM_APPHOST_API_DATAFLOW]
 
-`System.Threading.Tasks.Dataflow` supplies bounded runtime blocks, execution blocks,
-propagator blocks, grouping blocks, reservation contracts, backpressure, completion,
-and ordered handoff for AppHost drain.
+`System.Threading.Tasks.Dataflow` is a net10 framework-provided surface: the SDK prunes any `PackageReference`, no central package row exists, and this catalog records the framework block surface AppHost composes for bounded drain, backpressure, completion, and ordered handoff.
 
 ## [01]-[PACKAGE_SURFACE]
 

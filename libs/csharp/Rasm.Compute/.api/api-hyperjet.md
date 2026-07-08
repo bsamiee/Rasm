@@ -6,11 +6,10 @@
 
 [PACKAGE_SURFACE]: `HyperJet`
 - package: `HyperJet`
-- version: `0.2.0` (pre-1.0 — the surface is a recorded watch item; the live owner is `oberbichler/HyperJet`, the nuspec repo pointer is dead)
 - license: ISC (OSI permissive, MIT-equivalent)
 - assembly: `HyperJet`
 - namespace: `HyperJet` (`DDScalar`/`DDScalar1..15`/`DDScalarSpan`/`Vector3D<T>`/`Kernel`), `static HyperJet.HyperJetMath` (the transcendental function surface `Sin`/`Cos`/`Exp`/… over the DD types)
-- asset: single managed AnyCPU IL assembly, **net10.0-only TFM** (zero-dependency; requires the .NET 10 generic-math + hardware-intrinsics surface, so no netstandard/net8 downlevel bind exists) — a net10 consumer is mandatory
+- asset: single managed AnyCPU IL assembly, net10.0-only TFM (zero-dependency; requires the .NET 10 generic-math + hardware-intrinsics surface, so no netstandard/net8 downlevel bind exists) — a net10 consumer is mandatory
 - rail: autodiff
 
 ## [02]-[PUBLIC_TYPES]

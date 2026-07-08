@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `DotPulsar`
 - package: `DotPulsar`
-- version: `5.3.1`
 - license: Apache-2.0
 - assembly: `DotPulsar`
 - namespace: `DotPulsar` (concrete + enums), `DotPulsar.Abstractions` (the `I*` client/builder/message/schema/state contracts), `DotPulsar.Extensions` (the verb surface), `DotPulsar.Schemas` (built-in schema types), `DotPulsar.Exceptions` (the typed failure family); `DotPulsar.Internal.*` (connection pool, `PulsarApi` protobuf wire, compression) is implementation — not a consumer API

@@ -1,9 +1,9 @@
-# [@react-aria/live-announcer] — the imperative ARIA live-region rail: announce(message) to a screen reader, no visible DOM
+# [TS_UI_API_REACT_ARIA_LIVE_ANNOUNCER]
 
 [PACKAGE_SURFACE]:
-- package: `@react-aria/live-announcer` · version `3.5.1` · license `Apache-2.0`
+- package: `@react-aria/live-announcer` · version `` · license `Apache-2.0`
 - module: dual — `dist/import.mjs` (ESM `import`) + `dist/main.js` (CJS `main`); `sideEffects: false`; `.` barrel + `./package.json`. Re-exports the three functions from `react-aria`'s private `LiveAnnouncer` — the same global singleton `react-aria`/`react-aria-components` drive internally.
-- asset: `dist/types/src/index.d.ts` (`assay api resolve @react-aria/live-announcer` → `3.5.1`, `restore: restored`).
+- asset: `dist/types/src/index.d.ts` (`restore: restored`).
 - runtime: vanilla DOM — NOT React (no portal, no hook); a lazy global singleton region prepended to `document.body`. SSR-safe (guards `typeof document`). Internalizes `@swc/helpers`; peer `react-aria`.
 - ABI: imperative and synchronous — `announce`/`clearAnnouncer`/`destroyAnnouncer` return `void`; the first announce defers ~100ms (Safari region-attach timing) unless in a React-act/test env.
 - plane: `plane:runtime` (W4 `ui`); folder-local to `ui`, catalogued here.
@@ -16,11 +16,11 @@
 
 The whole surface is three functions over a two-value assertiveness axis and a string-or-`aria-labelledby` message.
 
-| [INDEX] | [SYMBOL]                                        | [KIND]    | [CAPABILITY / BOUNDARY]                                                              |
-| :-----: | :---------------------------------------------- | :-------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `announce(message, assertiveness?, timeout?)`   | push      | append `message` to the matching region; defaults `'assertive'`, `7000`ms then node removed |
-|  [02]   | `clearAnnouncer(assertiveness)`                 | flush     | empty a region's queued nodes (runtime clears both on a falsy arg; the type requires it) |
-|  [03]   | `destroyAnnouncer()`                            | teardown  | remove the singleton region from the DOM and null it (next announce re-creates)      |
+| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
+|:-----: |:---------------------------------------------- |:-------- |:---------------------------------------------------------------------------------- |
+| [01] | `announce(message, assertiveness?, timeout?)` | push | append `message` to the matching region; defaults `'assertive'`, `7000`ms then node removed |
+| [02] | `clearAnnouncer(assertiveness)` | flush | empty a region's queued nodes (runtime clears both on a falsy arg; the type requires it) |
+| [03] | `destroyAnnouncer()` | teardown | remove the singleton region from the DOM and null it (next announce re-creates) |
 
 ```ts contract
 type Assertiveness = 'assertive' | 'polite'

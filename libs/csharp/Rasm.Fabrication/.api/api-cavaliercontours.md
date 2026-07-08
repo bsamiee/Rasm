@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `CavalierContours`
 - package: `CavalierContours`
-- version: `1.0.0` (centrally pinned)
 - license: `ISC` (oberbichler/CavalierContours; permissive, no reciprocity)
 - assembly: `CavalierContours`
 - namespace: `CavalierContours.Polyline`, `.Shape`, `.Spatial`, `.Core`
@@ -158,7 +157,7 @@
 - kernel atoms: a `CavalierContours.Core.Vector2<double>` and `AABB<double>` map at the boundary to the kernel `Rasm` `Point3d`/`Vector3d` (z-dropped) and the `Geometry2D` box — plan-cs boundary-maps at the `Polyline<double>` ⇄ `Loop` seam, the bulge preserved into the canonical `Loop` arc-segment representation rather than flattened
 
 [RAIL_LAW]:
-- Package: `CavalierContours` (1.0.0, ISC, pure-managed `lib/net10.0` AnyCPU IL, zero deps; generic over `T : IFloatingPointIeee754<T>, IMinMaxValue<T>`, instantiated `double`)
+- Package: `CavalierContours` (ISC, pure-managed `lib/net10.0` AnyCPU IL, zero deps; generic over `T: IFloatingPointIeee754<T>, IMinMaxValue<T>`, instantiated `double`)
 - Owns: arc-native (bulge) 2D polyline parallel offset, closed-polyline Boolean (`Or`/`And`/`Not`/`Xor`), containment/winding, closest-point, arc-aware area/path-length/extents, arc-length sampling, arc-to-line densification, and the flatbush `StaticAABB2DIndex` over open/closed/self-intersecting polylines
 - Accept: a `Polyline<double>` carrying real `Bulge` from the `ACadSharp` arc ingest; the static `PlineOffset`/`PlineBoolean` slice pipelines with a once-built `StaticAABB2DIndex` threaded through the options; the `BooleanOp` set op; the ref-struct `IQueryVisitor` for the hot index loop
 - Reject: densifying an arc to a line fan at ingest when the source carries bulge (defeats the entire reason to use this library); re-implementing the offset/Boolean on `Clipper2` for an arc-walled profile; a `g3.BiArcFit2` refit of a path that was bulge-carrying through the offset (the retired post-hoc rail); a hand-rolled O(n²) self-intersection scan beside the `StaticAABB2DIndex`; instantiating a non-`double` `T` for the fabrication rail; treating this as a medial-axis solver (it has none — that stays `Toolpath/skeleton`)

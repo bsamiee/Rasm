@@ -8,7 +8,6 @@ replication surfaces for provider store profiles.
 
 [PACKAGE_SURFACE]: `Npgsql`
 - package: `Npgsql`
-- version: `10.0.3`
 - assembly: `Npgsql`
 - namespace: `Npgsql`, `Npgsql.Replication`, `Npgsql.Replication.PgOutput`
 - target framework: `net10.0` asset on the `net10.0` floor (package also ships `net8.0`)

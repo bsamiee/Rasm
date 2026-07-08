@@ -23,7 +23,7 @@
 
 [BACKEND_DEPENDENCY_GRAPH]: transitively-admitted backend packages — orchestrated by `UsePlatformDetect`, not Avalonia.Desktop public types — rail: desktop-shell
 
-| [INDEX] | [PACKAGE]         | [OWNS THE TYPE]                    | [INTERNAL WIRE]   |
+| [INDEX] | [PACKAGE]         | [OWNS_THE_TYPE]                    | [INTERNAL_WIRE]   |
 | :-----: | :---------------- | :--------------------------------- | :---------------- |
 |  [01]   | `Avalonia.Native` | `AvaloniaNativePlatformExtensions` (`UseAvaloniaNative`) | macOS native host |
 |  [02]   | `Avalonia.Win32`  | `Win32ApplicationExtensions` (`UseWin32`)               | Windows backend   |
@@ -36,13 +36,13 @@ Note: the four `Use*` extensions above live in their respective backend assembli
 
 [BUILDER_ENTRYPOINT]: the single boot entry — rail: desktop-shell
 
-| [INDEX] | [SURFACE]           | [SURFACE_ROOT]                | [CALL_SHAPE / NOTE]                                                       |
+| [INDEX] | [SURFACE]           | [SURFACE_ROOT]                | [CALL_SHAPE_NOTE]                                                       |
 | :-----: | :------------------ | :---------------------------- | :----------------------------------------------------------------------- |
 |  [01]   | `UsePlatformDetect` | `AppBuilderDesktopExtensions` | `(this AppBuilder) -> AppBuilder` — RID-detects and calls `UseWin32` / `UseAvaloniaNative` / `UseX11` plus `UseSkia` internally; fluent so it chains into the `AppBuilder` configured by `Avalonia` core |
 
 [BACKEND_RUNTIME_ASSETS]: native payload each selected backend loads — identity, not a managed API — rail: desktop-shell
 
-| [INDEX] | [ASSET]                   | [FROM PACKAGE]    | [LOAD]            |
+| [INDEX] | [ASSET]                   | [FROM_PACKAGE]    | [LOAD]            |
 | :-----: | :------------------------ | :---------------- | :---------------- |
 |  [01]   | `libAvaloniaNative.dylib` | `Avalonia.Native` | macOS native load |
 |  [02]   | `Avalonia.Win32.dll`      | `Avalonia.Win32`  | Windows host load |

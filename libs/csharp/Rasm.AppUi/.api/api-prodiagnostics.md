@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ProDiagnostics`
-- package: `ProDiagnostics` (12.0.4, MIT, Wiesław Šoltés)
+- package: `ProDiagnostics` (MIT, Wiesław Šoltés)
 - assembly: `Avalonia.Diagnostics` (`lib/net10.0/Avalonia.Diagnostics.dll` binds the `net10.0` consumer directly; `net8.0` fallback asset)
 - namespace: `Avalonia` (the `DevToolsExtensions` attach surface), `Avalonia.Diagnostics` (`DevToolsOptions`/`DevToolsViewKind`/`HotKeyConfiguration`/`Conventions`/`DevToolsSession`/`VisualExtensions`/`VisualTreeDebug`), `Avalonia.Diagnostics.Services` (`PropertyValueEditorService`)
 - depends: `Avalonia` (12.x), `Avalonia.Controls.ColorPicker` (the inspector's color-value editor) — both already admitted; the `ProDataGrid`/`ProCharts` sibling packages are NOT admitted
@@ -60,4 +60,4 @@
 
 [STACKING]:
 - `Diagnostics/devloop.md` is the sole consumer anchor — the HUD/hot-reload/replay-verify dev loop mounts this inspector beside `HotAvalonia`'s XAML hot-reload; the two share the `Debug` `PrivateAssets` gate and never co-mount in Release.
-- Catalog depth is stub-plus-verified: every member above is decompile-verified against the restored `Avalonia.Diagnostics.dll` (12.0.4). The `DevToolsSession`/`PropertyValueEditorService` internals deepen when `devloop.md` first composes the option rig and the screenshot/property-edit handler seams into a concrete dev-loop policy fold.
+- Catalog depth is stub-plus-verified: every member above is decompile-verified against the restored `Avalonia.Diagnostics.dll`. The `DevToolsSession`/`PropertyValueEditorService` internals deepen when `devloop.md` first composes the option rig and the screenshot/property-edit handler seams into a concrete dev-loop policy fold.

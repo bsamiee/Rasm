@@ -13,14 +13,13 @@ content key.
 
 [PACKAGE_SURFACE]: `MessagePack`
 - package: `MessagePack`
-- version: `3.1.7`
 - license: MIT
 - assembly: `MessagePack`
 - namespace: `MessagePack`, `MessagePack.Formatters`, `MessagePack.Resolvers`
 - bound asset: `lib/net9.0` (consumer-bound; package multi-targets net472/netstandard2.0/netstandard2.1/net8.0/net9.0 — there is NO net10.0 asset, so the net10.0 consumer binds the net9.0 surface)
 - asset: runtime library
 - rail: snapshot-codec
-- contract analyzer: `MessagePackAnalyzer` 3.1.7 (`api-messagepack-analyzer`) enforces `[Key]`/`[MessagePackObject]` contract completeness at build
+- contract analyzer: `MessagePackAnalyzer` (`api-messagepack-analyzer`) enforces `[Key]`/`[MessagePackObject]` contract completeness at build
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -136,8 +135,8 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 |  [18]   | `MessagePackStreamReader.ReadArrayAsync` | enumerable read | streamed array elements                     |
 |  [19]   | `MessagePackSecurity.WithMaximumObjectGraphDepth` | security mutator | tighten the default-500 depth cap per profile |
 |  [20]   | `MessagePackSecurity.WithMaximumDecompressedSize` | security mutator | tighten the default-`int.MaxValue` decompressed-size cap per profile (the `Version/commits#CRDT_WIRE` untrusted-decode `1<<20` bound) |
-|  [20]   | `MessagePackSerializerOptions.LoadType`  | typeless gate   | resolve a typeless type header (override seam) |
-|  [21]   | `ThrowIfDeserializingTypeIsDisallowed`   | typeless gate   | type-allowlist override for untrusted typeless |
+|  [21]   | `MessagePackSerializerOptions.LoadType`  | typeless gate   | resolve a typeless type header (override seam) |
+|  [22]   | `ThrowIfDeserializingTypeIsDisallowed`   | typeless gate   | type-allowlist override for untrusted typeless |
 
 `ReadAsync` returns `ValueTask<ReadOnlySequence<byte>?>`; null signals end of stream.
 `MessagePackSerializerOptions` properties: `Resolver`, `Compression`, `CompressionMinLength` (default 64), `SuggestedContiguousMemorySize` (default 1MB), `OldSpec`, `OmitAssemblyVersion`, `AllowAssemblyVersionMismatch`, `Security` (default `TrustedData`, depth cap 500), `SequencePool` (default `SequencePool.Shared`).

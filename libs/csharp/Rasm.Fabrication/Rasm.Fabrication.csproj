@@ -15,10 +15,8 @@
         <PackageReference Include="Clipper2" />
         <PackageReference Include="DSTV.Net" />
         <PackageReference Include="geometry3Sharp" />
-        <PackageReference Include="lib3mf" />
         <PackageReference Include="MTConnect.NET-Common" />
         <PackageReference Include="OcctNet.Wrapper" />
-        <PackageReference Include="OpenCAMLib" />
         <PackageReference Include="PicoGK" />
         <PackageReference Include="RectangleBinPack.CSharp" />
         <PackageReference Include="Rhino3dm" Aliases="R3" />
@@ -26,6 +24,11 @@
         <PackageReference Include="SharpVoronoiLib" Aliases="Voronoi" />
         <PackageReference Include="System.IO.Hashing" />
         <PackageReference Include="UnitsNet" />
+    </ItemGroup>
+
+    <ItemGroup Label="Vendored Natives" Condition="Exists('vendor')">
+        <!-- lib3mf 2.5.0 (BSD-2) + OpenCAMLib 2023.01.11 SHARED libocl (LGPL-2.1 dynamic-link): no NuGet artifact exists for either; RID-keyed LFS natives ride vendor/runtimes. -->
+        <Content Include="vendor/runtimes/**" CopyToOutputDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup Label="Substrate">

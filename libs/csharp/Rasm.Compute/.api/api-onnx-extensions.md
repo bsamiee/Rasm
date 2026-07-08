@@ -3,7 +3,7 @@
 `Microsoft.ML.OnnxRuntime.Extensions` supplies native extension-operator assets,
 runtime copy targets, tokenizer and pre/post-processing operator libraries, and
 session-registration material for ONNX execution lanes. It carries NO managed
-public assembly (no `.Managed` companion at 0.14.0) — the sole managed entry is
+public assembly (no `.Managed` companion at) — the sole managed entry is
 `SessionOptions.RegisterOrtExtensions()`, defined in `Microsoft.ML.OnnxRuntime`,
 which P/Invokes the `ortextensions` native asset this package ships. The catalog
 GUIDES the `Model/extension#EXTENSION_OPS` `CustomOps` fold: asset presence is
@@ -15,8 +15,8 @@ tokenizer/detokenizer custom-op model crosses the managed boundary.
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime.Extensions`
-- package: `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0
-- assembly: native/build assets only — no managed public assembly and no `lib/` directory at 0.14.0 (resolve-verified: only `runtimes/` + `build/`/`buildTransitive/`)
+- package: `Microsoft.ML.OnnxRuntime.Extensions`
+- assembly: native/build assets only — no managed public assembly and no `lib/` directory at (resolve-verified: only `runtimes/` + `build/`/`buildTransitive/`)
 - license: MIT
 - namespace: package assets (managed entry is `Microsoft.ML.OnnxRuntime.SessionOptions.RegisterOrtExtensions`)
 - asset: native custom-operator runtime assets (`libortextensions`/`ortextensions`) + per-TFM build targets
@@ -90,8 +90,10 @@ tokenizer/detokenizer custom-op model crosses the managed boundary.
 - build root: props, targets, and build-transitive asset copy
 
 [PHANTOM_CORRECTIONS]:
-- `OrtExtensions.RegisterCustomOps` — PHANTOM. No public `OrtExtensions` class exists in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. The package contains only native assets and MSBuild targets; there is no managed public assembly. The correct entry point is `SessionOptions.RegisterOrtExtensions()` defined in `Microsoft.ML.OnnxRuntime`.
-- `OrtOperators` — PHANTOM. No `OrtOperators` type exists in `Microsoft.ML.OnnxRuntime` 1.27.0 or in `Microsoft.ML.OnnxRuntime.Extensions` 0.14.0. Extension op registration has no CLR type owner; it is fully native and entered through `SessionOptions.RegisterOrtExtensions()`.
+`OrtExtensions.RegisterCustomOps` — PHANTOM. No public `OrtExtensions` class exists in `Microsoft.ML.OnnxRuntime.Extensions`. The package contains only native assets and MSBuild targets; there is no managed public assembly.
+
+The correct entry point is `SessionOptions.RegisterOrtExtensions` defined in `Microsoft.ML.OnnxRuntime`.
+- `OrtOperators` — PHANTOM. No `OrtOperators` type exists in `Microsoft.ML.OnnxRuntime` or in `Microsoft.ML.OnnxRuntime.Extensions`. Extension op registration has no CLR type owner; it is fully native and entered through `SessionOptions.RegisterOrtExtensions`.
 - `RegisterCustomOpLibraryV2` on `SessionOptions` — is a separate method for loading arbitrary custom op libraries by path; it is distinct from the Extensions package registration path.
 
 [LOCAL_ADMISSION]:

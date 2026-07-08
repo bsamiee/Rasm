@@ -401,7 +401,7 @@ public static partial class Analyze {
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Numerics;

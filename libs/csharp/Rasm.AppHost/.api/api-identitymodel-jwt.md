@@ -34,7 +34,7 @@
 [ENTRYPOINT_SCOPE]: token creation — `JsonWebTokenHandler`
 - rail: jwt
 
-The descriptor overload is the canonical creation entry; the `payload` string overloads are the low-level escape hatch. Signing, encryption, and compression compose: a token can be signed-only (JWS), encrypted-only (JWE), or nested signed-then-encrypted, with optional `additionalHeaderClaims`/`additionalInnerHeaderClaims`.
+The descriptor overload is the canonical creation entry; the `payload` string overloads are the low-level escape hatch. Signing, encryption, and compression compose into signed-only (JWS), encrypted-only (JWE), or nested signed-then-encrypted tokens, with optional `additionalHeaderClaims`/`additionalInnerHeaderClaims`.
 
 | [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY]    | [RAIL]                                |
 | :-----: | :------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------ |

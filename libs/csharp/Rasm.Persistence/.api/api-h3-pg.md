@@ -16,7 +16,7 @@ makes in-process and in-database indexing one cell vocabulary, never a second ce
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `h3-pg` / extensions `h3` + `h3_postgis`
-- package: server-side PostgreSQL extension (C, not a NuGet package); repo `zachasme/h3-pg` (canonical home `postgis/h3-pg`), version `4.2.3` (binds H3 core v4.2.0)
+- package: server-side PostgreSQL extension (C, not a NuGet package); repo `zachasme/h3-pg` (canonical home `postgis/h3-pg`), version `4.2.3` (binds H3 core)
 - namespace: SQL `public` (the `h3index` type, the `h3_*` functions, the `h3_postgis` geometry/geography bridge, the operator/cast set)
 - registration: preload-free — `CREATE EXTENSION h3` (core, zero extension deps) and `CREATE EXTENSION h3_postgis CASCADE` (`requires = h3, postgis, postgis_raster`); both `RELOCATABLE`, no `shared_preload_libraries` row, no custom access method; the `ServerExtension("h3", PreloadGated: false)` + `ServerExtension("h3_postgis", Cascade: true, PreloadGated: false)` rows carry the install
 - license: Apache-2.0 — the in-DB deployment is the license boundary, no managed linkage
@@ -42,7 +42,7 @@ function (`'8928308280fffff'::h3index`); the numeric round-trip rides the bigint
 
 ## [03]-[INDEXING]
 
-The core indexing and inspection functions (h3 extension). H3 v4.2.3 renamed the `lat_lng` token to
+The core indexing and inspection functions (h3 extension). H3 renamed the `lat_lng` token to
 `latlng`, so `h3_latlng_to_cell`/`h3_cell_to_latlng` are the canonical spellings and `h3_lat_lng_to_cell`/
 `h3_cell_to_lat_lng` survive only as deprecated aliases. The native overload takes a PG `point`
 (`POINT(lat, lng)` per the H3 convention); the `h3_postgis` `geometry`/`geography` overloads use standard
@@ -117,7 +117,7 @@ hierarchy, not the index sort.
 
 [H3PG_TOPOLOGY]:
 - Two preload-free extensions: `h3` (core, zero extension deps) installs via `ServerExtension("h3", PreloadGated: false)`, and `h3_postgis` installs via `ServerExtension("h3_postgis", Cascade: true)` emitting `CREATE EXTENSION IF NOT EXISTS h3_postgis CASCADE` (`requires = h3, postgis, postgis_raster`), pulling all three prerequisites in one DDL step. Neither registers a background worker, planner hook, or custom access method (only built-in-AM operator classes), so both are correctly absent from the `Store/provisioning#SERVER_EXTENSIONS` `shared_preload_libraries` row.
-- v4 naming: `h3_latlng_to_cell`/`h3_cell_to_latlng` are the canonical 4.2.3 spellings; `h3_lat_lng_to_cell`/`h3_cell_to_lat_lng` are the deprecated pre-4.2.3 aliases some cross-referencing design pages still name. Pin the `latlng` spelling at new call sites. The native `point` overload is `(lat, lng)`; the `h3_postgis` `geometry`/`geography` overloads are SRID-4326 `(lng, lat)` and cast internally — both yield the same cell.
+- v4 naming: `h3_latlng_to_cell`/`h3_cell_to_latlng` are the canonical spellings; `h3_lat_lng_to_cell`/`h3_cell_to_lat_lng` are the deprecated pre- aliases some cross-referencing design pages still name. Pin the `latlng` spelling at new call sites. The native `point` overload is `(lat, lng)`; the `h3_postgis` `geometry`/`geography` overloads are SRID-4326 `(lng, lat)` and cast internally — both yield the same cell.
 - No managed assembly, no EF translator: every cell function rides raw `Npgsql`/`FromSql`/`SqlQuery`; the `h3index` column stores as the bigint-backed cell id, and a `SETOF record` function (`h3_grid_disk_distances`, `h3_cells_to_multi_polygon`) requires the column-definition list. PostGIS inputs must be SRID 4326 — a non-4326 geometry is the rejected form.
 
 [GEO_LANE_STACK]:

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `BACnet`
 - package: `BACnet`
-- version: `3.0.2`
 - license: `MIT`
 - assembly: `BACnet`
 - namespace: `System.IO.BACnet` (client/transports/types), `System.IO.BACnet.Serialize`, `System.IO.BACnet.Storage`, `System.IO.BACnet.Base`

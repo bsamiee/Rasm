@@ -4,16 +4,16 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Irihi.Ursa` 2.1.0
+[PACKAGE_SURFACE]: `Irihi.Ursa`
 - package: `Irihi.Ursa`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.dll`); the package multi-targets net8.0 / net10.0 and the `net10.0` asset is bound
 - assembly: `Ursa`
 - namespace: `Ursa.Controls` (the full control roster — 244 control/option/event types), `Ursa.Common` (`Position`/`ItemAlignment`/`CornerPosition` placement vocabulary, `ObservableHelper`), `Ursa.Converters`, `Ursa.Helpers`, `Ursa.EventArgs`
-- depends: `Avalonia` (12.x — its `>= 11.x` floor rises to the admitted line), `Irihi.Avalonia.Shared` + `Irihi.Avalonia.Shared.Contracts` 0.4.0 (the shared primitive closure also floored by `Semi.Avalonia`); vendors `Gma.QrCodeNet` internally for the `QRCode` control (no QR dependency surfaces)
+- depends: `Avalonia` (12.x — its `>= 11.x` floor rises to the admitted line), `Irihi.Avalonia.Shared` + `Irihi.Avalonia.Shared.Contracts` (the shared primitive closure also floored by `Semi.Avalonia`); vendors `Gma.QrCodeNet` internally for the `QRCode` control (no QR dependency surfaces)
 - rail: controls
 
-[PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi` 2.1.0
+[PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi`
 - package: `Irihi.Ursa.Themes.Semi`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.Themes.Semi.dll`)
@@ -22,7 +22,7 @@
 - surface: the `UrsaSemiTheme : Styles` control-theme dictionary added via `<semi:UrsaSemiTheme/>` — one compiled `.axaml` `ControlTheme` per `Ursa.Controls` type keyed onto the `Semi.Avalonia` `SemiTheme` tokens — plus a thin CODE surface MIRRORING `Semi.Avalonia.SemiTheme`: ctor `UrsaSemiTheme(IServiceProvider? provider = null)`, `Locale` (`CultureInfo?` property, defaults `zh-CN` on unknown), static `OverrideLocaleResources(Application, CultureInfo?)` / `OverrideLocaleResources(StyledElement, CultureInfo?)`, and the public `Ursa.Themes.Semi.Converters` set (`BooleansToOpacityConverter`, `BrushToColorConverter`, `ClockHandLengthConverter(double ratio)`, `FormContentHeightToAlignmentConverter`, `FormContentHeightToMarginConverter`, `NavMenuMarginConverter`, `TreeLevelToPaddingConverter`). Its built-in locale set (`zh_cn`/`en_us`/`de_de`/`fr_fr`/`ru_ru`/`pl_pl`/`cs_cz`) is NARROWER than `Semi.Avalonia`'s 16-culture set, so an unmatched culture falls back to `zh-CN` rather than the Semi default
 - rail: controls
 
-[PACKAGE_SURFACE]: `Irihi.Ursa.ReactiveUIExtension` 2.0.0
+[PACKAGE_SURFACE]: `Irihi.Ursa.ReactiveUIExtension`
 - package: `Irihi.Ursa.ReactiveUIExtension`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.ReactiveUIExtension.dll`); its `ReactiveUI.Avalonia >= 11.3.0` floor rises to the admitted 12.x line
@@ -221,6 +221,10 @@
 
 [THEME_BRIDGE_LAW]:
 - Package: `Irihi.Ursa.Themes.Semi` + `Irihi.Ursa.ReactiveUIExtension`
-- `Irihi.Ursa.Themes.Semi` is the `UrsaSemiTheme : Styles` compiled-AXAML control-theme dictionary (`<semi:UrsaSemiTheme/>`, plus the thin `Locale`/`OverrideLocaleResources` code surface and the public `Ursa.Themes.Semi.Converters` set): it MUST sit at the END of the single `Application.Styles` chain `FluentTheme floor -> <semi:SemiTheme/> -> the per-control Semi.Avalonia.* skins -> <semi:UrsaSemiTheme/>` so every Ursa control resolves the shared OKLCH token system the `Wacton.Unicolour` pipeline materializes into the `SemiTheme` slots (`api-semi.md` `THEME_LAW` carries the same chain). It binds the SAME `https://irihi.tech/semi` (`semi:`) xmlns `Semi.Avalonia` publishes; the obsolete `Ursa.Themes.Semi.Legacy.SemiTheme` (`u-semi:`) is NOT used. `Irihi.Avalonia.Shared`/`Irihi.Avalonia.Shared.Contracts` 0.4.0 is the shared primitive closure both suites floor on; its `UrsaSemiTheme.OverrideLocaleResources` mirrors `Semi.Avalonia.SemiTheme.OverrideLocaleResources`, so a culture swap must drive BOTH (the two locale dictionaries are independent, and Ursa's set is the narrower `zh_cn`/`en_us`/`de_de`/`fr_fr`/`ru_ru`/`pl_pl`/`cs_cz`).
+[URSA_SEMI_THEME]:
+`Irihi.Ursa.Themes.Semi` is the `UrsaSemiTheme: Styles` compiled-AXAML control-theme dictionary (`<semi:UrsaSemiTheme/>`, plus the thin `Locale`/`OverrideLocaleResources` code surface and the public `Ursa.Themes.Semi.Converters` set). It sits at the END of the single `Application.Styles` chain `FluentTheme floor -> <semi:SemiTheme/> -> the per-control Semi.Avalonia.* skins -> <semi:UrsaSemiTheme/>` so every Ursa control resolves the shared OKLCH token system the `Wacton.Unicolour` pipeline materializes into the `SemiTheme` slots.
+
+[URSA_SHARED_PRIMITIVES]:
+The theme binds the SAME `https://irihi.tech/semi` (`semi:`) xmlns `Semi.Avalonia` publishes; the obsolete `Ursa.Themes.Semi.Legacy.SemiTheme` (`u-semi:`) is NOT used. `Irihi.Avalonia.Shared`/`Irihi.Avalonia.Shared.Contracts` is the shared primitive closure both suites floor on; its `UrsaSemiTheme.OverrideLocaleResources` mirrors `Semi.Avalonia.SemiTheme.OverrideLocaleResources`, so a culture swap must drive BOTH locale dictionaries.
 - `ReactiveUrsaWindow`/`ReactiveUrsaView` (`Irihi.Ursa.ReactiveUIExtension`) are the admitted MVVM view bases — they bind `UrsaWindow`/`UrsaView` onto the admitted `ReactiveUI`/`ReactiveUI.Avalonia` rail (`api-reactiveui-avalonia.md`); shell views derive from these, not from the plain `UrsaView` or a hand-wired `ReactiveUserControl`.
 - Reject: loading `UrsaSemiTheme` without `SemiTheme`, or ahead of the per-control Semi skins, instead of last in the chain (controls render unstyled or skin-shadowed); deriving shell views from the non-reactive bases when the ReactiveUI bridge is admitted; re-pinning `Irihi.Avalonia.Shared` to a divergent version from the Semi closure; using the obsolete `Ursa.Themes.Semi.Legacy.SemiTheme` (`u-semi:`) in place of `UrsaSemiTheme`.

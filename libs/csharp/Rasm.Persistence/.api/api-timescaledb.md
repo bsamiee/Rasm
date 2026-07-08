@@ -55,7 +55,7 @@ manually by a CALL procedure.
 ## [04]-[RETENTION_COLUMNSTORE]
 
 The retention and hypercore (columnstore) policies and their bgworker schedulers. The columnstore
-enable is an `ALTER` storage-parameter set; the policy adder is a **CALL procedure** (unlike the SELECT
+enable is an `ALTER` storage-parameter set; the policy adder is a CALL procedure (unlike the SELECT
 retention/cagg adders); manual per-chunk conversion is a CALL procedure.
 
 | [INDEX] | [FUNCTION]               | [SIGNATURE]                                                                                                           | [SEMANTICS]                        |

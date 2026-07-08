@@ -20,7 +20,6 @@ hand-typed value, never through `INumberBase<T>`.
 
 [PACKAGE_SURFACE]: `ExtendedNumerics.BigRational`
 - package: `ExtendedNumerics.BigRational`
-- version: `3000.0.2.132`
 - license: MIT (Adam White / ExtendedNumerics)
 - assembly: `ExtendedNumerics.BigRational`
 - namespace: `ExtendedNumerics`
@@ -39,18 +38,18 @@ mixed-radix carrier whose `FractionalPart` is a `Fraction`. The two interconvert
 operator. `Fraction.DecimalUInt32` is a private nested decimal-decomposition helper with no
 public surface.
 
-| [INDEX] | [SYMBOL]      | [PACKAGE_ROLE]            | [CAPABILITY]                                                                       |
-| :-----: | :------------ | :------------------------ | :--------------------------------------------------------------------------------- |
-|  [01]   | `Fraction`    | flat exact rational       | `struct`; `BigInteger Numerator`/`Denominator`; `Sign`/`IsZero`/`IsOne`; full algebra + `Mediant`/`Simplify`/`Reciprocal`/`DivRem` |
-|  [02]   | `BigRational` | mixed whole+fraction rational | `struct`; `BigInteger WholePart` + `Fraction FractionalPart`; `Sign`/`IsZero`; full algebra + `Reduce`/`NormalizeSign`/`NthRoot` |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+|:-----: |:------------ |:------------------------ |:--------------------------------------------------------------------------------- |
+| [01] | `Fraction` | flat exact rational | `struct`; `BigInteger Numerator`/`Denominator`; `Sign`/`IsZero`/`IsOne`; full algebra + `Mediant`/`Simplify`/`Reciprocal`/`DivRem` |
+| [02] | `BigRational` | mixed whole+fraction rational | `struct`; `BigInteger WholePart` + `Fraction FractionalPart`; `Sign`/`IsZero`; full algebra + `Reduce`/`NormalizeSign`/`NthRoot` |
 
 [STATIC_ANCHORS]: dependency-free constant values
 - rail: exact-precision oracle
 
-| [INDEX] | [SYMBOL]                                            | [VALUE]                | [CAPABILITY]                          |
-| :-----: | :-------------------------------------------------- | :--------------------- | :------------------------------------ |
-|  [01]   | `BigRational.Zero` / `One` / `MinusOne`             | static `BigRational`   | additive/multiplicative identity anchors |
-|  [02]   | `Fraction.Zero` / `One` / `MinusOne` / `OneHalf`    | static `Fraction`      | rational identity anchors + `1/2`     |
+| [INDEX] | [SYMBOL] | [VALUE] | [CAPABILITY] |
+|:-----: |:-------------------------------------------------- |:--------------------- |:------------------------------------ |
+| [01] | `BigRational.Zero` / `One` / `MinusOne` | static `BigRational` | additive/multiplicative identity anchors |
+| [02] | `Fraction.Zero` / `One` / `MinusOne` / `OneHalf` | static `Fraction` | rational identity anchors + `1/2` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -63,16 +62,16 @@ predicate determinants build directly from the `BigInteger`-promoted ordinates; 
 normalizes the sign onto the numerator first, so a negative denominator never flips the sign
 query. `Simplify`/`ReduceToProperFraction` are the canonical reducers.
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]    | [CAPABILITY]                                              |
-| :-----: | :----------------------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `new Fraction(BigInteger numerator, BigInteger denominator)` | constructor | exact rational from a `BigInteger` pair                |
-|  [02]   | `new Fraction(double)` / `new Fraction(float)` / `new Fraction(decimal)` | constructor | exact IEEE/decimal decomposition (lossless)   |
-|  [03]   | `Fraction.Parse(string)`                               | static factory  | parses a rational literal                                |
-|  [04]   | `Fraction.Sign`                                        | instance prop   | `int` exact sign via `NormalizeSign(this).Numerator.Sign` |
-|  [05]   | `Fraction.Simplify(Fraction)`                          | static          | reduces to lowest terms                                  |
-|  [06]   | `Fraction.ReduceToProperFraction(Fraction)`            | static `BigRational` | splits into whole + proper-fractional `BigRational` |
-|  [07]   | `Fraction.Reciprocal(Fraction)`                        | static          | `1/x` exact                                              |
-|  [08]   | `Fraction.Mediant(Fraction left, Fraction right)`      | static          | Stern-Brocot mediant `(a+c)/(b+d)` — bracketing step     |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:----------------------------------------------------- |:-------------- |:------------------------------------------------------- |
+| [01] | `new Fraction(BigInteger numerator, BigInteger denominator)` | constructor | exact rational from a `BigInteger` pair |
+| [02] | `new Fraction(double)` / `new Fraction(float)` / `new Fraction(decimal)` | constructor | exact IEEE/decimal decomposition (lossless) |
+| [03] | `Fraction.Parse(string)` | static factory | parses a rational literal |
+| [04] | `Fraction.Sign` | instance prop | `int` exact sign via `NormalizeSign(this).Numerator.Sign` |
+| [05] | `Fraction.Simplify(Fraction)` | static | reduces to lowest terms |
+| [06] | `Fraction.ReduceToProperFraction(Fraction)` | static `BigRational` | splits into whole + proper-fractional `BigRational` |
+| [07] | `Fraction.Reciprocal(Fraction)` | static | `1/x` exact |
+| [08] | `Fraction.Mediant(Fraction left, Fraction right)` | static | Stern-Brocot mediant `(a+c)/(b+d)` — bracketing step |
 
 [ENTRYPOINT_SCOPE]: `Fraction` exact algebra + comparison
 - rail: exact-precision oracle
@@ -82,17 +81,17 @@ operator (`+`/`-`/`*`/`/`/`%`); comparison is total (`<`/`<=`/`>`/`>=`/`==`/`!=`
 `Compare(left,right)` and `CompareTo`. `DivRem` returns quotient and `out` remainder in one
 exact step. All arithmetic is infinite-precision over `BigInteger`.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]   | [CAPABILITY]                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `Fraction.Add/Subtract/Multiply/Divide(Fraction, Fraction)`     | static         | exact field arithmetic (operator twins `+ - * /`)  |
-|  [02]   | `Fraction.Remainder(Fraction, Fraction)` / `operator %`         | static         | exact rational remainder                           |
-|  [03]   | `Fraction.DivRem(Fraction dividend, Fraction divisor, out Fraction remainder)` | static | exact quotient + remainder in one call    |
-|  [04]   | `Fraction.Pow(Fraction, BigInteger)` / `Pow(Fraction, Fraction)` | static        | integer / rational exponent power                  |
-|  [05]   | `Fraction.Sqrt(Fraction, int precision = 30)` / `NthRoot(Fraction, BigInteger root, int precision = 30)` | static | precision-bounded root (NOT exact — `precision` digits) |
-|  [06]   | `Fraction.Abs/Negate(Fraction)`                                 | static         | absolute value / negation (operator `-` twin)      |
-|  [07]   | `Fraction.GreatestCommonDivisor/LeastCommonDenominator(Fraction, Fraction)` | static | exact GCD / LCD                            |
-|  [08]   | `Fraction.Compare(Fraction, Fraction)` / `CompareTo` / `==`..`>=` | static/instance | total exact ordering                            |
-|  [09]   | `Fraction.Log(Fraction)`                                        | static `double`| natural log (lossy `double` — boundary readout)   |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------- |
+| [01] | `Fraction.Add/Subtract/Multiply/Divide(Fraction, Fraction)` | static | exact field arithmetic (operator twins `+ - * /`) |
+| [02] | `Fraction.Remainder(Fraction, Fraction)` / `operator %` | static | exact rational remainder |
+| [03] | `Fraction.DivRem(Fraction dividend, Fraction divisor, out Fraction remainder)` | static | exact quotient + remainder in one call |
+| [04] | `Fraction.Pow(Fraction, BigInteger)` / `Pow(Fraction, Fraction)` | static | integer / rational exponent power |
+| [05] | `Fraction.Sqrt(Fraction, int precision = 30)` / `NthRoot(Fraction, BigInteger root, int precision = 30)` | static | precision-bounded root (NOT exact — `precision` digits) |
+| [06] | `Fraction.Abs/Negate(Fraction)` | static | absolute value / negation (operator `-` twin) |
+| [07] | `Fraction.GreatestCommonDivisor/LeastCommonDenominator(Fraction, Fraction)` | static | exact GCD / LCD |
+| [08] | `Fraction.Compare(Fraction, Fraction)` / `CompareTo` / `==`..`>=` | static/instance | total exact ordering |
+| [09] | `Fraction.Log(Fraction)` | static `double` | natural log (lossy `double` — boundary readout) |
 
 [ENTRYPOINT_SCOPE]: `BigRational` construction + mixed-radix algebra
 - rail: exact-precision oracle
@@ -102,22 +101,22 @@ exact step. All arithmetic is infinite-precision over `BigInteger`.
 the mixed form back to a flat `Fraction`, and the implicit `BigRational -> Fraction` operator
 is the canonical bridge into the oracle's flat tier. `Reduce`/`NormalizeSign` canonicalize.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]   | [CAPABILITY]                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `new BigRational(BigInteger numerator, BigInteger denominator)` | constructor    | mixed rational from a pair                          |
-|  [02]   | `new BigRational(BigInteger whole, BigInteger numerator, BigInteger denominator)` | constructor | explicit whole + fractional parts        |
-|  [03]   | `new BigRational(double/float/decimal)`                         | constructor    | exact IEEE/decimal decomposition                    |
-|  [04]   | `BigRational.WholePart` / `FractionalPart`                      | instance prop  | `BigInteger` whole + `Fraction` fractional remainder|
-|  [05]   | `BigRational.GetImproperFraction()`                             | instance       | collapses the mixed form to a flat `Fraction`       |
-|  [06]   | `(Fraction)bigRational` (implicit operator)                     | conversion     | bridge into the oracle flat tier                    |
-|  [07]   | `BigRational.Sign` / `IsZero`                                   | instance prop  | exact sign / zero test                              |
-|  [08]   | `BigRational.Add/Subtract/Multiply/Divide(BigRational, …)` + `+ - * / %` | static/operator | exact mixed-radix arithmetic               |
-|  [09]   | `BigRational.Add/Subtract/Multiply/Divide(Fraction, Fraction)`  | static `BigRational` | flat-input overloads returning the mixed carrier |
-|  [10]   | `BigRational.Pow(BigRational, BigInteger)` / `Sqrt(BigRational)` / `NthRoot(BigRational, int root, int precision = 30)` | static | exact integer power / `Sqrt` (no precision arg) / `precision`-bounded `NthRoot` |
-|  [11]   | `BigRational.Mod(BigRational, BigRational)` / `Remainder(BigInteger, BigInteger)` | static | modulo / integer remainder              |
-|  [12]   | `BigRational.Abs/Negate(BigRational)` + `GreatestCommonDivisor/LeastCommonDenominator` | static | abs / negate / GCD / LCD              |
-|  [13]   | `BigRational.Reduce(BigRational)` / `NormalizeSign(BigRational)` | static         | lowest-terms reduction / sign canonicalization      |
-|  [14]   | `BigRational.Compare` / `CompareTo` / `==`..`>=` / `Parse(string)` | static/instance | total exact ordering + literal parse           |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------- |
+| [01] | `new BigRational(BigInteger numerator, BigInteger denominator)` | constructor | mixed rational from a pair |
+| [02] | `new BigRational(BigInteger whole, BigInteger numerator, BigInteger denominator)` | constructor | explicit whole + fractional parts |
+| [03] | `new BigRational(double/float/decimal)` | constructor | exact IEEE/decimal decomposition |
+| [04] | `BigRational.WholePart` / `FractionalPart` | instance prop | `BigInteger` whole + `Fraction` fractional remainder |
+| [05] | `BigRational.GetImproperFraction()` | instance | collapses the mixed form to a flat `Fraction` |
+| [06] | `(Fraction)bigRational` (implicit operator) | conversion | bridge into the oracle flat tier |
+| [07] | `BigRational.Sign` / `IsZero` | instance prop | exact sign / zero test |
+| [08] | `BigRational.Add/Subtract/Multiply/Divide(BigRational, …)` + `+ - * / %` | static/operator | exact mixed-radix arithmetic |
+| [09] | `BigRational.Add/Subtract/Multiply/Divide(Fraction, Fraction)` | static `BigRational` | flat-input overloads returning the mixed carrier |
+| [10] | `BigRational.Pow(BigRational, BigInteger)` / `Sqrt(BigRational)` / `NthRoot(BigRational, int root, int precision = 30)` | static | exact integer power / `Sqrt` (no precision arg) / `precision`-bounded `NthRoot` |
+| [11] | `BigRational.Mod(BigRational, BigRational)` / `Remainder(BigInteger, BigInteger)` | static | modulo / integer remainder |
+| [12] | `BigRational.Abs/Negate(BigRational)` + `GreatestCommonDivisor/LeastCommonDenominator` | static | abs / negate / GCD / LCD |
+| [13] | `BigRational.Reduce(BigRational)` / `NormalizeSign(BigRational)` | static | lowest-terms reduction / sign canonicalization |
+| [14] | `BigRational.Compare` / `CompareTo` / `==`..`>=` / `Parse(string)` | static/instance | total exact ordering + literal parse |
 
 [ENTRYPOINT_SCOPE]: conversions (boundary readout)
 - rail: exact-precision oracle
@@ -126,14 +125,14 @@ Widening integer conversions (`byte`..`ulong`, `BigInteger`) are implicit and lo
 floating/`decimal` conversions are explicit because they round, and are the lossy boundary
 readout only — never an interior predicate step.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]   | [CAPABILITY]                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `implicit operator Fraction(byte/sbyte/short/ushort/int/uint/long/ulong/BigInteger)` | conversion | lossless widening into `Fraction`     |
-|  [02]   | `implicit operator BigRational(…integers/BigInteger)`           | conversion     | lossless widening into `BigRational`                |
-|  [03]   | `explicit operator Fraction(float/double/decimal)` / `BigRational(…)` | conversion | exact IEEE decomposition (explicit by API)    |
-|  [04]   | `explicit operator double/decimal(Fraction)` / `(BigRational)`  | conversion     | lossy readout to floating/`decimal`                 |
-|  [05]   | `explicit operator BigInteger(Fraction)`                        | conversion     | truncating integer readout                          |
-|  [06]   | `ToString()` / `ToString(string format[, IFormatProvider])`     | instance       | culture/format string render                        |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------- |
+| [01] | `implicit operator Fraction(byte/sbyte/short/ushort/int/uint/long/ulong/BigInteger)` | conversion | lossless widening into `Fraction` |
+| [02] | `implicit operator BigRational(…integers/BigInteger)` | conversion | lossless widening into `BigRational` |
+| [03] | `explicit operator Fraction(float/double/decimal)` / `BigRational(…)` | conversion | exact IEEE decomposition (explicit by API) |
+| [04] | `explicit operator double/decimal(Fraction)` / `(BigRational)` | conversion | lossy readout to floating/`decimal` |
+| [05] | `explicit operator BigInteger(Fraction)` | conversion | truncating integer readout |
+| [06] | `ToString()` / `ToString(string format[, IFormatProvider])` | instance | culture/format string render |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

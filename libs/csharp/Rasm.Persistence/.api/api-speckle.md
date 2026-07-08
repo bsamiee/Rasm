@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Speckle.Sdk`
 - package: `Speckle.Sdk`
-- version: `2026.6.0`
 - assembly: `Speckle.Sdk`
 - companion: `Speckle.Sdk.Dependencies` (`2026.6.0`; transitive; ILRepacks `Polly`, `Open.ChannelExtensions`, `Microsoft.Extensions.ObjectPool`, and the serialisation-V2 send/receive channel pipeline into one assembly)
 - transitive: `GraphQL.Client`, `Microsoft.Data.Sqlite` (carries native `e_sqlite3` via `SQLitePCLRaw`), `System.Text.Json`, `Speckle.Newtonsoft.Json`, `Speckle.DoubleNumerics`
@@ -17,7 +16,6 @@
 
 [PACKAGE_SURFACE]: `Speckle.Objects`
 - package: `Speckle.Objects`
-- version: `2026.6.0`
 - assembly: `Speckle.Objects`
 - companion: `Speckle.Sdk` (`2026.6.0`; supplies the `Base`/`ISpeckleObject` base graph)
 - namespace: `Speckle.Objects`, `Speckle.Objects.Geometry`, `Speckle.Objects.Data`, `Speckle.Objects.Primitive`, `Speckle.Objects.Other`, `Speckle.Objects.Annotation`

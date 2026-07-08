@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `ParquetSharp`
 - package: `ParquetSharp`
-- version: `24.0.0`
 - license: Apache-2.0
 - assembly: `ParquetSharp`
 - namespace: `ParquetSharp`, `ParquetSharp.Schema`, `ParquetSharp.Arrow`, `ParquetSharp.RowOriented`, `ParquetSharp.Encryption`, `ParquetSharp.IO`

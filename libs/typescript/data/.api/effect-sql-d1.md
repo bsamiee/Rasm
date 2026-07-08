@@ -1,4 +1,4 @@
-# [@effect/sql-d1] — the Cloudflare D1 dialect driver: the `D1Client` Layer behind the `lane/sqlite` D1 edge profile
+# [TS_DATA_API_EFFECT_SQL_D1]
 
 `@effect/sql-d1` binds the neutral `@effect/sql` `SqlClient` (`.api/effect-sql.md`) to a Workers `D1Database` binding — the managed-edge profile of the ONE sqlite lane. The binding arrives as a value from the Workers environment (`env.DB`), so the config takes the live handle, never a connection string. D1 admits no interactive transaction: statements run batch/exec-shaped, `updateValues` is `never`, and the lane degradation table records both refusals. Read replication (sequential consistency per session) and PITR are platform facts outside the driver.
 
@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `@effect/sql-d1`
 - package: `@effect/sql-d1`
-- version: `0.49.0`
 - license: `MIT`
 - effect-peer: `effect`, `@effect/sql` (`.api/effect-sql.md`)
 - backing: the Workers `D1Database` runtime binding (no bundled driver)
@@ -15,21 +14,21 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                        |
-| :-----: | :-------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `D1Client` (Tag) / `interface D1Client`                         | service Tag     | `lane/sqlite` D1 profile row; `D1Client \| SqlClient`         |
-|  [02]   | `D1Client.updateValues: never`                                  | refused member  | the lane degradation row — per-row updates only               |
-|  [03]   | `D1ClientConfig.db` (`D1Database`)                              | binding adopt   | the Workers `env.DB` handle passed as a value                 |
-|  [04]   | `D1ClientConfig.prepareCacheSize` / `.prepareCacheTTL`          | statement cache | hot-path lever; `Config`-sourced                              |
-|  [05]   | `D1ClientConfig` (`spanAttributes`/`transformResultNames`/`transformQueryNames`) | telemetry/transform | shared driver base |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `D1Client` (Tag) / `interface D1Client` | service Tag | `lane/sqlite` D1 profile row; `D1Client \| SqlClient` |
+| [02] | `D1Client.updateValues: never` | refused member | the lane degradation row — per-row updates only |
+| [03] | `D1ClientConfig.db` (`D1Database`) | binding adopt | the Workers `env.DB` handle passed as a value |
+| [04] | `D1ClientConfig.prepareCacheSize` / `.prepareCacheTTL` | statement cache | hot-path lever; `Config`-sourced |
+| [05] | `D1ClientConfig` (`spanAttributes`/`transformResultNames`/`transformQueryNames`) | telemetry/transform | shared driver base |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                          |
-| :-----: | :------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
-|  [01]   | `D1Client.layer(config): Layer<D1Client \| SqlClient, ConfigError \| SqlError>`             | driver layer   | the Workers composition root passing `env.DB`   |
-|  [02]   | `D1Client.layerConfig(Config.Wrap<D1ClientConfig>)`                                         | driver layer   | cache knobs from `Config`; the handle stays a value |
-|  [03]   | `D1Client.make(config): Effect<D1Client, SqlError, Scope>`                                  | scoped make    | construction inside a larger acquire graph      |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------ |:------------- |:---------------------------------------------- |
+| [01] | `D1Client.layer(config): Layer<D1Client \| SqlClient, ConfigError \| SqlError>` | driver layer | the Workers composition root passing `env.DB` |
+| [02] | `D1Client.layerConfig(Config.Wrap<D1ClientConfig>)` | driver layer | cache knobs from `Config`; the handle stays a value |
+| [03] | `D1Client.make(config): Effect<D1Client, SqlError, Scope>` | scoped make | construction inside a larger acquire graph |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

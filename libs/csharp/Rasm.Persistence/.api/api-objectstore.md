@@ -6,7 +6,6 @@ Cloud object-store SDK surfaces for the `Store/blobstore#OBJECT_STORE` cluster: 
 
 [PACKAGE_SURFACE]: `AWSSDK.S3`
 - package: `AWSSDK.S3`
-- version: `4.0.100.2`
 - assembly: `AWSSDK.S3`
 - companion: `AWSSDK.Core` (transitive; no separate pin)
 - namespace: `Amazon.S3`
@@ -16,7 +15,6 @@ Cloud object-store SDK surfaces for the `Store/blobstore#OBJECT_STORE` cluster: 
 
 [PACKAGE_SURFACE]: `Azure.Storage.Blobs`
 - package: `Azure.Storage.Blobs`
-- version: `12.29.1`
 - assembly: `Azure.Storage.Blobs`
 - namespace: `Azure.Storage.Blobs`, `Azure.Storage.Blobs.Specialized`, `Azure.Storage.Blobs.Models`
 - asset: runtime library
@@ -24,7 +22,6 @@ Cloud object-store SDK surfaces for the `Store/blobstore#OBJECT_STORE` cluster: 
 
 [PACKAGE_SURFACE]: `Google.Cloud.Storage.V1`
 - package: `Google.Cloud.Storage.V1`
-- version: `4.15.0`
 - assembly: `Google.Cloud.Storage.V1`
 - auth companion: `Google.Apis.Auth` (transitive; `GoogleCredential` factory, not a fence member)
 - namespace: `Google.Cloud.Storage.V1`
@@ -161,7 +158,7 @@ The `BlobRemote.Stat`/`Delete`/`List` legs and the multipart resume skip are the
 |  [05]   | resume  | `ListPartsAsync(ListPartsRequest{UploadId})` -> `Parts` (`PartDetail.PartNumber`/`ETag`) | `BlockBlobClient.GetBlockListAsync(BlockListTypes.Uncommitted)` -> `UncommittedBlocks` | resumable session is provider-internal; chunked `UploadObjectAsync` resumes server-side | `ListIncompleteUploadsEnumAsync(args)` -> `IAsyncEnumerable<Upload>` / `RemoveIncompleteUploadAsync` |
 |  [06]   | block client | n/a (multipart on `AmazonS3Client`)               | `SpecializedBlobExtensions.GetBlockBlobClient(container, name)` (extension) | n/a (object-level on `StorageClient`)                 | n/a (multipart auto-managed inside `PutObjectAsync`)   |
 
-The resume row is the resumable-upload edge `MultipartTransfer` skips already-committed windows on: S3 reads prior `PartETag`s by `UploadId`, Azure reads prior uncommitted block ids, GCS resumes its session server-side, and Minio enumerates dangling multipart uploads through `ListIncompleteUploadsEnumAsync`. `GetBlockBlobClient` is an **extension** on `BlobContainerClient` from `SpecializedBlobExtensions`, not an instance member.
+The resume row is the resumable-upload edge `MultipartTransfer` skips already-committed windows on: S3 reads prior `PartETag`s by `UploadId`, Azure reads prior uncommitted block ids, GCS resumes its session server-side, and Minio enumerates dangling multipart uploads through `ListIncompleteUploadsEnumAsync`. `GetBlockBlobClient` is an extension on `BlobContainerClient` from `SpecializedBlobExtensions`, not an instance member.
 
 ## [04]-[ERROR_TAXONOMY]
 

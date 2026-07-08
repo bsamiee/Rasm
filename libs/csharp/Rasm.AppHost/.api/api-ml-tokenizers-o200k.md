@@ -2,7 +2,7 @@
 
 `Microsoft.ML.Tokenizers.Data.O200kBase` is a data-only companion assembly that embeds the
 `o200k_base.tiktoken` vocabulary file consumed by `Microsoft.ML.Tokenizers` (see
-`api-ml-tokenizers.md`). It exposes **no public API**: the consumer never names a type from it.
+`api-ml-tokenizers.md`). It exposes no public API: the consumer never names a type from it.
 Its sole job is to make the `o200k_base` ranks resolvable OFFLINE so a `TiktokenTokenizer`
 built for a GPT-4o / GPT-5 / o-series model prices a prompt air-gapped for the grant-broker
 `CostUnit.ModelTokens` cost preview.
@@ -13,7 +13,6 @@ built for a GPT-4o / GPT-5 / o-series model prices a prompt air-gapped for the g
 - package: `Microsoft.ML.Tokenizers.Data.O200kBase`
 - assembly: `Microsoft.ML.Tokenizers.Data.O200kBase`
 - namespace: `Microsoft.ML.Tokenizers` (carries only `internal sealed class O200kBaseTokenizerData`)
-- version: `2.0.0`
 - license: `MIT`
 - asset: data-only runtime library (`netstandard2.0`-only; binds forward under `net10.0`)
 - payload: embedded resource `o200k_base.tiktoken` — the BPE rank table for the `o200k_base` encoding
@@ -43,7 +42,7 @@ built for a GPT-4o / GPT-5 / o-series model prices a prompt air-gapped for the g
 
 [DATA_PACKAGE_TOPOLOGY]:
 - the assembly carries exactly one `internal sealed class O200kBaseTokenizerData` plus the embedded `o200k_base.tiktoken` resource; reflection confirms no public type, so there is nothing for a consumer to call.
-- activation is by **reference presence**: when `Microsoft.ML.Tokenizers` resolves the `o200k_base` encoding, it reads the embedded resource from whichever referenced `*.Data.*` assembly carries it; the `PackageReference` to this package is what makes that read succeed offline.
+- activation is by reference presence: when `Microsoft.ML.Tokenizers` resolves the `o200k_base` encoding, it reads the embedded resource from whichever referenced `*.Data.*` assembly carries it; the `PackageReference` to this package is what makes that read succeed offline.
 - `o200k_base` is the GPT-4o / GPT-5 / o-series / GPT-4.1 / GPT-4.5 vocabulary; the engine's model-prefix table (`gpt-4o-`, `gpt-5-`, `o1-`, `o3-`, `o4-mini-`, `chatgpt-4o-`, `ft:gpt-4o`) all route here.
 
 [LOCAL_ADMISSION]:

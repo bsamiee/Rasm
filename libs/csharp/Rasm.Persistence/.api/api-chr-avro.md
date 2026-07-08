@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Chr.Avro`
 - package: `Chr.Avro`
-- version: `10.13.1`
 - license: MIT
 - assembly: `Chr.Avro`
 - namespace: `Chr.Avro`, `Chr.Avro.Abstract`, `Chr.Avro.Representation`, `Chr.Avro.Serialization`, `Chr.Avro.Infrastructure`

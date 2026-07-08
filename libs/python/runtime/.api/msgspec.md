@@ -1,6 +1,8 @@
 # [PY_RUNTIME_API_MSGSPEC]
 
-`msgspec` supplies the runtime's in-memory frame layer — `Struct` records, hook-bearing JSON/MessagePack codecs, `Meta` constraint validation, and the `to_builtins`/`convert` lowering-raising pair. Integration overlay over the canonical branch catalog `libs/python/.api/msgspec.md`, which owns the full `Struct`/codec/`Meta`/`defstruct`/`inspect` surface and the generic pydantic/otel/grpc/numpy stacks. This overlay carries only the runtime-specific delta: the `WireProtoCodec` proto3-JSON bridge, the `CrdtOpDecode` msgpack `ext_hook` leg, and the fault-boundary + leaf-cell law the transport and clock cells compose.
+Full surface and stacking: `libs/python/.api/msgspec.md` (shared-tier canonical owner).
+
+`msgspec` supplies the runtime's in-memory frame layer: `Struct` records, hook-bearing JSON/MessagePack codecs, `Meta` constraint validation, and the `to_builtins`/`convert` lowering-raising pair. This overlay carries only the runtime-specific delta: the `WireProtoCodec` proto3-JSON bridge, the `CrdtOpDecode` msgpack `ext_hook` leg, and the fault-boundary + leaf-cell law the transport and clock cells compose.
 
 ## [01]-[LOCAL_ADMISSION]
 

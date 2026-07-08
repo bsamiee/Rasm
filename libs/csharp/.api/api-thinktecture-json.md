@@ -5,11 +5,11 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-- package: `Thinktecture.Runtime.Extensions.Json` `10.4.0`
+- package: `Thinktecture.Runtime.Extensions.Json`
 - assembly: `Thinktecture.Runtime.Extensions.Json`
 - bound asset: `lib/net9.0` for `net10.0` consumers
 - namespaces: `Thinktecture`, `Thinktecture.Text.Json.Serialization`, `Thinktecture.Internal`
-- dependency: `Thinktecture.Runtime.Extensions` `10.4.0`
+- dependency: `Thinktecture.Runtime.Extensions`
 - rail: wire-json
 
 ## [02]-[PUBLIC_TYPES]
@@ -17,32 +17,32 @@
 [PUBLIC_TYPE_SCOPE]: converter factory family
 - rail: wire-json
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]   | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------------ | :--------------- | :------------------------------------------------ |
-|  [01]   | `ThinktectureJsonConverterFactory`                                  | options factory  | `JsonConverterFactory` selecting generated-owner converters |
-|  [02]   | `ThinktectureJsonConverterFactory<T, TKey, TValidationError>`       | typed factory    | keyed owner converter creation                    |
-|  [03]   | `ThinktectureJsonConverterFactory<T, TValidationError>`             | typed factory    | string and readonly-span owner converter creation |
-|  [04]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | typed factory    | span-parsable owner converter creation            |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------ |:--------------- |:------------------------------------------------ |
+| [01] | `ThinktectureJsonConverterFactory` | options factory | `JsonConverterFactory` selecting generated-owner converters |
+| [02] | `ThinktectureJsonConverterFactory<T, TKey, TValidationError>` | typed factory | keyed owner converter creation |
+| [03] | `ThinktectureJsonConverterFactory<T, TValidationError>` | typed factory | string and readonly-span owner converter creation |
+| [04] | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | typed factory | span-parsable owner converter creation |
 
 [PUBLIC_TYPE_SCOPE]: converter family
 - rail: wire-json
 
-| [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE]   | [CAPABILITY]                                      |
-| :-----: | :----------------------------------------------------------- | :--------------- | :------------------------------------------------ |
-|  [01]   | `ThinktectureJsonConverter<T, TKey, TValidationError>`       | keyed converter  | key read/write plus generated static validation   |
-|  [02]   | `ThinktectureJsonConverter<T, TValidationError>`             | string converter | string/property-name codec for generated owners   |
-|  [03]   | `ThinktectureSpanParsableJsonConverter<T, TValidationError>` | span converter   | zero-allocation UTF-8 validation read             |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+|:-----: |:----------------------------------------------------------- |:--------------- |:------------------------------------------------ |
+| [01] | `ThinktectureJsonConverter<T, TKey, TValidationError>` | keyed converter | key read/write plus generated static validation |
+| [02] | `ThinktectureJsonConverter<T, TValidationError>` | string converter | string/property-name codec for generated owners |
+| [03] | `ThinktectureSpanParsableJsonConverter<T, TValidationError>` | span converter | zero-allocation UTF-8 validation read |
 
 [PUBLIC_TYPE_SCOPE]: reader, writer, and metadata seam family
 - rail: wire-json
 
-| [INDEX] | [SYMBOL]                                    | [NAMESPACE]                            | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------ | :------------------------------------- | :------------------------------------------------ |
-|  [01]   | `Utf8JsonReaderExtensions`                  | `Thinktecture`                         | `JsonNumberHandling`-aware numeric read/write helpers |
-|  [02]   | `IUtf8JsonFactory<T, TValidationError>`     | `Thinktecture.Text.Json.Serialization` | custom UTF-8 span validation factory seam         |
-|  [03]   | `ObjectFactoryAdapter<T, TValidationError>` | `Thinktecture.Text.Json.Serialization` | bridges `IObjectFactory` into the UTF-8 factory seam |
-|  [04]   | `Utf8JsonReaderHelper`                      | `Thinktecture.Internal`                | `ValidateFromUtf8` span parse plus generated validation dispatch |
-|  [05]   | `JsonSerializerOptionsExtensions`           | `Thinktecture.Internal`                | `GetCustomMemberConverter` lookup for key-type converters |
+| [INDEX] | [SYMBOL] | [NAMESPACE] | [CAPABILITY] |
+|:-----: |:------------------------------------------ |:------------------------------------- |:------------------------------------------------ |
+| [01] | `Utf8JsonReaderExtensions` | `Thinktecture` | `JsonNumberHandling`-aware numeric read/write helpers |
+| [02] | `IUtf8JsonFactory<T, TValidationError>` | `Thinktecture.Text.Json.Serialization` | custom UTF-8 span validation factory seam |
+| [03] | `ObjectFactoryAdapter<T, TValidationError>` | `Thinktecture.Text.Json.Serialization` | bridges `IObjectFactory` into the UTF-8 factory seam |
+| [04] | `Utf8JsonReaderHelper` | `Thinktecture.Internal` | `ValidateFromUtf8` span parse plus generated validation dispatch |
+| [05] | `JsonSerializerOptionsExtensions` | `Thinktecture.Internal` | `GetCustomMemberConverter` lookup for key-type converters |
 
 The per-numeric-type key converters (`ByteKeyConverter`/`SByteKeyConverter`/`ShortKeyConverter`/`UShortKeyConverter`/`IntKeyConverter`/`UIntKeyConverter`/`LongKeyConverter`/`ULongKeyConverter`/`SingleKeyConverter`/`DoubleKeyConverter`/`DecimalKeyConverter`) are `internal sealed` singletons in `Thinktecture.Internal`, reached only through `Utf8JsonReaderExtensions` (the `JsonNumberHandling`-aware read/write) and `JsonSerializerOptionsExtensions.GetCustomMemberConverter` — they are NOT a public consumption surface and are never constructed directly.
 
@@ -51,27 +51,27 @@ The per-numeric-type key converters (`ByteKeyConverter`/`SByteKeyConverter`/`Sho
 [ENTRYPOINT_SCOPE]: factory registration and converter selection
 - rail: wire-json
 
-| [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]                     | [CAPABILITY]                                      |
-| :-----: | :--------------------------------------------------------- | :------------------------------- | :------------------------------------------------ |
-|  [01]   | `new ThinktectureJsonConverterFactory()`                   | parameterless constructor        | admits all metadata-bearing generated owners      |
-|  [02]   | `new ThinktectureJsonConverterFactory(bool skipObjectsWithJsonConverterAttribute)` | constructor | skips or overrides owners already carrying `[JsonConverter]` |
-|  [03]   | `new ThinktectureJsonConverterFactory(bool, Func<Type, bool>?)` | constructor | per-type span-deserialization opt-out             |
-|  [04]   | `CanConvert(Type)`                                         | factory override                 | metadata presence plus attribute-skip decision    |
-|  [05]   | `CreateConverter(Type, JsonSerializerOptions)`             | factory override                 | selects span, string, or keyed converter          |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:--------------------------------------------------------- |:------------------------------- |:------------------------------------------------ |
+| [01] | `new ThinktectureJsonConverterFactory()` | parameterless constructor | admits all metadata-bearing generated owners |
+| [02] | `new ThinktectureJsonConverterFactory(bool skipObjectsWithJsonConverterAttribute)` | constructor | skips or overrides owners already carrying `[JsonConverter]` |
+| [03] | `new ThinktectureJsonConverterFactory(bool, Func<Type, bool>?)` | constructor | per-type span-deserialization opt-out |
+| [04] | `CanConvert(Type)` | factory override | metadata presence plus attribute-skip decision |
+| [05] | `CreateConverter(Type, JsonSerializerOptions)` | factory override | selects span, string, or keyed converter |
 
 [ENTRYPOINT_SCOPE]: conversion operations
 - rail: wire-json
 
-| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]                                   | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------ | :--------------------------------------------- | :------------------------------------------------ |
-|  [01]   | `Read(...)`                                       | reader, type, options                          | key decode followed by generated `Validate`       |
-|  [02]   | `Write(...)`                                      | writer, value, options                         | generated `ToValue` projection write              |
-|  [03]   | `ReadAsPropertyName(...)` / `WriteAsPropertyName(...)` | property-name codec                       | dictionary-key generated-owner support            |
-|  [04]   | `ValidateFromUtf8<T, TValidationError>(...)`      | reader plus provider and `out` result          | UTF-8 span parse plus typed validation error      |
-|  [05]   | `ValidateFromUtf8<T, TValidationError, TFactory>(...)` | struct factory overload                    | custom UTF-8 factory dispatch                     |
-|  [06]   | `Get*WithNumberHandling(...)`                     | reader plus `JsonNumberHandling`               | quoted-number tolerant numeric reads              |
-|  [07]   | `WriteNumberWithNumberHandling(...)`              | writer, numeric value, number handling         | string-encoded numeric writes                     |
-|  [08]   | `GetCustomMemberConverter(...)`                   | options plus member type                       | key-type converter resolution                     |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------ |:--------------------------------------------- |:------------------------------------------------ |
+| [01] | `Read(...)` | reader, type, options | key decode followed by generated `Validate` |
+| [02] | `Write(...)` | writer, value, options | generated `ToValue` projection write |
+| [03] | `ReadAsPropertyName(...)` / `WriteAsPropertyName(...)` | property-name codec | dictionary-key generated-owner support |
+| [04] | `ValidateFromUtf8<T, TValidationError>(...)` | reader plus provider and `out` result | UTF-8 span parse plus typed validation error |
+| [05] | `ValidateFromUtf8<T, TValidationError, TFactory>(...)` | struct factory overload | custom UTF-8 factory dispatch |
+| [06] | `Get*WithNumberHandling(...)` | reader plus `JsonNumberHandling` | quoted-number tolerant numeric reads |
+| [07] | `WriteNumberWithNumberHandling(...)` | writer, numeric value, number handling | string-encoded numeric writes |
+| [08] | `GetCustomMemberConverter(...)` | options plus member type | key-type converter resolution |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

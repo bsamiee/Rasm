@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `FFmpeg.AutoGen`
 - package: `FFmpeg.AutoGen` (the self-contained meta binding — it ships its OWN generated bindings and dynamic loader; the `FFmpeg.AutoGen.Abstractions` + `FFmpeg.AutoGen.Bindings.*` split is the MAUI-oriented alternative, NOT admitted)
-- version: `8.1.0` (git tag `v8.1.0.0`; NuGet version `8.1.0`)
 - license: MIT (expression) — the binding is MIT; the native FFmpeg build carries its own GPL/LGPL license
 - assembly: `FFmpeg.AutoGen`
 - namespace: `FFmpeg.AutoGen` (every generated binding, struct, enum, and the `ffmpeg`/`DynamicallyLoadedBindings`/`FunctionResolverFactory` hub)

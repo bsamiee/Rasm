@@ -22,7 +22,6 @@ bulk-copy path, and the Arrow/DuckDB columnar materializer — that a CSV ingres
 
 [PACKAGE_SURFACE]: `MiniExcel`
 - package: `MiniExcel`
-- version: `1.45.0`
 - license: Apache-2.0 (Wei Lin / Mini-Software team)
 - assembly: `MiniExcel`
 - namespace: `MiniExcelLibs` (façade + reader); `MiniExcelLibs.Attributes` (column/sheet mapping); `MiniExcelLibs.Csv` (`CsvConfiguration`); `MiniExcelLibs.OpenXml` (`OpenXmlConfiguration`, sheet/style vocabulary, `Models.ExcelRange`); `MiniExcelLibs.Picture` (`MiniExcelPicture`); `MiniExcelLibs.Exceptions`; the `OpenXml.SaveByTemplate`/`OpenXml.Styles`/`Utils`/`Zip`/`WriteAdapter` types and the `Excel{Reader,Writer,Template}Factory`→internal `IExcelReader`/`IExcelWriter`/`IExcelTemplate` providers are implementation
@@ -109,8 +108,8 @@ is the runtime (no-recompile) form supplied through `Configuration.DynamicColumn
 |  [01]   | `ExcelColumnNotFoundException`    | missing column    | `: KeyNotFoundException`; `ColumnName`/`ColumnAliases`/`ColumnIndex`/`RowIndex`/`Headers`/`RowValues` — a `Query<T>` member with no matching header |
 |  [02]   | `ExcelInvalidCastException`       | cell cast failure | `ColumnName` / `Row` / `InvalidCastType` members (decompile-verified) — the `TabularFault.CellCast` lift source |
 |  [03]   | `MiniExcelNotSerializableException` | egress reject    | `Member` names the unserializable member (decompile-verified) — the `TabularFault.NotSerializable` lift source |
-|  [02]   | `ExcelInvalidCastException`       | cell cast fault   | `: InvalidCastException`; `ColumnName`/`Row`/`Value`/`InvalidCastType` — a cell that cannot coerce to the typed member |
-|  [03]   | `MiniExcelNotSerializableException`| non-serializable | `: InvalidOperationException`; `Member` (`MemberInfo`) — a write value member that cannot serialize |
+|  [04]   | `ExcelInvalidCastException`       | cell cast fault   | `: InvalidCastException`; `ColumnName`/`Row`/`Value`/`InvalidCastType` — a cell that cannot coerce to the typed member |
+|  [05]   | `MiniExcelNotSerializableException`| non-serializable | `: InvalidOperationException`; `Member` (`MemberInfo`) — a write value member that cannot serialize |
 
 ## [03]-[ENTRYPOINTS]
 

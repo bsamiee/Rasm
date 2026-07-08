@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Whisper.net`
 - package: `Whisper.net` (core; NO runtime, NO weights)
-- version: `1.9.1`
 - license: MIT (expression)
 - assembly: `Whisper.net`
 - namespace: `Whisper.net` (factory/processor/builder/segment/VAD/client), `Whisper.net.Ggml` (downloader + `GgmlType`/`QuantizationType`/`SileroVadType`), `Whisper.net.LibraryLoader` (`RuntimeOptions`/`RuntimeLibrary`), `Whisper.net.Logger` (`LogProvider`/`WhisperLogLevel`), `Whisper.net.Wave` (`WaveParser`)

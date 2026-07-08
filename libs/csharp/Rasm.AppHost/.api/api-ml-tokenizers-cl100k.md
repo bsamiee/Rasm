@@ -2,7 +2,7 @@
 
 `Microsoft.ML.Tokenizers.Data.Cl100kBase` is a data-only companion assembly that embeds the
 `cl100k_base.tiktoken` vocabulary file consumed by `Microsoft.ML.Tokenizers` (see
-`api-ml-tokenizers.md`). It exposes **no public API**: the consumer never names a type from it.
+`api-ml-tokenizers.md`). It exposes no public API: the consumer never names a type from it.
 Its sole job is to make the `cl100k_base` ranks resolvable OFFLINE so a `TiktokenTokenizer`
 built for a GPT-4 / GPT-3.5 / embedding-3 model prices a prompt air-gapped for the grant-broker
 `CostUnit.ModelTokens` cost preview.
@@ -13,7 +13,6 @@ built for a GPT-4 / GPT-3.5 / embedding-3 model prices a prompt air-gapped for t
 - package: `Microsoft.ML.Tokenizers.Data.Cl100kBase`
 - assembly: `Microsoft.ML.Tokenizers.Data.Cl100kBase`
 - namespace: `Microsoft.ML.Tokenizers` (carries only `internal sealed class Cl100kBaseTokenizerData`)
-- version: `2.0.0`
 - license: `MIT`
 - asset: data-only runtime library (`netstandard2.0`-only; binds forward under `net10.0`)
 - payload: embedded resource `cl100k_base.tiktoken` — the BPE rank table for the `cl100k_base` encoding
@@ -43,7 +42,7 @@ built for a GPT-4 / GPT-3.5 / embedding-3 model prices a prompt air-gapped for t
 
 [DATA_PACKAGE_TOPOLOGY]:
 - the assembly carries exactly one `internal sealed class Cl100kBaseTokenizerData` plus the embedded `cl100k_base.tiktoken` resource; reflection confirms no public type, so there is nothing for a consumer to call.
-- activation is by **reference presence**: when `Microsoft.ML.Tokenizers` resolves the `cl100k_base` encoding, it reads the embedded resource from whichever referenced `*.Data.*` assembly carries it; the `PackageReference` to this package is what makes that read succeed offline.
+- activation is by reference presence: when `Microsoft.ML.Tokenizers` resolves the `cl100k_base` encoding, it reads the embedded resource from whichever referenced `*.Data.*` assembly carries it; the `PackageReference` to this package is what makes that read succeed offline.
 - `cl100k_base` is the GPT-4 / GPT-3.5(-turbo) / `davinci-002` / `babbage-002` / `text-embedding-ada-002` / `text-embedding-3-small` / `text-embedding-3-large` vocabulary; the engine's model-prefix table (`gpt-4-`, `gpt-3.5-`, `gpt-35-`, `ft:gpt-4`, `ft:gpt-3.5-turbo`) all route here.
 
 [LOCAL_ADMISSION]:

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `ReactiveUI.Validation`
 - package: `ReactiveUI.Validation`
-- version: `7.1.0`
 - license: `MIT`
 - assembly: `ReactiveUI.Validation`
 - build-floor: `net10.0` (consumer-bound; multi-targets net8.0/net9.0/net462/net472/net481 + mobile/desktop RIDs — none bound here)

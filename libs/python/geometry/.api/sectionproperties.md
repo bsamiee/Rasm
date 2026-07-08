@@ -9,7 +9,7 @@
 - import: `import sectionproperties`
 - owner: `geometry`
 - rail: ifc/structural / section-property-enrichment
-- license: `MIT` (own); transitive copyleft — the mesh backend `cytriangle` (3.0.2) is `LGPLv3`, a dynamically-linked native triangulation extension pulled into the runtime, so the structural-enrichment owner accounts for LGPL obligations on the meshing dependency
+- license: `MIT` (own); transitive copyleft — the mesh backend `cytriangle` (release) is `LGPLv3`, a dynamically-linked native triangulation extension pulled into the runtime, so the structural-enrichment owner accounts for LGPL obligations on the meshing dependency
 - entry points: none (library only)
 
 ## [02]-[PUBLIC_TYPES]
@@ -19,24 +19,24 @@
 
 `Geometry` is the single-region 2D polygon model; `CompoundGeometry` is the multi-region assembly. Both carry control points and holes and produce a triangular mesh consumed by `Section`.
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [CAPABILITY]                                           |
-| :-----: | :--------------------- | :----------------- | :----------------------------------------------------- |
-|  [01]   | `pre.Geometry`         | single-region body | one polygon region with holes, control point, material |
-|  [02]   | `pre.CompoundGeometry` | multi-region body  | union of `Geometry` regions for built-up sections      |
-|  [03]   | `pre.Material`         | material           | elastic modulus, Poisson ratio, yield, density, color  |
-|  [04]   | `pre.DEFAULT_MATERIAL` | material           | unit-property default material when none is assigned   |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `pre.Geometry` | single-region body | one polygon region with holes, control point, material |
+| [02] | `pre.CompoundGeometry` | multi-region body | union of `Geometry` regions for built-up sections |
+| [03] | `pre.Material` | material | elastic modulus, Poisson ratio, yield, density, color |
+| [04] | `pre.DEFAULT_MATERIAL` | material | unit-property default material when none is assigned |
 
 [PUBLIC_TYPE_SCOPE]: solver and results (`sectionproperties.analysis` / `.post`)
 - rail: section-property-enrichment
 
 `Section` is the single solver bound to a meshed geometry; the property result carriers are returned by the calculate/getter entrypoints rather than constructed directly.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CAPABILITY]                                          |
-| :-----: | :----------------------- | :---------------- | :---------------------------------------------------- |
-|  [01]   | `analysis.Section`       | section solver    | geometric/warping/plastic property solver over a mesh |
-|  [02]   | `post.SectionProperties` | property receipt  | accumulated geometric/warping/plastic property fields |
-|  [03]   | `post.StressResult`      | stress receipt    | per-element stress arrays from a stress calculation   |
-|  [04]   | `post.StressPost`        | stress aggregator | the stress-analysis result carrier from a load case   |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `analysis.Section` | section solver | geometric/warping/plastic property solver over a mesh |
+| [02] | `post.SectionProperties` | property receipt | accumulated geometric/warping/plastic property fields |
+| [03] | `post.StressResult` | stress receipt | per-element stress arrays from a stress calculation |
+| [04] | `post.StressPost` | stress aggregator | the stress-analysis result carrier from a load case |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -45,30 +45,30 @@
 
 Construct a geometry from points or a DXF, subtract holes, then mesh with a maximum triangle area before binding it to a `Section`.
 
-| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                          |
-| :-----: | :---------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Geometry.from_points(points, facets, control_points, holes, material)` | factory        | polygon region from explicit point/facet rings                                                                        |
-|  [02]   | `Geometry.from_dxf(dxf_filepath) -> Geometry \| CompoundGeometry`       | converter      | import a DXF profile into a geometry body                                                                             |
-|  [03]   | `CompoundGeometry(geoms: list[Geometry])`                               | constructor    | assemble built-up section from regions                                                                                |
-|  [04]   | `geometry - hole` (`__sub__`)                                           | operator       | subtract a polygon to register an interior void; holes are also supplied at construction via `from_points(holes=...)` |
-|  [05]   | `geometry.create_mesh(mesh_sizes, ...) -> Geometry`                     | mesher         | triangulate region(s) at a max-area bound                                                                             |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Geometry.from_points(points, facets, control_points, holes, material)` | factory | polygon region from explicit point/facet rings |
+| [02] | `Geometry.from_dxf(dxf_filepath) -> Geometry \| CompoundGeometry` | converter | import a DXF profile into a geometry body |
+| [03] | `CompoundGeometry(geoms: list[Geometry])` | constructor | assemble built-up section from regions |
+| [04] | `geometry - hole` (`sub`) | operator | subtract a polygon to register an interior void; holes are also supplied at construction via `from_points(holes=...)` |
+| [05] | `geometry.create_mesh(mesh_sizes, ...) -> Geometry` | mesher | triangulate region(s) at a max-area bound |
 
 [ENTRYPOINT_SCOPE]: property and stress calculation (`analysis.Section`)
 - rail: section-property-enrichment
 
 Bind the meshed geometry to a `Section`, then run the geometric pass first (warping and plastic passes depend on it), and query stress at points after a stress analysis.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
-|  [01]   | `Section(geometry: Geometry)`                                 | constructor    | solver bound to a meshed geometry                      |
-|  [02]   | `Section.calculate_geometric_properties() -> None`            | solver         | area, centroid, second moments, principal axes         |
-|  [03]   | `Section.calculate_warping_properties() -> None`              | solver         | torsion constant, shear/warping centers, shear areas   |
-|  [04]   | `Section.calculate_plastic_properties() -> None`              | solver         | plastic centroids, plastic moduli, shape factors       |
-|  [05]   | `Section.calculate_frame_properties() -> tuple`               | solver         | reduced area/inertia/torsion tuple for a frame analysis without the full warping pass |
-|  [06]   | `Section.calculate_stress(...) -> post.StressPost`            | solver         | full-field stress under a design-action load case      |
-|  [07]   | `Section.get_stress_at_points(pts, n, mxx, myy, ...) -> list` | query          | per-point stress under a normal force/moment load case |
-|  [08]   | `Section.get_*()` accessor family                             | accessor       | read computed scalars off the property receipt (see [04] for the confirmed accessor set) |
-|  [09]   | `Section.elements -> list[fea.Tri6]` / `Section.num_nodes -> int` / `Section.mesh_elements -> np.ndarray` / `Section.mesh_nodes -> np.ndarray` | attribute | the FE mesh census: Tri6 element roster, node count, triangle connectivity, vertex coordinates (`num_elements` does NOT exist) |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Section(geometry: Geometry)` | constructor | solver bound to a meshed geometry |
+| [02] | `Section.calculate_geometric_properties() -> None` | solver | area, centroid, second moments, principal axes |
+| [03] | `Section.calculate_warping_properties() -> None` | solver | torsion constant, shear/warping centers, shear areas |
+| [04] | `Section.calculate_plastic_properties() -> None` | solver | plastic centroids, plastic moduli, shape factors |
+| [05] | `Section.calculate_frame_properties() -> tuple` | solver | reduced area/inertia/torsion tuple for a frame analysis without the full warping pass |
+| [06] | `Section.calculate_stress(...) -> post.StressPost` | solver | full-field stress under a design-action load case |
+| [07] | `Section.get_stress_at_points(pts, n, mxx, myy, ...) -> list` | query | per-point stress under a normal force/moment load case |
+| [08] | `Section.get_*()` accessor family | accessor | read computed scalars off the property receipt (see [04] for the confirmed accessor set) |
+| [09] | `Section.elements -> list[fea.Tri6]` / `Section.num_nodes -> int` / `Section.mesh_elements -> np.ndarray` / `Section.mesh_nodes -> np.ndarray` | attribute | the FE mesh census: Tri6 element roster, node count, triangle connectivity, vertex coordinates (`num_elements` does NOT exist) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

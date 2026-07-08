@@ -15,7 +15,6 @@ from C# domain to `timestamptz` and back.
 
 [PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
 - package: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime`
-- version: `10.0.2`
 - license: `PostgreSQL`
 - assembly: `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime` (`lib/net10.0`, the consumer-bound TFM)
 - namespace: `Microsoft.EntityFrameworkCore` (public extensions); plugin internals under `Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime.*.Internal`

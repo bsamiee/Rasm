@@ -20,108 +20,108 @@
 [PUBLIC_TYPE_SCOPE]: chart and composition roots
 - rail: visuals
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]   | [RAIL]                                                |
-| :-----: | :-------------------- | :-------------- | :---------------------------------------------------- |
-|  [01]   | `Chart`               | chart builder   | single-view chart with mark/encode/transform/param    |
-|  [02]   | `LayerChart`          | layered chart   | overlaid views (`+` operator / `layer`)               |
-|  [03]   | `HConcatChart`        | concat chart    | horizontal side-by-side composition (`\|` operator)   |
-|  [04]   | `VConcatChart`        | concat chart    | vertical stacked composition (`&` operator)           |
-|  [05]   | `ConcatChart`         | concat chart    | wrappable grid composition                            |
-|  [06]   | `FacetChart`          | faceted chart   | small-multiples by field                              |
-|  [07]   | `RepeatChart`         | repeated chart  | repeat one spec across a field list (row/column/layer) |
-|  [08]   | `JupyterChart`        | widget          | `anywidget`-backed interactive widget; `Params`/`Selections` traitlet sub-objects mirror live `param`/selection state bidirectionally into Python; `JupyterChart.enable_offline(offline=True)` inlines JS for no-CDN use |
-|  [09]   | `data_transformers`   | plugin registry | dataset handling axis; registers `default`/`json`/`csv`/`vegafusion` (the `vegafusion` plugin is the large-dataset server-side pre-aggregation switch) |
-|  [10]   | `renderers`           | plugin registry | output renderer axis; registers `html`/`json`/`png`/`svg`/`mimetype`/`browser`/`jupyter`/`jupyterlab`/`colab`/`kaggle`/`nteract`/`zeppelin`/`olli` |
-|  [11]   | `vegalite_compilers`  | plugin registry | spec-to-vega compiler axis; registers `vl-convert` (the sole admitted compiler, enabled by default) |
-|  [12]   | `theme`               | plugin registry | named chart theme axis: `theme.enable(name)`/`active`/`names()`/`get()`/`options`, the `@theme.register(name, *, enable)` decorator over a `() -> ThemeConfig` factory, `theme.unregister(name)`, and the typed `theme.ThemeConfig` + `*Kwds` `TypedDict` family (`ConfigKwds`/`MarkConfigKwds`/`AxisConfigKwds`/`LegendConfigKwds`/`ScaleConfigKwds`/`TitleConfigKwds`/`ViewConfigKwds`/...) for statically-typed theme authoring rather than a hand-merged config dict |
-|  [13]   | `VEGALITE_VERSION` / `VEGA_VERSION` / `VEGAEMBED_VERSION` / `SCHEMA_VERSION` / `SCHEMA_URL` | version constants | the pinned Vega-Lite/Vega/Vega-Embed/JSON-schema versions the `save`/`to_html` defaults bind; pass through to the `vl-convert` compiler so the rendered spec version matches the builder |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `Chart` | chart builder | single-view chart with mark/encode/transform/param |
+| [02] | `LayerChart` | layered chart | overlaid views (`+` operator / `layer`) |
+| [03] | `HConcatChart` | concat chart | horizontal side-by-side composition (`\|` operator) |
+| [04] | `VConcatChart` | concat chart | vertical stacked composition (`&` operator) |
+| [05] | `ConcatChart` | concat chart | wrappable grid composition |
+| [06] | `FacetChart` | faceted chart | small-multiples by field |
+| [07] | `RepeatChart` | repeated chart | repeat one spec across a field list (row/column/layer) |
+| [08] | `JupyterChart` | widget | `anywidget`-backed interactive widget; `Params`/`Selections` traitlet sub-objects mirror live `param`/selection state bidirectionally into Python; `JupyterChart.enable_offline(offline=True)` inlines JS for no-CDN use |
+| [09] | `data_transformers` | plugin registry | dataset handling axis; registers `default`/`json`/`csv`/`vegafusion` (the `vegafusion` plugin is the large-dataset server-side pre-aggregation switch) |
+| [10] | `renderers` | plugin registry | output renderer axis; registers `html`/`json`/`png`/`svg`/`mimetype`/`browser`/`jupyter`/`jupyterlab`/`colab`/`kaggle`/`nteract`/`zeppelin`/`olli` |
+| [11] | `vegalite_compilers` | plugin registry | spec-to-vega compiler axis; registers `vl-convert` (the sole admitted compiler, enabled by default) |
+| [12] | `theme` | plugin registry | named chart theme axis: `theme.enable(name)`/`active`/`names()`/`get()`/`options`, the `@theme.register(name, *, enable)` decorator over a `() -> ThemeConfig` factory, `theme.unregister(name)`, and the typed `theme.ThemeConfig` + `*Kwds` `TypedDict` family (`ConfigKwds`/`MarkConfigKwds`/`AxisConfigKwds`/`LegendConfigKwds`/`ScaleConfigKwds`/`TitleConfigKwds`/`ViewConfigKwds`/...) for statically-typed theme authoring rather than a hand-merged config dict |
+| [13] | `VEGALITE_VERSION` / `VEGA_VERSION` / `VEGAEMBED_VERSION` / `SCHEMA_VERSION` / `SCHEMA_URL` | version constants | the pinned Vega-Lite/Vega/Vega-Embed/JSON-schema versions the `save`/`to_html` defaults bind; pass through to the `vl-convert` compiler so the rendered spec version matches the builder |
 
 [PUBLIC_TYPE_SCOPE]: encoding channels, guides, and the interaction algebra
 - rail: visuals
 
-The encoding channel constructors (`X`/`Y`/`Color`/...) and guides (`Scale`/`Axis`/`Legend`) are typed value objects passed to `encode`; each accepts a `field`/`type` shorthand or full keyword config. `param` is the single canonical interaction primitive: a variable `param(value=, bind=, expr=)` binds a UI control or holds a derived expression, and `selection_point`/`selection_interval` are `param` factories returning point/interval selection `Parameter` objects; a `Parameter` carries `Parameter.to_dict()` for its spec reference (`Parameter.ref()` is a deprecated no-op — the bare object now references directly). `when(predicate).then(stmt).otherwise(stmt)` is the conditional-encoding chain; `Then.when(...)` adds an else-if branch via `ChainedWhen`, so a multi-case conditional is one fluent chain rather than nested `condition` calls. `value`/`datum` lift literals and data references into encodings. The legacy interaction members survive only as version-stamped `@utils.deprecated` aliases that the owner never mints — `selection_single`/`selection_multi` (v5.0.0 → `selection_point`), `selection(type=)` (→ `selection_point`/`selection_interval`), `Chart.add_selection` (v5.0.0 → `add_params`), `param(init=)` (→ `value`) — each names its exact replacement; canonical code uses `param`/`add_params`/`selection_point`/`selection_interval`/`when` only.
+The encoding channel constructors (`X`/`Y`/`Color`/...) and guides (`Scale`/`Axis`/`Legend`) are typed value objects passed to `encode`; each accepts a `field`/`type` shorthand or full keyword config. `param` is the single canonical interaction primitive: a variable `param(value=, bind=, expr=)` binds a UI control or holds a derived expression, and `selection_point`/`selection_interval` are `param` factories returning point/interval selection `Parameter` objects; a `Parameter` carries `Parameter.to_dict()` for its spec reference (`Parameter.ref()` is a deprecated no-op — the bare object now references directly). `when(predicate).then(stmt).otherwise(stmt)` is the conditional-encoding chain; `Then.when(...)` adds an else-if branch via `ChainedWhen`, so a multi-case conditional is one fluent chain rather than nested `condition` calls. `value`/`datum` lift literals and data references into encodings. The legacy interaction members survive only as version-stamped `@utils.deprecated` aliases that the owner never mints — `selection_single`/`selection_multi` (release → `selection_point`), `selection(type=)` (→ `selection_point`/`selection_interval`), `Chart.add_selection` (release → `add_params`), `param(init=)` (→ `value`) — each names its exact replacement; canonical code uses `param`/`add_params`/`selection_point`/`selection_interval`/`when` only.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                  |
-| :-----: | :-------------------------------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `X` / `Y` / `X2` / `Y2`           | channel       | positional encoding constructors                        |
-|  [02]   | `XOffset` / `YOffset`             | channel       | sub-position offset (grouped/dodged marks)              |
-|  [03]   | `Color` / `Fill` / `Stroke`       | channel       | color encoding (mark fill/stroke)                       |
-|  [04]   | `Size` / `Opacity` / `Angle`      | channel       | size / opacity / rotation encoding                      |
-|  [05]   | `Shape` / `Tooltip` / `Detail`    | channel       | shape, tooltip, and grouping-detail encoding            |
-|  [06]   | `Theta` / `Radius`                | channel       | polar (arc/pie) encoding                                |
-|  [07]   | `Latitude` / `Longitude`          | channel       | geographic encoding for `mark_geoshape`                 |
-|  [08]   | `Row` / `Column` / `Facet`        | channel       | facet-field encoding                                    |
-|  [09]   | `Order` / `Text` / `Href` / `Key` | channel       | sort order, text label, link, and join-key encoding     |
-|  [10]   | `Scale` / `Axis` / `Legend`       | guide         | scale, axis, and legend configuration                   |
-|  [11]   | `Bin` / `Impute` / `Sort`         | encoding spec | bin spec, imputation spec, and channel sort order       |
-|  [12]   | `param`                           | parameter     | canonical interaction primitive (variable / selection)  |
-|  [13]   | `selection_point`                 | parameter     | point selection `param` factory                         |
-|  [14]   | `selection_interval`              | parameter     | interval (brush) selection `param` factory              |
-|  [15]   | `when` / `condition`              | conditional   | predicate-driven conditional encoding (`when().then().otherwise()`) |
-|  [16]   | `value` / `datum` / `expr`        | literal / ref | encoding-value literal, datum reference, Vega-expression namespace |
-|  [17]   | `binding_range` / `binding_select` / `binding_radio` / `binding_checkbox` / `binding` | binding | bind a `param` to an HTML input control (`binding(input, *, element=, name=, ...)` is the generic form) |
-|  [18]   | `Data` / `InlineData` / `UrlData` / `NamedData` / `InlineDataset` | data source | inline / URL / named dataset references; `InlineDataset` carries a named inline frame |
-|  [19]   | `Parameter` / `When` / `Then` / `ChainedWhen` | interaction objects | the `param`/selection return type and the `when().then().otherwise()` / `Then.when()` builder chain objects |
-|  [20]   | `topo_feature`                    | geo data ref  | `topo_feature(url, feature) -> UrlData` references a TopoJSON object collection for `mark_geoshape` |
-|  [21]   | `PredicateComposition` / `FieldName` | predicate / field | logical predicate composition (`&`/`|`/`~` over selections) and the typed field-name value object |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `X` / `Y` / `X2` / `Y2` | channel | positional encoding constructors |
+| [02] | `XOffset` / `YOffset` | channel | sub-position offset (grouped/dodged marks) |
+| [03] | `Color` / `Fill` / `Stroke` | channel | color encoding (mark fill/stroke) |
+| [04] | `Size` / `Opacity` / `Angle` | channel | size / opacity / rotation encoding |
+| [05] | `Shape` / `Tooltip` / `Detail` | channel | shape, tooltip, and grouping-detail encoding |
+| [06] | `Theta` / `Radius` | channel | polar (arc/pie) encoding |
+| [07] | `Latitude` / `Longitude` | channel | geographic encoding for `mark_geoshape` |
+| [08] | `Row` / `Column` / `Facet` | channel | facet-field encoding |
+| [09] | `Order` / `Text` / `Href` / `Key` | channel | sort order, text label, link, and join-key encoding |
+| [10] | `Scale` / `Axis` / `Legend` | guide | scale, axis, and legend configuration |
+| [11] | `Bin` / `Impute` / `Sort` | encoding spec | bin spec, imputation spec, and channel sort order |
+| [12] | `param` | parameter | canonical interaction primitive (variable / selection) |
+| [13] | `selection_point` | parameter | point selection `param` factory |
+| [14] | `selection_interval` | parameter | interval (brush) selection `param` factory |
+| [15] | `when` / `condition` | conditional | predicate-driven conditional encoding (`when().then().otherwise()`) |
+| [16] | `value` / `datum` / `expr` | literal / ref | encoding-value literal, datum reference, Vega-expression namespace |
+| [17] | `binding_range` / `binding_select` / `binding_radio` / `binding_checkbox` / `binding` | binding | bind a `param` to an HTML input control (`binding(input, *, element=, name=, ...)` is the generic form) |
+| [18] | `Data` / `InlineData` / `UrlData` / `NamedData` / `InlineDataset` | data source | inline / URL / named dataset references; `InlineDataset` carries a named inline frame |
+| [19] | `Parameter` / `When` / `Then` / `ChainedWhen` | interaction objects | the `param`/selection return type and the `when().then().otherwise()` / `Then.when()` builder chain objects |
+| [20] | `topo_feature` | geo data ref | `topo_feature(url, feature) -> UrlData` references a TopoJSON object collection for `mark_geoshape` |
+| [21] | `PredicateComposition` / `FieldName` | predicate / field | logical predicate composition (`&`/` \| `/`~` over selections) and the typed field-name value object |
 
 ## [03]-[ENTRYPOINTS]
 
 `Chart(data)` admits any narwhals-native frame, a `pandas`/`polars`/`pyarrow` frame, a URL string, or a `Data` object. The `mark_*` family is the single geometric-mark axis (17 rows); `encode` binds fields to channels; `transform_*` is the single data-pipeline axis (19 rows, including the statistical `regression`/`loess`/`density`/`quantile`/`window`); `add_params` registers interaction `param`s; `properties`/`configure*` set view and theme config.
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                                          | [CAPABILITY]                                            |
-| :-----: | :------------------ | :------------------------------------------------------------------------------------ | :------------------------------------------------------ |
-|  [01]   | `Chart`             | `Chart(data=None, *, mark=..., width=..., height=..., title=..., ...)`                | build a chart over a frame / URL / `Data`               |
-|  [02]   | `Chart.mark_*`      | `mark_bar` / `mark_line` / `mark_point` / `mark_area` / `mark_circle` / `mark_square` / `mark_tick` / `mark_rect` / `mark_rule` / `mark_text` / `mark_arc` / `mark_geoshape` / `mark_image` / `mark_trail` / `mark_boxplot` / `mark_errorbar` / `mark_errorband` | set the geometric mark (each takes mark-config kwargs)  |
-|  [03]   | `Chart.encode`      | `encode(*args, x=..., y=..., color=..., size=..., theta=..., tooltip=..., ...) -> Self` | bind data fields to ~40 encoding channels             |
-|  [04]   | `Chart.transform_*` | the exact 19-method family: `transform_filter` / `transform_calculate` / `transform_aggregate` / `transform_bin` / `transform_fold` / `transform_pivot` / `transform_window` / `transform_joinaggregate` / `transform_lookup` / `transform_density` / `transform_regression` / `transform_loess` / `transform_quantile` / `transform_impute` / `transform_flatten` / `transform_sample` / `transform_stack` / `transform_timeunit` / `transform_extent` | data transform pipeline (server-side Vega transforms, chained left-to-right); statistical transforms run in Vega, never a hand-rolled numpy fit |
-|  [05]   | `Chart.transform_regression` | `transform_regression(on, regression, as_=..., extent=..., groupby=..., method=..., order=..., params=...) -> Self` | fit a regression (`method` ∈ `linear`/`log`/`exp`/`pow`/`quad`/`poly`) trend; `params=True` emits `rSquared`/coef rows |
-|  [06]   | `Chart.transform_density` | `transform_density(density, as_=..., bandwidth=..., counts=..., cumulative=..., extent=..., groupby=..., maxsteps=..., minsteps=..., steps=..., resolve=...) -> Self` | KDE density estimate as a transform |
-|  [07]   | `Chart.transform_extent` | `transform_extent(extent, param) -> Self`; `transform_loess(on, loess, as_=..., bandwidth=..., groupby=...)`; `transform_quantile(quantile, probs=..., step=..., as_=..., groupby=...)` | compute a field extent INTO a named `param` (feeds a `binding_range` domain); loess smoother; quantile/Q-Q transform |
-|  [07]   | `Chart.add_params`  | `add_params(*params) -> Self`                                                         | register interaction `param`s on the chart              |
-|  [08]   | `Chart.interactive` | `interactive(name=None, bind_x=True, bind_y=True) -> Self`                            | bind a default pan/zoom interval selection              |
-|  [09]   | `Chart.properties`  | `properties(width=..., height=..., title=..., **kwds) -> Self`                        | set view-level width/height/title                       |
-|  [10]   | `Chart.configure_*` | 55-arm family: `configure(...)` / `configure_axis(...)` (+ `configure_axisX/Y/Band/Top/Bottom/Left/Right/Discrete/Quantitative/Temporal/Point` variants) / `configure_legend(...)` / `configure_mark(...)` / per-mark `configure_<mark>(...)` / `configure_view(...)` / `configure_title(...)` / `configure_scale(...)` / `configure_range(...)` / `configure_header(...)` / `configure_projection(...)` / `configure_selection(...)` / `configure_concat/facet(...)` | top-level theme/config — one arm per Vega-Lite config block, never a hand-merged dict |
-|  [11]   | `Chart.project`     | `project(type=..., center=..., clipAngle=..., rotate=..., scale=..., translate=..., precision=..., parallel=..., **kwds) -> Self` | configure the geographic projection for `mark_geoshape` (the d3-geo projection family) |
-|  [12]   | `Chart.resolve_*`   | `resolve_scale(*, x=..., y=..., color=...)` / `resolve_axis(...)` / `resolve_legend(...)` | composite-view scale/axis/legend conflict resolution (`shared`/`independent`) for `layer`/`concat`/`facet` roots |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Chart` | `Chart(data=None, *, mark=..., width=..., height=..., title=..., ...)` | build a chart over a frame / URL / `Data` |
+| [02] | `Chart.mark_*` | `mark_bar` / `mark_line` / `mark_point` / `mark_area` / `mark_circle` / `mark_square` / `mark_tick` / `mark_rect` / `mark_rule` / `mark_text` / `mark_arc` / `mark_geoshape` / `mark_image` / `mark_trail` / `mark_boxplot` / `mark_errorbar` / `mark_errorband` | set the geometric mark (each takes mark-config kwargs) |
+| [03] | `Chart.encode` | `encode(*args, x=..., y=..., color=..., size=..., theta=..., tooltip=..., ...) -> Self` | bind data fields to ~40 encoding channels |
+| [04] | `Chart.transform_*` | the exact 19-method family: `transform_filter` / `transform_calculate` / `transform_aggregate` / `transform_bin` / `transform_fold` / `transform_pivot` / `transform_window` / `transform_joinaggregate` / `transform_lookup` / `transform_density` / `transform_regression` / `transform_loess` / `transform_quantile` / `transform_impute` / `transform_flatten` / `transform_sample` / `transform_stack` / `transform_timeunit` / `transform_extent` | data transform pipeline (server-side Vega transforms, chained left-to-right); statistical transforms run in Vega, never a hand-rolled numpy fit |
+| [05] | `Chart.transform_regression` | `transform_regression(on, regression, as_=..., extent=..., groupby=..., method=..., order=..., params=...) -> Self` | fit a regression (`method` ∈ `linear`/`log`/`exp`/`pow`/`quad`/`poly`) trend; `params=True` emits `rSquared`/coef rows |
+| [06] | `Chart.transform_density` | `transform_density(density, as_=..., bandwidth=..., counts=..., cumulative=..., extent=..., groupby=..., maxsteps=..., minsteps=..., steps=..., resolve=...) -> Self` | KDE density estimate as a transform |
+| [07] | `Chart.transform_extent` | `transform_extent(extent, param) -> Self`; `transform_loess(on, loess, as_=..., bandwidth=..., groupby=...)`; `transform_quantile(quantile, probs=..., step=..., as_=..., groupby=...)` | compute a field extent INTO a named `param` (feeds a `binding_range` domain); loess smoother; quantile/Q-Q transform |
+| [08] | `Chart.add_params` | `add_params(*params) -> Self` | register interaction `param`s on the chart |
+| [09] | `Chart.interactive` | `interactive(name=None, bind_x=True, bind_y=True) -> Self` | bind a default pan/zoom interval selection |
+| [10] | `Chart.properties` | `properties(width=..., height=..., title=..., **kwds) -> Self` | set view-level width/height/title |
+| [11] | `Chart.configure_*` | 55-arm family: `configure(...)` / `configure_axis(...)` (+ `configure_axisX/Y/Band/Top/Bottom/Left/Right/Discrete/Quantitative/Temporal/Point` variants) / `configure_legend(...)` / `configure_mark(...)` / per-mark `configure_<mark>(...)` / `configure_view(...)` / `configure_title(...)` / `configure_scale(...)` / `configure_range(...)` / `configure_header(...)` / `configure_projection(...)` / `configure_selection(...)` / `configure_concat/facet(...)` | top-level theme/config — one arm per Vega-Lite config block, never a hand-merged dict |
+| [12] | `Chart.project` | `project(type=..., center=..., clipAngle=..., rotate=..., scale=..., translate=..., precision=..., parallel=..., **kwds) -> Self` | configure the geographic projection for `mark_geoshape` (the d3-geo projection family) |
+| [13] | `Chart.resolve_*` | `resolve_scale(*, x=..., y=..., color=...)` / `resolve_axis(...)` / `resolve_legend(...)` | composite-view scale/axis/legend conflict resolution (`shared`/`independent`) for `layer`/`concat`/`facet` roots |
 
 [ENTRYPOINT_SCOPE]: interaction algebra
 - rail: visuals
 
 `param` is the single interaction primitive; `selection_point`/`selection_interval` are its selection factories; `when().then().otherwise()` builds conditional encodings; `binding_*` attach UI controls. A typical interactive chart binds a `param` via `add_params`, then references it in `when(param)` inside an `encode` channel — the deprecated `add_selection`/`condition`-only path is never minted.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                 | [CAPABILITY]                                            |
-| :-----: | :--------------------- | :------------------------------------------------------------------------------------------- | :------------------------------------------------------ |
-|  [01]   | `param`                | `param(name=None, value=..., bind=..., empty=..., expr=..., **kwds) -> Parameter`            | a variable / selection parameter                        |
-|  [02]   | `selection_point`      | `selection_point(name=None, value=..., bind=..., empty=..., fields=..., encodings=..., on=..., clear=..., resolve=..., toggle=..., nearest=..., **kwds) -> Parameter` | point selection `param` (click/hover, multi-resolve) |
-|  [03]   | `selection_interval`   | `selection_interval(name=None, value=..., bind=..., empty=..., encodings=..., on=..., clear=..., resolve=..., mark=..., translate=..., zoom=..., **kwds) -> Parameter` | interval (brush) selection `param` |
-|  [04]   | `when` / `Then.when`   | `when(predicate=..., *more_predicates, empty=..., **constraints) -> When`; `.then(stmt) -> Then`; `Then.otherwise(stmt)` closes; `Then.when(...) -> ChainedWhen` adds an else-if | multi-case conditional-encoding builder |
-|  [05]   | `condition`            | `condition(predicate, if_true, if_false, *, empty=...) -> SchemaBase \| _Conditional`        | single-shot conditional encoding (the `when` chain supersedes it for multi-case) |
-|  [06]   | `binding_range`        | `binding_range(min=..., max=..., step=..., name=...)` (`binding_select`/`binding_radio`/`binding_checkbox`/`binding` mirrors) | bind a `param` to an HTML input |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `param` | `param(name=None, value=..., bind=..., empty=..., expr=..., **kwds) -> Parameter` | a variable / selection parameter |
+| [02] | `selection_point` | `selection_point(name=None, value=..., bind=..., empty=..., fields=..., encodings=..., on=..., clear=..., resolve=..., toggle=..., nearest=..., **kwds) -> Parameter` | point selection `param` (click/hover, multi-resolve) |
+| [03] | `selection_interval` | `selection_interval(name=None, value=..., bind=..., empty=..., encodings=..., on=..., clear=..., resolve=..., mark=..., translate=..., zoom=..., **kwds) -> Parameter` | interval (brush) selection `param` |
+| [04] | `when` / `Then.when` | `when(predicate=..., *more_predicates, empty=..., **constraints) -> When`; `.then(stmt) -> Then`; `Then.otherwise(stmt)` closes; `Then.when(...) -> ChainedWhen` adds an else-if | multi-case conditional-encoding builder |
+| [05] | `condition` | `condition(predicate, if_true, if_false, *, empty=...) -> SchemaBase \| _Conditional` | single-shot conditional encoding (the `when` chain supersedes it for multi-case) |
+| [06] | `binding_range` | `binding_range(min=..., max=..., step=..., name=...)` (`binding_select`/`binding_radio`/`binding_checkbox`/`binding` mirrors) | bind a `param` to an HTML input |
 
 [ENTRYPOINT_SCOPE]: composition, transform execution, and export
 - rail: visuals
 
 `layer`/`hconcat`/`vconcat`/`concat` are the composition operators (mirrored by `+`/`|`/`&`); `repeat`/`facet` template one spec across a field list; `resolve_scale`/`resolve_axis`/`resolve_legend` resolve guide conflicts on the composite. `transformed_data` executes the transform pipeline locally through narwhals and returns the resulting frame (for inspection or hand-off — the in-process counterpart to the `vegafusion` server-side pre-pass). `to_dict`/`to_json` emit the spec; `to_html` renders a self-contained or CDN-linked HTML string; `save` is the single multi-format file export — `format` ∈ `json`/`html`/`png`/`svg`/`pdf`, `engine` selects `vl-convert` (default) or `vegafusion`, `inline=True` embeds JS for an offline HTML; `to_url`/`open_editor` mint or open a Vega-editor URL. The data utilities (`sample`/`limit_rows`/`to_values`/`to_json`/`to_csv`) are the `data_transformers` building blocks for custom dataset handling.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                                       | [CAPABILITY]                                          |
-| :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `layer`                | `layer(*charts, **kwargs) -> LayerChart`                                                                           | overlay multiple chart views                          |
-|  [02]   | `hconcat` / `vconcat`  | `hconcat(*charts) -> HConcatChart`; `vconcat(*charts) -> VConcatChart`                                             | horizontal / vertical concatenation                   |
-|  [03]   | `concat`               | `concat(*charts, **kwargs) -> ConcatChart`                                                                         | wrappable grid concatenation                          |
-|  [04]   | `Chart.facet`          | `facet(facet=..., row=..., column=..., columns=..., data=...) -> FacetChart`                                       | small-multiples by field                              |
-|  [05]   | `Chart.repeat`         | `repeat(repeat=..., row=..., column=..., layer=..., columns=...) -> RepeatChart`                                   | repeat one spec across a field list                   |
-|  [06]   | `Chart.transformed_data` | `transformed_data(row_limit=None, exclude=None) -> DataFrameLike \| None`                                        | execute transforms locally (narwhals) -> frame (in-process counterpart to the `vegafusion` server pre-pass) |
-|  [07]   | `Chart.to_dict`        | `to_dict(validate=True, *, format='vega-lite', ignore=None, context=None) -> dict[str, Any]`                      | emit the Vega-Lite spec as dict (a `SchemaValidationError` raises under `validate=True`) |
-|  [08]   | `Chart.to_json`        | `to_json(validate=True, indent=2, sort_keys=True, *, format='vega-lite', ensure_ascii=False, **kwargs) -> str`    | emit spec as JSON string                              |
-|  [09]   | `Chart.save`           | `save(fp, format=None, scale_factor=1.0, mode=None, vegalite_version=VEGALITE_VERSION, vega_version=VEGA_VERSION, vegaembed_version=VEGAEMBED_VERSION, embed_options=None, engine=None, inline=False, **kwargs) -> None` | export to file (`format` ∈ json/html/png/svg/pdf) via the `vl-convert`/`vegafusion` engine |
-|  [10]   | `Chart.to_html`        | `to_html(base_url='https://cdn.jsdelivr.net/npm', output_div='vis', embed_options=None, fullhtml=True, requirejs=False, inline=False, **kwargs) -> str` | self-contained (`inline=True`) or CDN-linked interactive HTML string |
-|  [11]   | `Chart.to_url` / `open_editor` | `to_url(*, fullscreen=False, validate=True) -> str`; `open_editor(*, fullscreen=False, validate=True) -> None` | mint / open a shareable Vega-editor URL |
-|  [12]   | `theme.register`       | `@theme.register(name, *, enable)` decorating a `() -> ThemeConfig` factory; `theme.enable(name)` / `theme.unregister(name)` / `theme.active` / `theme.names()` | register / enable / inspect a named chart theme |
-|  [13]   | `data_transformers.enable` | `data_transformers.enable('vegafusion' \| 'default' \| 'json' \| 'csv')`                                       | select dataset handling (`vegafusion` = server-side pre-aggregation) |
-|  [14]   | `graticule` / `sphere` / `sequence` / `topo_feature` | `graticule(**kwds) -> GraticuleGenerator`; `sphere() -> SphereGenerator`; `sequence(start, stop=None, step=..., as_=...) -> SequenceGenerator`; `topo_feature(url, feature) -> UrlData` | geo graticule / globe outline / numeric sequence generators for `mark_geoshape`; TopoJSON feature reference |
-|  [15]   | `sample` / `limit_rows` / `to_values` / `to_json` / `to_csv` | `data_transformers` building blocks: `sample(data=None, n=None, frac=None)`; `limit_rows(data=None, max_rows=5000)`; `to_values`/`to_json`/`to_csv` serialize a frame into a `Data` payload | custom dataset-handling primitives for a registered `data_transformers` function |
-|  [16]   | `expr`                 | the `expr` namespace — `expr.<vega_fn>(...)` / `expr.<CONST>` build `FunctionExpression`/`ConstExpression`/`GetAttrExpression` ASTs (driven by `expr.FUNCTION_LISTING`/`NAME_MAP`/`CONST_LISTING`) feeding `transform_calculate`/`param(expr=)` | typed Vega-expression algebra, no raw expression strings |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `layer` | `layer(*charts, **kwargs) -> LayerChart` | overlay multiple chart views |
+| [02] | `hconcat` / `vconcat` | `hconcat(*charts) -> HConcatChart`; `vconcat(*charts) -> VConcatChart` | horizontal / vertical concatenation |
+| [03] | `concat` | `concat(*charts, **kwargs) -> ConcatChart` | wrappable grid concatenation |
+| [04] | `Chart.facet` | `facet(facet=..., row=..., column=..., columns=..., data=...) -> FacetChart` | small-multiples by field |
+| [05] | `Chart.repeat` | `repeat(repeat=..., row=..., column=..., layer=..., columns=...) -> RepeatChart` | repeat one spec across a field list |
+| [06] | `Chart.transformed_data` | `transformed_data(row_limit=None, exclude=None) -> DataFrameLike \| None` | execute transforms locally (narwhals) -> frame (in-process counterpart to the `vegafusion` server pre-pass) |
+| [07] | `Chart.to_dict` | `to_dict(validate=True, *, format='vega-lite', ignore=None, context=None) -> dict[str, Any]` | emit the Vega-Lite spec as dict (a `SchemaValidationError` raises under `validate=True`) |
+| [08] | `Chart.to_json` | `to_json(validate=True, indent=2, sort_keys=True, *, format='vega-lite', ensure_ascii=False, **kwargs) -> str` | emit spec as JSON string |
+| [09] | `Chart.save` | `save(fp, format=None, scale_factor=1.0, mode=None, vegalite_version=VEGALITE_VERSION, vega_version=VEGA_VERSION, vegaembed_version=VEGAEMBED_VERSION, embed_options=None, engine=None, inline=False, **kwargs) -> None` | export to file (`format` ∈ json/html/png/svg/pdf) via the `vl-convert`/`vegafusion` engine |
+| [10] | `Chart.to_html` | `to_html(base_url='https://cdn.jsdelivr.net/npm', output_div='vis', embed_options=None, fullhtml=True, requirejs=False, inline=False, **kwargs) -> str` | self-contained (`inline=True`) or CDN-linked interactive HTML string |
+| [11] | `Chart.to_url` / `open_editor` | `to_url(*, fullscreen=False, validate=True) -> str`; `open_editor(*, fullscreen=False, validate=True) -> None` | mint / open a shareable Vega-editor URL |
+| [12] | `theme.register` | `@theme.register(name, *, enable)` decorating a `() -> ThemeConfig` factory; `theme.enable(name)` / `theme.unregister(name)` / `theme.active` / `theme.names()` | register / enable / inspect a named chart theme |
+| [13] | `data_transformers.enable` | `data_transformers.enable('vegafusion' \| 'default' \| 'json' \| 'csv')` | select dataset handling (`vegafusion` = server-side pre-aggregation) |
+| [14] | `graticule` / `sphere` / `sequence` / `topo_feature` | `graticule(**kwds) -> GraticuleGenerator`; `sphere() -> SphereGenerator`; `sequence(start, stop=None, step=..., as_=...) -> SequenceGenerator`; `topo_feature(url, feature) -> UrlData` | geo graticule / globe outline / numeric sequence generators for `mark_geoshape`; TopoJSON feature reference |
+| [15] | `sample` / `limit_rows` / `to_values` / `to_json` / `to_csv` | `data_transformers` building blocks: `sample(data=None, n=None, frac=None)`; `limit_rows(data=None, max_rows=5000)`; `to_values`/`to_json`/`to_csv` serialize a frame into a `Data` payload | custom dataset-handling primitives for a registered `data_transformers` function |
+| [16] | `expr` | the `expr` namespace — `expr.<vega_fn>(...)` / `expr.<CONST>` build `FunctionExpression`/`ConstExpression`/`GetAttrExpression` ASTs (driven by `expr.FUNCTION_LISTING`/`NAME_MAP`/`CONST_LISTING`) feeding `transform_calculate`/`param(expr=)` | typed Vega-expression algebra, no raw expression strings |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -129,7 +129,7 @@ The encoding channel constructors (`X`/`Y`/`Color`/...) and guides (`Scale`/`Axi
 - import: `import altair as alt` at boundary scope only; module-level import is banned by the manifest import policy.
 - ingest axis: `Chart(data)` admits any narwhals-native frame; the frame interchange is delegated to `narwhals>=2.4.0` (altair's one hard frame dep), never re-implemented as a pandas-only or per-backend ingest path. pandas/pyarrow/numpy are the `extra='all'` optionals, not a default ingest assumption — the polars-native path is the canonical Rasm frame.
 - chart axis: one `Chart` builder owns the single-view grammar; the 17 `mark_*`, ~40 `encode` channels, 19 `transform_*`, and 55 `configure_*` are method-family rows on the builder, never parallel chart types per mark; statistical transforms (`regression`/`loess`/`density`/`quantile`/`window`) run server-side in Vega, never a hand-rolled numpy fit pre-baked into the data; `mark_geoshape` is configured through `project` + the `graticule`/`sphere`/`topo_feature` generators, not a hand-built projection dict.
-- interaction axis: `param` is the single interaction primitive registered via `add_params`; `selection_point`/`selection_interval` are its factories and `when(...).then(...).otherwise(...)` (with `Then.when(...)` else-if chaining) the conditional-encoding chain. The legacy aliases are version-stamped `@utils.deprecated` shims the owner never mints: `selection_single`/`selection_multi`/`selection` (→ `selection_point`/`selection_interval`), `Chart.add_selection` (v5.0.0 → `add_params`), `param(init=)` (→ `value`), `Parameter.ref()` (no-op), bare-`condition` for multi-case (→ the `when` chain).
+- interaction axis: `param` is the single interaction primitive registered via `add_params`; `selection_point`/`selection_interval` are its factories and `when(...).then(...).otherwise(...)` (with `Then.when(...)` else-if chaining) the conditional-encoding chain. The legacy aliases are version-stamped `@utils.deprecated` shims the owner never mints: `selection_single`/`selection_multi`/`selection` (→ `selection_point`/`selection_interval`), `Chart.add_selection` (release → `add_params`), `param(init=)` (→ `value`), `Parameter.ref()` (no-op), bare-`condition` for multi-case (→ the `when` chain).
 - composition axis: `layer`/`hconcat`/`vconcat`/`concat`/`facet`/`repeat` compose `Chart` instances into the composite roots (mirrored by `+`/`|`/`&`); `resolve_scale`/`resolve_axis`/`resolve_legend` resolve shared-vs-independent guide conflicts on the composite. Composition is an operator, never a duplicated chart definition.
 - registry axis: `theme`/`renderers`/`data_transformers`/`vegalite_compilers` are the four plugin registries; a custom theme is a `@theme.register(name, *, enable)`-decorated `() -> ThemeConfig` factory (typed via the `theme.*Kwds` family), inspected through `theme.active`/`names()`/`get()`, not a manually-merged config dict; `renderers.enable(...)` selects from the registered `html`/`png`/`svg`/`json`/`mimetype`/`browser`/`jupyter*`/`colab`/`kaggle` set; `vegalite_compilers` holds the `vl-convert` compiler (default); `data_transformers.enable('vegafusion')` is the large-dataset server-side pre-aggregation switch.
 - concurrency axis: the spec build is pure/in-process, but every native render and the `vegafusion` pre-pass offload through `anyio` (`.api/anyio.md`) — vl-convert and lets-plot ride `to_thread` (GIL-releasing native cores), the `vegafusion` pre-pass and matplotlib ride `to_process`, all under one `CapacityLimiter`, so no heavy native render blocks the event loop (the pattern `visualization/chart/export#EXPORT` lands).

@@ -23,40 +23,40 @@
 
 `from_edges` returns one `Layouts` — a `list[LayoutType]` subclass, ONE element per connected component of the input graph. Each `LayoutType` is the 4-tuple `(positions, width, height, edges)`: `positions` is the `Sequence[(node_id, (x, y))]` placed-node coordinate list keyed on the ORIGINAL node id (re-projected from the Rust int indices), `width`/`height` are the component's laid-out extent, and `edges` is the optional re-projected edge list (carrying inserted dummy-vertex routing points when `dummy_vertices=True`, else the original edges or `None`). A diagram consumer reads coordinates off the typed positions, never re-parses a `dot` string; the `__all__` surface is exactly `{from_edges, layout, Layouts}` — `layout` is the transform-function module, every other name is a `_types` alias or the private `_fast_sugiyama` extension.
 
-| [INDEX] | TYPE             | KIND                | ROLE                                                                            |
-| :-----: | ---------------- | ------------------- | ------------------------------------------------------------------------------- |
-|  [01]   | `Layouts`        | `list` subclass     | the placement result: one `LayoutType` per connected component; carries the transform algebra + slice-preserving `__getitem__` |
-|  [02]   | `LayoutType`     | tuple alias         | `tuple[PositionsType, NumType, NumType, EdgeListType \| None]` = `(positions, width, height, edges)` per component |
-|  [03]   | `LayoutsType`    | list alias          | `list[LayoutType]` (the structural base `Layouts` subclasses)                   |
-|  [04]   | `PositionType`   | tuple alias         | `tuple[NodeIDType, CoordType]` = one placed `(node_id, (x, y))`                 |
-|  [05]   | `PositionsType`  | sequence alias      | `Sequence[PositionType]` placed-node coordinate list                           |
-|  [06]   | `CoordType`      | tuple alias         | `tuple[float, float] \| tuple[int, int]` a node coordinate                      |
-|  [07]   | `LayersType`     | dict alias          | `dict[NumType, Sequence[NodeIDType]]` y-banded layer membership (from `build_layers`) |
-|  [08]   | `BBoxesType`     | sequence alias      | `Sequence[tuple[CoordType, NumType, NumType]]` `((x, y), w, h)` debug/pack boxes |
+| [INDEX] | [TYPE] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Layouts` | `list` subclass | the placement result: one `LayoutType` per connected component; carries the transform algebra + slice-preserving `getitem` |
+| [02] | `LayoutType` | tuple alias | `tuple[PositionsType, NumType, NumType, EdgeListType \| None]` = `(positions, width, height, edges)` per component |
+| [03] | `LayoutsType` | list alias | `list[LayoutType]` (the structural base `Layouts` subclasses) |
+| [04] | `PositionType` | tuple alias | `tuple[NodeIDType, CoordType]` = one placed `(node_id, (x, y))` |
+| [05] | `PositionsType` | sequence alias | `Sequence[PositionType]` placed-node coordinate list |
+| [06] | `CoordType` | tuple alias | `tuple[float, float] \| tuple[int, int]` a node coordinate |
+| [07] | `LayersType` | dict alias | `dict[NumType, Sequence[NodeIDType]]` y-banded layer membership (from `build_layers`) |
+| [08] | `BBoxesType` | sequence alias | `Sequence[tuple[CoordType, NumType, NumType]]` `((x, y), w, h)` debug/pack boxes |
 
 [PUBLIC_TYPE_SCOPE]: the node/edge/coordinate vocabulary (`_types`)
 - rail: diagram-layout
 
 The edge-input vocabulary is mixed-type by design — `NodeIDType = int | str`, so a node is keyed by any hashable int or str and the boundary int-maps it for the Rust core then restores it, which is exactly what the layout owner needs to feed the stable `rustworkx` integer node index AND read coordinates back on that same index. The `Int`-suffixed aliases (`PositionIntType`, `LayoutIntType`, `LayoutsIntType`) are the Rust-core wire shapes (everything int-keyed) the `from_edges` boundary translates across; a design page composes the non-`Int` aliases.
 
-| [INDEX] | TYPE                  | DEFINITION                                          | ROLE                                                       |
-| :-----: | --------------------- | --------------------------------------------------- | ---------------------------------------------------------- |
-|  [01]   | `NodeIDType`          | `int \| str`                                        | a node key (mixed-type edges supported)                    |
-|  [02]   | `NumType`             | `int \| float`                                      | spacing / extent / coordinate scalar                       |
-|  [03]   | `EdgeType`            | `tuple[NodeIDType, NodeIDType]`                     | one `(source, target)` directed edge                       |
-|  [04]   | `EdgeListType`        | `Iterable[EdgeType]`                                | the `from_edges` input edge stream                         |
-|  [05]   | `LayoutIntType`       | `tuple[PositionsIntType, NumType, NumType, EdgeListIntType \| None]` | int-keyed per-component result (Rust-core wire)     |
-|  [06]   | `LayoutsIntType`      | `list[LayoutIntType]`                               | int-keyed result list returned by `_from_edges`            |
+| [INDEX] | [TYPE] | [DEFINITION] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `NodeIDType` | `int \| str` | a node key (mixed-type edges supported) |
+| [02] | `NumType` | `int \| float` | spacing / extent / coordinate scalar |
+| [03] | `EdgeType` | `tuple[NodeIDType, NodeIDType]` | one `(source, target)` directed edge |
+| [04] | `EdgeListType` | `Iterable[EdgeType]` | the `from_edges` input edge stream |
+| [05] | `LayoutIntType` | `tuple[PositionsIntType, NumType, NumType, EdgeListIntType \| None]` | int-keyed per-component result (Rust-core wire) |
+| [06] | `LayoutsIntType` | `list[LayoutIntType]` | int-keyed result list returned by `_from_edges` |
 
 [PUBLIC_TYPE_SCOPE]: the placement knob vocabularies (`_types`)
 - rail: diagram-layout
 
 `Ranking` and `CrossingMinimization` are the two closed `Literal` knob vocabularies that steer the Rust pipeline. `Ranking` selects the layer-assignment strategy; `CrossingMinimization` selects the heuristic the ordered crossing-reduction sweep uses. A layout policy maps onto these `Literal` values directly — the `LayeredPolicy` fields lower to a `ranking_type`/`crossing_minimization` argument pair, never a free-form string.
 
-| [INDEX] | TYPE                   | VALUES                                        | ROLE                                                       |
-| :-----: | ---------------------- | --------------------------------------------- | ---------------------------------------------------------- |
-|  [01]   | `Ranking`              | `"original" \| "minimize" \| "up" \| "down"`  | layer-rank assignment: keep input rank, minimize-height, longest-path up, or longest-path down |
-|  [02]   | `CrossingMinimization` | `"median" \| "barycenter"`                    | the ordering heuristic for the crossing-reduction sweep    |
+| [INDEX] | [TYPE] | [VALUES] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Ranking` | `"original" \| "minimize" \| "up" \| "down"` | layer-rank assignment: keep input rank, minimize-height, longest-path up, or longest-path down |
+| [02] | `CrossingMinimization` | `"median" \| "barycenter"` | the ordering heuristic for the crossing-reduction sweep |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -65,52 +65,52 @@ The edge-input vocabulary is mixed-type by design — `NodeIDType = int | str`, 
 
 `from_edges(edges, ...)` is the single polymorphic placement entrypoint — there is no `layout_tree`/`layout_dag`/`layout_components` family; one call discriminates on the edge list and returns every component laid out. It collects the unique node set, builds an `int`-index map, lowers the edges to int pairs, calls the Rust `_from_edges` (with `encode_edges=False` forced — the public boundary never returns Rust-encoded edges), then re-projects each component's positions and edges back onto the original `NodeIDType` ids into a `Layouts`. Every knob defaults to `None` (the Rust core supplies its built-in default) EXCEPT `vertex_spacing`, which the boundary defaults to `PYDOT_SPACING` (72, the Graphviz-`dot` grid pitch) so default output matches `dot` spacing. The Rust core (`_from_edges` in the `.pyi`) additionally exposes `encode_edges`; `from_edges` deliberately does not — a consumer needing the encoded-edge wire calls the extension directly, which the diagram owner never does.
 
-| [INDEX] | MEMBER                                                                                          | KIND      | ROLE                                                       |
-| :-----: | ----------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------- |
-|  [01]   | `fast_sugiyama.from_edges(edges, minimum_length=None, vertex_spacing=None, dummy_vertices=None, dummy_size=None, ranking_type=None, crossing_minimization=None, transpose=None, check_layout=None) -> Layouts` | layout    | the full Sugiyama pipeline over a mixed-type edge list; `vertex_spacing` defaults to `PYDOT_SPACING`=72 |
-|  [02]   | `minimum_length: NumType \| None`                                                               | knob      | minimum layer separation (edge span lower bound between ranks) |
-|  [03]   | `vertex_spacing: NumType \| None`                                                               | knob      | within-layer node spacing; boundary default `72` (`dot` pitch) |
-|  [04]   | `dummy_vertices: bool \| None`                                                                  | knob      | insert dummy routing vertices on long edges → the returned `edges` carry bend points for orthogonal/polyline routing |
-|  [05]   | `dummy_size: NumType \| None`                                                                   | knob      | the footprint reserved for each inserted dummy vertex      |
-|  [06]   | `ranking_type: Ranking \| None`                                                                 | knob      | layer-rank strategy (`original`/`minimize`/`up`/`down`)    |
-|  [07]   | `crossing_minimization: CrossingMinimization \| None`                                           | knob      | crossing-reduction heuristic (`median`/`barycenter`)       |
-|  [08]   | `transpose: bool \| None`                                                                       | knob      | run the transpose local-optimization pass after ordering (further crossing reduction) |
-|  [09]   | `check_layout: bool \| None`                                                                    | knob      | run the internal post-placement validity assertion (the `Layouts._check_wh` extent check has the same intent at the Python tier) |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `fast_sugiyama.from_edges(edges, minimum_length=None, vertex_spacing=None, dummy_vertices=None, dummy_size=None, ranking_type=None, crossing_minimization=None, transpose=None, check_layout=None) -> Layouts` | layout | the full Sugiyama pipeline over a mixed-type edge list; `vertex_spacing` defaults to `PYDOT_SPACING`=72 |
+| [02] | `minimum_length: NumType \| None` | knob | minimum layer separation (edge span lower bound between ranks) |
+| [03] | `vertex_spacing: NumType \| None` | knob | within-layer node spacing; boundary default `72` (`dot` pitch) |
+| [04] | `dummy_vertices: bool \| None` | knob | insert dummy routing vertices on long edges → the returned `edges` carry bend points for orthogonal/polyline routing |
+| [05] | `dummy_size: NumType \| None` | knob | the footprint reserved for each inserted dummy vertex |
+| [06] | `ranking_type: Ranking \| None` | knob | layer-rank strategy (`original`/`minimize`/`up`/`down`) |
+| [07] | `crossing_minimization: CrossingMinimization \| None` | knob | crossing-reduction heuristic (`median`/`barycenter`) |
+| [08] | `transpose: bool \| None` | knob | run the transpose local-optimization pass after ordering (further crossing reduction) |
+| [09] | `check_layout: bool \| None` | knob | run the internal post-placement validity assertion (the `Layouts._check_wh` extent check has the same intent at the Python tier) |
 
 [ENTRYPOINT_SCOPE]: `Layouts` placement-result methods (transform algebra)
 - rail: diagram-layout
 
 `Layouts` carries the post-placement transform algebra as bound methods, each returning a new `Layouts` (the alignment/compaction/sort/pack family) or a projection (`to_dict`/`flatten_positions`/`get_origins`/`to_bboxes`). The two composites — `dot_layout` (top-align + horizontal compaction, the Graphviz-`dot` single-graph recipe) and `compact_layout` (rect-pack + horizontal-sort + compaction, the dense multi-component recipe) — are the recipes a diagram owner calls instead of hand-stitching the primitive transforms. `__getitem__` is slice-preserving: a slice returns a `Layouts`, an index returns one `LayoutType`. `shuffle(seed=)` is deterministic under a seed (seeds Python `random`), so a seeded re-arrange is content-key-stable.
 
-| [INDEX] | MEMBER                                                                          | KIND      | ROLE                                                       |
-| :-----: | ------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------- |
-|  [01]   | `Layouts(data=None)`                                                            | construct | wrap an existing `LayoutsType`; the boundary builds it empty and `append`s per component |
-|  [02]   | `Layouts.to_dict()` / `flatten_positions()`                                     | project   | `{node_id: (x, y)}` flattened across all components / the flat `(node, (x,y))` stream |
-|  [03]   | `Layouts.get_origins()` / `to_bboxes(spacing=None)`                             | query     | per-component min-corner origins / `((x,y), w+spacing, h+spacing)` debug-rect boxes |
-|  [04]   | `Layouts.sort_horizontal(reverse=False)` / `sort_vertical(reverse=False)`       | order     | re-order components by component origin x / y               |
-|  [05]   | `Layouts.align_layouts_vertical(spacing=None)` / `align_layouts_horizontal(spacing=None)` | arrange | stack components in a single vertical / horizontal strip with `spacing` gaps |
-|  [06]   | `Layouts.align_layouts_vertical_top()` / `align_layouts_vertical_center()` / `align_layouts_horizontal_center()` | arrange | top-align / center-align components to the tallest / widest band |
-|  [07]   | `Layouts.compact_layouts_horizontal(spacing=None)`                              | arrange   | per-layer left-pack components so they share y-bands without overlap (the dot-compaction primitive) |
-|  [08]   | `Layouts.dot_layout(spacing=None)`                                              | composite | `align_layouts_vertical_top().compact_layouts_horizontal()` — the Graphviz-`dot` single-graph arrangement |
-|  [09]   | `Layouts.compact_layout(spacing=None, max_width=None, max_height=None)`         | composite | `rect_pack_layouts().sort_horizontal().compact_layouts_horizontal()` — dense multi-component packing |
-|  [10]   | `Layouts.rect_pack_layouts(spacing=None, max_width=None, max_height=None)`      | arrange   | [GATED] disjoint-component rectangle packing via `import rpack` — `rpack`/`rectangle-packer` is NOT admitted, so `compact_layout`/`rect_pack_layouts` raise `ModuleNotFoundError` on core; admit `rpack` or compose `RectanglePacker` (`Rasm.Fabrication` nesting) to enable |
-|  [11]   | `Layouts.shuffle(seed=None)` / `to_list()`                                       | util      | deterministic-under-seed in-place component shuffle / identity view as `LayoutsType` |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Layouts(data=None)` | construct | wrap an existing `LayoutsType`; the boundary builds it empty and `append`s per component |
+| [02] | `Layouts.to_dict()` / `flatten_positions()` | project | `{node_id: (x, y)}` flattened across all components / the flat `(node, (x,y))` stream |
+| [03] | `Layouts.get_origins()` / `to_bboxes(spacing=None)` | query | per-component min-corner origins / `((x,y), w+spacing, h+spacing)` debug-rect boxes |
+| [04] | `Layouts.sort_horizontal(reverse=False)` / `sort_vertical(reverse=False)` | order | re-order components by component origin x / y |
+| [05] | `Layouts.align_layouts_vertical(spacing=None)` / `align_layouts_horizontal(spacing=None)` | arrange | stack components in a single vertical / horizontal strip with `spacing` gaps |
+| [06] | `Layouts.align_layouts_vertical_top()` / `align_layouts_vertical_center()` / `align_layouts_horizontal_center()` | arrange | top-align / center-align components to the tallest / widest band |
+| [07] | `Layouts.compact_layouts_horizontal(spacing=None)` | arrange | per-layer left-pack components so they share y-bands without overlap (the dot-compaction primitive) |
+| [08] | `Layouts.dot_layout(spacing=None)` | composite | `align_layouts_vertical_top().compact_layouts_horizontal()` — the Graphviz-`dot` single-graph arrangement |
+| [09] | `Layouts.compact_layout(spacing=None, max_width=None, max_height=None)` | composite | `rect_pack_layouts().sort_horizontal().compact_layouts_horizontal()` — dense multi-component packing |
+| [10] | `Layouts.rect_pack_layouts(spacing=None, max_width=None, max_height=None)` | arrange | [GATED] disjoint-component rectangle packing via `import rpack` — `rpack`/`rectangle-packer` is NOT admitted, so `compact_layout`/`rect_pack_layouts` raise `ModuleNotFoundError` on core; admit `rpack` or compose `RectanglePacker` (`Rasm.Fabrication` nesting) to enable |
+| [11] | `Layouts.shuffle(seed=None)` / `to_list()` | util | deterministic-under-seed in-place component shuffle / identity view as `LayoutsType` |
 
 [ENTRYPOINT_SCOPE]: module-level transform functions (`fast_sugiyama.layout`)
 - rail: diagram-layout
 
 The `layout` module (re-exported as `fast_sugiyama.layout`) carries the same transforms as free functions over a raw `LayoutsType`, plus the y-band/origin query primitives the `Layouts` methods delegate to. A diagram owner that holds the raw tuple list (not a `Layouts`) — or that needs only the projection — calls these directly; `PYDOT_SPACING` is the exported default spacing constant every gap-taking transform falls back to. `build_layers` is the y-coordinate → node-list banding the compaction pass reads; `get_bboxes` is the matplotlib-`Rectangle`-shaped debug box list.
 
-| [INDEX] | MEMBER                                                                          | KIND      | ROLE                                                       |
-| :-----: | ------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------- |
-|  [01]   | `layout.PYDOT_SPACING`                                                          | constant  | `72` — the default within-/between-component spacing (Graphviz-`dot` grid pitch) |
-|  [02]   | `layout.flatten_positions(layouts)` / `to_dict(layouts)`                        | project   | flat `(node, (x,y))` stream / `{node: (x,y)}` map across components |
-|  [03]   | `layout.build_layers(positions)`                                               | query     | `{y: [node, ...]}` layer banding of one component's positions |
-|  [04]   | `layout.get_position_origin(positions)` / `get_origin(layout)` / `get_origins(layouts)` | query | min-corner `(x, y)` of a position list / one layout / every layout |
-|  [05]   | `layout.get_bboxes(layouts, spacing=None)`                                      | query     | per-component `((x,y), w+spacing, h+spacing)` boxes for debug overlay / packing |
-|  [06]   | `layout.align_layouts_vertical/horizontal(...)`, `align_layouts_vertical_top/center(...)`, `align_layouts_horizontal_center(...)`, `compact_layouts_horizontal(...)` | arrange | the free-function twins of the `Layouts` arrange methods (same signatures) |
-|  [07]   | `layout.rect_pack_layouts(layouts, spacing=None, max_width=None, max_height=None)` | arrange | [GATED] free-function rect-pack twin (same `import rpack` dependency) |
-|  [08]   | `from fast_sugiyama import from_edges, layout, Layouts`                          | surface   | the `__init__` public surface is exactly `{from_edges, layout, Layouts}` (`from_edges` re-exported from `.lib`, `Layouts` from `.layout`) |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `layout.PYDOT_SPACING` | constant | `72` — the default within-/between-component spacing (Graphviz-`dot` grid pitch) |
+| [02] | `layout.flatten_positions(layouts)` / `to_dict(layouts)` | project | flat `(node, (x,y))` stream / `{node: (x,y)}` map across components |
+| [03] | `layout.build_layers(positions)` | query | `{y: [node, ...]}` layer banding of one component's positions |
+| [04] | `layout.get_position_origin(positions)` / `get_origin(layout)` / `get_origins(layouts)` | query | min-corner `(x, y)` of a position list / one layout / every layout |
+| [05] | `layout.get_bboxes(layouts, spacing=None)` | query | per-component `((x,y), w+spacing, h+spacing)` boxes for debug overlay / packing |
+| [06] | `layout.align_layouts_vertical/horizontal(...)`, `align_layouts_vertical_top/center(...)`, `align_layouts_horizontal_center(...)`, `compact_layouts_horizontal(...)` | arrange | the free-function twins of the `Layouts` arrange methods (same signatures) |
+| [07] | `layout.rect_pack_layouts(layouts, spacing=None, max_width=None, max_height=None)` | arrange | [GATED] free-function rect-pack twin (same `import rpack` dependency) |
+| [08] | `from fast_sugiyama import from_edges, layout, Layouts` | surface | the `init` public surface is exactly `{from_edges, layout, Layouts}` (`from_edges` re-exported from `.lib`, `Layouts` from `.layout`) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

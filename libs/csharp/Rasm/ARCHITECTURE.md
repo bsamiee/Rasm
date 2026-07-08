@@ -34,9 +34,9 @@ Rasm/
 │   ├── Transport.cs         # Log-domain Sinkhorn OT (balanced/unbalanced/debiased) + SinkhornPlan projections
 │   └── Fields.cs            # ScalarField/VectorField/TensorField unions, typed SdfKind primitives, BlendKind, SampleDetailed seam
 ├── Parametric/              # The vendored NURBS engine + host-neutral op tier, evaluation + location
-│   ├── Nurbs.cs             # THE vendored NURBS engine (one-engine law): Nurbs.Of four-shape admission, De Boor, Piegl-Tiller curve/surface fits, ToEncodeForm
-│   ├── Curve.cs             # ParametricOp eight-case rail (Evaluate·Measure·Divide·Stations·Split·Reconstruct·Offset·Intersect2D); StationField SoA producer
-│   ├── Surface.cs           # SurfaceOp six-case rail (Tessellate·Isolines·Geodesics·NormalOffset·CurvatureSample·Pullback); UvTessellation UV carrier
+│   ├── Nurbs.cs             # THE vendored NURBS engine one-engine law: Nurbs.Of four-shape admission, De Boor, Piegl-Tiller curve/surface fits, ToEncodeForm
+│   ├── Curve.cs             # ParametricOp eight-case rail Evaluate·Measure·Divide·Stations·Split·Reconstruct·Offset·Intersect2D
+│   ├── Surface.cs           # SurfaceOp six-case rail Tessellate·Isolines·Geodesics·NormalOffset·CurvatureSample·Pullback
 │   ├── Subdivide.cs         # Stencil-row subdivision: Catmull-Clark/Loop SubdivisionScheme rows over ONE refinement fold, semi-sharp creases, Stam limit
 │   ├── Develop.cs           # Guaranteed-isometric developable strips: MMP-exact rails, torsal ruling solve, ddouble isometry witness, DevelopmentReceipt
 │   ├── Panelize.cs          # Cross-field-guided panelization: Lattice + Seeded families, per-panel frames, planarity acceptance, PanelField SoA wire
@@ -58,7 +58,7 @@ Rasm/
 │   ├── Repair.cs            # HealOp repair algebra + Heal.Repair session fold
 │   ├── Receipts.cs          # Typed RebuildReceipt chain + ManifoldStatus + HealSession/RebuildLog
 │   ├── Decimate.cs          # SimplifyOp (QuadricCollapse/ProgressiveMesh/VoxelRemesh/FeaturePreserve) Garland-Heckbert QEM decimation
-│   ├── Remesh.cs            # Remeshing.Apply two-row rewrite: Botsch-Kobbelt isotropic + cross-field quad extraction; QuadProvenance panelize substrate
+│   ├── Remesh.cs            # Remeshing.Apply two-row rewrite: Botsch-Kobbelt isotropic + cross-field quad extraction
 │   ├── Flatten.cs           # Harmonic/LSCM/ARAP/BFF ParamOp UV-flattening over the DEC substrate
 │   ├── Intent.cs            # VectorIntent consumer rail: Project<TOut>(Context, Op?) dispatch composing every owner
 │   ├── Sample.cs            # SampleKind union (Bridson…BNOT power-CCVT) + SampleKernel domain dispatch
@@ -68,7 +68,7 @@ Rasm/
 │   ├── Geodesics.cs         # Heat-method + MMP geodesics, log/exp maps, vector-heat transport, MCF
 │   └── Segment.cs           # HKS/WKS descriptors, feature edges, MeshSegmentation union, cross-fields/stripes, host remesh capture
 ├── Solving/                 # Nonlinear least-squares owners over the matrix floor
-│   ├── Solver.cs            # Lm.Minimize ILmModel λ-ladder (the ONE damped Gauss-Newton) + Constraint solver, island decomposition, DofReport/DofAnalysis
+│   ├── Solver.cs            # Lm.Minimize ILmModel λ-ladder the ONE damped Gauss-Newton + Constraint solver, island decomposition, DofReport/DofAnalysis
 │   └── Fit.cs               # MLESAC FitOp primitive-fit (PROSAC/NAPSAC draws over the kd-tree lane) + FitModel : ILmModel orthogonal-distance refine
 ├── Drawing/                 # Kernel-quality 2D drawing-geometry producers
 │   ├── View.cs              # Predicate-exact hidden-line/silhouette ViewOp returning DrawingProjection
@@ -84,42 +84,42 @@ Rasm/
 ## [02]-[SEAMS]
 
 ```text seams
-Domain/Identity.cs        ⇄  csharp:Rasm.Element/Projection/address     # [CONTENT_KEY]: seed-zero XxHash128 ContentHash.Of — ONE NodeId/ContentAddress hasher
-Domain/Identity.cs        →  csharp:Rasm.Persistence/Element/codec      # [CONTENT_KEY]: ContentAddress composes seed-zero XxHash128 entry, no codec hasher
-Domain/Identity.cs        →  csharp:Rasm.Compute/Model/identity         # [CONTENT_KEY]: ModelIdentity.Checksum → ContentHash.Of, the ONE federation hasher
+Domain/Identity.cs        ⇄  csharp:Rasm.Element/Projection/address # [CONTENT_KEY]: seed-zero XxHash128 ContentHash.Of
+Domain/Identity.cs        →  csharp:Rasm.Persistence/Element/codec # [CONTENT_KEY]: ContentAddress composes seed-zero XxHash128 entry, no codec hasher
+Domain/Identity.cs        →  csharp:Rasm.Compute/Model/identity # [CONTENT_KEY]: ModelIdentity.Checksum → ContentHash.Of, ONE federation hasher
 Domain/Identity.cs        ←  csharp:Rasm.AppHost/Runtime/determinism    # [CONTENT_KEY]: chain/digest sites compose ContentHash.Of
-Domain/Identity.cs        ←  csharp:Rasm.AppUi/*                        # [CONTENT_KEY]: every AppUi content-identity mint (capture runtime delegate, walkthrough frame proof, command payload digest, notebook replay inputs, asset receipts, collab snapshot-accelerator key) composes ContentHash.Of
-Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query/topology     # [CONTENT_KEY]: GeometryHash through the Domain/Identity seed, content-hash ONLY
-Spatial/Reconciliation.cs ⇄  python:runtime/evidence/identity           # [CONTENT_KEY]: canonical bytes reproducing the Domain/Identity XxHash128 seed-zero
-Spatial/Reconciliation.cs ⇄  typescript:core/value/contentKey           # [CONTENT_KEY]: content-hashing wasm reproducing the Domain/Identity seed-zero
-Numerics/Spectral.cs      ⇄  csharp:Rasm.Compute                        # [SHAPE]: DiscreteCalculus DEC operator bundle — the frozen adjoint-carrier shape
+Domain/Identity.cs        ←  csharp:Rasm.AppUi/* # [CONTENT_KEY]: every AppUi content-identity mint capture runtime delegate, walkthrough frame proof
+Spatial/Reconciliation.cs →  csharp:Rasm.Persistence/Query/topology # [CONTENT_KEY]: GeometryHash through Domain/Identity seed, content-hash ONLY
+Spatial/Reconciliation.cs ⇄  python:runtime/evidence/identity # [CONTENT_KEY]: canonical bytes reproducing Domain/Identity XxHash128 seed-zero
+Spatial/Reconciliation.cs ⇄  typescript:core/value/contentKey # [CONTENT_KEY]: content-hashing wasm reproducing Domain/Identity seed-zero
+Numerics/Spectral.cs      ⇄  csharp:Rasm.Compute # [SHAPE]: DiscreteCalculus DEC operator bundle
 Meshing/Mesh.cs           →  csharp:Rasm.Compute                        # [SHAPE]: MeshAdjointSnapshot adjoint handle over the cached DiscreteCalculus
 Spatial/Index.cs          →  csharp:Rasm.Fabrication/Toolpath/guard     # [SHAPE]: SpatialIndex BVH broad-phase keep-out prune
 Spatial/Index.cs          →  csharp:Rasm.Fabrication/Documentation/projection # [SHAPE]: SpatialIndex BVH occluder broad-phase prune
 Spatial/Index.cs          →  csharp:Rasm.Compute                        # [WIRE]: Spatial.Apply Wire case emits; Compute decodes
-Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Forming            # [WIRE]: IntersectResult / PlaneMesh section — tube cope/fishmouth saddle development (slicing composes PlaneMesh under Slicing.Apply)
-Meshing/Slice.cs          →  csharp:Rasm.Fabrication/Additive           # [WIRE]: SliceStack five-channel forest: layers·contours·nesting·chains·elevations — Slice.Layers + scanpath/support/audit decode
+Meshing/Intersect.cs      →  csharp:Rasm.Fabrication/Forming # [WIRE]: IntersectResult / PlaneMesh section
+Meshing/Slice.cs          →  csharp:Rasm.Fabrication/Additive # [WIRE]: SliceStack five-channel forest: layers·contours·nesting·chains·elevations
 Meshing/Slice.cs          →  csharp:Rasm.Compute                        # [WIRE]: AtElevations story-elevation contours through the SliceStack wire
-Meshing/Offset.cs         ⇄  csharp:Rasm.Fabrication/Toolpath           # [SHAPE]: the ONE 2D/3D clearance family — Medial + Clearance(probe) radius payload
-Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath           # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearance(probe) — the 3D clearance half
-Processing/Remesh.cs      →  csharp:Rasm.Compute                        # [SHAPE]: Isotropic volumetric boundary-conditioning, no Compute-side remesher
+Meshing/Offset.cs         ⇄  csharp:Rasm.Fabrication/Toolpath # [SHAPE]: the ONE 2D/3D clearance family
+Meshing/Skeleton.cs       →  csharp:Rasm.Fabrication/Toolpath # [WIRE]: CurveSkeleton node/arc/radius SoA + Clearanceprobe
+Processing/Remesh.cs      →  csharp:Rasm.Compute # [SHAPE]: Isotropic volumetric boundary-conditioning, no Compute-side remesher
 Meshing/Arrangement.cs    →  csharp:Rasm.Fabrication/Documentation/projection # [WIRE]: Arrangement Apply/ToMesh kept-cell boundary watertight outline
 Numerics/Predicates.cs    →  csharp:Rasm.Fabrication/Posting            # [WIRE]: Predicate.Orient2D/Orient3D exact silhouette/winding verdict
-Numerics/Predicates.cs    →  csharp:Rasm.Compute/Solver/discretization  # [SHAPE]: Coordinate-level Predicate.Orient3D/InSphere cores, no Compute-side mint
-Drawing/View.cs           →  csharp:Rasm.Fabrication/Documentation      # [PROJECTION]: DrawingProjection / HLR visible/hidden segments — Hlr.Solve delegates here (AppUi consumes ONLY the Fabrication HiddenLineResult receipt — no direct AppUi row exists)
+Numerics/Predicates.cs    →  csharp:Rasm.Compute/Solver/discretization # [SHAPE]: Coordinate-level Predicate.Orient3D/InSphere cores, no Compute-side
+Drawing/View.cs           →  csharp:Rasm.Fabrication/Documentation # [PROJECTION]: DrawingProjection / HLR visible/hidden segments
 Drawing/Pack.cs           →  csharp:Rasm.AppHost/Sandbox/solver         # [WIRE]: EncodedGeometry / Encode.Apply(PackOp, Op?) channel discriminant
-Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency       # [WIRE]: EncodedGeometry wrapped as EncodedTensor — residency view, never a re-pack
-Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp        # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt (the only live consumer; the AppUi texture-UV channel stands on the AppUi [V9] growth register, not the ledger)
-Parametric/Develop.cs     →  csharp:Rasm.Fabrication/Nesting/nfp        # [PROJECTION]: ChartAtlas isometric strips + DevelopmentReceipt isometry witness
-Parametric/Nurbs.cs       →  csharp:Rasm.Generation                     # [WIRE]: Nurbs.Of(NurbsWire) arbitrary-knot ingress — SpineRef surface resolution G1
-Parametric/Curve.cs       →  csharp:Rasm.Generation                     # [WIRE]: Stations StationField SoA over SpineRef window — PathRow/Placement producer
-Parametric/Surface.cs     →  csharp:Rasm.Generation                     # [WIRE]: UvTessellation/Isolines/Geodesics/NormalOffset — the UV-provenance carrier
-Parametric/Subdivide.cs   →  csharp:Rasm.Generation                     # [WIRE]: region subdivision via SubdividePolicy.Region with sealed T-junction closure
-Parametric/Develop.cs     →  csharp:Rasm.Generation                     # [WIRE]: developable gate item — isometry-witnessed strips off DevelopmentReceipt
-Parametric/Panelize.cs    →  csharp:Rasm.Generation                     # [WIRE]: PanelField graph + per-panel placement frames — panelization gate item
+Drawing/Pack.cs           →  csharp:Rasm.Compute/Tensor/residency # [WIRE]: EncodedGeometry wrapped as EncodedTensor
+Processing/Flatten.cs     →  csharp:Rasm.Fabrication/Nesting/nfp # [PROJECTION]: ChartAtlas / UV island layout + DistortionReceipt only live consumer
+Parametric/Develop.cs     →  csharp:Rasm.Fabrication/Nesting/nfp # [PROJECTION]: ChartAtlas isometric strips + DevelopmentReceipt isometry witness
+Parametric/Nurbs.cs       →  csharp:Rasm.Generation # [WIRE]: Nurbs.OfNurbsWire arbitrary-knot ingress
+Parametric/Curve.cs       →  csharp:Rasm.Generation # [WIRE]: Stations StationField SoA over SpineRef window
+Parametric/Surface.cs     →  csharp:Rasm.Generation # [WIRE]: UvTessellation/Isolines/Geodesics/NormalOffset
+Parametric/Subdivide.cs   →  csharp:Rasm.Generation # [WIRE]: region subdivision via SubdividePolicy.Region with sealed T-junction closure
+Parametric/Develop.cs     →  csharp:Rasm.Generation # [WIRE]: developable gate item
+Parametric/Panelize.cs    →  csharp:Rasm.Generation # [WIRE]: PanelField graph + per-panel placement frames
 Parametric/Patternmap.cs  →  csharp:Rasm.Generation                     # [WIRE]: InstanceStream vector-heat-transported frames — PATTERN/TILING input
-Processing/Intent.cs      →  csharp:Rasm.Rhino/Camera                   # [BOUNDARY]: VectorIntent + VectorFrame + MotionInterpolation frozen-name contract
-Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands                 # [BOUNDARY]: Analyze/AnalysisQuery/Env frozen-name contract; Commands+Overlay bind
+Processing/Intent.cs      →  csharp:Rasm.Rhino/Camera # [BOUNDARY]: VectorIntent + VectorFrame + MotionInterpolation frozen-name contract
+Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands # [BOUNDARY]: Analyze/AnalysisQuery/Env frozen-name contract
 *                         ←  csharp:Rasm.Fabrication                    # [SHAPE]: Matrix / Point3d / Vector3d
 ```
 

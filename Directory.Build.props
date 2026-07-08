@@ -3,8 +3,6 @@
         <SolutionDir Condition="'$(SolutionDir)' == '' or '$(SolutionDir)' == '*Undefined*'">$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)'))</SolutionDir>
         <SolutionName Condition="'$(SolutionName)' == '' or '$(SolutionName)' == '*Undefined*'">Workspace</SolutionName>
         <CSharpLibsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'libs', 'csharp'))</CSharpLibsRoot>
-        <RasmGrasshopperRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Grasshopper'))</RasmGrasshopperRoot>
-        <RasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(CSharpLibsRoot)', 'Rasm.Rhino'))</RasmRhinoRoot>
         <RhinoAppsRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'apps', 'rhino'))</RhinoAppsRoot>
         <RhinoBridgeRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'rhino-bridge'))</RhinoBridgeRoot>
         <YakPackagesRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'tools', 'yak'))</YakPackagesRoot>
@@ -14,16 +12,16 @@
         <TestKitRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_testkit'))</TestKitRoot>
         <TestScenarioKitRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', '_scenariokit'))</TestScenarioKitRoot>
         <TestsLibsRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'libs'))</TestsLibsRoot>
-        <TestsRasmAppUiRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.AppUi'))</TestsRasmAppUiRoot>
-        <TestsRasmComputeRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Compute'))</TestsRasmComputeRoot>
-        <TestsRasmRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm'))</TestsRasmRoot>
-        <TestsRasmGrasshopperRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Grasshopper'))</TestsRasmGrasshopperRoot>
-        <TestsRasmRhinoRoot>$([MSBuild]::NormalizeDirectory('$(TestsLibsRoot)', 'Rasm.Rhino'))</TestsRasmRhinoRoot>
         <TestsScenariosRoot>$([MSBuild]::NormalizeDirectory('$(TestsRoot)', 'scenarios'))</TestsScenariosRoot>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classifiers">
         <NormalizedProjectDirectory>$([MSBuild]::NormalizeDirectory('$(MSBuildProjectDirectory)'))</NormalizedProjectDirectory>
+        <!-- CSharpPackageName keys every per-package classifier for production and test projects alike; a new libs/csharp package classifies itself by name. -->
+        <IsCSharpLibraryProject Condition="'$(IsCSharpLibraryProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)'))">true</IsCSharpLibraryProject>
+        <IsCSharpLibraryTestProject Condition="'$(IsCSharpLibraryTestProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsLibsRoot)'))">true</IsCSharpLibraryTestProject>
+        <CSharpPackageName Condition="'$(CSharpPackageName)' == '' and '$(IsCSharpLibraryProject)' == 'true'">$(MSBuildProjectName)</CSharpPackageName>
+        <CSharpPackageName Condition="'$(CSharpPackageName)' == '' and '$(IsCSharpLibraryTestProject)' == 'true'">$([System.Text.RegularExpressions.Regex]::Replace('$(MSBuildProjectName)', '\.Tests$', ''))</CSharpPackageName>
         <IsRhinoBridgeProject Condition="'$(IsRhinoBridgeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)'))">true</IsRhinoBridgeProject>
         <IsRhinoBridgeCargoProject Condition="'$(IsRhinoBridgeCargoProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)Cargo/'))">true</IsRhinoBridgeCargoProject>
         <IsRhinoBridgeContractProject Condition="'$(IsRhinoBridgeContractProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoBridgeRoot)Contract/'))">true</IsRhinoBridgeContractProject>
@@ -37,14 +35,14 @@
         <HostReferencePrivate Condition="'$(HostReferencePrivate)' == ''">false</HostReferencePrivate>
         <IsRhinoPluginProject Condition="'$(IsRhinoPluginProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeStubProject)' == 'true')">true</IsRhinoPluginProject>
         <IsGrasshopperPluginProject Condition="'$(IsGrasshopperPluginProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(MSBuildThisFileDirectory)apps/grasshopper/'))">true</IsGrasshopperPluginProject>
-        <IsAppHostProject Condition="'$(IsAppHostProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.AppHost/'))">true</IsAppHostProject>
-        <IsAppUiProject Condition="'$(IsAppUiProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.AppUi/'))">true</IsAppUiProject>
-        <IsComputeProject Condition="'$(IsComputeProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.Compute/'))">true</IsComputeProject>
-        <IsPersistenceProject Condition="'$(IsPersistenceProject)' == '' and $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm.Persistence/'))">true</IsPersistenceProject>
-        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsGrasshopperAwareProject>
+        <IsAppHostProject Condition="'$(IsAppHostProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.AppHost'">true</IsAppHostProject>
+        <IsAppUiProject Condition="'$(IsAppUiProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.AppUi'">true</IsAppUiProject>
+        <IsComputeProject Condition="'$(IsComputeProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.Compute'">true</IsComputeProject>
+        <IsPersistenceProject Condition="'$(IsPersistenceProject)' == '' and '$(IsCSharpLibraryProject)' == 'true' and '$(CSharpPackageName)' == 'Rasm.Persistence'">true</IsPersistenceProject>
+        <IsGrasshopperAwareProject Condition="'$(IsGrasshopperAwareProject)' == '' and ('$(CSharpPackageName)' == 'Rasm.Grasshopper' or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsGrasshopperAwareProject>
         <!-- App-package tests stay out of Rhino host-reference inheritance. -->
-        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(CSharpLibsRoot)Rasm/')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or '$(IsRhinoBridgeShellProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestScenarioKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmGrasshopperRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')))">true</IsRhinoCommonAwareProject>
-        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ($([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmRhinoRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsRhinoUiAwareProject>
+        <IsRhinoCommonAwareProject Condition="'$(IsRhinoCommonAwareProject)' == '' and ('$(CSharpPackageName)' == 'Rasm' or '$(CSharpPackageName)' == 'Rasm.Grasshopper' or '$(CSharpPackageName)' == 'Rasm.Rhino' or '$(IsRhinoBridgeShellProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestScenarioKitRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')))">true</IsRhinoCommonAwareProject>
+        <IsRhinoUiAwareProject Condition="'$(IsRhinoUiAwareProject)' == '' and ('$(CSharpPackageName)' == 'Rasm.Rhino' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(RhinoAppsRoot)')) or '$(IsRhinoBridgeCargoProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsScenariosRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsArchitectureRoot)')))">true</IsRhinoUiAwareProject>
         <NeedsRhinoHostUiSurface Condition="'$(IsRhinoUiAwareProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">true</NeedsRhinoHostUiSurface>
     </PropertyGroup>
 
@@ -92,7 +90,7 @@
         <NoWarn Condition="'$(IsRhinoUiAwareProject)' == 'true'">$(NoWarn);CA1416</NoWarn>
         <!-- CA1724: Microsoft.macOS exposes a Phase namespace colliding with the canonical ComponentUi.Phase enum. -->
         <NoWarn Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">$(NoWarn);CA1724</NoWarn>
-        <NeedsOnnxRuntimeLegacyRidSuppression Condition="'$(NeedsOnnxRuntimeLegacyRidSuppression)' == '' and ('$(IsComputeProject)' == 'true' or '$(IsAppUiProject)' == 'true' or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmComputeRoot)')) or $([System.String]::Copy('$(NormalizedProjectDirectory)').StartsWith('$(TestsRasmAppUiRoot)')))">true</NeedsOnnxRuntimeLegacyRidSuppression>
+        <NeedsOnnxRuntimeLegacyRidSuppression Condition="'$(NeedsOnnxRuntimeLegacyRidSuppression)' == '' and ('$(CSharpPackageName)' == 'Rasm.Compute' or '$(CSharpPackageName)' == 'Rasm.AppUi')">true</NeedsOnnxRuntimeLegacyRidSuppression>
         <!-- Microsoft.ML.OnnxRuntime.Extensions ships legacy version-specific OSX RID assets. -->
         <NoWarn Condition="'$(NeedsOnnxRuntimeLegacyRidSuppression)' == 'true'">$(NoWarn);NETSDK1206</NoWarn>
     </PropertyGroup>

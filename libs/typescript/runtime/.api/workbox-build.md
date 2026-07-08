@@ -1,11 +1,11 @@
-# [workbox-build] — the build-time precache/SW emitter: the RuntimeCaching strategy vocabulary and the manifest entry points
+# [TS_RUNTIME_API_WORKBOX_BUILD]
 
 `workbox-build` is a NODE build-time tool. It runs inside the app build (driven by the Vite PWA plugin, tooling tier), reads a glob config, and writes the precache manifest plus the service-worker asset — it never enters the browser runtime bundle. Its two load-bearing surfaces are the emit functions (`generateSW`/`injectManifest`/`getManifest`) run only in the build script, and the `RuntimeCaching`/`StrategyName` TYPES that `browser/shell.md` composes as runtime-cache route rows through a type-only import. `workbox-window` registers the emitted asset at runtime — distinct altitude, one concern each.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `workbox-build`
-- package: `workbox-build` `7.4.1` — license `MIT`
+- package: `workbox-build` `` — license `MIT`
 - module: `build/index.js`; types `build/index.d.ts`; a Node build tool — globs the filesystem and writes files, never bundled into the app
 - marker: VALUE import restricted to the build script (Node-only); TYPE-only import (`RuntimeCaching`, `StrategyName`) in runtime rows; the standing composition is `vite-plugin-pwa` (tooling catalog), which internalizes `injectManifest`/`generateSW`
 - exports: `generateSW`, `injectManifest`, `getManifest`, `copyWorkboxLibraries`, `getModuleURL`, and the full `./types` surface

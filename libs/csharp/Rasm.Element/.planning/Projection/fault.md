@@ -39,7 +39,7 @@ namespace Rasm.Element;
 [SmartEnum<int>]
 public sealed partial class FaultBand {
     public static readonly FaultBand Component   = new(2300, owner: "Rasm.Materials/Component");
-    public static readonly FaultBand Generation  = new(2350, owner: "Rasm.Generation (reserved; ex-Construction Path/Joint/Course/Opening — RASM-GENERATION-SPEC.md [07])");
+    public static readonly FaultBand Generation  = new(2350, owner: "Rasm.Generation (reserved; ex-Construction Path/Joint/Course/Opening)");
     public static readonly FaultBand Geometry    = new(2400, owner: "Rasm kernel (pinned mirror of the kernel literal)");
     public static readonly FaultBand Material    = new(2450, owner: "Rasm.Materials/Appearance");
     public static readonly FaultBand Projection  = new(2470, owner: "Rasm.Materials/Projection");

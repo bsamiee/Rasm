@@ -53,7 +53,7 @@ Seed rows are DATA with sourcing law: a value is REFLECTED (emitted from a machi
 
 ## [04]-[BIM_PLANE]
 
-Bim is the sole IFC semantic authority, and its vocabulary is reflected, never hand-rolled. An offline emitter reflects the `IfcClass` vocabulary from the GeometryGym schema assembly — one committed row per entity with per-token `PredefinedRow` schema spans — corrected by 4 hand overlays: `ClassIntroductions` (schema-version introduction facts for the whole roster), `AbstractSupertypes` (entities concrete in C# but abstract in the schema), `Retirements` (entities the schema retired), and `DomainRoots` with `DomainOverrides` (the domain-classification walk over base chains). Regenerating the vocabulary is re-running the emitter; hand edits to generated output are defects.
+Bim is the sole IFC semantic authority, and its vocabulary is reflected. An offline emitter reflects the `IfcClass` vocabulary from the GeometryGym schema assembly with one committed row per entity and per-token `PredefinedRow` schema spans, then applies `ClassIntroductions`, `AbstractSupertypes`, `Retirements`, `DomainRoots`, and `DomainOverrides`. Regenerating the vocabulary re-runs the emitter; hand edits to generated output are defects.
 
 [BIM_OWNERS]:
 - `IfcClass`: the generated vocabulary — one row per entity carrying domain, schema span, `Instantiable`, and its `PredefinedRow` token spans; `Resolve`/`Canonical` fold ingress strings onto rows, and the per-token `AdmitPredefined` gates egress. IFC entities exist as vocabulary rows here and nowhere else.
@@ -101,7 +101,7 @@ Every extension lands on a canonical owner — a row where possible, a compiler-
 
 [NEW_RELATION_SEMANTICS]:
 - Edit: an attribute convention on `Relationship.Generic` (the ordered-nest ordinal is the exemplar), documented where the consuming projector reads it.
-- Rejected: a new typed edge case — the 5-kind algebra and edge canonical bytes are frozen; a typed case is a campaign-level amendment, never an incremental edit.
+- Rejected: a new typed edge case — the 5-kind algebra and edge canonical bytes are canonical; a typed case is a branch-level amendment.
 
 [NEW_FAULT]:
 - Edit: a new failure is one case on the owning `*Fault` union — `Code` stays the band read. A new fault surface is one `FaultBand` registry row in Element `Projection/fault.md`; duplicate band integers fail at type initialization.
@@ -113,7 +113,7 @@ Every extension lands on a canonical owner — a row where possible, a compiler-
 
 ## [06]-[INVARIANTS]
 
-These surfaces are frozen; changing one is a campaign-level amendment — an explicit brief entry naming the owner and the migration — never a local edit:
+These surfaces are canonical; changing one requires an explicit brief entry naming the owner and migration:
 - Canonical bytes: `ToCanonicalBytes` layouts, the count-prefix law, the seed-zero single hasher — any change forks every content key.
 - The edge algebra: 5 kinds plus `Generic`, edge byte layout, and the Type seed's representation exclusion.
 - Seam wire names and shapes: `ProfileRef`/`ProfileSet`, `SectionProperties`, `ComputedSection` (20 columns and order), `MaterialWire`, `DetailSchema` rows, quantity names and scales.

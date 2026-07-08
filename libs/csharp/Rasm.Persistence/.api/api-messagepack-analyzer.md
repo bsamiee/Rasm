@@ -11,7 +11,6 @@ enter the runtime closure.
 
 [PACKAGE_SURFACE]: `MessagePackAnalyzer`
 - package: `MessagePackAnalyzer`
-- version: `3.1.7` (pairs the runtime `MessagePack` 3.1.7)
 - assets: `analyzers/roslyn4.3/cs/MessagePack.SourceGenerator.dll`, `analyzers/roslyn4.3/cs/MessagePack.Analyzers.CodeFixes.dll`
 - abi: Roslyn 4.3 analyzer ABI (`Microsoft.CodeAnalysis` ≥ 4.3); `<developmentDependency>true</developmentDependency>`
 - namespace: `MessagePack.SourceGenerator`, `MessagePack.SourceGenerator.Analyzers`, `MessagePack.SourceGenerator.Transforms`, `MessagePack.Analyzers.CodeFixes`
@@ -66,7 +65,7 @@ enter the runtime closure.
 descriptors on their named `DiagnosticAnalyzer` classes. Category is `Usage` for MsgPack003–018 and
 `Reliability` for MsgPack001/002; `GetHelpLink` resolves each ID's help URL.
 
-| [INDEX] | [DIAGNOSTIC_ID] | [SEVERITY] | [DESCRIPTOR(S)]                                                           | [TRIGGER]                                                 |
+| [INDEX] | [DIAGNOSTIC_ID] | [SEVERITY] | [DESCRIPTOR_S]                                                           | [TRIGGER]                                                 |
 | :-----: | :-------------- | :--------- | :----------------------------------------------------------------------- | :-------------------------------------------------------- |
 |  [01]   | `MsgPack001`    | Warning (off-by-default) | `MissingOptionsDescriptor`                                  | `MessagePackSerializer` call without explicit options     |
 |  [02]   | `MsgPack002`    | Warning (off-by-default) | `MutableSharedOptionsDescriptor`                            | mutable shared `MessagePackSerializerOptions` (mutate after init) |
@@ -102,11 +101,11 @@ DiagnosticSeverity numerics: `2`=Warning, `3`=Error. MsgPack001/002 are `isEnabl
 [LOCAL_ADMISSION]:
 - The analyzer gates the snapshot codec shape: `Element/codec#CODEC_AXIS` declares `[MessagePackObject]` records over `[Key(int)]` array keys (the array template, not map mode), so MsgPack003/004/005 reject an unattributed or unkeyed snapshot type at build before the `PersistenceResolver` resolver chain (`InstantFormatter.Instance` → `ThinktectureMessageFormatterResolver.Instance` → `SourceGeneratedFormatterResolver.Instance` → `StandardResolver.Instance`) can bind it.
 - The AOT path is the load-bearing one: the `GeneratedMessagePackResolver` partial carrying `[CompositeResolverAttribute]` over `[GeneratedMessagePackResolverAttribute]` is filled by `CompositeResolverGenerator`, and MsgPack008/011/012/013/016 are the diagnostics that keep a published-AOT build's generated resolver able to construct every formatter — so a private serialised member forces `partial` (MsgPack011) and `AllowPrivate = true` (MsgPack015) rather than a runtime reflection fallback.
-- MsgPack001/002 stay opt-in: the rail's serializer-options discipline (one frozen `MessagePackSerializerOptions Binary`/`Foreign` per snapshot context) is enforced by review and an `.editorconfig` escalation of these two to error where a call site could pass ad-hoc options, never by their default state.
+- MsgPack001/002 stay opt-in: the rail's serializer-options discipline (one frozen `MessagePackSerializerOptions Binary`/`Foreign` per snapshot context) is enforced by review and an `.editorconfig` escalation of these two to error where a call site passes ad-hoc options, never by their default state.
 - Thinktecture value-objects/smart-enums/keyed-unions are formatted by the registered `ThinktectureMessageFormatterResolver`, so the generator never sees those types directly — the analyzer's contract diagnostics apply only to the package's own `[MessagePackObject]` wire records, and a hand-written formatter beside a generated one is the MsgPack009 collision the rail rejects.
 
 [STACKING]:
-- codec owner: the analyzer is the build-time gate on the `Element/codec#CODEC_AXIS` snapshot shape — the runtime `MessagePack` formatters/resolvers (`api-messagepack`) it generates back the `PersistenceResolver`/`GeneratedMessagePackResolver` landmark that `Element/codec` binds, so a `[MessagePackObject]` snapshot type that would fail at serialize is rejected at compile instead.
+- codec owner: the analyzer is the build-time gate on the `Element/codec#CODEC_AXIS` snapshot shape — the runtime `MessagePack` formatters/resolvers (`api-messagepack`) it generates back the `PersistenceResolver`/`GeneratedMessagePackResolver` landmark that `Element/codec` binds, so a `[MessagePackObject]` snapshot type that fails at serialize is rejected at compile instead.
 - time-travel payload floor: because MsgPack008/011/012/016 keep the AOT-generated resolver able to construct every formatter, the codec bytes the `Version/timetravel` fold and the `#api-redis`/`#api-nats` snapshot wire replay read are proven constructible under published AOT before any store profile writes them.
 - development-only: the assets carry `PrivateAssets="all"`; they never enter the runtime closure, so this catalog stacks a compile-time correctness rail onto the codec, never a shipped dependency.
 

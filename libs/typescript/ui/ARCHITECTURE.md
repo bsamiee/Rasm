@@ -19,10 +19,10 @@ ui/
 │       ├── form.ts            # Schema-driven forms: one kernel Schema owning wire decode AND live field validity via standardSchemaV1
 │       ├── table.ts           # The data grid: TanStack models + Virtual windows + RAC grid semantics under ONE TableState atom
 │       ├── overlay.ts         # The overlay owner: floating-ui anchoring, vaul sheets, cmdk palette over Overlay.Command, presence cohort
-│       └── chart.ts           # The analytic chart owner: Plot/visx declared charts, uplot streaming series, perspective live pivot over one Arrow bus
+│       └── chart.ts           # Analytic charts: Plot/visx declarations, uplot streams, perspective pivot over Arrow
 └── viewer/
     └── src/                   # The spatial tier (second Nx project)
-        ├── scene.ts           # content-keyed GLB residency behind the GlbViewport port; three | model-viewer backend rows; Theme.linear appearance ingest
+        ├── scene.ts           # Content-keyed GLB residency, GlbViewport port, backend rows, Theme.linear ingest
         ├── geo.ts             # The geospatial surface: one maplibre Map + MapboxOverlay-interleaved deck.gl layers as a pure value tree
         ├── mark.ts            # The GlobalId mark plane: one HashSet selection atom, a closed op vocabulary, every pick pipeline folding into it
         ├── panel.ts           # The wire materializer: livewire triple, ControlIntent union, LayoutProgram rendered through the system owners

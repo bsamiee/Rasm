@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Mapsui.Avalonia12`
 - package: `Mapsui.Avalonia12`
-- version: `5.1.0`
 - assembly: `Mapsui.UI.Avalonia` (the shipped assembly id differs from the package id; `Avalonia12` is the package-name discriminant for the Avalonia-12 build)
 - namespace: `Mapsui.UI.Avalonia` (`MapControl`, `RenderController` only)
 - license: MIT (`<license type="expression">MIT</license>`)
@@ -50,7 +49,7 @@
 [FEATURE_TYPES]: the feature model and the NTS bridge — `Mapsui` + `Mapsui.Nts`
 - rail: map
 
-| [INDEX] | [SYMBOL]                                  | [OWNER ASM]    | [CAPABILITY]                                                  |
+| [INDEX] | [SYMBOL]                                  | [OWNER_ASM]    | [CAPABILITY]                                                  |
 | :-----: | :---------------------------------------- | :------------- | :----------------------------------------------------------- |
 |  [01]   | `IFeature : ICloneable` / `BaseFeature`   | `Mapsui`       | a drawable feature — geometry + `Styles` + per-feature fields |
 |  [02]   | `PointFeature : BaseFeature`              | `Mapsui`       | an `MPoint`-located feature (markers, labels)                |

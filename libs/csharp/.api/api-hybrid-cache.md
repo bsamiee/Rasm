@@ -8,8 +8,7 @@ options, and tag-aware invalidation into the runtime rail.
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.Hybrid`
 - package: `Microsoft.Extensions.Caching.Hybrid`
-- version: `10.7.0`
-- contract assembly: `Microsoft.Extensions.Caching.Abstractions` (`10.0.9`) — owns `HybridCache`, `HybridCacheEntryOptions`, `HybridCacheEntryFlags`, `IHybridCacheSerializer<T>`, `IHybridCacheSerializerFactory`, `IBufferDistributedCache`
+- contract assembly: `Microsoft.Extensions.Caching.Abstractions` — owns `HybridCache`, `HybridCacheEntryOptions`, `HybridCacheEntryFlags`, `IHybridCacheSerializer<T>`, `IHybridCacheSerializerFactory`, `IBufferDistributedCache`
 - implementation assembly: `Microsoft.Extensions.Caching.Hybrid` — owns `HybridCacheOptions`, `IHybridCacheBuilder`, `HybridCacheServiceExtensions`, `HybridCacheBuilderExtensions`
 - namespace: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Caching.Distributed` (the L2 buffer contract)
 - runtime flags: `IsTrimmable=True`, `IsAotCompatible=True` — serializer admission carries `[DynamicallyAccessedMembers(PublicConstructors)]` trim annotations
@@ -21,22 +20,22 @@ options, and tag-aware invalidation into the runtime rail.
 [PUBLIC_TYPE_SCOPE]: cache contract and entry options
 - rail: runtime cache
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                        |
-| :-----: | :------------------------------ | :------------------ | :---------------------------- |
-|  [01]   | `HybridCache`                   | abstract cache base | read/write/remove/tag root; resolved from DI, never constructed |
-|  [02]   | `HybridCacheEntryOptions`       | entry policy value  | sealed; `init`-only `Expiration`/`LocalCacheExpiration`/`Flags` |
-|  [03]   | `HybridCacheEntryFlags`         | `[Flags]` enum      | per-call L1/L2 read/write disable + compression-disable axis |
-|  [04]   | `IHybridCacheSerializer<T>`     | serializer contract | `ReadOnlySequence<byte>`/`IBufferWriter<byte>` zero-copy codec |
-|  [05]   | `IHybridCacheSerializerFactory` | serializer factory  | open-generic `TryCreateSerializer<T>` discovery |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+|:-----: |:------------------------------ |:------------------ |:---------------------------- |
+| [01] | `HybridCache` | abstract cache base | read/write/remove/tag root; resolved from DI, never constructed |
+| [02] | `HybridCacheEntryOptions` | entry policy value | sealed; `init`-only `Expiration`/`LocalCacheExpiration`/`Flags` |
+| [03] | `HybridCacheEntryFlags` | `[Flags]` enum | per-call L1/L2 read/write disable + compression-disable axis |
+| [04] | `IHybridCacheSerializer<T>` | serializer contract | `ReadOnlySequence<byte>`/`IBufferWriter<byte>` zero-copy codec |
+| [05] | `IHybridCacheSerializerFactory` | serializer factory | open-generic `TryCreateSerializer<T>` discovery |
 
 `HybridCache` is an `abstract class`, not an interface — the polymorphic `GetOrCreateAsync` family collapses key shape (`string` / `ReadOnlySpan<char>` / `ref DefaultInterpolatedStringHandler`) and factory arity (stateful `TState` / stateless `Func<CancellationToken,...>`) onto two abstract roots, so one read entrypoint discriminates by overload:
-- `GetOrCreateAsync<TState, T>(string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, HybridCacheEntryOptions? options = null, IEnumerable<string>? tags = null, CancellationToken ct = default) : ValueTask<T>` — abstract stampede-protected read-through; `state` threads to the factory so it captures nothing.
-- `GetOrCreateAsync<T>(string key, Func<CancellationToken, ValueTask<T>> factory, ...) : ValueTask<T>` — stateless mirror.
+- `GetOrCreateAsync<TState, T>(string key, TState state, Func<TState, CancellationToken, ValueTask<T>> factory, HybridCacheEntryOptions? options = null, IEnumerable<string>? tags = null, CancellationToken ct = default): ValueTask<T>` — abstract stampede-protected read-through; `state` threads to the factory so it captures nothing.
+- `GetOrCreateAsync<T>(string key, Func<CancellationToken, ValueTask<T>> factory,...): ValueTask<T>` — stateless mirror.
 - `GetOrCreateAsync<…>(ReadOnlySpan<char> key, …)` — `virtual` span-key overloads (default materializes `key.ToString()`); an allocation-aware L2 overrides.
 - `GetOrCreateAsync<…>(ref DefaultInterpolatedStringHandler key, …)` — interpolated-handler overloads that build the key in-place then `Clear()`, so `$"model:{checksum}:{ep}"` keys never allocate an intermediate `string`.
-- `SetAsync<T>(string key, T value, HybridCacheEntryOptions? = null, IEnumerable<string>? tags = null, CancellationToken = default) : ValueTask` — abstract explicit write with optional tag set.
-- `RemoveAsync(string key | IEnumerable<string> keys, CancellationToken = default) : ValueTask` — abstract single-key + `virtual` batch (singular fast-path on `ICollection` count 0/1).
-- `RemoveByTagAsync(string tag | IEnumerable<string> tags, CancellationToken = default) : ValueTask` — abstract single-tag + `virtual` batch group eviction.
+- `SetAsync<T>(string key, T value, HybridCacheEntryOptions? = null, IEnumerable<string>? tags = null, CancellationToken = default): ValueTask` — abstract explicit write with optional tag set.
+- `RemoveAsync(string key \| IEnumerable<string> keys, CancellationToken = default): ValueTask` — abstract single-key + `virtual` batch (singular fast-path on `ICollection` count 0/1).
+- `RemoveByTagAsync(string tag \| IEnumerable<string> tags, CancellationToken = default): ValueTask` — abstract single-tag + `virtual` batch group eviction.
 
 `HybridCacheEntryOptions` (sealed; all members `init`-only): `TimeSpan? Expiration` (absolute L1+L2 lifetime → `DistributedCacheEntryOptions.AbsoluteExpirationRelativeToNow`), `TimeSpan? LocalCacheExpiration` (shorter L1-only horizon; a hot key re-reads L2 without re-minting), `HybridCacheEntryFlags? Flags`.
 
@@ -47,39 +46,39 @@ options, and tag-aware invalidation into the runtime rail.
 [PUBLIC_TYPE_SCOPE]: registration and implementation options
 - rail: runtime cache
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                  |
-| :-----: | :----------------------------- | :----------------- | :---------------------- |
-|  [01]   | `HybridCacheOptions`           | cache option value | default cache policy    |
-|  [02]   | `IHybridCacheBuilder`          | builder contract   | serializer admission    |
-|  [03]   | `HybridCacheServiceExtensions` | service extension  | cache registration      |
-|  [04]   | `HybridCacheBuilderExtensions` | builder extension  | serializer registration |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+|:-----: |:----------------------------- |:----------------- |:---------------------- |
+| [01] | `HybridCacheOptions` | cache option value | default cache policy |
+| [02] | `IHybridCacheBuilder` | builder contract | serializer admission |
+| [03] | `HybridCacheServiceExtensions` | service extension | cache registration |
+| [04] | `HybridCacheBuilderExtensions` | builder extension | serializer registration |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cache operations
 - rail: runtime cache
 
-| [INDEX] | [SURFACE]          | [ENTRY_FAMILY]   | [RAIL]                    |
-| :-----: | :----------------- | :--------------- | :------------------------ |
-|  [01]   | `GetOrCreateAsync` | cache read/write | stampede-aware population |
-|  [02]   | `SetAsync`         | cache write      | explicit value storage    |
-|  [03]   | `RemoveAsync`      | key invalidation | key eviction              |
-|  [04]   | `RemoveByTagAsync` | tag invalidation | grouped eviction          |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+|:-----: |:----------------- |:--------------- |:------------------------ |
+| [01] | `GetOrCreateAsync` | cache read/write | stampede-aware population |
+| [02] | `SetAsync` | cache write | explicit value storage |
+| [03] | `RemoveAsync` | key invalidation | key eviction |
+| [04] | `RemoveByTagAsync` | tag invalidation | grouped eviction |
 
 [ENTRYPOINT_SCOPE]: registration and policy
 - rail: runtime cache
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                        |
-| :-----: | :--------------------------- | :------------------- | :---------------------------- |
-|  [01]   | `AddHybridCache`             | service registration | default cache service         |
-|  [02]   | `AddKeyedHybridCache`        | service registration | keyed cache service           |
-|  [03]   | `AddSerializer<T>`           | builder extension    | concrete serializer admission |
-|  [04]   | `AddSerializer<T,TImpl>`     | builder extension    | typed serializer admission    |
-|  [05]   | `AddSerializerFactory`       | builder extension    | serializer factory admission  |
-|  [06]   | `DefaultEntryOptions`        | option value         | default expiration and flags  |
-|  [07]   | `MaximumPayloadBytes`        | option value         | payload size guard            |
-|  [08]   | `MaximumKeyLength`           | option value         | key size guard                |
-|  [09]   | `DistributedCacheServiceKey` | option value         | distributed cache selection   |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+|:-----: |:--------------------------- |:------------------- |:---------------------------- |
+| [01] | `AddHybridCache` | service registration | default cache service |
+| [02] | `AddKeyedHybridCache` | service registration | keyed cache service |
+| [03] | `AddSerializer<T>` | builder extension | concrete serializer admission |
+| [04] | `AddSerializer<T,TImpl>` | builder extension | typed serializer admission |
+| [05] | `AddSerializerFactory` | builder extension | serializer factory admission |
+| [06] | `DefaultEntryOptions` | option value | default expiration and flags |
+| [07] | `MaximumPayloadBytes` | option value | payload size guard |
+| [08] | `MaximumKeyLength` | option value | key size guard |
+| [09] | `DistributedCacheServiceKey` | option value | distributed cache selection |
 
 `HybridCacheServiceExtensions` on `IServiceCollection` returns `IHybridCacheBuilder` so the serializer chain is admitted on the same call: `AddHybridCache([Action<HybridCacheOptions>])`, `AddKeyedHybridCache(object? serviceKey[, string optionsName][, Action<HybridCacheOptions>])` (keyed registration yields a distinct `HybridCache` resolvable by `[FromKeyedServices]`). `HybridCacheBuilderExtensions` on `IHybridCacheBuilder` (probe order is registration order, first match wins): `AddSerializer<T>(IHybridCacheSerializer<T>)`, `AddSerializer<T, TImplementation>()`, `AddSerializerFactory(IHybridCacheSerializerFactory)`, `AddSerializerFactory<TImplementation>()`. `IHybridCacheBuilder` carries `IServiceCollection Services { get; }`.
 
@@ -89,7 +88,7 @@ options, and tag-aware invalidation into the runtime rail.
 - rail: runtime cache
 - The runtime sniffs its registered `IDistributedCache` at construction; when it also implements `IBufferDistributedCache` it routes reads through `TryGetAsync(IBufferWriter<byte>)` and writes through the `ReadOnlySequence<byte>` form, so payload bytes move L2↔serializer with no intermediate `byte[]`. `RedisCache` (`Microsoft.Extensions.Caching.StackExchangeRedis`) implements it, so the zero-copy path survives the redis tier; an L2 implementing only `IDistributedCache` still works but loses the zero-copy path.
 
-`IBufferDistributedCache : IDistributedCache` adds `bool TryGet(string, IBufferWriter<byte>)`, `ValueTask<bool> TryGetAsync(string, IBufferWriter<byte>, CancellationToken = default)`, `void Set(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions)`, `ValueTask SetAsync(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions, CancellationToken = default)`. The inherited `IDistributedCache` array members remain, so one storage row satisfies both the array contract and the buffer contract.
+`IBufferDistributedCache: IDistributedCache` adds `bool TryGet(string, IBufferWriter<byte>)`, `ValueTask<bool> TryGetAsync(string, IBufferWriter<byte>, CancellationToken = default)`, `void Set(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions)`, `ValueTask SetAsync(string, ReadOnlySequence<byte>, DistributedCacheEntryOptions, CancellationToken = default)`. The inherited `IDistributedCache` array members remain, so one storage row satisfies both the array contract and the buffer contract.
 
 ## [04]-[IMPLEMENTATION_LAW]
 

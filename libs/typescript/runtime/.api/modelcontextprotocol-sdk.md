@@ -1,4 +1,4 @@
-# [@modelcontextprotocol/sdk] — the MCP-client lane only, consuming external MCP servers; hosting stays on the native @effect/ai McpServer/McpSchema
+# [TS_RUNTIME_API_MODELCONTEXTPROTOCOL_SDK]
 
 The reference MCP SDK, admitted for ONE lane: `ai/tool.ts` uses `Client` + a client transport to consume
 external MCP servers (their tools become `Tool.providerDefined`-style rows in an app toolkit). The entire
@@ -13,7 +13,7 @@ re-parse of each result through `effect/Schema` into native shapes. External too
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@modelcontextprotocol/sdk`
-- package: `@modelcontextprotocol/sdk` (version `1.29.0`, license MIT, `type: module`)
+- package: `@modelcontextprotocol/sdk` (version ``, license MIT, `type: module`)
 - entry: subpath exports `./client`, `./server` (OUT OF SCOPE), `./validation`, `./validation/ajv`, `./validation/cfworker`, `./experimental`, `./experimental/tasks`, `./*`
 - in-scope modules: `client/index`, `client/{stdio,streamableHttp,sse,websocket}`, `shared/{protocol,transport,auth}`, `client/auth`, `types`, `inMemory`, `validation/*`, `experimental/tasks/client`
 - asset: Promise-based MCP client on a pluggable transport; Zod-schema protocol wire; OAuth 2.0 client flow
@@ -29,18 +29,18 @@ MCP capabilities. `callTool` auto-validates structured output against the tool's
 configured `jsonSchemaValidator`. `setRequestHandler` registers client-side responders (elicitation, sampling,
 roots). `.experimental.tasks` adds streaming/long-running tool execution.
 
-| [INDEX] | [SYMBOL]                          | [FAMILY]  | [CAPABILITY]                          |
-| :-----: | :-------------------------------- | :-------- | :------------------------------------ |
-|  [01]   | `Client`                          | class     | MCP client over a `Transport`         |
-|  [02]   | `Client#connect`                  | method    | attach transport + initialize         |
-|  [03]   | `Client#listTools / callTool`     | method    | discover + invoke server tools        |
-|  [04]   | `Client#listResources / readResource / subscribeResource` | method | resource access + updates |
-|  [05]   | `Client#listPrompts / getPrompt`  | method    | server prompt access                  |
-|  [06]   | `Client#complete`                 | method    | argument auto-completion              |
-|  [07]   | `Client#getServerCapabilities / getServerVersion / getInstructions` | method | post-init server facts |
-|  [08]   | `Client#setRequestHandler`        | method    | client-side elicitation/sampling/roots |
-|  [09]   | `Client#experimental.tasks`       | property  | streaming/task tool execution         |
-|  [10]   | `getSupportedElicitationModes`    | function  | capability-derived elicitation modes  |
+| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
+|:-----: |:-------------------------------- |:-------- |:------------------------------------ |
+| [01] | `Client` | class | MCP client over a `Transport` |
+| [02] | `Client#connect` | method | attach transport + initialize |
+| [03] | `Client#listTools / callTool` | method | discover + invoke server tools |
+| [04] | `Client#listResources / readResource / subscribeResource` | method | resource access + updates |
+| [05] | `Client#listPrompts / getPrompt` | method | server prompt access |
+| [06] | `Client#complete` | method | argument auto-completion |
+| [07] | `Client#getServerCapabilities / getServerVersion / getInstructions` | method | post-init server facts |
+| [08] | `Client#setRequestHandler` | method | client-side elicitation/sampling/roots |
+| [09] | `Client#experimental.tasks` | property | streaming/task tool execution |
+| [10] | `getSupportedElicitationModes` | function | capability-derived elicitation modes |
 
 ```ts contract
 declare class Client<RequestT extends Request = Request, NotificationT extends Notification = Notification, ResultT extends Result = Result>
@@ -77,7 +77,7 @@ type ClientOptions = ProtocolOptions & {
 
 One `Transport` interface, four client implementations plus an in-memory pair for tests. `ai/tool.ts` picks by
 server locality: `Stdio` spawns a local server process; `StreamableHTTP` (the current remote transport) POSTs +
-SSE-streams with OAuth + reconnection + session resumption; `SSE` is the legacy remote transport; `InMemory`
+SSE-streams with OAuth + reconnection + session resumption; `SSE` is the retired remote transport; `InMemory`
 pairs a client and server in-process for kit-driven specs.
 
 ```ts contract
@@ -136,42 +136,42 @@ declare class UnauthorizedError extends Error {}
 does not adopt Zod internally: it reads the inferred result types and re-parses each payload through `effect/Schema`
 at the boundary. The tool-annotation hints are the seam onto native `Tool` annotations.
 
-| [INDEX] | [SYMBOL]                        | [FAMILY]    | [CAPABILITY]                          |
-| :-----: | :------------------------------ | :---------- | :------------------------------------ |
-|  [01]   | `CallToolResultSchema`          | Zod schema  | tool result (content blocks + `structuredContent`/`isError`) |
-|  [02]   | `ListToolsResultSchema`         | Zod schema  | tool roster (inputSchema/outputSchema/annotations) |
-|  [03]   | `ToolSchema` (annotations)      | Zod schema  | `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` |
-|  [04]   | `ReadResourceResultSchema`      | Zod schema  | resource contents (text/blob)         |
-|  [05]   | `GetPromptResultSchema`         | Zod schema  | prompt messages                       |
-|  [06]   | `JSONRPCMessageSchema`          | Zod schema  | transport frame                       |
-|  [07]   | `ImplementationSchema` / `ClientCapabilitiesSchema` / `ServerCapabilitiesSchema` | Zod schema | handshake facts |
-|  [08]   | `AjvJsonSchemaValidator` / `CfWorkerJsonSchemaValidator` | class | tool output-schema validators |
+| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
+|:-----: |:------------------------------ |:---------- |:------------------------------------ |
+| [01] | `CallToolResultSchema` | Zod schema | tool result (content blocks + `structuredContent`/`isError`) |
+| [02] | `ListToolsResultSchema` | Zod schema | tool roster (inputSchema/outputSchema/annotations) |
+| [03] | `ToolSchema` (annotations) | Zod schema | `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` |
+| [04] | `ReadResourceResultSchema` | Zod schema | resource contents (text/blob) |
+| [05] | `GetPromptResultSchema` | Zod schema | prompt messages |
+| [06] | `JSONRPCMessageSchema` | Zod schema | transport frame |
+| [07] | `ImplementationSchema` / `ClientCapabilitiesSchema` / `ServerCapabilitiesSchema` | Zod schema | handshake facts |
+| [08] | `AjvJsonSchemaValidator` / `CfWorkerJsonSchemaValidator` | class | tool output-schema validators |
 
 ## [06]-[INTEGRATION]
 
 [STACK]: `ai/tool.ts` external-server consumption — rail: mcp-client
 - Own the connection as a `Scope`d resource: `acquireRelease(Effect.tryPromise(() => client.connect(transport)),
-  () => Effect.promise(() => client.close()))` so a server process/HTTP session is released on interruption. Wrap
-  every call in `Effect.tryPromise`, mapping `UnauthorizedError`/transport rejections into one typed `McpClientError`
-  rail — no raw Promise escapes.
+ () => Effect.promise(() => client.close()))` so a server process/HTTP session is released on interruption. Wrap
+ every call in `Effect.tryPromise`, mapping `UnauthorizedError`/transport rejections into one typed `McpClientError`
+ rail — no raw Promise escapes.
 - `listTools` -> project each external tool into an app-toolkit row: its JSON-Schema `inputSchema` decodes to an
-  `effect/Schema`, `callTool` becomes the handler, and the `readOnlyHint`/`destructiveHint`/`idempotentHint`/
-  `openWorldHint` hints map onto `@effect/ai` `Tool.Readonly`/`Destructive`/`Idempotent`/`OpenWorld`. The native
-  `LanguageModel` toolkit then treats an external MCP tool identically to a local one.
+ `effect/Schema`, `callTool` becomes the handler, and the `readOnlyHint`/`destructiveHint`/`idempotentHint`/
+ `openWorldHint` hints map onto `@effect/ai` `Tool.Readonly`/`Destructive`/`Idempotent`/`OpenWorld`. The native
+ `LanguageModel` toolkit then treats an external MCP tool identically to a local one.
 - `callTool`'s auto-validation stays useful, but the boundary re-parses `structuredContent` through the tool's own
-  `effect/Schema` so downstream code composes native shapes, never Zod inferred types.
+ `effect/Schema` so downstream code composes native shapes, never Zod inferred types.
 
 [STACK]: universal-tier rails — rail: mcp-client
 - `effect`: `Scope`/`acquireRelease` own the transport lifecycle; `Effect.tryPromise` + `Match.tag` own the error
-  rail; `Schema` re-parses results; `Effect.timeout`/interruption map onto `RequestOptions.timeout`/`signal`.
+ rail; `Schema` re-parses results; `Effect.timeout`/interruption map onto `RequestOptions.timeout`/`signal`.
 - `@effect/platform`: remote transports honor `fetch`/`requestInit` — thread the `net/client` policy `HttpClient`'s
-  fetch so timeout/retry/proxy stay uniform; local `Stdio` servers spawn through `proc/exec`.
+ fetch so timeout/retry/proxy stay uniform; local `Stdio` servers spawn through `proc/exec`.
 - `security`/`session`: the OAuth `authProvider` composes `security`'s runtime-neutral OAuth ceremony + browser
-  token storage, so remote MCP auth reuses the one session lane rather than a second OAuth notion.
+ token storage, so remote MCP auth reuses the one session lane rather than a second OAuth notion.
 - `@effect/vitest`: `InMemoryTransport.createLinkedPair()` drives kit-driven specs that exercise the client against an
-  in-process server with no network.
+ in-process server with no network.
 
 [BOUNDARY]: hosting stays native — rail: mcp-client
 - The `./server` subpath (`McpServer`, `server/mcp`, `server/stdio`, `server/streamableHttp`, `server/completable`)
-  is never imported. Rasm MCP hosting is `@effect/ai` `McpServer.toolkit` + `layerStdio`/`layerHttp` on `ai/tool.ts`;
-  this SDK is strictly the outbound client that consumes other servers.
+ is never imported. Rasm MCP hosting is `@effect/ai` `McpServer.toolkit` + `layerStdio`/`layerHttp` on `ai/tool.ts`;
+ this SDK is strictly the outbound client that consumes other servers.

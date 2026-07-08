@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `rocksdb`
 - package: `rocksdb` (NuGet id `rocksdb`; the curiosity-ai maintained line)
-- version: `10.10.1.1747`
 - license: BSD-2-Clause (Apache-2.0 / GPLv2 dual on the underlying RocksDB core)
 - assembly: `RocksDbSharp`
 - namespace: `RocksDbSharp`, `NativeImport`, `Transitional`
@@ -84,10 +83,10 @@
 |  [08]   | `PrepopulateBlob`         | blob enum       | blob-cache prepopulation policy         |
 |  [09]   | `PerfLevel` / `PerfMetric` | perf enum      | per-thread perf-context collection      |
 
-[PUBLIC_TYPE_SCOPE]: fork-experimental surface (NOT admitted)
+[PUBLIC_TYPE_SCOPE]: fork-noncanonical surface (NOT admitted)
 - rail: embedded-lsm-kv
 
-The curiosity-ai fork ships additional non-canonical RocksDB types — `RaftClusterNode`/`RaftConfig`/`PeerState`/`IPeerTransport` (a Raft replication cluster), `ReplicationSession`/`ReplicationConsumer`/`ReplicationDelta`/`ReplicationSource` (a delta-replication protocol), `RocksDbWalInspector`, and `AdaptiveCommitDelayController`/`CommitDelaySnapshot`. These are fork-specific experimental surface, not part of the upstream RocksDB API, and are NOT admitted: durable replication is owned by the PostgreSQL tier and the messaging-protocol changefeed (`api-kafka`/`api-rabbitmq`), and `Store` consistency is owned by the canonical `Snapshot`/`Checkpoint`/`TransactionLogIterator` primitives above.
+The curiosity-ai fork ships additional non-canonical RocksDB types — `RaftClusterNode`/`RaftConfig`/`PeerState`/`IPeerTransport` (a Raft replication cluster), `ReplicationSession`/`ReplicationConsumer`/`ReplicationDelta`/`ReplicationSource` (a delta-replication protocol), `RocksDbWalInspector`, and `AdaptiveCommitDelayController`/`CommitDelaySnapshot`. These are fork-specific noncanonical surface, not part of the upstream RocksDB API, and are NOT admitted: durable replication is owned by the PostgreSQL tier and the messaging-protocol changefeed (`api-kafka`/`api-rabbitmq`), and `Store` consistency is owned by the canonical `Snapshot`/`Checkpoint`/`TransactionLogIterator` primitives above.
 
 ## [03]-[ENTRYPOINTS]
 
@@ -176,7 +175,7 @@ The curiosity-ai fork ships additional non-canonical RocksDB types — `RaftClus
 - a `[ValueObject]`/`[SmartEnum]` owner crosses into a RocksDB cell through the snapshot codec key projection and the span `Put`; the read decodes through `Get<T>(key, ISpanDeserializer<T>)` — no per-cell boxing, no hand-rolled byte framing.
 - multi-entity layouts use column families (one family per logical stream/index), opened together via `ColumnFamilies`; the family handle is the operation target, never a key-prefix hack where a family is the right tool.
 - atomic multi-key state transitions use `WriteBatch` (or `WriteBatchWithIndex` where read-your-writes is needed) under one `Write` — never a sequence of single `Put`s on the durable path.
-- the WAL changefeed (`GetUpdatesSince`/`TransactionLogIterator`) is the admitted CDC tap for an embedded store; durable cross-process replication stays on the PostgreSQL tier and the messaging-protocol egress, NOT the fork's experimental Raft/replication types.
+- the WAL changefeed (`GetUpdatesSince`/`TransactionLogIterator`) is the admitted CDC tap for an embedded store; durable cross-process replication stays on the PostgreSQL tier and the messaging-protocol egress, NOT the fork's Raft/replication types.
 
 [STACKING]:
 - snapshot codec: a `[ValueObject]`/`[SmartEnum]` owner projects to its physical key through `api-thinktecture-serialization`; the projected bytes write through the span `Put`/`Merge` and decode through `Get<T>(ISpanDeserializer<T>)`. The deserializer is the seam where the MessagePack/CBOR codec (`api-messagepack`/`api-cbor`) decodes the value span without a managed copy.
@@ -190,4 +189,4 @@ The curiosity-ai fork ships additional non-canonical RocksDB types — `RaftClus
 - Package: `rocksdb` (`RocksDbSharp`)
 - Owns: embedded LSM-tree write-optimized KV/log storage — column families, atomic `WriteBatch`/`WriteBatchWithIndex`, prefix-seekable iterators, `Snapshot`/`Checkpoint` consistency, custom merge/comparator/prefix/compaction hooks, bulk SST ingest, and the WAL changefeed
 - Accept: `RocksDb.Open` with typed `ColumnFamilies`, span-first `Get`/`Put`/`Merge`/`Remove`, `WriteBatch` atomicity, `MergeOperators.Create` for read-modify-write, `Checkpoint`/`Snapshot` consistency, and `GetUpdatesSince` CDC
-- Reject: per-cell byte framing where the span codec exists, single-`Put` sequences where a `WriteBatch` is atomic, a key-prefix hack where a column family is the tool, a read-modify-write loop where a merge operator is native, and the fork-experimental Raft/replication/WAL-inspector surface as if it were canonical RocksDB
+- Reject: per-cell byte framing where the span codec exists, single-`Put` sequences where a `WriteBatch` is atomic, a key-prefix hack where a column family is the tool, a read-modify-write loop where a merge operator is native, and the fork-only Raft/replication/WAL-inspector surface as if it were canonical RocksDB

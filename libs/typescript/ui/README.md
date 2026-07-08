@@ -82,8 +82,12 @@ Every folder-specific external library, planned or implemented. Versions are cen
 - `@visx/scale`
 - `@visx/shape`
 
+[UPLOAD_CLIENT]:
+- `tus-js-client`
+
 [SPATIAL]:
 - `three`
+- `@types/three`
 - `@google/model-viewer`
 - `maplibre-gl`
 - `@deck.gl/core`

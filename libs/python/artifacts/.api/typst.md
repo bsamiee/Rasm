@@ -23,27 +23,27 @@
 
 The module surface is exactly `{compile, compile_with_warnings, eval, query, Compiler, Fonts, FontInfo, TypstError, TypstWarning}` (`dir(typst)` minus dunders and the `_typst` native handle) — there is no per-format render function and no per-operation class family; `format`/`output`/`pdf_standards`/`ppi` are rows on the ONE compile surface, and `query`/`eval` are the introspection inverses, not parsers. The free functions construct a single-shot `Compiler` internally; the owner holds a `Compiler` when amortizing font loading across many renders. `Fonts`/`FontInfo` expose the resolved font set (`Fonts.fonts()`/`Fonts.families()` are METHODS, not attributes). `TypstError`/`TypstWarning` are the structured diagnostic carriers: each exposes `message`/`diagnostic`/`hints: list[str]`/`trace: list[str]`, so the owner reads structured failure context rather than scraping a flat string.
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [RAIL]                                                                                                                                                            |
-| :-----: | :------------- | :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Compiler`     | compiler        | reusable font/world-cached document compiler; ctor seeds one world, methods amortize font discovery across batched renders                                       |
-|  [02]   | `Fonts`        | font set        | resolved font collection: `Fonts(include_system_fonts=True, include_embedded_fonts=True, font_paths=[])` ctor; `.fonts() -> list[FontInfo]`, `.families() -> list[str]` (methods) |
-|  [03]   | `FontInfo`     | font descriptor | one resolved font face (immutable): `.family: str`, `.style: str`, `.weight: int`, `.stretch: float`, `.path: str \| None`, `.index: int`                          |
-|  [04]   | `TypstError`   | diagnostic      | compile/query failure carrier (`RuntimeError` subclass): `.message: str`, `.diagnostic: str` (Typst-rendered block), `.hints: list[str]`, `.trace: list[str]` — RAISED by the compile/query path |
-|  [05]   | `TypstWarning` | diagnostic      | compile warning carrier (`UserWarning` subclass): `.message`/`.diagnostic`/`.hints`/`.trace` — COLLECTED into the `compile_with_warnings` list, never raised      |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `Compiler` | compiler | reusable font/world-cached document compiler; ctor seeds one world, methods amortize font discovery across batched renders |
+| [02] | `Fonts` | font set | resolved font collection: `Fonts(include_system_fonts=True, include_embedded_fonts=True, font_paths=[])` ctor; `.fonts() -> list[FontInfo]`, `.families() -> list[str]` (methods) |
+| [03] | `FontInfo` | font descriptor | one resolved font face (immutable): `.family: str`, `.style: str`, `.weight: int`, `.stretch: float`, `.path: str \| None`, `.index: int` |
+| [04] | `TypstError` | diagnostic | compile/query failure carrier (`RuntimeError` subclass): `.message: str`, `.diagnostic: str` (Typst-rendered block), `.hints: list[str]`, `.trace: list[str]` — RAISED by the compile/query path |
+| [05] | `TypstWarning` | diagnostic | compile warning carrier (`UserWarning` subclass): `.message`/`.diagnostic`/`.hints`/`.trace` — COLLECTED into the `compile_with_warnings` list, never raised |
 
 [PUBLIC_TYPE_SCOPE]: stub type aliases (the typed `__init__.pyi` domains)
 - rail: documents
 
 The typed stub fixes the input/format/standard domains the arms bind, so admission is total over the published vocabulary rather than a stringly-typed bag. `pdf_standards` is the full ISO PDF/A + PDF/UA matrix — narrowing it to a hand-picked subset is a phantom; the engine accepts every token below (combinable, e.g. `["a-3b", "ua-1"]` for an archival + accessible render).
 
-| [INDEX] | [ALIAS]               | [DEFINITION]                                                                                                                                                  | [CAPABILITY]                                                                  |
-| :-----: | :-------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `Input`               | `TypeVar(str, pathlib.Path, bytes)`                                                                                                                          | a source path, `Path`, or in-memory `.typ` bytes — the `input` shape every arm accepts |
-|  [02]   | `OutputFormat`        | `Literal["pdf", "svg", "png", "html"]`                                                                                                                       | the `format` row; inferred from the `output` extension when `None`           |
-|  [03]   | `PathLike`            | `TypeVar(str, pathlib.Path)`                                                                                                                                 | `root`/`package_path`/`package_cache_path` filesystem anchors                |
-|  [04]   | `CreationTimestamp`   | `int \| datetime.datetime`                                                                                                                                   | `timestamp` accepts BOTH UNIX seconds AND a tz-aware fixed-offset `datetime` (= `SOURCE_DATE_EPOCH`) |
-|  [05]   | `PDFStandard`         | `Literal["1.4","1.5","1.6","1.7","2.0","a-1a","a-1b","a-2a","a-2b","a-2u","a-3a","a-3b","a-3u","a-4","a-4e","a-4f","ua-1"]`                                   | the FULL 17-token PDF version + PDF/A conformance + PDF/UA accessibility matrix |
-|  [06]   | `PDFStandards`        | `PDFStandard \| list[PDFStandard] \| None`                                                                                                                   | one token, a combinable list, or `None`; the `pdf_standards` arg domain      |
+| [INDEX] | [ALIAS] | [DEFINITION] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Input` | `TypeVar(str, pathlib.Path, bytes)` | a source path, `Path`, or in-memory `.typ` bytes — the `input` shape every arm accepts |
+| [02] | `OutputFormat` | `Literal["pdf", "svg", "png", "html"]` | the `format` row; inferred from the `output` extension when `None` |
+| [03] | `PathLike` | `TypeVar(str, pathlib.Path)` | `root`/`package_path`/`package_cache_path` filesystem anchors |
+| [04] | `CreationTimestamp` | `int \| datetime.datetime` | `timestamp` accepts BOTH UNIX seconds AND a tz-aware fixed-offset `datetime` (= `SOURCE_DATE_EPOCH`) |
+| [05] | `PDFStandard` | `Literal["1.4","1.5","1.6","1.7","2.0","a-1a","a-1b","a-2a","a-2b","a-2u","a-3a","a-3b","a-3u","a-4","a-4e","a-4f","ua-1"]` | the FULL 17-token PDF version + PDF/A conformance + PDF/UA accessibility matrix |
+| [06] | `PDFStandards` | `PDFStandard \| list[PDFStandard] \| None` | one token, a combinable list, or `None`; the `pdf_standards` arg domain |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -52,38 +52,38 @@ The typed stub fixes the input/format/standard domains the arms bind, so admissi
 
 The free functions take `input` (source path, `Path`, or `bytes`) and share `root`, `font_paths` (a `Fonts` object OR a `list[Input]` of font folders), `ignore_system_fonts`, `sys_inputs`, `pdf_standards`, `package_path`, and `package_cache_path` policy; `output=None` returns rendered `bytes` (or a per-page `list[bytes]` for a multi-page PNG render), an `output` path writes the file and returns `None` (the two `@overload` arms the stub declares). `format` is `"pdf"`/`"png"`/`"svg"`/`"html"` (inferred from the `output` extension when `None`); `ppi` only affects `png` (default 144); `sys_inputs` is a `dict[str, str]` exposed to the document as `sys.inputs`; `timestamp` (`int` epoch or tz-aware `datetime`) pins the document creation time for reproducible byte output. A `"ua-1"` render hard-errors `missing document title` unless the source sets `document(title: ..)`, so the lowering always emits a title for the PDF/UA path; `pretty` pretty-prints PDF/SVG/HTML (ignored for PNG).
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                                                                                                                                                                  | [CAPABILITY]                                                       |
-| :-----: | :---------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `compile`               | `compile(input, output=None, root=None, font_paths=[], ignore_system_fonts=False, format=None, ppi=None, sys_inputs={}, pdf_standards=[], package_path=None, timestamp=None, pretty=False, package_cache_path=None)`         | compile markup to PDF/PNG/SVG/HTML `bytes`/`list[bytes]` or file  |
-|  [02]   | `compile_with_warnings` | same signature -> `tuple[bytes \| list[bytes] \| None, list[TypstWarning]]`                                                                                                                                                  | compile and return collected structured warnings                 |
-|  [03]   | `query`                 | `query(input, selector, field=None, one=False, format=None, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None) -> str`                                          | query document elements by `<label>` selector; `format` is `"json"`/`"yaml"` |
-|  [04]   | `eval`                  | `eval(input, expression, format=None, pretty=False, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None) -> str`                                                  | evaluate a Typst expression against a document; `format` is `"json"`/`"yaml"` |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `compile` | `compile(input, output=None, root=None, font_paths=[], ignore_system_fonts=False, format=None, ppi=None, sys_inputs={}, pdf_standards=[], package_path=None, timestamp=None, pretty=False, package_cache_path=None)` | compile markup to PDF/PNG/SVG/HTML `bytes`/`list[bytes]` or file |
+| [02] | `compile_with_warnings` | same signature -> `tuple[bytes \| list[bytes] \| None, list[TypstWarning]]` | compile and return collected structured warnings |
+| [03] | `query` | `query(input, selector, field=None, one=False, format=None, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None) -> str` | query document elements by `<label>` selector; `format` is `"json"`/`"yaml"` |
+| [04] | `eval` | `eval(input, expression, format=None, pretty=False, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None) -> str` | evaluate a Typst expression against a document; `format` is `"json"`/`"yaml"` |
 
 [ENTRYPOINT_SCOPE]: `Compiler` methods
 - rail: documents
 
 The `Compiler` constructor (`Compiler(input=None, root=None, font_paths=[], ignore_system_fonts=False, sys_inputs={}, package_path=None, package_cache_path=None)`) carries the world identity; `input=None` seeds an empty in-memory document. Methods amortize font loading across repeated renders of one world — every method's `input=` overrides the per-compile source while the discovered fonts persist, so a batched render pays font discovery once. `compile.sys_inputs` is tri-state: `...` (Ellipsis, default) keeps the world's existing `sys_inputs`, `None` clears them, a `dict` replaces them — the `comemo`-cached world is mutated in place rather than rebuilt.
 
-| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                                                                                                       | [CAPABILITY]                                              |
-| :-----: | :------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `Compiler.compile`               | `compile(input=None, output=None, format=None, ppi=None, sys_inputs=..., pdf_standards=[], root=None, timestamp=None, pretty=False) -> bytes \| list[bytes] \| None` | compile against the cached world; `sys_inputs` keep/clear/replace |
-|  [02]   | `Compiler.compile_with_warnings` | same signature -> `tuple[bytes \| list[bytes] \| None, list[TypstWarning]]`                                                                                        | compile against the cached world and return warnings     |
-|  [03]   | `Compiler.query`                 | `query(selector, field=None, one=False, format=None, root=None) -> str`                                                                                            | query elements by selector against the cached world      |
-|  [04]   | `Compiler.eval`                  | `eval(expression, format=None, pretty=False, root=None) -> str`                                                                                                    | evaluate an expression against the cached world          |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Compiler.compile` | `compile(input=None, output=None, format=None, ppi=None, sys_inputs=..., pdf_standards=[], root=None, timestamp=None, pretty=False) -> bytes \| list[bytes] \| None` | compile against the cached world; `sys_inputs` keep/clear/replace |
+| [02] | `Compiler.compile_with_warnings` | same signature -> `tuple[bytes \| list[bytes] \| None, list[TypstWarning]]` | compile against the cached world and return warnings |
+| [03] | `Compiler.query` | `query(selector, field=None, one=False, format=None, root=None) -> str` | query elements by selector against the cached world |
+| [04] | `Compiler.eval` | `eval(expression, format=None, pretty=False, root=None) -> str` | evaluate an expression against the cached world |
 
 [MARKUP_ELEMENT_SCOPE]: tagged-PDF accessibility elements (bundled `typst@0.15` markup vocabulary the lowering emits)
 - rail: documents
 
 The compiled Typst source the owner emits drives these built-in markup functions; the lowering authors the `alt` text equivalent so the `format="pdf"` render with a PDF/UA `pdf_standards` row writes the marked-content structure element. Typst guidance pins `alt` to the inner `image` when the figure body is an image with its own description; the figure-level `alt` is reserved for figures whose body is custom content, never doubled with an image `alt`. The bundled `pdf` module exposes exactly `attach` and `artifact` (there is no `pdf.embed` member in this compiler) — `pdf.attach` is the associated-file embed and `pdf.artifact` wraps decorative content so the structure tree skips it.
 
-| [INDEX] | [MARKUP]       | [CALL_SHAPE]                                                                                                          | [CAPABILITY]                                      |
-| :-----: | :------------- | :------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------ |
-|  [01]   | `image`        | `image(source: str\|bytes\|path, format=auto, width=auto, height=auto, alt: none\|str = none, fit="cover", ...)`     | embed graphic with screen-reader `alt` equivalent |
-|  [02]   | `figure`       | `figure(body: content, alt: none\|str = none, caption: none\|content = none, kind=auto, supplement=auto, ...)`       | numbered figure block carrying caption + role     |
-|  [03]   | `heading`      | `heading(body: content, level: int = 1, ...)`                                                                        | outline node lowering the `H1`-`H6` structure     |
-|  [04]   | `table`        | `table(columns, ..., ..children: content)`                                                                          | row-major cell grid lowering the table structure  |
-|  [05]   | `pdf.attach`   | `pdf.attach(path: str, relationship: auto\|str = auto, mime-type: none\|str = none, description: none\|str = none)`  | associated-file embed for tagged-PDF attachments (path/string source, not `bytes`) |
-|  [06]   | `pdf.artifact` | `pdf.artifact(kind: str = "other", body: content)`                                                                  | mark decorative/non-semantic content as a PDF artifact, excluded from the tagged structure tree so AT skips it |
+| [INDEX] | [MARKUP] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `image` | `image(source: str\|bytes\|path, format=auto, width=auto, height=auto, alt: none\|str = none, fit="cover", ...)` | embed graphic with screen-reader `alt` equivalent |
+| [02] | `figure` | `figure(body: content, alt: none\|str = none, caption: none\|content = none, kind=auto, supplement=auto, ...)` | numbered figure block carrying caption + role |
+| [03] | `heading` | `heading(body: content, level: int = 1, ...)` | outline node lowering the `H1`-`H6` structure |
+| [04] | `table` | `table(columns, ..., ..children: content)` | row-major cell grid lowering the table structure |
+| [05] | `pdf.attach` | `pdf.attach(path: str, relationship: auto\|str = auto, mime-type: none\|str = none, description: none\|str = none)` | associated-file embed for tagged-PDF attachments (path/string source, not `bytes`) |
+| [06] | `pdf.artifact` | `pdf.artifact(kind: str = "other", body: content)` | mark decorative/non-semantic content as a PDF artifact, excluded from the tagged structure tree so AT skips it |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -92,7 +92,7 @@ The compiled Typst source the owner emits drives these built-in markup functions
 - compile axis: `compile`/`compile_with_warnings` is ONE render surface keyed by `format` and `output`; PDF/PNG/SVG/HTML is the `format` row, not a per-format function; `output=None` returns `bytes` for the receipt path, a multi-page `format="png"` render returns a per-page `list[bytes]` (the `Optional[Union[bytes, List[bytes]]]` the stub declares), and an `output` path writes the file returning `None`. The owner always takes `compile_with_warnings` so the `EmitFact.warnings` count is captured rather than discarded.
 - compiler axis: `Compiler` is the reusable world; the owner holds ONE `Compiler` built off the batch head to amortize `font_paths`/`sys_inputs` font discovery across batched renders, overriding `input=` per compile, never a fresh compiler per document. The world build is blocking native (the font-discovery scan), so `document/emit#DOCUMENT` constructs it through `anyio.to_thread.run_sync` under the shared `_OFFLOAD` limiter — off the loop, inside the `async_boundary` capsule.
 - standard axis: `pdf_standards` selects the archival PDF/A + accessible PDF/UA target over the full 17-token matrix; the `PdfVariant.typst` projection maps the owner's `PdfVariant` to the bundled compiler's supported token tuple (a `UA_1` variant projects to `("a-3b", "ua-1")`, archival + tagged), and archival conformance is a render row, never a parallel signer path — PAdES signing routes to `pyhanko`.
-- introspection axis: `query` answers the document-element question over a `<label>` selector + `field`/`one`, and `eval` evaluates a source expression — both over THIS plan's own single-shot world (never the held head world, which would introspect the wrong document in a batch), serialized to `"json"`/`"yaml"`; structured extraction is a row, never a re-parsed AST.
+- introspection axis: `query` answers the document-element question over a `<label>` selector + `field`/`one`, and `eval` evaluates a source expression — both over THIS plan's own single-shot world (never the held head world, which does introspect the wrong document in a batch), serialized to `"json"`/`"yaml"`; structured extraction is a row, never a re-parsed AST.
 - markup axis: the lowering authors `image(.., alt=..)` for embedded graphics and `figure(.., caption: ..)` for numbered blocks; the `alt` equivalent rides the inner `image`, never doubled onto the enclosing `figure`, so a PDF/UA `pdf_standards` render writes one marked-content structure element per figure. Decorative content (rules, background fills, repeated ornaments) is wrapped in `pdf.artifact[..]` so it is excluded from the tagged structure tree, and source/data files ride `pdf.attach(path, relationship: .., description: ..)` as associated files rather than a phantom `pdf.embed`; a `pdf.attach` under a PDF/A `pdf_standards` row hard-errors `the file mime type is missing` unless `mime-type:` is supplied, so the archival lowering always sets it. Interpolated `alt`/`title` strings are Typst-string-escaped (`\` and `"`) before emission; raw interpolation of a string carrying a quote yields invalid markup.
 - data axis: `sys_inputs` injects a `dict[str, str]` the document reads as `sys.inputs` (the `TYPST_DATA` mode binds a data table into the source without string-templating it); on the held `Compiler` the tri-state `...`/`None`/`dict` keeps/clears/replaces the cached inputs so a batched render rebinds data without a world rebuild.
 - reproducibility axis: `timestamp` (epoch `int` or tz-aware `datetime`) pins the document creation date and `ignore_system_fonts=True` + explicit `font_paths` pins the font set, so a PDF/A render is byte-deterministic across machines; the owner sets both for archival output.

@@ -6,14 +6,13 @@
 
 [PACKAGE_SURFACE]: `ReactiveUI`
 - package: `ReactiveUI`
-- version: `23.2.28`
 - license: `MIT`
 - assembly: `ReactiveUI` (AnyCPU IL)
 - build-floor: `net10.0` (consumer-bound; multi-targets android/ios/maccatalyst/tizen/wasm — none bound here)
 - namespace: `ReactiveUI` (core), `ReactiveUI.Builder` (app builder), `ReactiveUI.Helpers`
 - asset: runtime library
 - rail: reactive
-- depends: `System.Reactive` (observable algebra), `DynamicData` (`IChangeSet`/`SourceList`), `Splat` (`IMutableDependencyResolver` / service location). Property/command **binding** (`Bind`/`BindCommand`) is platform-coupled and activated through `ReactiveUI.Avalonia`'s `UseReactiveUI`.
+- depends: `System.Reactive` (observable algebra), `DynamicData` (`IChangeSet`/`SourceList`), `Splat` (`IMutableDependencyResolver` / service location). Property/command binding (`Bind`/`BindCommand`) is platform-coupled and activated through `ReactiveUI.Avalonia`'s `UseReactiveUI`.
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -75,25 +74,27 @@
 | :-----: | :--------------------------- | :------------------------------------------------------------------------------------------- | :-------------------------- | :---------------- |
 |  [01]   | `RaiseAndSetIfChanged`       | `TRet RaiseAndSetIfChanged<TObj,TRet>(this TObj, ref TRet backingField, TRet newValue, [CallerMemberName] string? = null)` | `IReactiveObjectExtensions` | property update |
 |  [02]   | `WhenAnyValue`               | `IObservable<TRet> WhenAnyValue<TSender,…>(this TSender, Expression<Func<…>>…[, selector])` (1..N props) | `WhenAnyMixin`        | property stream   |
-|  [03]   | `ToProperty`                 | `ObservableAsPropertyHelper<TRet> ToProperty<TObj,TRet>(this IObservable<TRet>, TObj source, Expression<Func<TObj,TRet>> property, [initialValue|getInitialValue], bool deferSubscription = false, IScheduler? = null)` | `OAPHCreationHelperMixin` | derived property |
+|  [03]   | `ToProperty`                 | `ObservableAsPropertyHelper<TRet> ToProperty<TObj,TRet>(...)`                        | `OAPHCreationHelperMixin` | derived property |
 |  [04]   | `ThrownExceptions`           | `IObservable<Exception> ThrownExceptions`                                                     | `ReactiveObject` / `ReactiveCommandBase` | error stream |
 |  [05]   | `SuppressChangeNotifications`/`DelayChangeNotifications` | `IDisposable` — batch/suspend `PropertyChanged`                   | `ReactiveObject`            | notification gate |
 
 `WhenAnyValue` is the property-stream source: a single-property overload (`vm.WhenAnyValue(x => x.Name)`) or a multi-property overload with a combining selector (`vm.WhenAnyValue(x => x.A, x => x.B, (a,b) => a && b)`) — the latter is the `canExecute`/derived-property combiner. `ToProperty` projects an observable onto a read-only backing `ObservableAsPropertyHelper<T>`; the property getter returns `_helper.Value`. `deferSubscription` delays the subscription until the first `Value` read.
+
+`ToProperty` accepts the source object, property expression, optional initial value factory, `deferSubscription`, and scheduler.
 
 [COMMAND_ENTRYPOINTS]: command construction and the observable→command bridge
 - rail: reactive
 
 | [INDEX] | [SURFACE]              | [SIGNATURE]                                                                                                   | [SURFACE_ROOT]          | [RAIL]            |
 | :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------------- | :---------------------- | :---------------- |
-|  [01]   | `Create`               | `ReactiveCommand<TParam,TResult> Create[<…>](Action|Func<…>, IObservable<bool>? canExecute = null, IScheduler? outputScheduler = null)` | `ReactiveCommand` | sync command |
+|  [01]   | `Create`               | `ReactiveCommand<TParam,TResult> Create[<…>](Action\|Func<…>, IObservable<bool>? canExecute = null, IScheduler? outputScheduler = null)` | `ReactiveCommand` | sync command |
 |  [02]   | `CreateFromTask`       | `ReactiveCommand<…> CreateFromTask[<…>](Func<…,CancellationToken,Task<…>> execute, IObservable<bool>? canExecute = null, IScheduler? = null)` | `ReactiveCommand` | async+cancel command |
 |  [03]   | `CreateFromObservable` | `ReactiveCommand<…> CreateFromObservable[<…>](Func<…,IObservable<…>>, IObservable<bool>? canExecute = null, IScheduler? = null)` | `ReactiveCommand` | stream command |
 |  [04]   | `CreateRunInBackground`| `ReactiveCommand<…> CreateRunInBackground[<…>](…, IScheduler? backgroundScheduler = null, IScheduler? outputScheduler = null)` | `ReactiveCommand` | off-thread command |
 |  [05]   | `CreateCombined`       | `CombinedReactiveCommand<TParam,TResult> CreateCombined<…>(IEnumerable<ReactiveCommandBase<…>>, IObservable<bool>? canExecute = null, IScheduler? = null)` | `ReactiveCommand` | command batch |
 |  [06]   | `Execute`              | `IObservable<TResult> Execute([TParam])` — returns the result stream (subscribe or `await`)                 | `ReactiveCommand<…>`    | command run       |
 |  [07]   | `CanExecute` / `IsExecuting` | `IObservable<bool>` — gate and in-flight state                                                       | `ReactiveCommandBase<…>`| command state     |
-|  [08]   | `InvokeCommand`        | `IDisposable InvokeCommand<…>(this IObservable<T>, ICommand|ReactiveCommandBase<…>|Expression<Func<TTarget,ICommand?>>)` | `ReactiveCommandMixins` | observable→command |
+|  [08]   | `InvokeCommand`        | `IDisposable InvokeCommand<…>(this IObservable<T>, ICommand\|ReactiveCommandBase<…>\|Expression<Func<TTarget,ICommand?>>)` | `ReactiveCommandMixins` | observable→command |
 
 `CreateFromTask` with a `Func<…,CancellationToken,Task>` is the canonical async leg: the token is cancelled when a subsequent execution starts or the command is disposed — the design page's long-running Compute calls bind here. `canExecute` is an `IObservable<bool>` produced by `WhenAnyValue`. `InvokeCommand` is the trigger bridge (`this.WhenAnyValue(x => x.Save).InvokeCommand(vm, x => x.SaveCommand)` or `keyStream.InvokeCommand(vm.SaveCommand)`) — it respects `CanExecute` and disposes the subscription cleanly. The command result is itself an observable from `Execute`, so chains stay reactive.
 
@@ -116,7 +117,7 @@
 
 | [INDEX] | [SURFACE]         | [SIGNATURE]                                                                                      | [SURFACE_ROOT]                 | [RAIL]              |
 | :-----: | :---------------- | :---------------------------------------------------------------------------------------------- | :----------------------------- | :------------------ |
-|  [01]   | `RegisterHandler` | `IDisposable RegisterHandler(Action<IInteractionContext<…>> | Func<…,Task> | Func<…,IObservable<T>>)` | `Interaction<TInput,TOutput>` | handler admission   |
+|  [01]   | `RegisterHandler` | `IDisposable RegisterHandler(Action<IInteractionContext<…>> \| Func<…,Task> \| Func<…,IObservable<T>>)` | `Interaction<TInput,TOutput>` | handler admission   |
 |  [02]   | `Handle`          | `IObservable<TOutput> Handle(TInput input)`                                                      | `Interaction<TInput,TOutput>`  | interaction request |
 |  [03]   | `SetOutput`       | `void SetOutput(TOutput output)` (exactly once)                                                  | `IInteractionContext<…>`       | result projection   |
 |  [04]   | `BindInteraction` | `IDisposable BindInteraction<…>(this TView, TViewModel?, Expression<Func<TViewModel,IInteraction<…>>>, Func<IInteractionContext<…>,Task> handler)` | `InteractionBindingMixins` | view binding |

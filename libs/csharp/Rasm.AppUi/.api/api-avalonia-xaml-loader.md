@@ -6,12 +6,11 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Markup.Xaml.Loader`
 - package: `Avalonia.Markup.Xaml.Loader`
-- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Markup.Xaml.Loader`
 - namespace: `Avalonia.Markup.Xaml` (one public entry; 417 types across 21 namespaces are internal IL-compiler infrastructure)
 - asset: dev-loop library (`PrivateAssets="all"`)
-- trim/AOT: every `AvaloniaRuntimeXamlLoader` entry carries `[RequiresUnreferencedCode]` ("x:Class directive type and XAML dependencies are referenced dynamically and might be trimmed") — the loader is trim/NativeAOT-incompatible by contract, which is precisely why it is private-asset and Debug-gated.
+- trim/AOT: every `AvaloniaRuntimeXamlLoader` entry carries `[RequiresUnreferencedCode]` for dynamic `x:Class` and XAML dependency references — the loader is trim/NativeAOT-incompatible by contract, which is precisely why it is private-asset and Debug-gated.
 - rail: dev-loop
 
 ## [02]-[PUBLIC_TYPES]

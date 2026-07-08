@@ -5,8 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lib3mf`
-- package: `lib3mf` (vendored — no NuGet; central manifest carries the RID-native asset rows, this folder's `.csproj` the `PackageReference`)
-- version: `2.5.x` (ACT-generated binding, interface version `2.5.0`)
+- package: `lib3mf` (vendored — no NuGet artifact; the ACT binding source compiles into `Rasm.Fabrication`, the RID-keyed native rides `vendor/runtimes` through the folder `.csproj`'s `Exists`-gated `Content` group, LFS-carried, outside NuGet restore)
 - license: `BSD-2-Clause`
 - assembly: the vendored ACT-generated `Lib3MF.cs` compiled into `Rasm.Fabrication`; the native core is a RID-keyed `lib3mf` shared library
 - namespace: `Lib3MF` — the `C…`-prefixed handle wrappers (`CModel`/`CMeshObject`/`CBeamLattice`/`CWriter`/`CReader`/`CSliceStack`) over `IntPtr` handles, the static `Wrapper` factory, and the `s…`/`e…` struct/enum value types

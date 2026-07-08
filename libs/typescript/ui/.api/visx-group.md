@@ -1,4 +1,4 @@
-# [@visx/group] — the one SVG coordinate-frame primitive: `<Group top left>` as the margin-convention translate every visx chart nests in
+# [TS_UI_API_VISX_GROUP]
 
 [PACKAGE_SURFACE]:
 - package: `@visx/group` · license `MIT`

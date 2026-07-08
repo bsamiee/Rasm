@@ -20,16 +20,16 @@
 - auto-installed onto `sys.meta_path` at first `grpc_tools.protoc` import unless `GRPC_PYTHON_DISABLE_DYNAMIC_STUBS` is set; back the `grpc.protos()`/`grpc.services()` runtime helpers.
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]          | [RAIL]                                                                               |
-| :-----: | :------------ | :--------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `ProtoFinder` | `MetaPathFinder`       | `sys.meta_path` hook resolving `_pb2`/`_pb2_grpc` module names to `.proto` files     |
-|  [02]   | `ProtoLoader` | `importlib.abc.Loader` | compiles a `.proto` to module code at import time, caches topologically-ordered deps |
+| ------- | ------------- | ---------------------- | ------------------------------------------------------------------------------------ |
+| [01]    | `ProtoFinder` | `MetaPathFinder`       | `sys.meta_path` hook resolving `_pb2`/`_pb2_grpc` module names to `.proto` files     |
+| [02]    | `ProtoLoader` | `importlib.abc.Loader` | compiles a `.proto` to module code at import time, caches topologically-ordered deps |
 
 [PUBLIC_TYPE_SCOPE]: setuptools integration (`grpc_tools.command`)
 - rail: transport
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]        | [RAIL]                                                 |
-| :-----: | :------------------- | :------------------- | :----------------------------------------------------- |
-|  [01]   | `BuildPackageProtos` | `setuptools.Command` | `setup.py`/`pyproject` build command (`--strict-mode`) |
+| ------- | -------------------- | -------------------- | ------------------------------------------------------ |
+| [01]    | `BuildPackageProtos` | `setuptools.Command` | `setup.py`/`pyproject` build command (`--strict-mode`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -37,12 +37,12 @@
 - rail: transport
 
 | [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                                                          |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `protoc.main(command_arguments) -> int`                                   | codegen        | run `protoc` in-process; arg list UTF-8 encoded then handed to native `run_main`; returns 0 on success                                          |
-|  [02]   | `protoc.entrypoint() -> None`                                             | console script | the `grpc_tools.protoc` CLI shim; prepends the bundled `_proto` include automatically                                                           |
-|  [03]   | `command.build_package_protos(package_root, strict_mode=False)`           | build          | walk `package_root`, compile every `.proto` with `--python_out`/`--pyi_out`/`--grpc_python_out`; warn (or raise under `strict_mode`) on failure |
-|  [04]   | `ProtoFinder(suffix, codegen_fn)`                                         | construction   | meta-path finder for `_pb2`/`_pb2_grpc` suffixed module names                                                                                   |
-|  [05]   | `ProtoLoader(suffix, codegen_fn, module_name, protobuf_path, proto_root)` | construction   | proto-module loader; `exec_module` compiles + caches generated code                                                                             |
+| ------- | ------------------------------------------------------------------------- | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [01]    | `protoc.main(command_arguments) -> int`                                   | codegen        | run `protoc` in-process; arg list UTF-8 encoded then handed to native `run_main`; returns 0 on success                                          |
+| [02]    | `protoc.entrypoint() -> None`                                             | console script | the `grpc_tools.protoc` CLI shim; prepends the bundled `_proto` include automatically                                                           |
+| [03]    | `command.build_package_protos(package_root, strict_mode=False)`           | build          | walk `package_root`, compile every `.proto` with `--python_out`/`--pyi_out`/`--grpc_python_out`; warn (or raise under `strict_mode`) on failure |
+| [04]    | `ProtoFinder(suffix, codegen_fn)`                                         | construction   | meta-path finder for `_pb2`/`_pb2_grpc` suffixed module names                                                                                   |
+| [05]    | `ProtoLoader(suffix, codegen_fn, module_name, protobuf_path, proto_root)` | construction   | proto-module loader; `exec_module` compiles + caches generated code                                                                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -51,7 +51,7 @@
 - emit `--pyi_out` alongside `--python_out` to generate `*_pb2.pyi` type stubs so the generated message classes carry static types the type checker and `@beartype`/`pydantic` boundaries can read; `--grpc_python_out` is emitted only when the `.proto` declares a `service`.
 - the bundled `grpc_tools/_proto` directory carries the well-known protos (`google/protobuf/*.proto`); resolve its path with `importlib.resources.files('grpc_tools') / '_proto'` and pass it with `-I` AFTER the project proto includes so project protos win on name collision.
 - generated `*_pb2.py` carry message classes; generated `*_pb2_grpc.py` carry `<Service>Stub`, `<Service>Servicer`, and `add_<Service>Servicer_to_server(servicer, server)`.
-- `build_package_protos(package_root, strict_mode=...)` is the recommended build-time entrypoint: it discovers every `.proto` under `package_root`, prepends both `package_root` and the well-known include, and runs `protoc.main` per file. `strict_mode=True` raises on the first failure instead of warning — use it in CI so a broken proto fails the build.
+- `build_package_protos(package_root, strict_mode=...)` is the required build-time entrypoint: it discovers every `.proto` under `package_root`, prepends both `package_root` and the well-known include, and runs `protoc.main` per file. `strict_mode=True` raises on the first failure instead of warning — use it in CI so a broken proto fails the build.
 - `ProtoFinder`/`ProtoLoader` auto-install onto `sys.meta_path` at import; they (with the native `get_protos`/`get_services` codegen functions) implement the runtime dynamic-stub path that `grpc.protos('pkg/svc.proto')` / `grpc.services(...)` resolve. Set `GRPC_PYTHON_DISABLE_DYNAMIC_STUBS=1` to disable the hooks entirely.
 
 [STACKS_WITH]:

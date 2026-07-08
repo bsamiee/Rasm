@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.macOS`
-- package: `HarfBuzzSharp.NativeAssets.macOS` (8.3.1.5, MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
+- package: `HarfBuzzSharp.NativeAssets.macOS` (MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
 - asset: `runtimes/osx/native/libHarfBuzzSharp.dylib` (single fat RID payload)
@@ -14,7 +14,7 @@
 - rail: typography
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.Linux`
-- package: `HarfBuzzSharp.NativeAssets.Linux` (8.3.1.5, MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
+- package: `HarfBuzzSharp.NativeAssets.Linux` (MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
 - asset: `runtimes/<rid>/native/libHarfBuzzSharp.so` across 14 Linux RIDs (glibc + musl + bionic + riscv/loongarch)
@@ -24,8 +24,8 @@
 
 [RESTORE_FLOOR]: `HarfBuzzSharp.NativeAssets.Win32`, `HarfBuzzSharp.NativeAssets.WebAssembly`
 - not an AppUi `PackageReference`: present only in the transitive restore graph, never copy-local for the macOS/headless-Linux AppUi posture
-- Win32 (8.3.1.5, MIT): `runtimes/win-{x64,x86,arm64}/native/libHarfBuzzSharp.dll`, `buildTransitive/{net462,net48}` copy targets, `lib/<tfm>/_._` markers
-- WebAssembly (8.3.1.5, MIT): no `runtimes/<rid>/native` payload — static `libHarfBuzzSharp.a` archives keyed by Emscripten version and threading/SIMD flavor under `buildTransitive/netstandard1.0/libHarfBuzzSharp.a/`, plus `.props` + `.targets`
+- Win32 (MIT): `runtimes/win-{x64,x86,arm64}/native/libHarfBuzzSharp.dll`, `buildTransitive/{net462,net48}` copy targets, `lib/<tfm>/_._` markers
+- WebAssembly (MIT): no `runtimes/<rid>/native` payload — static `libHarfBuzzSharp.a` archives keyed by Emscripten version and threading/SIMD flavor under `buildTransitive/netstandard1.0/libHarfBuzzSharp.a/`, plus `.props` + `.targets`
 - rail: typography (out-of-posture; only the macOS/Linux pair is the AppUi text-native line)
 
 ## [02]-[PACKAGE_ASSETS]
@@ -76,7 +76,7 @@
 
 | [INDEX] | [SURFACE]                          | [SURFACE_ROOT]                       | [RAIL]                       |
 | :-----: | :--------------------------------- | :----------------------------------- | :--------------------------- |
-|  [01]   | `ShouldIncludeNativeHarfBuzzSharp` | `buildTransitive/net462|net48` targets | MSBuild opt-out property (default `True`) |
+|  [01]   | `ShouldIncludeNativeHarfBuzzSharp` | `buildTransitive/net462\|net48` targets | MSBuild opt-out property (default `True`) |
 |  [02]   | `_NativeHarfBuzzSharpFile` glob    | `runtimes/<rid>/native/libHarfBuzzSharp.{dylib,so}` | full-framework `None`/`CopyToOutputDirectory=PreserveNewest` copy |
 |  [03]   | RID-asset graph (modern TFM)       | `runtimes/<rid>/native` + SDK         | `net10.0` copy path (targets file is the empty no-op) |
 |  [04]   | `runtimes/osx/native` / `runtimes/linux-*/native` | RID selection             | `osx-arm64` live + `linux-*` headless resolution |

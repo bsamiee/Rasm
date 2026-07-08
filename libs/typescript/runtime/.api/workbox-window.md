@@ -1,11 +1,11 @@
-# [workbox-window] — the window-side service-worker lifecycle owner: registration, update handshake, and background-sync replay observation
+# [TS_RUNTIME_API_WORKBOX_WINDOW]
 
 `workbox-window` runs in the WINDOW, never the service worker. `browser/shell.md` holds one `Workbox` instance as an `Effect.acquireRelease` resource, bridges its lifecycle event target through `Stream.asyncScoped` into a single `SwLifecycle` `SubscriptionRef`, and drives the `messageSkipWaiting` update handshake that reloads on the next `controlling` event. The service-worker ASSET it registers is emitted at build time by `workbox-build` — distinct altitude, one concern each, so a cache-strategy row authored here is the named two-owner defect. The runtime SW-side background-sync `Queue` owns replay; this package OBSERVES and kicks it through window→worker messaging.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `workbox-window`
-- package: `workbox-window` `7.4.1` — license `MIT`
+- package: `workbox-window` `` — license `MIT`
 - module: ESM `index.mjs` + UMD `build/workbox-window.prod.umd.js`; types `index.d.ts`; window-only — touches `navigator.serviceWorker` and `window`, so it belongs to the browser subpath and never a node/wasm bundle
 - marker: build-floor baseline browsers with the Service Worker API; `TrustedScriptURL` supported for the script URL
 - exports: `Workbox`, `messageSW`, and the `utils/WorkboxEvent` event-map types (`WorkboxLifecycleEventMap`, `WorkboxEventMap`, `WorkboxLifecycleEvent`, `WorkboxLifecycleWaitingEvent`, `WorkboxMessageEvent`)

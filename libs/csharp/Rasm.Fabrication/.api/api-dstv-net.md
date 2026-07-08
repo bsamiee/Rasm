@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `DSTV.Net`
 - package: `DSTV.Net`
-- version: `1.3.0` (centrally pinned)
 - license: `Apache-2.0`
 - assembly: `DSTV.Net`
 - namespace roots: `DSTV.Net.Contracts`, `DSTV.Net.Data`, `DSTV.Net.Enums`, `DSTV.Net.Exceptions`, `DSTV.Net.Implementations`, `DSTV.Net.Extensions`, `DSTV.Net`

@@ -6,13 +6,12 @@
 
 [PACKAGE_SURFACE]: `@pulumi/docker-build`
 - package: `@pulumi/docker-build`
-- version: `0.0.20`
 - license: Apache-2.0
 - import: `@pulumi/docker-build` → `{ Image, Index, Provider, config, types }` + top-level enums (`Platform`/`NetworkMode`/`CacheMode`)
 - owner: `iac`
 - rail: fabric / selfhosted-docker (canonical image build) + aws (bundled by `awsx.ecr.Image`)
-- runtime: a reachable BuildKit backend — the provider embeds a v25 Docker client + v0.12 buildx by default (`exec: true` shells a host `docker-buildx` instead); a push needs registry credentials
-- build-floor: `@pulumi/pulumi` `^3.142.0` (catalog pins `3.250.0`)
+- runtime: a reachable BuildKit backend — the provider embeds a catalog-bound Docker client + catalog-bound buildx by default (`exec: true` shells a host `docker-buildx` instead); a push needs registry credentials
+- build-floor: `@pulumi/pulumi` `^catalog`
 - depends-on: `@pulumi/pulumi` (`CustomResource`/`ProviderResource`/`Input`/`Output`, `.api/pulumi-pulumi.md`)
 - namespaces: root barrel (`Image`/`Index`/`Provider` + enums), `docker-build.config` (ambient `host`/`registries`), `docker-build.types.input`/`…output` (the cache/export/context/dockerfile/registry/ssh arg trees)
 - capability: buildx-native multi-platform image build+push, pluggable cache import/export, pluggable output exports, by-value build secrets, SSH forwarding, multi-arch manifest-list `Index`
@@ -24,12 +23,12 @@
 - rail: selfhosted-docker
 - One shape owns `Image`/`Index`/`Provider`; construction is `new X(name, XArgs, opts?)` where `opts` is the universal `pulumi.CustomResourceOptions`/`ResourceOptions` seam (`provider`/`dependsOn`/`parent`/`protect`, `.api/pulumi-pulumi.md`). Adoption is `static get(name, id, opts?)`; every output prop is an `Output<T>` mirror. `Provider` extends `pulumi.ProviderResource`; `Image`/`Index` extend `pulumi.CustomResource`.
 
-| [INDEX] | [MEMBER] | [SHAPE / BOUNDARY] |
-| :-----: | :------- | :----------------- |
-|  [01]   | `new X(name, XArgs, opts?)` | construct; `XArgs` fields are `Input<T>` |
-|  [02]   | `X.get(name, id, opts?)` | adopt an existing image/index by id |
-|  [03]   | `X.isInstance(obj)` | multi-SDK-safe guard `obj is X` |
-|  [04]   | `x.<prop>: Output<T>` | resolved output mirror; thread via `.apply`/`pulumi.all` |
+| [INDEX] | [MEMBER] | [SHAPE_BOUNDARY] |
+|:-----: |:------- |:----------------- |
+| [01] | `new X(name, XArgs, opts?)` | construct; `XArgs` fields are `Input<T>` |
+| [02] | `X.get(name, id, opts?)` | adopt an existing image/index by id |
+| [03] | `X.isInstance(obj)` | multi-SDK-safe guard `obj is X` |
+| [04] | `x.<prop>: Output<T>` | resolved output mirror; thread via `.apply`/`pulumi.all` |
 
 ## [03]-[BUILD_SURFACE]
 
@@ -37,31 +36,31 @@
 - rail: selfhosted-docker
 - `Image` builds a Dockerfile through buildx and (with `push: true` or a `registry` export) pushes it, emitting `ref` (a `tag@digest` convenience) and `digest` (the stable sha256 downstream resources pin). `dockerfile`/`context` locate the build; `platforms` drives multi-arch; `secrets`/`ssh` inject build-time material by value; `cacheFrom`/`cacheTo`/`exports` are the pluggable backend families.
 
-| [INDEX] | [SYMBOL] | [KEY ARGS → OUTPUTS] |
-| :-----: | :------- | :------------------- |
-|  [01]   | `Image` | `{ push (required), tags, dockerfile, context, buildArgs, target, platforms, secrets, ssh, labels, network, noCache, pull, load, builder, buildOnPreview, exec }` → `ref`, `digest`, `contextHash` |
-|  [02]   | `types.input.DockerfileArgs` | `location` (path) XOR `inline` (literal Dockerfile body) |
-|  [03]   | `types.input.BuildContextArgs` | `location` (path/URL/git) + `named` (named build contexts) |
-|  [04]   | `types.input.RegistryArgs` | `address`/`username`/`password` (bind a `doppler` secret Output) |
+| [INDEX] | [SYMBOL] | [KEY_ARGS_OUTPUTS] |
+|:-----: |:------- |:------------------- |
+| [01] | `Image` | `{ push (required), tags, dockerfile, context, buildArgs, target, platforms, secrets, ssh, labels, network, noCache, pull, load, builder, buildOnPreview, exec }` → `ref`, `digest`, `contextHash` |
+| [02] | `types.input.DockerfileArgs` | `location` (path) XOR `inline` (literal Dockerfile body) |
+| [03] | `types.input.BuildContextArgs` | `location` (path/URL/git) + `named` (named build contexts) |
+| [04] | `types.input.RegistryArgs` | `address`/`username`/`password` (bind a `doppler` secret Output) |
 
 [BACKEND_SCOPE]: the parameterized cache + export backend families
 - rail: selfhosted-docker
 - `cacheFrom`/`cacheTo`/`exports` are each ONE parameterized slot whose backend is selected by which sub-key is set — a new backend is a row, never a new arg. This IS the mechanism; the backend keys are seed data.
 
-| [INDEX] | [SLOT] | [BACKEND KEYS (one per entry)] |
-| :-----: | :----- | :----------------------------- |
-|  [01]   | `cacheFrom: CacheFromArgs[]` | `registry` \| `local` \| `s3` \| `gha` \| `azblob` \| `raw` |
-|  [02]   | `cacheTo: CacheToArgs[]` | `registry` \| `local` \| `s3` \| `gha` \| `azblob` \| `inline` \| `raw` |
-|  [03]   | `exports: ExportArgs[]` | `registry` \| `image` \| `docker` \| `oci` \| `local` \| `tar` \| `cacheonly` \| `raw` |
-|  [04]   | `platforms: Platform[]` | the multi-arch build targets (`Platform` enum constants) |
+| [INDEX] | [SLOT] | [BACKEND_KEYS_ONE_PER_ENTRY] |
+|:-----: |:----- |:----------------------------- |
+| [01] | `cacheFrom: CacheFromArgs[]` | `registry` \| `local` \| `s3` \| `gha` \| `azblob` \| `raw` |
+| [02] | `cacheTo: CacheToArgs[]` | `registry` \| `local` \| `s3` \| `gha` \| `azblob` \| `inline` \| `raw` |
+| [03] | `exports: ExportArgs[]` | `registry` \| `image` \| `docker` \| `oci` \| `local` \| `tar` \| `cacheonly` \| `raw` |
+| [04] | `platforms: Platform[]` | the multi-arch build targets (`Platform` enum constants) |
 
 [INDEX_SCOPE]: `Index` — multi-platform manifest list
 - rail: selfhosted-docker
 - `Index` fuses per-platform image tags (`sources`) into ONE multi-arch manifest under `tag`, emitting the combined `ref` — the manifest-list complement to a single per-`platforms` `Image`.
 
-| [INDEX] | [SYMBOL] | [KEY ARGS → OUTPUTS] |
-| :-----: | :------- | :------------------- |
-|  [01]   | `Index` | `{ sources (required tag refs), tag (required), push, registry }` → `ref` |
+| [INDEX] | [SYMBOL] | [KEY_ARGS_OUTPUTS] |
+|:-----: |:------- |:------------------- |
+| [01] | `Index` | `{ sources (required tag refs), tag (required), push, registry }` → `ref` |
 
 ## [04]-[PROVIDER]
 
@@ -70,9 +69,9 @@
 - The dispatch arm constructs ONE `Provider` and threads it via `opts.provider`. `host` selects the BuildKit endpoint (default: the embedded client); `registries` pre-authenticates pushes. `config.*` mirrors these as ambient vars.
 
 | [INDEX] | [FIELD] | [TYPE] | [MEANING] |
-| :-----: | :------ | :----- | :-------- |
-|  [01]   | `host` | `Input<string>` | build-daemon address (default embedded v25-client / buildx-0.12) |
-|  [02]   | `registries` | `Input<RegistryArgs[]>` | pre-authenticated push registries |
+|:-----: |:------ |:----- |:-------- |
+| [01] | `host` | `Input<string>` | build-daemon address (default embedded catalog-bound-client / buildx-0.12) |
+| [02] | `registries` | `Input<RegistryArgs[]>` | pre-authenticated push registries |
 
 ## [05]-[IMPLEMENTATION_LAW]
 

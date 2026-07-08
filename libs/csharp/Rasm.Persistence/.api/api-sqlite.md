@@ -13,7 +13,6 @@ from the `System.Data.Common` base types and returns `Sqlite*` results.
 
 [PACKAGE_SURFACE]: `Microsoft.Data.Sqlite`
 - package: `Microsoft.Data.Sqlite`
-- version: `10.0.9`
 - license: `MIT`
 - assembly: `Microsoft.Data.Sqlite` (the runtime type lives in `Microsoft.Data.Sqlite.Core`; the meta-package is a native-provider convenience referencing the bundle)
 - bound TFM: `lib/net8.0` (the `net10.0` consumer binds `net8.0` over `netstandard2.0`)

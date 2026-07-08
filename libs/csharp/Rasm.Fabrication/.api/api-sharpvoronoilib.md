@@ -8,7 +8,6 @@
 
 [PACKAGE_SURFACE]: `SharpVoronoiLib`
 - package: `SharpVoronoiLib`
-- version: `1.2.0` (centrally pinned)
 - license: `MIT` ("MIT License, various authors"; `licenseUrl` `github.com/RudyTheDev/SharpVoronoiLib/blob/main/License.md`) — NOT ISC
 - assembly: `SharpVoronoiLib`
 - namespaces: `SharpVoronoiLib` (the diagram + orchestrator + strategies), `SharpVoronoiLib.Exceptions` (the typed faults), `Supercluster.KDTree` + `Supercluster.KDTree.Utilities` (the BUNDLED kd-tree powering `NearestSiteLookupMethod.KDTree` — vendored INTO this assembly, not a separate dependency)

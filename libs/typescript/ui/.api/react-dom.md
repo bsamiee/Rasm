@@ -1,4 +1,4 @@
-# [react-dom] — DOM renderer binding the React 19 spine to the document
+# [TS_UI_API_REACT_DOM]
 
 `react-dom` is the DOM host renderer for the React 19 element tree. Its surface splits across strata by concern, not by whim: the `ui` view plane composes `createPortal` (overlays escape their subtree), `flushSync` (synchronous commit for focus restoration and View Transitions), the resource-hint family (`preload`/`preinit`/`preconnect` for GLB, wasm, fonts, and tiles), and `useFormStatus` (form-submit pending); the `browser` boot lane owns `createRoot`/`hydrateRoot` and their error-callback `RootOptions`; and the `edge` render lane owns the streaming SSR entries (`renderToReadableStream`, `renderToPipeableStream`, `prerender`). The runtime-split subpaths — `./client`, `./server.node`, `./server.edge`, `./server.browser`, `./static.node`, `./static.edge` — mirror the `@effect/platform-node`/`-browser` fence: a browser bundle imports `./client` and `./server.browser`, never a `node:`-bound server entry. `react-dom` ships no bundled types; the declaration surface is the separate `@types/react-dom` package. Within `ui` the renderer is a view-plane capability (portal + flush); boot and SSR are `browser`/`edge` concerns — `ui` never imports `browser`, so it reaches `createRoot` only through the app composition root.
 
@@ -6,10 +6,9 @@
 
 [PACKAGE_SURFACE]: `react-dom`
 - package: `react-dom`
-- version: `19.2.7`
 - license: `MIT`
-- react-peer: `react ^19.2.7` (lockstep — the renderer and reconciler ship and version together)
-- asset: runtime library shipping `.js` only; types are the separate `@types/react-dom` (`19.2.3`, MIT) DefinitelyTyped package — `api resolve react-dom` finds the package root but zero bundled `.d.ts`, so the type gate runs against `@types/react-dom`
+- react-peer: `react ^catalog` (lockstep — the renderer and reconciler ship and version together)
+- asset: runtime library shipping `.js` only; types are the separate `@types/react-dom` (`catalog`, MIT) DefinitelyTyped package — `api resolve react-dom` finds the package root but zero bundled `.d.ts`, so the type gate runs against `@types/react-dom`
 - exports (runtime-split): `.` (portal/flush/hints/form), `./client` (`createRoot`/`hydrateRoot`), `./server.node` (`renderToPipeableStream`), `./server.edge`/`./server.browser`/`./server.bun` (`renderToReadableStream`), `./static.node`/`./static.edge` (`prerender`), `./profiling`, `./test-utils`
 - catalog-verdict: KEEP
 
@@ -19,14 +18,14 @@
 - rail: browser/boot + view/primitive
 - The root handle and the option records for boot, hydration, and resource hints. `RootOptions` carries the error-callback trio that pairs with `react-error-boundary`.
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                              |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
-|  [01]   | `Root` (`.render(children)` / `.unmount()`)                              | root handle    | `browser/boot` — the mounted-tree handle; one root per app, `unmount` on teardown |
-|  [02]   | `RootOptions` (`identifierPrefix`, `onCaughtError`, `onUncaughtError`, `onRecoverableError`) | boot policy | `browser/boot` — `onCaughtError` fires for errors an error boundary caught, `onUncaughtError` for those that escaped, `onRecoverableError` for hydration mismatch recovery |
-|  [03]   | `HydrationOptions`                                                       | hydration policy | `browser/boot` SSR-hydration path; `RootOptions` plus hydration-mismatch handling |
-|  [04]   | `ReactPortal`                                                            | portal node    | `view/primitive` — the `createPortal` return; a React node rendering into a foreign container |
-|  [05]   | `PreloadOptions` / `PreinitOptions` / `PreconnectOptions` / `PreloadModuleOptions` / `PreinitModuleOptions` | hint options | `view` + `viewer` — `as`/`crossOrigin`/`integrity`/`fetchPriority` for the resource the hint fetches |
-|  [06]   | `FormStatus` (`FormStatusPending \| FormStatusNotPending`)              | form state     | `view/compose` — `useFormStatus` return; `pending`, `data` (`FormData`), `method`, `action` during submit |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:----------------------------------------------------------------------- |:------------- |:---------------------------------------------------------------- |
+| [01] | `Root` (`.render(children)` / `.unmount()`) | root handle | `browser/boot` — the mounted-tree handle; one root per app, `unmount` on teardown |
+| [02] | `RootOptions` (`identifierPrefix`, `onCaughtError`, `onUncaughtError`, `onRecoverableError`) | boot policy | `browser/boot` — `onCaughtError` fires for errors an error boundary caught, `onUncaughtError` for those that escaped, `onRecoverableError` for hydration mismatch recovery |
+| [03] | `HydrationOptions` | hydration policy | `browser/boot` SSR-hydration path; `RootOptions` plus hydration-mismatch handling |
+| [04] | `ReactPortal` | portal node | `view/primitive` — the `createPortal` return; a React node rendering into a foreign container |
+| [05] | `PreloadOptions` / `PreinitOptions` / `PreconnectOptions` / `PreloadModuleOptions` / `PreinitModuleOptions` | hint options | `view` + `viewer` — `as`/`crossOrigin`/`integrity`/`fetchPriority` for the resource the hint fetches |
+| [06] | `FormStatus` (`FormStatusPending \| FormStatusNotPending`) | form state | `view/compose` — `useFormStatus` return; `pending`, `data` (`FormData`), `method`, `action` during submit |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -34,28 +33,28 @@
 - rail: view/primitive
 - The surface `ui` composes directly. `createPortal` and `flushSync` are the overlay and imperative-commit seams; the resource hints prefetch heavy `viewer` assets; the form hooks read submit state.
 
-| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY]  | [CONSUMER / BOUNDARY]                                              |
-| :-----: | :------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------- |
-|  [01]   | `createPortal(children, container: Element \| DocumentFragment, key?): ReactPortal` | portal        | `view/primitive` — roots `react-aria` `Overlay`/`PortalProvider` so overlays escape `overflow`/`z-index` context |
-|  [02]   | `flushSync<R>(fn: () => R): R`                                                    | sync commit     | `view`/`act` — forces a synchronous commit for `react-aria` `FocusScope` restoration and before `document.startViewTransition` |
-|  [03]   | `preload(href, options)` / `preinit(href, options)` / `preloadModule` / `preinitModule` | resource hint | `viewer` — prefetch/eval the meshopt-decoder wasm, GLB assets, geo tiles, and fonts ahead of render |
-|  [04]   | `preconnect(href, options?)` / `prefetchDNS(href)`                               | connection hint | `viewer` geo/tile origins — warm the connection before the first asset request |
-|  [05]   | `useFormStatus(): FormStatus`                                                     | form state      | `view/compose` `FormBinding` submit button — `pending`/`data` without prop-threading from the `<form>` |
-|  [06]   | `requestFormReset(form: HTMLFormElement)`                                         | form reset      | `view/compose` — imperative uncontrolled-form reset after a successful action |
-|  [07]   | `version` / `useFormState` / `unstable_batchedUpdates`                            | legacy / meta   | `version` gates feature detection; `useFormState` is superseded by React `useActionState`; `unstable_batchedUpdates` is legacy (19 auto-batches) |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------- |:-------------- |:---------------------------------------------------------------- |
+| [01] | `createPortal(children, container: Element \| DocumentFragment, key?): ReactPortal` | portal | `view/primitive` — roots `react-aria` `Overlay`/`PortalProvider` so overlays escape `overflow`/`z-index` context |
+| [02] | `flushSync<R>(fn: () => R): R` | sync commit | `view`/`act` — forces a synchronous commit for `react-aria` `FocusScope` restoration and before `document.startViewTransition` |
+| [03] | `preload(href, options)` / `preinit(href, options)` / `preloadModule` / `preinitModule` | resource hint | `viewer` — prefetch/eval the meshopt-decoder wasm, GLB assets, geo tiles, and fonts ahead of render |
+| [04] | `preconnect(href, options?)` / `prefetchDNS(href)` | connection hint | `viewer` geo/tile origins — warm the connection before the first asset request |
+| [05] | `useFormStatus(): FormStatus` | form state | `view/compose` `FormBinding` submit button — `pending`/`data` without prop-threading from the `<form>` |
+| [06] | `requestFormReset(form: HTMLFormElement)` | form reset | `view/compose` — imperative uncontrolled-form reset after a successful action |
+| [07] | `version` / `useFormState` / `unstable_batchedUpdates` | retired / meta | `version` gates feature detection; `useFormState` is superseded by React `useActionState`; `unstable_batchedUpdates` is retired (19 auto-batches) |
 
 [ENTRYPOINT_SCOPE]: boot + SSR lanes — browser/edge owned, out of ui-core
 - rail: browser/boot + edge/render
 - The client boot (`browser`) and the server render (`edge`). `ui` never imports these; they are named here to fix the seam `react-error-boundary` and the runtime fence bind to.
 
-| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY]  | [CONSUMER / BOUNDARY]                                              |
-| :-----: | :------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------- |
-|  [01]   | `createRoot(container, options?: RootOptions): Root` (`./client`)               | client boot     | `browser/boot` — the one mount; `onCaughtError`/`onUncaughtError` pair with the `react-error-boundary` tree |
-|  [02]   | `hydrateRoot(container, initialChildren, options?: HydrationOptions): Root` (`./client`) | hydration boot | `browser/boot` — attach to SSR markup; `onRecoverableError` reports hydration divergence |
-|  [03]   | `renderToReadableStream(children, options?)` (`./server.edge` / `./server.browser`) | edge stream   | `edge/render` — Web-Streams SSR for edge/worker runtimes; the browser-safe server entry |
-|  [04]   | `renderToPipeableStream(children, options?)` (`./server.node`)                  | node stream     | `edge/render` node lane — Node-stream SSR with backpressure; the `node:`-bound entry banned in a browser bundle |
-|  [05]   | `renderToString` / `renderToStaticMarkup`                                        | sync render     | `edge` non-streaming fallback and static-markup emit (email, snapshot) |
-|  [06]   | `prerender` / `prerenderToNodeStream` / `resumeAndPrerender` / `resumeAndPrerenderToNodeStream` (`./static.*`) | prerender | `edge` static + resumable prerender (partial pre-render, resume on request) |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------- |:-------------- |:---------------------------------------------------------------- |
+| [01] | `createRoot(container, options?: RootOptions): Root` (`./client`) | client boot | `browser/boot` — the one mount; `onCaughtError`/`onUncaughtError` pair with the `react-error-boundary` tree |
+| [02] | `hydrateRoot(container, initialChildren, options?: HydrationOptions): Root` (`./client`) | hydration boot | `browser/boot` — attach to SSR markup; `onRecoverableError` reports hydration divergence |
+| [03] | `renderToReadableStream(children, options?)` (`./server.edge` / `./server.browser`) | edge stream | `edge/render` — Web-Streams SSR for edge/worker runtimes; the browser-safe server entry |
+| [04] | `renderToPipeableStream(children, options?)` (`./server.node`) | node stream | `edge/render` node lane — Node-stream SSR with backpressure; the `node:`-bound entry banned in a browser bundle |
+| [05] | `renderToString` / `renderToStaticMarkup` | sync render | `edge` non-streaming recovery and static-markup emit (email, snapshot) |
+| [06] | `prerender` / `prerenderToNodeStream` / `resumeAndPrerender` / `resumeAndPrerenderToNodeStream` (`./static.*`) | prerender | `edge` static + resumable prerender (partial pre-render, resume on request) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -24,7 +24,7 @@ The canonical bytes cross only the in-process seam; `CanonicalTopology`, `Encode
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------------
 using System.Buffers;
 using System.Buffers.Binary;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;

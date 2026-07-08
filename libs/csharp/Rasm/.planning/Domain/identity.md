@@ -20,7 +20,7 @@ The determinism owner (`Rasm.Domain`). This page owns the two reproducibility su
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.IO.Hashing;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 
 namespace Rasm.Domain;
 

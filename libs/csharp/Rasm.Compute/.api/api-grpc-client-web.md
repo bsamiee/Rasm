@@ -56,7 +56,7 @@ paths.
 |  [01]   | `GrpcWebHandler.SendAsync` | pipeline override | intercepts `application/grpc` requests |
 
 [ENTRYPOINT_SCOPE]: `GrpcWebHandler` and `GrpcWebMode` decompile-verified members
-- source: `Grpc.Net.Client.Web` 2.80.0 decompile
+- source: `Grpc.Net.Client.Web` decompile
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 

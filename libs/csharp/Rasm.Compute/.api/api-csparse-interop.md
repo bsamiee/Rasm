@@ -6,11 +6,10 @@
 
 [PACKAGE_SURFACE]: `csparse-interop`
 - package: `csparse-interop` (SOURCE-VENDORED from the live `wo80/csparse-interop`; NOT on public NuGet)
-- version: vendored at the admitted `wo80/csparse-interop` HEAD (tracked as a vendored-source revision, not a pin)
 - license: BSD-3-Clause (same as `CSparse`); the wrapped native libraries carry their own permissive licenses (ARPACK BSD, SuiteSparse/CHOLMOD LGPL-or-permissive per module, SuperLU BSD)
 - assembly: `CSparse.Interop` (managed wrapper over the native solver libraries)
 - namespace: `CSparse.Interop.ARPACK`, `CSparse.Interop.Spectra`, `CSparse.Interop.SuiteSparse.Cholmod`, `CSparse.Interop.SuiteSparse.Umfpack`, `CSparse.Interop.SuperLU`
-- asset: managed interop wrapper P/Invoking the native ARPACK / SuiteSparse / SuperLU libraries; osx-arm64 runs the SuiteSparse/ARPACK leg (MKL is x64-only). The native libraries are **Forge-provisioned** — the activation gate, NOT this campaign's design blocker; a solve without the provisioned native faults at native init
+- asset: managed interop wrapper P/Invoking the native ARPACK / SuiteSparse / SuperLU libraries; osx-arm64 runs the SuiteSparse/ARPACK leg (MKL is x64-only). The native libraries are Forge-provisioned — the activation gate, NOT this campaign's design blocker; a solve without the provisioned native faults at native init
 - verification: authored-at-admission against the `wo80/csparse-interop` repo surface; exact member signatures VERIFY against the vendored tree at the leg-2 first-compose (the vendored-source verification law), never asserted green before the tree lands
 - rail: sparse-solver
 

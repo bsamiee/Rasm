@@ -16,21 +16,22 @@ and carries no TS_PROJECTION.
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntimeGenAI`
-- package: `Microsoft.ML.OnnxRuntimeGenAI` (version 0.14.1, direct pin; native meta-package)
+- package: `Microsoft.ML.OnnxRuntimeGenAI` (direct pin; native meta-package)
 - license: MIT (ONNX Runtime GenAI; nuspec `license type="file"`, `microsoft/onnxruntime-genai`)
-- managed-assembly: transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed` 0.14.1 → the `net10.0` consumer binds `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll` (the facade also ships `netstandard2.0` + `net9.0-{android,ios,maccatalyst}` variants; only `net8.0` is the bound desktop asset)
-- native-floor: depends on `Microsoft.ML.OnnxRuntime` >= 1.23.0 (the central pin resolves it to the `1.27.0` asset the inference engine `api-onnxruntime` owns); the genai native (`onnxruntime-genai.{dll,dylib,so}` + `.aar`/`.xcframework.zip` mobile forms) co-locates per-RID BESIDE the base `libonnxruntime` payload — the per-RID base-runtime ABI matrix and the EP/device roster are owned by `api-onnxruntime#NATIVE_RUNTIME` (the `[PACKAGE_ASSET_SCOPE]: per-RID native ABI matrix` + `[EXECUTION_PROVIDER_SELECTION]`), NOT restated here
+- managed-assembly: transitive `Microsoft.ML.OnnxRuntimeGenAI.Managed` → the `net10.0` consumer binds `lib/net8.0/Microsoft.ML.OnnxRuntimeGenAI.dll` (the facade also ships `netstandard2.0` + `net9.0-{android,ios,maccatalyst}` variants; only `net8.0` is the bound desktop asset)
+[NATIVE_FLOOR]:
+The package depends on `Microsoft.ML.OnnxRuntime`; the central pin resolves it to the asset the inference engine `api-onnxruntime` owns. The genai native payload co-locates per-RID BESIDE the base `libonnxruntime` payload, and the per-RID base-runtime ABI matrix and EP/device roster stay owned by `api-onnxruntime#NATIVE_RUNTIME`, NOT restated here.
 - native-rids: `linux-arm64`, `linux-x64`, `osx-arm64`, `win-arm64`, `win-x64` (+ `android`/`ios` archive forms) — the genai payload set, which is the subset of `api-onnxruntime`'s base-runtime RIDs that the genai meta-package also publishes; the `osx-arm64` runtime is the verified host asset, so a model run with no matching genai-AND-base RID payload faults at native init
 - namespace: `Microsoft.ML.OnnxRuntimeGenAI`
 - asset: native-only meta-package (`build/native` props/targets + `ort_genai.h`) plus the managed facade via the transitive `.Managed` package
 - rail: model
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-- package: `Microsoft.Extensions.AI.Abstractions` (version 10.7.0, direct pin)
+- package: `Microsoft.Extensions.AI.Abstractions` (direct pin)
 - license: MIT (`dotnet/extensions`)
 - assembly: `Microsoft.Extensions.AI.Abstractions` → the `net10.0` consumer binds `lib/net10.0`
 - namespace: `Microsoft.Extensions.AI`
-- asset: managed abstractions; the GenAI facade's transitive floor is 9.8.0 but the 10.7.0 central pin wins, so the `IChatClient` surface is the 10.x contract
+- asset: managed abstractions; the GenAI facade's transitive floor is but the central pin wins, so the `IChatClient` surface is the 10.x contract
 - rail: model
 
 ## [02]-[PUBLIC_TYPES]
@@ -321,7 +322,7 @@ and carries no TS_PROJECTION.
 - Grammar-constrained structured output is enforced at generation through `SetGuidance`; a managed JSON-schema validator over the output is the rejected form.
 
 [RAIL_LAW]:
-- Package: `Microsoft.ML.OnnxRuntimeGenAI` (0.14.1, MIT, native + `.Managed` net8.0) + `Microsoft.Extensions.AI.Abstractions` (10.7.0, MIT, net10.0)
+- Package: `Microsoft.ML.OnnxRuntimeGenAI` (MIT, native + `.Managed` net8.0) + `Microsoft.Extensions.AI.Abstractions` (MIT, net10.0)
 - Owns: generative token-streaming runtime, multimodal encoding, streaming audio, GPU-device/native-log control via `Utils`, and the `OnnxRuntimeGenAIChatClient` `IChatClient` projection
 - Accept: model-dir generative runs over the LIFO handle chain; multimodal `Images`/`Audios` + `MultiModalProcessor` pipelines; incremental `StreamingProcessor` audio paths; M.E.AI streaming via the three admitted ctors stacked onto the `api-recyclable-stream` staging pool
 - Reject: chat-client/conversation/prompt service families; managed output validators; a second managed chat-message model beside `ChatMessage`; the phantom `(Model, options)` ctor; `System.Numerics.Tensors.Tensor<T>` confused with `Microsoft.ML.OnnxRuntimeGenAI.Tensor`; a model run with no matching native RID payload

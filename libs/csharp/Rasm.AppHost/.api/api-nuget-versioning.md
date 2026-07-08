@@ -14,7 +14,6 @@ newest compatible version when several candidates exist.
 - package: `NuGet.Versioning`
 - assembly: `NuGet.Versioning`
 - namespace: `NuGet.Versioning`
-- version: `7.6.0`
 - license: `Apache-2.0`
 - asset: runtime library (multi-target `net8.0` + `net472`; the `net10.0` consumer binds `lib/net8.0` by TFM precedence)
 - rail: supply-chain

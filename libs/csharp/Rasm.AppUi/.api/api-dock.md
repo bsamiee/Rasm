@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Dock.Avalonia`
 - package: `Dock.Avalonia`
-- version: `12.0.0.2`
 - license: MIT (expression)
 - assembly: `Dock.Avalonia`
 - namespace: `Dock.Avalonia.Controls` (dock visual tree, host windows, targets, overlays, managed-window layer, MDI controls)
@@ -22,7 +21,6 @@
 
 [PACKAGE_SURFACE]: `Dock.Model.ReactiveUI`
 - package: `Dock.Model.ReactiveUI`
-- version: `12.0.0.2`
 - license: MIT (expression)
 - assembly: `Dock.Model.ReactiveUI`
 - namespace: `Dock.Model.ReactiveUI` (`Factory`)

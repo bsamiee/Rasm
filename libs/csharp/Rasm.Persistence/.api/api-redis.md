@@ -9,7 +9,6 @@ distributed caching over the same multiplexer.
 
 [PACKAGE_SURFACE]: `StackExchange.Redis`
 - package: `StackExchange.Redis`
-- version: `3.0.7`
 - assembly: `StackExchange.Redis`
 - namespace: `StackExchange.Redis`, `StackExchange.Redis.Profiling`
 - target framework: `net10.0` asset on the `net10.0` floor (package also ships `net8.0`/`net6.0`/`netstandard2.0`/`net472`/`net461`)
@@ -18,7 +17,6 @@ distributed caching over the same multiplexer.
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.StackExchangeRedis`
 - package: `Microsoft.Extensions.Caching.StackExchangeRedis`
-- version: `10.0.9`
 - assembly: `Microsoft.Extensions.Caching.StackExchangeRedis`
 - namespace: `Microsoft.Extensions.Caching.StackExchangeRedis`, `Microsoft.Extensions.DependencyInjection`
 - target framework: `net10.0` asset on the `net10.0` floor (package also ships `net462`/`netstandard2.0`)

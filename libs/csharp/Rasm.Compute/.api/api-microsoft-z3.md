@@ -6,11 +6,10 @@
 
 [PACKAGE_SURFACE]: `Microsoft.Z3`
 - package: `Microsoft.Z3`
-- version: `4.12.2` (feed stable; the NuGet ships win-x64/osx-x64 natives ONLY)
 - license: MIT
 - assembly: `Microsoft.Z3` (managed wrapper over the native `libz3`)
 - namespace: `Microsoft.Z3`
-- asset: netstandard2.0 managed wrapper P/Invoking `libz3`; the native library is bundled per-RID for win-x64/osx-x64. The **osx-arm64 `libz3` is Forge-provisioned** from the upstream 4.15.x arm64-osx release (the activation gate, mirroring csparse-interop's) — the managed wrapper restores clean, the native is provisioned separately; a `Context` operation on osx-arm64 without the provisioned `libz3` faults at native init, never silently degrading
+- asset: netstandard2.0 managed wrapper P/Invoking `libz3`; the native library is bundled per-RID for win-x64/osx-x64. The osx-arm64 `libz3` is Forge-provisioned from the upstream 4.15.x arm64-osx release (the activation gate, mirroring csparse-interop's) — the managed wrapper restores clean, the native is provisioned separately; a `Context` operation on osx-arm64 without the provisioned `libz3` faults at native init, never silently degrading
 - rail: satisfaction
 
 ## [02]-[PUBLIC_TYPES]

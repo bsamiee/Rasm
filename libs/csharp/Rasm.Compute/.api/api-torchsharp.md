@@ -8,7 +8,6 @@ The governing law of the whole binding is DETERMINISTIC NATIVE-MEMORY LIFETIME. 
 
 [PACKAGE_SURFACE]: `TorchSharp`
 - package: `TorchSharp`
-- version: `0.107.0`
 - license: `MIT`
 - assembly: `TorchSharp` (`lib/net8.0/TorchSharp.dll` binds for the `net10.0` consumer; `lib/netstandard2.0/TorchSharp.dll` is the fallback asset) — the surface below is decompile-verified against the consumer-bound `net8.0` assembly
 - namespace: `TorchSharp` (the `torch` static class and `nn` live as `TorchSharp.torch` / `TorchSharp.torch.nn`; element types `BFloat16`/`Float16` and the public lifetime types `DisposeScope`/`DisposeScopeManager` sit at the `TorchSharp` root — the no-grad scope is the `torch.inference_mode()`/`no_grad()` static factory, NOT the `internal` `TorchSharp.InferenceMode` guard it hands back, which a consumer assembly cannot reference)

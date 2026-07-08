@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `PDFsharp` 6.2.4
+[PACKAGE_SURFACE]: `PDFsharp`
 - package: `PDFsharp`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/PdfSharp.dll`, casing is `PdfSharp`); multi-targets, `net10.0` bound
@@ -13,7 +13,7 @@
 - depends: `Microsoft.Extensions.Logging.Abstractions`, `System.Security.Cryptography.Pkcs` (both ride existing/in-box rows)
 - rail: pdf
 
-[PACKAGE_SURFACE]: `PDFsharp-MigraDoc` 6.2.4
+[PACKAGE_SURFACE]: `PDFsharp-MigraDoc`
 - package: `PDFsharp-MigraDoc`
 - license: MIT
 - floor: `net10.0` consumer; multi-targets net8.0 / net9.0 / net10.0 / netstandard2.0, `net10.0` bound

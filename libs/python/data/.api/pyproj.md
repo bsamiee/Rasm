@@ -21,7 +21,7 @@
 - `pyproj.Transformer` — coordinate transformation between two CRS or from a pipeline; the supported high-performance transform owner.
 - `pyproj.Geod` — geodesic calculator on an ellipsoid; forward, inverse, intermediate, length, and polygon area/perimeter.
 - `pyproj.Proj` — single-CRS cartographic projection of lon/lat to projected x/y; a thin `Transformer` over a geographic-to-projected pair.
-- `pyproj.transformer.TransformerGroup` — ranked set of candidate transformations between two CRS; `.transformers` (ordered list), `.best_available` (bool), `.unavailable_operations` (grid-missing candidates), `.download_grids(...)` to fetch the grids that would upgrade a ballpark candidate.
+- `pyproj.transformer.TransformerGroup` — ranked set of candidate transformations between two CRS; `.transformers` (ordered list), `.best_available` (bool), `.unavailable_operations` (grid-missing candidates), `.download_grids(...)` to fetch the grids that does upgrade a ballpark candidate.
 - `pyproj.aoi.AreaOfInterest(west_lon_degree, south_lat_degree, east_lon_degree, north_lat_degree)`, `pyproj.aoi.BBox`, `pyproj.aoi.AreaOfUse` — bounding-box hints that bias operation selection.
 - `pyproj.enums.TransformDirection` (`FORWARD`, `INVERSE`, `IDENT`); `pyproj.enums.WktVersion` (`WKT2_2019`/`WKT2_2019_SIMPLIFIED`/`WKT2_2015`/`WKT1_GDAL`/`WKT1_ESRI`/…); `pyproj.enums.ProjVersion` (`PROJ_4`, `PROJ_5`) — transform and serialization vocabularies.
 - `pyproj.database.CRSInfo`, `pyproj.database.Unit`, `pyproj.database.PJType` — typed query-result records and the CRS-type vocabulary for `query_crs_info`.

@@ -30,7 +30,7 @@ Two single-owner laws seal here. `SurfaceProjection.ShapeOperator` is THE one se
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 // Rhino.Geometry, the LanguageExt prelude, and Thinktecture arrive as csproj global usings; Rasm.Domain and Rasm.Numerics do not.
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino;

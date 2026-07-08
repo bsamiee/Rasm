@@ -72,47 +72,44 @@ Shell/controls        →  typescript:ui/viewer                       # [WIRE]: 
 Shell/solver          →  typescript:core/interchange/codec          # [WIRE]: LayoutConstraintWire ordered Kiwi constraint program
 Shell/solver          →  typescript:ui/viewer                       # [WIRE]: ordered LayoutProgram re-solved at the panel plane
 Render/capture        →  typescript:core/interchange/codec          # [WIRE]: RenderReceiptWire frame-hash proof
-Render/capture        →  typescript:ui/viewer                       # [RECEIPT]: RenderReceipt claims paired with local render evidence at the probe plane
-Render/pipeline       →  typescript:core/interchange/codec          # [WIRE]: GeometryResidencyWire ResidencyManifest content-key (the residency wire lives at pipeline#TS_PROJECTION)
+Render/capture        →  typescript:ui/viewer # [RECEIPT]: RenderReceipt claims paired with local render evidence at probe plane
+Render/pipeline       →  typescript:core/interchange/codec # [WIRE]: GeometryResidencyWire carries ResidencyManifest content-key residency
 Diagnostics/evidence  →  typescript:core/state/feed                 # [WIRE]: EvidenceFeed / EvidenceTimeline
-Render/meshlets       ←  csharp:Rasm.Compute/Runtime/payload        # [SHAPE]: ResidencyPayload meshlet-cluster rows — cone columns + BY-CONSTRUCTION monotonic Error/ParentError the LOD cut reads (python geometry tessellation reaches AppUi ONLY through this Compute payload owner)
-Render/reality        ←  csharp:Rasm.Compute/Runtime/payload        # [SHAPE]: the ONE ResidencyPayload carrier (gaussian-splat/point-cloud kinds; GaussianSplatScan wire-fed), payload ContentKey identity
+Render/meshlets       ←  csharp:Rasm.Compute/Runtime/payload # [SHAPE]: ResidencyPayload meshlet-cluster rows
+Render/reality        ←  csharp:Rasm.Compute/Runtime/payload # [SHAPE]: the ONE ResidencyPayload carrier gaussian-splat/point-cloud kinds
 Render/pipeline       ←  csharp:Rasm.Compute/Runtime                # [PROJECTION]: ResidencyManifest.Mint web geometry residency
-Render/pathtrace      ←  csharp:Rasm.Compute/Analysis/daylight      # [PORT]: SolarPosition.At(SolarSite, Instant) -> SunPosition feeding LightSource.Sun
+Render/pathtrace      ←  csharp:Rasm.Compute/Analysis/daylight # [PORT]: SolarPosition.At(SolarSite, Instant) feeds LightSource.Sun
 Render/shading        ⇄  csharp:Rasm.Compute                        # [SHAPE]: shared ONE_WGPU_DEVICE (Silk.NET.WebGPU)
-Render                ←  csharp:Rasm.Fabrication/Documentation/projection  # [RECEIPT]: HiddenLineResult Viewport2D edge sets — the ONE Fabrication HLR seam (kernel DrawingProjection analytic HLR, insulated at the receipt)
+Render                ←  csharp:Rasm.Fabrication/Documentation/projection # [RECEIPT]: HiddenLineResult Viewport2D edge sets
 Render/pathtrace      ←  csharp:Rasm.Materials/Appearance           # [BOUNDARY]: LayeredBsdf / SlabStack / SurfaceShade at PATH_TRACE seam
-Charts/basemap        ←  csharp:Rasm.Bim/Semantics/geospatial       # [SHAPE]: Bim-owned NTS features carrying GeoReference (GeoFeature.Reproject geodesy) drawn as tiled map overlays; GeoTiles/TileJSON vector-tile lane
-Collab/sync           →  csharp:Rasm.Persistence/Version/ledger     # [PROJECTION]: typed EditIntent ops onto Persistence-owned OpLogEntry/SyncOpKind rows through the ledger changefeed
-Collab/sync           ←  csharp:Rasm.Persistence/Version/ledger     # [PORT]: per-document replay-window read decoded into a fresh LoroDoc (cold-start epoch seed)
-Collab/sync           →  csharp:Rasm.Persistence/Store              # [CONTENT_KEY]: snapshot ACCELERATOR blob — kernel ContentHash.Of keyed, derivable, never system-of-record
-Collab/sync           →  csharp:Rasm.AppHost/Wire/topics            # [WIRE]: live-delta broadcast + presence topics — session-ephemeral Loro wire as opaque DomainEvent payload rows ([COLLAB_DELTA_FEED], both sides declared)
-Editing/history       →  csharp:Rasm.Persistence/Version/ledger     # [PROJECTION]: RevertibleOp inverse deltas onto the Collab/sync EditIntent rail as SyncOpKind rows
-Editing/graph         ←  csharp:Rasm.AppHost/Runtime/determinism    # [PORT]: RecomputeGraph read projection for dependency visualization (decode-only)
-Document/notebook     ←  csharp:Rasm.AppHost/Runtime                # [PORT]: DeterminismContext / CapabilityPin environment identity + RecomputeGraph per-cell composition (caller-keyed, granularity-neutral)
-Document/export       ←  csharp:Rasm.AppHost/Runtime/secrets        # [PORT]: signing-credential lease ingress for IDigitalSigner material (acquire/renew/zeroize; AppUi never holds key bytes)
+Charts/basemap        ←  csharp:Rasm.Bim/Semantics/geospatial # [SHAPE]: Bim-owned NTS features carrying GeoReference GeoFeature.Reproject geodesy
+Collab/sync           →  csharp:Rasm.Persistence/Version/ledger # [PROJECTION]: typed EditIntent ops onto Persistence-owned OpLogEntry/SyncOpKind rows
+Collab/sync           ←  csharp:Rasm.Persistence/Version/ledger # [PORT]: per-document replay-window read decoded into fresh LoroDoc cold-start epoch
+Collab/sync           →  csharp:Rasm.Persistence/Store # [CONTENT_KEY]: snapshot ACCELERATOR blob
+Collab/sync           →  csharp:Rasm.AppHost/Wire/topics # [WIRE]: live-delta broadcast + presence topics
+Editing/history       →  csharp:Rasm.Persistence/Version/ledger # [PROJECTION]: RevertibleOp inverse deltas feed Collab/sync EditIntent
+Editing/graph         ←  csharp:Rasm.AppHost/Runtime/determinism # [PORT]: RecomputeGraph read projection for dependency visualization decode-only
+Document/notebook     ←  csharp:Rasm.AppHost/Runtime # [PORT]: DeterminismContext / CapabilityPin environment identity + RecomputeGraph per-cell
+Document/export       ←  csharp:Rasm.AppHost/Runtime/secrets # [PORT]: signing-credential lease ingress for IDigitalSigner material
 Collab/issues         ←  csharp:Rasm.Bim/coordination               # [PORT]: BCF issue-board domain
 Collab                ←  csharp:Rasm.Bim/coordination               # [SHAPE]: BcfTopic/BcfComment/BcfViewpoint annotation domain
-AppUi/*               →  csharp:Rasm.AppHost/Runtime                # [PORT]: the port-spine row family — TelemetryContributorPort / ReceiptSinkPort / UiSchedulerPort / ClockPolicy / DataClassification, one declared family naming every composing folder (Shell, Render, Charts, Editing, Document, Collab, Diagnostics, Theme)
-AppUi/*               →  csharp:Rasm/Domain/identity                # [CONTENT_KEY]: every AppUi content-identity mint composes kernel ContentHash.Of (capture runtime delegate, walkthrough frame proof, command payload digest, notebook replay inputs, asset receipts, the sync snapshot key) — one declared row family naming every minting folder
-AppUi/faults          ⇄  csharp:Rasm.AppHost/Runtime/lifecycle      # [FAULT]: AppUi 6xxx FaultBand neighborhood — Diagnostics/evidence#FAULT_TABLES owns the registry, the AppHost registry pins the reciprocal AppUi row (both directions settled)
+AppUi/*               →  csharp:Rasm.AppHost/Runtime # [PORT]: the port-spine row family
+AppUi/*               →  csharp:Rasm/Domain/identity # [CONTENT_KEY]: every AppUi content-identity mint composes kernel ContentHash.Of capture runtime
+AppUi/faults          ⇄  csharp:Rasm.AppHost/Runtime/lifecycle # [FAULT]: AppUi 6xxx FaultBand neighborhood
 ```
 
-Ledger truth notes: the former `Render/glb` and `Render/query` source nodes are DEAD (no such pages; the residency wire re-anchored to `Render/pipeline#TS_PROJECTION`, the Bim `ElementSet` query surface stands on the growth register); the former direct kernel `Drawing/view` and `Processing/flatten` rows are RETIRED AppUi-side (AppUi reaches hidden-line only through the Fabrication `HiddenLineResult` receipt; the `ChartAtlas` texture channel stands on the growth register — the kernel ledger's view→AppUi and flatten→AppUi mirror rows re-scope accordingly); the former `Rasm.Persistence/Sync` targets are DEAD (folder deleted by the Persistence campaign; owner `Version/ledger`); the Bim `Planning` `ScheduleNetwork` row is RETIRED (zero consuming fence; growth register).
+Seam rows carry only live owners. AppUi reaches hidden-line geometry through the Fabrication `HiddenLineResult` receipt, texture UV through the Fabrication `ChartAtlas` carrier, collaboration through Persistence `Version/ledger`, and schedule dashboards through Bim planning receipts.
 
-## [03]-[GROWTH_REGISTER]
+## [03]-[BOUNDARIES]
 
-Standing deferred-capability record — each row re-opens only when a consumer names it, never as a speculative seam:
+- `ChartAtlas` texture UV enters through the Fabrication nesting receipt.
+- Bim `ElementSet` queries enter through Bim-owned receipt rows.
+- `ScheduleNetwork` dashboards consume Bim planning receipts.
+- Whisper.net owns translate-to-English captioning; broader translation binds through a locale service row.
+- Kernel `Analyze` receipt projection enters inspector and dashboard surfaces through the receipt spine.
+- `SurfaceHost.RhinoPanel` mounts only when a Rhino lease provider supplies `EmbedCapsule` and `RenderGraph.Lease`.
 
-- `ChartAtlas` texture UV channel (kernel `Processing/flatten` stays live for Fabrication `Nesting/nfp`).
-- Bim `ElementSet` query surface (`Model/query` algebra).
-- `ScheduleNetwork` 4D/CPM dashboards projection.
-- Broad-target machine translation past the Whisper.net translate-to-English arm.
-- Kernel `Analysis/query.md` `Analyze` measured-query receipt projection — inspector and dashboard rows when a host-side producer ships them over the receipt spine.
-
-Standing host gate: the live-Rhino embed probe — `SurfaceHost.RhinoPanel`/`EmbedCapsule`/`RenderGraph.Lease` GPU-lease validation against an integrated RhinoWIP host surface that does not yet exist — host-gated and open.
-
-## [05]-[PROHIBITIONS]
+## [04]-[PROHIBITIONS]
 
 The closed NEVER list — the deleted patterns the owner regions foreclose. Every UI seed cites the concrete owner that forecloses it.
 

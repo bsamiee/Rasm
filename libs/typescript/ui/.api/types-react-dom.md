@@ -1,4 +1,4 @@
-# [@types/react-dom] — the DOM renderer type surface paired with the React 19 types
+# [TS_UI_API_TYPES_REACT_DOM]
 
 `@types/react-dom` is the declaration-only (`.d.ts`) type surface for the `react-dom` runtime (`.api/react-dom.md`), peer-locked to `@types/react` (`.api/types-react.md`) and sharing its `ReactNode`/`ReactElement`/`Ref`/`Container` vocabulary. It types three disjoint planes across its subpaths: `react-dom/client` is the mount (`createRoot`/`hydrateRoot` — an app-boot concern), `react-dom` is the in-tree DOM API a `view` row reaches for (`createPortal`, `flushSync`, the resource hints, `useFormStatus`), and `react-dom/server` + `react-dom/static` are the SSR/prerender streaming. Two of its families are parameterized spaces, not flat lists: the resource-hint family is one preload space discriminated by `as` (`preload`/`preinit`/`preloadModule`/`preinitModule`/`prefetchDNS`/`preconnect`), and the render family is one `renderTo*`/`prerender*` space parameterized by target runtime (pipeable Node stream, Web `ReadableStream`, string, static). React 19 collapses the mount to `createRoot`/`hydrateRoot` with the `onUncaughtError`/`onCaughtError`/`onRecoverableError` handler triple; `ReactDOM.render` is gone.
 
@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `@types/react-dom`
 - package: `@types/react-dom`
-- version: `19.2.3`
 - license: `MIT` (DefinitelyTyped)
 - peer: `@types/react` (declared peer; shares `ReactNode`/`ReactElement`/`Ref`/`Component`); version-locked to the runtime major (19)
 - deps: none
@@ -21,35 +20,35 @@
 - rail: app-boot / browser
 - The `createRoot`/`hydrateRoot` option and result types. React 19 folds error handling into the root: `onUncaughtError`/`onCaughtError`/`onRecoverableError` on `RootOptions`/`HydrationOptions` replace the ad-hoc boundary-only model, and `identifierPrefix` scopes `useId`. `ui` never imports `browser`, so these are consumed at the app composition root that boots the tree — not inside a `view` row.
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                                     |
-| :-----: | :----------------------------------------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `Root` (`{ render(children: ReactNode): void; unmount(): void }`)         | root handle       | app-boot — the mounted tree handle; `render`/`unmount` drive the lifecycle |
-|  [02]   | `RootOptions` / `HydrationOptions`                                        | mount options     | app-boot — carry the error triple + `identifierPrefix`; `HydrationOptions.formState` seeds SSR form state |
-|  [03]   | `onUncaughtError` / `onCaughtError` / `onRecoverableError` (`ErrorInfo`)  | error handler     | app-boot — the React 19 root error handlers; `react-error-boundary` (sibling `view/primitive`) still owns in-tree recovery |
-|  [04]   | `Container` (`Element \| DocumentFragment \| Document`)                   | mount target      | app-boot — the DOM node `createRoot` mounts into |
-|  [05]   | `ReactFormState`                                                          | opaque form state | SSR — the server-action form state threaded from `renderTo*` into `HydrationOptions.formState` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:----------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------------- |
+| [01] | `Root` (`{ render(children: ReactNode): void; unmount(): void }`) | root handle | app-boot — the mounted tree handle; `render`/`unmount` drive the lifecycle |
+| [02] | `RootOptions` / `HydrationOptions` | mount options | app-boot — carry the error triple + `identifierPrefix`; `HydrationOptions.formState` seeds SSR form state |
+| [03] | `onUncaughtError` / `onCaughtError` / `onRecoverableError` (`ErrorInfo`) | error handler | app-boot — the React 19 root error handlers; `react-error-boundary` (sibling `view/primitive`) still owns in-tree recovery |
+| [04] | `Container` (`Element \| DocumentFragment \| Document`) | mount target | app-boot — the DOM node `createRoot` mounts into |
+| [05] | `ReactFormState` | opaque form state | SSR — the server-action form state threaded from `renderTo*` into `HydrationOptions.formState` |
 
 [PUBLIC_TYPE_SCOPE]: the in-tree DOM API types — form status + the resource-hint parameter space
 - rail: view/compose
 - The types a `view` row reaches for: `FormStatus` for a form row's pending state, and the resource-hint option types. `preload`/`preinit`/`preloadModule`/`preinitModule` share one option shape discriminated by `as` (`PreloadAs`/`PreinitAs`) — one preload space, not four mechanisms.
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                                     |
-| :-----: | :----------------------------------------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `FormStatus` = `FormStatusPending \| FormStatusNotPending`               | form status       | `view/compose` `FormBinding` — `useFormStatus()` return; `pending`/`data`/`method`/`action` of the enclosing `<form>` |
-|  [02]   | `PreloadOptions` (`as: PreloadAs`) / `PreloadAs`                          | preload param     | `view` / app — asset hint options; `as` (`"script"`/`"style"`/`"font"`/`"image"`/…) discriminates the hint |
-|  [03]   | `PreinitOptions` (`as: PreinitAs`) / `PreinitModuleOptions`               | preinit param     | `view` / app — eager script/style init; `PreinitAs` = `"script" \| "style"` |
-|  [04]   | `PreconnectOptions` (`crossOrigin?`)                                      | connect param     | app — `preconnect`/`prefetchDNS` origin hints for the viewer tile/CDN host |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:----------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------------- |
+| [01] | `FormStatus` = `FormStatusPending \| FormStatusNotPending` | form status | `view/compose` `FormBinding` — `useFormStatus()` return; `pending`/`data`/`method`/`action` of the enclosing `<form>` |
+| [02] | `PreloadOptions` (`as: PreloadAs`) / `PreloadAs` | preload param | `view` / app — asset hint options; `as` (`"script"`/`"style"`/`"font"`/`"image"`/…) discriminates the hint |
+| [03] | `PreinitOptions` (`as: PreinitAs`) / `PreinitModuleOptions` | preinit param | `view` / app — eager script/style init; `PreinitAs` = `"script" \| "style"` |
+| [04] | `PreconnectOptions` (`crossOrigin?`) | connect param | app — `preconnect`/`prefetchDNS` origin hints for the viewer tile/CDN host |
 
 [PUBLIC_TYPE_SCOPE]: the server + static streaming types — one render space, per runtime
 - rail: app-ssr
 - The SSR/prerender option and result types. `RenderToPipeableStreamOptions` (Node) and `RenderToReadableStreamOptions` (Web) share the bootstrap/import-map/shell-callback vocabulary; the runtime is chosen by subpath. `PostponedState` is the resumable-prerender opaque state — the render family is parameterized by (target runtime, blocking-vs-resumable), never a separate API per host.
 
-| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                                     |
-| :-----: | :----------------------------------------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `RenderToPipeableStreamOptions` / `PipeableStream`                       | Node stream       | app-ssr — `bootstrapScripts`/`onShellReady`/`onAllReady`/`progressiveChunkSize`; the Node SSR shell |
-|  [02]   | `RenderToReadableStreamOptions` / `ServerOptions`                        | Web stream        | app-ssr (edge) — the `ReadableStream` variant options; `signal` aborts the stream |
-|  [03]   | `BootstrapScriptDescriptor` / `ReactImportMap`                           | shell asset       | app-ssr — bootstrap script `src`/`integrity`/`crossOrigin`; the `<script type="importmap">` payload |
-|  [04]   | `PostponedState` / `ResumeOptions`                                       | resumable state   | app-ssr — the opaque JSON-serializable prerender state `resume`/`resumeAndPrerender` continue from |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:----------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------------- |
+| [01] | `RenderToPipeableStreamOptions` / `PipeableStream` | Node stream | app-ssr — `bootstrapScripts`/`onShellReady`/`onAllReady`/`progressiveChunkSize`; the Node SSR shell |
+| [02] | `RenderToReadableStreamOptions` / `ServerOptions` | Web stream | app-ssr (edge) — the `ReadableStream` variant options; `signal` aborts the stream |
+| [03] | `BootstrapScriptDescriptor` / `ReactImportMap` | shell asset | app-ssr — bootstrap script `src`/`integrity`/`crossOrigin`; the `<script type="importmap">` payload |
+| [04] | `PostponedState` / `ResumeOptions` | resumable state | app-ssr — the opaque JSON-serializable prerender state `resume`/`resumeAndPrerender` continue from |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -57,33 +56,33 @@
 - rail: app-boot / browser
 - The typed mount API. There is one mount for CSR (`createRoot`) and one for SSR-hydration (`hydrateRoot`); `ReactDOM.render`/`hydrate` are removed. Called at the app root that boots `ui` components — `ui` declares its runtime ports, `browser` provides Layers, the app root mounts.
 
-| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]   | [CONSUMER / BOUNDARY]                                             |
-| :-----: | :------------------------------------------------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `createRoot(container: Container, options?: RootOptions): Root`                             | CSR mount        | app-boot — the client-render root; `Root.render(<App/>)` mounts the `ui` tree |
-|  [02]   | `hydrateRoot(container, initialChildren: ReactNode, options?: HydrationOptions): Root`      | SSR hydrate      | app-boot — attach to server HTML; `options.formState` seeds the SSR-computed form state |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
+| [01] | `createRoot(container: Container, options?: RootOptions): Root` | CSR mount | app-boot — the client-render root; `Root.render(<App/>)` mounts the `ui` tree |
+| [02] | `hydrateRoot(container, initialChildren: ReactNode, options?: HydrationOptions): Root` | SSR hydrate | app-boot — attach to server HTML; `options.formState` seeds the SSR-computed form state |
 
 [ENTRYPOINT_SCOPE]: the in-tree DOM operations — portal, commit, resource hints, form status
 - rail: view/primitive
 - The DOM API a `view` row calls. `createPortal` roots overlays outside the subtree; `flushSync` forces a synchronous commit; the resource hints are one parameterized preload space; `useFormStatus`/`requestFormReset` are the form-action DOM seam.
 
-| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]   | [CONSUMER / BOUNDARY]                                             |
-| :-----: | :------------------------------------------------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `createPortal(children: ReactNode, container: Element \| DocumentFragment, key?: string): ReactPortal` | portal | `view/primitive` — `react-aria` overlays (`Overlay`/`PortalProvider`) root through this to escape `overflow`/`z-index` |
-|  [02]   | `flushSync<R>(fn: () => R): R`                                                               | sync commit      | `act/transition` + `view/primitive` — force the commit `FocusScope` restore and the View-Transition capture depend on |
-|  [03]   | `preload` / `preinit` / `preloadModule` / `preinitModule` / `prefetchDNS` / `preconnect`     | resource hint    | `view` / app — one preload space discriminated by `as`; hint the viewer tile/font/model asset before use |
-|  [04]   | `useFormStatus(): FormStatus` / `requestFormReset(form: HTMLFormElement)`                   | form action      | `view/compose` `FormBinding` — read enclosing-form pending state; reset an uncontrolled form after a server action |
-|  [05]   | `unstable_batchedUpdates<A, R>(cb, a)` / `version`                                           | legacy/identity  | interop only — React 19 auto-batches, so `unstable_batchedUpdates` is a legacy no-op-equivalent |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
+| [01] | `createPortal(children: ReactNode, container: Element \| DocumentFragment, key?: string): ReactPortal` | portal | `view/primitive` — `react-aria` overlays (`Overlay`/`PortalProvider`) root through this to escape `overflow`/`z-index` |
+| [02] | `flushSync<R>(fn: () => R): R` | sync commit | `act/transition` + `view/primitive` — force the commit `FocusScope` restore and the View-Transition capture depend on |
+| [03] | `preload` / `preinit` / `preloadModule` / `preinitModule` / `prefetchDNS` / `preconnect` | resource hint | `view` / app — one preload space discriminated by `as`; hint the viewer tile/font/model asset before use |
+| [04] | `useFormStatus(): FormStatus` / `requestFormReset(form: HTMLFormElement)` | form action | `view/compose` `FormBinding` — read enclosing-form pending state; reset an uncontrolled form after a server action |
+| [05] | `unstable_batchedUpdates<A, R>(cb, a)` / `version` | retired/identity | interop only — React 19 auto-batches, so `unstable_batchedUpdates` is a retired no-op-equivalent |
 
 [ENTRYPOINT_SCOPE]: the server + static render — one space, per runtime target
 - rail: app-ssr
 - The SSR/prerender functions. `renderTo*` streams a live shell; `prerender*` produces static/resumable output. The target runtime is the subpath (`./server.node` vs `./server.edge`); the shape is uniform.
 
-| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]   | [CONSUMER / BOUNDARY]                                             |
-| :-----: | :------------------------------------------------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `renderToPipeableStream(children, options?): PipeableStream`                                | Node SSR         | app-ssr — the streaming Node shell; pairs `@effect/platform` `HttpServer` response |
-|  [02]   | `renderToReadableStream(children, options?): Promise<ReactDOMServerReadableStream>`         | Web SSR          | app-ssr (edge) — the `ReadableStream` shell for edge/worker runtimes |
-|  [03]   | `renderToString` / `renderToStaticMarkup`                                                    | sync SSR         | app-ssr — non-streaming string render; `renderToStaticMarkup` drops React attrs for emails/static pages |
-|  [04]   | `prerender` / `prerenderToNodeStream` / `resume` / `resumeAndPrerender`                     | prerender        | app-ssr — static prerender + `PostponedState` resume; the partial-prerender/PPR seam |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
+| [01] | `renderToPipeableStream(children, options?): PipeableStream` | Node SSR | app-ssr — the streaming Node shell; pairs `@effect/platform` `HttpServer` response |
+| [02] | `renderToReadableStream(children, options?): Promise<ReactDOMServerReadableStream>` | Web SSR | app-ssr (edge) — the `ReadableStream` shell for edge/worker runtimes |
+| [03] | `renderToString` / `renderToStaticMarkup` | sync SSR | app-ssr — non-streaming string render; `renderToStaticMarkup` drops React attrs for emails/static pages |
+| [04] | `prerender` / `prerenderToNodeStream` / `resume` / `resumeAndPrerender` | prerender | app-ssr — static prerender + `PostponedState` resume; the partial-prerender/PPR seam |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

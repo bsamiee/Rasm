@@ -1310,14 +1310,6 @@
           "Microsoft.IdentityModel.Abstractions": "8.19.1"
         }
       },
-      "Microsoft.IdentityModel.Protocols": {
-        "type": "Transitive",
-        "resolved": "8.19.1",
-        "contentHash": "7jtpdKFIncGCmob3y3LnSHihCYtmw8mlPFI+DV5rdx4YFOfCVlNQ9RhtLAQnjC9kges1+w/8BCnAN3QhqOc0ng==",
-        "dependencies": {
-          "Microsoft.IdentityModel.Tokens": "8.19.1"
-        }
-      },
       "Microsoft.JSInterop": {
         "type": "Transitive",
         "resolved": "9.0.0",
@@ -2067,7 +2059,6 @@
           "FluentValidation.DependencyInjectionExtensions": "[12.1.1, )",
           "Grpc.AspNetCore": "[2.80.0, )",
           "Grpc.AspNetCore.HealthChecks": "[2.80.0, )",
-          "Grpc.AspNetCore.Web": "[2.80.0, )",
           "Grpc.Core.Api": "[2.80.0, )",
           "Grpc.Net.Client": "[2.80.0, )",
           "JetBrains.Annotations": "[2026.2.0, )",
@@ -2118,7 +2109,6 @@
           "OpenFeature": "[2.14.0, )",
           "OpenIddict.Client": "[7.5.0, )",
           "OpenTelemetry": "[1.16.0, )",
-          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.16.0, )",
           "OpenTelemetry.Extensions.Hosting": "[1.16.0, )",
           "OpenTelemetry.Instrumentation.Http": "[1.16.0, )",
           "OpenTelemetry.Instrumentation.Runtime": "[1.15.1, )",
@@ -2130,8 +2120,6 @@
           "Scrutor": "[7.0.0, )",
           "Serilog": "[4.3.1, )",
           "Serilog.Extensions.Hosting": "[10.0.0, )",
-          "Serilog.Sinks.Console": "[6.1.1, )",
-          "Serilog.Sinks.File": "[7.0.0, )",
           "Sigstore": "[0.5.0, )",
           "System.CommandLine": "[2.0.9, )",
           "System.IO.Hashing": "[10.0.9, )",
@@ -2165,6 +2153,7 @@
           "Dock.Serializer.SystemTextJson": "[12.0.0.2, )",
           "DocumentFormat.OpenXml": "[3.5.1, )",
           "DynamicData": "[9.4.33, )",
+          "FFmpeg.AutoGen": "[8.1.0, )",
           "FluentIcons.Avalonia": "[2.1.331, )",
           "FluentIcons.Common": "[2.1.331, )",
           "HanumanInstitute.LibMpv": "[0.10.1, )",
@@ -2188,6 +2177,7 @@
           "PDFsharp": "[6.2.4, )",
           "PDFsharp-MigraDoc": "[6.2.4, )",
           "PanAndZoom": "[12.0.0.1, )",
+          "QuikGraph": "[2.5.0, )",
           "Rasm": "[1.0.0, )",
           "Rasm.AppHost": "[1.0.0, )",
           "Rasm.Compute": "[1.0.0, )",
@@ -2220,9 +2210,11 @@
           "Thinktecture.Runtime.Extensions.Json": "[10.4.0, )",
           "UnitsNet": "[5.75.0, )",
           "Wacton.Unicolour": "[8.0.0, )",
+          "Whisper.net": "[1.9.1, )",
           "Xaml.Behaviors.Avalonia": "[12.0.5, )",
           "bodong.Avalonia.PropertyGrid": "[12.0.4.1, )",
-          "bodong.PropertyModels": "[12.0.0, )"
+          "bodong.PropertyModels": "[12.0.0, )",
+          "lcmsNET": "[1.2.1, )"
         }
       },
       "rasm.compute": {
@@ -3046,6 +3038,12 @@
         "resolved": "1.0.1",
         "contentHash": "ncsxjAuFyKkepEiHOoDBYOpmF8s4yWLpXlil2iKjV5oIr57gPJ9YqsqYKwxQuS1xJT7r9tu/Db1XDX0KUyMQuQ=="
       },
+      "FFmpeg.AutoGen": {
+        "type": "CentralTransitive",
+        "requested": "[8.1.0, )",
+        "resolved": "8.1.0",
+        "contentHash": "j7YbmE4QGst6OPk0w1D/EMBv7Ig1CoCnAVtSEYh/88q9MAVEzhu3FjgVFGYqH83jhz2opvaqZe90qG73RLMBWQ=="
+      },
       "FlowtideDotNet.Substrait": {
         "type": "CentralTransitive",
         "requested": "[0.15.0, )",
@@ -3179,12 +3177,6 @@
           "Grpc.AspNetCore.Server": "2.80.0",
           "Grpc.HealthCheck": "2.80.0"
         }
-      },
-      "Grpc.AspNetCore.Web": {
-        "type": "CentralTransitive",
-        "requested": "[2.80.0, )",
-        "resolved": "2.80.0",
-        "contentHash": "cDxy61tAgx/CD7fUQrXD/fGVqPQw8ka5vL8wM4WDlFZiubHDXWWTHkTvR5hP1tW0JI1uU3887uLLZds6FCfFTQ=="
       },
       "Grpc.Core.Api": {
         "type": "CentralTransitive",
@@ -3350,6 +3342,12 @@
         "requested": "[3.0.0, )",
         "resolved": "3.0.0",
         "contentHash": "yLHfG3/Prj2GatdunYyvGD+CmUFdhEypmPjyFw2z1/p+sCPDbopJrGV9MfYVT/RrhvMgPgfB7Q9KKLOhlth6nQ=="
+      },
+      "lcmsNET": {
+        "type": "CentralTransitive",
+        "requested": "[1.2.1, )",
+        "resolved": "1.2.1",
+        "contentHash": "NBwlUu+aB17eTGu/WVNpnJDGdZstxvYzCiFa9M2cptQmuGMOSRB+S3SIHdqSTHQ25zh8QaTw1WBygQFUbiXwRA=="
       },
       "libtorch-cpu": {
         "type": "CentralTransitive",
@@ -3995,6 +3993,15 @@
           "Microsoft.IdentityModel.Tokens": "8.19.1"
         }
       },
+      "Microsoft.IdentityModel.Protocols": {
+        "type": "CentralTransitive",
+        "requested": "[8.19.1, )",
+        "resolved": "8.19.1",
+        "contentHash": "7jtpdKFIncGCmob3y3LnSHihCYtmw8mlPFI+DV5rdx4YFOfCVlNQ9RhtLAQnjC9kges1+w/8BCnAN3QhqOc0ng==",
+        "dependencies": {
+          "Microsoft.IdentityModel.Tokens": "8.19.1"
+        }
+      },
       "Microsoft.IdentityModel.Protocols.OpenIdConnect": {
         "type": "CentralTransitive",
         "requested": "[8.19.1, )",
@@ -4527,15 +4534,6 @@
           "OpenTelemetry.Api.ProviderBuilderExtensions": "1.16.0"
         }
       },
-      "OpenTelemetry.Exporter.OpenTelemetryProtocol": {
-        "type": "CentralTransitive",
-        "requested": "[1.16.0, )",
-        "resolved": "1.16.0",
-        "contentHash": "gzYLY8sVDY5FYtVlCYSzBYX53xslRlvBLxwFYOdNIhc76SgKdFYUoDQXOeQI3WPBCrZp51QNcP6fZHh1+HtpIQ==",
-        "dependencies": {
-          "OpenTelemetry": "1.16.0"
-        }
-      },
       "OpenTelemetry.Extensions.Hosting": {
         "type": "CentralTransitive",
         "requested": "[1.16.0, )",
@@ -4893,24 +4891,6 @@
           "Microsoft.Extensions.Logging.Abstractions": "10.0.0",
           "Serilog": "4.3.0",
           "Serilog.Extensions.Logging": "10.0.0"
-        }
-      },
-      "Serilog.Sinks.Console": {
-        "type": "CentralTransitive",
-        "requested": "[6.1.1, )",
-        "resolved": "6.1.1",
-        "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
-        "dependencies": {
-          "Serilog": "4.0.0"
-        }
-      },
-      "Serilog.Sinks.File": {
-        "type": "CentralTransitive",
-        "requested": "[7.0.0, )",
-        "resolved": "7.0.0",
-        "contentHash": "fKL7mXv7qaiNBUC71ssvn/dU0k9t0o45+qm2XgKAlSt19xF+ijjxyA3R6HmCgfKEKwfcfkwWjayuQtRueZFkYw==",
-        "dependencies": {
-          "Serilog": "4.2.0"
         }
       },
       "SharpGLTF.Core": {
@@ -5343,6 +5323,15 @@
         "requested": "[44.0.0, )",
         "resolved": "44.0.0",
         "contentHash": "Mo93hPzT2wzxQlntv0yqWChspMCp9KlT4rTYseriz/WZ1wKjRCE5WBwrN2ljBeqBitKINPMwupN4Ar1jnaS7Vw=="
+      },
+      "Whisper.net": {
+        "type": "CentralTransitive",
+        "requested": "[1.9.1, )",
+        "resolved": "1.9.1",
+        "contentHash": "82WAKyyMun44cAXE80sP7vIra1oYhbVp2WrnqJm0CISTfMAvint1k/umt0SvsQH+IkDyekZ3BgMdS3Rag9SZ5A==",
+        "dependencies": {
+          "Microsoft.Extensions.AI.Abstractions": "10.2.0"
+        }
       },
       "Xaml.Behaviors.Avalonia": {
         "type": "CentralTransitive",

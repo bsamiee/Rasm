@@ -1,7 +1,7 @@
 using System.Collections.Frozen;
 using System.Globalization;
 using Eto.Forms;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using Grasshopper2.Extensions;
 using Grasshopper2.UI.Flex;
 using Grasshopper2.UI.Icon;

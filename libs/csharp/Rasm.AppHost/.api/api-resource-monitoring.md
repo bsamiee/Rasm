@@ -87,7 +87,7 @@ monitoring option policy into the observability rail.
 - registration root: `AddResourceMonitoring` wires monitor service, snapshot provider, publishers, and the quota provider
 - observable-instrument read model: the current path reads CPU/memory pressure off the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, instruments `process.cpu.utilization` and `dotnet.process.memory.virtual.ratio`, via a `MeterListener` over observable instruments — never the obsolete `IResourceMonitor.GetUtilization` pull
 - quota model: `ResourceQuotaProvider.GetResourceQuota()` returns the current `ResourceQuota` carrying `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings so a container-row grade compares against the limit the process runs under, not the host total
-- obsolete pull model: `IResourceMonitor.GetUtilization(window)` folds buffered snapshots into `ResourceUtilization` (usage percentages, used bytes, `SystemResources`, latest `Snapshot`) — obsolete v10.7.0, kept only as the migration source
+- obsolete pull model: `IResourceMonitor.GetUtilization(window)` folds buffered snapshots into `ResourceUtilization` (usage percentages, used bytes, `SystemResources`, latest `Snapshot`) — obsolete, kept only as the migration source
 - platform model: Linux and Windows snapshot sources stay internal behind `ISnapshotProvider`
 
 [LOCAL_ADMISSION]:

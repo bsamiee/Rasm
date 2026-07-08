@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Chr.Avro.Confluent`
 - package: `Chr.Avro.Confluent`
-- version: `10.13.1`
 - license: MIT
 - assembly: `Chr.Avro.Confluent`
 - namespace: `Chr.Avro.Confluent`

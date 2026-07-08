@@ -46,7 +46,7 @@ public sealed class AssemblyBoundaryLaws {
         ("libs/csharp/Rasm.Materials/Rasm.Materials.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
         ("libs/csharp/Rasm.Bim/Rasm.Bim.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
         ("libs/csharp/Rasm.Fabrication/Rasm.Fabrication.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
-        ("libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj", []),
+        ("libs/csharp/Rasm.AppHost/Rasm.AppHost.csproj", ["../Rasm/Rasm.csproj"]),
         ("libs/csharp/Rasm.Persistence/Rasm.Persistence.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj"]),
         ("libs/csharp/Rasm.Compute/Rasm.Compute.csproj", ["../Rasm/Rasm.csproj", "../Rasm.Element/Rasm.Element.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
         ("libs/csharp/Rasm.AppUi/Rasm.AppUi.csproj", ["../Rasm/Rasm.csproj", "../Rasm.AppHost/Rasm.AppHost.csproj", "../Rasm.Compute/Rasm.Compute.csproj", "../Rasm.Persistence/Rasm.Persistence.csproj"]),
@@ -55,8 +55,12 @@ public sealed class AssemblyBoundaryLaws {
     ];
 
     [Fact]
-    public void CsharpProjectGraphMatchesTheStrataTable() =>
+    public void CsharpProjectGraphMatchesTheStrataTable() {
+        Assert.Equal(
+            expected: Sorted(rows: Manifests.DiskProjects(roots: "libs/csharp")),
+            actual: Sorted(rows: Strata.Select(selector: static row => row.Project)));
         Manifests.ProjectGraph(rows: Strata);
+    }
 
     [Fact]
     public void WorkspaceSolutionMatchesDiskAndCarriesTheScenarioHome() {

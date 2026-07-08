@@ -15,7 +15,6 @@ air-gapped; see `api-ml-tokenizers-o200k.md` and `api-ml-tokenizers-cl100k.md`.
 - package: `Microsoft.ML.Tokenizers`
 - assembly: `Microsoft.ML.Tokenizers`
 - namespace: `Microsoft.ML.Tokenizers`
-- version: `2.0.0`
 - license: `MIT`
 - asset: runtime library (multi-target `net8.0` + `netstandard2.0`; the `net10.0` consumer binds `lib/net8.0` — no `net10.0` asset ships, so `net8.0` is the bound asset by TFM precedence)
 - closure: the `net8.0` asset pulls `Microsoft.Bcl.Memory 9.0.4` (advisory `GHSA-73j8-2gch-69rq`); the central manifest floor-pins the transitive to `10.0.9` so restore lifts the resolved version above the vuln
@@ -88,7 +87,7 @@ air-gapped; see `api-ml-tokenizers-o200k.md` and `api-ml-tokenizers-cl100k.md`.
 - `TiktokenTokenizer : Tokenizer` is `sealed` — a rapid BPE tokenizer over a byte-pair encoder with an internal `LruCache` (default `cacheSize: 8192`, words ≤15 chars cached); it carries the GPT special-token vocabulary (`<|endoftext|>`, `<|im_start|>`, FIM/harmony control tokens).
 - model resolution is a private `ModelEncoding` enum behind `CreateForModel`: a model-name prefix table maps `gpt-4o-`/`gpt-5-`/`o1-`/`o3-`/`o4-mini-`/`chatgpt-4o-` → `o200k_base`, and `gpt-4-`/`gpt-3.5-`/`gpt-35-`/`davinci-002`/`text-embedding-3-*`/`text-embedding-ada-002` → `cl100k_base`; an unknown model name throws, so the cost broker pins a known model id.
 - `CountTokens` is the cheap path: it counts without materializing the `EncodedToken` list, so the grant-broker pre-flight prices a prompt without allocating the token strings.
-- `GetIndexByTokenCount` / `...FromEnd` return the **char index** bounding the first/last `maxTokenCount` tokens with the normalized text and exact token count as `out` values — the prompt-truncation primitive for a model context window, never a re-encode loop.
+- `GetIndexByTokenCount` / `...FromEnd` return the char index bounding the first/last `maxTokenCount` tokens with the normalized text and exact token count as `out` values — the prompt-truncation primitive for a model context window, never a re-encode loop.
 
 [ENCODE_RESULT_TOPOLOGY]:
 - `EncodeResults<T>` is a `struct` carrying `Tokens : IReadOnlyList<T>` (ids or `EncodedToken`), `NormalizedText : string?`, and `CharsConsumed : int`; the capped overloads thread the truncation evidence back through it.

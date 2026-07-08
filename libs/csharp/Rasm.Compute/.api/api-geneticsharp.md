@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `GeneticSharp`
-- package: `GeneticSharp` (two assemblies, version 3.1.4, direct pin)
+- package: `GeneticSharp` (two assemblies, direct pin)
 - license: MIT (`giacomelli/GeneticSharp`; nuspec carries a `licenseUrl` to the repository LICENSE rather than an SPDX expression)
 - assembly: `GeneticSharp.Domain` (the operator + engine surface) and `GeneticSharp.Infrastructure.Framework` (`ITaskExecutor`, randomization, helpers) → the `net10.0` consumer binds `lib/net6.0/` (the only `lib/` TFM; pure-managed AnyCPU IL, ALC-safe, no native asset)
 - namespace: `GeneticSharp` (one flat namespace across both assemblies — chromosomes, operators, engine, executors, services)
@@ -167,7 +167,7 @@
 - the GA gives the metaheuristic machinery only — the exact integer/combinatorial solve stays the `api-ortools` CP-SAT/MILP lane, and routing a genuinely exact problem through the GA where OR-Tools solves it exactly is the rejected pick
 
 [RAIL_LAW]:
-- Package: `GeneticSharp` (3.1.4, MIT, two pure-managed `lib/net6.0` AnyCPU IL assemblies, no native asset)
+- Package: `GeneticSharp` (MIT, two pure-managed `lib/net6.0` AnyCPU IL assemblies, no native asset)
 - Owns: the GA engine, the chromosome encodings, the full crossover/mutation/selection/reinsertion/termination operator catalog, composite termination, and the parallel/TPL fitness executor — the proposal kernel for the `nsga2` row and the `robust-minimax` outer GA (the `cma-es`/`pso`/`simulated-annealing` rows are authored folds no package owns)
 - Accept: a `GeneticAlgorithm` assembled from an operator set a population-based `OptimizerKind` row declares, a genome encoding mapped from the `DesignVariable` cases, an `IFitness` bound to the `Solver/contract` evaluate oracle, parallel evaluation on the bounded compute lanes with a deadline, and the search progress/best-genome stamped onto the optimizer receipt and the `ParetoFront`
 - Reject: a per-algorithm engine sibling where one `Optimizer` fold discriminates on `OptimizerKind`; a stringly-typed genome beside the `DesignVariable`-mapped encodings; a hand-rolled objective loop beside `IFitness`; an unbounded parallel fitness loop beside `ITaskExecutor`; routing an exact integer/combinatorial problem through the GA where the `api-ortools` CP-SAT/MILP lane solves it exactly; a re-minted Pareto-front/crowding owner (the optimizer page owns it)

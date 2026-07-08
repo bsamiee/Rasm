@@ -1,24 +1,24 @@
-# [@visx/scale] — d3-scale as typed config-object factories: one `createScale` dispatch over the scale-type vocabulary, the domain→range spine of the visx set
+# [TS_UI_API_VISX_SCALE]
 
 [PACKAGE_SURFACE]:
 - package: `@visx/scale` · license `MIT`
 - module: dual — conditional `exports` (`import` → `esm/index.js`, `require` → `lib/index.js`, `types` → `lib/index.d.ts`); no side effects, no React peer (the one visx package that is pure computation — `react`/`@types/react` peers absent).
-- asset: single dep `@visx/vendor` — the pinned d3 bundle (`d3-scale`, `d3-interpolate`, `d3-time`, `d3-array`, `internmap` among its rows); no raw `d3-*` dep and no `prop-types` at v4.
+- asset: single dep `@visx/vendor` — the pinned d3 bundle (`d3-scale`, `d3-interpolate`, `d3-time`, `d3-array`, `internmap` among its rows); no raw `d3-*` dep and no `prop-types` at catalog-bound.
 - plane: `plane:runtime` (W4 `ui`); rail: the visx chart spine — scale construction under `.api/visx-shape.md` / `.api/visx-axis.md`.
 
 `@visx/scale` re-shapes `d3-scale`'s chained-mutator factories into ONE config-object form: every factory takes a typed config value (`scaleLinear({ domain, range, nice, clamp, zero })`) and returns the REAL d3 scale object — nothing is wrapped or renamed downstream, so the scale that feeds a visx `Axis` or a `LinePath` accessor is the same object `.api/d3.md` documents (`ticks`/`tickFormat`/`invert`/`bandwidth`/`copy` all live). The config keys are typed PER SCALE TYPE (`'clamp' | 'interpolate' | 'nice' | 'round' | 'zero'` for linear, band padding keys for band, …), so an inapplicable knob is a compile error, and `createScale`/`updateScale` give the polymorphic entry — construct from a `ScaleConfig` discriminated on `type`, immutably re-derive on data change.
 
 ## [01]-[SURFACE]
 
-| [INDEX] | [SURFACE]                                                                                          | [FAMILY]      | [CAPABILITY]                                                     |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial`                          | continuous    | quantitative; config `domain`/`range`/`nice`/`clamp`/`zero`/`round`/`interpolate` (+`base`/`constant`/`exponent` per type) |
-|  [02]   | `scaleTime` `scaleUtc`                                                                                 | temporal      | date domains; `nice` accepts `NiceTime` interval values             |
-|  [03]   | `scaleBand` `scalePoint`                                                                               | ordinal-spatial | categorical position; padding/align/round config keys; `bandwidth()`/`step()` feed bar geometry |
-|  [04]   | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold`                                        | discrete-map  | category→value, quantile/uniform/threshold bucketing               |
-|  [05]   | `createScale(config: ScaleConfig)` / `updateScale(scale, config)`                                      | polymorphic   | type-discriminated construction; immutable copy-with-changes rederive |
-|  [06]   | `inferScaleType(scale)` `coerceNumber` `getTicks(scale, count?)` `scaleCanBeZeroed(config)` `toString` | utils         | reflection over a received scale, tick extraction, zero-eligibility |
-|  [07]   | `ScaleConfig` `ScaleType` `PickScaleConfig` `AnyD3Scale` `D3Scale` `PickD3Scale` `ScaleInput` `InferD3ScaleOutput` `NiceTime` | types | the vocabulary generic chart components constrain against          |
+| [INDEX] | [SURFACE] | [FAMILY] | [CAPABILITY] |
+|:-----: |:--------------------------------------------------------------------------------------------------- |:------------ |:----------------------------------------------------------------- |
+| [01] | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial` | continuous | quantitative; config `domain`/`range`/`nice`/`clamp`/`zero`/`round`/`interpolate` (+`base`/`constant`/`exponent` per type) |
+| [02] | `scaleTime` `scaleUtc` | temporal | date domains; `nice` accepts `NiceTime` interval values |
+| [03] | `scaleBand` `scalePoint` | ordinal-spatial | categorical position; padding/align/round config keys; `bandwidth()`/`step()` feed bar geometry |
+| [04] | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold` | discrete-map | category→value, quantile/uniform/threshold bucketing |
+| [05] | `createScale(config: ScaleConfig)` / `updateScale(scale, config)` | polymorphic | type-discriminated construction; immutable copy-with-changes rederive |
+| [06] | `inferScaleType(scale)` `coerceNumber` `getTicks(scale, count?)` `scaleCanBeZeroed(config)` `toString` | utils | reflection over a received scale, tick extraction, zero-eligibility |
+| [07] | `ScaleConfig` `ScaleType` `PickScaleConfig` `AnyD3Scale` `D3Scale` `PickD3Scale` `ScaleInput` `InferD3ScaleOutput` `NiceTime` | types | the vocabulary generic chart components constrain against |
 
 ```ts contract
 // Config-object form; the return IS the d3 scale. updateScale rederives without mutating the original — the fold-friendly shape.

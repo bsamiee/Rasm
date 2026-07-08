@@ -6,11 +6,10 @@
 
 [PACKAGE_SURFACE]: `Confluent.SchemaRegistry`
 - package: `Confluent.SchemaRegistry`
-- version: `2.14.2`
 - license: Apache-2.0
 - assembly: `Confluent.SchemaRegistry`
 - namespace: `Confluent.SchemaRegistry`
-- target: multi-target (`net462`, `net6.0`, `net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0` (the Confluent 2.14.2 line tops out at `net8.0`, never `net10.0`)
+- target: multi-target (`net462`, `net6.0`, `net8.0`, `netstandard2.0`); the `net10.0` consumer binds `lib/net8.0` (the Confluent line tops out at `net8.0`, never `net10.0`)
 - managed: pure-managed AnyCPU, no native asset; REST/JSON client only
 - transitive: `Newtonsoft.Json` (the `Schema`/`Rule`/`Compatibility` DataContracts carry `Newtonsoft.Json` `[JsonConverter]`/`StringEnumConverter` attributes — the registry wire model is Newtonsoft, not System.Text.Json); `System.Net.Http` for the `RestService`
 - rail: schema-registry control-plane (governs `cdc-egress`)

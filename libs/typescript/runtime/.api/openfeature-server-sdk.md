@@ -1,11 +1,11 @@
-# [@openfeature/server-sdk] — the CNCF feature-evaluation contract the flag owner implements and answers through
+# [TS_RUNTIME_API_OPENFEATURE_SERVER_SDK]
 
 `@openfeature/server-sdk` is the vendor-neutral server evaluation API: a global `OpenFeature` singleton registering providers and minting clients, a `Provider` interface whose four `resolve*Evaluation` members answer `ResolutionDetails` per kind (boolean/string/number/object over `JsonValue`), a `Hook` lifecycle (`before`/`after`/`error`/`finally`) injectable globally, per-client, or per-invocation, an event plane (`OpenFeatureEventEmitter` + `ProviderEvents`) signalling readiness and configuration change, evaluation context at global/client/invocation altitude with `targetingKey` as the subject identity, and transaction-context propagation over `AsyncLocalStorage`. `proc/flag` implements the `Provider` over its live ruleset cell and consumes the client so hooks, context, and events ride the standard seam; no second evaluation contract exists TS-side, and the C# evaluator shares the same reason/error vocabulary at the wire.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@openfeature/server-sdk`
-- package: `@openfeature/server-sdk` (1.22.0, Apache-2.0, OpenFeature/CNCF)
+- package: `@openfeature/server-sdk` (Apache-2.0, OpenFeature/CNCF)
 - module format: ESM + CJS dual; re-exports the `@openfeature/core` shared vocabulary (reasons, error codes, types)
 - runtime target: node/bun server processes (`runsOn: "server"` provider gate); the browser peer is `@openfeature/web-sdk`, not admitted
 - peer: none hard; providers and hooks are ecosystem packages this branch does not admit — the one provider is `proc/flag`'s own
@@ -16,35 +16,35 @@
 [PUBLIC_TYPE_SCOPE]: the evaluation contract
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]   | [CONSUMER]                                                     |
-| :-----: | :------------------------------------------------------------------ | :-------------- | :-------------------------------------------------------------- |
-|  [01]   | `Provider` (`runsOn`, `metadata`, `hooks?`, `events?`, `initialize?`, `onClose?`, four `resolve*Evaluation`) | interface | `proc/flag#PROVIDER_OWNER` — the one implementation |
-|  [02]   | `ResolutionDetails<T>` (`value`, `variant?`, `reason?`, `errorCode?`, `errorMessage?`, `flagMetadata?`) | result | provider answers; `Verdict` projects it |
-|  [03]   | `EvaluationDetails<T>` (`ResolutionDetails` + `flagKey`)             | result          | client `get*Details` returns; hook `after` receives             |
-|  [04]   | `EvaluationContext` (`targetingKey?` + attribute record)             | context         | subject projection — `targetingKey` is the bucket identity      |
-|  [05]   | `Hook` / `HookContext` / `FlagValue`                                 | lifecycle       | `proc/flag`'s telemetry hook (`after` span/metric stamp)        |
-|  [06]   | `JsonValue`                                                          | object kind     | `resolveObjectEvaluation<T extends JsonValue>` payload           |
-|  [07]   | `StandardResolutionReasons` / `ErrorCode`                            | vocabulary      | the reason/code rows `Rollout.reasons`/`Verdict.codes` mirror    |
-|  [08]   | `OpenFeatureEventEmitter` / `ProviderEvents` (`Ready`, `Error`, `ConfigurationChanged`, `Stale`) | events | provider emits on ruleset patch; memo invalidation handler |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------------------ |:-------------- |:-------------------------------------------------------------- |
+| [01] | `Provider` (`runsOn`, `metadata`, `hooks?`, `events?`, `initialize?`, `onClose?`, four `resolve*Evaluation`) | interface | `proc/flag#PROVIDER_OWNER` — the one implementation |
+| [02] | `ResolutionDetails<T>` (`value`, `variant?`, `reason?`, `errorCode?`, `errorMessage?`, `flagMetadata?`) | result | provider answers; `Verdict` projects it |
+| [03] | `EvaluationDetails<T>` (`ResolutionDetails` + `flagKey`) | result | client `get*Details` returns; hook `after` receives |
+| [04] | `EvaluationContext` (`targetingKey?` + attribute record) | context | subject projection — `targetingKey` is the bucket identity |
+| [05] | `Hook` / `HookContext` / `FlagValue` | lifecycle | `proc/flag`'s telemetry hook (`after` span/metric stamp) |
+| [06] | `JsonValue` | object kind | `resolveObjectEvaluation<T extends JsonValue>` payload |
+| [07] | `StandardResolutionReasons` / `ErrorCode` | vocabulary | the reason/code rows `Rollout.reasons`/`Verdict.codes` mirror |
+| [08] | `OpenFeatureEventEmitter` / `ProviderEvents` (`Ready`, `Error`, `ConfigurationChanged`, `Stale`) | events | provider emits on ruleset patch; memo invalidation handler |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration, clients, context, transaction propagation
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [CONSUMER]                                                     |
-| :-----: | :----------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------- |
-|  [01]   | `OpenFeature.setProviderAndWait(provider)` / `.setProvider(domain, provider)`  | register       | `proc/flag` Layer build; rejection is a boot fault               |
-|  [02]   | `OpenFeature.getClient(domain?)`                                               | client         | the evaluation client the `Flags` service holds                  |
-|  [03]   | `client.getBooleanValue/getStringValue/getNumberValue/getObjectValue(flag, fallback, context?)` | evaluate | value-only reads |
-|  [04]   | `client.getBooleanDetails/getStringDetails/getNumberDetails/getObjectDetails`  | evaluate       | detail reads the `Verdict` projection consumes                   |
-|  [05]   | `OpenFeature.setContext(context)` / `client.setContext(context)`               | context        | global/client altitude; invocation context rides the call        |
-|  [06]   | `OpenFeature.addHooks(...)` / `client.addHooks(...)` / invocation `{ hooks }`  | lifecycle      | the telemetry hook registration                                  |
-|  [07]   | `OpenFeature.addHandler(ProviderEvents.X, handler)` / `client.addHandler`      | events         | readiness/error observation                                      |
-|  [08]   | `OpenFeature.setTransactionContextPropagator(new AsyncLocalStorageTransactionContextPropagator())` + `OpenFeature.setTransactionContext(context, fn)` | txn context | per-request subject propagation at the serving edge |
-|  [09]   | `OpenFeature.close()`                                                          | shutdown       | scope-release teardown in the `Flags` Layer                      |
-|  [10]   | `client.track(occurrenceKey, context?, details?)`                              | tracking       | growth row — flag-outcome/action association                     |
-|  [11]   | `InMemoryProvider`                                                             | test provider  | harness pin for specs exercising the SDK seam                    |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:----------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------------- |
+| [01] | `OpenFeature.setProviderAndWait(provider)` / `.setProvider(domain, provider)` | register | `proc/flag` Layer build; rejection is a boot fault |
+| [02] | `OpenFeature.getClient(domain?)` | client | the evaluation client the `Flags` service holds |
+| [03] | `client.getBooleanValue/getStringValue/getNumberValue/getObjectValue(flag, fallback, context?)` | evaluate | value-only reads |
+| [04] | `client.getBooleanDetails/getStringDetails/getNumberDetails/getObjectDetails` | evaluate | detail reads the `Verdict` projection consumes |
+| [05] | `OpenFeature.setContext(context)` / `client.setContext(context)` | context | global/client altitude; invocation context rides the call |
+| [06] | `OpenFeature.addHooks(...)` / `client.addHooks(...)` / invocation `{ hooks }` | lifecycle | the telemetry hook registration |
+| [07] | `OpenFeature.addHandler(ProviderEvents.X, handler)` / `client.addHandler` | events | readiness/error observation |
+| [08] | `OpenFeature.setTransactionContextPropagator(new AsyncLocalStorageTransactionContextPropagator())` + `OpenFeature.setTransactionContext(context, fn)` | txn context | per-request subject propagation at the serving edge |
+| [09] | `OpenFeature.close()` | shutdown | scope-release teardown in the `Flags` Layer |
+| [10] | `client.track(occurrenceKey, context?, details?)` | tracking | growth row — flag-outcome/action association |
+| [11] | `InMemoryProvider` | test provider | harness pin for specs exercising the SDK seam |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

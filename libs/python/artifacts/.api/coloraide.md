@@ -14,7 +14,7 @@
 - target: pure-Python (zero native extension, abi-agnostic); only runtime dep is the stdlib — no NumPy at import (its own `algebra` module carries the linear-algebra kernels)
 - floor: runs on cp315 — `coloraide 8.10` resolved and imported under `python3.15`; no `python_version` marker (no compiled artifact, no ABI gate)
 - entry points: library use is import-only; no console script
-- capability: one `Color` object owning CSS/named/coordinate parsing, conversion across the 27 base-registered color spaces (`everything.ColorAll` registers **77**), gamut mapping through six base fit methods (`raytrace` default; `ColorAll` adds `hct-chroma` + `oklch-cubic` for eight), CVD simulation (`protan`/`deutan`/`tritan`) plus eight W3C filter effects over one 11-row `FILTER_MAP`, eight base delta-E metrics (`ColorAll` adds `99o`/`cam02`/`cam16`/`hct`/`helmlab` for thirteen), WCAG21 contrast (`ColorAll` adds `lstar`), six base interpolation methods (`ColorAll` adds `catrom`/`spectral`/`spectral-continuous` for nine), Planckian-locus CCT/blackbody over `ohno-2013`/`robertson-1968`, chromatic adaptation (`bradford` base; `ColorAll` adds `cat02`/`cat16`/`cmccat2000`/`cmccat97`/`sharp`/`von-kries`/`xyz-scaling`), chromaticity (`xy`/`uv`/`chromaticity`/`split_chromaticity`/`convert_chromaticity`), spectral `wavelength`/`from_wavelength` mapping, interpolation/mixing/harmonies/averaging, masking/layering composition (16 blend modes + 15 Porter-Duff operators), Pointer's-gamut tests, and a plugin `register`/`deregister` surface over eight engine maps
+- capability: one `Color` object owning CSS/named/coordinate parsing, conversion across the 27 base-registered color spaces (`everything.ColorAll` registers 77), gamut mapping through six base fit methods (`raytrace` default; `ColorAll` adds `hct-chroma` + `oklch-cubic` for eight), CVD simulation (`protan`/`deutan`/`tritan`) plus eight W3C filter effects over one 11-row `FILTER_MAP`, eight base delta-E metrics (`ColorAll` adds `99o`/`cam02`/`cam16`/`hct`/`helmlab` for thirteen), WCAG21 contrast (`ColorAll` adds `lstar`), six base interpolation methods (`ColorAll` adds `catrom`/`spectral`/`spectral-continuous` for nine), Planckian-locus CCT/blackbody over `ohno-2013`/`robertson-1968`, chromatic adaptation (`bradford` base; `ColorAll` adds `cat02`/`cat16`/`cmccat2000`/`cmccat97`/`sharp`/`von-kries`/`xyz-scaling`), chromaticity (`xy`/`uv`/`chromaticity`/`split_chromaticity`/`convert_chromaticity`), spectral `wavelength`/`from_wavelength` mapping, interpolation/mixing/harmonies/averaging, masking/layering composition (16 blend modes + 15 Porter-Duff operators), Pointer's-gamut tests, and a plugin `register`/`deregister` surface over eight engine maps
 
 ## [02]-[PUBLIC_TYPES]
 
@@ -23,18 +23,18 @@
 
 `Color` is the single engine object; instances parse on construction and every mutating transform returns `Self` for chaining. `ColorMatch` carries a parse hit from `Color.match`. `ColorAll` (from `coloraide.everything`) is the `Color` subclass with every space, fit, filter, delta-E, CAT, CCT, and interpolation plugin registered — the owner imports this as the working engine. `stop`/`hint`/`cubic_bezier`/`linear` and the `ease*` callables are interpolation easing helpers passed into `interpolate`/`steps`/`discrete`. `NaN` is the channel sentinel for a powerless/undefined hue.
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]      | [RAIL]                                                       |
-| :-----: | :---------------------------------------------- | :----------------- | :---------------------------------------------------------- |
-|  [01]   | `Color`                                         | color engine       | parse/convert/fit/filter/distance object, base 27-space set |
-|  [02]   | `everything.ColorAll`                           | color engine       | `Color` subclass with every registered plugin preloaded (77 spaces) |
-|  [03]   | `ColorMatch`                                    | match record       | `color`/`start`/`end` parse hit from `Color.match`          |
-|  [04]   | `interpolate.Interpolator`                      | gradient curve     | reusable callable curve returned by `interpolate`/`discrete` |
-|  [05]   | `stop`                                          | interpolation stop | `stop(color, value)` positioned color stop                  |
-|  [06]   | `hint`                                          | interpolation hint | `hint(mid)` -> easing callable; midpoint hint between stops  |
-|  [07]   | `cubic_bezier`                                  | easing factory     | `cubic_bezier(x1, y1, x2, y2)` -> easing callable           |
-|  [08]   | `linear`                                        | easing function    | `linear(t)` identity (linear) progress easing               |
-|  [09]   | `ease` / `ease_in` / `ease_out` / `ease_in_out` | easing function    | CSS-named easing progress functions (tunable `a`/`b`/`c`/`p1`/`p2`) |
-|  [10]   | `NaN`                                           | sentinel           | `float('nan')` channel sentinel for powerless/undefined hue |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `Color` | color engine | parse/convert/fit/filter/distance object, base 27-space set |
+| [02] | `everything.ColorAll` | color engine | `Color` subclass with every registered plugin preloaded (77 spaces) |
+| [03] | `ColorMatch` | match record | `color`/`start`/`end` parse hit from `Color.match` |
+| [04] | `interpolate.Interpolator` | gradient curve | reusable callable curve returned by `interpolate`/`discrete` |
+| [05] | `stop` | interpolation stop | `stop(color, value)` positioned color stop |
+| [06] | `hint` | interpolation hint | `hint(mid)` -> easing callable; midpoint hint between stops |
+| [07] | `cubic_bezier` | easing factory | `cubic_bezier(x1, y1, x2, y2)` -> easing callable |
+| [08] | `linear` | easing function | `linear(t)` identity (linear) progress easing |
+| [09] | `ease` / `ease_in` / `ease_out` / `ease_in_out` | easing function | CSS-named easing progress functions (tunable `a`/`b`/`c`/`p1`/`p2`) |
+| [10] | `NaN` | sentinel | `float('nan')` channel sentinel for powerless/undefined hue |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -43,100 +43,100 @@
 
 Construction parses any `ColorInput` (CSS string, named color, `(space, coords)` shape, a `to_dict` mapping, or another `Color`); `new`/`clone` mint without re-parsing, `mutate` rewrites in place from new input, `update` overwrites coordinates keeping the current space, `random` mints a random color in a space. `convert` moves to a registered space and optionally fits during conversion. `get`/`set` are polymorphic over one channel name or a list/dict of names; `coords` reads the channel vector and `alpha`/`Y` read the alpha and luminance channels; `space` reads the current space id.
 
-| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                                                                  | [CAPABILITY]                                            |
-| :-----: | :---------------- | :------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `Color`           | `Color(color, data=None, alpha=1.0, **kwargs)`                                                | parse input into a color in its detected space         |
-|  [02]   | `Color.new`       | `new(color, data=None, alpha=1.0, **kwargs)` (classmethod)                                    | mint a sibling color of the same class                 |
-|  [03]   | `Color.clone`     | `clone()` -> `Self`                                                                           | duplicate without re-parsing                           |
-|  [04]   | `Color.mutate`    | `mutate(color, data=None, alpha=1.0, **kwargs)` -> `Self`                                     | rewrite this color in place from new input (re-detects space) |
-|  [05]   | `Color.update`    | `update(color, data=None, alpha=1.0, *, norm=True, **kwargs)` -> `Self`                       | overwrite coordinates from new input, keep current space |
-|  [06]   | `Color.random`    | `random(space, *, limits=None)` -> `Self` (classmethod)                                       | mint a random color in a space (per-channel `limits`)   |
-|  [07]   | `Color.convert`   | `convert(space, *, fit=False, in_place=False, norm=True)` -> `Self`                           | convert to a registered space, optional gamut fit       |
-|  [08]   | `Color.space`     | `space()` -> `str`                                                                            | read the current color-space id                         |
-|  [09]   | `Color.get`       | `get(name, *, nans=True, precision=None, rounding=None)` -> `float \| Vector`                 | read one channel (str) or several (`list`/`tuple`)      |
-|  [10]   | `Color.set`       | `set(name, value=None, *, nans=True)` -> `Self`                                               | write one channel (value/callable) or many (str->value dict) |
-|  [11]   | `Color.coords`    | `coords(*, nans=True, precision=None, rounding=None)` -> `Vector`                             | read the color-channel vector (no alpha)               |
-|  [12]   | `Color.alpha`     | `alpha(*, nans=True, precision=None, rounding=None)` -> `float`                               | read the alpha channel                                 |
-|  [13]   | `Color.Y`         | `Y(*, nans=True, precision=None, rounding=None)` -> `float`                                   | read the luminance (Y) channel                         |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Color` | `Color(color, data=None, alpha=1.0, **kwargs)` | parse input into a color in its detected space |
+| [02] | `Color.new` | `new(color, data=None, alpha=1.0, **kwargs)` (classmethod) | mint a sibling color of the same class |
+| [03] | `Color.clone` | `clone()` -> `Self` | duplicate without re-parsing |
+| [04] | `Color.mutate` | `mutate(color, data=None, alpha=1.0, **kwargs)` -> `Self` | rewrite this color in place from new input (re-detects space) |
+| [05] | `Color.update` | `update(color, data=None, alpha=1.0, *, norm=True, **kwargs)` -> `Self` | overwrite coordinates from new input, keep current space |
+| [06] | `Color.random` | `random(space, *, limits=None)` -> `Self` (classmethod) | mint a random color in a space (per-channel `limits`) |
+| [07] | `Color.convert` | `convert(space, *, fit=False, in_place=False, norm=True)` -> `Self` | convert to a registered space, optional gamut fit |
+| [08] | `Color.space` | `space()` -> `str` | read the current color-space id |
+| [09] | `Color.get` | `get(name, *, nans=True, precision=None, rounding=None)` -> `float \| Vector` | read one channel (str) or several (`list`/`tuple`) |
+| [10] | `Color.set` | `set(name, value=None, *, nans=True)` -> `Self` | write one channel (value/callable) or many (str->value dict) |
+| [11] | `Color.coords` | `coords(*, nans=True, precision=None, rounding=None)` -> `Vector` | read the color-channel vector (no alpha) |
+| [12] | `Color.alpha` | `alpha(*, nans=True, precision=None, rounding=None)` -> `float` | read the alpha channel |
+| [13] | `Color.Y` | `Y(*, nans=True, precision=None, rounding=None)` -> `float` | read the luminance (Y) channel |
 
 [ENTRYPOINT_SCOPE]: serialize leg
 - rail: color
 
 `to_string` serializes to a CSS/space string (kwargs select `fit`/`precision`/`color`/`comma`/`percent`/`hex`/`names`/`upper` per the space's CSS serializer); `serialize` is the thin gamut-aware string row; `to_dict` serializes to a structured mapping that round-trips through `Color(dict)`.
 
-| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                                                       | [CAPABILITY]                                       |
-| :-----: | :---------------- | :-------------------------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `Color.to_string` | `to_string(**kwargs)` -> `str`                                                     | serialize to a CSS/space string                    |
-|  [02]   | `Color.serialize` | `serialize(*, fit=False, **kwargs)` -> `str`                                       | string egress with optional in-serialize fit       |
-|  [03]   | `Color.to_dict`   | `to_dict(*, nans=True, precision=None, rounding=None)` -> `Mapping[str, Any]`      | structured mapping (round-trips via `Color(dict)`) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Color.to_string` | `to_string(**kwargs)` -> `str` | serialize to a CSS/space string |
+| [02] | `Color.serialize` | `serialize(*, fit=False, **kwargs)` -> `str` | string egress with optional in-serialize fit |
+| [03] | `Color.to_dict` | `to_dict(*, nans=True, precision=None, rounding=None)` -> `Mapping[str, Any]` | structured mapping (round-trips via `Color(dict)`) |
 
 [ENTRYPOINT_SCOPE]: gamut-map leg
 - rail: color
 
 `in_gamut` tests membership in a target space; `fit` maps an out-of-gamut color back inside using a registered fit `method` (`raytrace` default); `clip` is the hard-clip row; conversion-time fitting flows through `convert(space, fit=...)`. Pointer's gamut (the gamut of real surface colors) has its own predicate/fit pair.
 
-| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                                  | [CAPABILITY]                                       |
-| :-----: | :------------------------ | :----------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `Color.in_gamut`          | `in_gamut(space=None, *, tolerance=None, **kwargs)` -> `bool` | test whether coordinates lie inside a target gamut |
-|  [02]   | `Color.fit`               | `fit(space=None, *, method=None, **kwargs)` -> `Self`        | gamut-map into a space via a registered fit method |
-|  [03]   | `Color.clip`              | `clip(space=None)` -> `Self`                                 | hard-clip coordinates into a target gamut          |
-|  [04]   | `Color.in_pointer_gamut`  | `in_pointer_gamut(*, tolerance=7.5e-05)` -> `bool`           | test membership in Pointer's (real-surface) gamut  |
-|  [05]   | `Color.fit_pointer_gamut` | `fit_pointer_gamut()` -> `Self`                              | map a color into Pointer's gamut                   |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Color.in_gamut` | `in_gamut(space=None, *, tolerance=None, **kwargs)` -> `bool` | test whether coordinates lie inside a target gamut |
+| [02] | `Color.fit` | `fit(space=None, *, method=None, **kwargs)` -> `Self` | gamut-map into a space via a registered fit method |
+| [03] | `Color.clip` | `clip(space=None)` -> `Self` | hard-clip coordinates into a target gamut |
+| [04] | `Color.in_pointer_gamut` | `in_pointer_gamut(*, tolerance=7.5e-05)` -> `bool` | test membership in Pointer's (real-surface) gamut |
+| [05] | `Color.fit_pointer_gamut` | `fit_pointer_gamut()` -> `Self` | map a color into Pointer's gamut |
 
 The fit `method` axis (`FIT_MAP`):
 
-| [TIER] | [METHODS] |
-| :----- | :-------- |
-| base (6) | `raytrace` (default), `oklch-chroma`, `lch-chroma`, `minde-chroma`, `scale`, `scale-luminance` |
-| `ColorAll` (+2) | `hct-chroma`, `oklch-cubic` |
+| [INDEX] | [TIER] | [METHODS] |
+| --- | --- | --- |
+| [01] | base (6) | `raytrace` (default), `oklch-chroma`, `lch-chroma`, `minde-chroma`, `scale`, `scale-luminance` |
+| [02] | `ColorAll` (+2) | `hct-chroma`, `oklch-cubic` |
 
 [ENTRYPOINT_SCOPE]: CVD and W3C filter leg
 - rail: color
 
 `filter` applies a registered filter by `name`; `amount` is the per-filter strength; `space`/`out_space` control the working and output space. The CVD rows are `protan`, `deutan`, `tritan`; the W3C filter-effect rows are `brightness`, `contrast`, `saturate`, `hue-rotate`, `grayscale`, `sepia`, `invert`, `opacity`. The full `FILTER_MAP` is 11 rows on both `Color` and `ColorAll` (CVD filters ship in the base registration).
 
-| [INDEX] | [SURFACE]      | [CALL_SHAPE]                                                                                   | [CAPABILITY]                              |
-| :-----: | :------------- | :--------------------------------------------------------------------------------------------- | :---------------------------------------- |
-|  [01]   | `Color.filter` | `filter(name, amount=None, *, space=None, out_space=None, in_place=False, **kwargs)` -> `Self` | apply CVD/W3C filter by registered `name` |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Color.filter` | `filter(name, amount=None, *, space=None, out_space=None, in_place=False, **kwargs)` -> `Self` | apply CVD/W3C filter by registered `name` |
 
 [ENTRYPOINT_SCOPE]: distance, contrast, interpolation, palettes, plugins
 - rail: color
 
 `distance` is the raw Euclidean row; `delta_e` selects the perceptual metric; `closest` folds `delta_e` over a candidate set; `contrast`/`luminance` are the WCAG21 safety rows; `interpolate`/`discrete` build a reusable `Interpolator`, `steps`/`mix`/`weighted_mix` sample it; `harmony`/`average` derive palettes; `register`/`deregister` extend the engine maps; `match` parses one color from a string; `within` iterates the colors composited into the current color.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                                                                                                                                                                  | [CAPABILITY]                                    |
-| :-----: | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `Color.distance`       | `distance(color, *, space='lab')` -> `float`                                                                                                                                                                                                  | Euclidean distance in a space                   |
-|  [02]   | `Color.delta_e`        | `delta_e(color, *, method=None, **kwargs)` -> `float`                                                                                                                                                                                         | perceptual delta-E by registered method         |
-|  [03]   | `Color.closest`        | `closest(colors, *, method=None, **kwargs)` -> `Self`                                                                                                                                                                                         | nearest color from a set by delta-E             |
-|  [04]   | `Color.contrast`       | `contrast(color, method=None)` -> `float`                                                                                                                                                                                                     | contrast ratio (`wcag21` default; `lstar` in `ColorAll`) |
-|  [05]   | `Color.luminance`      | `luminance(*, white=(0.3127, 0.329))` -> `float`                                                                                                                                                                                              | relative luminance                              |
-|  [06]   | `Color.interpolate`    | `interpolate(colors, *, space=None, out_space=None, progress=None, hue='shorter', premultiplied=True, extrapolate=False, domain=None, method=None, padding=None, carryforward=None, powerless=None, **kwargs)` -> `Interpolator` (classmethod) | build a reusable interpolator across colors     |
-|  [07]   | `Color.discrete`       | `discrete(colors, *, space=None, out_space=None, steps=None, max_steps=1000, max_delta_e=0, delta_e=None, delta_e_args=None, domain=None, **interpolate_args)` -> `Interpolator` (classmethod)                                                | stepped (non-blended) interpolator              |
-|  [08]   | `Color.steps`          | `steps(colors, *, steps=2, max_steps=1000, max_delta_e=0, delta_e=None, delta_e_args=None, **interpolate_args)` -> `list[Self]` (classmethod)                                                                                                 | sample N discrete colors along an interpolation |
-|  [09]   | `Color.mix`            | `mix(color, percent=0.5, *, in_place=False, **interpolate_args)` -> `Self`                                                                                                                                                                    | blend two colors                                |
-|  [10]   | `Color.weighted_mix`   | `weighted_mix(colors, weights=None, *, space=None, out_space=None, method=None, premultiplied=True, carryforward=False, powerless=False, hue='shorter', **kwargs)` -> `Self` (classmethod)                                                    | weighted blend of N colors                      |
-|  [11]   | `Color.harmony`        | `harmony(name, *, space=None, out_space=None, **kwargs)` -> `list[Self]`                                                                                                                                                                      | derive a color harmony palette by wheel name    |
-|  [12]   | `Color.average`        | `average(colors, weights=None, *, space=None, out_space=None, premultiplied=True, carryforward=False, **kwargs)` -> `Self` (classmethod)                                                                                                      | weighted average of colors                      |
-|  [13]   | `Color.register`       | `register(plugin, *, overwrite=False, silent=False)` -> `None` (classmethod)                                                                                                                                                                 | register space/fit/filter/delta-E/CAT/CCT/interp plugins |
-|  [14]   | `Color.deregister`     | `deregister(plugin, *, silent=False)` -> `None` (classmethod)                                                                                                                                                                                | remove a registered plugin by name              |
-|  [15]   | `Color.match`          | `match(string, start=0, fullmatch=False)` -> `ColorMatch \| None` (classmethod)                                                                                                                                                              | parse one color out of a string                 |
-|  [16]   | `Color.within`         | `within(space, *, norm=True, norm_out=None)` -> `Iterator[Self]`                                                                                                                                                                             | iterate the source colors composited into this color |
-|  [17]   | `Color.is_nan`         | `is_nan(name)` -> `bool`                                                                                                                                                                                                                      | test a channel for the powerless/NaN sentinel   |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Color.distance` | `distance(color, *, space='lab')` -> `float` | Euclidean distance in a space |
+| [02] | `Color.delta_e` | `delta_e(color, *, method=None, **kwargs)` -> `float` | perceptual delta-E by registered method |
+| [03] | `Color.closest` | `closest(colors, *, method=None, **kwargs)` -> `Self` | nearest color from a set by delta-E |
+| [04] | `Color.contrast` | `contrast(color, method=None)` -> `float` | contrast ratio (`wcag21` default; `lstar` in `ColorAll`) |
+| [05] | `Color.luminance` | `luminance(*, white=(0.3127, 0.329))` -> `float` | relative luminance |
+| [06] | `Color.interpolate` | `interpolate(colors, *, space=None, out_space=None, progress=None, hue='shorter', premultiplied=True, extrapolate=False, domain=None, method=None, padding=None, carryforward=None, powerless=None, **kwargs)` -> `Interpolator` (classmethod) | build a reusable interpolator across colors |
+| [07] | `Color.discrete` | `discrete(colors, *, space=None, out_space=None, steps=None, max_steps=1000, max_delta_e=0, delta_e=None, delta_e_args=None, domain=None, **interpolate_args)` -> `Interpolator` (classmethod) | stepped (non-blended) interpolator |
+| [08] | `Color.steps` | `steps(colors, *, steps=2, max_steps=1000, max_delta_e=0, delta_e=None, delta_e_args=None, **interpolate_args)` -> `list[Self]` (classmethod) | sample N discrete colors along an interpolation |
+| [09] | `Color.mix` | `mix(color, percent=0.5, *, in_place=False, **interpolate_args)` -> `Self` | blend two colors |
+| [10] | `Color.weighted_mix` | `weighted_mix(colors, weights=None, *, space=None, out_space=None, method=None, premultiplied=True, carryforward=False, powerless=False, hue='shorter', **kwargs)` -> `Self` (classmethod) | weighted blend of N colors |
+| [11] | `Color.harmony` | `harmony(name, *, space=None, out_space=None, **kwargs)` -> `list[Self]` | derive a color harmony palette by wheel name |
+| [12] | `Color.average` | `average(colors, weights=None, *, space=None, out_space=None, premultiplied=True, carryforward=False, **kwargs)` -> `Self` (classmethod) | weighted average of colors |
+| [13] | `Color.register` | `register(plugin, *, overwrite=False, silent=False)` -> `None` (classmethod) | register space/fit/filter/delta-E/CAT/CCT/interp plugins |
+| [14] | `Color.deregister` | `deregister(plugin, *, silent=False)` -> `None` (classmethod) | remove a registered plugin by name |
+| [15] | `Color.match` | `match(string, start=0, fullmatch=False)` -> `ColorMatch \| None` (classmethod) | parse one color out of a string |
+| [16] | `Color.within` | `within(space, *, norm=True, norm_out=None)` -> `Iterator[Self]` | iterate the source colors composited into this color |
+| [17] | `Color.is_nan` | `is_nan(name)` -> `bool` | test a channel for the powerless/NaN sentinel |
 
 The delta-E `method` axis (`DE_MAP`):
 
-| [TIER] | [METHODS] |
-| :----- | :-------- |
-| base (8) | `76` (default), `2000`, `94`, `cmc`, `hyab`, `itp`, `jz`, `ok` |
-| `ColorAll` (+5) | `99o`, `cam02`, `cam16`, `hct`, `helmlab` |
+| [INDEX] | [TIER] | [METHODS] |
+| --- | --- | --- |
+| [01] | base (8) | `76` (default), `2000`, `94`, `cmc`, `hyab`, `itp`, `jz`, `ok` |
+| [02] | `ColorAll` (+5) | `99o`, `cam02`, `cam16`, `hct`, `helmlab` |
 
 The interpolation `method` axis (`INTERPOLATE_MAP`):
 
-| [TIER] | [METHODS] |
-| :----- | :-------- |
-| base (6) | `linear` (default), `continuous`, `bspline`, `natural`, `monotone`, `css-linear` |
-| `ColorAll` (+3) | `catrom`, `spectral`, `spectral-continuous` |
+| [INDEX] | [TIER] | [METHODS] |
+| --- | --- | --- |
+| [01] | base (6) | `linear` (default), `continuous`, `bspline`, `natural`, `monotone`, `css-linear` |
+| [02] | `ColorAll` (+3) | `catrom`, `spectral`, `spectral-continuous` |
 
 The harmony `name` axis (`harmonies.SUPPORTED`, 8 closed wheels): `complement`, `split`, `triad`, `square`, `rectangle`, `analogous`, `mono`, `wheel`.
 
@@ -145,24 +145,24 @@ The harmony `name` axis (`harmonies.SUPPORTED`, 8 closed wheels): `complement`, 
 
 `interpolate`/`discrete` return an `Interpolator` that is itself callable `(point: float) -> Color` and is sampled per gradient stop; the owner builds the curve once and samples it, never re-deriving per sample. `.steps`/`.discretize` re-sample it, `.domain` re-anchors the input domain, and `.ease`/`.premultiply`/`.postdivide`/`.padding` are the curve-construction hooks.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                              | [CAPABILITY]                                       |
-| :-----: | :------------------------- | :------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `Interpolator.__call__`    | `interp(point: float)` -> `Color`                        | sample one color at a normalized/domain point      |
-|  [02]   | `Interpolator.steps`       | `steps(steps=2, max_steps=1000, max_delta_e=0, ...)` -> `list[Color]` | sample N colors along the built curve     |
-|  [03]   | `Interpolator.discretize`  | `discretize(steps=2, max_steps=1000, max_delta_e=0, ...)` -> `Interpolator` | derive a stepped curve from this curve |
-|  [04]   | `Interpolator.domain`      | `domain(domain: Sequence[float])` -> `None`              | re-anchor the input domain of the curve in place   |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Interpolator.call` | `interp(point: float)` -> `Color` | sample one color at a normalized/domain point |
+| [02] | `Interpolator.steps` | `steps(steps=2, max_steps=1000, max_delta_e=0, ...)` -> `list[Color]` | sample N colors along the built curve |
+| [03] | `Interpolator.discretize` | `discretize(steps=2, max_steps=1000, max_delta_e=0, ...)` -> `Interpolator` | derive a stepped curve from this curve |
+| [04] | `Interpolator.domain` | `domain(domain: Sequence[float])` -> `None` | re-anchor the input domain of the curve in place |
 
 [ENTRYPOINT_SCOPE]: composition leg
 - rail: color
 
 `mask` zeroes/keeps channels for composition; `layer` blend-/Porter-Duff-composites a stack of colors; `normalize` normalizes powerless/undefined channels; `is_achromatic` is the gray predicate.
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                                                                | [CAPABILITY]                                       |
-| :-----: | :-------------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `Color.mask`          | `mask(channel, *, invert=False, in_place=False)` -> `Self`                                                  | keep/zero one or several channels for composition  |
-|  [02]   | `Color.layer`         | `layer(colors, *, blend='normal', operator='source-over', space=None, out_space=None)` -> `Self` (classmethod) | blend/Porter-Duff composite a color stack       |
-|  [03]   | `Color.normalize`     | `normalize(*, nans=True)` -> `Self`                                                                         | normalize powerless/undefined channels in place    |
-|  [04]   | `Color.is_achromatic` | `is_achromatic()` -> `bool`                                                                                 | test whether the color is achromatic (gray)        |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Color.mask` | `mask(channel, *, invert=False, in_place=False)` -> `Self` | keep/zero one or several channels for composition |
+| [02] | `Color.layer` | `layer(colors, *, blend='normal', operator='source-over', space=None, out_space=None)` -> `Self` (classmethod) | blend/Porter-Duff composite a color stack |
+| [03] | `Color.normalize` | `normalize(*, nans=True)` -> `Self` | normalize powerless/undefined channels in place |
+| [04] | `Color.is_achromatic` | `is_achromatic()` -> `bool` | test whether the color is achromatic (gray) |
 
 The `layer` blend axis (`compositing.blend_modes.SUPPORTED`, 16): `normal`, `multiply`, `screen`, `overlay`, `darken`, `lighten`, `color-dodge`, `color-burn`, `hard-light`, `soft-light`, `difference`, `exclusion`, `hue`, `saturation`, `color`, `luminosity`.
 
@@ -173,27 +173,27 @@ The `layer` operator axis (`compositing.porter_duff.SUPPORTED`, 15): `clear`, `c
 
 `blackbody` mints a Planckian-locus color at a temperature; `cct` reads the correlated colour temperature and Duv; `chromatic_adaptation` adapts XYZ between white points by CAT method; `from_wavelength`/`wavelength` map a single spectral wavelength to/from a color; `xy`/`uv`/`chromaticity`/`split_chromaticity`/`convert_chromaticity` read or transform chromaticity coordinates; `white` reads the space white point.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                                                                                                                          | [CAPABILITY]                                              |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `Color.blackbody`               | `blackbody(space, temp, duv=0.0, *, method=None, scale=True, scale_space=None, max_saturation=True, clip_negative=False, preserve_luminance=False, **kwargs)` -> `Self` (classmethod) | Planckian-locus color at a temperature (CCT method row)   |
-|  [02]   | `Color.cct`                     | `cct(*, method=None, **kwargs)` -> `Vector`                                                                                                                                          | correlated colour temperature + Duv of the color          |
-|  [03]   | `Color.chromatic_adaptation`    | `chromatic_adaptation(w1, w2, xyz, *, method=None)` -> `Vector` (classmethod)                                                                                                        | adapt XYZ between white points by CAT method               |
-|  [04]   | `Color.from_wavelength`         | `from_wavelength(space, wavelength, *, white=None, scale=True, scale_space=None, max_saturation=True, clip_negative=False, preserve_luminance=False)` -> `Self` (classmethod)         | mint a color from a single spectral wavelength             |
-|  [05]   | `Color.wavelength`              | `wavelength(*, white=None, complementary=False)` -> `tuple[float, Vector, Vector]`                                                                                                   | dominant (or complementary) wavelength + spectral-locus pts |
-|  [06]   | `Color.xy` / `Color.uv`         | `xy(*, white=None)` / `uv(mode='1976', *, white=None)` -> `Vector`                                                                                                                   | CIE 1931 `xy` / 1976 `u'v'` chromaticity of the color      |
-|  [07]   | `Color.chromaticity`            | `chromaticity(space, coords, cspace='uv-1976', *, white=None, scale=False, ...)` -> `Self` (classmethod)                                                                             | mint a color from chromaticity coords in a chromaticity space |
-|  [08]   | `Color.split_chromaticity`      | `split_chromaticity(cspace='uv-1976', *, white=None)` -> `Vector`                                                                                                                    | read `[x_or_u, y_or_v, Y]` split chromaticity              |
-|  [09]   | `Color.convert_chromaticity`    | `convert_chromaticity(cspace1, cspace2, coords, *, white=None)` -> `Vector` (classmethod)                                                                                            | transform between chromaticity spaces (`xy-1931`/`uv-1976`/`uv-1960`/`xyz`) |
-|  [10]   | `Color.white`                   | `white(cspace='xyz')` -> `Vector`                                                                                                                                                    | white point of the current space                           |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Color.blackbody` | `blackbody(space, temp, duv=0.0, *, method=None, scale=True, scale_space=None, max_saturation=True, clip_negative=False, preserve_luminance=False, **kwargs)` -> `Self` (classmethod) | Planckian-locus color at a temperature (CCT method row) |
+| [02] | `Color.cct` | `cct(*, method=None, **kwargs)` -> `Vector` | correlated colour temperature + Duv of the color |
+| [03] | `Color.chromatic_adaptation` | `chromatic_adaptation(w1, w2, xyz, *, method=None)` -> `Vector` (classmethod) | adapt XYZ between white points by CAT method |
+| [04] | `Color.from_wavelength` | `from_wavelength(space, wavelength, *, white=None, scale=True, scale_space=None, max_saturation=True, clip_negative=False, preserve_luminance=False)` -> `Self` (classmethod) | mint a color from a single spectral wavelength |
+| [05] | `Color.wavelength` | `wavelength(*, white=None, complementary=False)` -> `tuple[float, Vector, Vector]` | dominant (or complementary) wavelength + spectral-locus pts |
+| [06] | `Color.xy` / `Color.uv` | `xy(*, white=None)` / `uv(mode='1976', *, white=None)` -> `Vector` | CIE 1931 `xy` / 1976 `u'v'` chromaticity of the color |
+| [07] | `Color.chromaticity` | `chromaticity(space, coords, cspace='uv-1976', *, white=None, scale=False, ...)` -> `Self` (classmethod) | mint a color from chromaticity coords in a chromaticity space |
+| [08] | `Color.split_chromaticity` | `split_chromaticity(cspace='uv-1976', *, white=None)` -> `Vector` | read `[x_or_u, y_or_v, Y]` split chromaticity |
+| [09] | `Color.convert_chromaticity` | `convert_chromaticity(cspace1, cspace2, coords, *, white=None)` -> `Vector` (classmethod) | transform between chromaticity spaces (`xy-1931`/`uv-1976`/`uv-1960`/`xyz`) |
+| [10] | `Color.white` | `white(cspace='xyz')` -> `Vector` | white point of the current space |
 
 The CCT `method` axis (`CCT_MAP`, 2 on both `Color` and `ColorAll`): `ohno-2013`, `robertson-1968`.
 
 The CAT `method` axis (`CAT_MAP`):
 
-| [TIER] | [METHODS] |
-| :----- | :-------- |
-| base (1) | `bradford` |
-| `ColorAll` (+7) | `cat02`, `cat16`, `cmccat2000`, `cmccat97`, `sharp`, `von-kries`, `xyz-scaling` |
+| [INDEX] | [TIER] | [METHODS] |
+| --- | --- | --- |
+| [01] | base (1) | `bradford` |
+| [02] | `ColorAll` (+7) | `cat02`, `cat16`, `cmccat2000`, `cmccat97`, `sharp`, `von-kries`, `xyz-scaling` |
 
 ## [04]-[PLUGIN_MAPS]
 
@@ -202,16 +202,16 @@ The CAT `method` axis (`CAT_MAP`):
 
 Every variation point is a class-level map; `derive#DERIVE` keys its closed vocabularies (`FitMethod`/`ColorFilter`/`Interp`/`Harmony`/`BlendMode`/`PorterDuff`/`CamMethod`/`Blackbody`) onto these literal sets, so the catalog carries the full base-vs-`ColorAll` cardinality each design row reads as a closed key set. A new space/fit/filter/metric/CAT/CCT/interpolation is `Color.register(plugin)` against the matching map, never a local conversion kernel.
 
-| [INDEX] | [MAP]              | [BASE] | [ColorAll] | [AXIS]                                                                 |
-| :-----: | :----------------- | :----: | :--------: | :-------------------------------------------------------------------- |
-|  [01]   | `CS_MAP`           |   27   |     77     | color spaces (`convert`/`fit`/`Color(space, …)` keys)                 |
-|  [02]   | `FIT_MAP`          |    6   |      8     | gamut-fit methods (`fit(method=…)`)                                   |
-|  [03]   | `FILTER_MAP`       |   11   |     11     | CVD + W3C filters (`filter(name=…)`)                                  |
-|  [04]   | `DE_MAP`           |    8   |     13     | delta-E metrics (`delta_e(method=…)`, `closest`)                      |
-|  [05]   | `CONTRAST_MAP`     |    1   |      2     | contrast methods (`contrast(method=…)`: `wcag21`, +`lstar`)          |
-|  [06]   | `INTERPOLATE_MAP`  |    6   |      9     | interpolation methods (`interpolate`/`steps`/`discrete` `method=…`)  |
-|  [07]   | `CAT_MAP`          |    1   |      8     | chromatic-adaptation transforms (`chromatic_adaptation(method=…)`)   |
-|  [08]   | `CCT_MAP`          |    2   |      2     | CCT methods (`blackbody`/`cct` `method=…`)                            |
+| [INDEX] | [MAP] | [BASE] | [COLORALL] | [AXIS] |
+| --- | --- | --- | --- | --- |
+| [01] | `CS_MAP` | 27 | 77 | color spaces (`convert`/`fit`/`Color(space, …)` keys) |
+| [02] | `FIT_MAP` | 6 | 8 | gamut-fit methods (`fit(method=…)`) |
+| [03] | `FILTER_MAP` | 11 | 11 | CVD + W3C filters (`filter(name=…)`) |
+| [04] | `DE_MAP` | 8 | 13 | delta-E metrics (`delta_e(method=…)`, `closest`) |
+| [05] | `CONTRAST_MAP` | 1 | 2 | contrast methods (`contrast(method=…)`: `wcag21`, +`lstar`) |
+| [06] | `INTERPOLATE_MAP` | 6 | 9 | interpolation methods (`interpolate`/`steps`/`discrete` `method=…`) |
+| [07] | `CAT_MAP` | 1 | 8 | chromatic-adaptation transforms (`chromatic_adaptation(method=…)`) |
+| [08] | `CCT_MAP` | 2 | 2 | CCT methods (`blackbody`/`cct` `method=…`) |
 
 The base `CS_MAP` 27 spaces: `srgb`, `srgb-linear`, `hsl`, `hsv`, `hwb`, `lab`, `lab-d65`, `lch`, `lch-d65`, `oklab`, `oklch`, `display-p3`, `display-p3-linear`, `a98-rgb`, `a98-rgb-linear`, `prophoto-rgb`, `prophoto-rgb-linear`, `rec2020`, `rec2020-linear`, `rec2100-pq`, `rec2100-hlg`, `rec2100-linear`, `ictcp`, `jzazbz`, `jzczhz`, `xyz-d50`, `xyz-d65`. The `ColorAll` +50 add the appearance/wide-gamut/print spaces (`cmyk`, `cmy`, `hct`, `luv`, `lchuv`, `hsluv`, `hpluv`, `okhsl`, `okhsv`, `oklrab`, `oklrch`, `din99o`, `lch99o`, `cam16-*`, `cam02-*`, `zcam-jmh`, `hellwig-*`, `aces2065-1`, `acescc`, `acescct`, `acescg`, `rec709`, `xyy`, `ipt`, `igpgtg`, `ryb`, `cubehelix`, `prismatic`, `orgb`, `xyb`, and others) — the `ColorAll` engine is the one the owner uses precisely because OKLCH/HCT/CMYK/CAM resolve without a per-space class.
 

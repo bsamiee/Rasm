@@ -26,7 +26,7 @@ The evidence tier registers with the one oracle: `IntersectionHit` `[Union]` (na
 using System;
 using System.Collections.Frozen;
 using System.Runtime.InteropServices;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rhino;

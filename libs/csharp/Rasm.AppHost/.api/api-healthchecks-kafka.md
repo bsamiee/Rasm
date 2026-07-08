@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Kafka`
 - package: `AspNetCore.HealthChecks.Kafka`
-- version: `9.0.0`
 - license: `Apache-2.0`
 - assembly: `HealthChecks.Kafka`
 - namespace: `HealthChecks.Kafka`

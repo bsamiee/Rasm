@@ -14,10 +14,10 @@ builder projects is catalogued here as the server-side surface the `Store/provis
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Pgvector.EntityFrameworkCore`
-- package: `Pgvector.EntityFrameworkCore` 0.3.0 (PostgreSQL/Apache-2.0, ankane)
+- package: `Pgvector.EntityFrameworkCore` (PostgreSQL/Apache-2.0, ankane)
 - assembly: `Pgvector.EntityFrameworkCore`, asset TFM `net8.0` (single-target; binds under the `net10.0` consumer)
 - namespace: `Pgvector.EntityFrameworkCore` (plugins/mappings) + `Microsoft.EntityFrameworkCore` (the `UseVector` builder extension)
-- value package: `Pgvector` 0.3.2 (PostgreSQL/Apache-2.0, ankane), assets `net6.0`/`netstandard2.0`/`net462` — `net6.0` binds under `net10.0`
+- value package: `Pgvector` (PostgreSQL/Apache-2.0, ankane), assets `net6.0`/`netstandard2.0`/`net462` — `net6.0` binds under `net10.0`
 - value namespace: `Pgvector` (CLR value types), `Pgvector.Npgsql` (wire codecs), `Npgsql` (wire registration extension)
 - provider package: `Npgsql.EntityFrameworkCore.PostgreSQL` (provider host; owns the index builder, `HasPostgresExtension`, `PgUnknownBinaryExpression`)
 - asset: runtime library (`build/net8.0/Pgvector.EntityFrameworkCore.targets` ships, no analyzer/source-gen)
@@ -131,7 +131,7 @@ EF admission call resolves without a `Pgvector.EntityFrameworkCore` using direct
 Surface [02] is the bare-driver path used when configuring an `NpgsqlDataSourceBuilder` without the
 EF plugin (the EF plugin invokes it automatically through `VectorDataSourceConfigurationPlugin`).
 `NpgsqlDataSourceBuilder` is `sealed` and implements `INpgsqlTypeMapper` (`.api/api-npgsql.md`), so
-`builder.UseVector()` returns the **erased** `INpgsqlTypeMapper`, not the concrete builder — unlike
+`builder.UseVector()` returns the erased `INpgsqlTypeMapper`, not the concrete builder — unlike
 the builder-preserving `UseNodaTime`/`UseNetTopologySuite` generic extensions. The
 `Store/provisioning#PROVISIONING` connect ceremony therefore binds vector via tuple-capture
 (`(builder.UseVector(), builder).Item2`) so the concrete builder type survives the chain. Internally

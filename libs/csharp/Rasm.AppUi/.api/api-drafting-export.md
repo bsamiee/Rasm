@@ -5,14 +5,14 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ACadSharp` (write-scoped)
-- package: `ACadSharp` (3.6.35, MIT) — shared central pin (`[BIM]` group); Bim owns READ, AppUi owns WRITE
+- package: `ACadSharp` (MIT) — shared central pin (`[BIM]` group); Bim owns READ, AppUi owns WRITE
 - assembly: `ACadSharp`
 - namespace: `ACadSharp`, `ACadSharp.Entities`, `ACadSharp.Tables`, `ACadSharp.IO` (`DwgWriter`/`DxfWriter`), `ACadSharp.IO.SVG` (`SvgWriter`)
 - asset: managed runtime library (`lib/net9.0` binds the `net10.0` consumer — highest available TFM); geometry points are `CSMath.XYZ`/`XY` (depends `CSMath`, `CSUtilities`)
 - rail: drafting
 
 [PACKAGE_SURFACE]: `DocumentFormat.OpenXml`
-- package: `DocumentFormat.OpenXml` (3.5.1, MIT, © Microsoft) — the SDK; depends `DocumentFormat.OpenXml.Framework`
+- package: `DocumentFormat.OpenXml` (MIT, © Microsoft) — the SDK; depends `DocumentFormat.OpenXml.Framework`
 - assembly: `DocumentFormat.OpenXml`
 - namespace: `DocumentFormat.OpenXml.Packaging`, `.Wordprocessing`, `.Spreadsheet`, `.Presentation`
 - asset: managed runtime library (`lib/net10.0` binds the consumer directly)
@@ -145,7 +145,8 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DRAFTING_WRITE_TOPOLOGY]:
-- `ACadSharp` (3.6.35, `lib/net9.0` bound) is AppUi's WRITE authority: `CadDocument` is the ONE document root the drafting leg builds, and `ACadSharp.IO` emits it three ways through `CadWriterBase<T>` — `DwgWriter` (DWG), `DxfWriter` (DXF binary/text), and `ACadSharp.IO.SVG.SvgWriter` (SVG, `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`); each exposes a settable `.Configuration` (default-constructed) and a static one-call `Write` overload with an optional trailing `NotificationEventHandler` warning/error sink.
+[ACADSHARP_WRITE]:
+`ACadSharp` (`lib/net9.0` bound) is AppUi's WRITE authority: `CadDocument` is the ONE document root the drafting leg builds, and `ACadSharp.IO` emits it three ways through `CadWriterBase<T>` — `DwgWriter` (DWG), `DxfWriter` (DXF binary/text), and `ACadSharp.IO.SVG.SvgWriter` (SVG, `SvgConfiguration.LineWeightRatio`/`DefaultLineWeight`). Each writer exposes a settable `.Configuration` and a static one-call `Write` overload with an optional trailing `NotificationEventHandler` warning/error sink.
 - `ACadSharp.Entities` is the geometry roster the fold populates (`Line`/`Arc`/`Circle`/`Spline`/`Polyline`/`LwPolyline`/`Hatch`/`MText`/`Dimension`/`Insert`); `ACadSharp.Tables` carries the `Layer`/`LineType`/`TextStyle`/`DimensionStyle`/`BlockRecord` entries entities bind. Geometry points are `CSMath.XYZ`; entity layers attach through the entity `Layer` property bound to a `Layer` table entry; the document `Entities`/`Layers` collections take typed entities through `Add`.
 - The output DWG/DXF version is a POLICY ROW over `ACadVersion` (never a hardcoded `AutoCad2018` literal); the two-format write leg (DWG + DXF) is two rows on one `DraftEmit` axis over the single `CadDocument`, not two document models.
 - `DocumentFormat.OpenXml`: `Packaging` owns the three document roots; `Wordprocessing`/`Spreadsheet`/`Presentation` supply the open content-element trees. The OOXML part-graph is `Document/export.md`'s arm.

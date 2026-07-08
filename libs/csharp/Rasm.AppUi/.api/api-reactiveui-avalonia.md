@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `ReactiveUI.Avalonia`
 - package: `ReactiveUI.Avalonia`
-- version: `12.0.3`
 - license: `MIT`
 - assembly: `ReactiveUI.Avalonia`
 - build-floor: `net10.0` (consumer-bound; multi-targets net8.0/net9.0 — none bound here)
@@ -87,7 +86,7 @@
 [STACKING]:
 - View bases stack with `ReactiveUI`: a `ReactiveUserControl<TVm>` / `ReactiveWindow<TVm>` pairs with a `ReactiveObject` (or `ReactiveValidationObject` from `ReactiveUI.Validation`) view-model, and the code-behind body is `this.WhenActivated(d => { this.Bind(...).DisposeWith(d); this.BindCommand(...).DisposeWith(d); })` — the `WhenActivated` block is fed by `AvaloniaActivationForViewFetcher` and every disposable is tied to the view's `Loaded`/`Unloaded` lifetime.
 - `RoutedViewHost` stacks with `ReactiveUI` routing: bind `Router` to a view-model `RoutingState`; the host resolves `CurrentViewModel` through the registered (or per-host `ViewLocator`) resolver and transitions content. `ViewModelViewHost` is the non-stack variant for a single bound view-model. Both honor `ViewContract` to disambiguate multiple views of one view-model.
-- The property-subject bridge stacks with `DynamicData` and `System.Reactive`: `GetSubject<T>` exposes any `AvaloniaProperty` as an `ISubject<T>`, so an Avalonia control property can be a source/sink in a DynamicData change-set pipeline or a `ReactiveCommand` `canExecute` stream, with `BindingPriority` controlling precedence against styles/animations.
+- The property-subject bridge stacks with `DynamicData` and `System.Reactive`: `GetSubject<T>` exposes any `AvaloniaProperty` as an `ISubject<T>`, so an Avalonia control property serves as a source/sink in a DynamicData change-set pipeline or a `ReactiveCommand` `canExecute` stream, with `BindingPriority` controlling precedence against styles/animations.
 - Suspension stacks with Avalonia lifetimes: construct `AutoSuspendHelper(ApplicationLifetime)` in `App.OnFrameworkInitializationCompleted`, call its `OnFrameworkInitializationCompleted()`, and back `RxApp.SuspensionHost` with a driver so view-model state persists across launches.
 - Docking stacks via `Dock.Model.ReactiveUI`: dock documents/tools are ReactiveUI view-models hosted through the same `IViewFor<T>` + `ViewModelViewHost` resolution path this assembly registers — one view-resolution contract spans the shell's dock layout, routed screens, and direct hosts.
 

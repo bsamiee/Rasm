@@ -7,7 +7,6 @@
 [PACKAGE_SURFACE]: `@pulumi/random`
 - package: `@pulumi/random`
 - module: `@pulumi/random`
-- installed: `4.21.0`
 - license: `Apache-2.0`
 - asset: provider-tracked random material (passwords, strings, ids, bytes, integers, shuffles, UUIDs)
 - runtime: `node` — Terraform-bridge provider plugin auto-downloads on first resource registration; values persist in stack state
@@ -20,19 +19,19 @@ Every resource extends `pulumi.CustomResource`, carries `static get(name, id, st
 [PUBLIC_TYPE_SCOPE]: resource roster
 - rail: fabric
 
-| [INDEX] | [SYMBOL]         | [REQUIRED ARGS]         | [KEY OUTPUTS]                          | [NOTE]                                    |
-| :-----: | :--------------- | :---------------------- | :------------------------------------- | :---------------------------------------- |
-|  [01]   | `RandomPassword` | `length`                | `result` (secret), `bcryptHash`        | cryptographic RNG; sensitive; char-class knobs |
-|  [02]   | `RandomString`   | `length`                | `result`                               | same knobs as `RandomPassword`, non-sensitive |
-|  [03]   | `RandomId`       | `byteLength`            | `hex`, `dec`, `b64Std`, `b64Url`       | N random bytes projected to four encodings |
-|  [04]   | `RandomBytes`    | `length`                | `base64`, `hex`                        | raw random bytes; sensitive base64        |
-|  [05]   | `RandomInteger`  | `min`, `max`            | `result` (number)                      | seeded bounded integer                    |
-|  [06]   | `RandomShuffle`  | `inputs`                | `results` (string[])                   | `seed`-stable permutation; `resultCount`  |
-|  [07]   | `RandomPet`      | —                       | id = pet name (`length`/`prefix`/`separator`) | human-friendly stable resource names |
-|  [08]   | `RandomUuid`     | —                       | `result` (uuid)                        | legacy v4 UUID                            |
-|  [09]   | `RandomUuid4`    | —                       | `result` (uuid v4)                     | explicit v4                               |
-|  [10]   | `RandomUuid7`    | —                       | `result` (uuid v7)                     | time-ordered UUID (sortable ids)          |
-|  [11]   | `Provider`       | —                       | —                                      | explicit provider instance               |
+| [INDEX] | [SYMBOL] | [REQUIRED_ARGS] | [KEY_OUTPUTS] | [NOTE] |
+|:-----: |:--------------- |:---------------------- |:------------------------------------- |:---------------------------------------- |
+| [01] | `RandomPassword` | `length` | `result` (secret), `bcryptHash` | cryptographic RNG; sensitive; char-class knobs |
+| [02] | `RandomString` | `length` | `result` | same knobs as `RandomPassword`, non-sensitive |
+| [03] | `RandomId` | `byteLength` | `hex`, `dec`, `b64Std`, `b64Url` | N random bytes projected to four encodings |
+| [04] | `RandomBytes` | `length` | `base64`, `hex` | raw random bytes; sensitive base64 |
+| [05] | `RandomInteger` | `min`, `max` | `result` (number) | seeded bounded integer |
+| [06] | `RandomShuffle` | `inputs` | `results` (string[]) | `seed`-stable permutation; `resultCount` |
+| [07] | `RandomPet` | — | id = pet name (`length`/`prefix`/`separator`) | human-friendly stable resource names |
+| [08] | `RandomUuid` | — | `result` (uuid) | retired catalog-bound UUID |
+| [09] | `RandomUuid4` | — | `result` (uuid catalog-bound) | explicit catalog-bound |
+| [10] | `RandomUuid7` | — | `result` (uuid catalog-bound) | time-ordered UUID (sortable ids) |
+| [11] | `Provider` | — | — | explicit provider instance |
 
 ## [03]-[MATERIAL_PROJECTIONS]
 
@@ -40,13 +39,13 @@ Three parameterized patterns own the surface; the roster above is seed data feed
 
 [PATTERN]: char-class policy — ONE shape drives `RandomPassword` + `RandomString`
 
-| [INDEX] | [KNOB]                                             | [ROLE]                                          |
-| :-----: | :------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `length`                                           | total length; `≥ minLower+minUpper+minNumeric+minSpecial` |
-|  [02]   | `lower` / `upper` / `numeric` / `special`          | character-class toggles (default `true`)        |
-|  [03]   | `minLower` / `minUpper` / `minNumeric` / `minSpecial` | per-class minimums                            |
-|  [04]   | `overrideSpecial`                                  | replace the default `!@#$%&*()-_=+[]{}<>:?` set |
-|  [05]   | `number` (deprecated) → `numeric`                  | legacy alias; use `numeric`                     |
+| [INDEX] | [KNOB] | [ROLE] |
+|:-----: |:------------------------------------------------- |:---------------------------------------------- |
+| [01] | `length` | total length; `≥ minLower+minUpper+minNumeric+minSpecial` |
+| [02] | `lower` / `upper` / `numeric` / `special` | character-class toggles (default `true`) |
+| [03] | `minLower` / `minUpper` / `minNumeric` / `minSpecial` | per-class minimums |
+| [04] | `overrideSpecial` | replace the default `!@#$%&*()-_=+[]{}<>:?` set |
+| [05] | `number` (deprecated) → `numeric` | retired alias; use `numeric` |
 
 The sensitive-vs-plain choice is a mode arm over ONE knob struct: `RandomPassword` (encrypted `result` + `bcryptHash`) vs `RandomString` (plain `result`). Document/drive the policy once; dispatch the resource on a `sensitive` tag.
 
@@ -62,15 +61,15 @@ Generated material is a sensitive `Output` that stacks into the secret + workloa
 
 [RAIL]: `random → effect + sibling providers`
 
-| [INDEX] | [RANDOM SEAM]                    | [STACKS WITH]                              | [COMPOSED RAIL]                                              |
-| :-----: | :------------------------------- | :----------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | char-class knob struct           | `Schema.Struct` (from `StackSpec`)         | ONE decoded `PasswordPolicy` value → `RandomPassword` args   |
-|  [02]   | `RandomPassword.result` (secret) | `@pulumiverse/doppler` `Secret({value})`   | `pulumi.secret(result)` → Doppler stores it canonically      |
-|  [03]   | `RandomPassword.result`          | `@pulumi/kubernetes` `Secret.stringData` / `@pulumi/postgresql` role password | generated credential feeds workload + DB rows |
-|  [04]   | `RandomId.hex` / `RandomBytes`   | `ComponentResource` child names            | collision-free bucket/db/stack suffixes under a tier         |
-|  [05]   | `RandomShuffle.results` (seeded)  | `kube` workload placement                  | seed-stable AZ / replica spreading, stable across `up`       |
-|  [06]   | `keepers`                        | `Redacted` / `Config` rotation epoch        | `keepers = { epoch }` from an Effect `Config` value          |
-|  [07]   | `RandomUuid7.result`             | typed `StackOutputs`                       | time-ordered ids surfaced as outputs                         |
+| [INDEX] | [RANDOM_SEAM] | [STACKS_WITH] | [COMPOSED_RAIL] |
+|:-----: |:------------------------------- |:----------------------------------------- |:---------------------------------------------------------- |
+| [01] | char-class knob struct | `Schema.Struct` (from `StackSpec`) | ONE decoded `PasswordPolicy` value → `RandomPassword` args |
+| [02] | `RandomPassword.result` (secret) | `@pulumiverse/doppler` `Secret({value})` | `pulumi.secret(result)` → Doppler stores it canonically |
+| [03] | `RandomPassword.result` | `@pulumi/kubernetes` `Secret.stringData` / `@pulumi/postgresql` role password | generated credential feeds workload + DB rows |
+| [04] | `RandomId.hex` / `RandomBytes` | `ComponentResource` child names | collision-free bucket/db/stack suffixes under a tier |
+| [05] | `RandomShuffle.results` (seeded) | `kube` workload placement | seed-stable AZ / replica spreading, stable across `up` |
+| [06] | `keepers` | `Redacted` / `Config` rotation epoch | `keepers = { epoch }` from an Effect `Config` value |
+| [07] | `RandomUuid7.result` | typed `StackOutputs` | time-ordered ids surfaced as outputs |
 
 ```ts contract
 // iac/secret — generate → mark secret → store canonically, one policy shape

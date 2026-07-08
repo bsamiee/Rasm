@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Avalonia.AvaloniaEdit`
 - package: `Avalonia.AvaloniaEdit`
-- version: `12.0.0`
 - license: `MIT`
 - assembly: `AvaloniaEdit` (note: assembly name ≠ package id; compiled-XAML resources embedded)
 - build-floor: `net10.0` (consumer-bound; `net8.0` fallback present, not bound)
@@ -16,7 +15,6 @@
 
 [PACKAGE_SURFACE]: `AvaloniaEdit.TextMate`
 - package: `AvaloniaEdit.TextMate`
-- version: `12.0.0`
 - license: `MIT`
 - assembly: `AvaloniaEdit.TextMate`
 - build-floor: `net10.0`

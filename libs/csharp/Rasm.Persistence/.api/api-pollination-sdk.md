@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `PollinationSDK`
 - package: `PollinationSDK`
-- version: `1.10.0`
 - license: MIT (`licenses.nuget.org/MIT` — Pollination / Ladybug Tools)
 - assembly: `PollinationSDK`
 - namespace: `PollinationSDK` (model DTOs), `.Api` (REST clients), `.Client` (config/auth/serialization infra), `.Wrapper` (high-level orchestration), `.Interface.*` (recipe/job/io interface model)
@@ -55,7 +54,7 @@ The in-sidecar assembly composes the cloud-run transport for the Compute route; 
 |  [01]   | `JobInfo`             | job descriptor    | `new JobInfo(Job)` / `new JobInfo(RecipeInterface)`; `Job`/`ProjectSlug`/`RecipeOwner`/`LocalRunFolder`; `ToJson`/`FromJson`; `RunJobAsync`/`UploadJobAssetsAsync` |
 |  [02]   | `JobRunner`           | job runner        | `new JobRunner(JobInfo)`; `RunOnCloudAsync`; static `UploadJobAssetsAsync`/`CheckLocalJobStatus`/`GetJobErrors`/`CheckRecipeInProject` |
 |  [03]   | `ScheduledJobInfo`    | submitted job     | the cloud-scheduled job handle; `WatchJobStatusAsync` (poll to completion) / `DeleteAsync` |
-|  [04]   | `RunInfo`             | run handle        | `new RunInfo(Project, runID|Run)` / `(JobInfo|ScheduledJobInfo)` / `(localRunFolder)`; `Run`; `DownloadRunAssetsAsync` |
+|  [04]   | `RunInfo`             | run handle        | `new RunInfo(Project, runID\|Run)` / `(JobInfo\|ScheduledJobInfo)` / `(localRunFolder)`; `Run`; `DownloadRunAssetsAsync` |
 |  [05]   | `AssetBase` / `RunAssetBase` / `RunInputAsset` / `RunOutputAsset` / `CloudReferenceAsset` | asset | the run input/output asset family the download/upload threads |
 |  [06]   | `JobResultPackage`    | result            | the packaged job result the wrapper assembles                                     |
 |  [07]   | `LocalDatabase` / `LocalRunArguments` / `InputArgumentValidator` | local cache | the `Microsoft.Data.Sqlite` job/asset cache + local-run argument validation |

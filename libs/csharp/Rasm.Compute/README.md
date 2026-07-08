@@ -149,6 +149,3 @@ Cross-cutting C# substrate libraries Compute consumes; package charters live in 
 - `Grpc.AspNetCore`
 - `Grpc.Tools`
 - `NodaTime.Serialization.Protobuf`
-
-[TEST_SUBSTRATE]:
-- `BenchmarkDotNet`

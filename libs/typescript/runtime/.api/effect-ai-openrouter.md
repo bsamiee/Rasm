@@ -1,4 +1,4 @@
-# [@effect/ai-openrouter] — the OpenRouter provider Layer family: a LanguageModel row on the capability-asymmetry table
+# [TS_RUNTIME_API_EFFECT_AI_OPENROUTER]
 
 One of the five provider Layer families `ai/model.ts` folds onto the capability-asymmetry table.
 `OpenRouterLanguageModel.model(id)` returns a `Model<"openrouter", LanguageModel, OpenRouterClient>` row —
@@ -13,9 +13,9 @@ OpenAPI surface is available typed via `Generated` for endpoints the AI abstract
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/ai-openrouter`
-- package: `@effect/ai-openrouter` (version `0.11.0`, license MIT, `type: module`)
+- package: `@effect/ai-openrouter` (version ``, license MIT, `type: module`)
 - entry: re-exports namespaces `Generated`, `OpenRouterClient`, `OpenRouterConfig`, `OpenRouterLanguageModel`
-- peer floor: `@effect/ai ^0.36.0`, `@effect/platform ^0.96.1`, `@effect/experimental ^0.60.0`, `effect ^3.21.3`
+- peer floor: `@effect/ai ^catalog`, `@effect/platform ^catalog`, `@effect/experimental ^catalog`, `effect ^catalog`
 - asset: OpenRouter `LanguageModel` provider Layers + typed OpenRouter OpenAPI client; requires `HttpClient`
 - provides: `@effect/ai` `LanguageModel.LanguageModel` Tag (no `EmbeddingModel` — OpenRouter is chat/completions)
 - rail: ai-provider
@@ -113,36 +113,36 @@ declare const withClientTransform: {
 `Generated` is the derived, `Schema.Class`-backed OpenRouter API (348 schemas). It is the low-level escape hatch
 `Service.client` exposes and the source of every asymmetry type the config/metadata reference.
 
-| [INDEX] | [SYMBOL]                            | [FAMILY]     | [CAPABILITY]                          |
-| :-----: | :---------------------------------- | :----------- | :------------------------------------ |
-|  [01]   | `Generated.ChatGenerationParams`    | Schema.Class | full generation request (model/messages/provider/reasoning/route) |
-|  [02]   | `Generated.ChatResponse`            | Schema.Class | non-stream completion + usage         |
-|  [03]   | `Generated.ChatGenerationTokenUsage`| Schema.Class | prompt/completion/cost token usage    |
-|  [04]   | `Generated.ProviderPreferences`     | Schema.Class | upstream routing + sort policy        |
-|  [05]   | `Generated.ChatGenerationParamsReasoningEffortEnum` | enum | reasoning-effort control        |
-|  [06]   | `Generated.ChatGenerationParamsRouteEnum` | enum   | fallback routing policy               |
-|  [07]   | `Generated.CacheControlEphemeral`   | Schema.Class | prompt-caching breakpoint             |
-|  [08]   | `Generated.ReasoningDetail*`        | Schema union | reasoning trace parts                 |
-|  [09]   | `Generated.Client` + `Generated.make(httpClient, options?)` | client | raw endpoint access + ClientError |
+| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
+|:-----: |:---------------------------------- |:----------- |:------------------------------------ |
+| [01] | `Generated.ChatGenerationParams` | Schema.Class | full generation request (model/messages/provider/reasoning/route) |
+| [02] | `Generated.ChatResponse` | Schema.Class | non-stream completion + usage |
+| [03] | `Generated.ChatGenerationTokenUsage`| Schema.Class | prompt/completion/cost token usage |
+| [04] | `Generated.ProviderPreferences` | Schema.Class | upstream routing + sort policy |
+| [05] | `Generated.ChatGenerationParamsReasoningEffortEnum` | enum | reasoning-effort control |
+| [06] | `Generated.ChatGenerationParamsRouteEnum` | enum | recovery routing policy |
+| [07] | `Generated.CacheControlEphemeral` | Schema.Class | prompt-caching breakpoint |
+| [08] | `Generated.ReasoningDetail*` | Schema union | reasoning trace parts |
+| [09] | `Generated.Client` + `Generated.make(httpClient, options?)` | client | raw endpoint access + ClientError |
 
 ## [06]-[INTEGRATION]
 
 [STACK]: the capability-asymmetry row + tier-routing — rail: ai-provider
 - `ai/model.ts` folds `OpenRouterLanguageModel.model(id, config)` as one row among anthropic/openai/google/
-  bedrock/openrouter; the app root provides the row's `Model` Layer plus its `OpenRouterClient.layerConfig`.
-  OpenRouter's row is the aggregator lane: `config.provider` (`ProviderPreferences`) sorts upstreams by
-  price/throughput/latency, `config.models` supplies fallbacks, `config.route` sets fallback policy, and
-  `config.reasoning` sets effort — the tier-routing policy is data on the row, never a new API.
+ bedrock/openrouter; the app root provides the row's `Model` Layer plus its `OpenRouterClient.layerConfig`.
+ OpenRouter's row is the aggregator lane: `config.provider` (`ProviderPreferences`) sorts upstreams by
+ price/throughput/latency, `config.models` supplies fallbacks, `config.route` sets recovery policy, and
+ `config.reasoning` sets effort — the tier-routing policy is data on the row, never a new API.
 - Cost/latency tier-routing reads `FinishPartMetadata.openrouter.usage.cost` + `.provider` per response to attribute
-  spend and pick the next tier; `system_fingerprint`/`native_finish_reason` on the stream chunk disambiguate the
-  actual upstream. `cacheControl` breakpoints on message/part options cut input cost on repeated system prefixes.
+ spend and pick the next tier; `system_fingerprint`/`native_finish_reason` on the stream chunk disambiguate the
+ actual upstream. `cacheControl` breakpoints on message/part options cut input cost on repeated system prefixes.
 
 [STACK]: universal-tier rails — rail: ai-provider
 - `effect`: `Redacted` hides the API key end-to-end; `Config` (`layerConfig`) reads it from the environment as a
-  typed `ConfigError` Layer; `Schema` types every `Generated` shape; `Stream` carries the streaming chunks.
+ typed `ConfigError` Layer; `Schema` types every `Generated` shape; `Stream` carries the streaming chunks.
 - `@effect/platform`: the row requires `HttpClient` — `net/client` provides the default-policy client; `transformClient`
-  and `OpenRouterConfig.withClientTransform` compose proxy/retry/header policy without a rebuild.
+ and `OpenRouterConfig.withClientTransform` compose proxy/retry/header policy without a rebuild.
 - `@effect/ai`: the row resolves the `LanguageModel` Tag, so `generateText`/`streamText`/`generateObject`, the
-  guardrail gate, toolkits, and telemetry all compose unchanged; `Model.ProviderName` reads `"openrouter"` for routing.
+ guardrail gate, toolkits, and telemetry all compose unchanged; `Model.ProviderName` reads `"openrouter"` for routing.
 - `@effect/opentelemetry`: `Telemetry.addGenAIAnnotations` records `system: "openrouter"` + usage on the span the
-  `telemetry` folder exports.
+ `telemetry` folder exports.

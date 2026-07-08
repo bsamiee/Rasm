@@ -9,7 +9,7 @@
 - module: `weasyprint`
 - installed: `69.0`
 - license: `BSD-3-Clause`
-- asset: pure-Python PDF generation via `pydyf` (0.12.1) — WeasyPrint 69 has no cairo dependency; PDF objects/streams are emitted directly. Text layout/shaping still uses native `pango`/`harfbuzz`/`fontconfig` and `pillow` for raster images, loaded via `pangocffi`/`pydyf` at render time
+- asset: pure-Python PDF generation via `pydyf` (release) — WeasyPrint 69 has no cairo dependency; PDF objects/streams are emitted directly. Text layout/shaping still uses native `pango`/`harfbuzz`/`fontconfig` and `pillow` for raster images, loaded via `pangocffi`/`pydyf` at render time
 - runtime deps: `pydyf`, `cssselect2`, `tinycss2`, `tinyhtml5`, `fonttools[woff]`, `pyphen`, `pillow`, `cffi`
 - rail: pdf
 
@@ -19,74 +19,74 @@
 - rail: pdf — sources are mutually exclusive: `filename`, `url`, `file_obj`, or `string`
 - type family: class
 
-| [INDEX] | [SYMBOL]     | [ROLE]                                              |
-| :-----: | :----------- | :-------------------------------------------------- |
-|  [01]   | `HTML`       | parse an HTML source; entry to render and write PDF |
-|  [02]   | `CSS`        | parse a supplemental stylesheet for rendering       |
-|  [03]   | `Attachment` | file embedded into the output PDF                   |
+| [INDEX] | [SYMBOL] | [ROLE] |
+| --- | --- | --- |
+| [01] | `HTML` | parse an HTML source; entry to render and write PDF |
+| [02] | `CSS` | parse a supplemental stylesheet for rendering |
+| [03] | `Attachment` | file embedded into the output PDF |
 
 [PUBLIC_TYPE_SCOPE]: rendered output family
 - rail: pdf — `weasyprint.document`
 - type family: class
 
-| [INDEX] | [SYMBOL]   | [ROLE]                                           |
-| :-----: | :--------- | :----------------------------------------------- |
-|  [01]   | `Document` | laid-out tree of pages; writes or copies to PDF  |
-|  [02]   | `Page`     | one rendered page with links, anchors, bookmarks |
+| [INDEX] | [SYMBOL] | [ROLE] |
+| --- | --- | --- |
+| [01] | `Document` | laid-out tree of pages; writes or copies to PDF |
+| [02] | `Page` | one rendered page with links, anchors, bookmarks |
 
 [PUBLIC_TYPE_SCOPE]: `Document` members
 - rail: pdf
 - kind: attribute
 
-| [INDEX] | [SYMBOL]      | [ROLE]                                                     |
-| :-----: | :------------ | :--------------------------------------------------------- |
-|  [01]   | `pages`         | list of `Page` objects                                   |
-|  [02]   | `metadata`      | `DocumentMetadata` (title/authors/description/dates/custom) |
-|  [03]   | `url_fetcher`   | `URLFetcher` used for resource loading                   |
-|  [04]   | `fonts`         | resolved `Font` set                                      |
-|  [05]   | `color_profiles`| ICC color-profile registry resolved at render           |
-|  [06]   | `output_intent` | resolved ICC output-intent the PDF/A write embeds        |
+| [INDEX] | [SYMBOL] | [ROLE] |
+| --- | --- | --- |
+| [01] | `pages` | list of `Page` objects |
+| [02] | `metadata` | `DocumentMetadata` (title/authors/description/dates/custom) |
+| [03] | `url_fetcher` | `URLFetcher` used for resource loading |
+| [04] | `fonts` | resolved `Font` set |
+| [05] | `color_profiles` | ICC color-profile registry resolved at render |
+| [06] | `output_intent` | resolved ICC output-intent the PDF/A write embeds |
 
 [PUBLIC_TYPE_SCOPE]: `Page` members
 - rail: pdf
 - kind: attribute
 
-| [INDEX] | [SYMBOL]    | [ROLE]                        |
-| :-----: | :---------- | :---------------------------- |
-|  [01]   | `width`     | page width in CSS pixels      |
-|  [02]   | `height`    | page height in CSS pixels     |
-|  [03]   | `bleed`     | bleed-box margins             |
-|  [04]   | `bookmarks` | bookmark entries on this page |
-|  [05]   | `links`     | hyperlink rectangles          |
-|  [06]   | `anchors`   | named-anchor positions        |
-|  [07]   | `forms`     | interactive form fields       |
+| [INDEX] | [SYMBOL] | [ROLE] |
+| --- | --- | --- |
+| [01] | `width` | page width in CSS pixels |
+| [02] | `height` | page height in CSS pixels |
+| [03] | `bleed` | bleed-box margins |
+| [04] | `bookmarks` | bookmark entries on this page |
+| [05] | `links` | hyperlink rectangles |
+| [06] | `anchors` | named-anchor positions |
+| [07] | `forms` | interactive form fields |
 
 [PUBLIC_TYPE_SCOPE]: `DocumentMetadata` members
 - rail: pdf
 - kind: attribute
 
-| [INDEX] | [SYMBOL]        | [ROLE]                                                |
-| :-----: | :-------------- | :---------------------------------------------------- |
-|  [01]   | `title`         | document title (from `<title>`/`@title`)              |
-|  [02]   | `authors`       | author list                                           |
-|  [03]   | `description`   | document description                                  |
-|  [04]   | `keywords`      | keyword list                                          |
-|  [05]   | `generator`     | generating-tool string                                |
-|  [06]   | `created`/`modified` | ISO timestamps                                   |
-|  [07]   | `lang`          | document language                                     |
-|  [08]   | `attachments`   | document-level `Attachment` list                      |
-|  [09]   | `custom`        | custom metadata dict (-> PDF `custom_metadata`)       |
+| [INDEX] | [SYMBOL] | [ROLE] |
+| --- | --- | --- |
+| [01] | `title` | document title (from `<title>`/`@title`) |
+| [02] | `authors` | author list |
+| [03] | `description` | document description |
+| [04] | `keywords` | keyword list |
+| [05] | `generator` | generating-tool string |
+| [06] | `created`/`modified` | ISO timestamps |
+| [07] | `lang` | document language |
+| [08] | `attachments` | document-level `Attachment` list |
+| [09] | `custom` | custom metadata dict (-> PDF `custom_metadata`) |
 
 [PUBLIC_TYPE_SCOPE]: font, counter, and resource family
 - rail: pdf — `weasyprint.text.fonts`, `weasyprint.css.counters`, `weasyprint.urls`
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [ROLE]                                                       |
-| :-----: | :-------------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `FontConfiguration`   | class         | per-render `@font-face` registry; one instance per render    |
-|  [02]   | `CounterStyle`        | class         | dict storing `@counter-style` rules for list/marker numbering |
-|  [03]   | `URLFetcher`          | class         | configurable resource loader (timeout/ssl/headers/protocols) |
-|  [04]   | `URLFetcherResponse`  | class         | response wrapper a custom fetcher returns                     |
-|  [05]   | `default_url_fetcher` | function      | default resource loader for URLs and data URIs               |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `FontConfiguration` | class | per-render `@font-face` registry; one instance per render |
+| [02] | `CounterStyle` | class | dict storing `@counter-style` rules for list/marker numbering |
+| [03] | `URLFetcher` | class | configurable resource loader (timeout/ssl/headers/protocols) |
+| [04] | `URLFetcherResponse` | class | response wrapper a custom fetcher returns |
+| [05] | `default_url_fetcher` | function | default resource loader for URLs and data URIs |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -94,78 +94,78 @@
 - rail: pdf — pass exactly one source argument
 - entry family: construct
 
-| [INDEX] | [SURFACE]                                                                                                                                                              | [ROLE]                                |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `HTML(guess=None, *, filename=None, url=None, file_obj=None, string=None, encoding=None, base_url=None, url_fetcher=default_url_fetcher, media_type='print')`           | parse an HTML document                |
-|  [02]   | `CSS(guess=None, *, filename=None, url=None, file_obj=None, string=None, encoding=None, base_url=None, url_fetcher=default_url_fetcher, font_config=None)`              | parse a stylesheet                    |
-|  [03]   | `Attachment(guess=None, *, filename=None, url=None, file_obj=None, string=None, name=None, description=None, created=None, modified=None, relationship='Unspecified')`  | declare an embedded file              |
-|  [04]   | `FontConfiguration()`                                                                                                                                                  | create a font registry for one render |
-|  [05]   | `CounterStyle()`                                                                                                                                                       | create a `@counter-style` registry    |
-|  [06]   | `URLFetcher(timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None, allow_redirects=True, fail_on_errors=False)`                                      | build a configured resource fetcher   |
+| [INDEX] | [SURFACE] | [ROLE] |
+| --- | --- | --- |
+| [01] | `HTML(guess=None, *, filename=None, url=None, file_obj=None, string=None, encoding=None, base_url=None, url_fetcher=default_url_fetcher, media_type='print')` | parse an HTML document |
+| [02] | `CSS(guess=None, *, filename=None, url=None, file_obj=None, string=None, encoding=None, base_url=None, url_fetcher=default_url_fetcher, font_config=None)` | parse a stylesheet |
+| [03] | `Attachment(guess=None, *, filename=None, url=None, file_obj=None, string=None, name=None, description=None, created=None, modified=None, relationship='Unspecified')` | declare an embedded file |
+| [04] | `FontConfiguration()` | create a font registry for one render |
+| [05] | `CounterStyle()` | create a `@counter-style` registry |
+| [06] | `URLFetcher(timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None, allow_redirects=True, fail_on_errors=False)` | build a configured resource fetcher |
 
 [ENTRYPOINT_SCOPE]: render and output
 - rail: pdf — `weasyprint.HTML`, `weasyprint.document.Document`
 
-| [INDEX] | [SURFACE]                                                                                                                  | [ENTRY_FAMILY] | [ROLE]                                        |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `HTML.write_pdf(target=None, zoom=1, finisher=None, font_config=None, counter_style=None, color_profiles=None, **options)` | render+write   | render and write PDF (bytes if `target=None`) |
-|  [02]   | `HTML.render(font_config=None, counter_style=None, color_profiles=None, **options)`                                        | render         | produce a `Document` without writing          |
-|  [03]   | `Document.write_pdf(target=None, zoom=1, finisher=None, **options)`                                                        | write          | write a rendered `Document` to PDF (bytes if `target=None`) |
-|  [04]   | `Document.copy(pages='all')`                                                                                               | transform      | new `Document` from a page subset             |
-|  [05]   | `Document.make_bookmark_tree(scale=1, transform_pages=False)`                                                              | navigation     | build the PDF outline tree                    |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `HTML.write_pdf(target=None, zoom=1, finisher=None, font_config=None, counter_style=None, color_profiles=None, **options)` | render+write | render and write PDF (bytes if `target=None`) |
+| [02] | `HTML.render(font_config=None, counter_style=None, color_profiles=None, **options)` | render | produce a `Document` without writing |
+| [03] | `Document.write_pdf(target=None, zoom=1, finisher=None, **options)` | write | write a rendered `Document` to PDF (bytes if `target=None`) |
+| [04] | `Document.copy(pages='all')` | transform | new `Document` from a page subset |
+| [05] | `Document.make_bookmark_tree(scale=1, transform_pages=False)` | navigation | build the PDF outline tree |
 
 [ENTRYPOINT_SCOPE]: PDF output `**options`
 - rail: pdf — keyword options threaded through `write_pdf`/`render`
 
 These keywords are the variant/forms/tagging/optimization policy. Archival profiles (`pdf/a-1b`..`pdf/a-4`, `pdf/ua-1`) set `pdf_variant`; `pdf_tags=True` adds the structure tree required by PDF/UA and tagged PDF/A.
 
-| [INDEX] | [OPTION]                | [ROLE]                                                              |
-| :-----: | :---------------------- | :----------------------------------------------------------------- |
-|  [01]   | `stylesheets`           | list of `CSS`/path/url supplemental stylesheets                    |
-|  [02]   | `pdf_variant`           | archival profile (`pdf/a-1b`, `pdf/a-2b`, `pdf/a-3b`, `pdf/a-4`, `pdf/ua-1`) |
-|  [03]   | `pdf_version`           | target PDF version string (e.g. `'1.7'`, `'2.0'`)                  |
-|  [04]   | `pdf_identifier`        | explicit PDF file identifier bytes                                 |
-|  [05]   | `pdf_forms`             | emit interactive AcroForm fields from HTML form controls           |
-|  [06]   | `pdf_tags`              | emit the tagged-PDF structure tree (PDF/UA, accessibility)         |
-|  [07]   | `uncompressed_pdf`      | skip stream compression (debug/inspectable output)                 |
-|  [08]   | `custom_metadata`       | merge `DocumentMetadata.custom` into the PDF info/XMP              |
-|  [09]   | `xmp_metadata`          | explicit XMP metadata packet                                       |
-|  [10]   | `attachments`           | extra `Attachment` list embedded in the PDF                        |
-|  [11]   | `attachment_relationships` | per-attachment AF relationship hints                            |
-|  [12]   | `presentational_hints`  | honor legacy HTML presentational attributes                        |
-|  [13]   | `optimize_images`       | recompress embedded raster images                                  |
-|  [14]   | `jpeg_quality`          | JPEG re-encode quality (0-95) when optimizing                      |
-|  [15]   | `dpi`                   | raster image resampling resolution                                 |
-|  [16]   | `full_fonts`            | embed complete fonts instead of subsetting                         |
-|  [17]   | `hinting`               | keep TrueType hinting in embedded fonts                            |
-|  [18]   | `output_intent`         | ICC output-intent profile for color-managed PDF/A                  |
-|  [19]   | `cache`                 | shared image/render cache dict across documents                    |
+| [INDEX] | [OPTION] | [ROLE] |
+| --- | --- | --- |
+| [01] | `stylesheets` | list of `CSS`/path/url supplemental stylesheets |
+| [02] | `pdf_variant` | archival profile (`pdf/a-1b`, `pdf/a-2b`, `pdf/a-3b`, `pdf/a-4`, `pdf/ua-1`) |
+| [03] | `pdf_version` | target PDF version string (e.g. `'1.7'`, `'2.0'`) |
+| [04] | `pdf_identifier` | explicit PDF file identifier bytes |
+| [05] | `pdf_forms` | emit interactive AcroForm fields from HTML form controls |
+| [06] | `pdf_tags` | emit the tagged-PDF structure tree (PDF/UA, accessibility) |
+| [07] | `uncompressed_pdf` | skip stream compression (debug/inspectable output) |
+| [08] | `custom_metadata` | merge `DocumentMetadata.custom` into the PDF info/XMP |
+| [09] | `xmp_metadata` | explicit XMP metadata packet |
+| [10] | `attachments` | extra `Attachment` list embedded in the PDF |
+| [11] | `attachment_relationships` | per-attachment AF relationship hints |
+| [12] | `presentational_hints` | honor legacy HTML presentational attributes |
+| [13] | `optimize_images` | recompress embedded raster images |
+| [14] | `jpeg_quality` | JPEG re-encode quality (0-95) when optimizing |
+| [15] | `dpi` | raster image resampling resolution |
+| [16] | `full_fonts` | embed complete fonts instead of subsetting |
+| [17] | `hinting` | keep TrueType hinting in embedded fonts |
+| [18] | `output_intent` | ICC output-intent profile for color-managed PDF/A |
+| [19] | `cache` | shared image/render cache dict across documents |
 
 [ENTRYPOINT_SCOPE]: CSS Paged Media running-content surface
 - rail: pdf — WeasyPrint honors CSS Paged Media Level 3 + GCPM; these are CSS declarations in a `CSS(string=...)`/`stylesheets=` sheet the render consumes, not Python calls. This is the surface the `document/emit#EMIT` V12 rebuild composes for running heads/feet, section-aware headers, and cross-reference page numbers — the static one-string `onPage` furniture dies here.
 
-| [INDEX] | [SURFACE]                                          | [CSS_SHAPE]                                                                                       | [CAPABILITY]                                                        |
-| :-----: | :------------------------------------------------- | :----------------------------------------------------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `@page` rule + page selectors                      | `@page { size: A4; margin: 2cm } @page :first {…} @page :left/:right/:blank {…}`                  | per-page geometry and spread-aware margins; `:first`/`:left`/`:right`/`:blank` select the page class |
-|  [02]   | named pages                                        | `.chapter { page: chapter } @page chapter { … }`                                                  | assign an element run to a named `@page` block — per-section page masters, never a forked writer |
-|  [03]   | `@page` margin boxes                               | `@page { @top-center { content: … } @bottom-right { content: … } }` (the 16 boxes: 4 corners + `@top/bottom-left/center/right` + `@left/right-top/middle/bottom`) | running header/footer content anchored to any margin slot — the running-content furniture |
-|  [04]   | `string-set` + `string()`                          | `h1 { string-set: chaptitle content() } @page { @top-left { content: string(chaptitle, first) } }` | capture running text off a heading and echo it in a margin box — section-aware running heads (`first`/`start`/`last`/`first-except` picks the value valid for the page) |
-|  [05]   | `target-counter()` / `target-text()`               | `a::after { content: target-counter(attr(href url), page) }` / `content: target-text(attr(href url))` | resolve a cross-reference to its target's page number or text — live "see page N" / table-of-contents page references |
-|  [06]   | page counters                                      | `content: counter(page)` / `counter(pages)` / `counter(page, lower-roman)`                        | current page number and total page count in a margin box, any list-style numbering |
-|  [07]   | `leader()`                                         | `content: target-text(...) leader('.') target-counter(...)`                                       | dotted-leader fill between a TOC label and its page number |
-|  [08]   | CSS counters + `@counter-style`                    | `counter-reset` / `counter-increment` / `counters(name, sep)`; `@counter-style` (or the `CounterStyle` registry) | figure/section auto-numbering and custom marker styles |
-|  [09]   | `bookmark-label`/`bookmark-level`/`bookmark-state` | `h1 { bookmark-level: 1; bookmark-label: content() }`                                             | drive the PDF outline tree from CSS, the declarative peer of `Document.make_bookmark_tree` |
+| [INDEX] | [SURFACE] | [CSS_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `@page` rule + page selectors | `@page { size: A4; margin: 2cm } @page :first {…} @page :left/:right/:blank {…}` | per-page geometry and spread-aware margins; `:first`/`:left`/`:right`/`:blank` select the page class |
+| [02] | named pages | `.chapter { page: chapter } @page chapter { … }` | assign an element run to a named `@page` block — per-section page masters, never a forked writer |
+| [03] | `@page` margin boxes | `@page { @top-center { content: … } @bottom-right { content: … } }` (the 16 boxes: 4 corners + `@top/bottom-left/center/right` + `@left/right-top/middle/bottom`) | running header/footer content anchored to any margin slot — the running-content furniture |
+| [04] | `string-set` + `string()` | `h1 { string-set: chaptitle content() } @page { @top-left { content: string(chaptitle, first) } }` | capture running text off a heading and echo it in a margin box — section-aware running heads (`first`/`start`/`last`/`first-except` picks the value valid for the page) |
+| [05] | `target-counter()` / `target-text()` | `a::after { content: target-counter(attr(href url), page) }` / `content: target-text(attr(href url))` | resolve a cross-reference to its target's page number or text — live "see page N" / table-of-contents page references |
+| [06] | page counters | `content: counter(page)` / `counter(pages)` / `counter(page, lower-roman)` | current page number and total page count in a margin box, any list-style numbering |
+| [07] | `leader()` | `content: target-text(...) leader('.') target-counter(...)` | dotted-leader fill between a TOC label and its page number |
+| [08] | CSS counters + `@counter-style` | `counter-reset` / `counter-increment` / `counters(name, sep)`; `@counter-style` (or the `CounterStyle` registry) | figure/section auto-numbering and custom marker styles |
+| [09] | `bookmark-label`/`bookmark-level`/`bookmark-state` | `h1 { bookmark-level: 1; bookmark-label: content() }` | drive the PDF outline tree from CSS, the declarative peer of `Document.make_bookmark_tree` |
 
 [ENTRYPOINT_SCOPE]: font, counter, and resource resolution
 - rail: pdf — `weasyprint.text.fonts`, `weasyprint.urls`
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [ROLE]                                       |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `FontConfiguration.add_font_face(rule_descriptors, url_fetcher)`                                    | register       | register an `@font-face` rule                |
-|  [02]   | `CounterStyle` dict assignment (name -> `@counter-style` rule)                                       | register       | `dict` subclass: assign `name -> @counter-style` rule, then `resolve_counter(values, previous_types)` / `render_value(counter_value, counter_name)` / `render_marker(counter_name, counter_value)` resolve markers, `copy()` clones the registry |
-|  [03]   | `URLFetcher.fetch(url, headers=None)`                                                                | fetch          | sandboxed/configured resource load; pass the instance as `url_fetcher=` |
-|  [04]   | `default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None)` | fetch | load a URL or data URI resource (module function; `allow_redirects`/`fail_on_errors` live on the `URLFetcher` class, not this function) |
-|  [05]   | finisher: `finisher(document: Document, pdf: pydyf.PDF) -> None`                                     | post-process   | mutate the `pydyf.PDF` after layout, before write |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `FontConfiguration.add_font_face(rule_descriptors, url_fetcher)` | register | register an `@font-face` rule |
+| [02] | `CounterStyle` dict assignment (name -> `@counter-style` rule) | register | `dict` subclass: assign `name -> @counter-style` rule, then `resolve_counter(values, previous_types)` / `render_value(counter_value, counter_name)` / `render_marker(counter_name, counter_value)` resolve markers, `copy()` clones the registry |
+| [03] | `URLFetcher.fetch(url, headers=None)` | fetch | sandboxed/configured resource load; pass the instance as `url_fetcher=` |
+| [04] | `default_url_fetcher(url, timeout=10, ssl_context=None, http_headers=None, allowed_protocols=None)` | fetch | load a URL or data URI resource (module function; `allow_redirects`/`fail_on_errors` live on the `URLFetcher` class, not this function) |
+| [05] | finisher: `finisher(document: Document, pdf: pydyf.PDF) -> None` | post-process | mutate the `pydyf.PDF` after layout, before write |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

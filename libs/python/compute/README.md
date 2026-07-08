@@ -69,7 +69,6 @@ Every scientific and solver library this folder uses, planned or implemented. Ve
 
 [SPATIAL_MESH]:
 - `scipy`
-- `meshio`
 
 [SIGNAL_PROCESSING]:
 - `scipy`
@@ -118,6 +117,9 @@ Cross-cutting Python substrate libraries this folder consumes; canonical registr
 [FIELD_DATA]:
 - `xarray`
 - `narwhals` (the study DOE-frame admission arm, consumed through the published `data/tabular` contract surfaces)
+
+[MESH_INTERCHANGE]:
+- `meshio`
 
 [OBSERVABILITY]:
 - `opentelemetry-api` (the hub `evidence_run` weave imports `trace`/`Span`/`Status`/`StatusCode`; SDK binding stays at composition root)

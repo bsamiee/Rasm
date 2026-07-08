@@ -11,7 +11,7 @@ resource-name builders. It serves TWO disjoint Persistence concerns behind the `
 blob payloads over a pure-managed `Grpc.Net.Client` transport, the DEK wrapped by a remote `CryptoKey`)
 and the SIGNING arm (the `Element/identity#KMS_CUSTODY` `SigningKeyring` — `AsymmetricSign` over a
 `ASYMMETRIC_SIGN`-purpose key version, verification CLIENT-side through `GetPublicKey` since Cloud KMS
-exposes no server-side asymmetric verify). The 3.24.0 package also bundles the
+exposes no server-side asymmetric verify). The package also bundles the
 `Autokey`, `AutokeyAdmin`, `EkmService`, and `HsmManagement` clients in the same assembly; the
 Persistence rails consume only `KeyManagementServiceClient`. All payload fields are
 `Google.Protobuf.ByteString`, and the bound asset on the `net10.0` consumer is the
@@ -22,7 +22,6 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 
 [PACKAGE_SURFACE]: `Google.Cloud.Kms.V1`
 - package: `Google.Cloud.Kms.V1`
-- version: `3.24.0`
 - license: `Apache-2.0`
 - assembly: `Google.Cloud.Kms.V1` (`lib/netstandard2.0` binds for the `net10.0` consumer; `net462` is the framework fallback — there is no net8.0/net10.0 asset)
 - namespace: `Google.Cloud.Kms.V1`

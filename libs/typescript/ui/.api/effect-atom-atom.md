@@ -1,14 +1,14 @@
-# [@effect-atom/atom] — the one state binding (ONE_FOLD_ONE_BINDING): atom algebra over Effect with AtomHttpApi/AtomRpc direct-binding rows
+# [TS_UI_API_EFFECT_ATOM_ATOM]
 
 `@effect-atom/atom` is the framework-neutral reactive layer that turns an `Effect`/`Stream`/`Layer` graph into memoized, subscribable `Atom` nodes — the single `ONE_FOLD_ONE_BINDING` store the `ui` folder composes for all client state. An `Atom<A>` is a lazily-computed, dependency-tracked cell; a `Writable<R, W>` also accepts writes; async atoms hold a `Result<A, E>` (`Initial | Success | Failure`, each carrying a `waiting` flag and a `previous` value) that mirrors an Effect `Exit` so a pending refresh never blanks the last-good value. The `Registry` is the store that owns every node's lifecycle (mount/subscribe/refresh/dispose, idle-TTL GC); `AtomRuntime` shares one `Layer`-built dependency graph across atoms. `AtomHttpApi.Tag`/`AtomRpc.Tag` are the direct-binding rows: a `@effect/platform` `HttpApi` declaration or an `@effect/rpc` `RpcGroup` becomes a `Context.Tag` whose members are atom-wrapped `Result`s, so the typed client contract is reactive with zero data-fetching glue. This package carries no React dependency — `@effect-atom/atom-react` mounts these atoms into the component spine.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect-atom/atom`
-- package: `@effect-atom/atom` (0.5.3, MIT)
+- package: `@effect-atom/atom` (MIT)
 - module format: ESM + CJS dual (`dist/esm`, `dist/cjs`, `.d.ts` under `dist/dts`), `sideEffects: []` (fully tree-shakeable); per-namespace deep-import subpaths `@effect-atom/atom/{Atom,Result,Registry,AtomRef,AtomHttpApi,AtomRpc,Hydration}`
 - runtime target: framework-neutral — runs in any JS runtime; the reactive graph is pure, only the `Registry` is stateful. React is not a peer here; `atom-react` adds the hooks
-- peer: `effect@^3.19.15`, `@effect/platform@^0.94.2`, `@effect/rpc@^0.73.0`, `@effect/experimental@^0.58.0`
+- peer: `effect@^catalog`, `@effect/platform@^catalog`, `@effect/rpc@^catalog`, `@effect/experimental@^catalog`
 - asset: pure-TypeScript reactive-state library — the `Atom`/`Result`/`Registry` algebra plus `Context.Tag` client generators over platform/rpc contracts
 - rail: state binding (the one `ONE_FOLD_ONE_BINDING` store; `atom/binding` + `atom/derive` own it, every `view` row reads it)
 
@@ -17,106 +17,106 @@
 [PUBLIC_TYPE_SCOPE]: atom algebra core — the reactive cell and its read/write context
 - rail: state binding
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]    | [CONSUMER]                                                        |
-| :-----: | :------------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `Atom<A>` (extends `Pipeable`, `Inspectable`)           | reactive cell     | `atom/binding` — every state node; `.pipe`-composable, structurally memoized |
-|  [02]   | `Writable<R, W = R>`                                    | writable cell     | `atom/binding` — read type `R`, write type `W`; the only atom `useAtom`/`set` accept |
-|  [03]   | `Context` (`get`/`result`/`once`/`mount`/`subscribe`/`stream`/`self`/`setSelf`/`addFinalizer`/`registry`) | read context | `atom/derive` — the `get` argument of a derived atom; reads track dependencies, `addFinalizer` scopes cleanup |
-|  [04]   | `WriteContext<A>` (`get`/`set`/`setSelf`/`refreshSelf`) | write context     | `atom/binding` — the write callback argument of `writable`; commits derived writes |
-|  [05]   | `FnContext`                                             | fn read context   | `atom/derive` — the `get`-plus-args context of a `fn`/`fnSync` atom |
-|  [06]   | `Type<T>` / `Success<T>` / `Failure<T>` / `PullSuccess<T>` / `WithoutSerializable<T>` | type projections | design-page generics — extract the value/success/error type of an atom without a runtime cost |
-|  [07]   | `isAtom` / `isWritable` / `isSerializable`              | guards            | boundary narrowing before `set`/serialization |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
+| [01] | `Atom<A>` (extends `Pipeable`, `Inspectable`) | reactive cell | `atom/binding` — every state node; `.pipe`-composable, structurally memoized |
+| [02] | `Writable<R, W = R>` | writable cell | `atom/binding` — read type `R`, write type `W`; the only atom `useAtom`/`set` accept |
+| [03] | `Context` (`get`/`result`/`once`/`mount`/`subscribe`/`stream`/`self`/`setSelf`/`addFinalizer`/`registry`) | read context | `atom/derive` — the `get` argument of a derived atom; reads track dependencies, `addFinalizer` scopes cleanup |
+| [04] | `WriteContext<A>` (`get`/`set`/`setSelf`/`refreshSelf`) | write context | `atom/binding` — the write callback argument of `writable`; commits derived writes |
+| [05] | `FnContext` | fn read context | `atom/derive` — the `get`-plus-args context of a `fn`/`fnSync` atom |
+| [06] | `Type<T>` / `Success<T>` / `Failure<T>` / `PullSuccess<T>` / `WithoutSerializable<T>` | type projections | design-page generics — extract the value/success/error type of an atom without a runtime cost |
+| [07] | `isAtom` / `isWritable` / `isSerializable` | guards | boundary narrowing before `set`/serialization |
 
 [PUBLIC_TYPE_SCOPE]: async result ADT — the value every effect-backed atom holds
 - rail: state binding
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]    | [CONSUMER]                                                        |
-| :-----: | :------------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `Result<A, E>` = `Initial<A,E> \| Success<A,E> \| Failure<A,E>` | async union | `view` rows fold this in render; every `AtomHttpApi`/`AtomRpc`/`pull` atom yields it |
-|  [02]   | `Initial<A,E>` / `Success<A,E>` / `Failure<A,E>`        | union arms        | `Result.match` arms; each carries `waiting: boolean` and `previous: Option<Result>` so refresh keeps last-good data |
-|  [03]   | `AtomResultFn<Arg, A, E>` (`Writable<Result<A,E>, Arg \| Reset \| Interrupt>`) | callable-result atom | `atom/derive` — a parameterized async atom written with an `Arg`, `Reset`, or `Interrupt` |
-|  [04]   | `Reset` / `Interrupt` (symbol + type)                   | write commands    | write these to an `AtomResultFn` to clear to `Initial` or cancel the running fiber |
-|  [05]   | `PullResult<A, E>`                                      | paged result      | `atom/derive` — the `Result` of a `pull` atom over a `Stream`, with `{ done, items }` |
-|  [06]   | `Result.Schema<Success, Error>` / `PartialEncoded` / `Encoded` / `schemaFromSelf` | wire schema | `wire`-typed atoms — encode/decode a `Result` across the SSR/persistence boundary |
-|  [07]   | `Result.Builder<Out, A, E, I>`                          | fold builder      | `view` render — pipeable exhaustive `Result` fold with fluent case arms |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
+| [01] | `Result<A, E>` = `Initial<A,E> \| Success<A,E> \| Failure<A,E>` | async union | `view` rows fold this in render; every `AtomHttpApi`/`AtomRpc`/`pull` atom yields it |
+| [02] | `Initial<A,E>` / `Success<A,E>` / `Failure<A,E>` | union arms | `Result.match` arms; each carries `waiting: boolean` and `previous: Option<Result>` so refresh keeps last-good data |
+| [03] | `AtomResultFn<Arg, A, E>` (`Writable<Result<A,E>, Arg \| Reset \| Interrupt>`) | callable-result atom | `atom/derive` — a parameterized async atom written with an `Arg`, `Reset`, or `Interrupt` |
+| [04] | `Reset` / `Interrupt` (symbol + type) | write commands | write these to an `AtomResultFn` to clear to `Initial` or cancel the running fiber |
+| [05] | `PullResult<A, E>` | paged result | `atom/derive` — the `Result` of a `pull` atom over a `Stream`, with `{ done, items }` |
+| [06] | `Result.Schema<Success, Error>` / `PartialEncoded` / `Encoded` / `schemaFromSelf` | wire schema | `wire`-typed atoms — encode/decode a `Result` across the SSR/persistence boundary |
+| [07] | `Result.Builder<Out, A, E, I>` | fold builder | `view` render — pipeable exhaustive `Result` fold with fluent case arms |
 
 [PUBLIC_TYPE_SCOPE]: runtime, registry, and fine-grained refs
 - rail: state binding
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]    | [CONSUMER]                                                        |
-| :-----: | :------------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `AtomRuntime<R, ER>` / `RuntimeFactory`                 | layer-backed runtime | `atom/binding` — one `Layer`-built dependency graph shared by every atom built from it |
-|  [02]   | `Registry` (`get`/`set`/`modify`/`update`/`mount`/`subscribe`/`refresh`/`setSerializable`/`reset`/`dispose`/`getNodes`) | store | `atom/binding` — the imperative store surface; `browser`/tests read/drive it directly |
-|  [03]   | `AtomRegistry` (`Context.TagClass`)                     | registry Tag      | the Effect `Context.Tag` for the ambient registry; `AtomRuntime` and effectful accessors require it |
-|  [04]   | `AtomRef<A>` / `ReadonlyRef<A>` (extends `Equal`) / `Collection<A>` | mutable ref | `atom/derive` — fine-grained cursor into a sub-value (form field, list item) without re-running the owning atom |
-|  [05]   | `Serializable<S extends Schema.Schema.Any>`             | serializable marker | SSR/persistence — an atom carrying a `Schema` so its value crosses the wire or `KeyValueStore` |
-|  [06]   | `AtomHttpApiClient<Self, Id, Groups, ApiE, E>` (extends `Context.Tag`; members `.layer`/`.runtime`/`.query`/`.mutation`) | api-client Tag | `atom/binding` — a `@effect/platform` `HttpApi` bound so `.query(group, endpoint, request)` is a read `Atom<Result>` and `.mutation(group, endpoint)` is a callable `AtomResultFn` |
-|  [07]   | `AtomRpcClient<Self, Id, Rpcs, E>` (extends `Context.Tag`; members `.layer`/`.runtime`/`.query`/`.mutation`) | rpc-client Tag | `atom/binding` — an `@effect/rpc` `RpcGroup` bound; `.query(tag, payload)` yields `Atom<Result>` (or a `PullResult` atom for a streaming rpc), `.mutation(tag)` an `AtomResultFn` |
-|  [08]   | `DehydratedAtom` / `DehydratedAtomValue`               | SSR snapshot      | `Hydration` — the serialized registry state a server emits and a client rehydrates |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
+| [01] | `AtomRuntime<R, ER>` / `RuntimeFactory` | layer-backed runtime | `atom/binding` — one `Layer`-built dependency graph shared by every atom built from it |
+| [02] | `Registry` (`get`/`set`/`modify`/`update`/`mount`/`subscribe`/`refresh`/`setSerializable`/`reset`/`dispose`/`getNodes`) | store | `atom/binding` — the imperative store surface; `browser`/tests read/drive it directly |
+| [03] | `AtomRegistry` (`Context.TagClass`) | registry Tag | the Effect `Context.Tag` for the ambient registry; `AtomRuntime` and effectful accessors require it |
+| [04] | `AtomRef<A>` / `ReadonlyRef<A>` (extends `Equal`) / `Collection<A>` | mutable ref | `atom/derive` — fine-grained cursor into a sub-value (form field, list item) without re-running the owning atom |
+| [05] | `Serializable<S extends Schema.Schema.Any>` | serializable marker | SSR/persistence — an atom carrying a `Schema` so its value crosses the wire or `KeyValueStore` |
+| [06] | `AtomHttpApiClient<Self, Id, Groups, ApiE, E>` (extends `Context.Tag`; members `.layer`/`.runtime`/`.query`/`.mutation`) | api-client Tag | `atom/binding` — a `@effect/platform` `HttpApi` bound so `.query(group, endpoint, request)` is a read `Atom<Result>` and `.mutation(group, endpoint)` is a callable `AtomResultFn` |
+| [07] | `AtomRpcClient<Self, Id, Rpcs, E>` (extends `Context.Tag`; members `.layer`/`.runtime`/`.query`/`.mutation`) | rpc-client Tag | `atom/binding` — an `@effect/rpc` `RpcGroup` bound; `.query(tag, payload)` yields `Atom<Result>` (or a `PullResult` atom for a streaming rpc), `.mutation(tag)` an `AtomResultFn` |
+| [08] | `DehydratedAtom` / `DehydratedAtomValue` | SSR snapshot | `Hydration` — the serialized registry state a server emits and a client rehydrates |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing atoms — the one polymorphic `make` plus its specialized rows
 - rail: state binding
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Atom.make(effect \| stream \| value \| (get) => …)`                                            | universal ctor | `atom/binding` — the one entry: lifts an `Effect<A,E,R>`/`Stream` to `Atom<Result<A,E>>`, a plain value to `Writable`, a read fn to a derived `Atom` |
-|  [02]   | `Atom.readable(read, refresh?)` / `Atom.writable(read, write, refresh?)`                        | explicit ctor  | `atom/derive` — hand-built read-only or read/write atoms when `make`'s discrimination is too loose |
-|  [03]   | `Atom.fn(create, options?)` / `Atom.fnSync(f)`                                                  | callable atom  | `atom/derive` — an `AtomResultFn`: call with an `Arg` to (re)run an effectful/sync computation; the write is the argument |
-|  [04]   | `Atom.pull(streamOrCreate, options?)`                                                           | paged stream   | `atom/derive` — a `PullResult` atom over a `Stream`; write to advance the page |
-|  [05]   | `Atom.subscriptionRef(…)` / `Atom.subscribable(…)`                                              | effect-ref atom | bridge an Effect `SubscriptionRef`/`Subscribable` into a writable atom |
-|  [06]   | `Atom.family((arg) => atom)`                                                                    | keyed factory  | `atom/derive` — memoize one atom per argument key (per-entity atoms) without a leak |
-|  [07]   | `Atom.runtime(layer)` / `Atom.context({ memoMap })` / `Atom.defaultMemoMap`                     | runtime root   | `atom/binding` — build an `AtomRuntime` from a `Layer`; atoms made through it share the dependency graph |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `Atom.make(effect \| stream \| value \| (get) => …)` | universal ctor | `atom/binding` — the one entry: lifts an `Effect<A,E,R>`/`Stream` to `Atom<Result<A,E>>`, a plain value to `Writable`, a read fn to a derived `Atom` |
+| [02] | `Atom.readable(read, refresh?)` / `Atom.writable(read, write, refresh?)` | explicit ctor | `atom/derive` — hand-built read-only or read/write atoms when `make`'s discrimination is too loose |
+| [03] | `Atom.fn(create, options?)` / `Atom.fnSync(f)` | callable atom | `atom/derive` — an `AtomResultFn`: call with an `Arg` to (re)run an effectful/sync computation; the write is the argument |
+| [04] | `Atom.pull(streamOrCreate, options?)` | paged stream | `atom/derive` — a `PullResult` atom over a `Stream`; write to advance the page |
+| [05] | `Atom.subscriptionRef(…)` / `Atom.subscribable(…)` | effect-ref atom | bridge an Effect `SubscriptionRef`/`Subscribable` into a writable atom |
+| [06] | `Atom.family((arg) => atom)` | keyed factory | `atom/derive` — memoize one atom per argument key (per-entity atoms) without a leak |
+| [07] | `Atom.runtime(layer)` / `Atom.context({ memoMap })` / `Atom.defaultMemoMap` | runtime root | `atom/binding` — build an `AtomRuntime` from a `Layer`; atoms made through it share the dependency graph |
 
 [ENTRYPOINT_SCOPE]: combinators — deriving, mapping, and tuning atoms in place
 - rail: state binding
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Atom.map(f)` / `Atom.mapResult(f)` / `Atom.transform(f)`                                       | projection     | `atom/derive` — the selector rail; `mapResult` maps the `Success` arm only, `transform` rebuilds via `get` |
-|  [02]   | `Atom.debounce(ms)` / `Atom.withReactivity(keys)`                                               | update policy  | `atom/derive` — rate-limit writes; declare reactivity keys the `@effect/experimental` invalidation graph refreshes on |
-|  [03]   | `Atom.keepAlive` / `Atom.autoDispose` / `Atom.setLazy(bool)` / `Atom.setIdleTTL(duration)`     | lifecycle      | `atom/binding` — pin a hot atom, or GC an idle one after a TTL; the registry honors these per node |
-|  [04]   | `Atom.withFallback(fallbackAtom)` / `Atom.initialValue(value)` / `Atom.withLabel(name)`         | seed / debug   | `atom/derive` — seed a `Result` atom's first render; label for devtools/inspection |
-|  [05]   | `Atom.optimistic(self)` / `Atom.optimisticFn({ …, reducer })`                                   | optimistic UI  | `atom/binding` — write an optimistic value immediately, reconcile against the effect's real `Result` |
-|  [06]   | `Atom.refreshOnWindowFocus` / `Atom.makeRefreshOnSignal(signal)` / `Atom.windowFocusSignal`     | refresh trigger | `atom/binding` — re-run an atom on window focus or any signal atom; the stale-while-focus row |
-|  [07]   | `Atom.kvs({ runtime, key, schema, defaultValue })` / `Atom.searchParam(name, { schema? })`      | persistence    | `atom/binding` — back an atom by a `KeyValueStore`-runtime + `Schema` (localStorage/IndexedDB), or bind it to a URL search param, `Schema`-typed |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `Atom.map(f)` / `Atom.mapResult(f)` / `Atom.transform(f)` | projection | `atom/derive` — the selector rail; `mapResult` maps the `Success` arm only, `transform` rebuilds via `get` |
+| [02] | `Atom.debounce(ms)` / `Atom.withReactivity(keys)` | update policy | `atom/derive` — rate-limit writes; declare reactivity keys the `@effect/experimental` invalidation graph refreshes on |
+| [03] | `Atom.keepAlive` / `Atom.autoDispose` / `Atom.setLazy(bool)` / `Atom.setIdleTTL(duration)` | lifecycle | `atom/binding` — pin a hot atom, or GC an idle one after a TTL; the registry honors these per node |
+| [04] | `Atom.withFallback(fallbackAtom)` / `Atom.initialValue(value)` / `Atom.withLabel(name)` | seed / debug | `atom/derive` — seed a `Result` atom's first render; label for devtools/inspection |
+| [05] | `Atom.optimistic(self)` / `Atom.optimisticFn({ …, reducer })` | optimistic UI | `atom/binding` — write an optimistic value immediately, reconcile against the effect's real `Result` |
+| [06] | `Atom.refreshOnWindowFocus` / `Atom.makeRefreshOnSignal(signal)` / `Atom.windowFocusSignal` | refresh trigger | `atom/binding` — re-run an atom on window focus or any signal atom; the stale-while-focus row |
+| [07] | `Atom.kvs({ runtime, key, schema, defaultValue })` / `Atom.searchParam(name, { schema? })` | persistence | `atom/binding` — back an atom by a `KeyValueStore`-runtime + `Schema` (localStorage/IndexedDB), or bind it to a URL search param, `Schema`-typed |
 
 [ENTRYPOINT_SCOPE]: `Result` folds — rendering async state exhaustively
 - rail: state binding
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Result.match(self, { onInitial, onSuccess, onFailure })` / `.matchWithWaiting(…)` / `.matchWithError(…)` | exhaustive fold | `view` render — the total dispatch over `Result`; `matchWithWaiting` folds the `waiting` flag into a dedicated arm |
-|  [02]   | `Result.builder(self).onInitial(…).onSuccess(…).orNull()`                                       | fluent fold    | `view` render — pipeable case-by-case fold when arms are added incrementally |
-|  [03]   | `Result.value` / `.getOrElse` / `.getOrThrow` / `.error` / `.cause`                             | accessor       | `view` — pull the `Option<A>`/`Option<E>` out of a `Result` for a quick read |
-|  [04]   | `Result.map(f)` / `.flatMap(f)` / `.all(results)` / `.toExit(self)`                             | combinator     | `atom/derive` — transform a `Result` value, join several, or convert back to an Effect `Exit` |
-|  [05]   | `Result.success` / `.failure` / `.fail` / `.initial` / `.waiting` / `.fromExit`                | constructor    | tests + `atom/derive` — build a `Result` directly; `waiting`/`replacePrevious` preserve the previous value |
-|  [06]   | `Result.isSuccess` / `.isFailure` / `.isInitial` / `.isWaiting` / `.isInterrupted`             | guard          | `view` — narrow before an accessor; `isInterrupted` distinguishes a cancelled fiber from a real failure |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `Result.match(self, { onInitial, onSuccess, onFailure })` / `.matchWithWaiting(…)` / `.matchWithError(…)` | exhaustive fold | `view` render — the total dispatch over `Result`; `matchWithWaiting` folds the `waiting` flag into a dedicated arm |
+| [02] | `Result.builder(self).onInitial(…).onSuccess(…).orNull()` | fluent fold | `view` render — pipeable case-by-case fold when arms are added incrementally |
+| [03] | `Result.value` / `.getOrElse` / `.getOrThrow` / `.error` / `.cause` | accessor | `view` — pull the `Option<A>`/`Option<E>` out of a `Result` for a quick read |
+| [04] | `Result.map(f)` / `.flatMap(f)` / `.all(results)` / `.toExit(self)` | combinator | `atom/derive` — transform a `Result` value, join several, or convert back to an Effect `Exit` |
+| [05] | `Result.success` / `.failure` / `.fail` / `.initial` / `.waiting` / `.fromExit` | constructor | tests + `atom/derive` — build a `Result` directly; `waiting`/`replacePrevious` preserve the previous value |
+| [06] | `Result.isSuccess` / `.isFailure` / `.isInitial` / `.isWaiting` / `.isInterrupted` | guard | `view` — narrow before an accessor; `isInterrupted` distinguishes a cancelled fiber from a real failure |
 
 [ENTRYPOINT_SCOPE]: registry and effectful accessors — driving atoms from Effect/imperative code
 - rail: state binding
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `Registry.make({ initialValues?, scheduleTask?, timeoutResolution?, defaultIdleTTL? })`         | store ctor     | `browser`/app root — the one registry per app; tests build an isolated one per case |
-|  [02]   | `Registry.layer` / `Registry.layerOptions(opts)` / `Registry.AtomRegistry`                     | registry Layer | `atom/binding` — provide the registry as an Effect service so effectful atoms resolve `AtomRegistry` |
-|  [03]   | `registry.get(atom)` / `.set(atom, w)` / `.modify(atom, f)` / `.update(atom, f)` / `.refresh(atom)` | imperative rw | `browser`/panel — read or drive an atom outside React; `modify` returns a value and the next state atomically |
-|  [04]   | `registry.mount(atom)` / `.subscribe(atom, f, { immediate? })` / `.reset()` / `.dispose()`      | lifecycle      | non-React subscribers; `mount` keeps a node hot, `subscribe` returns an unsubscribe fn |
-|  [05]   | `Atom.get(self)` / `.set(self, w)` / `.modify` / `.update` / `.refresh` / `.getResult(self)`    | effectful accessor | `atom/binding` — read/write an atom from inside `Effect.gen`; each returns `Effect<…, AtomRegistry>` |
-|  [06]   | `Atom.toStream(self)` / `.toStreamResult(self)` / `Registry.toStream` / `Registry.getResult`   | stream bridge  | `wire` — observe an atom as an Effect `Stream`; feed atom changes into a pipeline |
-|  [07]   | `Atom.batch(f)`                                                                                 | batch commit   | `atom/binding` — coalesce many writes into one notification pass |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `Registry.make({ initialValues?, scheduleTask?, timeoutResolution?, defaultIdleTTL? })` | store ctor | `browser`/app root — the one registry per app; tests build an isolated one per case |
+| [02] | `Registry.layer` / `Registry.layerOptions(opts)` / `Registry.AtomRegistry` | registry Layer | `atom/binding` — provide the registry as an Effect service so effectful atoms resolve `AtomRegistry` |
+| [03] | `registry.get(atom)` / `.set(atom, w)` / `.modify(atom, f)` / `.update(atom, f)` / `.refresh(atom)` | imperative rw | `browser`/panel — read or drive an atom outside React; `modify` returns a value and the next state atomically |
+| [04] | `registry.mount(atom)` / `.subscribe(atom, f, { immediate? })` / `.reset()` / `.dispose()` | lifecycle | non-React subscribers; `mount` keeps a node hot, `subscribe` returns an unsubscribe fn |
+| [05] | `Atom.get(self)` / `.set(self, w)` / `.modify` / `.update` / `.refresh` / `.getResult(self)` | effectful accessor | `atom/binding` — read/write an atom from inside `Effect.gen`; each returns `Effect<…, AtomRegistry>` |
+| [06] | `Atom.toStream(self)` / `.toStreamResult(self)` / `Registry.toStream` / `Registry.getResult` | stream bridge | `wire` — observe an atom as an Effect `Stream`; feed atom changes into a pipeline |
+| [07] | `Atom.batch(f)` | batch commit | `atom/binding` — coalesce many writes into one notification pass |
 
 [ENTRYPOINT_SCOPE]: effect-service direct binding and SSR — the `AtomHttpApi`/`AtomRpc` rows
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `class Api extends AtomHttpApi.Tag<Api>()(id, { api, httpClient, baseUrl?, transformClient?, transformResponse?, runtime? })` | http binding   | `atom/binding` — bind a `@effect/platform` `HttpApi`; `Api.query(group, endpoint, { …request, reactivityKeys?, timeToLive? })` / `Api.mutation(group, endpoint)` yield read/callable atoms sharing `Api.runtime`/`Api.layer` |
-|  [02]   | `class Rpc extends AtomRpc.Tag<Rpc>()(id, { group, protocol, spanPrefix?, disableTracing?, runtime? })` | rpc binding    | `atom/binding` — bind an `@effect/rpc` `RpcGroup`; `Rpc.query(tag, payload, { reactivityKeys?, timeToLive? })` / `Rpc.mutation(tag)` yield atoms; a streaming rpc's `.query` is a `PullResult` atom |
-|  [03]   | `AtomRef.make(value)` / `AtomRef.collection(items)`                                             | fine-grained ref | `atom/derive` — a mutable cursor / an ordered collection of refs for per-item subscriptions (undo/redo cursor) |
-|  [04]   | `Atom.serializable(self, { schema })` / `Atom.withServerValue(self, …)` / `Atom.getServerValue` | serializable | SSR/persistence — mark an atom's value `Schema`-typed and carry a server-computed initial value |
-|  [05]   | `Hydration.dehydrate(registry, options?)` / `.toValues(state)` / `.hydrate(registry, state)`   | SSR handoff    | server dehydrates the registry to `DehydratedAtom[]`; the client rehydrates into a fresh registry |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `class Api extends AtomHttpApi.Tag<Api>()(id, { api, httpClient, baseUrl?, transformClient?, transformResponse?, runtime? })` | http binding | `atom/binding` — bind a `@effect/platform` `HttpApi`; `Api.query(group, endpoint, { …request, reactivityKeys?, timeToLive? })` / `Api.mutation(group, endpoint)` yield read/callable atoms sharing `Api.runtime`/`Api.layer` |
+| [02] | `class Rpc extends AtomRpc.Tag<Rpc>()(id, { group, protocol, spanPrefix?, disableTracing?, runtime? })` | rpc binding | `atom/binding` — bind an `@effect/rpc` `RpcGroup`; `Rpc.query(tag, payload, { reactivityKeys?, timeToLive? })` / `Rpc.mutation(tag)` yield atoms; a streaming rpc's `.query` is a `PullResult` atom |
+| [03] | `AtomRef.make(value)` / `AtomRef.collection(items)` | fine-grained ref | `atom/derive` — a mutable cursor / an ordered collection of refs for per-item subscriptions (undo/redo cursor) |
+| [04] | `Atom.serializable(self, { schema })` / `Atom.withServerValue(self, …)` / `Atom.getServerValue` | serializable | SSR/persistence — mark an atom's value `Schema`-typed and carry a server-computed initial value |
+| [05] | `Hydration.dehydrate(registry, options?)` / `.toValues(state)` / `.hydrate(registry, state)` | SSR handoff | server dehydrates the registry to `DehydratedAtom[]`; the client rehydrates into a fresh registry |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,17 +1,16 @@
 # [RASM_PERSISTENCE_API_NATS]
 
-`NATS.Net` is the full NATS protocol owner backing the `Version/egress#EGRESS_SINK` `EgressSink.Nats` row (`SinkBinding.Subject`, `ContentMode.Binary`): Core pub/sub + request/reply for fire-and-forget and RPC, and JetStream durable streams/consumers/acks/replay for the `DeliveryGuarantee.Settle` ceremony — `JetStreamContext.PublishAsync` → `PubAckResponse` is the at-least-once durable ack the `EgressSink` `DeliveryAck.FromResult` analogue folds, `PubAckResponse.Duplicate` is the message-dedup-window flag the exactly-once posture rides, and `INatsJSConsumer.ConsumeAsync` + `INatsJSMsg.AckAsync`/`NakAsync`/`AckTerminateAsync` is the cursor-replay drain the redrive leg consumes. Beyond messaging it adds two distinct store-backend capabilities the embedded/relational tiers lack: JetStream **KeyValue** (revisioned CAS KV with `WatchAsync`/`HistoryAsync` — the distributed counterpart to the `LightningDB`/`rocksdb` embedded engines and a `Store/coordination` fenced-CAS substrate) and JetStream **Object Store** (chunked object storage with `SealAsync`/`AddLinkAsync`). The serializer registry (`INatsSerializerRegistry`) is the codec seam where the `MessagePack`/`System.Text.Json` snapshot of a `[ValueObject]`/`[SmartEnum]` owner crosses the wire — NATS frames the bytes, the codec owns the shape.
+`NATS.Net` is the full NATS protocol owner backing the `Version/egress#EGRESS_SINK` `EgressSink.Nats` row (`SinkBinding.Subject`, `ContentMode.Binary`): Core pub/sub + request/reply for fire-and-forget and RPC, and JetStream durable streams/consumers/acks/replay for the `DeliveryGuarantee.Settle` ceremony — `JetStreamContext.PublishAsync` → `PubAckResponse` is the at-least-once durable ack the `EgressSink` `DeliveryAck.FromResult` analogue folds, `PubAckResponse.Duplicate` is the message-dedup-window flag the exactly-once posture rides, and `INatsJSConsumer.ConsumeAsync` + `INatsJSMsg.AckAsync`/`NakAsync`/`AckTerminateAsync` is the cursor-replay drain the redrive leg consumes. Beyond messaging it adds two distinct store-backend capabilities the embedded/relational tiers lack: JetStream KeyValue (revisioned CAS KV with `WatchAsync`/`HistoryAsync` — the distributed counterpart to the `LightningDB`/`rocksdb` embedded engines and a `Store/coordination` fenced-CAS substrate) and JetStream Object Store (chunked object storage with `SealAsync`/`AddLinkAsync`). The serializer registry (`INatsSerializerRegistry`) is the codec seam where the `MessagePack`/`System.Text.Json` snapshot of a `[ValueObject]`/`[SmartEnum]` owner crosses the wire — NATS frames the bytes, the codec owns the shape.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NATS.Net` (meta-package)
 - package: `NATS.Net`
-- version: `2.8.2`
 - assembly: `NATS.Net` (a ~5.6 KB facade exposing the `NATS.Net.NatsClient` simplified entry; the real surface lives in the sub-client assemblies it fans out to)
 - license: Apache-2.0 (`<license type="expression">Apache-2.0</license>`)
 - target framework: `net8.0` asset on the `net10.0` floor (package ships `net8.0`/`net6.0`/`netstandard2.1`/`netstandard2.0`; net8.0 wins NuGet precedence — there is no `net10.0` asset)
 - asset: runtime library, pure-managed AnyCPU (TCP/WebSocket NATS protocol; no native)
-- fan-out (the eight 2.8.2 sub-clients the meta-package transitively pins, each a real assembly — pin the meta-package, consume the sub-client namespaces): `NATS.Client.Core`, `NATS.Client.JetStream`, `NATS.Client.KeyValueStore`, `NATS.Client.ObjectStore`, `NATS.Client.Services`, `NATS.Client.Hosting`, `NATS.Client.Simplified`, `NATS.Client.Serializers.Json` (plus `NATS.Client.Abstractions` and `NATS.NKeys` 1.0.2 transitives)
+- fan-out (the eight sub-clients the meta-package transitively pins, each a real assembly — pin the meta-package, consume the sub-client namespaces): `NATS.Client.Core`, `NATS.Client.JetStream`, `NATS.Client.KeyValueStore`, `NATS.Client.ObjectStore`, `NATS.Client.Services`, `NATS.Client.Hosting`, `NATS.Client.Simplified`, `NATS.Client.Serializers.Json` (plus `NATS.Client.Abstractions` and `NATS.NKeys` transitives)
 - rail: messaging-protocol (NATS) + jetstream-store-backend
 
 [SUB_CLIENT_MAP]: which namespace owns which concern
@@ -119,7 +118,7 @@
 |  [03]   | `INatsKVStore.CreateAsync<T>(key, value, ttl?, …)` → `ValueTask<ulong>` | write-once | create-if-absent (`NatsKVCreateException` on conflict) — the fenced-CAS create |
 |  [04]   | `INatsKVStore.UpdateAsync<T>(key, value, ulong revision, …)` → `ValueTask<ulong>` | CAS write | optimistic concurrency — `NatsKVWrongLastRevisionException` if revision moved |
 |  [05]   | `INatsKVStore.GetEntryAsync<T>(key, revision = 0, …)` → `ValueTask<NatsKVEntry<T>>` | read | revisioned read (`Value`/`Revision`/`Operation`/`Created`)    |
-|  [06]   | `INatsKVStore.WatchAsync<T>(key|keys?, opts?, ct)` → `IAsyncEnumerable<NatsKVEntry<T>>` | watch | live change feed over keys — the distributed changefeed       |
+|  [06]   | `INatsKVStore.WatchAsync<T>(key\|keys?, opts?, ct)` → `IAsyncEnumerable<NatsKVEntry<T>>` | watch | live change feed over keys — the distributed changefeed       |
 |  [07]   | `INatsKVStore.HistoryAsync<T>(key, …)` → `IAsyncEnumerable<NatsKVEntry<T>>` | history | the revision history — the AS-OF replay at the KV tier         |
 |  [08]   | `INatsKVStore.DeleteAsync(key, opts?)` / `PurgeAsync(key, ttl?, opts?)` / `GetKeysAsync(filters?)` | mutate/scan | tombstone delete / purge history / key enumeration |
 |  [09]   | `Try*` mirrors (`TryPutAsync`/`TryCreateAsync`/`TryUpdateAsync`/`TryGetEntryAsync`/`TryDeleteAsync`/`TryPurgeAsync`) → `ValueTask<NatsResult<…>>` | ROP | the non-throwing rail for every mutation |

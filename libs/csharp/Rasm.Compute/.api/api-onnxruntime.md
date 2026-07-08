@@ -17,8 +17,8 @@ disposal, so the design composes capability rather than re-marshalling the C API
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.ML.OnnxRuntime`
-- package: `Microsoft.ML.OnnxRuntime` 1.27.0 (meta-package: native runtimes + props/targets + headers; declares dependency `Microsoft.ML.OnnxRuntime.Managed 1.27.0`)
-- assembly: `Microsoft.ML.OnnxRuntime.Managed` 1.27.0 — multi-targets `net8.0` / `netstandard2.0` / `net9.0-{android35,ios18,maccatalyst18}`; a `net10.0` non-mobile consumer binds the `lib/net8.0/Microsoft.ML.OnnxRuntime.dll` asset (no plain `net9.0` lib ships, and the `net9.0-*` assets are mobile-platform TFMs), so the surface below is decompile-verified against the consumer-bound `net8.0` assembly
+- package: `Microsoft.ML.OnnxRuntime` (meta-package: native runtimes + props/targets + headers; declares dependency `Microsoft.ML.OnnxRuntime.Managed `)
+- assembly: `Microsoft.ML.OnnxRuntime.Managed` — multi-targets `net8.0` / `netstandard2.0` / `net9.0-{android35,ios18,maccatalyst18}`; a `net10.0` non-mobile consumer binds the `lib/net8.0/Microsoft.ML.OnnxRuntime.dll` asset (no plain `net9.0` lib ships, and the `net9.0-*` assets are mobile-platform TFMs), so the surface below is decompile-verified against the consumer-bound `net8.0` assembly
 - license: MIT (`LICENSE` shipped in package root)
 - namespace: `Microsoft.ML.OnnxRuntime` (+ nested `Microsoft.ML.OnnxRuntime.CompileApi`, `Microsoft.ML.OnnxRuntime.Tensors` for `DenseTensor<T>`/`Tensor<T>`)
 - asset: managed runtime library + native runtime DLLs (the base package ships only `runtimes/win-{x64,arm64}/native/onnxruntime.dll` + `onnxruntime_providers_shared.dll`; macOS/Linux base runtimes resolve through the platform-specific feed asset the build copies, and accelerated providers ride the sibling `.Gpu`/`.DirectML` packages)
@@ -119,7 +119,11 @@ disposal, so the design composes capability rather than re-marshalling the C API
 
 [PACKAGE_ASSET_SCOPE]: per-RID native ABI matrix (the canonical owner the genai lane composes)
 - rail: model
-- note: this is the OWNING per-RID native-payload matrix for the whole ONNX runtime native floor; `api-onnxruntimegenai` `native-rids`/`native-floor`, `api-onnxruntime-gpu`, and `api-onnxruntime-directml` restate NOTHING — they declare their own managed-floor pin and defer the RID/ABI facts here. The base meta-package ships only the `win-{x64,arm64}` payloads inline; every other RID's `libonnxruntime.{dylib,so}` resolves through the platform/feed asset the build copies. The accelerated providers ride sibling packages that supersede the base runtime on their RID: `.Gpu` (its `Gpu.Windows`/`Gpu.Linux` sub-packages on the 1.27.0 line) adds CUDA + TensorRT native on `win-x64`/`linux-x64`; `.DirectML` is a RID-GATED HOLD pinned to `.Managed 1.24.4` (only one `Microsoft.ML.OnnxRuntime.dll` binds, so DML is not co-resident on the 1.27.0 line) shipping a DML-enabled `onnxruntime.dll` + `Microsoft.AI.DirectML`'s `DirectML.dll` on `win-x64`/`win-arm64`. The genai native (`onnxruntime-genai.{dll,dylib,so}` + `.aar`/`.xcframework.zip` mobile forms) co-locates per-RID beside this base runtime, so a genai model run with no matching base-runtime RID payload faults at native init.
+
+[NATIVE_PAYLOAD_OWNER]:
+This is the OWNING per-RID native-payload matrix for the whole ONNX runtime native floor. `api-onnxruntimegenai` `native-rids`/`native-floor`, `api-onnxruntime-gpu`, and `api-onnxruntime-directml` restate NOTHING — they declare their own managed-floor pin and defer the RID/ABI facts here.
+
+The base meta-package ships only the `win-{x64,arm64}` payloads inline; every other RID's `libonnxruntime.{dylib,so}` resolves through the platform/feed asset the build copies. The accelerated providers ride sibling packages that supersede the base runtime on their RID: `.Gpu` adds CUDA + TensorRT native on `win-x64`/`linux-x64`; `.DirectML` is a RID-GATED HOLD pinned to `.Managed 1.24.4`, shipping a DML-enabled `onnxruntime.dll` + `Microsoft.AI.DirectML`'s `DirectML.dll` on `win-x64`/`win-arm64`. The genai native co-locates per-RID beside this base runtime, so a genai model run with no matching base-runtime RID payload faults at native init.
 
 | [INDEX] | [RID]        | [BASE_RUNTIME_NATIVE]                                                  | [ACCELERATED_PROVIDER_NATIVE]                                          | [SHIPPED_BY]                  |
 | :-----: | :----------- | :-------------------------------------------------------------------- | :-------------------------------------------------------------------- | :---------------------------- |
@@ -291,37 +295,37 @@ Provider names include `CoreMLExecutionProvider` and `CPUExecutionProvider`; thr
 |  [07]   | `OrtIoBinding.BindOutput`                      | bind call       | `(string, TensorElementType, long[], OrtMemoryAllocation)` binds device output                                                                      |
 |  [08]   | `OrtIoBinding.BindOutput`                      | bind call       | `(string, OrtExternalAllocation)` binds a caller-owned external output buffer                                                                       |
 |  [09]   | `OrtIoBinding.BindOutputToDevice`              | bind call       | `(string, OrtMemoryInfo)` binds an output to a device allocator                                                                                     |
-|  [08]   | `OrtIoBinding.SynchronizeBoundInputs`          | sync call       | flushes pending bound input transfers                                                                                                               |
-|  [09]   | `OrtIoBinding.SynchronizeBoundOutputs`         | sync call       | flushes pending bound output transfers                                                                                                              |
-|  [10]   | `OrtIoBinding.GetOutputNames`                  | binding read    | `string[]` returns bound output names                                                                                                               |
-|  [11]   | `OrtIoBinding.GetOutputValues`                 | binding read    | `IDisposableReadOnlyCollection<OrtValue>` returns bound output values                                                                               |
-|  [12]   | `OrtIoBinding.ClearBoundInputs`                | reset call      | clears all bound inputs                                                                                                                             |
-|  [13]   | `OrtIoBinding.ClearBoundOutputs`               | reset call      | clears all bound outputs                                                                                                                            |
-|  [14]   | `OrtValue.CreateTensorValueWithData`           | factory call    | `(OrtMemoryInfo, TensorElementType, long[], nint, long)` binds device memory                                                                        |
-|  [15]   | `OrtValue.CreateAllocatedTensorValue`          | factory call    | `(OrtAllocator, TensorElementType, long[])` allocates an output tensor                                                                              |
-|  [16]   | `OrtValue.GetTensorDataAsSpan<T>`              | span read       | `ReadOnlySpan<T>` reads bound tensor data                                                                                                           |
-|  [17]   | `OrtValue.GetTensorMutableDataAsSpan<T>`       | span write      | `Span<T>` writes bound tensor data                                                                                                                  |
-|  [18]   | `OrtValue.GetTensorDataAsTensorSpan<T>`        | span read       | `ReadOnlyTensorSpan<T>` reads tensor data as `System.Numerics.Tensors` span                                                                         |
-|  [19]   | `OrtValue.GetTensorMutableDataAsTensorSpan<T>` | span write      | `TensorSpan<T>` writes tensor data as `System.Numerics.Tensors` span                                                                                |
-|  [20]   | `OrtValue.GetTensorMutableRawData`             | raw read        | `Span<byte>` reads raw tensor bytes                                                                                                                 |
-|  [21]   | `OrtValue.GetTensorSizeInBytes`                | metadata read   | returns total byte count for the tensor buffer                                                                                                      |
-|  [22]   | `OrtValue.GetTensorTypeAndShape`               | metadata read   | returns `OrtTensorTypeAndShapeInfo` describing element type and shape                                                                               |
-|  [23]   | `OrtValue.GetTensorMemoryInfo`                 | metadata read   | returns `OrtMemoryInfo` for where the tensor buffer lives                                                                                           |
-|  [24]   | `OrtMemoryInfo.DefaultInstance`                | static property | shared CPU `OrtMemoryInfo` for default-device binding                                                                                               |
-|  [25]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtAllocatorType, int, OrtMemType)` builds a device descriptor                                                                            |
-|  [26]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtMemoryInfoDeviceType, uint vendorId, int deviceId, OrtDeviceMemoryType, ulong alignment, OrtAllocatorType)` extended device descriptor |
-|  [27]   | `OrtMemoryInfo.Name`                           | accessor read   | `string Name { get; }` — allocator/device name; the `GetTensorMemoryInfo().Name` arena name the `ModelRun` receipt stamps as `ArenaAllocator`        |
-|  [28]   | `OrtMemoryInfo.Id`                             | accessor read   | `int Id { get; }` — device id the descriptor was created against                                                                                   |
-|  [29]   | `OrtMemoryInfo.GetAllocatorType`               | accessor read   | `OrtAllocatorType GetAllocatorType()` — arena/device allocator classifier of the descriptor                                                        |
-|  [30]   | `OrtMemoryInfo.GetMemoryType`                  | accessor read   | `OrtMemType GetMemoryType()` — the legacy CPU/output mem-type axis (distinct from the V2 device-memory class)                                       |
-|  [31]   | `OrtMemoryInfo.GetDeviceMemoryType`            | accessor read   | `OrtDeviceMemoryType GetDeviceMemoryType()` — the V2 `DEFAULT`/`HOST_ACCESSIBLE` device-memory class                                                |
-|  [32]   | `OrtMemoryInfo.GetVendorId`                    | accessor read   | `uint GetVendorId()` — device vendor id; the read-side mirror of the [26] extended ctor                                                            |
+|  [10]   | `OrtIoBinding.SynchronizeBoundInputs`          | sync call       | flushes pending bound input transfers                                                                                                               |
+|  [11]   | `OrtIoBinding.SynchronizeBoundOutputs`         | sync call       | flushes pending bound output transfers                                                                                                              |
+|  [12]   | `OrtIoBinding.GetOutputNames`                  | binding read    | `string[]` returns bound output names                                                                                                               |
+|  [13]   | `OrtIoBinding.GetOutputValues`                 | binding read    | `IDisposableReadOnlyCollection<OrtValue>` returns bound output values                                                                               |
+|  [14]   | `OrtIoBinding.ClearBoundInputs`                | reset call      | clears all bound inputs                                                                                                                             |
+|  [15]   | `OrtIoBinding.ClearBoundOutputs`               | reset call      | clears all bound outputs                                                                                                                            |
+|  [16]   | `OrtValue.CreateTensorValueWithData`           | factory call    | `(OrtMemoryInfo, TensorElementType, long[], nint, long)` binds device memory                                                                        |
+|  [17]   | `OrtValue.CreateAllocatedTensorValue`          | factory call    | `(OrtAllocator, TensorElementType, long[])` allocates an output tensor                                                                              |
+|  [18]   | `OrtValue.GetTensorDataAsSpan<T>`              | span read       | `ReadOnlySpan<T>` reads bound tensor data                                                                                                           |
+|  [19]   | `OrtValue.GetTensorMutableDataAsSpan<T>`       | span write      | `Span<T>` writes bound tensor data                                                                                                                  |
+|  [20]   | `OrtValue.GetTensorDataAsTensorSpan<T>`        | span read       | `ReadOnlyTensorSpan<T>` reads tensor data as `System.Numerics.Tensors` span                                                                         |
+|  [21]   | `OrtValue.GetTensorMutableDataAsTensorSpan<T>` | span write      | `TensorSpan<T>` writes tensor data as `System.Numerics.Tensors` span                                                                                |
+|  [22]   | `OrtValue.GetTensorMutableRawData`             | raw read        | `Span<byte>` reads raw tensor bytes                                                                                                                 |
+|  [23]   | `OrtValue.GetTensorSizeInBytes`                | metadata read   | returns total byte count for the tensor buffer                                                                                                      |
+|  [24]   | `OrtValue.GetTensorTypeAndShape`               | metadata read   | returns `OrtTensorTypeAndShapeInfo` describing element type and shape                                                                               |
+|  [25]   | `OrtValue.GetTensorMemoryInfo`                 | metadata read   | returns `OrtMemoryInfo` for where the tensor buffer lives                                                                                           |
+|  [26]   | `OrtMemoryInfo.DefaultInstance`                | static property | shared CPU `OrtMemoryInfo` for default-device binding                                                                                               |
+|  [27]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtAllocatorType, int, OrtMemType)` builds a device descriptor                                                                            |
+|  [28]   | `OrtMemoryInfo`                                | ctor            | `(string, OrtMemoryInfoDeviceType, uint vendorId, int deviceId, OrtDeviceMemoryType, ulong alignment, OrtAllocatorType)` extended device descriptor |
+|  [29]   | `OrtMemoryInfo.Name`                           | accessor read   | `string Name { get; }` — allocator/device name; the `GetTensorMemoryInfo().Name` arena name the `ModelRun` receipt stamps as `ArenaAllocator`        |
+|  [30]   | `OrtMemoryInfo.Id`                             | accessor read   | `int Id { get; }` — device id the descriptor was created against                                                                                   |
+|  [31]   | `OrtMemoryInfo.GetAllocatorType`               | accessor read   | `OrtAllocatorType GetAllocatorType()` — arena/device allocator classifier of the descriptor                                                        |
+|  [32]   | `OrtMemoryInfo.GetMemoryType`                  | accessor read   | `OrtMemType GetMemoryType()` — the legacy CPU/output mem-type axis (distinct from the V2 device-memory class)                                       |
+|  [33]   | `OrtMemoryInfo.GetDeviceMemoryType`            | accessor read   | `OrtDeviceMemoryType GetDeviceMemoryType()` — the V2 `DEFAULT`/`HOST_ACCESSIBLE` device-memory class                                                |
+|  [34]   | `OrtMemoryInfo.GetVendorId`                    | accessor read   | `uint GetVendorId()` — device vendor id; the read-side mirror of the [26] extended ctor                                                            |
 
 ## [04]-[CONFIG_KEYS]
 
 [CONFIG_KEY_SCOPE]: session-options config-entry keys (decompile/header-verified, set through `SessionOptions.AddSessionConfigEntry`)
 - rail: model
-- source: `build/native/include/onnxruntime_session_options_config_keys.h` (1.27.0)
+- source: `build/native/include/onnxruntime_session_options_config_keys.h`
 
 EP-context (warm-start / fleet-compiled context) family — the `Open`/`Compile` folds drive these:
 
@@ -352,7 +356,7 @@ Base session / arena / quantization keys the design composes:
 
 [CONFIG_KEY_SCOPE]: run-options config-entry keys (set through `RunOptions.AddRunConfigEntry`)
 - rail: model
-- source: `build/native/include/onnxruntime_run_options_config_keys.h` (1.27.0)
+- source: `build/native/include/onnxruntime_run_options_config_keys.h`
 
 | [INDEX] | [KEY_STRING]                                  | [VALUE_DOMAIN]          | [ROLE]                                               |
 | :-----: | :-------------------------------------------- | :---------------------- | :--------------------------------------------------- |
@@ -416,7 +420,7 @@ Base session / arena / quantization keys the design composes:
 
 [NATIVE_RUNTIME]:
 - OWNERSHIP: this page is the canonical owner of BOTH the EP/device selection matrix (sections 2-3 `ExecutionProvider*`/`AppendExecutionProvider_*`/`OrtEpDevice` + the `[EXECUTION_PROVIDER_SELECTION]` law) AND the per-RID native ABI matrix (section 2 `[PACKAGE_ASSET_SCOPE]: per-RID native ABI matrix`). The genai lane (`api-onnxruntimegenai`), the `.Gpu` lane, and the `.DirectML` lane declare ONLY their managed-floor pin and compose these facts here — neither restates the EP roster nor the RID payload set
-- package asset: native runtime libraries; the BASE meta-package `runtimes/` ships only `win-x64` and `win-arm64` payloads inline (`onnxruntime.dll` + `onnxruntime_providers_shared.dll`). macOS arm64 and Linux x64/arm64 base runtimes load from the platform/feed-resolved `libonnxruntime.{dylib,so}` the build copies — the CoreML EP is built into the macOS dylib (no separate provider DLL), and accelerated CUDA/TensorRT (`linux-x64`/`win-x64` only) and DirectML (`win-x64`/`win-arm64`) providers ride the sibling `.Gpu`/`.DirectML` packages, additive onto the matching RID (the DirectML line is the 1.24.4 HOLD, RID-gated rather than co-resident on the 1.27.0 base)
+- package asset: native runtime libraries; the BASE meta-package `runtimes/` ships only `win-x64` and `win-arm64` payloads inline. macOS arm64 and Linux x64/arm64 base runtimes load from the platform/feed-resolved `libonnxruntime.{dylib,so}` the build copies. The CoreML EP is built into the macOS dylib, and accelerated CUDA/TensorRT plus DirectML providers ride sibling packages additive onto the matching RID.
 - build assets: `build/native/*.props`/`*.targets` copy native runtime libraries by RID
 - provider policy: execution-provider selection is explicit model-rail policy; append order is fallback priority — the genai `Config.AppendProvider`/`SetProviderOption`/`SetDecoderProviderOptionsHardware*` surface selects FROM this EP roster and binds to devices this page's `OrtEpDevice`/`OrtHardwareDevice` discovery enumerates
 
@@ -470,7 +474,7 @@ Base session / arena / quantization keys the design composes:
 - `RegisterCustomOpLibraryV2(path, out nint)` maps to `OrtRegisterCustomOpsLibrary` (load and register, returning a native handle the CALLER then owns) — the legacy caller-must-free path: a discarded `out _` handle never unloads and leaks the library, so it is the rejected spelling.
 - `RegisterOrtExtensions()` is a convenience wrapper that loads the `libortextensions` native asset shipped by `Microsoft.ML.OnnxRuntime.Extensions`; there is no separate public `OrtExtensions` class — `OrtExtensionsNativeMethods` is internal.
 - `OrtExtensions.RegisterCustomOps` does not exist as a public API in either the ORT managed assembly or the Extensions package; the correct entry point is `SessionOptions.RegisterOrtExtensions()`.
-- `UseModel` does not exist on `SessionOptions` or `InferenceSession` in 1.27.0; it is not part of this package's public surface.
+- `UseModel` does not exist on `SessionOptions` or `InferenceSession` in; it is not part of this package's public surface.
 - `DisposableNamedOnnxValue.CreateFromOrtValue` is internal; it is not a callable public factory — callers consume `DisposableNamedOnnxValue` from `InferenceSession.Run` result collections only.
 
 ## [07]-[COMPILE_API]
@@ -486,7 +490,7 @@ Base session / arena / quantization keys the design composes:
 |  [02]   | `OrtModelCompilationOptions.GetInitializerLocationDelegate`   | initializer delegate | maps an initializer to an external storage location (returns `OrtExternalInitializerInfo`) |
 
 [ENTRYPOINT_SCOPE]: `OrtModelCompilationOptions` decompile-verified signatures
-- source: `Microsoft.ML.OnnxRuntime.Managed` 1.27.0 (`net8.0` consumer-bound asset) decompile
+- source: `Microsoft.ML.OnnxRuntime.Managed` (`net8.0` consumer-bound asset) decompile
 - rail: model (consumed by `Model/sessions#SESSION_CAPSULE` `Compile`)
 
 | [INDEX] | [MEMBER]                                                                  | [SIGNATURE]                                                                                                                                                                                    |

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `pocketken.H3`
 - package: `pocketken.H3`
-- version: `4.0.0`
 - assembly: `pocketken.H3`
 - namespace: `H3`, `H3.Model`, `H3.Extensions`, `H3.Algorithms`
 - license: Apache-2.0 (`<license type="file">LICENSE</license>`; the H3.net managed port carries the Uber-H3 upstream Apache-2.0)
@@ -121,12 +120,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [V4_NAME_ALIASING]:
-- pocketken.H3 4.0.0 ships BOTH the v4-canonical names (`GridRing`, `GridDiskDistances`, `GridDistance`, `GridPathCells`, `CompactCells`, `UncompactCells`, `CellToLocalIj`, `LocalIjToCell`, `ToDirectedEdge`, `OriginToDirectedEdges`, `DirectedEdgeToCells`, `GetDirectedEdgeOrigin`/`Destination`, `IsValidDirectedEdge`, `CellToVertex`, `CellToVertexes`, `VertexToLatLng`) AND the pre-v4 legacy names (`GetHexRing`, `GetKRing`, `DistanceTo`, `LineTo`, `Compact`, `UncompactToResolution`, `ToLocalIJ`, `FromLocalIJ`, `GetUnidirectionalEdge`, `GetUnidirectionalEdges`, `GetIndexesFromUnidirectionalEdge`, `GetOriginFromUnidirectionalEdge`/`GetDestinationFromUnidirectionalEdge`, `IsUnidirectionalEdgeValid`, `GetVertexIndex`, `GetVertexIndicies`, `VertexToGeoCoord`) as distinct method pairs over the same body. Pin the v4-canonical spelling so the managed call site matches the `h3-pg` SQL function name (`h3_grid_ring_unsafe`, `h3_grid_disk_distances`, `h3_grid_distance`, `h3_compact_cells`) one-to-one — the parity is the whole point of the dual admission. There is no managed method literally named `GridDisk`: the hollow ring is `GridRing`, the filled disk-with-distances is `GridDiskDistances`.
+- pocketken.H3 ships BOTH the v4-canonical names (`GridRing`, `GridDiskDistances`, `GridDistance`, `GridPathCells`, `CompactCells`, `UncompactCells`, `CellToLocalIj`, `LocalIjToCell`, `ToDirectedEdge`, `OriginToDirectedEdges`, `DirectedEdgeToCells`, `GetDirectedEdgeOrigin`/`Destination`, `IsValidDirectedEdge`, `CellToVertex`, `CellToVertexes`, `VertexToLatLng`) AND the pre-v4 legacy names (`GetHexRing`, `GetKRing`, `DistanceTo`, `LineTo`, `Compact`, `UncompactToResolution`, `ToLocalIJ`, `FromLocalIJ`, `GetUnidirectionalEdge`, `GetUnidirectionalEdges`, `GetIndexesFromUnidirectionalEdge`, `GetOriginFromUnidirectionalEdge`/`GetDestinationFromUnidirectionalEdge`, `IsUnidirectionalEdgeValid`, `GetVertexIndex`, `GetVertexIndicies`, `VertexToGeoCoord`) as distinct method pairs over the same body. Pin the v4-canonical spelling so the managed call site matches the `h3-pg` SQL function name (`h3_grid_ring_unsafe`, `h3_grid_disk_distances`, `h3_grid_distance`, `h3_compact_cells`) one-to-one — the parity is the whole point of the dual admission. There is no managed method literally named `GridDisk`: the hollow ring is `GridRing`, the filled disk-with-distances is `GridDiskDistances`.
 - `GetKRingFast`/`GridDiskDistancesUnsafe` skip the pentagon-distortion check and throw `HexRingPentagonException` near a pentagon; `GridDiskDistancesSafe`/`GetKRingSlow` are the pentagon-tolerant path. Default to the safe path on user-region input; the unsafe path is for known-interior bulk fills.
 
 [NTS_GEOMETRY_BRIDGE]:
 - The geometry overloads consume and produce `NetTopologySuite.Geometries` types (`Point`/`Polygon`/`MultiPolygon`/`Geometry`/`LineString`/`Coordinate`), so an H3 cell and a PostGIS `geometry` column round-trip through the SAME NTS object the `Npgsql.NetTopologySuite` plugin already binds — no second coordinate model.
-- `H3.Utils.DefaultGeometryFactory` is `new GeometryFactory(new PrecisionModel(1e16), 4326)` — SRID 4326 (WGS84) with a fixed high-precision model. The geometry overloads default to it; pass an explicit `GeometryFactory` only to match a non-4326 SRID, and never hand-roll a `Coordinate` the factory should mint.
+- `H3.Utils.DefaultGeometryFactory` is `new GeometryFactory(new PrecisionModel(1e16), 4326)` — SRID 4326 (WGS84) with a fixed high-precision model. The geometry overloads default to it; an explicit `GeometryFactory` enters only to match a non-4326 SRID, and callers never hand-roll a `Coordinate` the factory mints.
 - `GetCellBoundaries` returns one `MultiPolygon` for a cell set — the GeoJSON `FeatureCollection` egress shape the `NetTopologySuite.IO.GeoJSON4STJ` writer serializes, so a cell-set boundary crosses the wire as one NTS-native GeoJSON document.
 
 [CELL_AS_CONTENT_KEY]:

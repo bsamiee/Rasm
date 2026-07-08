@@ -1,14 +1,14 @@
-# [@opentelemetry/sdk-trace-node] — the node trace SDK leg backing the NodeSdk export row
+# [TS_RUNTIME_API_OPENTELEMETRY_SDK_TRACE_NODE]
 
 `@opentelemetry/sdk-trace-node` is `sdk-trace-base` plus ONE net-new capability: `NodeTracerProvider`, a `BasicTracerProvider` subclass whose `register()` installs the Node async-context spine — the `AsyncLocalStorageContextManager` (from `@opentelemetry/context-async-hooks`) and the W3C `CompositePropagator` (`W3CTraceContextPropagator` + `W3CBaggagePropagator`, from `@opentelemetry/core`). That async-local-storage context manager is the whole reason this leg is distinct from base: it makes span parenting survive `await`/callback boundaries in Node with no manual context threading. The barrel re-exports the ENTIRE `sdk-trace-base` roster (samplers, processors, exporters, id generator, every type — catalogued in `opentelemetry-sdk-trace-base.md`), so a node consumer has one import site. `@effect/opentelemetry` `NodeSdk` constructs `new NodeTracerProvider({ ...tracerConfig, resource, spanProcessors })` (verified in `NodeSdk.js`) and manages it inside the Effect runtime WITHOUT calling `.register()`; the global-registration path is the pure-SDK (non-Effect) usage. It collapses with the pin block at `[R3]`.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-trace-node`
-- package: `@opentelemetry/sdk-trace-node` · version `2.8.0` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-trace-node` · version `` · license `Apache-2.0`
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`); flat barrel, no `exports` subpath map.
-- asset: TSDECL `build/src/index.d.ts` (`assay api resolve @opentelemetry/sdk-trace-node` → `2.8.0`, restored).
-- peer: `@opentelemetry/api >=1.0.0 <1.10.0`; deps `@opentelemetry/context-async-hooks` (`AsyncLocalStorageContextManager`), `@opentelemetry/core` (the W3C propagators), `@opentelemetry/sdk-trace-base` (the re-exported roster).
+- asset: TSDECL `build/src/index.d.ts` (restored).
+- peer: `@opentelemetry/api >=catalog <catalog`; deps `@opentelemetry/context-async-hooks` (`AsyncLocalStorageContextManager`), `@opentelemetry/core` (the W catalogC propagators), `@opentelemetry/sdk-trace-base` (the re-exported roster).
 - runtime: node/bun only — the async-local-storage context manager is a node runtime dependency; the browser counterpart is `sdk-trace-web` (`WebTracerProvider`, `StackContextManager`).
 - plane: `plane:runtime` / `plane:server`, edge-ledger-fenced to `scope:runtime`.
 - rail: observability/sdk-bridge; `[R3]` collapse target.
@@ -18,11 +18,11 @@
 
 The only symbol this leg adds over base. `NodeTracerConfig` is a pure alias of `TracerConfig` — no node-specific config axis; the node-ness is entirely in `register()`, whose `SDKRegistrationConfig` selects the global context manager and propagator. Passing `null` for either skips that global install; `undefined` takes the node default.
 
-| [INDEX] | [SYMBOL]                     | [KIND]         | [CAPABILITY / BOUNDARY]                                              |
-| :-----: | :--------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `NodeTracerProvider`         | class          | `extends BasicTracerProvider`; `register()` installs the node globals |
-|  [02]   | `NodeTracerConfig`           | type alias     | `= TracerConfig` — no node-specific field                            |
-|  [03]   | `SDKRegistrationConfig`      | interface (re-export) | `register()` arg — `{ propagator?, contextManager? }`         |
+| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
+|:-----: |:--------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `NodeTracerProvider` | class | `extends BasicTracerProvider`; `register()` installs the node globals |
+| [02] | `NodeTracerConfig` | type alias | `= TracerConfig` — no node-specific field |
+| [03] | `SDKRegistrationConfig` | interface (re-export) | `register()` arg — `{ propagator?, contextManager? }` |
 
 ```ts contract
 declare class NodeTracerProvider extends BasicTracerProvider {
@@ -45,10 +45,10 @@ The barrel re-exports the full `sdk-trace-base` public surface — a node consum
 
 ## [04]-[STACKING]
 
-- [STACK: `@effect/opentelemetry` `NodeSdk`] — the primary consumer, and the reason this leg (not base) backs the node lane. `NodeSdk.layer` does `new NodeTracerProvider({ ...config.tracerConfig, resource, spanProcessors: [...config.spanProcessor] })` and drives it through the Effect runtime — it does NOT call `.register()`, because effect owns global tracer/context wiring via its `Tracer.layer`/`OtelTracerProvider` Tag. So under the telemetry rail the consumed surface is the `NodeTracerProvider` CONSTRUCTOR; the async-local-storage context manager is effect's concern, not a `register()` call.
-- [STACK: pure-SDK global path] — a non-Effect consumer (e.g. an operator that runs OTel directly) does `const p = new NodeTracerProvider(config); p.register()` to install the global provider + `AsyncLocalStorageContextManager` + W3C composite propagator in one call. This is the path that makes `traceparent` extract-and-continue and cross-`await` parenting work without effect.
-- [STACK: `sdk-trace-base` roster] — every processor/exporter/sampler passed to the `NodeTracerProvider` config is a base symbol reached through this barrel; `BatchSpanProcessor(new OTLPTraceExporter(opts))` + `ParentBasedSampler({ root: TraceIdRatioBasedSampler(ratio) })` is the production node trace pipeline.
-- [STACK: runtime split] — `sdk-trace-node` (`NodeTracerProvider`) vs `sdk-trace-web` (`WebTracerProvider`) is a node/browser lane selection at the composition root, never a fork in instrumentation; the native `Otlp` lane is runtime-neutral and rides whichever `HttpClient` the runtime provides.
+- Stack with `@effect/opentelemetry` `NodeSdk`: the primary consumer, and the reason this leg (not base) backs the node lane. `NodeSdk.layer` does `new NodeTracerProvider({ ...config.tracerConfig, resource, spanProcessors: [...config.spanProcessor] })` and drives it through the Effect runtime — it does NOT call `.register()`, because effect owns global tracer/context wiring via its `Tracer.layer`/`OtelTracerProvider` Tag. So under the telemetry rail the consumed surface is the `NodeTracerProvider` CONSTRUCTOR; the async-local-storage context manager is effect's concern, not a `register()` call.
+- Stack with pure-SDK global path: a non-Effect consumer (e.g. an operator that runs OTel directly) does `const p = new NodeTracerProvider(config); p.register()` to install the global provider + `AsyncLocalStorageContextManager` + W3C composite propagator in one call. This is the path that makes `traceparent` extract-and-continue and cross-`await` parenting work without effect.
+- Stack with `sdk-trace-base` roster: every processor/exporter/sampler passed to the `NodeTracerProvider` config is a base symbol reached through this barrel; `BatchSpanProcessor(new OTLPTraceExporter(opts))` + `ParentBasedSampler({ root: TraceIdRatioBasedSampler(ratio) })` is the production node trace pipeline.
+- Stack with runtime split: `sdk-trace-node` (`NodeTracerProvider`) vs `sdk-trace-web` (`WebTracerProvider`) is a node/browser lane selection at the composition root, never a fork in instrumentation; the native `Otlp` lane is runtime-neutral and rides whichever `HttpClient` the runtime provides.
 
 ## [05]-[RAIL_LAW]
 

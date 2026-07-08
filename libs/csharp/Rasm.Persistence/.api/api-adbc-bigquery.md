@@ -13,7 +13,6 @@ the integration seams. The base query/metadata/result-stream surface is document
 
 [PACKAGE_SURFACE]: `Apache.Arrow.Adbc.Drivers.BigQuery`
 - package: `Apache.Arrow.Adbc.Drivers.BigQuery`
-- version: `0.23.0`
 - license: Apache-2.0 (`licenses.nuget.org/Apache-2.0`)
 - assembly: `Apache.Arrow.Adbc.Drivers.BigQuery`
 - namespace: `Apache.Arrow.Adbc.Drivers.BigQuery`
@@ -131,4 +130,4 @@ through `api-arrow.md`, not redefined here.
 - Accept: a BigQuery warehouse opened through the Query-federation boundary, configured by the typed parameter
   map with credentials sourced from the secret store, returning Arrow `RecordBatch` streams over the base contract
 - Reject: an `adbc.bigquery.*` key or credential string in an interior signature; a token re-open where
-  `UpdateToken` should heal; a `RecordBatch` re-materialization away from the Arrow owner; an `Interop.*` driver (no `osx-arm64` native asset)
+  `UpdateToken` heals; a `RecordBatch` re-materialization away from the Arrow owner; an `Interop.*` driver (no `osx-arm64` native asset)

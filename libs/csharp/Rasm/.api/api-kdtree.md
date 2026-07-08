@@ -8,7 +8,7 @@ is the LOW-DIMENSIONAL POINT-NEAREST leaf that the kernel's primitive broad-phas
 (SAH-BVH + Morton octree, `Spatial/index`) serves poorly — point clouds, sample sets, the ICP
 correspondence step — and is ADDITIVE to that broad-phase, never a replacement for primitive
 overlap queries. The fork is `net8.0` and fully generic over `System.Numerics` generic-math:
-`TDimension : INumber<TDimension>, IMinMaxValue<TDimension>` (so a tree binds `double`/`float`/
+`TDimension: INumber<TDimension>, IMinMaxValue<TDimension>` (so a tree binds `double`/`float`/
 `Half`/`decimal`/`ddouble` coordinates), `TNode` is an arbitrary per-point payload, and a
 `DistanceMetrics` enum (Manhattan/Euclidean/Chebyshev/Cosine) or a custom `Func` metric drives
 the search. The kernel maps `Rasm.Spatial` points → `IReadOnlyList<TDimension>` AT THE BOUNDARY
@@ -19,13 +19,12 @@ osx-arm64-safe.
 
 [PACKAGE_SURFACE]: `Supercluster.KDTree.Net`
 - package: `Supercluster.KDTree.Net` (nuspec `<id>`); assembly + namespace use the SHORT name `KDTree` / `SuperClusterKDTree`
-- version: `1.0.22` (`+45735b1c…` informational)
 - license: MIT (`micampbell` fork of SuperClusterInc; `github.com/micampbell/Supercluster.KDTree`; nuspec `<license type="expression">MIT</license>`)
 - assembly: `KDTree.dll` (ships `KDTree.xml`) — the package id and the assembly name DIFFER (`Supercluster.KDTree.Net` package → `KDTree.dll` / `namespace SuperClusterKDTree`); a `using Supercluster.KDTree;` is WRONG
 - namespace: `SuperClusterKDTree` (`KDTree` static factory, `KDTree<TDimension,TPriority,TNode>` tree, `HyperRect<T>`, `DistanceMetrics`); `SuperClusterKDTree.Utilities` (`BoundedPriorityList`, `nth_element` selection — internal-grade helpers)
 - target: single `lib/net8.0` only — NO multi-target fallback ambiguity; the `net10.0` consumer binds the one `net8.0` asset forward (the `INumber<T>` generic-math surface requires net7+, so net8.0 is the real floor — there is no `netstandard` fallback)
 - asset: pure-managed runtime library, AnyCPU, NO native runtime and ZERO package dependencies (`<group targetFramework="net8.0" />` empty); the tree stores flat `IList<IReadOnlyList<TDimension>>` point + `IList<TNode>` node arrays (the "array-backed" balanced-tree layout)
-- abi: full `System.Numerics` generic-math — `TDimension : INumber<TDimension>, IMinMaxValue<TDimension>` and `TPriority : INumber<TPriority>, IMinMaxValue<TPriority>`; a tree over `double`/`float`/`Half`/`decimal`/`ddouble` (`api-doubledouble`) coordinates binds with NO adapter
+- abi: full `System.Numerics` generic-math — `TDimension: INumber<TDimension>, IMinMaxValue<TDimension>` and `TPriority: INumber<TPriority>, IMinMaxValue<TPriority>`; a tree over `double`/`float`/`Half`/`decimal`/`ddouble` (`api-doubledouble`) coordinates binds with NO adapter
 - rail: exact low-dimensional point k-NN / radius search
 
 ## [02]-[PUBLIC_TYPES]
@@ -39,12 +38,12 @@ The tree is generic in THREE parameters — `TDimension` (coordinate scalar), `T
 `KDTree.Create` factory is the ergonomic entrypoint that wires the metric from the enum so a
 consumer never hand-writes the `Func`.
 
-| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]                       | [CAPABILITY]                                                                                          |
-| :-----: | :---------------------------------------- | :----------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `KDTree` (static)                         | the ergonomic factory + metrics      | `static Create<TDimension,TNode>(points, nodes, DistanceMetrics)`; the four static distance functions |
-|  [02]   | `KDTree<TDimension,TPriority,TNode>`      | the balanced kd-tree                 | `where TDimension : IComparable<TDimension>, IMinMaxValue<TDimension>` and `TPriority : INumber<TPriority>, IMinMaxValue<TPriority>`; carries `NearestNeighbors`/`RadialSearch` + the flat point/node arrays |
-|  [03]   | `DistanceMetrics` (enum)                  | the built-in metric selector         | `ManhattanDistance` (L1) / `EuclideanDistance` (L2-SQUARED — no sqrt) / `ChebyshevDistance` (L∞) / `CosineDistance` |
-|  [04]   | `HyperRect<T>`                            | N-dim bounding rectangle             | `static Infinite(int dimensions, T pos∞, T neg∞)`; `GetClosestPoint(IReadOnlyList<T>)`; `Clone()` — the internal node split-region primitive |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+|:-----: |:---------------------------------------- |:----------------------------------- |:--------------------------------------------------------------------------------------------------- |
+| [01] | `KDTree` (static) | the ergonomic factory + metrics | `static Create<TDimension,TNode>(points, nodes, DistanceMetrics)`; the four static distance functions |
+| [02] | `KDTree<TDimension,TPriority,TNode>` | the balanced kd-tree | `where TDimension: IComparable<TDimension>, IMinMaxValue<TDimension>` and `TPriority: INumber<TPriority>, IMinMaxValue<TPriority>`; carries `NearestNeighbors`/`RadialSearch` + the flat point/node arrays |
+| [03] | `DistanceMetrics` (enum) | the built-in metric selector | `ManhattanDistance` (L1) / `EuclideanDistance` (L2-SQUARED — no sqrt) / `ChebyshevDistance` (L∞) / `CosineDistance` |
+| [04] | `HyperRect<T>` | N-dim bounding rectangle | `static Infinite(int dimensions, T pos∞, T neg∞)`; `GetClosestPoint(IReadOnlyList<T>)`; `Clone()` — the internal node split-region primitive |
 
 ## [03]-[CONSTRUCTION]
 
@@ -57,13 +56,13 @@ metric `Func` or a non-default search window. CONSTRUCTION IS THE INDEXING COST:
 balances once at build (median split) and is then immutable for queries; rebuild on point-set
 change rather than mutating.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `KDTree.Create<TDimension,TNode>(IList<IReadOnlyList<TDimension>> points, IList<TNode> nodes, DistanceMetrics distanceMetric)` (→ `KDTree<TDimension,TDimension,TNode>`) | static factory | the ergonomic build — points + parallel payloads + a built-in metric; `TPriority` = `TDimension` |
-|  [02]   | `new KDTree<TDimension,TPriority,TNode>(int dimensions, ICollection<IReadOnlyList<TDimension>> points, IEnumerable<TNode> nodes, Func<…,…,TPriority> metric, TDimension searchWindowMinValue=default, TDimension searchWindowMaxValue=default)` | constructor | full control — explicit dimensionality + a CUSTOM metric `Func` + a search-window clamp |
-|  [03]   | `new KDTree<…>(int dimensions, IEnumerable<IReadOnlyList<TDimension>> points, int pointsCount, IEnumerable<TNode> nodes, Func<…> metric, …)` | constructor | the streaming overload — `pointsCount` lets a lazy `IEnumerable` build without a materialized count |
-|  [04]   | `Count` / `Dimensions` (props)                                            | instance       | the indexed point count and the fixed dimensionality                 |
-|  [05]   | `InternalPointArray` (`IList<IReadOnlyList<TDimension>>`) / `InternalNodeArray` (`IList<TNode>`) / `Metric` (settable `Func`) | instance | the flat balanced-tree storage views + a swappable metric delegate   |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `KDTree.Create<TDimension,TNode>(IList<IReadOnlyList<TDimension>> points, IList<TNode> nodes, DistanceMetrics distanceMetric)` (→ `KDTree<TDimension,TDimension,TNode>`) | static factory | the ergonomic build — points + parallel payloads + a built-in metric; `TPriority` = `TDimension` |
+| [02] | `new KDTree<TDimension,TPriority,TNode>(int dimensions, ICollection<IReadOnlyList<TDimension>> points, IEnumerable<TNode> nodes, Func<…,…,TPriority> metric, TDimension searchWindowMinValue=default, TDimension searchWindowMaxValue=default)` | constructor | full control — explicit dimensionality + a CUSTOM metric `Func` + a search-window clamp |
+| [03] | `new KDTree<…>(int dimensions, IEnumerable<IReadOnlyList<TDimension>> points, int pointsCount, IEnumerable<TNode> nodes, Func<…> metric, …)` | constructor | the streaming overload — `pointsCount` lets a lazy `IEnumerable` build without a materialized count |
+| [04] | `Count` / `Dimensions` (props) | instance | the indexed point count and the fixed dimensionality |
+| [05] | `InternalPointArray` (`IList<IReadOnlyList<TDimension>>`) / `InternalNodeArray` (`IList<TNode>`) / `Metric` (settable `Func`) | instance | the flat balanced-tree storage views + a swappable metric delegate |
 
 ## [04]-[QUERY]
 
@@ -76,17 +75,17 @@ POINT paired with its `TNode` payload, so the consumer recovers its own index/da
 (`numNeighbors=-1` = all within radius). NOTE: when the metric is `EuclideanDistance`, the
 priority/`radius` is in SQUARED distance (the metric skips the sqrt) — pass `r²`, not `r`.
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]   | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `NearestNeighbors(IReadOnlyList<TDimension> point, int numNeighbors)` (→ `IEnumerable<(IReadOnlyList<TDimension>, TNode)>`) | instance | exact k-nearest neighbours to `point`, each as `(coordinate, payload)` |
-|  [02]   | `RadialSearch(IReadOnlyList<TDimension> center, TPriority radius, int numNeighbors=-1)` (→ `IEnumerable<(IReadOnlyList<TDimension>, TNode)>`) | instance | all points within `radius` of `center` (or the `numNeighbors` nearest within it); `radius` is SQUARED for the Euclidean metric |
-|  [03]   | `KDTree.EuclideanDistance` / `ManhattanDistance` / `ChebyshevDistance` / `CosineDistance` `<TDimension>(IReadOnlyList<TDimension> x, IReadOnlyList<TDimension> y)` | static | the four metric functions — Euclidean returns the SQUARED L2 distance (no sqrt) for speed |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `NearestNeighbors(IReadOnlyList<TDimension> point, int numNeighbors)` (→ `IEnumerable<(IReadOnlyList<TDimension>, TNode)>`) | instance | exact k-nearest neighbours to `point`, each as `(coordinate, payload)` |
+| [02] | `RadialSearch(IReadOnlyList<TDimension> center, TPriority radius, int numNeighbors=-1)` (→ `IEnumerable<(IReadOnlyList<TDimension>, TNode)>`) | instance | all points within `radius` of `center` (or the `numNeighbors` nearest within it); `radius` is SQUARED for the Euclidean metric |
+| [03] | `KDTree.EuclideanDistance` / `ManhattanDistance` / `ChebyshevDistance` / `CosineDistance` `<TDimension>(IReadOnlyList<TDimension> x, IReadOnlyList<TDimension> y)` | static | the four metric functions — Euclidean returns the SQUARED L2 distance (no sqrt) for speed |
 
 ## [05]-[IMPLEMENTATION_LAW]
 
 [VALUE_PROFILE]:
 - representation: a static-balanced binary tree stored as FLAT arrays (`InternalPointArray` points + `InternalNodeArray` parallel payloads) — the "array-backed" layout, with implicit children at `2i+1`/`2i+2`. A point is an `IReadOnlyList<TDimension>` (any dimensionality fixed at build via `Dimensions`), NOT a fixed `(x,y,z)` struct — the tree is GENERIC N-dimensional, not 3D-specialized.
-- generic math: `TDimension : INumber<TDimension>, IMinMaxValue<TDimension>` and `TPriority : INumber<TPriority>, IMinMaxValue<TPriority>` — the tree binds any `System.Numerics` scalar (`double`/`float`/`Half`/`decimal`/`ddouble`) with no adapter; `IMinMaxValue` supplies the ±∞ split-region sentinels via `HyperRect<T>.Infinite`.
+- generic math: `TDimension: INumber<TDimension>, IMinMaxValue<TDimension>` and `TPriority: INumber<TPriority>, IMinMaxValue<TPriority>` — the tree binds any `System.Numerics` scalar (`double`/`float`/`Half`/`decimal`/`ddouble`) with no adapter; `IMinMaxValue` supplies the ±∞ split-region sentinels via `HyperRect<T>.Infinite`.
 - immutability: the tree balances ONCE at construction (median split) and is immutable for queries; a point-set change means a rebuild, not an insert/delete — there is no incremental update API.
 - metric semantics: `EuclideanDistance` returns SQUARED L2 (skips the sqrt for speed), so a `RadialSearch` radius and any priority comparison under that metric is in squared units; `ManhattanDistance`=L1, `ChebyshevDistance`=L∞, `CosineDistance`=cosine. A custom `Func<IReadOnlyList<T>,IReadOnlyList<T>,TPriority>` metric is settable on `Metric`.
 
@@ -100,7 +99,7 @@ priority/`radius` is in SQUARED distance (the metric skips the sqrt) — pass `r
 - vs the kernel BVH/octree (`Spatial/index`, kernel-authored): the kd-tree and the BVH/octree are DISJOINT acceleration owners partitioned by query shape — point k-NN/radius vs primitive overlap/ray. Never re-implement a point-cloud k-NN on the BVH (a BVH is the wrong structure for low-dim point-nearest) nor a primitive broad-phase on the kd-tree.
 - vs the vendored NURBS engine (`Parametric/nurbs`): the engine's `ClosestParameter` is the PARAMETRIC (continuous, Newton-on-one-carrier) nearest point; this kd-tree is the DISCRETE (sampled point cloud) nearest point. A dense closest-point query over many sampled curve/surface points routes through the kd-tree (the `Parametric/surface` batch pullback seeds exactly this way); the single-carrier continuous projection stays on the engine.
 - vs MIConvexHull (`api-miconvexhull`): MIConvexHull's `Triangulation.CreateDelaunay` produces a Delaunay cell complex (connectivity); the kd-tree produces nearest-neighbour QUERIES (no connectivity). For "k nearest of a fixed cloud" use the kd-tree; for "triangulate the cloud" use MIConvexHull — they answer different questions over the same points.
-- vs DoubleDouble (`api-doubledouble`): because `TDimension : INumber<TDimension>`, a kd-tree over `ddouble` coordinates binds directly — a precision-critical point cloud (degenerate near-coincident points) can index at 106-bit with no specialized path, the `ddouble` distance computed through the same generic metric.
+- vs DoubleDouble (`api-doubledouble`): because `TDimension: INumber<TDimension>`, a kd-tree over `ddouble` coordinates binds directly — a precision-critical point cloud (degenerate near-coincident points) can index at 106-bit with no specialized path, the `ddouble` distance computed through the same generic metric.
 - vs the upstream `Supercluster.KDTree` lineage: this fork's type is `SuperClusterKDTree.KDTree<TDimension,TPriority,TNode>` (arity-3, namespace `SuperClusterKDTree`, assembly `KDTree.dll`) — the ORIGINAL `Supercluster.KDTree` namespace names the upstream arity-1 tree some ecosystem packages bundle as source, a different fully-qualified type. Reach this fork's arity-3 tree only as `using SuperClusterKDTree;`; `using Supercluster.KDTree;` names the wrong namespace for this package.
 
 [RAIL_LAW]:

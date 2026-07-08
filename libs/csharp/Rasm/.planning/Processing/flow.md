@@ -32,7 +32,7 @@ The streamline/trace owner — ONE `Termination` `[Union]` (`StepCount`/`ArcLeng
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Numerics;

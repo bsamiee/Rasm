@@ -33,7 +33,7 @@ table may carry multiple diskann indexes over distinct vector columns. The ops-c
 each carry the `Key` (ops-class) and the `Operator`, and the EF query path reuses the catalogued
 `api-pgvector-ef.md` distance `DbFunctions` so the same operator drives both index build and query.
 
-| [INDEX] | [OPS_CLASS]         | [OPERATOR] | [DISTANCE]          | [PGVECTOR_FN]     | [DiskAnnOps]            |
+| [INDEX] | [OPS_CLASS]         | [OPERATOR] | [DISTANCE]          | [PGVECTOR_FN]     | [DISKANNOPS]            |
 | :-----: | :------------------ | :--------- | :------------------ | :---------------- | :--------------------- |
 |  [01]   | `vector_cosine_ops` | `<=>`      | cosine              | `CosineDistance`  | `DiskAnnOps.Cosine`    |
 |  [02]   | `vector_l2_ops`     | `<->`      | L2 / euclidean      | `L2Distance`      | `DiskAnnOps.L2`        |
@@ -53,7 +53,7 @@ The `WITH (...)` storage parameters the `Store/provisioning#SERVER_EXTENSIONS` `
 `MaxAlpha:1.2` / `NumDimensions:0` / `NumBitsPerDimension:0`). `DiskAnnLayout` is a `[SmartEnum]`
 (`MemoryOptimized`/`Plain`). Sentinel values resolve at build time from the column dimensionality.
 
-| [INDEX] | [WITH_KEY]               | [DiskAnnOptions FIELD] | [TYPE]  | [DEFAULT]          | [SEMANTICS]                                                      |
+| [INDEX] | [WITH_KEY]               | [DISKANNOPTIONS_FIELD] | [TYPE]  | [DEFAULT]          | [SEMANTICS]                                                      |
 | :-----: | :----------------------- | :--------------------- | :------ | :----------------- | :--------------------------------------------------------------- |
 |  [01]   | `storage_layout`         | `StorageLayout` (`DiskAnnLayout`) | text | `memory_optimized` | `memory_optimized` enables SBQ; `plain` stores full vectors |
 |  [02]   | `num_neighbors`          | `NumNeighbors`         | integer | `50`               | graph degree; `-1` derives degree from dimensionality            |

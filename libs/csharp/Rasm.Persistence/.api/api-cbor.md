@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `System.Formats.Cbor`
 - package: `System.Formats.Cbor`
-- version: `10.0.9`
 - license: MIT
 - assembly: `System.Formats.Cbor`
 - namespace: `System.Formats.Cbor`
@@ -35,7 +34,7 @@
 |  [02]   | `CborTag`             | semantic-tag enum   | RFC 8949 tag vocabulary (`ulong`-backed)             |
 |  [03]   | `CborSimpleValue`     | simple-value enum   | `byte`-backed `False=20`/`True`/`Null`/`Undefined`   |
 
-`CborConformanceMode` cases: `Lax` (no validation), `Strict` (well-formedness + no duplicate keys), `Canonical` (RFC 8949 §4.2.1 deterministic — shortest-form ints, length-sorted map keys, definite lengths), `Ctap2Canonical` (CTAP2 §6 — canonical plus depth/type restrictions for FIDO2). `Canonical`/`Ctap2Canonical` force `WriteStartMap`/`WriteStartArray` to emit definite-length headers and reorder map-key encodings on `WriteEndMap`.
+`CborConformanceMode` cases: `Lax` (no validation), `Strict` (well-formedness + no duplicate keys), `Canonical` (RFC 8949 § deterministic — shortest-form ints, length-sorted map keys, definite lengths), `Ctap2Canonical` (CTAP2 §6 — canonical plus depth/type restrictions for FIDO2). `Canonical`/`Ctap2Canonical` force `WriteStartMap`/`WriteStartArray` to emit definite-length headers and reorder map-key encodings on `WriteEndMap`.
 `CborSimpleValue` cases (RFC 8949 major type 7): `False = 20`, `True = 21`, `Null = 22`, `Undefined = 23`. Values 0-19 and 32-255 are writable via the raw `WriteSimpleValue(CborSimpleValue)` overload.
 `CborTag` cases: `DateTimeString = 0`, `UnixTimeSeconds = 1`, `UnsignedBigNum = 2`, `NegativeBigNum = 3`, `DecimalFraction = 4`, `BigFloat = 5`, `Base64UrlLaterEncoding = 21`, `Base64StringLaterEncoding = 22`, `Base16StringLaterEncoding = 23`, `EncodedCborDataItem = 24`, `Uri = 32`, `Base64Url = 33`, `Base64 = 34`, `Regex = 35`, `MimeMessage = 36`, `SelfDescribeCbor = 55799`. The typed `WriteDateTimeOffset`/`WriteUnixTimeSeconds`/`WriteBigInteger`/`WriteDecimal` helpers emit the matching tag automatically; raw `WriteTag` precedes a hand-encoded tagged item.
 
@@ -112,7 +111,7 @@
 [CBOR_TOPOLOGY]:
 - namespace: `System.Formats.Cbor` — the entire surface; no sub-namespaces, no DI, no attributes
 - the encoder owns an internal growable buffer (`initialCapacity` seeds it); the decoder is read-only over an immutable `ReadOnlyMemory<byte>` — there is no streaming `Stream` overload, the whole item set is buffer-resident
-- `CborWriter.ConformanceMode` is fixed at construction; `Canonical`/`Ctap2Canonical` defer map-key sorting to `WriteEndMap`, where the writer reorders the per-key encoding ranges by RFC 8949 §4.2.1 byte order — deterministic output requires no caller-side key sorting
+- `CborWriter.ConformanceMode` is fixed at construction; `Canonical`/`Ctap2Canonical` defer map-key sorting to `WriteEndMap`, where the writer reorders the per-key encoding ranges by RFC 8949 § byte order — deterministic output requires no caller-side key sorting
 - `ConvertIndefiniteLengthEncodings = true` rewrites indefinite-length frames to definite-length on `Encode()`; `AllowMultipleRootLevelValues` permits a sequence of top-level items in one buffer
 - the decode loop is a `PeekState()` switch: each `CborReaderState` (`UnsignedInteger`, `NegativeInteger`, `ByteString`, `StartArray`, `StartMap`, `Tag`, `HalfPrecisionFloat`, `Boolean`, `Null`, `Finished`, the `Start/EndIndefiniteLength*` markers, …) selects the matching typed `Read*` call; a wrong-type read throws `InvalidOperationException`, structurally malformed bytes throw `CborContentException`
 - the zero-copy reads (`ReadDefiniteLengthByteString`, `ReadDefiniteLengthTextStringBytes`, `ReadEncodedValue`) return `ReadOnlyMemory<byte>` slices over the source buffer; the `TryRead*(Span<…>, out int)` reads target a caller-owned span with no heap allocation

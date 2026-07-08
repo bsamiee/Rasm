@@ -19,7 +19,6 @@ delegate pair. The whole surface is async-only on the v4 line and pure-managed.
 
 [PACKAGE_SURFACE]: `AWSSDK.KeyManagementService`
 - package: `AWSSDK.KeyManagementService`
-- version: `4.0.100.2`
 - license: `Apache-2.0`
 - assembly: `AWSSDK.KeyManagementService` (`lib/net8.0` binds for the `net10.0` consumer; `netcoreapp3.1`/`netstandard2.0`/`net472` are fallback assets)
 - namespace: `Amazon.KeyManagementService`, `Amazon.KeyManagementService.Model`
@@ -166,7 +165,7 @@ delegate pair. The whole surface is async-only on the v4 line and pure-managed.
 - `DataKeySpec` is `AES_256` or `AES_128`; either set `KeySpec` or set `NumberOfBytes` (`1`–`1024`), never both.
 - `EncryptionAlgorithmSpec` is `SYMMETRIC_DEFAULT`, `RSAES_OAEP_SHA_1`, `RSAES_OAEP_SHA_256`, or `SM2PKE`; symmetric envelope work uses `SYMMETRIC_DEFAULT` and the response echoes the resolved algorithm.
 - `EncryptionContext` is a `Dictionary<string,string>` of non-secret AAD logged in CloudTrail; the exact case-sensitive map supplied at wrap is required at unwrap, and it binds only to symmetric KMS keys.
-- `GrantTokens` accepts up to `10` tokens to cover grants not yet at eventual consistency; `DryRun` (with `DryRunModifiers`) probes permission without effect and raises `DryRunOperationException` on a would-succeed probe.
+- `GrantTokens` accepts up to `10` tokens to cover grants not yet at eventual consistency; `DryRun` (with `DryRunModifiers`) probes permission without effect and raises `DryRunOperationException` on a permission-positive probe.
 - `KeyMaterialId` on `GenerateDataKey`/`Decrypt`/`ReEncrypt` responses pins the exact key material used; it is omitted when the request carries a `Recipient` attestation, in which case `CiphertextForRecipient` carries the enclave-bound blob instead of `Plaintext`.
 
 [ENVELOPE_LAW]:

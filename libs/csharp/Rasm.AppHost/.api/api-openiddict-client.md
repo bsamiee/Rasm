@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `OpenIddict.Client`
 - package: `OpenIddict.Client`
-- version: `7.5.0`
 - license: `Apache-2.0`
 - assembly: `OpenIddict.Client`
 - namespace: `OpenIddict.Client` (service, models, registration, options, endpoint enum), `Microsoft.Extensions.DependencyInjection` (`OpenIddictClientBuilder`, `OpenIddictClientExtensions`)

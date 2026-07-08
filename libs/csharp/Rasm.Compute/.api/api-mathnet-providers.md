@@ -9,18 +9,18 @@ signal lane marshals and windows, and the in-assembly probability
 `Distributions` and descriptive `Statistics` surfaces the uncertainty,
 estimator, and hypothesis-test lanes sample, reduce, and read CDFs from;
 `CSparse` supplies direct sparse Cholesky, LU, and QR factorizations beside the
-MathNet iterative solvers for the numeric lane. The substrate
-canonical member catalog is `libs/csharp/.api/api-mathnet-providers.md` (provider
-selection, dense algebra + factorization, sparse ingestion + iterative solve) with
-`libs/csharp/.api/api-mathnet-numerics.md` (distributions, quadrature, roots,
-interpolation, special functions) and `libs/csharp/.api/api-csparse.md` beside it;
-this overlay carries only the Compute delta — the signal-transform, distribution,
-and statistics scopes the Tensor/Stats/Solver lanes compose, and the lane law.
+MathNet iterative solvers for the numeric lane. This catalog owns provider
+selection, dense algebra, factorization, sparse ingestion, iterative solve,
+signal transform, distribution, and statistics scopes for the Compute Tensor,
+Stats, and Solver lanes; `libs/csharp/.api/api-mathnet-numerics.md` retains the
+shared non-provider MathNet functions, and `libs/csharp/.api/api-csparse.md`
+retains the direct sparse-solver catalog.
 
-## [01]-[SUBSTRATE_CANONICAL]
+## [01]-[PROVIDER_STACK]
 
-[SUBSTRATE_CANONICAL]: `libs/csharp/.api/api-mathnet-providers.md`
-- the provider-selection, dense-algebra, sparse-algebra, and iterative-solver type rosters and their call-shape tables (including the `Svd`/`Evd`/`Cholesky`/`LU` factorization members, the concrete `IIterationStopCriterion<T>` rows, and `DiagonalPreconditioner`) live on the substrate catalogs — this overlay never re-states them
+[PROVIDER_STACK]: Compute numeric provider surface
+- provider-selection, dense-algebra, sparse-algebra, and iterative-solver type rosters and their call-shape tables live in this catalog, including the `Svd`/`Evd`/`Cholesky`/`LU` factorization members, the concrete `IIterationStopCriterion<T>` rows, and `DiagonalPreconditioner`
+- shared non-provider numerical functions stay in `libs/csharp/.api/api-mathnet-numerics.md`; direct sparse Cholesky/LU/QR facts stay in `libs/csharp/.api/api-csparse.md`
 - rail: numeric
 
 ## [02]-[COMPUTE_SCOPES]
@@ -73,6 +73,40 @@ The `Distributions` and `Statistics` surfaces ship inside the admitted `MathNet.
 
 ## [03]-[IMPLEMENTATION_LAW]
 
+
+
+[SHARED_PROVIDER_SURFACE]:
+- source: `MathNet.Numerics`, `MathNet.Numerics.Providers.MKL`, `MathNet.Numerics.Providers.OpenBLAS`, `CSparse`
+- provider selection, dense factorization, sparse ingestion, and iterative-solver rosters remain the Compute numeric-lane substrate row.
+
+[PACKAGE_SURFACE]: `MathNet.Numerics`
+- package: `MathNet.Numerics` (-beta2; license MIT)
+- assembly: `MathNet.Numerics`
+- namespace: `MathNet.Numerics`, `MathNet.Numerics.LinearAlgebra`, `.LinearAlgebra.Double`, `.LinearAlgebra.Storage`, `.LinearAlgebra.Factorization`, `.LinearAlgebra.Solvers`, `.LinearAlgebra.Double.Solvers`, `.Providers.LinearAlgebra`
+- asset: runtime library (managed; native providers ride sibling asset packages)
+- floor: net8.0 (no net10/net9 lib in -beta2; the net10 consumer binds `lib/net8.0`)
+- rail: numeric
+
+[PACKAGE_SURFACE]: `MathNet.Numerics.Providers.MKL`
+- package: `MathNet.Numerics.Providers.MKL` (-beta2)
+- assembly: `MathNet.Numerics.Providers.MKL`
+- namespace: `MathNet.Numerics.Providers.MKL`, `.Providers.MKL.LinearAlgebra`
+- asset: managed provider adapter (native binaries ship in `MathNet.Numerics.MKL.Win-x64` / `.Linux-x64`; no osx-arm64 asset)
+- rail: numeric
+
+[PACKAGE_SURFACE]: `MathNet.Numerics.Providers.OpenBLAS`
+- package: `MathNet.Numerics.Providers.OpenBLAS` (-beta2)
+- assembly: `MathNet.Numerics.Providers.OpenBLAS`
+- namespace: `MathNet.Numerics.Providers.OpenBLAS.LinearAlgebra`
+- asset: managed provider adapter (native binaries ship in platform OpenBLAS asset packages; no osx-arm64 asset)
+- rail: numeric
+
+[PACKAGE_SURFACE]: `CSparse`
+- package: `CSparse` (full direct-sparse surface in `api-csparse`)
+- assembly: `CSparse`
+- namespace: `CSparse`, `CSparse.Double`, `CSparse.Double.Factorization`, `CSparse.Ordering`, `CSparse.Storage`
+- asset: runtime library (pure managed direct sparse solvers; LGPL-2.1-only)
+- rail: numeric
 
 [PROVIDER_SELECTION]:
 - namespace: `MathNet.Numerics`, `MathNet.Numerics.Providers.LinearAlgebra`

@@ -29,7 +29,7 @@ wrapper that delegates to the private Rust `graphql._internal_resolve` inside a
 `begin ... exception when others` block, returning a GraphQL-shaped error envelope on failure rather
 than raising.
 
-```
+```sql
 graphql.resolve(
     "query" text,
     "variables" jsonb default '{}',

@@ -11,8 +11,8 @@
         "mutation": "stryker run",
         "test": "vitest run",
         "typecheck": "pnpm run typecheck:tsgo && pnpm run typecheck:tsc",
-        "typecheck:tsc": "tsc -p tsconfig.json && tsc -p tests/typescript/_testkit/tsconfig.json && tsc -p tests/typescript/_architecture/tsconfig.json && tsc -p tests/typescript/e2e/tsconfig.json",
-        "typecheck:tsgo": "tsgo -p tsconfig.json && tsgo -p tests/typescript/_testkit/tsconfig.json && tsgo -p tests/typescript/_architecture/tsconfig.json && tsgo -p tests/typescript/e2e/tsconfig.json"
+        "typecheck:tsc": "tsc -p tsconfig.json && pnpm --filter './tests/typescript/*' --workspace-concurrency=1 exec tsc -p tsconfig.json",
+        "typecheck:tsgo": "tsgo -p tsconfig.json && pnpm --filter './tests/typescript/*' --workspace-concurrency=1 exec tsgo -p tsconfig.json"
     },
     "devDependencies": {
         "@ast-grep/cli": "catalog:",
@@ -77,7 +77,7 @@
         "@geoarrow/deck.gl-geoarrow": "catalog:",
         "@google/model-viewer": "catalog:",
         "@lume/kiwi": "catalog:",
-            "@modelcontextprotocol/sdk": "catalog:",
+        "@modelcontextprotocol/sdk": "catalog:",
         "@msgpack/msgpack": "catalog:",
         "@nats-io/jetstream": "catalog:",
         "@nats-io/kv": "catalog:",

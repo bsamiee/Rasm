@@ -4,16 +4,16 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Semi.Avalonia` 12.0.3
+[PACKAGE_SURFACE]: `Semi.Avalonia`
 - package: `Semi.Avalonia`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Semi.Avalonia.dll`); multi-targets net8.0 / net10.0, `net10.0` bound
 - assembly: `Semi.Avalonia`
 - surface: compiled-AXAML resource dictionaries — `SemiTheme` (the `Styles` entry added via `<semi:SemiTheme/>`), `Tokens.Variables`, `Tokens.Palette.Light`, `Tokens.Palette.Dark`, `SemiPopupAnimations`, `Icons`, the `Locale.*` resource set, and three converters (`ItemConverter`, `PositionToAngleConverter`, `PlacementToRenderTransformOriginConverter`). No domain CODE surface
-- depends: `Avalonia` (12.x), `Irihi.Avalonia.Shared` / `Irihi.Avalonia.Shared.Contracts` 0.4.0 (shared primitive closure with Ursa)
+- depends: `Avalonia` (12.x), `Irihi.Avalonia.Shared` / `Irihi.Avalonia.Shared.Contracts` (shared primitive closure with Ursa)
 - rail: theme
 
-[PACKAGE_SURFACE]: `Semi.Avalonia.DataGrid` 12.0.0 / `Semi.Avalonia.ColorPicker` 12.0.3 / `Semi.Avalonia.Dock` 12.0.0.2 / `Semi.Avalonia.AvaloniaEdit` 12.0.0
+[PACKAGE_SURFACE]: `Semi.Avalonia.DataGrid` / `Semi.Avalonia.ColorPicker` / `Semi.Avalonia.Dock` / `Semi.Avalonia.AvaloniaEdit`
 - packages: `Semi.Avalonia.{DataGrid,ColorPicker,Dock,AvaloniaEdit}`
 - license: MIT
 - floor: `net10.0` consumer per package

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Confluent.Kafka`
 - package: `Confluent.Kafka`
-- version: `2.14.2`
 - license: Apache-2.0
 - assembly: `Confluent.Kafka`
 - namespace: `Confluent.Kafka`, `Confluent.Kafka.SyncOverAsync`

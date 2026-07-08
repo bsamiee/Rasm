@@ -87,10 +87,10 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `SkiaSharp`
 - `SkiaSharp.HarfBuzz`
 - `SkiaSharp.NativeAssets.macOS`
-- `SkiaSharp.NativeAssets.Linux`
-- `SkiaSharp.NativeAssets.Linux.NoDependencies`
+- `SkiaSharp.NativeAssets.Linux` — distribution-closure floor (central pin; the csproj carries the macOS natives)
+- `SkiaSharp.NativeAssets.Linux.NoDependencies` — distribution-closure floor (central pin)
 - `HarfBuzzSharp.NativeAssets.macOS`
-- `HarfBuzzSharp.NativeAssets.Linux`
+- `HarfBuzzSharp.NativeAssets.Linux` — distribution-closure floor (central pin)
 - `Svg.Controls.Skia.Avalonia`
 - `Svg.Skia`
 
@@ -104,7 +104,7 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Silk.NET.OpenXR.Extensions.FB`
 
 > [!NOTE]
-> The `Wgpu` GPU family is owned by the .NET Foundation `Silk.NET.WebGPU` binding (stable, MIT) over the bundled `Silk.NET.WebGPU.Native.WGPU` wgpu/Dawn runtime, presenting into the Avalonia 12 compositor through `ICompositionGpuInterop` texture import (`.api/api-avalonia-gpu-interop.md`). `Silk.NET.WebGPU.Extensions.WGPU` adds the wgpu-native vendor surface the standard `webgpu.h` binding omits — non-blocking `DevicePoll`, native log routing, full-adapter enumeration for the compositor-LUID match, and indirect multi-draw for GPU-driven meshlet rendering (`.api/api-silk-webgpu-wgpu.md`). `Silk.NET.OpenXR` owns the immersive design-review surface — the stereo swapchain, the predicted-display-time frame loop, and the action-set controller model share the one `Wgpu` device through the OpenXR graphics binding, folding to the flat viewport where the host OpenXR loader is absent (`.api/api-silk-openxr.md`); `Silk.NET.OpenXR.Extensions.FB` adds the `XR_FB_passthrough` environment-blend layer the on-site mixed-reality review composites under the rendered scene against the one session (`.api/api-silk-openxr-fb.md`), riding the same `2.23.0` line as the core families since Silk.NET publishes its whole core-plus-extension set from one monorepo release. `Avalonia.Skia` (Ganesh) is the shippable `Software`/`Metal`/`Vulkan`/`OpenGl` floor behind the `SurfaceHost` render seam. The archived `VelloSharp`/`VelloSharp.Avalonia.Vello` rows are fully retired — no Vello identity survives in the manifest, this registry, or `.api/`; SkiaSharp Graphite carries no pinnable identity yet (targeted `4.150.0-preview.2`, unshipped), so no Graphite row is admitted until it ships.
+> `Wgpu` owns the WebGPU viewport over `Silk.NET.WebGPU`, `Silk.NET.WebGPU.Native.WGPU`, and `Silk.NET.WebGPU.Extensions.WGPU`; OpenXR composes the same device for immersive review, and `Avalonia.Skia` remains the viewport fallback floor.
 
 [ASSETS_CONTENT]:
 - `AsyncImageLoader.Avalonia`
@@ -163,13 +163,13 @@ Domain libraries that implement UI framework, rendering, GPU backends, charts, c
 - `Avalonia.Markup.Xaml.Loader`
 
 > [!NOTE]
-> The Dev Loop family binds `Debug`-only with `PrivateAssets="all"` — none flows transitively to a downstream consumer. `ProDiagnostics` (MIT, wieslawsoltes) is the maintained Avalonia-12 fork of `Avalonia.Diagnostics` (the first-party `Avalonia.Diagnostics` line is feed-dead at 11.3.x with no Avalonia-12 asset): `DevToolsExtensions.AttachDevTools` mounts the runtime visual/logical-tree, live property/style, routed-event, and layout/renderer-overlay inspector, Debug-only behind the `HotAvalonia` closure (`.api/api-prodiagnostics.md`). `HotAvalonia` is the XAML hot-reload agent and `Avalonia.Markup.Xaml.Loader` its runtime-inflation substrate, both dev-loop-scoped.
+> The Dev Loop family binds `Debug`-only with `PrivateAssets="all"`. `ProDiagnostics` mounts runtime tree, property, style, event, and layout inspection behind the `HotAvalonia` closure; `HotAvalonia` and `Avalonia.Markup.Xaml.Loader` own XAML reload and runtime inflation.
 
 > [!NOTE]
-> The `Semi.Avalonia` design-token theme is the active layer over the retained `Avalonia.Themes.Fluent` floor — its base `SemiTheme` plus the `DataGrid`/`ColorPicker`/`Dock`/`AvaloniaEdit` skins restyle the admitted control roster to one token system the `Wacton.Unicolour` OKLCH pipeline materializes into the `ControlIntent` + `Theme/tokens` vocabulary, never displacing the Fluent-templated `bodong.PropertyGrid`/`DialogHost`. `Irihi.Ursa` adds the extended-control families the curated set lacks — `NavMenu`, `Timeline`, `Toast`/`Notification`, `Loading`/`Skeleton`, `Banner`, `Form`, `Drawer` — themed by `Irihi.Ursa.Themes.Semi` and bridged to the admitted ReactiveUI MVVM rail through `Irihi.Ursa.ReactiveUIExtension`. `NodeEditorAvalonia` owns the node/pin/connector graph-editing canvas inside its OWN `NodeZoomBorder` viewport (a distinct asset — the separately admitted `PanAndZoom` keeps its five page consumers, no dup) for the `Shell/Editing` parametric and dependency-graph surfaces (ReactiveUI view-models over the framework-agnostic `INode`/`IConnector` model), with `QuikGraph` owning the connection-admission cycle gate and graph algebra behind the canvas. `Mapsui.Avalonia12` is the interactive slippy-map / basemap viewport rendering through the admitted `SkiaSharp` + `Avalonia.Skia` and binding the Bim-owned `NetTopologySuite` so GDAL/OGR features draw as overlays beside the `Wgpu` 3D viewport. `LoroCs` is the Eg-walker/Fugue sequence+map+text+movable-list+tree CRDT engine backing the notebook/annotation/table collaboration op-log and presence (`runtimes/osx-arm64/native/loro.dylib`), retiring the bespoke `NotebookCrdt` LWW algebra; `MessageFormat` is the managed ICU MessageFormat engine (CLDR cardinal+ordinal `plural`/`selectordinal`/`select`) materializing `ResolvedLocale.Plural` over the resx pattern vocabulary. `PDFsharp` + `PDFsharp-MigraDoc` add the structured vector-PDF page model and the auto-paginated flow-report DOM the OOXML/DXF/raster export set lacked.
+> The theme and extended-control families bind Semi tokens, Ursa controls, NodeEditor graph editing, Mapsui overlays, Loro collaboration, ICU message formatting, and PDFsharp/MigraDoc export through their package rows.
 
 > [!NOTE]
-> The Media / Drafting Export / Collaboration And Locale families gain three native-backed engine owners, each provisioned at the app-host distribution layer, never bundled. `FFmpeg.AutoGen` (MIT, Ruslan-B) is the in-process video-encode owner — the CppSharp-generated FFmpeg 8.x binding whose `ffmpeg` hub muxes the compositor/path-trace RGBA stream into an MP4/H.264 flythrough (`sws_scale` RGBA→YUV420P, the `avcodec_send_frame`/`avcodec_receive_packet` loop, libavformat write), the encode peer to the `HanumanInstitute.LibMpv` decode/playback owner; ship an LGPL-configured dynamically-linked FFmpeg build pointed at through `ffmpeg.RootPath` (`.api/api-ffmpeg-autogen.md`). `lcmsNET` (MIT) is the ICC / device-CMYK print-fidelity owner — the Little CMS 2 binding whose one polymorphic `Transform.Create` fold and K-preservation `Intent` vocabulary color-manage the export raster to device CMYK beside `PDFsharp`'s vector page, leaving the screen-perceptual `Wacton.Unicolour` OKLCH pipeline as the UI-token authority; the native `lcms2` library binds through P/Invoke (`.api/api-lcmsnet.md`). `Whisper.net` (MIT, sandrohanea) is the offline speech-to-text owner for LiveCaption — the `whisper.cpp` binding whose one `WhisperProcessorBuilder` `With*` fold and streaming `ProcessAsync` emit translated caption segments (built-in translate-to-English, Silero VAD); the native runtime ships as a separate `Whisper.net.Runtime*` package (CoreML on Apple silicon) and the ggml weights download through `WhisperGgmlDownloader` (`.api/api-whisper-net.md`).
+> Media and export engines bind through native-backed rows: FFmpeg encodes compositor frames, LibMpv decodes playback, lcmsNET manages print color, and Whisper.net produces offline captions.
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -187,6 +187,3 @@ Substrate libraries from the C# registry that this folder consumes directly. Ful
 
 [NUMERIC_SUBSTRATE]:
 - `UnitsNet`
-
-[TEST_SUBSTRATE]:
-- `Verify.XunitV3`

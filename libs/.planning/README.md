@@ -4,7 +4,7 @@ The authoring standard for the `libs/` planning corpus. It owns the doc-set per 
 
 ## [01]-[DOC_SET]
 
-Three tiers carry the same intent at widening scope: a folder owns one package's planning, a branch aggregates its language, and the cross-`libs/` core binds the three languages. Only the cross-`libs/` core names another language; a branch or folder consumes a peer only through the wire contracts.
+The planning corpus widens by scope: a folder owns one package's planning, a branch aggregates its language, and the cross-`libs/` core binds the three languages. Only the cross-`libs/` core names another language; a branch or folder consumes a peer only through the wire contracts.
 
 - Cross-`libs/` core (`libs/.planning/`): `architecture.md` (the topology law), `campaign-method.md` (the planning loop), `README.md` (this standard), `planning-targets.md` (the target index — every planning surface the campaign edits), `IDEAS.md`, `TASKLOG.md`.
 - Branch (`libs/<lang>/.planning/`): `README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`.
@@ -25,7 +25,9 @@ Each index doc opens with one or two declarative lines stating its own organizat
 - Centralization is absolute: no per-package manifest exists (no per-folder `pyproject.toml`, `package.json`, or `*.props`); every package and version lives in the one language manifest.
 
 [ARCHITECTURE] — the folder's domain map and seam record.
-- Section order: a standardized intro paragraph, a constant reading-contract block, `[1]-[DOMAIN_MAP]` (the codemap tree), `[2]-[SEAMS]`, then any folder-specific sections. The codemap names the full sub-domain structure, including planned sub-domains that hold no design page yet, each by its real domain concept — never a `rail`/`axis`/`lane` file-naming scheme — with a one-line charter. Each node renders the eventual source file in the language's own folder and file casing; the `.planning/` scaffold is never shown, and no prose sits between the `[1]` heading and the tree fence.
+- Section order: a standardized intro paragraph, a constant reading-contract block, `[1]-[DOMAIN_MAP]` (the codemap tree), `[2]-[SEAMS]`, then any folder-specific sections.
+- Codemap law: the codemap names the full sub-domain structure, including target sub-domains without design pages, each by its real domain concept — never a `rail`/`axis`/`lane` file-naming scheme — with a one-line charter.
+- Each codemap node renders the eventual source file in the language's own folder and file casing; the `.planning/` scaffold is never shown, and no prose sits between the `[1]` heading and the tree fence.
 - `[2]-[SEAMS]` is the curated, file-level record of every cross-folder and cross-language alignment, in one ` ```text seams ` fence with aligned columns.
 - Row form: `<SourceFile> <glyph> <lang:pkg/subdomain> # [<KIND>]: <shared shape>`. Glyphs: `→` produces/projects, `←` consumes/reads, `⇄` shared shape.
 - The `[KIND]` vocabulary is closed: `[WIRE]` `[SHAPE]` `[PROJECTION]` `[PORT]` `[BOUNDARY]` `[RECEIPT]` `[CONTENT_KEY]` `[TRANSPORT]` `[TESSELLATION]` `[GRADUATION]` `[FAULT]`. A row outside the list retags to the nearest canonical kind; a new kind is an amendment to this standard, never a fence-local mint.
@@ -35,7 +37,7 @@ Each index doc opens with one or two declarative lines stating its own organizat
 
 [IDEAS] — the folder's forward pool of higher-order concepts.
 - Two sections, `[1]-[OPEN]` and `[2]-[CLOSED]`. Each idea is a card: a bracketed slug leader plus a few bullets — the capability, what it unlocks, and the gap or modern technique it draws on. A folder idea is a bigger concept (a new file, sub-domain, or capability) grounded in the folder's domain and the monorepo purpose, never speculation.
-- An idea drives one or more tasks. A finished or dropped idea moves to `[CLOSED]` with a one-line disposition, so the same idea is never re-litigated.
+- An idea drives one or more tasks. A resolved idea moves to `[CLOSED]` with a one-line disposition, so the same idea is never re-litigated.
 
 [TASKLOG] — the folder's open and closed work, distilled from its ideas.
 - Two sections, `[1]-[OPEN]` and `[2]-[CLOSED]`. Each task is a card whose leader carries a status marker — `[QUEUED]`, `[ACTIVE]`, or `[BLOCKED]` when open; `[COMPLETE]` or `[DROPPED]` when closed — and three to four bullets: the capability or file to build, the external packages to integrate, the integration points and boundaries/wires (internal to the folder or aligned to a sibling or branch, never coupled), and the key considerations.
@@ -58,17 +60,17 @@ One integration-point notation, scope-qualified by distance: `page#CLUSTER` insi
 
 - READ: `docs/standards/style-guide.md`, `docs/standards/information-structure.md`, `docs/standards/formatting.md`
 - Agent-directed declarative present tense; the doc states law as fact. No reader address, narration, process, or provenance — no links, URLs, versions, dates, or session context on a design page.
-- Banned hedges (word-boundary, page-wide): should, could, would, might, maybe, perhaps, likely, probably, propose, consider, recommended, ideally, TBD, TODO, FIXME, we, our, you, and the synonym forms — is expected to, can be, aims to, is designed to, in the future, eventually, as needed, if necessary. Future tense is legal only on a card growth line and a RESEARCH item.
+- The gate-owned hedge roster is binding; open work uses a card state and a research marker, never soft posture.
 - Vocabulary, owners, and policy values from earlier pages and the route's code doctrine arrive settled and are never re-taught. A fact owned by a sibling is composed inside a fence, never re-explained.
 
 ## [06]-[REVIEW]
 
 Review is judgment against this standard and the route-owned code doctrine, not checklist pedantry. A reviewing agent reads the standard, the language's `docs/stacks/<lang>/` doctrine, and the three form standards, then grades cold: doc-set placement, card and page shape, signature truthfulness against the `.api/` catalogues, language and zero-provenance discipline, the absence of fragile duplication or an owner-state ledger, and integration points carried on tasks rather than a drift-prone cross-reference map. Findings repair in the same pass; a doc finalizes when a cold read surfaces nothing.
 
-A signature fence transcribes an external member as settled fence code only when that member is verified against the folder's `.api/` catalogue; an external member not yet in the `.api/` catalogue stays a marked RESEARCH item and never appears as settled fence code, and a cold grade fails any fence whose external member contradicts a sibling RESEARCH item that declares it unverified.
+A signature fence transcribes an external member as settled fence code only when that member is verified against the folder's `.api/` catalogue; an external member outside the `.api/` catalogue stays a marked RESEARCH item and never appears as settled fence code, and a cold grade fails any fence whose external member contradicts a sibling RESEARCH item that declares it unverified.
 
 ## [07]-[CROSS_CUTTING_PACKAGES]
 
-The cross-`libs/` core registers only the packages that are genuinely project-level — shared tooling spanning languages, or the dependencies of a future admin/meta `libs/<x>` that is not bound to the AEC/Rhino pipelines. The registry names the package and its language scope, never a version or a link. There is no project-level `.api/`.
+The cross-`libs/` core registers only the packages that are genuinely project-level — shared tooling spanning languages, or the dependencies of an admin/meta `libs/<x>` surface that is not bound to the AEC/Rhino pipelines. The registry names the package and its language scope, never a version or a link. There is no project-level `.api/`.
 
 A package that is language-wide substrate — the typing, concurrency, observability, numeric, and wire-codegen tiers a branch's `.planning/` `[2]-[SUBSTRATE_PACKAGES]` registry names — carries one catalogue at the branch `libs/<lang>/.api/`, and each consuming folder lists it in its README `## [3]-[SUBSTRATE_PACKAGES]` section. A package shared across folders only as a domain seam keeps a per-folder catalogue in each consuming folder because the seam resource is folder-local. Per-language packages that are not cross-cutting stay folder-local in the folder README and `.api/`.

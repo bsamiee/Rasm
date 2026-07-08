@@ -1,6 +1,6 @@
 # [RASM_APPHOST_API_MQTT]
 
-`MQTTnet` supplies an MQTT v3.1.1 and v5 client over TCP, TLS, WebSocket, and Unix-socket channels, with `MqttClientFactory` construction, fluent `MqttClientOptionsBuilder`/`MqttApplicationMessageBuilder`/`MqttTopicFilterBuilder` shapes, `IMqttClient` connect/publish/subscribe operations, async event delivery, and reason-code-typed connect, publish, subscribe, and unsubscribe results for the AppHost live-external industrial wire.
+`MQTTnet` supplies an MQTT `MqttProtocolVersion.V311` and v5 client over TCP, TLS, WebSocket, and Unix-socket channels, with `MqttClientFactory` construction, fluent `MqttClientOptionsBuilder`/`MqttApplicationMessageBuilder`/`MqttTopicFilterBuilder` shapes, `IMqttClient` connect/publish/subscribe operations, async event delivery, and reason-code-typed connect, publish, subscribe, and unsubscribe results for the AppHost live-external industrial wire.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -192,7 +192,7 @@
 - `IMqttClient` is `IDisposable`; events are `Func<TEventArgs, Task>` async handlers awaited inline by the message pump.
 - channel is exclusive: `MqttClientOptionsBuilder.Build()` throws `InvalidOperationException` when neither TCP nor WebSocket channel is set.
 - `WithConnectionUri` resolves scheme to channel and TLS: `mqtt`/`tcp` plain, `mqtts` TLS, `ws`/`wss` WebSocket, `unix` domain socket; default ports are 1883 plain and 8883 TLS.
-- protocol version: `WithProtocolVersion(MqttProtocolVersion.Unknown)` throws; v5 metadata fields are silently dropped under v3.1.1.
+- protocol version: `WithProtocolVersion(MqttProtocolVersion.Unknown)` throws; v5 metadata fields are silently dropped under `MqttProtocolVersion.V311`.
 
 [BUILDER_LAW]:
 - builders are mutable fluent accumulators; every `With*` returns `this` and `Build()` materializes the immutable value.
@@ -214,6 +214,6 @@
 
 [RAIL_LAW]:
 - Package: `MQTTnet`
-- Owns: MQTT v3.1.1/v5 client transport, message assembly, and reason-code results
+- Owns: MQTT `MqttProtocolVersion.V311`/v5 client transport, message assembly, and reason-code results
 - Accept: factory-built clients, builder-composed options, `CancellationToken`-scoped operations
 - Reject: direct client instantiation, hand-rolled MQTT packet framing, exception-driven publish/subscribe flow

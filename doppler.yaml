@@ -1,0 +1,3 @@
+setup:
+  - project: rasm
+    config: dev_repo

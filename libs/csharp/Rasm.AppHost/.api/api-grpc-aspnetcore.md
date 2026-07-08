@@ -27,7 +27,6 @@
 
 [PACKAGE_SURFACE]: `Grpc.HealthCheck` (transitive via `Grpc.AspNetCore.HealthChecks`)
 - package: `Grpc.HealthCheck`
-- version: `2.80.0`
 - assembly: `Grpc.HealthCheck`
 - namespace: `Grpc.HealthCheck` (`HealthServiceImpl`), `Grpc.Health.V1` (generated `Health`/`HealthCheckRequest`/`HealthCheckResponse`)
 - asset: runtime library — pulled transitively (`Grpc.AspNetCore.HealthChecks` → `Grpc.HealthCheck`), never a direct project pin
@@ -156,7 +155,7 @@
 - content types handled: `application/grpc-web` and `application/grpc-web-text` (base64-framed)
 
 [HEALTH_SERVICE_TOPOLOGY]:
-- `Grpc.AspNetCore.HealthChecks` pulls `Grpc.HealthCheck` transitively (lockfile `Grpc.AspNetCore.HealthChecks` → `Grpc.HealthCheck` 2.80.0); `Grpc.HealthCheck.HealthServiceImpl` is the reference `grpc.health.v1` service extending the generated `Grpc.Health.V1.Health.HealthBase` and is registered as a singleton (`AddSingleton(new HealthServiceImpl())`) alongside `AddGrpcHealthChecks()` / `MapGrpcHealthChecksService()`
+- `Grpc.AspNetCore.HealthChecks` pulls `Grpc.HealthCheck` transitively (lockfile `Grpc.AspNetCore.HealthChecks` → `Grpc.HealthCheck`); `Grpc.HealthCheck.HealthServiceImpl` is the reference `grpc.health.v1` service extending the generated `Grpc.Health.V1.Health.HealthBase` and is registered as a singleton (`AddSingleton(new HealthServiceImpl)`) alongside `AddGrpcHealthChecks` / `MapGrpcHealthChecksService`
 - `HealthServiceImpl.SetStatus(service, status)` mutates an internal `Dictionary<string, ServingStatus>` and pushes to live `Watch` streams; capability-health projection calls it directly rather than re-deriving a parallel serving map
 - `Grpc.Health.V1.HealthCheckResponse.Types.ServingStatus` is the proto-grounded enum (`Unknown=0` / `Serving=1` / `NotServing=2` / `ServiceUnknown=3`); the canonical projection maps healthy and degraded → `Serving`, unhealthy → `NotServing`
 

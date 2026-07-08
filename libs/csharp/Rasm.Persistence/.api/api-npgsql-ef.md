@@ -8,7 +8,6 @@ query translation, type mapping, value generation, and scaffolding.
 
 [PACKAGE_SURFACE]: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - package: `Npgsql.EntityFrameworkCore.PostgreSQL`
-- version: `10.0.2`
 - license: `PostgreSQL`
 - assembly: `Npgsql.EntityFrameworkCore.PostgreSQL`
 - namespace: `Npgsql.EntityFrameworkCore.PostgreSQL`

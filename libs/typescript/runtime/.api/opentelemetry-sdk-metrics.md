@@ -1,14 +1,14 @@
-# [@opentelemetry/sdk-metrics] — the metric SDK leg of the bridging pin block; readers and views behind the facade
+# [TS_RUNTIME_API_OPENTELEMETRY_SDK_METRICS]
 
 `@opentelemetry/sdk-metrics` owns the metric collection→export pipeline: the pull-based `MetricReader` (the `PeriodicExportingMetricReader` wrapping a `PushMetricExporter`), the `View`/`AggregationOption` algebra that reshapes instruments before export, the per-instrument-type selector policy (aggregation, temporality, cardinality), and the `MetricData` discriminated-union wire shape. `otel/emit` never constructs a `MeterProvider` directly — `@effect/opentelemetry` `NodeSdk`/`WebSdk` take a `Configuration.metricReader: MetricReader | ReadonlyArray<MetricReader>` (verified: `NodeSdk.d.ts` imports `MetricReader` from here) and wire it through `Metrics.layer`, feeding Effect's built-in `Metric` signals into the reader. It collapses with the pin block at `[R3]`; the native `Otlp` metric lane serializes Effect metrics to OTLP with no reader.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@opentelemetry/sdk-metrics`
-- package: `@opentelemetry/sdk-metrics` · version `2.8.0` · license `Apache-2.0`
+- package: `@opentelemetry/sdk-metrics` · version `` · license `Apache-2.0`
 - module: dual — CJS default (`build/src/index.js`, no `"type"` field) + ESM mirror (`build/esm/index.js`); flat barrel, no `exports` subpath map.
-- asset: TSDECL `build/src/index.d.ts` (`assay api resolve @opentelemetry/sdk-metrics` → `2.8.0`, restored).
-- peer: `@opentelemetry/api >=1.9.0 <1.10.0` — the tightest API floor of the block (the metric API stabilized at 1.9); deps `@opentelemetry/core` (`ExportResult`), `@opentelemetry/resources` (`Resource`). No `sdk-metrics-web` split — the reader is runtime-neutral.
+- asset: TSDECL `build/src/index.d.ts` (restored).
+- peer: `@opentelemetry/api >=catalog <catalog` — the tightest API floor of the block (the metric API stabilized at 1.9); deps `@opentelemetry/core` (`ExportResult`), `@opentelemetry/resources` (`Resource`). No `sdk-metrics-web` split — the reader is runtime-neutral.
 - runtime: runtime-neutral — `PeriodicExportingMetricReader` uses a plain interval; no platform conditional export.
 - plane: `plane:runtime`, edge-ledger-fenced to `scope:runtime`.
 - rail: observability/sdk-bridge; `[R3]` collapse target.
@@ -18,10 +18,10 @@
 
 `MeterProvider` is the meter factory; every axis — resource, views, readers — is a `MeterProviderOptions` field, never a subclass. Under the effect facade the provider is constructed by `Metrics.layer`, so a telemetry consumer supplies the reader and views, not the provider.
 
-| [INDEX] | [SYMBOL]                     | [KIND]        | [CONSUMER / BOUNDARY]                                          |
-| :-----: | :--------------------------- | :------------ | :------------------------------------------------------------- |
-|  [01]   | `MeterProvider`              | class         | `implements IMeterProvider`; `getMeter`/`shutdown`/`forceFlush` |
-|  [02]   | `MeterProviderOptions`       | interface     | `resource?`/`views?: ViewOptions[]`/`readers?: IMetricReader[]` |
+| [INDEX] | [SYMBOL] | [KIND] | [CONSUMER_BOUNDARY] |
+|:-----: |:--------------------------- |:------------ |:------------------------------------------------------------- |
+| [01] | `MeterProvider` | class | `implements IMeterProvider`; `getMeter`/`shutdown`/`forceFlush` |
+| [02] | `MeterProviderOptions` | interface | `resource?`/`views?: ViewOptions[]`/`readers?: IMetricReader[]` |
 
 ```ts contract
 interface MeterProviderOptions {
@@ -42,19 +42,19 @@ declare class MeterProvider implements IMeterProvider {
 
 Two parameterized surfaces. `MetricReader` (abstract) owns pull-collection + the per-instrument-type selector policy; `PeriodicExportingMetricReader` is the production row that pulls on an interval and pushes to a `PushMetricExporter`. `PushMetricExporter` owns format/transport; `Console`/`InMemory` are the built-in rows, the OTLP-HTTP sibling the production one. The three selectors are `(InstrumentType) => X` pure policy functions with `DEFAULT_*` constants — a bespoke temporality/aggregation/cardinality policy is a selector value, never a reader subclass. `MetricProducer` is the pull-source a reader collects from.
 
-| [INDEX] | [SYMBOL]                                  | [KIND]              | [CAPABILITY / BOUNDARY]                                          |
-| :-----: | :---------------------------------------- | :------------------ | :--------------------------------------------------------------- |
-|  [01]   | `MetricReader` / `IMetricReader`          | abstract class / interface | pull-collect + `selectAggregation`/`selectAggregationTemporality`/`selectCardinalityLimit` |
-|  [02]   | `MetricReaderOptions`                     | interface           | the three selectors + `metricProducers?` + `otelComponentType?`  |
-|  [03]   | `PeriodicExportingMetricReader`           | class               | interval pull → push; the production reader row                  |
-|  [04]   | `PeriodicExportingMetricReaderOptions`    | type                | `exporter` + `exportIntervalMillis?` + per-instrument `cardinalityLimits?` |
-|  [05]   | `PushMetricExporter`                      | interface           | `export(ResourceMetrics, cb)` + optional temporality/aggregation selectors |
-|  [06]   | `ConsoleMetricExporter`                   | class               | stdout diagnostics; `constructor({ temporalitySelector? })`      |
-|  [07]   | `InMemoryMetricExporter`                  | class               | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)` — the kit-driven spec lane |
-|  [08]   | `MetricProducer` / `MetricCollectOptions` | interface           | external pull-source; `collect({ timeoutMillis? })`              |
-|  [09]   | `AggregationSelector` / `AggregationTemporalitySelector` | type | `(InstrumentType) => AggregationOption` / `=> AggregationTemporality` |
-|  [10]   | `AggregationTemporality`                  | enum                | `DELTA` / `CUMULATIVE`                                           |
-|  [11]   | `TimeoutError`                            | class               | thrown on collection/flush deadline; collection continues        |
+| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
+|:-----: |:---------------------------------------- |:------------------ |:--------------------------------------------------------------- |
+| [01] | `MetricReader` / `IMetricReader` | abstract class / interface | pull-collect + `selectAggregation`/`selectAggregationTemporality`/`selectCardinalityLimit` |
+| [02] | `MetricReaderOptions` | interface | the three selectors + `metricProducers?` + `otelComponentType?` |
+| [03] | `PeriodicExportingMetricReader` | class | interval pull → push; the production reader row |
+| [04] | `PeriodicExportingMetricReaderOptions` | type | `exporter` + `exportIntervalMillis?` + per-instrument `cardinalityLimits?` |
+| [05] | `PushMetricExporter` | interface | `export(ResourceMetrics, cb)` + optional temporality/aggregation selectors |
+| [06] | `ConsoleMetricExporter` | class | stdout diagnostics; `constructor({ temporalitySelector? })` |
+| [07] | `InMemoryMetricExporter` | class | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)` — the kit-driven spec lane |
+| [08] | `MetricProducer` / `MetricCollectOptions` | interface | external pull-source; `collect({ timeoutMillis? })` |
+| [09] | `AggregationSelector` / `AggregationTemporalitySelector` | type | `(InstrumentType) => AggregationOption` / `=> AggregationTemporality` |
+| [10] | `AggregationTemporality` | enum | `DELTA` / `CUMULATIVE` |
+| [11] | `TimeoutError` | class | thrown on collection/flush deadline; collection continues |
 
 ```ts contract
 type PeriodicExportingMetricReaderOptions = {
@@ -83,13 +83,13 @@ declare const DEFAULT_AGGREGATION_TEMPORALITY_SELECTOR: AggregationTemporalitySe
 
 A `View` reshapes matched instruments (rename, drop, re-aggregate, cap cardinality, filter attributes) before export; it is declared as a `ViewOptions` object on `MeterProviderOptions.views` (the `View` class is internal). `AggregationOption` is a discriminated union keyed on `AggregationType` — the six variants are ROWS, and a bespoke histogram bucketing is an option-object value, never a new class. `IAttributesProcessor` is the cardinality-control interface; `createAllowList`/`createDenyList` are its parameterized constructors.
 
-| [INDEX] | [SYMBOL]                                  | [KIND]              | [SELECTS / PRODUCES]                                            |
-| :-----: | :---------------------------------------- | :------------------ | :-------------------------------------------------------------- |
-|  [01]   | `ViewOptions`                             | type                | instrument matchers (`instrumentName`/`instrumentType`/`meterName`) + reshaping |
-|  [02]   | `AggregationType`                         | enum                | `DEFAULT`/`DROP`/`SUM`/`LAST_VALUE`/`EXPLICIT_BUCKET_HISTOGRAM`/`EXPONENTIAL_HISTOGRAM` |
-|  [03]   | `AggregationOption`                       | discriminated union | `{ type: AggregationType; options? }` — one shape per aggregation |
-|  [04]   | `IAttributesProcessor`                    | interface           | `process(attrs, ctx?) => Attributes` — cardinality control      |
-|  [05]   | `createAllowListAttributesProcessor` / `createDenyListAttributesProcessor` | fn | allow/deny attribute-key sets — the parameterized constructors  |
+| [INDEX] | [SYMBOL] | [KIND] | [SELECTS_PRODUCES] |
+|:-----: |:---------------------------------------- |:------------------ |:-------------------------------------------------------------- |
+| [01] | `ViewOptions` | type | instrument matchers (`instrumentName`/`instrumentType`/`meterName`) + reshaping |
+| [02] | `AggregationType` | enum | `DEFAULT`/`DROP`/`SUM`/`LAST_VALUE`/`EXPLICIT_BUCKET_HISTOGRAM`/`EXPONENTIAL_HISTOGRAM` |
+| [03] | `AggregationOption` | discriminated union | `{ type: AggregationType; options? }` — one shape per aggregation |
+| [04] | `IAttributesProcessor` | interface | `process(attrs, ctx?) => Attributes` — cardinality control |
+| [05] | `createAllowListAttributesProcessor` / `createDenyListAttributesProcessor` | fn | allow/deny attribute-key sets — the parameterized constructors |
 
 ```ts contract
 type ViewOptions = {
@@ -112,15 +112,15 @@ interface IAttributesProcessor { process: (incoming: Attributes, context?: Conte
 
 The wire shape the exporter receives. `MetricData` is ONE discriminated union keyed on `dataPointType`; `DataPoint<T>` is the parameterized point (`T = number | Histogram | ExponentialHistogram`). The collection tree is `ResourceMetrics → ScopeMetrics[] → MetricData[]` — one shape, never a per-instrument struct. `InstrumentType` (seven rows) and `DataPointType` are the discriminants every selector and exporter key on.
 
-| [INDEX] | [SYMBOL]                                  | [KIND]              | [SHAPE]                                                         |
-| :-----: | :---------------------------------------- | :------------------ | :-------------------------------------------------------------- |
-|  [01]   | `InstrumentType`                          | enum                | `COUNTER`/`GAUGE`/`HISTOGRAM`/`UP_DOWN_COUNTER`/`OBSERVABLE_*`   |
-|  [02]   | `DataPointType`                           | enum                | `SUM`/`GAUGE`/`HISTOGRAM`/`EXPONENTIAL_HISTOGRAM`               |
-|  [03]   | `MetricData`                              | discriminated union | `Sum`/`Gauge`/`Histogram`/`ExponentialHistogram` metric data    |
-|  [04]   | `DataPoint<T>`                            | interface           | `{ startTime, endTime, attributes, value: T }`                  |
-|  [05]   | `Sum` / `LastValue` / `Histogram` / `ExponentialHistogram` | type | the aggregated point-value shapes                              |
-|  [06]   | `MetricDescriptor`                        | interface           | `{ name, description, unit, valueType }`                         |
-|  [07]   | `ResourceMetrics` / `ScopeMetrics` / `CollectionResult` | interface | the collection tree + `{ resourceMetrics, errors[] }`      |
+| [INDEX] | [SYMBOL] | [KIND] | [SHAPE] |
+|:-----: |:---------------------------------------- |:------------------ |:-------------------------------------------------------------- |
+| [01] | `InstrumentType` | enum | `COUNTER`/`GAUGE`/`HISTOGRAM`/`UP_DOWN_COUNTER`/`OBSERVABLE_*` |
+| [02] | `DataPointType` | enum | `SUM`/`GAUGE`/`HISTOGRAM`/`EXPONENTIAL_HISTOGRAM` |
+| [03] | `MetricData` | discriminated union | `Sum`/`Gauge`/`Histogram`/`ExponentialHistogram` metric data |
+| [04] | `DataPoint<T>` | interface | `{ startTime, endTime, attributes, value: T }` |
+| [05] | `Sum` / `LastValue` / `Histogram` / `ExponentialHistogram` | type | the aggregated point-value shapes |
+| [06] | `MetricDescriptor` | interface | `{ name, description, unit, valueType }` |
+| [07] | `ResourceMetrics` / `ScopeMetrics` / `CollectionResult` | interface | the collection tree + `{ resourceMetrics, errors[] }` |
 
 ```ts contract
 type MetricData = SumMetricData | GaugeMetricData | HistogramMetricData | ExponentialHistogramMetricData   // keyed on dataPointType
@@ -132,10 +132,10 @@ interface CollectionResult { resourceMetrics: ResourceMetrics; errors: unknown[]
 
 ## [06]-[STACKING]
 
-- [STACK: `@effect/opentelemetry` `NodeSdk`/`WebSdk`] — the primary consumer. `Configuration.metricReader: MetricReader | ReadonlyArray<MetricReader>` is exactly this package's `MetricReader` (verified import); effect wires it via `Metrics.layer(constant(metricReader), config)`, registering a `MetricProducer` that feeds Effect's built-in `Metric` values into the reader. `otel/emit` passes `new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(opts), exportIntervalMillis })` — never a `MeterProvider` directly.
-- [STACK: sibling `exporter-metrics-otlp-http`] — `OTLPMetricExporter implements PushMetricExporter`; it carries `AggregationTemporalityPreference` (`Cumulative`/`Delta`/`LowMemory` selectors) satisfying the exporter's optional `selectAggregationTemporality?`, so OTLP delta-vs-cumulative is an exporter policy, not a reader fork. `PeriodicExportingMetricReader(new OTLPMetricExporter(opts))` is the production metric pipeline; `ExportResult` comes from `@opentelemetry/core`.
-- [STACK: `@opentelemetry/resources` + `semantic-conventions`] — `MeterProviderOptions.resource` carries the `AppIdentity`-derived resource (supplied by the effect `Resource` layer under the facade); `MetricDescriptor.name` and `DataPoint.attributes` keys are `semantic-conventions` vocabulary rows (`telemetry/core/observe/convention`).
-- [STACK: fact-journal meter cardinality] — the `(app, tenant)`-keyed usage/cost counters are exactly the high-cardinality case `View` + `createAllowListAttributesProcessor` and `aggregationCardinalityLimit` govern; the metering fact stream is durable through the `data` fact journal, while the OTLP metric egress here is the aggregate rollup. Instrumentation emits through `Effect.Metric`; no `plane:runtime` folder imports `sdk-metrics` (edge-ledger `scope:runtime` ban).
+- Stack with `@effect/opentelemetry` `NodeSdk`/`WebSdk`: the primary consumer. `Configuration.metricReader: MetricReader | ReadonlyArray<MetricReader>` is exactly this package's `MetricReader` (verified import); effect wires it via `Metrics.layer(constant(metricReader), config)`, registering a `MetricProducer` that feeds Effect's built-in `Metric` values into the reader. `otel/emit` passes `new PeriodicExportingMetricReader({ exporter: new OTLPMetricExporter(opts), exportIntervalMillis })` — never a `MeterProvider` directly.
+- Stack with sibling `exporter-metrics-otlp-http`: `OTLPMetricExporter implements PushMetricExporter`; it carries `AggregationTemporalityPreference` (`Cumulative`/`Delta`/`LowMemory` selectors) satisfying the exporter's optional `selectAggregationTemporality?`, so OTLP delta-vs-cumulative is an exporter policy, not a reader fork. `PeriodicExportingMetricReader(new OTLPMetricExporter(opts))` is the production metric pipeline; `ExportResult` comes from `@opentelemetry/core`.
+- Stack with `@opentelemetry/resources` + `semantic-conventions`: `MeterProviderOptions.resource` carries the `AppIdentity`-derived resource (supplied by the effect `Resource` layer under the facade); `MetricDescriptor.name` and `DataPoint.attributes` keys are `semantic-conventions` vocabulary rows (`telemetry/core/observe/convention`).
+- Stack with fact-journal meter cardinality: the `(app, tenant)`-keyed usage/cost counters are exactly the high-cardinality case `View` + `createAllowListAttributesProcessor` and `aggregationCardinalityLimit` govern; the metering fact stream is durable through the `data` fact journal, while the OTLP metric egress here is the aggregate rollup. Instrumentation emits through `Effect.Metric`; no `plane:runtime` folder imports `sdk-metrics` (edge-ledger `scope:runtime` ban).
 
 ## [07]-[RAIL_LAW]
 

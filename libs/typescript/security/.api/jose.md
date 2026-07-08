@@ -1,13 +1,13 @@
-# [SECURITY_API_JOSE]
+# [TS_SECURITY_API_JOSE]
 
 `jose` is the one JOSE owner the `security/sign/jwt` design composes — JWS signing/verification, the JWT claim-set profile over both JWS and JWE, JWE encryption/decryption, JWK/JWKS management with remote key rotation, and key import/export/generation — all over the WebCrypto API with zero runtime dependencies (`cryptoRuntime === "WebCryptoAPI"`). Its surface collapses along three axes rather than proliferating operations: the crypto op is {sign, verify, encrypt, decrypt}; the token profile is {raw JWS/JWE, JWT claim-set (`SignJWT`/`jwtVerify`, `EncryptJWT`/`jwtDecrypt`), unsecured}; and the serialization is {Compact, Flattened, General} — three wire forms of ONE sign/verify (and one encrypt/decrypt), not three concepts. The JWT builders share the fluent `ProduceJWT` claim-setter contract; `jwtVerify` overloads on a static key versus a `createRemoteJWKSet` resolver, and that resolver — with its `reload`/`fresh`/`coolingDown` state, the `jwksCache` symbol for cloud KV persistence, and the `customFetch` symbol for retry/proxy transport — IS the key-rotation seam. Every failure is a member of the closed `JOSEError` family discriminated by a stable `code`. The design admits `jose` in `sign/` only; `decodeJwt`/`decodeProtectedHeader` are unsafe peeks the boundary uses to route by header before verification, never as verification.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `jose`
-- package: `jose` (6.2.3, MIT, © Filip Skokan)
+- package: `jose` (MIT, © Filip Skokan)
 - module format: ESM (`type: module`, `sideEffects: false`); a rich `exports` map serves per-concern subpaths — `jose/jwt/sign`, `jose/jwt/verify`, `jose/jwks/remote`, `jose/key/import`, `jose/errors`, `jose/base64url` — and the flat root import is equivalent under `sideEffects: false` tree-shaking, so the design imports from the root and a browser-safe `sign` bundle still never carries the unused surface
-- runtime target: isomorphic (node ≥ WebCrypto, bun, deno, workerd, browser); zero runtime dependencies; no native addon — v6 dropped the Node `crypto` build, so a single WebCrypto path serves every runtime and `sign/jwt.ts` is host-neutral despite the folder's node-only default
+- runtime target: isomorphic (node ≥ WebCrypto, bun, deno, workerd, browser); zero runtime dependencies; no native addon — catalog-bound dropped the Node `crypto` build, so a single WebCrypto path serves every runtime and `sign/jwt.ts` is host-neutral despite the folder's node-only default
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `JWTPayload` is open (`[propName: string]: unknown`), so a `Schema` decode is the real gate on the verified claim set
 - rail: `security/sign` — the token-crypto owner (admitted in `sign/` only; catalogued at the folder tier)
 
@@ -16,58 +16,58 @@
 [PUBLIC_TYPE_SCOPE]: claims, keys, and the verification-policy axis
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]     | [CONSUMER]                                                              |
-| :-----: | :-------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------- |
-|  [01]   | `JWTPayload` (`iss`/`sub`/`aud`/`jti`/`nbf`/`exp`/`iat` + open) | claim set         | `sign/jwt` → `session/token` — open by design; `Schema.decodeUnknown` brands it before use |
-|  [02]   | `JWK` / `JWK_RSA_Private` / `JWK_EC_Public` / `JWK_oct` / `JWK_OKP_*` / `JSONWebKeySet` | key material | `sign/jwt` — key shapes for import/export/thumbprint; the JWKS is the verification key set |
-|  [03]   | `CryptoKey` / `KeyObject`                                       | runtime key handle | `sign/jwt` — the imported non-extractable handle held behind a `Context.Tag`, never re-imported per call |
-|  [04]   | `JWTVerifyOptions` (= `VerifyOptions` + `JWTClaimVerificationOptions`) | verify policy | `sign/jwt` — one options row carries `algorithms` allow-list + every claim gate; the parameterized verify axis |
-|  [05]   | `JWTClaimVerificationOptions` (`issuer`/`audience`/`subject`/`maxTokenAge`/`clockTolerance`/`requiredClaims`/`typ`/`currentDate`) | claim gate | `sign/jwt` — declarative claim checks the library enforces so the design never re-derives `exp`/`aud` by hand |
-|  [06]   | `ProduceJWT`                                                   | builder contract  | `sign/jwt` — the shared fluent claim-setter `SignJWT` and `EncryptJWT` both implement |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------- |:---------------- |:--------------------------------------------------------------------- |
+| [01] | `JWTPayload` (`iss`/`sub`/`aud`/`jti`/`nbf`/`exp`/`iat` + open) | claim set | `sign/jwt` → `session/token` — open by design; `Schema.decodeUnknown` brands it before use |
+| [02] | `JWK` / `JWK_RSA_Private` / `JWK_EC_Public` / `JWK_oct` / `JWK_OKP_*` / `JSONWebKeySet` | key material | `sign/jwt` — key shapes for import/export/thumbprint; the JWKS is the verification key set |
+| [03] | `CryptoKey` / `KeyObject` | runtime key handle | `sign/jwt` — the imported non-extractable handle held behind a `Context.Tag`, never re-imported per call |
+| [04] | `JWTVerifyOptions` (= `VerifyOptions` + `JWTClaimVerificationOptions`) | verify policy | `sign/jwt` — one options row carries `algorithms` allow-list + every claim gate; the parameterized verify axis |
+| [05] | `JWTClaimVerificationOptions` (`issuer`/`audience`/`subject`/`maxTokenAge`/`clockTolerance`/`requiredClaims`/`typ`/`currentDate`) | claim gate | `sign/jwt` — declarative claim checks the library enforces so the design never re-derives `exp`/`aud` by hand |
+| [06] | `ProduceJWT` | builder contract | `sign/jwt` — the shared fluent claim-setter `SignJWT` and `EncryptJWT` both implement |
 
 [PUBLIC_TYPE_SCOPE]: the closed fault family (discriminated by `code`)
 - rail: rails-and-effects
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]     | [CONSUMER]                                                              |
-| :-----: | :-------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------- |
-|  [01]   | `errors.JOSEError` (`static code` / `code`)                    | fault base        | `sign/jwt` — the root the design maps to one tagged union by `code`; `Match`/`catchTags` on the projection |
-|  [02]   | `errors.JWTExpired` / `JWTClaimValidationFailed` (`payload`, `claim`, `reason`) | claim fault | `sign/jwt` → `session/token` — expired/invalid claim; `payload` retained for the re-auth decision |
-|  [03]   | `errors.JWSSignatureVerificationFailed` / `JWSInvalid` / `JWTInvalid` / `JOSEAlgNotAllowed` | signature fault | `sign/jwt` — untrusted token; folds to a single reject-and-401 arm |
-|  [04]   | `errors.JWKSNoMatchingKey` / `JWKSMultipleMatchingKeys` / `JWKSTimeout` / `JWKSInvalid` | resolver fault | `sign/jwt` — rotation-resolution failure; `JWKSTimeout`/`NoMatchingKey` are the retry/reload arms |
-|  [05]   | `errors.JWEDecryptionFailed` / `JWEInvalid` / `JWKInvalid` / `JOSENotSupported` | crypto/config fault | `sign/jwt` — JWE + key-shape faults; `JOSENotSupported` flags an unadmitted `alg`/`enc` at boundary |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------- |:---------------- |:--------------------------------------------------------------------- |
+| [01] | `errors.JOSEError` (`static code` / `code`) | fault base | `sign/jwt` — the root the design maps to one tagged union by `code`; `Match`/`catchTags` on the projection |
+| [02] | `errors.JWTExpired` / `JWTClaimValidationFailed` (`payload`, `claim`, `reason`) | claim fault | `sign/jwt` → `session/token` — expired/invalid claim; `payload` retained for the re-auth decision |
+| [03] | `errors.JWSSignatureVerificationFailed` / `JWSInvalid` / `JWTInvalid` / `JOSEAlgNotAllowed` | signature fault | `sign/jwt` — untrusted token; folds to a single reject-and-401 arm |
+| [04] | `errors.JWKSNoMatchingKey` / `JWKSMultipleMatchingKeys` / `JWKSTimeout` / `JWKSInvalid` | resolver fault | `sign/jwt` — rotation-resolution failure; `JWKSTimeout`/`NoMatchingKey` are the retry/reload arms |
+| [05] | `errors.JWEDecryptionFailed` / `JWEInvalid` / `JWKInvalid` / `JOSENotSupported` | crypto/config fault | `sign/jwt` — JWE + key-shape faults; `JOSENotSupported` flags an unadmitted `alg`/`enc` at boundary |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the JWT claim profile — the primary token owner
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY]  | [CONSUMER]                                                       |
-| :-----: | :------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
-|  [01]   | `new SignJWT(payload).setProtectedHeader({ alg }).setIssuedAt().setIssuer(iss).setAudience(aud).setSubject(sub).setExpirationTime(exp).setJti(id).sign(key, SignOptions?)` → `Promise<string>` | sign JWT | `sign/jwt` → `session/token` — the access-token mint; one fluent builder, no per-claim helper |
-|  [02]   | `jwtVerify<P>(jwt, key, JWTVerifyOptions?)` / `jwtVerify<P>(jwt, getKey, opts?)` → `Promise<JWTVerifyResult<P>>` (+ `ResolvedKey` on the resolver overload) | verify JWT | `sign/jwt` — static-key or JWKS-resolver verification; claim gates enforced by options, not by hand |
-|  [03]   | `new EncryptJWT(payload)…setProtectedHeader({ alg, enc }).setKeyManagementParameters(...).replicateIssuerAsHeader().encrypt(key, EncryptOptions?)` / `jwtDecrypt(jwt, key, opts?)` | encrypt JWT | `sign/jwt` — encrypted-claims profile when the payload must be confidential end-to-end, not just signed |
-|  [04]   | `UnsecuredJWT` (`alg: "none"`) / `decodeJwt(jwt)` / `decodeProtectedHeader(jwt)`                    | unsafe peek     | `sign/jwt` — header/claim peek to route by `kid`/`alg` before verify; `UnsecuredJWT` is test-only |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------------------------------------------------- |:-------------- |:-------------------------------------------------------------- |
+| [01] | `new SignJWT(payload).setProtectedHeader({ alg }).setIssuedAt().setIssuer(iss).setAudience(aud).setSubject(sub).setExpirationTime(exp).setJti(id).sign(key, SignOptions?)` → `Promise<string>` | sign JWT | `sign/jwt` → `session/token` — the access-token mint; one fluent builder, no per-claim helper |
+| [02] | `jwtVerify<P>(jwt, key, JWTVerifyOptions?)` / `jwtVerify<P>(jwt, getKey, opts?)` → `Promise<JWTVerifyResult<P>>` (+ `ResolvedKey` on the resolver overload) | verify JWT | `sign/jwt` — static-key or JWKS-resolver verification; claim gates enforced by options, not by hand |
+| [03] | `new EncryptJWT(payload)…setProtectedHeader({ alg, enc }).setKeyManagementParameters(...).replicateIssuerAsHeader().encrypt(key, EncryptOptions?)` / `jwtDecrypt(jwt, key, opts?)` | encrypt JWT | `sign/jwt` — encrypted-claims profile when the payload must be confidential end-to-end, not just signed |
+| [04] | `UnsecuredJWT` (`alg: "none"`) / `decodeJwt(jwt)` / `decodeProtectedHeader(jwt)` | unsafe peek | `sign/jwt` — header/claim peek to route by `kid`/`alg` before verify; `UnsecuredJWT` is test-only |
 
 [ENTRYPOINT_SCOPE]: JWKS resolution and key rotation — the verification-key seam
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY]  | [CONSUMER]                                                       |
-| :-----: | :------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
-|  [01]   | `createRemoteJWKSet(url, { timeoutDuration, cooldownDuration, cacheMaxAge, [jwksCache], [customFetch] })` → callable resolver | remote JWKS | `sign/jwt`, `authn/oauth` — the rotation resolver; cooldown-throttled refetch on `kid` miss |
-|  [02]   | resolver `.reload()` / `.fresh` / `.coolingDown` / `.reloading` / `.jwks()`                        | rotation state  | `sign/jwt` — observe/force rotation; a `Schedule` drives `reload`, `jwks()` snapshots the current set |
-|  [03]   | `jwksCache` (symbol) / `ExportedJWKSCache` (`{ jwks, uat }`) / `customFetch` (symbol)              | cache / transport | `sign/jwt` — cloud KV persistence between invocations; `customFetch` routes fetch through a retry/proxy agent |
-|  [04]   | `createLocalJWKSet(jwks)` / `EmbeddedJWK`                                                          | static JWKS     | `sign/jwt` — in-memory key set for own-issued tokens; `EmbeddedJWK` reads the key from the token header |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------------------------------------------------- |:-------------- |:-------------------------------------------------------------- |
+| [01] | `createRemoteJWKSet(url, { timeoutDuration, cooldownDuration, cacheMaxAge, [jwksCache], [customFetch] })` → callable resolver | remote JWKS | `sign/jwt`, `authn/oauth` — the rotation resolver; cooldown-throttled refetch on `kid` miss |
+| [02] | resolver `.reload()` / `.fresh` / `.coolingDown` / `.reloading` / `.jwks()` | rotation state | `sign/jwt` — observe/force rotation; a `Schedule` drives `reload`, `jwks()` snapshots the current set |
+| [03] | `jwksCache` (symbol) / `ExportedJWKSCache` (`{ jwks, uat }`) / `customFetch` (symbol) | cache / transport | `sign/jwt` — cloud KV persistence between invocations; `customFetch` routes fetch through a retry/proxy agent |
+| [04] | `createLocalJWKSet(jwks)` / `EmbeddedJWK` | static JWKS | `sign/jwt` — in-memory key set for own-issued tokens; `EmbeddedJWK` reads the key from the token header |
 
 [ENTRYPOINT_SCOPE]: raw JWS/JWE (the serialization axis) and key management
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY]  | [CONSUMER]                                                       |
-| :-----: | :------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
-|  [01]   | `CompactSign` / `FlattenedSign` / `GeneralSign` + `compactVerify` / `flattenedVerify` / `generalVerify` | JWS serialization | `sign/crypto` — one sign/verify concept, three wire forms; Compact is the JWT form, General carries multi-signature |
-|  [02]   | `CompactEncrypt` / `FlattenedEncrypt` / `GeneralEncrypt` + `compactDecrypt` / `flattenedDecrypt` / `generalDecrypt` | JWE serialization | `sign/crypto` — the same three-form axis for encryption; the `*GetKey` resolvers mirror the JWS side |
-|  [03]   | `generateKeyPair(alg, { extractable? })` → `GenerateKeyPairResult` / `generateSecret(alg, opts?)`  | key mint        | `sign/jwt` — mint the signing key pair (default non-extractable); the private key never leaves the layer |
-|  [04]   | `importPKCS8` / `importSPKI` / `importX509` / `importJWK` / `exportPKCS8` / `exportSPKI` / `exportJWK` | key codec    | `sign/jwt`, `secret/material` — PEM/JWK ↔ `CryptoKey` at the key boundary; `CredentialPemWire` decodes here |
-|  [05]   | `calculateJwkThumbprint(key, 'sha256')` / `calculateJwkThumbprintUri(key)` / `base64url.encode` / `base64url.decode` | key id / codec | `sign/jwt` — RFC 7638 `kid` derivation for rotation; `base64url` for JOSE segments |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------------------------------------------------- |:-------------- |:-------------------------------------------------------------- |
+| [01] | `CompactSign` / `FlattenedSign` / `GeneralSign` + `compactVerify` / `flattenedVerify` / `generalVerify` | JWS serialization | `sign/crypto` — one sign/verify concept, three wire forms; Compact is the JWT form, General carries multi-signature |
+| [02] | `CompactEncrypt` / `FlattenedEncrypt` / `GeneralEncrypt` + `compactDecrypt` / `flattenedDecrypt` / `generalDecrypt` | JWE serialization | `sign/crypto` — the same three-form axis for encryption; the `*GetKey` resolvers mirror the JWS side |
+| [03] | `generateKeyPair(alg, { extractable? })` → `GenerateKeyPairResult` / `generateSecret(alg, opts?)` | key mint | `sign/jwt` — mint the signing key pair (default non-extractable); the private key never leaves the layer |
+| [04] | `importPKCS8` / `importSPKI` / `importX509` / `importJWK` / `exportPKCS8` / `exportSPKI` / `exportJWK` | key codec | `sign/jwt`, `secret/material` — PEM/JWK ↔ `CryptoKey` at the key boundary; `CredentialPemWire` decodes here |
+| [05] | `calculateJwkThumbprint(key, 'sha256')` / `calculateJwkThumbprintUri(key)` / `base64url.encode` / `base64url.decode` | key id / codec | `sign/jwt` — RFC 7638 `kid` derivation for rotation; `base64url` for JOSE segments |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

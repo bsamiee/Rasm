@@ -8,7 +8,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 
 [PACKAGE_SURFACE]: `Robots`
 - package: `Robots` (visose)
-- version: `2.1.2`
 - license: `MIT`
 - assembly: `Robots` (`lib/net8.0/Robots.dll` — SINGLE TFM, the only lib asset; binds forward under `net10.0`)
 - namespace: `Robots` (single flat namespace; `Robots.Commands.*` nested for command types)

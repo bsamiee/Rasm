@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Microsoft.Diagnostics.NETCore.Client`
 - package: `Microsoft.Diagnostics.NETCore.Client`
-- version: `0.2.661903`
 - license: `MIT`
 - assembly: `Microsoft.Diagnostics.NETCore.Client`
 - namespace: `Microsoft.Diagnostics.NETCore.Client`

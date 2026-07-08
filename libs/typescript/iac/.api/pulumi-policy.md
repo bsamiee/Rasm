@@ -1,4 +1,4 @@
-# [API_CATALOGUE] @pulumi/policy
+# [TS_IAC_API_PULUMI_POLICY]
 
 `@pulumi/policy` is the CrossGuard policy-as-code framework: a `PolicyPack` owns an array of `ResourceValidationPolicy` (per-resource, with optional pre-validation remediation) and `StackValidationPolicy` (whole-stack, dependency-aware) checks, each carrying an `EnforcementLevel`/`Severity`/compliance-framework metadata and an optional JSON-schema-typed config. Unlike the provider SDKs this is a bespoke authoring API, not codegen — its power is the strongly-typed helper family (`validateResourceOfType`/`remediateResourceOfType`/`validateRemediateResourceOfType`/`validateStackResourcesOfType`) that narrows any Pulumi `Resource` subclass to its typed input props, so ONE parameterized helper owns validation across every resource class the other `iac` catalogs export. In the deploy plane it is `policy/guard`: the CrossGuard packs that gate every `program/automation` run, narrowing against the exact `@pulumi/kubernetes`, `@pulumi/gcp`, and `@pulumi/postgresql` classes; the `policy/drift` `previewRefresh` fold over `OpType` sits beside it on the engine's Automation API.
 
@@ -12,9 +12,8 @@ export { unknownCheckingProxy, UnknownValueError } from "./proxy" // preview-tim
 
 [PACKAGE_SURFACE]: `@pulumi/policy`
 - package: `@pulumi/policy`
-- version: `1.21.0`
 - license: `Apache-2.0`
-- build-floor: peer `@pulumi/pulumi ^3.204.0` (higher floor than the provider SDKs — needs the current analyzer plugin protocol); bundles `@grpc/grpc-js` + `google-protobuf` (the policy plugin speaks the analyzer gRPC service)
+- build-floor: peer `@pulumi/pulumi ^catalog` (higher floor than the provider SDKs — needs the current analyzer plugin protocol); bundles `@grpc/grpc-js` + `google-protobuf` (the policy plugin speaks the analyzer gRPC service)
 - target: `node` (runs as the `pulumi-analyzer-policy` plugin process the engine invokes during `preview`/`up`; not a resource in the graph)
 - entry: `@pulumi/policy` (re-exports `./policy` + the `./proxy` unknown guard)
 - asset: `PolicyPack`, the `ResourceValidationPolicy`/`StackValidationPolicy` shapes, the typed `*ResourceOfType` helper family, the `ResourceValidationArgs`/`StackValidationArgs`/`PolicyResource` inspection surface, the `EnforcementLevel`/`Severity`/compliance-framework vocabularies, `ReportViolation`, the remediation `Secret`, and the `unknownCheckingProxy`
@@ -28,15 +27,15 @@ export { unknownCheckingProxy, UnknownValueError } from "./proxy" // preview-tim
 - rail: iac / policy
 - entry: `@pulumi/policy`
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [CAPABILITY]                                                          |
-| :-----: | :-------------------- | :------------- | :------------------------------------------------------------------- |
-|  [01]   | `PolicyPack`          | class          | `new PolicyPack(name, args, initialConfig?)` — registers the pack     |
-|  [02]   | `PolicyPackArgs`      | interface      | `{ policies; enforcementLevel?; description?; displayName?; readme?; provider?; tags?; repository? }` |
-|  [03]   | `Policies`            | union array    | `(ResourceValidationPolicy \| StackValidationPolicy)[]`              |
-|  [04]   | `EnforcementLevel`    | string union   | `"advisory" \| "mandatory" \| "remediate" \| "disabled"`            |
-|  [05]   | `Severity`            | string union   | `"low" \| "medium" \| "high" \| "critical"`                         |
-|  [06]   | `PolicyPackConfig`    | record         | `{ [policy: string]: PolicyConfig }` — per-policy config bag          |
-|  [07]   | `PolicyConfig`        | union          | `EnforcementLevel \| ({ enforcementLevel?; [key]: any })`            |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+|:-----: |:-------------------- |:------------- |:------------------------------------------------------------------- |
+| [01] | `PolicyPack` | class | `new PolicyPack(name, args, initialConfig?)` — registers the pack |
+| [02] | `PolicyPackArgs` | interface | `{ policies; enforcementLevel?; description?; displayName?; readme?; provider?; tags?; repository? }` |
+| [03] | `Policies` | union array | `(ResourceValidationPolicy \| StackValidationPolicy)[]` |
+| [04] | `EnforcementLevel` | string union | `"advisory" \| "mandatory" \| "remediate" \| "disabled"` |
+| [05] | `Severity` | string union | `"low" \| "medium" \| "high" \| "critical"` |
+| [06] | `PolicyPackConfig` | record | `{ [policy: string]: PolicyConfig }` — per-policy config bag |
+| [07] | `PolicyConfig` | union | `EnforcementLevel \| ({ enforcementLevel?; [key]: any })` |
 
 ```ts contract
 import { Resource, Unwrap } from "@pulumi/pulumi"
@@ -62,12 +61,12 @@ type PolicyPackConfig = { [policy: string]: PolicyConfig }
 - rail: iac / policy
 - entry: `@pulumi/policy`
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                        |
-| :-----: | :-------------------------- | :------------ | :----------------------------------------------------------------- |
-|  [01]   | `Policy`                    | interface     | base: `name`, `description`, `enforcementLevel?`, `configSchema?`, `displayName?`, `severity?`, `framework?`, `tags?`, `remediationSteps?`, `url?` |
-|  [02]   | `PolicyComplianceFramework` | interface     | `{ name; version; reference; specification }` — SOC2/PCI/etc. tag   |
-|  [03]   | `PolicyConfigSchema`        | interface     | `{ properties: { [k]: PolicyConfigJSONSchema }; required? }`         |
-|  [04]   | `PolicyConfigJSONSchema`    | type (schema) | JSON-schema node backing `configSchema` (from `./schema`)           |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+|:-----: |:-------------------------- |:------------ |:----------------------------------------------------------------- |
+| [01] | `Policy` | interface | base: `name`, `description`, `enforcementLevel?`, `configSchema?`, `displayName?`, `severity?`, `framework?`, `tags?`, `remediationSteps?`, `url?` |
+| [02] | `PolicyComplianceFramework` | interface | `{ name; version; reference; specification }` — SOC2/PCI/etc. tag |
+| [03] | `PolicyConfigSchema` | interface | `{ properties: { [k]: PolicyConfigJSONSchema }; required? }` |
+| [04] | `PolicyConfigJSONSchema` | type (schema) | JSON-schema node backing `configSchema` (from `./schema`) |
 
 ```ts contract
 import { PolicyConfigJSONSchema } from "./schema"
@@ -94,15 +93,15 @@ interface PolicyComplianceFramework { name: string; version: string; reference: 
 - rail: iac / policy
 - entry: `@pulumi/policy`
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [CAPABILITY]                                                         |
-| :-----: | :-------------------------- | :------------ | :------------------------------------------------------------------ |
-|  [01]   | `ResourceValidationPolicy`  | interface     | `Policy` + `validateResource?: ResourceValidation \| ResourceValidation[]` + `remediateResource?` |
-|  [02]   | `ResourceValidation`        | callback      | `(args: ResourceValidationArgs, report: ReportViolation) => Promise<void> \| void` |
-|  [03]   | `ResourceRemediation`       | callback      | `(args) => Record<string, any> \| void \| Promise<…>` — runs BEFORE validation, may fix |
-|  [04]   | `ResourceValidationArgs`    | interface     | inspection bag: `type`, `props`, `urn`, `name`, `opts`, `provider?`, `stackTags`, `isType`, `asType`, `getConfig`, `notApplicable` |
-|  [05]   | `PolicyResourceOptions`     | interface     | `protect`, `ignoreChanges`, `deleteBeforeReplace?`, `aliases`, `customTimeouts`, `additionalSecretOutputs`, `parent?` |
-|  [06]   | `PolicyCustomTimeouts`      | interface     | `{ createSeconds; updateSeconds; deleteSeconds }`                    |
-|  [07]   | `PolicyProviderResource`    | interface     | `{ type; props; urn; name }` — the resource's provider              |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+|:-----: |:-------------------------- |:------------ |:------------------------------------------------------------------ |
+| [01] | `ResourceValidationPolicy` | interface | `Policy` + `validateResource?: ResourceValidation \| ResourceValidation[]` + `remediateResource?` |
+| [02] | `ResourceValidation` | callback | `(args: ResourceValidationArgs, report: ReportViolation) => Promise<void> \| void` |
+| [03] | `ResourceRemediation` | callback | `(args) => Record<string, any> \| void \| Promise<…>` — runs BEFORE validation, may fix |
+| [04] | `ResourceValidationArgs` | interface | inspection bag: `type`, `props`, `urn`, `name`, `opts`, `provider?`, `stackTags`, `isType`, `asType`, `getConfig`, `notApplicable` |
+| [05] | `PolicyResourceOptions` | interface | `protect`, `ignoreChanges`, `deleteBeforeReplace?`, `aliases`, `customTimeouts`, `additionalSecretOutputs`, `parent?` |
+| [06] | `PolicyCustomTimeouts` | interface | `{ createSeconds; updateSeconds; deleteSeconds }` |
+| [07] | `PolicyProviderResource` | interface | `{ type; props; urn; name }` — the resource's provider |
 
 ```ts contract
 import { Resource, Unwrap } from "@pulumi/pulumi"
@@ -133,14 +132,14 @@ interface ResourceValidationArgs {
 
 One helper family narrows any Pulumi `Resource` subclass to its `Unwrap`ped typed props, so a policy authored against `kubernetes.apps.v1.Deployment` or `gcp.storage.Bucket` gets full field typing with no manual `isType`/`asType` plumbing. This IS the mechanism — the specific resource classes are data supplied at the call site.
 
-| [INDEX] | [SYMBOL]                            | [SIGNATURE]                                                                                   |
-| :-----: | :---------------------------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `validateResourceOfType`            | `(resourceClass, (props, args, report) => …) => ResourceValidation`                          |
-|  [02]   | `remediateResourceOfType`           | `(resourceClass, (props, args) => Record<string,any> \| void) => ResourceRemediation`        |
-|  [03]   | `validateRemediateResourceOfType`   | `(resourceClass, cb) => { validateResource; remediateResource }` — spread into a policy       |
-|  [04]   | `validateStackResourcesOfType`      | `(resourceClass, (resources[], args, report) => …) => StackValidation`                       |
-|  [05]   | `TypedResourceValidation<TProps>`   | typed twin of `ResourceValidation`                                                            |
-|  [06]   | `TypedResourceRemediation<TProps>`  | typed twin of `ResourceRemediation`                                                           |
+| [INDEX] | [SYMBOL] | [SIGNATURE] |
+|:-----: |:---------------------------------- |:------------------------------------------------------------------------------------------- |
+| [01] | `validateResourceOfType` | `(resourceClass, (props, args, report) => …) => ResourceValidation` |
+| [02] | `remediateResourceOfType` | `(resourceClass, (props, args) => Record<string,any> \| void) => ResourceRemediation` |
+| [03] | `validateRemediateResourceOfType` | `(resourceClass, cb) => { validateResource; remediateResource }` — spread into a policy |
+| [04] | `validateStackResourcesOfType` | `(resourceClass, (resources[], args, report) => …) => StackValidation` |
+| [05] | `TypedResourceValidation<TProps>` | typed twin of `ResourceValidation` |
+| [06] | `TypedResourceRemediation<TProps>` | typed twin of `ResourceRemediation` |
 
 ```ts contract
 import { Resource, Unwrap } from "@pulumi/pulumi"
@@ -172,12 +171,12 @@ function validateStackResourcesOfType<TResource extends Resource>(
 - rail: iac / policy
 - entry: `@pulumi/policy`
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [CAPABILITY]                                                            |
-| :-----: | :----------------------- | :------------ | :--------------------------------------------------------------------- |
-|  [01]   | `StackValidationPolicy`  | interface     | `Policy` + `validateStack: StackValidation`                            |
-|  [02]   | `StackValidation`        | callback      | `(args: StackValidationArgs, report: ReportViolation) => Promise<void> \| void` |
-|  [03]   | `StackValidationArgs`    | interface     | `{ resources: PolicyResource[]; stackTags; getConfig; notApplicable }` |
-|  [04]   | `PolicyResource`         | interface     | resource-graph node: `type`, `props`, `urn`, `name`, `opts`, `provider?`, `parent?`, `dependencies`, `propertyDependencies`, `isType`, `asType` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+|:-----: |:----------------------- |:------------ |:--------------------------------------------------------------------- |
+| [01] | `StackValidationPolicy` | interface | `Policy` + `validateStack: StackValidation` |
+| [02] | `StackValidation` | callback | `(args: StackValidationArgs, report: ReportViolation) => Promise<void> \| void` |
+| [03] | `StackValidationArgs` | interface | `{ resources: PolicyResource[]; stackTags; getConfig; notApplicable }` |
+| [04] | `PolicyResource` | interface | resource-graph node: `type`, `props`, `urn`, `name`, `opts`, `provider?`, `parent?`, `dependencies`, `propertyDependencies`, `isType`, `asType` |
 
 ```ts contract
 import { Resource } from "@pulumi/pulumi"
@@ -207,12 +206,12 @@ interface PolicyResource {
 - rail: iac / policy
 - entry: `@pulumi/policy`
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                                                                 |
-| :-----: | :--------------------- | :------------ | :-------------------------------------------------------------------------- |
-|  [01]   | `ReportViolation`      | callback      | `(message: string, urn?: string) => void` — call N times for N violations   |
-|  [02]   | `Secret`               | class         | `new Secret(value)` — mark a remediated value for engine encryption          |
-|  [03]   | `unknownCheckingProxy` | re-export     | named by `index.d.ts` from `./proxy` (the preview-unknown props guard) — the shipped `proxy.d.ts` is an empty declaration module, so it carries NO typed signature; runtime-only |
-|  [04]   | `UnknownValueError`    | re-export     | paired guard export; same empty-`.d.ts` caveat — no declared shape          |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+|:-----: |:--------------------- |:------------ |:-------------------------------------------------------------------------- |
+| [01] | `ReportViolation` | callback | `(message: string, urn?: string) => void` — call N times for N violations |
+| [02] | `Secret` | class | `new Secret(value)` — mark a remediated value for engine encryption |
+| [03] | `unknownCheckingProxy` | re-export | named by `index.d.ts` from `./proxy` (the preview-unknown props guard) — the shipped `proxy.d.ts` is an empty declaration module, so it carries NO typed signature; runtime-only |
+| [04] | `UnknownValueError` | re-export | paired guard export; same empty-`.d.ts` caveat — no declared shape |
 
 ```ts contract
 type ReportViolation = (message: string, urn?: string) => void
@@ -240,4 +239,4 @@ declare class Secret { value: any; constructor(value: any) }
 - EFFECT WEAVE: policies are pure functions authored functionally; the pack is a plain value the `program/automation` composition passes into the run. `unknownCheckingProxy` guards preview-time reads so a validator never asserts on an unresolved `Output`.
 
 [RAIL_LAW]:
-- iac / policy rail; `node`-tier. Runs as the `pulumi-analyzer-policy` plugin the engine invokes at analysis time (`preview` and `up`), not as a resource in the graph — it observes the desired-state props, it does not provision. The higher `@pulumi/pulumi ^3.204.0` floor is the analyzer protocol requirement. Violations are structured `ReportViolation` calls the engine surfaces; there is no in-band `Result` — the failure channel is the analyzer's violation report folded into the run receipt.
+- iac / policy rail; `node`-tier. Runs as the `pulumi-analyzer-policy` plugin the engine invokes at analysis time (`preview` and `up`), not as a resource in the graph — it observes the desired-state props, it does not provision. The analyzer protocol floor is manifest-owned. Violations are structured `ReportViolation` calls the engine surfaces; there is no in-band `Result` — the failure channel is the analyzer's violation report folded into the run receipt.

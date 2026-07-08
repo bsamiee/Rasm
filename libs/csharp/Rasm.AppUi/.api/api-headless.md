@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Headless`
 - package: `Avalonia.Headless`
-- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Headless` (AnyCPU IL, managed-only)
 - build-floor: `net10.0` (consumer-bound; `net8.0` fallback present, not bound)
@@ -17,7 +16,6 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Headless.XUnit`
 - package: `Avalonia.Headless.XUnit`
-- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Headless.XUnit`
 - build-floor: `net10.0`
@@ -80,7 +78,7 @@ Consumers reach window behavior exclusively through the `HeadlessWindowExtension
 |  [01]   | `UseHeadless`           | `AppBuilder UseHeadless(this AppBuilder, AvaloniaHeadlessPlatformOptions)`  | `AvaloniaHeadlessPlatformExtensions` | platform boot     |
 |  [02]   | `StartNew`              | `HeadlessUnitTestSession StartNew(Type entryPointType[, AvaloniaTestIsolationLevel])` | `HeadlessUnitTestSession`  | session start     |
 |  [03]   | `GetOrStartForAssembly` | `HeadlessUnitTestSession GetOrStartForAssembly(Assembly?)`                  | `HeadlessUnitTestSession`            | shared session    |
-|  [04]   | `Dispatch`              | `Task Dispatch(Action, CancellationToken)` / `Task<T> Dispatch<T>(Func<T>|Func<Task<T>>, CancellationToken)` | `HeadlessUnitTestSession` | UI-thread run |
+|  [04]   | `Dispatch`              | `Task Dispatch(Action, CancellationToken)` / `Task<T> Dispatch<T>(Func<T>\|Func<Task<T>>, CancellationToken)` | `HeadlessUnitTestSession` | UI-thread run |
 |  [05]   | `ForceRenderTimerTick`  | `static void ForceRenderTimerTick(int count = 1)`                          | `AvaloniaHeadlessPlatform`           | manual frame tick |
 |  [06]   | `Dispose` / `DisposeAsync` | `void Dispose()` / `ValueTask DisposeAsync()`                           | `HeadlessUnitTestSession`            | session teardown  |
 
@@ -146,7 +144,7 @@ Set `UseHeadlessDrawing = false` AND reference `Avalonia.Skia` (`UseSkia`) for r
 - Reject: UI mutation off the session/dispatcher thread; reaching for `internal` window impls; screenshot tooling outside the headless platform.
 
 [CAPTURE_LAW]:
-- Pixel evidence is meaningful **only** when `UseHeadlessDrawing=false` and `Avalonia.Skia` renders — the design page that asserts on pixels must declare both, and the `FrameBufferFormat` (`Rgba8888`) fixes the comparison layout. With the default stub render interface, capture is structural-only (layout/visual-tree assertions), and the page asserts on logical state, not pixels.
+- Pixel evidence is meaningful only when `UseHeadlessDrawing=false` and `Avalonia.Skia` renders — the design page that asserts on pixels must declare both, and the `FrameBufferFormat` (`Rgba8888`) fixes the comparison layout. With the default stub render interface, capture is structural-only (layout/visual-tree assertions), and the page asserts on logical state, not pixels.
 - Determinism: `ForceRenderTimerTick` replaces the wall-clock render loop, so frame production is explicit and reproducible; `WithInterFont` (embedded `fonts:Inter`) removes host-font drift so text metrics are stable across the macOS desktop and headless-Linux CI lanes.
 
 [ISOLATION_LAW]:

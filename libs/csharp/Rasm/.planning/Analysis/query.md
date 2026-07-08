@@ -224,7 +224,7 @@ public static partial class Analyze {
 using System;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using LanguageExt.Common;
 using Rasm.Domain;

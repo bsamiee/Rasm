@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `DynamicData`
 - package: `DynamicData`
-- version: `9.4.31`
 - assembly: `DynamicData`
 - namespace: `DynamicData`
 - namespace: `DynamicData.Binding`

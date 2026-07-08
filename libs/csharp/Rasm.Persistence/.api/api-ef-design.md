@@ -19,7 +19,6 @@ into the model, which is the inverted, rejected direction.
 
 [PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Design`
 - package: `Microsoft.EntityFrameworkCore.Design`
-- version: `10.0.9`
 - license: `MIT` (`requireLicenseAcceptance=true`)
 - assembly: `Microsoft.EntityFrameworkCore.Design` (`lib/net10.0`; single-TFM, matches the consumer floor)
 - namespace: `Microsoft.EntityFrameworkCore.Design`, `Microsoft.EntityFrameworkCore.Design.Internal`, `Microsoft.EntityFrameworkCore.Migrations.Design`, `Microsoft.EntityFrameworkCore.Scaffolding`, `Microsoft.EntityFrameworkCore.Scaffolding.Internal`

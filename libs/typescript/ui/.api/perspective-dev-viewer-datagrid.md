@@ -1,4 +1,4 @@
-# [@perspective-dev/viewer-datagrid] — the regular-table grid plugin the viewer element selects by name
+# [TS_UI_API_PERSPECTIVE_DEV_VIEWER_DATAGRID]
 
 `@perspective-dev/viewer-datagrid` is a registration-by-import plugin for `<perspective-viewer>`: the bare root import defines the `perspective-viewer-datagrid` and `perspective-viewer-datagrid-toolbar` custom elements and calls `registerPlugin("perspective-viewer-datagrid")` against the viewer's plugin registry — after the import, `"Datagrid"` is selectable through the config's `plugin` field and `restore`. The grid itself is `regular-table` virtual scrolling with tree-pivoted rows, sticky headers, column sizing, and cell editing through the viewer edit port; every behavior knob rides `plugin_config` inside the one config value the atom holds — no element attribute is poked. The exported element classes exist for `instanceof` narrowing and plugin-contract reference, never for manual construction.
 
@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `@perspective-dev/viewer-datagrid`
 - package: `@perspective-dev/viewer-datagrid`
-- version: `4.5.1`
 - license: `Apache-2.0`
 - deps: `@perspective-dev/client`, `@perspective-dev/viewer` (lockstep pins), `regular-table`
 - module: ESM only — exports `.` (`types: dist/esm/index.d.ts`, `default: dist/esm/perspective-viewer-datagrid.js`), plus `./dist/*`/`./src/*` passthroughs
@@ -19,11 +18,11 @@
 [PUBLIC_TYPE_SCOPE]: the registration residue — three exports, none required for normal composition
 - rail: view/chart
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [CONSUMER / BOUNDARY]                                                        |
-| :-----: | :--------------------------------------------- | :--------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `HTMLPerspectiveViewerDatagridPluginElement`    | element class    | the registered plugin element — `instanceof` narrowing on `getPlugin()` only |
-|  [02]   | `HTMLPerspectiveViewerDatagridToolbarElement`   | element class    | the edit-mode toolbar element the plugin mounts itself                        |
-|  [03]   | `PRIVATE_PLUGIN_SYMBOL`                         | internal symbol  | plugin-internal model key — never read by consumers                          |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:--------------------------------------------- |:--------------- |:--------------------------------------------------------------------------- |
+| [01] | `HTMLPerspectiveViewerDatagridPluginElement` | element class | the registered plugin element — `instanceof` narrowing on `getPlugin()` only |
+| [02] | `HTMLPerspectiveViewerDatagridToolbarElement` | element class | the edit-mode toolbar element the plugin mounts itself |
+| [03] | `PRIVATE_PLUGIN_SYMBOL` | internal symbol | plugin-internal model key — never read by consumers |
 
 ## [03]-[INTEGRATION]
 

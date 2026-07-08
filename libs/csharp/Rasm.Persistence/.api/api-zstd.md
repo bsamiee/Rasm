@@ -18,7 +18,6 @@ the Arrow `ICompressionCodecFactory` own, never double-framing them.
 
 [PACKAGE_SURFACE]: `ZstdSharp.Port`
 - package: `ZstdSharp.Port`
-- version: `0.8.8`
 - license: MIT (Oleg Stepanischev) — `github.com/oleg-st/ZstdSharp`
 - assembly: `ZstdSharp` (note: assembly name differs from the package id `ZstdSharp.Port`)
 - namespace: `ZstdSharp` (public codec), `ZstdSharp.Unsafe` (libzstd-mirroring parameter/strategy/error enums + raw `Methods.ZSTD_*` bindings)
@@ -49,7 +48,7 @@ and a `preserveCompressor` knob and supply the async mirror.
 - rail: snapshot-codec
 
 The full advanced tuning surface — not just a level int. `SetParameter(ZSTD_cParameter, int)`
-is the canonical knob; the experimental params (`>=500`) are excluded (unstable ABI).
+is the canonical knob; the unstable params (`>=500`) are excluded.
 
 | [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]      | [CAPABILITY]                                                                       |
 | :-----: | :---------------- | :------------------ | :--------------------------------------------------------------------------------- |
@@ -99,7 +98,7 @@ whether the frame self-describes its size and carries a checksum.
 |  [06]   | `Compressor.SetPledgedSrcSize(ulong)`                                | streaming setup| pledges total size before a streaming frame (enables single-frame size header) |
 |  [07]   | `Compressor.LoadDictionary(ReadOnlySpan<byte>)` / `Decompressor.LoadDictionary(…)` | dictionary | install a trained dictionary on the context        |
 |  [08]   | `DictBuilder.TrainFromBuffer(IEnumerable<byte[]> samples, int dictCapacity = 112640)` | training | train a dictionary from sample blobs                |
-|  [09]   | `DictBuilder.TrainFromBufferFastCover(IEnumerable<byte[]>, int level | ZDICT_fastCover_params_t, int dictCapacity)` | training | FastCover trainer (faster, tunable) |
+|  [09]   | `DictBuilder.TrainFromBufferFastCover(IEnumerable<byte[]>, int level \| ZDICT_fastCover_params_t, int dictCapacity)` | training | FastCover trainer (faster, tunable) |
 |  [10]   | `Compressor.ResetStream()` / `Decompressor.ResetStream()`            | streaming setup| resets streaming session state between frames            |
 
 [ENTRYPOINT_SCOPE]: incremental engine (`OperationStatus`-driven)
@@ -142,7 +141,7 @@ with a `CancellationToken`. `CompressionStream` is write-only (`CanRead=false`),
 - one-shot: `Compressor.Wrap`/`Decompressor.Unwrap` over span/array/`ArraySegment`; the destination must be sized by `GetCompressBound`, and `TryWrap`/`TryUnwrap` are the no-throw twins. `Decompressor.GetDecompressedSize` reads the frame's content size only when `ZSTD_c_contentSizeFlag` was set at compress time.
 - context reuse: `Compressor`/`Decompressor` hold a reusable cctx/dctx and are `IDisposable` — set parameters and the dictionary once, then `Wrap`/`Unwrap` many; `ResetStream` clears streaming state between frames. They are the owned-value form, never a per-call allocation.
 - streaming: the `WrapStream`/`UnwrapStream`/`FlushStream` core returns `System.Buffers.OperationStatus` and pumps `source -> destination` with `out` consumed/written counts; the `bool isFinalBlock` flag on `WrapStream`/`FlushStream` is the public frame-boundary control (the engine maps it to the libzstd `ZSTD_EndDirective` `continue`/`flush`/`end` internally), and `SetPledgedSrcSize` lets a known-length streaming frame still carry a size header.
-- tuning: the level is one knob among the `ZSTD_cParameter` surface — long-distance matching (`ZSTD_c_enableLongDistanceMatching` + `ldm*`), multithreading (`nbWorkers`/`jobSize`/`overlapLog`), `strategy`, the window/hash/chain/search logs, and the `contentSizeFlag`/`checksumFlag`/`dictIDFlag` frame flags are all set through `SetParameter`. Experimental params (`>=500`) are excluded (unstable ABI).
+- tuning: the level is one knob among the `ZSTD_cParameter` surface — long-distance matching (`ZSTD_c_enableLongDistanceMatching` + `ldm*`), multithreading (`nbWorkers`/`jobSize`/`overlapLog`), `strategy`, the window/hash/chain/search logs, and the `contentSizeFlag`/`checksumFlag`/`dictIDFlag` frame flags are all set through `SetParameter`. Unstable params (`>=500`) are excluded.
 - dictionaries: `DictBuilder.TrainFromBuffer`/`TrainFromBufferFastCover` train a dictionary from sample blobs; `LoadDictionary` installs it on both sides — the small-similar-blob regime where a shared dictionary dominates raw ratio.
 
 [LOCAL_ADMISSION]:
@@ -162,4 +161,4 @@ with a `CancellationToken`. `CompressionStream` is write-only (`CanRead=false`),
 - Package: `ZstdSharp.Port`
 - Owns: standalone Zstandard compression — one-shot span/array codec, the `OperationStatus` streaming engine, the `CompressionStream`/`DecompressionStream` async-mirrored `Stream` adapters, the advanced `ZSTD_cParameter` tuning surface (LDM / multithread / strategy / frame flags), and trained-dictionary support
 - Accept: `CompressionPolicy.Zstd*` snapshot/blob payloads configured via `SetParameter`; `WrapStream`/`FlushStream` (or the stream adapter) for large payloads; `Wrap(src, dest)` into a `GetCompressBound`-sized buffer; `LoadDictionary` for the small-similar-blob regime; `TryWrap`/`TryUnwrap` no-throw twins folded into `Fin`
-- Reject: re-framing a Zstd-compressed Arrow IPC batch (`Apache.Arrow.Compression` owns it in-stream); double-framing a MessagePack `Lz4BlockArray` payload; a thrown `ZstdException` crossing the receipt boundary in place of a typed `Fin` failure; a sidecar decoded-length where `contentSizeFlag` already self-describes the frame; sharing one `Compressor` context across parallel workers; using the experimental `ZSTD_c_experimentalParam*` (unstable ABI)
+- Reject: re-framing a Zstd-compressed Arrow IPC batch (`Apache.Arrow.Compression` owns it in-stream); double-framing a MessagePack `Lz4BlockArray` payload; a thrown `ZstdException` crossing the receipt boundary in place of a typed `Fin` failure; a sidecar decoded-length where `contentSizeFlag` already self-describes the frame; sharing one `Compressor` context across parallel workers; using the unstable `ZSTD_c_experimentalParam*` parameter family

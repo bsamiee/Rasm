@@ -6,13 +6,12 @@
 
 [PACKAGE_SURFACE]: `LiveChartsCore.SkiaSharpView.Avalonia`
 - package: `LiveChartsCore.SkiaSharpView.Avalonia`
-- version: `2.0.5`
 - assembly: `LiveChartsCore.SkiaSharpView.Avalonia` (the single shipped assembly; `LiveChartsGeneratedCode` is a NAMESPACE inside it, not a separate assembly)
 - namespace: `LiveChartsCore.SkiaSharpView.Avalonia` — `Xaml*`, `*Collection`, `*Extension`, and the public `CartesianChart`/`PieChart`/`PolarChart`/`GeoMap`/`MotionCanvas`
 - namespace: `LiveChartsGeneratedCode` — the source-generated `SourceGen*` control bases the public charts derive from
 - asset: runtime library
 - build-floor: ships `lib/net8.0` (top TFM; no `net10.0`/`net9.0`), so the `net10.0` consumer binds `lib/net8.0` — the documented surface
-- dependency: transitively requires `LiveChartsCore.SkiaSharpView` 2.0.5 (Skia draw + series model) and `Avalonia`/`Avalonia.Skia` ≥ 11.0.0 (consumer runs Avalonia 12, forward-compatible)
+- dependency: transitively requires `LiveChartsCore.SkiaSharpView` (Skia draw + series model) and `Avalonia`/`Avalonia.Skia` ≥ (consumer runs Avalonia 12, forward-compatible)
 - rail: charts
 
 ## [02]-[PUBLIC_TYPES]
@@ -54,7 +53,7 @@
 - rail: charts
 - every `Xaml*Series` is generic `<TModel, TVisual, TLabel>` (`TVisual : *Geometry`, `TLabel : BaseLabelGeometry`) implementing `IXamlWrapper<…Series<…>>` over the `LiveChartsCore` runtime series; non-generic and single-arg convenience subclasses default `TVisual`/`TLabel` (e.g. `XamlColumnSeries<TModel>`)
 
-| [INDEX] | [SYMBOL]                     | [WRAPS (`LiveChartsCore`)]      | [RAIL]              |
+| [INDEX] | [SYMBOL]                     | [WRAPS_LIVECHARTSCORE]      | [RAIL]              |
 | :-----: | :--------------------------- | :------------------------------ | :------------------ |
 |  [01]   | `XamlSeries`                 | `abstract Control` series base  | series base         |
 |  [02]   | `SeriesCollection`           | `ObservableCollection<ISeries>` | series list         |
@@ -107,7 +106,7 @@
 [GEO_TYPES]: map chart binding surfaces (defined in transitive `LiveChartsCore.Geo`, bound through `GeoMap`/`SourceGenMapChart`)
 - rail: charts
 
-| [INDEX] | [SYMBOL]        | [OWNER ASSEMBLY] | [RAIL]                       |
+| [INDEX] | [SYMBOL]        | [OWNER_ASSEMBLY] | [RAIL]                       |
 | :-----: | :-------------- | :--------------- | :--------------------------- |
 |  [01]   | `IGeoMapView`   | `LiveChartsCore` | map view contract (`SourceGenMapChart` implements) |
 |  [02]   | `DrawnMap`      | `LiveChartsCore` | active map record (`ActiveMap` property type)      |

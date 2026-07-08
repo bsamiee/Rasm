@@ -5,7 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.OpenXR`
-- package: `Silk.NET.OpenXR` (2.23.0, MIT) + `Silk.NET.OpenXR.Extensions.KHR` (2.23.0, MIT) + `Silk.NET.OpenXR.Extensions.EXT` (2.23.0, MIT) — the `FB` extension package is admitted separately and catalogued in `api-silk-openxr-fb.md`
+- package: `Silk.NET.OpenXR` (MIT) + `Silk.NET.OpenXR.Extensions.KHR` (MIT) + `Silk.NET.OpenXR.Extensions.EXT` (MIT) — the `FB` extension package is admitted separately and catalogued in `api-silk-openxr-fb.md`
 - assembly: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
 - namespace: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
 - asset: managed binding over the host-installed OpenXR loader (`libopenxr_loader`), no bundled native runtime; `lib/net5.0` binds the `net10.0` consumer (highest available; the package also ships `netstandard2.1`/`netstandard2.0`/`netcoreapp3.1`)

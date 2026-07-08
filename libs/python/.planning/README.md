@@ -17,7 +17,7 @@ The Python branch is a first-class host-free science, compute, data, geometry, a
 
 The cross-domain Python foundation every folder builds on: typing/rails, concurrency, observability, the numeric substrate, content identity, byte/array compression, the wire-codegen toolchain, and the test stack. Package versions live in the root manifest. Folder READMEs list these under their own `## [3]-[SUBSTRATE_PACKAGES]` section rather than duplicating the registry here.
 
-The typing/rails, concurrency, observability, numeric-substrate, identity, compression, and companion-wire tiers each carry one catalogue at the branch `libs/python/.api/<dist>.md`, authored once and never duplicated into a folder `.api/`. Domain-owned packages (geometry, data/geometry seams, runtime/data transport) keep their catalogues in the consuming folder, not here.
+The typing/rails, concurrency, observability, numeric-substrate, identity, transport, mesh-interchange, compression, and companion-wire tiers each carry one catalogue at the branch `libs/python/.api/<dist>.md`, authored once and never duplicated into a folder `.api/`. Folder overlays carry only local admission law.
 
 [TYPING_RAILS]:
 - `expression`
@@ -41,6 +41,16 @@ The typing/rails, concurrency, observability, numeric-substrate, identity, compr
 
 [IDENTITY]:
 - `xxhash`
+
+[TRANSPORT]:
+- `fsspec`
+- `obstore`
+
+[MESH_INTERCHANGE]:
+- `meshio`
+
+[COMPRESSION]:
+- `lz4`
 
 [WIRE_CODEGEN]:
 - `grpcio`

@@ -1,6 +1,6 @@
 # [RASM_APPUI_API_ASYNCIMAGELOADER]
 
-`AsyncImageLoader.Avalonia` 3.8.0 (MIT, `net8.0` lib bound under the net10 consumer)
+`AsyncImageLoader.Avalonia` (MIT, `net8.0` lib bound under the net10 consumer)
 supplies the `AdvancedImage` content control, two attached-loading statics
 (`ImageLoader` on `Image`, `ImageBrushLoader` on `ImageBrush`), the
 `IAsyncImageLoader`/`IAdvancedAsyncImageLoader` loader contracts, and a three-level
@@ -12,7 +12,7 @@ owning a private one.
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `AsyncImageLoader.Avalonia` 3.8.0
+[PACKAGE_SURFACE]: `AsyncImageLoader.Avalonia`
 - package / license: `AsyncImageLoader.Avalonia` / MIT
 - assembly: `AsyncImageLoader.Avalonia`
 - asset: `net8.0` (only lib; consumer-bound under net10)

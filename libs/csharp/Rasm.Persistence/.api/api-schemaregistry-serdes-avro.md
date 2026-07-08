@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Confluent.SchemaRegistry.Serdes.Avro`
 - package: `Confluent.SchemaRegistry.Serdes.Avro`
-- version: `2.14.2`
 - license: Apache-2.0
 - assembly: `Confluent.SchemaRegistry.Serdes.Avro`
 - namespace: `Confluent.SchemaRegistry.Serdes`

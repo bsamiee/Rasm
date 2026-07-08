@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Kiwi`
 - package: `Kiwi`
-- version: `3.0.0`
 - assembly: `Kiwi`
 - namespace: `Nanoray.Kiwi`
 - asset: runtime library (pure managed, zero native dependency)

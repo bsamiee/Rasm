@@ -1,14 +1,14 @@
-# [@effect/cli] — the Command/Args/Options/Prompt vocabulary behind the cli/verb contribution families; the app assembles exactly one Command root
+# [TS_RUNTIME_API_EFFECT_CLI]
 
 `@effect/cli` is the terminal entry family under the one edge assembly law. Each verb family in `cli/verb.ts` is a `Command<Name, R, E, A>` VALUE — itself an `Effect` yielding its parsed config — exported as data; the APP folds selected families through `Command.withSubcommands` into exactly one root and runs it via `Command.run({name, version})` under the platform `Environment` (`FileSystem | Path | Terminal`). The god-CLI is structurally impossible because the root has no lib-side existence. doctor/replay/inspect ship as the lib ops family, their handlers executing over `proc/exec`. `cli/render.ts` renders output through `@effect/printer`(-ansi), and the package's own `HelpDoc` lowers onto that same rail. This is the terminal peer of the `@effect/rpc` `RpcGroup` contribution family.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect/cli`
-- package: `@effect/cli` `0.75.2` — license `MIT`
+- package: `@effect/cli` `` — license `MIT`
 - module: dual ESM/CJS; types `dist/dts/index.d.ts`; per-module subpaths `Command`, `Args`, `Options`, `Prompt`, `CliApp`, `CliConfig`, `ConfigFile`, `HelpDoc` (+ `HelpDoc/Span`), `Primitive`, `Usage`, `ValidationError`, `CommandDescriptor`, `CommandDirective`, `BuiltInOptions`, `AutoCorrect`
-- peers: `effect` `^3.21.2`, `@effect/platform` `^0.96.1`, `@effect/printer` + `@effect/printer-ansi` `^0.49.0` (catalog-resolved to `3.21.4` / `0.96.2` / `0.49.0`); the `Environment` is satisfied by `@effect/platform-node` `NodeContext.layer` or `@effect/platform-bun`
-- bound asset: TSDECL `node_modules/@effect/cli/dist/dts/*.d.ts` (`assay api resolve @effect/cli` → `0.75.2`)
+- peers: `effect` `^catalog`, `@effect/platform` `^catalog`, `@effect/printer` + `@effect/printer-ansi` `^catalog` (catalog-resolved to `catalog` / `catalog` / `catalog`); the `Environment` is satisfied by `@effect/platform-node` `NodeContext.layer` or `@effect/platform-bun`
+- bound asset: TSDECL `node_modules/@effect/cli/dist/dts/*.d.ts` (`assay api resolve @effect/cli` → catalog-bound)
 - admission: folder-local `# edge` catalog group; version centralized in `pnpm-workspace.yaml`
 - role: `cli/verb.ts` (Command contribution families + the one-root assembly), `cli/render.ts` (Doc-composed output); the ops family executes over `proc/exec`
 - rail: `edge/cli`
@@ -49,7 +49,7 @@ Consumer note: each verb family is a `Command` value; the app folds selected fam
 
 ## [03]-[OPTIONS_ARGS_ALGEBRA]
 
-`Options<A>` (named flags) and `Args<A>` (positionals) are one combinator algebra over a variance carrier — arity, cardinality, fallback, and decode live in the combinators, never in parallel per-type constructors. Constructors differ only by the leading `name` (Options) vs an optional config (Args).
+`Options<A>` (named flags) and `Args<A>` (positionals) are one combinator algebra over a variance carrier — arity, cardinality, recovery, and decode live in the combinators, never in parallel per-type constructors. Constructors differ only by the leading `name` (Options) vs an optional config (Args).
 
 ```ts
 // constructors (shared): boolean · text · integer · float · date · choice · redacted · file · directory · fileSchema · none · all · isOptions/isArgs

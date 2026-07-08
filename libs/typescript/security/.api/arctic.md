@@ -1,11 +1,11 @@
-# [SECURITY_API_ARCTIC]
+# [TS_SECURITY_API_ARCTIC]
 
 `arctic` is the OAuth 2.0 authorization-code client the `security/authn/oauth` design composes: one generic `OAuth2Client` plus 60-plus pre-bound provider classes that all share the same four-method ceremony shape — `createAuthorizationURL` (build the redirect), `validateAuthorizationCode` (exchange the code for `OAuth2Tokens`), optional `refreshAccessToken`, optional `revokeToken`. The provider roster is seed DATA over that shape, differing only in endpoint URLs, constructor identity (`clientSecret` vs Apple's `teamId`/`keyId`/`pkcs8PrivateKey` vs Entra's `tenant`), and whether the flow carries a PKCE `codeVerifier` or a `refresh_token`; the design binds it as a closed provider vocabulary, never a method family per provider. It is isomorphic (WebCrypto + global `fetch`, zero runtime dependencies), every ceremony call is a `Promise` that rejects with the typed request-fault family, and `decodeIdToken` is unsafe decode-only — OIDC id-token verification delegates to `jose` (`.api/jose.md`). PKCE state and code-verifier are per-request secrets the design parks in a short-lived `session` store across the two redirect legs.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `arctic`
-- package: `arctic` (3.7.0, MIT, © pilcrowOnPaper)
+- package: `arctic` (MIT, © pilcrowOnPaper)
 - module format: ESM only (`type: module`); deep-import subpaths ship under `arctic/dist/*` but the flat `arctic` barrel is the import surface — provider classes, `OAuth2Client`, `OAuth2Tokens`, the fault family, and `decodeIdToken` all re-export from the root
 - runtime target: isomorphic (node, bun, browser, worker, edge) — global `fetch` + WebCrypto (`generateCodeVerifier`/`generateState` draw from `crypto.getRandomValues`); zero runtime dependencies; no native addon
 - asset: pure-TypeScript runtime library (`.js` + `.d.ts`); `OAuth2Tokens.data` is an untyped `object`, so a `Schema` at the seam is the real gate on the provider response shape
@@ -16,45 +16,45 @@
 [PUBLIC_TYPE_SCOPE]: the parameterized client, the provider vocabulary, and the token accessor
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]        | [CONSUMER]                                                                 |
-| :-----: | :--------------------------------------------------------- | :------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `OAuth2Client`                                             | generic client       | `authn/oauth` — the one parameterized authorization-code owner; base for any provider not pre-bound |
-|  [02]   | `Google` / `GitHub` / `Apple` / `MicrosoftEntraId` / … (60-plus) | provider row     | `authn/oauth` — pre-bound endpoint rows over the shared ceremony shape; bound as a closed vocabulary, seed data, never per-provider methods |
-|  [03]   | `OAuth2Tokens`                                             | token response       | `authn/oauth` → `session/token` — `.data` is untyped `object`; `Schema` decodes it before it crosses into the session mint |
-|  [04]   | `CodeChallengeMethod` (`S256`, `Plain`)                    | PKCE method enum     | `authn/oauth` — `S256` is the only admitted arm on the generic `createAuthorizationURLWithPKCE` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:--------------------------------------------------------- |:------------------- |:------------------------------------------------------------------------ |
+| [01] | `OAuth2Client` | generic client | `authn/oauth` — the one parameterized authorization-code owner; base for any provider not pre-bound |
+| [02] | `Google` / `GitHub` / `Apple` / `MicrosoftEntraId` / … (60-plus) | provider row | `authn/oauth` — pre-bound endpoint rows over the shared ceremony shape; bound as a closed vocabulary, seed data, never per-provider methods |
+| [03] | `OAuth2Tokens` | token response | `authn/oauth` → `session/token` — `.data` is untyped `object`; `Schema` decodes it before it crosses into the session mint |
+| [04] | `CodeChallengeMethod` (`S256`, `Plain`) | PKCE method enum | `authn/oauth` — `S256` is the only admitted arm on the generic `createAuthorizationURLWithPKCE` |
 
 [PUBLIC_TYPE_SCOPE]: the ceremony fault family (each ceremony call rejects into this closed set)
 - rail: rails-and-effects
 
-| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]        | [CONSUMER]                                                                 |
-| :-----: | :--------------------------------------------------------- | :------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `OAuth2RequestError` (`code`, `description`, `uri`, `state`) | provider fault     | `authn/oauth` — RFC 6749 token-endpoint error; `code` is the discriminant a `Match` maps to a tagged domain fault |
-|  [02]   | `ArcticFetchError`                                         | transport fault      | `authn/oauth` — the `fetch` call itself threw (network/DNS); the retryable arm of the fault fold |
-|  [03]   | `UnexpectedResponseError` (`status`)                      | shape fault          | `authn/oauth` — non-2xx without a parseable OAuth error body; `status` carried for telemetry |
-|  [04]   | `UnexpectedErrorResponseBodyError` (`status`, `data`)     | shape fault          | `authn/oauth` — error status with an unrecognized body; `data` retained for quarantine |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:--------------------------------------------------------- |:------------------- |:------------------------------------------------------------------------ |
+| [01] | `OAuth2RequestError` (`code`, `description`, `uri`, `state`) | provider fault | `authn/oauth` — RFC 6749 token-endpoint error; `code` is the discriminant a `Match` maps to a tagged domain fault |
+| [02] | `ArcticFetchError` | transport fault | `authn/oauth` — the `fetch` call itself threw (network/DNS); the retryable arm of the fault fold |
+| [03] | `UnexpectedResponseError` (`status`) | shape fault | `authn/oauth` — non-2xx without a parseable OAuth error body; `status` carried for telemetry |
+| [04] | `UnexpectedErrorResponseBodyError` (`status`, `data`) | shape fault | `authn/oauth` — error status with an unrecognized body; `data` retained for quarantine |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the authorization-code ceremony — one shape across every provider row
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY]  | [CONSUMER]                                                        |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `new OAuth2Client(clientId, clientPassword \| null, redirectURI \| null)` / `new <Provider>(clientId, clientSecret, redirectURI)` | construct | `authn/oauth` — provider ctor is the row; `OAuth2Client` is the fallback for an unlisted issuer |
-|  [02]   | `.createAuthorizationURL(...)` / `OAuth2Client.createAuthorizationURLWithPKCE(endpoint, state, CodeChallengeMethod.S256, codeVerifier, scopes)` | build redirect | `authn/oauth` → HTTP 302; provider rows fold `state`/`codeVerifier`/`scopes` into the URL |
-|  [03]   | `generateState()` / `generateCodeVerifier()` / `createS256CodeChallenge(verifier)`                 | PKCE mint       | `authn/oauth` — CSRF `state` + PKCE verifier minted per request, parked in `session` between legs |
-|  [04]   | `.validateAuthorizationCode(code, codeVerifier \| null)` → `Promise<OAuth2Tokens>`                 | token exchange  | `authn/oauth` — the callback leg; `Effect.tryPromise` converts reject → tagged fault |
-|  [05]   | `.refreshAccessToken(refreshToken, scopes?)` → `Promise<OAuth2Tokens>` / `.revokeToken(token)`     | token lifecycle | `session/token` — refresh-rotation and revocation legs for providers whose row carries them |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------------------------------------------- |:-------------- |:--------------------------------------------------------------- |
+| [01] | `new OAuth2Client(clientId, clientPassword \| null, redirectURI \| null)` / `new <Provider>(clientId, clientSecret, redirectURI)` | construct | `authn/oauth` — provider ctor is the row; `OAuth2Client` is the recovery for an unlisted issuer |
+| [02] | `.createAuthorizationURL(...)` / `OAuth2Client.createAuthorizationURLWithPKCE(endpoint, state, CodeChallengeMethod.S256, codeVerifier, scopes)` | build redirect | `authn/oauth` → HTTP 302; provider rows fold `state`/`codeVerifier`/`scopes` into the URL |
+| [03] | `generateState()` / `generateCodeVerifier()` / `createS256CodeChallenge(verifier)` | PKCE mint | `authn/oauth` — CSRF `state` + PKCE verifier minted per request, parked in `session` between legs |
+| [04] | `.validateAuthorizationCode(code, codeVerifier \| null)` → `Promise<OAuth2Tokens>` | token exchange | `authn/oauth` — the callback leg; `Effect.tryPromise` converts reject → tagged fault |
+| [05] | `.refreshAccessToken(refreshToken, scopes?)` → `Promise<OAuth2Tokens>` / `.revokeToken(token)` | token lifecycle | `session/token` — refresh-rotation and revocation legs for providers whose row carries them |
 
 [ENTRYPOINT_SCOPE]: reading the token response and the id-token boundary
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY]  | [CONSUMER]                                                        |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `OAuth2Tokens.accessToken()` / `.accessTokenExpiresAt()` / `.accessTokenExpiresInSeconds()` / `.tokenType()` | read access | `authn/oauth` → `session/token` — the access grant + its wall-clock expiry seed the session |
-|  [02]   | `OAuth2Tokens.hasRefreshToken()` / `.refreshToken()` / `.hasScopes()` / `.scopes()`                | read grant      | `session/token` — presence-guarded reads; `hasRefreshToken` gates the refresh-rotation row |
-|  [03]   | `OAuth2Tokens.idToken()`                                                                            | read OIDC token | `authn/oauth` — the raw id-token string handed to `jose.jwtVerify`, never trusted here |
-|  [04]   | `decodeIdToken(idToken)` → `object`                                                                 | unsafe decode   | `authn/oauth` — claim peek only (no signature check); the design NEVER treats this as verification |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:-------------------------------------------------------------------------------------------------- |:-------------- |:--------------------------------------------------------------- |
+| [01] | `OAuth2Tokens.accessToken()` / `.accessTokenExpiresAt()` / `.accessTokenExpiresInSeconds()` / `.tokenType()` | read access | `authn/oauth` → `session/token` — the access grant + its wall-clock expiry seed the session |
+| [02] | `OAuth2Tokens.hasRefreshToken()` / `.refreshToken()` / `.hasScopes()` / `.scopes()` | read grant | `session/token` — presence-guarded reads; `hasRefreshToken` gates the refresh-rotation row |
+| [03] | `OAuth2Tokens.idToken()` | read OIDC token | `authn/oauth` — the raw id-token string handed to `jose.jwtVerify`, never trusted here |
+| [04] | `decodeIdToken(idToken)` → `object` | unsafe decode | `authn/oauth` — claim peek only (no signature check); the design NEVER treats this as verification |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,10 +1,10 @@
 # [CSHARP_BRANCH]
 
-The C# branch router and the cross-cutting package registry. The branch aggregates the planning-scoped packages, each carrying its own four index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) at its root and its design pages under one `.planning/`. This node routes to those package roots and registers only the packages shared across two or more C# folders; a folder README lists only its own additions, shared API catalogues live in `libs/csharp/.api/`, and versions live in the one C# manifest, never here.
+The C# branch router and the cross-cutting package registry. The branch aggregates the planning-scoped packages, each carrying its own four index docs (`README.md`, `ARCHITECTURE.md`, `IDEAS.md`, `TASKLOG.md`) at its root and its design pages under one `.planning/`; the two HOST-BOUNDARY roots carry durable host-bound source with card pools and a folder `.api/` tier, their index docs and design pages arriving with conversion. This node routes to those package roots and registers only the packages shared across two or more C# folders; a folder README lists only its own additions, shared API catalogues live in `libs/csharp/.api/`, and versions live in the one C# manifest, never here.
 
 ## [01]-[ROUTER]
 
-The planning-scoped package roots in strata order; each root `README.md` carries the folder's page router and its own package additions, and each `ARCHITECTURE.md` carries the folder's sub-domain map.
+The package roots in strata order; each planning-scoped root `README.md` carries the folder's page router and its own package additions, and each `ARCHITECTURE.md` carries the folder's sub-domain map. The HOST-BOUNDARY rows route to source folders.
 
 - [01]-[KERNEL]: [Rasm](../Rasm/README.md) — RhinoCommon-aware geometry/numeric kernel.
 - [02]-[AEC-DOMAIN]: [Rasm.Element](../Rasm.Element/README.md) — lowest-AEC element seam.
@@ -43,10 +43,10 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `UnitsNet` — Element, Bim, Compute, Fabrication, Materials, AppUi.
 
 [GRAPH_ALGORITHM]:
-- `QuikGraph` — Rasm, Element, Materials, Bim, Fabrication, Persistence: pure-managed graph containers + `AlgorithmExtensions` behind the MST/topology/CPM/version-DAG/setup-precedence walks.
+- `QuikGraph` — Rasm, AppUi, Bim, Compute, Element, Fabrication, Materials, Persistence: pure-managed graph containers + `AlgorithmExtensions` behind the MST/topology/CPM/version-DAG/setup-precedence walks.
 
 [WIRE_CODEGEN]:
-- `Generator.Equals` — Element, Bim, Persistence (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
+- `Generator.Equals` — Bim, Compute, Element, Persistence (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
 - `Google.Protobuf` — Element (the `rasm.element.v1` graph wire messages), Compute.
 - `Grpc.AspNetCore`
 - `Grpc.AspNetCore.HealthChecks`
@@ -56,7 +56,7 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `Grpc.Net.Client.Web`
 - `Grpc.Net.Common`
 - `Grpc.Tools` — Element (`GrpcServices=None` message codegen), Compute.
-- `Riok.Mapperly` — Element, Materials, Bim, Fabrication, Persistence (compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`).
+- `Riok.Mapperly` — Bim, Compute, Element, Fabrication, Materials, Persistence (compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`).
 
 [TEST_SUBSTRATE]:
 - `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.
@@ -65,7 +65,3 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `Microsoft.Testing.Platform` stack.
 - `BenchmarkDotNet` — Compute, Persistence.
 - `Verify.XunitV3` — Persistence, AppUi.
-- `NodaTime.Testing`
-- `Microsoft.Extensions.TimeProvider.Testing`
-- `Microsoft.Extensions.Diagnostics.Testing`
-- `Microsoft.AspNetCore.TestHost`

@@ -17,136 +17,136 @@
 [PUBLIC_TYPE_SCOPE]: core lifecycle types
 - rail: versioned-store
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [ROLE]                                             |
-| :-----: | :----------------- | :-------------- | :------------------------------------------------- |
-|  [01]   | `Repository`       | lifecycle owner | create/open, branch/tag, ancestry, GC, sessions    |
-|  [02]   | `Session`          | write unit      | read, write, commit, rebase, fork, merge           |
-|  [03]   | `ForkSession`      | divergent write | fork-side write unit merged via `Session.merge`    |
-|  [04]   | `IcechunkStore`    | Zarr store      | Zarr `Store`-compatible handle via `session.store` |
-|  [05]   | `Storage`          | storage handle  | opaque backend descriptor from factory functions   |
-|  [06]   | `RepositoryConfig` | configuration   | caching, compression, manifest, storage settings   |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Repository` | lifecycle owner | create/open, branch/tag, ancestry, GC, sessions |
+| [02] | `Session` | write unit | read, write, commit, rebase, fork, merge |
+| [03] | `ForkSession` | divergent write | fork-side write unit merged via `Session.merge` |
+| [04] | `IcechunkStore` | Zarr store | Zarr `Store`-compatible handle via `session.store` |
+| [05] | `Storage` | storage handle | opaque backend descriptor from factory functions |
+| [06] | `RepositoryConfig` | configuration | caching, compression, manifest, storage settings |
 
 [PUBLIC_TYPE_SCOPE]: record and config types
 - rail: versioned-store
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]   | [ROLE]                                                          |
-| :-----: | :------------------------------------------------------- | :-------------- | :-------------------------------------------------------------- |
-|  [01]   | `SnapshotInfo`                                           | history record  | `id`, `parent_id`, `message`, `written_at`, `metadata`          |
-|  [02]   | `Diff`                                                   | changeset       | new/deleted/updated arrays, groups, chunks, moved_nodes         |
-|  [03]   | `Conflict`                                               | conflict record | `conflict_type`, `path`, `conflicted_chunks`                    |
-|  [04]   | `GCSummary`                                              | GC result       | chunks/manifests/snapshots/attributes/transaction_logs/bytes deleted |
-|  [05]   | `Update` / `UpdateType`                                  | ops-log entry   | `kind`, `updated_at`, `backup_path`; `UpdateType` enum of kinds |
-|  [06]   | `AncestryGraph`                                          | history graph   | DAG of `SnapshotInfo` from `Repository.ancestry_graph`          |
-|  [07]   | `ConflictSolver`                                         | solver base     | abstract solver passed as `rebase_with`                         |
-|  [08]   | `BasicConflictSolver` / `ConflictDetector`               | conflict solver | `ConflictSolver` implementations for rebase                     |
-|  [09]   | `RepoStatus` / `RepoAvailability`                        | repo status     | repository health/status read via `get_status`                 |
-|  [10]   | `VirtualChunkContainer` / `VirtualChunkSpec`             | virtual ref     | external chunk addressing descriptors                           |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `SnapshotInfo` | history record | `id`, `parent_id`, `message`, `written_at`, `metadata` |
+| [02] | `Diff` | changeset | new/deleted/updated arrays, groups, chunks, moved_nodes |
+| [03] | `Conflict` | conflict record | `conflict_type`, `path`, `conflicted_chunks` |
+| [04] | `GCSummary` | GC result | chunks/manifests/snapshots/attributes/transaction_logs/bytes deleted |
+| [05] | `Update` / `UpdateType` | ops-log entry | `kind`, `updated_at`, `backup_path`; `UpdateType` enum of kinds |
+| [06] | `AncestryGraph` | history graph | DAG of `SnapshotInfo` from `Repository.ancestry_graph` |
+| [07] | `ConflictSolver` | solver base | abstract solver passed as `rebase_with` |
+| [08] | `BasicConflictSolver` / `ConflictDetector` | conflict solver | `ConflictSolver` implementations for rebase |
+| [09] | `RepoStatus` / `RepoAvailability` | repo status | repository health/status read via `get_status` |
+| [10] | `VirtualChunkContainer` / `VirtualChunkSpec` | virtual ref | external chunk addressing descriptors |
 
 [PUBLIC_TYPE_SCOPE]: configuration types
 - rail: versioned-store
 
-`RepositoryConfig` is the root config; the caching/compression/manifest/storage families are nested settings. `FeatureFlag` gates experimental store behavior. `ManifestSplittingConfig`/`ManifestPreloadConfig` tune manifest sharding and preload, keyed by the `ManifestSplit*Condition`/`ManifestPreloadCondition` predicate enums.
+`RepositoryConfig` is the root config; the caching/compression/manifest/storage families are nested settings. `FeatureFlag` gates active store behavior. `ManifestSplittingConfig`/`ManifestPreloadConfig` tune manifest sharding and preload, keyed by the `ManifestSplit*Condition`/`ManifestPreloadCondition` predicate enums.
 
-| [INDEX] | [SYMBOL]                                                                                                          | [TYPE_FAMILY] | [ROLE]                                                |
-| :-----: | :---------------------------------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------- |
-|  [01]   | `RepositoryConfig`                                                                                                | root config   | caching/compression/manifest/storage/inline settings  |
-|  [02]   | `CachingConfig` / `CompressionConfig` / `ManifestConfig`                                                          | nested config | chunk cache, snapshot compression, manifest behavior   |
-|  [03]   | `ManifestSplittingConfig` / `ManifestSplitCondition` / `ManifestSplitDimCondition`                               | split config  | manifest sharding by node/dimension predicate          |
-|  [04]   | `ManifestPreloadConfig` / `ManifestPreloadCondition`                                                             | preload config| manifest preload predicate and budget                 |
-|  [05]   | `StorageSettings` / `StorageConcurrencySettings` / `StorageRetriesSettings` / `StorageTimeoutSettings`           | storage tuning| concurrency, retry, and timeout policy per backend     |
-|  [06]   | `S3Options` / `ObjectStoreConfig`                                                                                | backend config| S3/object-store endpoint and connection options       |
-|  [07]   | `FeatureFlag`                                                                                                     | feature gate  | experimental-behavior flag set on the repository       |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `RepositoryConfig` | root config | caching/compression/manifest/storage/inline settings |
+| [02] | `CachingConfig` / `CompressionConfig` / `ManifestConfig` | nested config | chunk cache, snapshot compression, manifest behavior |
+| [03] | `ManifestSplittingConfig` / `ManifestSplitCondition` / `ManifestSplitDimCondition` | split config | manifest sharding by node/dimension predicate |
+| [04] | `ManifestPreloadConfig` / `ManifestPreloadCondition` | preload config | manifest preload predicate and budget |
+| [05] | `StorageSettings` / `StorageConcurrencySettings` / `StorageRetriesSettings` / `StorageTimeoutSettings` | storage tuning | concurrency, retry, and timeout policy per backend |
+| [06] | `S3Options` / `ObjectStoreConfig` | backend config | S3/object-store endpoint and connection options |
+| [07] | `FeatureFlag` | feature gate | experimental-behavior flag set on the repository |
 
 [PUBLIC_TYPE_SCOPE]: enums
 - rail: versioned-store
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [MEMBERS]                                               |
-| :-----: | :--------------------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `SessionMode`          | mode enum     | `readonly`, `writable`, `rearrange`                     |
-|  [02]   | `VersionSelection`     | rebase policy | `Fail`, `UseOurs`, `UseTheirs`                          |
-|  [03]   | `ChunkType`            | chunk kind    | `native`, `virtual`, `inline`, `uninitialized`          |
-|  [04]   | `ConflictType`         | conflict kind | `ChunkDoubleUpdate`, `ZarrMetadataDoubleUpdate`, 9 more |
-|  [05]   | `ChecksumAlgorithm`    | checksum kind | `Crc32`, `Crc32c`, `Crc64Nvme`, `Sha1`, `Sha256`        |
-|  [06]   | `CompressionAlgorithm` | codec kind    | `Zstd`                                                  |
-|  [07]   | `CommitMethod`         | rewrite mode  | `Literal["new_commit", "amend"]`                        |
-|  [08]   | `SpecVersion`          | format ver    | `v1`, `v2`                                              |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [MEMBERS] |
+| --- | --- | --- | --- |
+| [01] | `SessionMode` | mode enum | `readonly`, `writable`, `rearrange` |
+| [02] | `VersionSelection` | rebase policy | `Fail`, `UseOurs`, `UseTheirs` |
+| [03] | `ChunkType` | chunk kind | `native`, `virtual`, `inline`, `uninitialized` |
+| [04] | `ConflictType` | conflict kind | `ChunkDoubleUpdate`, `ZarrMetadataDoubleUpdate`, 9 more |
+| [05] | `ChecksumAlgorithm` | checksum kind | `Crc32`, `Crc32c`, `Crc64Nvme`, `Sha1`, `Sha256` |
+| [06] | `CompressionAlgorithm` | codec kind | `Zstd` |
+| [07] | `CommitMethod` | rewrite mode | `Literal["new_commit", "amend"]` |
+| [08] | `SpecVersion` | format ver | `v1`, `v2` |
 
 [PUBLIC_TYPE_SCOPE]: error rail
 - rail: versioned-store
 
 `IcechunkError` is the root exception; `ConflictError` and `RebaseFailedError` are the rebase/commit failures the data tier maps to its typed error. `RebaseFailedError` carries the unresolved `Conflict` list for solver-driven retry.
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [ROLE]                                                      |
-| :-----: | :------------------- | :------------ | :--------------------------------------------------------- |
-|  [01]   | `IcechunkError`      | error root    | base exception for all icechunk failures                   |
-|  [02]   | `ConflictError`      | commit error  | raised on commit when the branch tip moved under the writer |
-|  [03]   | `RebaseFailedError`  | rebase error  | carries unresolved `Conflict` list after a failed rebase    |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `IcechunkError` | error root | base exception for all icechunk failures |
+| [02] | `ConflictError` | commit error | raised on commit when the branch tip moved under the writer |
+| [03] | `RebaseFailedError` | rebase error | carries unresolved `Conflict` list after a failed rebase |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: storage and credential factories (`icechunk`)
 - rail: versioned-store
 
-| [INDEX] | [SURFACE]                                                                                                                       | [ENTRY_FAMILY] | [RAIL]                           |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------- |
-|  [01]   | `local_filesystem_storage(path) -> Storage`                                                                                     | storage        | local directory backend          |
-|  [02]   | `in_memory_storage() -> Storage`                                                                                                | storage        | ephemeral memory backend         |
-|  [03]   | `s3_storage(*, bucket, prefix, region, endpoint_url, allow_http, access_key_id, secret_access_key, anonymous, from_env, ...)`   | storage        | S3 backend                       |
-|  [04]   | `gcs_storage(*, bucket, prefix, service_account_file, bearer_token, anonymous, from_env, ...)`                                  | storage        | GCS backend                      |
-|  [05]   | `azure_storage(*, account, container, prefix, access_key, sas_token, bearer_token, from_env, anonymous, ...)`                   | storage        | Azure Blob backend               |
-|  [06]   | `http_storage(base_url, opts, headers)` / `redirect_storage(base_url)`                                                          | storage        | HTTP and redirect backends       |
-|  [07]   | `r2_storage(*, bucket, prefix, account_id, endpoint_url, ...)` / `tigris_storage(*, bucket, prefix, use_weak_consistency, ...)` | storage        | R2 and Tigris backends           |
-|  [08]   | `s3_credentials(*, access_key_id, secret_access_key, session_token, anonymous, from_env, get_credentials, ...)`                 | credential     | S3 credential variants           |
-|  [09]   | `s3_static_credentials` / `s3_from_env_credentials` / `s3_anonymous_credentials` / `s3_refreshable_credentials`                 | credential     | explicit S3 credential kinds     |
-|  [10]   | `gcs_credentials(...)` / `azure_credentials(...)` and their `_static`/`_from_env`/`_refreshable`/`_anonymous` variants          | credential     | GCS and Azure credential kinds   |
-|  [11]   | `containers_credentials(m)`                                                                                                     | credential     | virtual-container credential map |
-|  [12]   | `s3_store(region, endpoint_url, allow_http, anonymous, s3_compatible, force_path_style, ..., checksum_algorithm)` / `gcs_store(opts)` / `http_store(opts, headers)` / `local_filesystem_store(path)` | virtual store | `ObjectStoreConfig` factories feeding `VirtualChunkContainer(url_prefix, store, name)` |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `local_filesystem_storage(path) -> Storage` | storage | local directory backend |
+| [02] | `in_memory_storage() -> Storage` | storage | ephemeral memory backend |
+| [03] | `s3_storage(*, bucket, prefix, region, endpoint_url, allow_http, access_key_id, secret_access_key, anonymous, from_env, ...)` | storage | S3 backend |
+| [04] | `gcs_storage(*, bucket, prefix, service_account_file, bearer_token, anonymous, from_env, ...)` | storage | GCS backend |
+| [05] | `azure_storage(*, account, container, prefix, access_key, sas_token, bearer_token, from_env, anonymous, ...)` | storage | Azure Blob backend |
+| [06] | `http_storage(base_url, opts, headers)` / `redirect_storage(base_url)` | storage | HTTP and redirect backends |
+| [07] | `r2_storage(*, bucket, prefix, account_id, endpoint_url, ...)` / `tigris_storage(*, bucket, prefix, use_weak_consistency, ...)` | storage | R2 and Tigris backends |
+| [08] | `s3_credentials(*, access_key_id, secret_access_key, session_token, anonymous, from_env, get_credentials, ...)` | credential | S3 credential variants |
+| [09] | `s3_static_credentials` / `s3_from_env_credentials` / `s3_anonymous_credentials` / `s3_refreshable_credentials` | credential | explicit S3 credential kinds |
+| [10] | `gcs_credentials(...)` / `azure_credentials(...)` and their `_static`/`_from_env`/`_refreshable`/`_anonymous` variants | credential | GCS and Azure credential kinds |
+| [11] | `containers_credentials(m)` | credential | virtual-container credential map |
+| [12] | `s3_store(region, endpoint_url, allow_http, anonymous, s3_compatible, force_path_style, ..., checksum_algorithm)` / `gcs_store(opts)` / `http_store(opts, headers)` / `local_filesystem_store(path)` | virtual store | `ObjectStoreConfig` factories feeding `VirtualChunkContainer(url_prefix, store, name)` |
 
 [ENTRYPOINT_SCOPE]: repository lifecycle, branches, and sessions (`Repository`)
 - rail: versioned-store
 
-| [INDEX] | [SURFACE]                                                                                                                                 | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `Repository.create(storage, config=None, authorize_virtual_chunk_access=None, spec_version=None, check_clean_root=True)`                  | lifecycle      | create new repository             |
-|  [02]   | `Repository.open(storage, config=None, authorize_virtual_chunk_access=None)`                                                              | lifecycle      | open existing repository          |
-|  [03]   | `Repository.open_or_create(storage, config=None, ..., create_version=None, check_clean_root=True)`                                        | lifecycle      | open or create                    |
-|  [04]   | `Repository.exists(storage)` / `Repository.fetch_config(storage)`                                                                         | lifecycle      | probe existence or config         |
-|  [05]   | `Repository.create_branch(branch, snapshot_id)` / `delete_branch(branch)` / `reset_branch(branch, snapshot_id, *, from_snapshot_id=None)` | branch         | branch management                 |
-|  [06]   | `Repository.list_branches()` / `lookup_branch(branch)` / `list_tags()` / `lookup_tag(tag)`                                                | branch         | branch and tag queries            |
-|  [07]   | `Repository.create_tag(tag, snapshot_id)` / `delete_tag(tag)`                                                                             | tag            | tag management                    |
-|  [08]   | `Repository.writable_session(branch) -> Session`                                                                                          | session        | open a writable session           |
-|  [09]   | `Repository.readonly_session(branch=None, *, tag=None, snapshot_id=None, as_of=None) -> Session`                                          | session        | open a read-only session          |
-|  [10]   | `Repository.rearrange_session(branch) -> Session`                                                                                         | session        | open a rearrange session          |
-|  [11]   | `Repository.transaction(branch, *, message, metadata=None, rebase_with=None, rebase_tries=1000)`                                          | session        | context-managed write transaction |
-|  [12]   | `Repository.ancestry(*, branch=None, tag=None, snapshot_id=None) -> Iterator[SnapshotInfo]`                                               | history        | walk snapshot ancestry            |
-|  [13]   | `Repository.ancestry_graph(*, branch=None, tag=None, snapshot_id=None, plain=False) -> AncestryGraph`                                     | history        | full ancestry DAG                 |
-|  [14]   | `Repository.lookup_snapshot(snapshot_id) -> SnapshotInfo`                                                                                 | history        | resolve one snapshot              |
-|  [15]   | `Repository.diff(*, from_branch=None, ..., to_branch=None, ...) -> Diff`                                                                  | history        | diff two refs                     |
-|  [16]   | `Repository.get_status() -> RepoStatus` / `set_status(...)`                                                                               | status         | read/write repository status      |
-|  [17]   | `Repository.get_metadata()` / `set_metadata(m)` / `update_metadata(m)`                                                                    | metadata       | repository-level metadata         |
-|  [18]   | `Repository.expire_snapshots(older_than, *, delete_expired_branches=False, delete_expired_tags=False) -> set[str]`                        | maintenance    | expire old snapshots              |
-|  [19]   | `Repository.garbage_collect(delete_object_older_than, *, dry_run=False, max_snapshots_in_memory=50, ...) -> GCSummary`                    | maintenance    | reclaim unreferenced objects      |
-|  [20]   | `Repository.rewrite_manifests(message, *, branch, metadata=None, commit_method='new_commit') -> str`                                      | maintenance    | rewrite manifest files            |
-|  [21]   | `Repository.chunk_storage_stats()` / `list_manifest_files()`                                                                              | introspection  | storage stats and manifest list   |
-|  [22]   | `supported_spec_versions() -> list[SpecVersion]` / `upgrade_icechunk_repository(repo, *, dry_run, delete_unused_v1_files=True, prefetch_concurrency)` | maintenance | spec-version roster and isolated in-place repository upgrade |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `Repository.create(storage, config=None, authorize_virtual_chunk_access=None, spec_version=None, check_clean_root=True)` | lifecycle | create new repository |
+| [02] | `Repository.open(storage, config=None, authorize_virtual_chunk_access=None)` | lifecycle | open existing repository |
+| [03] | `Repository.open_or_create(storage, config=None, ..., create_version=None, check_clean_root=True)` | lifecycle | open or create |
+| [04] | `Repository.exists(storage)` / `Repository.fetch_config(storage)` | lifecycle | probe existence or config |
+| [05] | `Repository.create_branch(branch, snapshot_id)` / `delete_branch(branch)` / `reset_branch(branch, snapshot_id, *, from_snapshot_id=None)` | branch | branch management |
+| [06] | `Repository.list_branches()` / `lookup_branch(branch)` / `list_tags()` / `lookup_tag(tag)` | branch | branch and tag queries |
+| [07] | `Repository.create_tag(tag, snapshot_id)` / `delete_tag(tag)` | tag | tag management |
+| [08] | `Repository.writable_session(branch) -> Session` | session | open a writable session |
+| [09] | `Repository.readonly_session(branch=None, *, tag=None, snapshot_id=None, as_of=None) -> Session` | session | open a read-only session |
+| [10] | `Repository.rearrange_session(branch) -> Session` | session | open a rearrange session |
+| [11] | `Repository.transaction(branch, *, message, metadata=None, rebase_with=None, rebase_tries=1000)` | session | context-managed write transaction |
+| [12] | `Repository.ancestry(*, branch=None, tag=None, snapshot_id=None) -> Iterator[SnapshotInfo]` | history | walk snapshot ancestry |
+| [13] | `Repository.ancestry_graph(*, branch=None, tag=None, snapshot_id=None, plain=False) -> AncestryGraph` | history | full ancestry DAG |
+| [14] | `Repository.lookup_snapshot(snapshot_id) -> SnapshotInfo` | history | resolve one snapshot |
+| [15] | `Repository.diff(*, from_branch=None, ..., to_branch=None, ...) -> Diff` | history | diff two refs |
+| [16] | `Repository.get_status() -> RepoStatus` / `set_status(...)` | status | read/write repository status |
+| [17] | `Repository.get_metadata()` / `set_metadata(m)` / `update_metadata(m)` | metadata | repository-level metadata |
+| [18] | `Repository.expire_snapshots(older_than, *, delete_expired_branches=False, delete_expired_tags=False) -> set[str]` | maintenance | expire old snapshots |
+| [19] | `Repository.garbage_collect(delete_object_older_than, *, dry_run=False, max_snapshots_in_memory=50, ...) -> GCSummary` | maintenance | reclaim unreferenced objects |
+| [20] | `Repository.rewrite_manifests(message, *, branch, metadata=None, commit_method='new_commit') -> str` | maintenance | rewrite manifest files |
+| [21] | `Repository.chunk_storage_stats()` / `list_manifest_files()` | introspection | storage stats and manifest list |
+| [22] | `supported_spec_versions() -> list[SpecVersion]` / `upgrade_icechunk_repository(repo, *, dry_run, delete_unused_v1_files=True, prefetch_concurrency)` | maintenance | spec-version roster and isolated in-place repository upgrade |
 
 [ENTRYPOINT_SCOPE]: session and store operations (`Session`, `IcechunkStore`)
 - rail: versioned-store
 
-| [INDEX] | [SURFACE]                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                            |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------- |
-|  [01]   | `Session.commit(message, metadata=None, *, rebase_with=None, rebase_tries=1000, allow_empty=False) -> str`                         | commit         | commit pending writes             |
-|  [02]   | `Session.amend(message, *, metadata=None, allow_empty=False)` / `Session.flush(message, *, metadata=None)`                         | commit         | amend or flush a commit           |
-|  [03]   | `Session.rebase(solver)` / `Session.discard_changes()`                                                                             | rebase         | resolve conflicts or drop writes  |
-|  [04]   | `Session.fork() -> ForkSession` / `Session.merge(*others)`                                                                         | branch         | fork and merge divergent writes   |
-|  [05]   | `Session.status() -> Diff`                                                                                                         | query          | uncommitted changeset             |
-|  [06]   | `Session.store` / `Session.snapshot_id` / `Session.branch` / `Session.mode` / `Session.has_uncommitted_changes`                    | query          | session state accessors           |
-|  [07]   | `Session.move(from_path, to_path)` / `reindex_array(array_path, forward, backward=None)` / `shift_array(array_path, chunk_offset)` / `get_node_id(path)` | rearrange      | rearrange-session node operations |
-|  [08]   | `IcechunkStore.get(key, prototype, byte_range=None)` / `set(key, value)` / `delete(key)`                                           | store          | Zarr buffer read/write/delete     |
-|  [09]   | `IcechunkStore.list()` / `list_prefix(prefix)` / `list_dir(prefix)` / `exists(key)` / `is_empty(prefix)`                           | store          | listing and existence queries     |
-|  [10]   | `IcechunkStore.set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)`                          | virtual        | register one external chunk ref   |
-|  [11]   | `IcechunkStore.set_virtual_refs(array_path, chunks, *, validate_containers=True)`                                                  | virtual        | register many external chunk refs |
-|  [12]   | `Session.chunk_type(array_path, chunk_coordinates)` / `all_virtual_chunk_locations()`                                              | query          | chunk kind and virtual locations  |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `Session.commit(message, metadata=None, *, rebase_with=None, rebase_tries=1000, allow_empty=False) -> str` | commit | commit pending writes |
+| [02] | `Session.amend(message, *, metadata=None, allow_empty=False)` / `Session.flush(message, *, metadata=None)` | commit | amend or flush a commit |
+| [03] | `Session.rebase(solver)` / `Session.discard_changes()` | rebase | resolve conflicts or drop writes |
+| [04] | `Session.fork() -> ForkSession` / `Session.merge(*others)` | branch | fork and merge divergent writes |
+| [05] | `Session.status() -> Diff` | query | uncommitted changeset |
+| [06] | `Session.store` / `Session.snapshot_id` / `Session.branch` / `Session.mode` / `Session.has_uncommitted_changes` | query | session state accessors |
+| [07] | `Session.move(from_path, to_path)` / `reindex_array(array_path, forward, backward=None)` / `shift_array(array_path, chunk_offset)` / `get_node_id(path)` | rearrange | rearrange-session node operations |
+| [08] | `IcechunkStore.get(key, prototype, byte_range=None)` / `set(key, value)` / `delete(key)` | store | Zarr buffer read/write/delete |
+| [09] | `IcechunkStore.list()` / `list_prefix(prefix)` / `list_dir(prefix)` / `exists(key)` / `is_empty(prefix)` | store | listing and existence queries |
+| [10] | `IcechunkStore.set_virtual_ref(key, location, *, offset, length, checksum=None, validate_container=True)` | virtual | register one external chunk ref |
+| [11] | `IcechunkStore.set_virtual_refs(array_path, chunks, *, validate_containers=True)` | virtual | register many external chunk refs |
+| [12] | `Session.chunk_type(array_path, chunk_coordinates)` / `all_virtual_chunk_locations()` | query | chunk kind and virtual locations |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -13,7 +13,6 @@ is the EF-context hand-off seam onto them.
 
 [PACKAGE_SURFACE]: `linq2db.EntityFrameworkCore`
 - package: `linq2db.EntityFrameworkCore`
-- version: `10.4.0`
 - license: `MIT`
 - assembly: `linq2db.EntityFrameworkCore`
 - namespace: `LinqToDB.EntityFrameworkCore`

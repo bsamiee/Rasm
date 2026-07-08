@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Themes.Fluent`
 - package: `Avalonia.Themes.Fluent`
-- version: `12.0.5`
 - license: `MIT`
 - assembly: `Avalonia.Themes.Fluent`
 - target: `net10.0` (multi-targets `net8.0`/`net10.0`; the AppUi consumer binds the `net10.0` asset)
@@ -22,7 +21,7 @@
 [THEME_TYPES]: public theme objects
 - rail: theme
 
-| [INDEX] | [SYMBOL]                | [BASE / KIND]                              | [RAIL]            |
+| [INDEX] | [SYMBOL]                | [BASE_KIND]                              | [RAIL]            |
 | :-----: | :---------------------- | :----------------------------------------- | :---------------- |
 |  [01]   | `FluentTheme`           | `: Styles, IResourceNode`                  | theme root        |
 |  [02]   | `DensityStyle`          | `enum { Normal, Compact }`                 | density vocabulary|
@@ -64,7 +63,7 @@
 - rail: theme
 - surface: `ColorPaletteResources`
 
-| [INDEX] | [SURFACE]                                                  | [BACKING KEY / NOTE]                                              | [RAIL]            |
+| [INDEX] | [SURFACE]                                                  | [BACKING_KEY_NOTE]                                              | [RAIL]            |
 | :-----: | :--------------------------------------------------------- | :--------------------------------------------------------------- | :---------------- |
 |  [01]   | `Accent`                                                   | `DirectProperty` `AccentProperty`, bindable; setting it derives `SystemAccentColorDark1/2/3` + `Light1/2/3` via `SystemAccentColors.CalculateAccentShades` and raises resources-changed | accent token      |
 |  [02]   | `AltHigh` `AltMediumHigh` `AltMedium` `AltMediumLow` `AltLow` | `SystemAlt*Color`                                              | alternate tones   |

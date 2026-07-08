@@ -1,19 +1,8 @@
 # [RASM_FABRICATION_API_HASHING]
 
-`System.IO.Hashing` is a shared-substrate package; its full verified surface — the `NonCryptographicHashAlgorithm` accumulator base, the `XxHash3/64/32/128` and `Crc32/64` algorithms, and the three discriminated call shapes (static one-shot / incremental / stream sink) — lives in the shared catalog `libs/csharp/.api/api-hashing.md` and is NEVER re-documented here. This folder overlay records ONE fact: Fabrication reaches the package ONLY through the kernel `ContentHash.Of(ReadOnlySpan<byte>) → UInt128` seed-zero federation entry (the shared tier's `XxHash128.HashToUInt128` at seed zero, K9). `ContentHash.Of` is the SINGLE content-key mint for the whole folder; a raw `XxHash128`/`XxHash3`/`GenerateHash` call is the forbidden second-hasher defect.
+Full surface and stacking: `libs/csharp/.api/api-hashing.md` (shared-tier canonical owner).
 
-## [01]-[PACKAGE_SURFACE]
-
-[PACKAGE_SURFACE]: `System.IO.Hashing`
-- package: `System.IO.Hashing`
-- version: `10.0.9` (centrally pinned)
-- license: `MIT` (.NET Foundation)
-- assembly: `System.IO.Hashing`
-- namespace: `System.IO.Hashing`
-- shared catalog: `libs/csharp/.api/api-hashing.md` (the full surface; this file is the folder overlay only)
-- rail: fabrication content-identity (via `ContentHash.Of`)
-
-## [02]-[FABRICATION_OVERLAY]
+## [01]-[FABRICATION_OVERLAY]
 
 [SINGLE_MINT]:
 - `ContentHash.Of` is the ONE mint site for every Fabrication content key; every egress artifact keys through it — `Posting/program` (`CutProgram`), `Nesting/nfp` (Placement/Remnant), `Additive/implicit` (`.cli`/grayscale), `Additive/production` (3MF), `Verify/removal` (`ResidualStock`/`StockSnapshot`), `Documentation/traveler`, `Tooling/magazine`, `Nesting/stock`. The content key is keyed by the `EgressKind` discriminant on `owner#atoms` (thirteen artifact families), federated to the Persistence `ArtifactKind` rows at the content-key boundary.

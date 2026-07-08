@@ -1,6 +1,6 @@
 # [PY_BRANCH_API_XXHASH]
 
-`xxhash` (3.7.1, BSD-2-Clause) binds the xxHash C library (`XXHASH_VERSION` 0.8.2) for fast non-cryptographic hashing across four distinct algorithm families — classic `xxh32`/`xxh64` and the modern `xxh3_64`/`xxh3_128` — each exposed as a stateful seedable hasher class plus three one-shot digest functions (`_digest`/`_hexdigest`/`_intdigest`). It is the runtime owner for content-identity keys, cache keys, and integrity tokens, mirroring the C# `System.IO.Hashing` XXH digests at the wire.
+`xxhash` (release, BSD-2-Clause) binds the xxHash C library (`XXHASH_VERSION` release) for fast non-cryptographic hashing across four distinct algorithm families — classic `xxh32`/`xxh64` and the modern `xxh3_64`/`xxh3_128` — each exposed as a stateful seedable hasher class plus three one-shot digest functions (`_digest`/`_hexdigest`/`_intdigest`). It is the runtime owner for content-identity keys, cache keys, and integrity tokens, mirroring the C# `System.IO.Hashing` XXH digests at the wire.
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -20,23 +20,23 @@
 - rail: hashing
 - All four are `@final` and share the `_Hasher` interface: constructor `(input: str | Buffer = b"", seed: int = 0)`, the `update`/`digest`/`hexdigest`/`intdigest`/`copy`/`reset` operations, and the `seed`/`name`/`digest_size`/`digestsize`/`block_size` properties. `xxh64`/`xxh3_64` are genuinely distinct at runtime — same 8-byte digest size but different hash values (`name` `XXH64` vs `XXH3_64`); only `xxh128` is a true alias of `xxh3_128` (identical class object). The `.pyi` stub aliases `xxh64 = xxh3_64`, but the compiled module keeps them separate — runtime is authoritative.
 
-| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [RAIL]                                                  |
-| :-----: | :--------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `xxh32`    | hasher class  | classic 32-bit xxHash; `name` `XXH32`, 4-byte digest    |
-|  [02]   | `xxh64`    | hasher class  | classic 64-bit xxHash; `name` `XXH64`, 8-byte digest    |
-|  [03]   | `xxh3_64`  | hasher class  | XXH3 64-bit; `name` `XXH3_64`, 8-byte digest, faster on modern CPUs |
-|  [04]   | `xxh3_128` | hasher class  | XXH3 128-bit; `name` `XXH3_128`, 16-byte digest         |
-|  [05]   | `xxh128`   | hasher class  | true alias of `xxh3_128` (same class object)            |
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [RAIL]                                                              |
+| ------- | ---------- | ------------- | ------------------------------------------------------------------- |
+| [01]    | `xxh32`    | hasher class  | classic 32-bit xxHash; `name` `XXH32`, 4-byte digest                |
+| [02]    | `xxh64`    | hasher class  | classic 64-bit xxHash; `name` `XXH64`, 8-byte digest                |
+| [03]    | `xxh3_64`  | hasher class  | XXH3 64-bit; `name` `XXH3_64`, 8-byte digest, faster on modern CPUs |
+| [04]    | `xxh3_128` | hasher class  | XXH3 128-bit; `name` `XXH3_128`, 16-byte digest                     |
+| [05]    | `xxh128`   | hasher class  | true alias of `xxh3_128` (same class object)                        |
 
 [PUBLIC_TYPE_SCOPE]: constants and metadata
 - rail: hashing
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                                       |
-| :-----: | :--------------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `VERSION`              | `str`         | python-xxhash release string (`3.7.0`)                       |
-|  [02]   | `XXHASH_VERSION`       | `str`         | bundled xxHash C library version (`0.8.2`)                   |
-|  [03]   | `algorithms_available` | `set[str]`    | `{'xxh32','xxh64','xxh3_64','xxh3_128','xxh128'}`             |
-|  [04]   | `VERSION_TUPLE`        | `tuple[int,...]` | deprecated, removed next major; use `VERSION`/`XXHASH_VERSION` |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]    | [RAIL]                                                         |
+| ------- | ---------------------- | ---------------- | -------------------------------------------------------------- |
+| [01]    | `VERSION`              | `str`            | python-xxhash release string (`3.7.0`)                         |
+| [02]    | `XXHASH_VERSION`       | `str`            | bundled xxHash C library version (`0.8.2`)                     |
+| [03]    | `algorithms_available` | `set[str]`       | `{'xxh32','xxh64','xxh3_64','xxh3_128','xxh128'}`              |
+| [04]    | `VERSION_TUPLE`        | `tuple[int,...]` | deprecated, removed next major; use `VERSION`/`XXHASH_VERSION` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -44,41 +44,41 @@
 - rail: hashing
 - The stateful cycle for incremental/streaming input: construct with optional `input`/`seed`, feed with `update`, read the running state, `copy` to fork a partial digest, `reset` to return to the seed state. Both the constructor and `update` accept `_InputType = str | Buffer` — any buffer-protocol object (`bytes`, `bytearray`, `memoryview`, `array`) or a `str` (UTF-8 encoded by the binding); the owner still pins one input form (raw `bytes`) so the digest is reproducible across producers.
 
-| [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]  | [RAIL]                                       |
-| :-----: | :------------------------------ | :-------------- | :------------------------------------------- |
-|  [01]   | `xxh32(input=b"", seed=0)`      | build           | construct a seeded hasher (any family)       |
-|  [02]   | `update(input)`                 | stateful update | feed a buffer into running state             |
-|  [03]   | `digest() -> bytes`             | state read      | current digest as big-endian `bytes`         |
-|  [04]   | `hexdigest() -> str`            | state read      | current digest as hex `str`                  |
-|  [05]   | `intdigest() -> int`            | state read      | current digest as unsigned `int`             |
-|  [06]   | `copy() -> _Hasher`             | state snapshot  | clone hasher at current state                |
-|  [07]   | `reset()`                       | state reset     | reset to initial seed state                  |
-|  [08]   | `seed`                          | property        | integer seed supplied at init                |
-|  [09]   | `name`                          | property        | algorithm name (`XXH32`/`XXH64`/`XXH3_64`/`XXH3_128`) |
-|  [10]   | `digest_size` / `digestsize`    | property        | digest length in bytes (4/8/8/16)            |
-|  [11]   | `block_size`                    | property        | internal block size in bytes                 |
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]  | [RAIL]                                                |
+| ------- | ---------------------------- | --------------- | ----------------------------------------------------- |
+| [01]    | `xxh32(input=b"", seed=0)`   | build           | construct a seeded hasher (any family)                |
+| [02]    | `update(input)`              | stateful update | feed a buffer into running state                      |
+| [03]    | `digest() -> bytes`          | state read      | current digest as big-endian `bytes`                  |
+| [04]    | `hexdigest() -> str`         | state read      | current digest as hex `str`                           |
+| [05]    | `intdigest() -> int`         | state read      | current digest as unsigned `int`                      |
+| [06]    | `copy() -> _Hasher`          | state snapshot  | clone hasher at current state                         |
+| [07]    | `reset()`                    | state reset     | reset to initial seed state                           |
+| [08]    | `seed`                       | property        | integer seed supplied at init                         |
+| [09]    | `name`                       | property        | algorithm name (`XXH32`/`XXH64`/`XXH3_64`/`XXH3_128`) |
+| [10]    | `digest_size` / `digestsize` | property        | digest length in bytes (4/8/8/16)                     |
+| [11]    | `block_size`                 | property        | internal block size in bytes                          |
 
 [ENTRYPOINT_SCOPE]: one-shot digest functions
 - rail: hashing
 - The fast single-buffer path: `<family>_<form>(data, seed=0)` where `data` is a buffer-protocol object and `seed` is an optional keyword. `_digest` returns `bytes`, `_hexdigest` returns hex `str`, `_intdigest` returns `int`. `xxh128_*` are true aliases of `xxh3_128_*`; `xxh64_*` are distinct from `xxh3_64_*` (classic vs XXH3).
 
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                       |
-| :-----: | :--------------------------------- | :------------- | :--------------------------- |
-|  [01]   | `xxh32_digest(data, seed=0)`       | one-shot       | `bytes`, 32-bit              |
-|  [02]   | `xxh32_hexdigest(data, seed=0)`    | one-shot       | hex `str`, 32-bit            |
-|  [03]   | `xxh32_intdigest(data, seed=0)`    | one-shot       | `int`, 32-bit                |
-|  [04]   | `xxh64_digest(data, seed=0)`       | one-shot       | `bytes`, classic 64-bit      |
-|  [05]   | `xxh64_hexdigest(data, seed=0)`    | one-shot       | hex `str`, classic 64-bit    |
-|  [06]   | `xxh64_intdigest(data, seed=0)`    | one-shot       | `int`, classic 64-bit        |
-|  [07]   | `xxh3_64_digest(data, seed=0)`     | one-shot       | `bytes`, XXH3-64             |
-|  [08]   | `xxh3_64_hexdigest(data, seed=0)`  | one-shot       | hex `str`, XXH3-64           |
-|  [09]   | `xxh3_64_intdigest(data, seed=0)`  | one-shot       | `int`, XXH3-64               |
-|  [10]   | `xxh3_128_digest(data, seed=0)`    | one-shot       | `bytes`, XXH3-128            |
-|  [11]   | `xxh3_128_hexdigest(data, seed=0)` | one-shot       | hex `str`, XXH3-128          |
-|  [12]   | `xxh3_128_intdigest(data, seed=0)` | one-shot       | `int`, XXH3-128              |
-|  [13]   | `xxh128_digest(data, seed=0)`      | one-shot       | `bytes`, alias of `xxh3_128_digest` |
-|  [14]   | `xxh128_hexdigest(data, seed=0)`   | one-shot       | hex `str`, alias of `xxh3_128_hexdigest` |
-|  [15]   | `xxh128_intdigest(data, seed=0)`   | one-shot       | `int`, alias of `xxh3_128_intdigest` |
+| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                   |
+| ------- | ---------------------------------- | -------------- | ---------------------------------------- |
+| [01]    | `xxh32_digest(data, seed=0)`       | one-shot       | `bytes`, 32-bit                          |
+| [02]    | `xxh32_hexdigest(data, seed=0)`    | one-shot       | hex `str`, 32-bit                        |
+| [03]    | `xxh32_intdigest(data, seed=0)`    | one-shot       | `int`, 32-bit                            |
+| [04]    | `xxh64_digest(data, seed=0)`       | one-shot       | `bytes`, classic 64-bit                  |
+| [05]    | `xxh64_hexdigest(data, seed=0)`    | one-shot       | hex `str`, classic 64-bit                |
+| [06]    | `xxh64_intdigest(data, seed=0)`    | one-shot       | `int`, classic 64-bit                    |
+| [07]    | `xxh3_64_digest(data, seed=0)`     | one-shot       | `bytes`, XXH3-64                         |
+| [08]    | `xxh3_64_hexdigest(data, seed=0)`  | one-shot       | hex `str`, XXH3-64                       |
+| [09]    | `xxh3_64_intdigest(data, seed=0)`  | one-shot       | `int`, XXH3-64                           |
+| [10]    | `xxh3_128_digest(data, seed=0)`    | one-shot       | `bytes`, XXH3-128                        |
+| [11]    | `xxh3_128_hexdigest(data, seed=0)` | one-shot       | hex `str`, XXH3-128                      |
+| [12]    | `xxh3_128_intdigest(data, seed=0)` | one-shot       | `int`, XXH3-128                          |
+| [13]    | `xxh128_digest(data, seed=0)`      | one-shot       | `bytes`, alias of `xxh3_128_digest`      |
+| [14]    | `xxh128_hexdigest(data, seed=0)`   | one-shot       | hex `str`, alias of `xxh3_128_hexdigest` |
+| [15]    | `xxh128_intdigest(data, seed=0)`   | one-shot       | `int`, alias of `xxh3_128_intdigest`     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

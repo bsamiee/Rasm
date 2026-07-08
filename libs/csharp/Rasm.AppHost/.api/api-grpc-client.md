@@ -310,7 +310,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 
 [INTERCEPTOR_SURFACE]:
 - namespace: `Grpc.Core.Interceptors`
-- base class: `abstract class Interceptor` in `Grpc.Core.Api` 2.80.0
+- base class: `abstract class Interceptor` in `Grpc.Core.Api`
 - client overrides: `BlockingUnaryCall`, `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, `AsyncDuplexStreamingCall` — each virtual with a matching continuation delegate type
 - context type: `ClientInterceptorContext<TRequest,TResponse>` struct carrying `Method`, `Host`, and `Options`
 - composition: `CallInvokerExtensions.Intercept(this CallInvoker, Interceptor)`, `Intercept(this CallInvoker, params Interceptor[])`, and `Intercept(this CallInvoker, Func<Metadata,Metadata>)` build chains; multiple interceptors invoked in argument order
@@ -323,7 +323,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 - reconnect backoff: `GrpcChannelOptions.InitialReconnectBackoff` (default 1 s) and `MaxReconnectBackoff` (default 120 s) control exponential backoff between connection attempts
 
 [COMPRESSION_SURFACE]:
-- namespace: `Grpc.Net.Compression` (in `Grpc.Net.Common` 2.80.0)
+- namespace: `Grpc.Net.Compression` (in `Grpc.Net.Common`)
 - interface: `ICompressionProvider` with `EncodingName`, `CreateCompressionStream`, `CreateDecompressionStream`
 - built-in providers: `GzipCompressionProvider(CompressionLevel)` → encoding `"gzip"`; `DeflateCompressionProvider(CompressionLevel)` → encoding `"deflate"` (wraps `ZLibStream`)
 - registration: `GrpcChannelOptions.CompressionProviders` accepts `IList<ICompressionProvider>`

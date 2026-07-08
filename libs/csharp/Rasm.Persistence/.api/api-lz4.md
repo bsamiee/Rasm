@@ -11,7 +11,6 @@ that sits beside MessagePack's in-codec `Lz4BlockArray`, never double-framing it
 
 [PACKAGE_SURFACE]: `K4os.Compression.LZ4`
 - package: `K4os.Compression.LZ4`
-- version: `1.3.8`
 - license: MIT (Milosz Krajewski)
 - assembly: `K4os.Compression.LZ4`
 - namespace: `K4os.Compression.LZ4`, `K4os.Compression.LZ4.Encoders`, `K4os.Compression.LZ4.Internal`

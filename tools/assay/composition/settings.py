@@ -484,6 +484,8 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
     otel_endpoint: str = Field(
         default="", validation_alias=AliasChoices("ASSAY_OTEL_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
     )
+    # Shares the rhino-bridge host contract: one Rhino .app bundle override, un-prefixed like the bridge consumes it.
+    rhino_wip_app_path: str = Field(default="", validation_alias=AliasChoices("ASSAY_RHINO_WIP_APP_PATH", "RHINO_WIP_APP_PATH"))
 
     @model_validator(mode="before")
     @classmethod

@@ -12,7 +12,6 @@ expected signer identity and the transparency/timestamp/SCT thresholds.
 
 [PACKAGE_SURFACE]: `Sigstore`
 - package: `Sigstore`
-- version: `0.5.0`
 - license: MIT (nuspec `license` expression)
 - assembly: `Sigstore`
 - namespace: `Sigstore`

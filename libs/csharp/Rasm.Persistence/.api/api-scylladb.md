@@ -20,14 +20,13 @@ the columnar ClickHouse OLAP lane, or the `pgvector` ANN tier.
 
 [PACKAGE_SURFACE]: `ScyllaDBCSharpDriver`
 - package: `ScyllaDBCSharpDriver`
-- version: `3.22.0.4`
 - license: Apache-2.0 (DataStax and ScyllaDB) — `github.com/scylladb/csharp-driver`
 - assembly: `ScyllaDB` (note: assembly name `ScyllaDB.dll` differs from the package id `ScyllaDBCSharpDriver`)
 - namespace: `Cassandra` (the public surface is the `Cassandra.*` namespace, NOT `ScyllaDB.*` — the fork preserves the DataStax type names); `Cassandra.Mapping`, `Cassandra.Data.Linq`, `Cassandra.Mapping.Attributes`, `Cassandra.ExecutionProfiles`, `Cassandra.Metrics.Abstractions`
-- target: SINGLE-target `netstandard2.0` only (no `net*` lib in 3.22.0.4); the `net10.0` consumer binds `lib/netstandard2.0` — there is no higher TFM to prefer
+- target: SINGLE-target `netstandard2.0` only (no `net*` lib in); the `net10.0` consumer binds `lib/netstandard2.0` — there is no higher TFM to prefer
 - asset: pure-managed runtime library, AnyCPU, no native runtime
 - abi: netstandard2.0 ABI — no `Span`/`ref struct` row API; rows are `Row`/`RowSet` reference types, async is `Task`-based (no `IAsyncEnumerable` row stream — paging is `IPage<T>` + `byte[] pagingState`)
-- transitive boundary: pulls `K4os.Compression.LZ4` 1.3.8 (the SAME pin Persistence admits for the LZ4 snapshot codec — the driver uses it for `CompressionType.LZ4` wire compression), `Newtonsoft.Json` 13.0.4 (driver-internal; the workspace JSON rail stays STJ and never routes through it), `Microsoft.Extensions.Logging[.Abstractions]`, `System.Collections.Immutable`, `System.Threading.Tasks.Dataflow`, `System.Management`
+- transitive boundary: pulls `K4os.Compression.LZ4` (the SAME pin Persistence admits for the LZ4 snapshot codec — the driver uses it for `CompressionType.LZ4` wire compression), `Newtonsoft.Json` (driver-internal; the workspace JSON rail stays STJ and never routes through it), `Microsoft.Extensions.Logging[.Abstractions]`, `System.Collections.Immutable`, `System.Threading.Tasks.Dataflow`, `System.Management`
 - rail: store-backend (wide-column / CQL)
 
 ## [02]-[PUBLIC_TYPES]
@@ -45,7 +44,7 @@ the columnar ClickHouse OLAP lane, or the `pgvector` ANN tier.
 |  [03]   | `ISession`            | execution rail        | `: IDisposable`; `Execute`/`ExecuteAsync`, `Prepare`/`PrepareAsync`, `ChangeKeyspace`, `CreateKeyspace[IfNotExists]`/`DeleteKeyspace[IfExists]`, `GetMetrics`, `ShutdownAsync` |
 |  [04]   | `ICluster`/`IInitializer` | cluster contracts | the `ISession`-factory contract / the `BuildFrom` initializer seam            |
 |  [05]   | `Configuration`       | resolved config       | the materialized cluster configuration (`Builder.Build` result)               |
-|  [06]   | `RowSet` / `Row`      | result set / row      | forward-iterable `IEnumerable<Row>`; `Row.GetValue<T>(name|i)`, `RowSet.PagingState`, auto-paging |
+|  [06]   | `RowSet` / `Row`      | result set / row      | forward-iterable `IEnumerable<Row>`; `Row.GetValue<T>(name\|i)`, `RowSet.PagingState`, auto-paging |
 |  [07]   | `ExecutionInfo` / `QueryTrace` | per-query telemetry | achieved consistency, queried hosts, server-side trace events           |
 
 [STATEMENT_TYPES]: query statements (namespace `Cassandra`)
@@ -221,10 +220,10 @@ scan; never implicit.
 
 [STACKING_LAW]:
 - consistency/retry as policy rows: the `ExecutionProfiles` + retry/LB/speculative-execution policies are declared once on the `Builder` and selected per query by name — the consistency, timeout, retry, and routing variation lives in a policy row / named profile, never in parallel session objects or per-call branching.
-- compression boundary: `CompressionType.LZ4` uses the transitive `K4os.Compression.LZ4` 1.3.8 — the SAME pin the LZ4 snapshot codec (`api-lz4`) admits — for CQL frame compression; this is wire transport compression on the driver, entirely distinct from the `CompressionPolicy` snapshot/blob codec axis, and the two never interact.
+- compression boundary: `CompressionType.LZ4` uses the transitive `K4os.Compression.LZ4` — the SAME pin the LZ4 snapshot codec (`api-lz4`) admits — for CQL frame compression; this is wire transport compression on the driver, entirely distinct from the `CompressionPolicy` snapshot/blob codec axis, and the two never interact.
 - encryption + KMS: `AesColumnEncryptionPolicy`'s `AesKeyAndIV` key is provisioned through the KMS rail (`api-aws-kms`/`api-azure-keyvault`/`api-google-kms`) — the driver encrypts the column client-side before write, the KMS owns the key lifecycle; the encryption policy is the consumer of a KMS-issued data key, never a key store itself.
 - vector lane separation: `CqlVector<T>` + `VectorColumnInfo` give ScyllaDB native `vector<float, n>` columns for co-located ANN beside the wide-column data, but the dedicated billion-scale ANN store remains `Qdrant.Client` and the in-PG ANN tier remains `pgvector`/`pgvectorscale` — a `CqlVector` column is the embedding-next-to-the-row case, not the primary vector index.
-- JSON boundary: the driver's transitive `Newtonsoft.Json` 13.0.4 is driver-internal (schema/payload handling) — the Persistence JSON rail stays `System.Text.Json` (NodaTime STJ / Thinktecture STJ converters), and no domain code routes through `Newtonsoft.Json`.
+- JSON boundary: the driver's transitive `Newtonsoft.Json` is driver-internal (schema/payload handling) — the Persistence JSON rail stays `System.Text.Json` (NodaTime STJ / Thinktecture STJ converters), and no domain code routes through `Newtonsoft.Json`.
 - observability: `Builder.WithMetrics(IDriverMetricsProvider)` and `WithRequestTracker(IRequestTracker)` feed the AppHost telemetry port; `ExecutionInfo`/`QueryTrace` per-`RowSet` carry the achieved consistency and queried-host detail folded into the query receipt.
 
 [RAIL_LAW]:

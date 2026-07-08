@@ -1,4 +1,4 @@
-# [API_CATALOGUE] @pulumi/postgresql
+# [TS_IAC_API_PULUMI_POSTGRESQL]
 
 `@pulumi/postgresql` is the Terraform-bridged Pulumi provider SDK for the PostgreSQL logical surface: it manages `Database`, `Schema`, `Role`, `Grant`/`GrantRole`, `Extension`, `Function`, `Publication`/`Subscription`, `ReplicationSlot`/`PhysicalReplicationSlot`, `DefaultPrivileges`, `SecurityLabel`, and `UserMapping` objects against a running server, plus the `Provider` that carries the connection DSN and three `get*` data sources. Every managed object is one generated resource quadruple — `class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance` — so the whole package is ONE pattern applied to a roster, not sixteen bespoke APIs. In the `iac` deploy plane it is the `kube/data` egress: the CNPG-provisioned PG18.4 cluster (declared by `@pulumi/kubernetes` `apiextensions.CustomResource`) exposes a service host `Output`, and this package finalizes per-app databases/schemas/roles/extensions against it — the declarative half of the `store/capability` seam that `store` verifies at startup.
 
@@ -16,9 +16,8 @@ export { config, types }                                                        
 
 [PACKAGE_SURFACE]: `@pulumi/postgresql`
 - package: `@pulumi/postgresql`
-- version: `3.17.0`
 - license: `Apache-2.0`
-- build-floor: peer `@pulumi/pulumi ^3.142.0` (sole runtime dependency; the engine owns `CustomResource`/`Output`/`Input`)
+- build-floor: peer `@pulumi/pulumi ^catalog` (sole runtime dependency; the engine owns `CustomResource`/`Output`/`Input`)
 - target: `node` (runs inside the Automation-API program process; needs the `pulumi-resource-postgresql` plugin binary on the deploy host)
 - entry: `@pulumi/postgresql` (flat namespace) plus per-resource sub-paths and the `config`/`types` sub-namespaces
 - asset: 16 generated `CustomResource` classes, the connection `Provider`, three `get*`/`get*Output` data-source pairs, package-wide `config` readers, and the `types.input`/`types.output` shape namespaces
@@ -34,14 +33,14 @@ export { config, types }                                                        
 
 Every resource in this package (and in `@pulumi/gcp`, and the typed half of `@pulumi/kubernetes`) is the SAME Terraform-bridge codegen shape. Learn it once; the roster below is data.
 
-| [INDEX] | [MEMBER]           | [SHAPE]                                                                                   |
-| :-----: | :----------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `class X`          | `extends pulumi.CustomResource`; `readonly <attr>: pulumi.Output<T>` per schema attribute  |
-|  [02]   | `constructor`      | `(name: string, args?: XArgs, opts?: pulumi.CustomResourceOptions)` — registers the resource |
-|  [03]   | `X.get`            | `static get(name, id: pulumi.Input<pulumi.ID>, state?: XState, opts?): X` — adopt existing |
-|  [04]   | `X.isInstance`     | `static isInstance(obj): obj is X` — multi-SDK-safe brand check                            |
-|  [05]   | `interface XArgs`  | construction inputs; every field `pulumi.Input<T \| undefined>`                            |
-|  [06]   | `interface XState` | `.get` lookup/filter inputs; mirrors `XArgs` as all-optional `Input`                       |
+| [INDEX] | [MEMBER] | [SHAPE] |
+|:-----: |:----------------- |:---------------------------------------------------------------------------------------- |
+| [01] | `class X` | `extends pulumi.CustomResource`; `readonly <attr>: pulumi.Output<T>` per schema attribute |
+| [02] | `constructor` | `(name: string, args?: XArgs, opts?: pulumi.CustomResourceOptions)` — registers the resource |
+| [03] | `X.get` | `static get(name, id: pulumi.Input<pulumi.ID>, state?: XState, opts?): X` — adopt existing |
+| [04] | `X.isInstance` | `static isInstance(obj): obj is X` — multi-SDK-safe brand check |
+| [05] | `interface XArgs` | construction inputs; every field `pulumi.Input<T \| undefined>` |
+| [06] | `interface XState` | `.get` lookup/filter inputs; mirrors `XArgs` as all-optional `Input` |
 
 ```ts contract
 import * as pulumi from "@pulumi/pulumi"
@@ -86,22 +85,22 @@ interface DatabaseState { /* every DatabaseArgs field, still Input<T | undefined
 - rail: iac / data-provisioning
 - entry: `@pulumi/postgresql`
 
-| [INDEX] | [RESOURCE]                              | [PROVISIONS]                                                            | [ARGS_SPINE]                                                    |
-| :-----: | :-------------------------------------- | :--------------------------------------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | `Database`                              | a logical database                                                     | `name`, `owner`, `template`, `encoding`, `lcCollate`           |
-|  [02]   | `Schema`                                | a schema within a database                                             | `name`, `database`, `owner`, `ifNotExists`, `policies` (grant) |
-|  [03]   | `Role`                                  | a login/group role                                                     | `name`, `login`, `password`, `superuser`, `createDatabase`, `roles`, `connectionLimit` |
-|  [04]   | `Grant`                                 | object-level privilege grant                                           | `role`, `database`, `schema`, `objectType`, `privileges`, `objects` |
-|  [05]   | `GrantRole`                             | role membership grant                                                  | `role`, `grantRole`, `withAdminOption`                         |
-|  [06]   | `Extension`                             | a `CREATE EXTENSION` (the PG18.4 capability matrix realizer)           | `name`, `database`, `schema`, `version`, `createCascade`       |
-|  [07]   | `Function`                              | a stored function                                                      | `name`, `database`, `schema`, `body`, `args`, `returns`, `language` |
-|  [08]   | `DefaultPrivileges`                     | default-ACL for future objects                                         | `role`, `database`, `schema`, `owner`, `objectType`, `privileges` |
-|  [09]   | `Publication` / `Subscription`          | logical-replication publisher / subscriber                            | `name`, `database`, `tables` / `conninfo`, `publications`      |
-|  [10]   | `ReplicationSlot` / `PhysicalReplicationSlot` | logical / physical WAL replication slot                          | `name`, `database`, `plugin`                                   |
-|  [11]   | `SecurityLabel`                         | a `SECURITY LABEL` (RLS/SELinux/anon labels)                          | `label`, `labelProvider`, `objectType`, `objectName`          |
-|  [12]   | `UserMapping`                           | FDW user mapping                                                       | `serverName`, `userName`, `options`                            |
-|  [13]   | `Server`                                | a foreign server (FDW)                                                 | `serverName`, `fdwName`, `options`, `serverType`, `serverVersion` |
-|  [14]   | `DefaultPrivileg`                       | singular alias retained by codegen; prefer `DefaultPrivileges`         | mirrors `DefaultPrivileges`                                    |
+| [INDEX] | [RESOURCE] | [PROVISIONS] | [ARGS_SPINE] |
+|:-----: |:-------------------------------------- |:--------------------------------------------------------------------- |:------------------------------------------------------------- |
+| [01] | `Database` | a logical database | `name`, `owner`, `template`, `encoding`, `lcCollate` |
+| [02] | `Schema` | a schema within a database | `name`, `database`, `owner`, `ifNotExists`, `policies` (grant) |
+| [03] | `Role` | a login/group role | `name`, `login`, `password`, `superuser`, `createDatabase`, `roles`, `connectionLimit` |
+| [04] | `Grant` | object-level privilege grant | `role`, `database`, `schema`, `objectType`, `privileges`, `objects` |
+| [05] | `GrantRole` | role membership grant | `role`, `grantRole`, `withAdminOption` |
+| [06] | `Extension` | a `CREATE EXTENSION` (the PG18.4 capability matrix realizer) | `name`, `database`, `schema`, `version`, `createCascade` |
+| [07] | `Function` | a stored function | `name`, `database`, `schema`, `body`, `args`, `returns`, `language` |
+| [08] | `DefaultPrivileges` | default-ACL for future objects | `role`, `database`, `schema`, `owner`, `objectType`, `privileges` |
+| [09] | `Publication` / `Subscription` | logical-replication publisher / subscriber | `name`, `database`, `tables` / `conninfo`, `publications` |
+| [10] | `ReplicationSlot` / `PhysicalReplicationSlot` | logical / physical WAL replication slot | `name`, `database`, `plugin` |
+| [11] | `SecurityLabel` | a `SECURITY LABEL` (RLS/SELinux/anon labels) | `label`, `labelProvider`, `objectType`, `objectName` |
+| [12] | `UserMapping` | FDW user mapping | `serverName`, `userName`, `options` |
+| [13] | `Server` | a foreign server (FDW) | `serverName`, `fdwName`, `options`, `serverType`, `serverVersion` |
+| [14] | `DefaultPrivileg` | singular alias retained by codegen; prefer `DefaultPrivileges` | mirrors `DefaultPrivileges` |
 
 ### `get*` data sources — the dual eager/Output pattern
 
@@ -111,11 +110,11 @@ interface DatabaseState { /* every DatabaseArgs field, still Input<T | undefined
 
 Each data source ships a dual: an eager `get*(args, opts?): Promise<Result>` (plain-value `GetXArgs`) and a lifted `get*Output(args, opts?): pulumi.Output<Result>` (`GetXOutputArgs` with `Input<T>` fields) for composition inside a resource graph. Use the `*Output` form inside the Automation program; reserve the `Promise` form for pre-graph inspection.
 
-| [INDEX] | [DATA_SOURCE] | [RETURNS]                                            | [ARGS]                                                    |
-| :-----: | :------------ | :-------------------------------------------------- | :------------------------------------------------------- |
-|  [01]   | `getSchemas`  | `{ schemas: string[]; … }`                          | `database`, `includeSystemSchemas?`, `like{All,Any}Patterns?`, `notLikeAllPatterns?`, `regexPattern?` |
-|  [02]   | `getTables`   | `{ tables: {…}[]; … }`                              | `database`, `schemas?`, `tableTypes?`, `like*Patterns?`  |
-|  [03]   | `getSequences`| `{ sequences: {…}[]; … }`                           | `database`, `schemas?`, `like*Patterns?`                 |
+| [INDEX] | [DATA_SOURCE] | [RETURNS] | [ARGS] |
+|:-----: |:------------ |:-------------------------------------------------- |:------------------------------------------------------- |
+| [01] | `getSchemas` | `{ schemas: string[]; … }` | `database`, `includeSystemSchemas?`, `like{All,Any}Patterns?`, `notLikeAllPatterns?`, `regexPattern?` |
+| [02] | `getTables` | `{ tables: {…}[]; … }` | `database`, `schemas?`, `tableTypes?`, `like*Patterns?` |
+| [03] | `getSequences`| `{ sequences: {…}[]; … }` | `database`, `schemas?`, `like*Patterns?` |
 
 ```ts contract
 import * as pulumi from "@pulumi/pulumi"
@@ -140,15 +139,15 @@ interface GetSchemasOutputArgs { readonly database: pulumi.Input<string>; readon
 
 An explicit `Provider` instance carries the DSN so every resource in the arm binds to the CNPG cluster (never package-wide ambient config). Pass it via `opts.provider`. Auth is polymorphic: password, AWS RDS IAM, Azure identity, or GCP IAM impersonation — one provider shape, mode chosen by which fields are set.
 
-| [INDEX] | [MEMBER]              | [SIGNATURE / FIELD]                                                                  |
-| :-----: | :-------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `class Provider`      | `extends pulumi.ProviderResource`; `constructor(name, args?: ProviderArgs, opts?: pulumi.ResourceOptions)` |
-|  [02]   | `Provider.isInstance` | `static isInstance(obj): obj is Provider`                                            |
-|  [03]   | `terraformConfig`     | `(): pulumi.Output<Provider.TerraformConfigResult>` — TF-namecased config for module interop |
-|  [04]   | connection fields     | `host`, `port`, `username`, `password`, `database`, `databaseUsername`, `scheme`    |
-|  [05]   | TLS fields            | `sslmode`, `sslrootcert`, `clientcert` (`inputs.ProviderClientcert`), `sslMode` (deprecated) |
-|  [06]   | mode/behavior fields  | `superuser`, `expectedVersion`, `connectTimeout`, `maxConnections`                  |
-|  [07]   | cloud-IAM auth fields | `awsRdsIamAuth`+`awsRdsIam{Profile,ProviderRoleArn,Region}`, `azureIdentityAuth`+`azureTenantId`, `gcpIamImpersonateServiceAccount` |
+| [INDEX] | [MEMBER] | [SIGNATURE_FIELD] |
+|:-----: |:-------------------- |:---------------------------------------------------------------------------------- |
+| [01] | `class Provider` | `extends pulumi.ProviderResource`; `constructor(name, args?: ProviderArgs, opts?: pulumi.ResourceOptions)` |
+| [02] | `Provider.isInstance` | `static isInstance(obj): obj is Provider` |
+| [03] | `terraformConfig` | `(): pulumi.Output<Provider.TerraformConfigResult>` — TF-namecased config for module interop |
+| [04] | connection fields | `host`, `port`, `username`, `password`, `database`, `databaseUsername`, `scheme` |
+| [05] | TLS fields | `sslmode`, `sslrootcert`, `clientcert` (`inputs.ProviderClientcert`), `sslMode` (deprecated) |
+| [06] | mode/behavior fields | `superuser`, `expectedVersion`, `connectTimeout`, `maxConnections` |
+| [07] | cloud-IAM auth fields | `awsRdsIamAuth`+`awsRdsIam{Profile,ProviderRoleArn,Region}`, `azureIdentityAuth`+`azureTenantId`, `gcpIamImpersonateServiceAccount` |
 
 ```ts contract
 import * as pulumi from "@pulumi/pulumi"

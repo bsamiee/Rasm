@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `Dock.Serializer.SystemTextJson` 12.0.0.2
+[PACKAGE_SURFACE]: `Dock.Serializer.SystemTextJson`
 - package: `Dock.Serializer.SystemTextJson` (the Dock 12 docking framework; model interfaces ship transitively under `Dock.Model.ReactiveUI`)
 - license: MIT
 - floor: `net10.0` consumer; the package multi-targets net6.0 / net8.0 / net10.0 (`lib/<tfm>/Dock.Serializer.SystemTextJson.dll`)

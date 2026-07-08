@@ -4,7 +4,7 @@
 
 ## [01]-[PACKAGE_SURFACE]
 
-[PACKAGE_SURFACE]: `NodeEditorAvalonia.Model` 12.0.0
+[PACKAGE_SURFACE]: `NodeEditorAvalonia.Model`
 - package: `NodeEditorAvalonia.Model`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/NodeEditorAvalonia.Model.dll`); multi-targets net8.0 / net10.0, `net10.0` bound
@@ -12,7 +12,7 @@
 - namespace: `NodeEditor.Model` — the framework-agnostic graph contracts, the `DrawingNodeEditor` engine, and the typed `{Node,Pin,Connector}*EventArgs` family
 - rail: graph-editing
 
-[PACKAGE_SURFACE]: `NodeEditorAvalonia` 12.0.0
+[PACKAGE_SURFACE]: `NodeEditorAvalonia`
 - package: `NodeEditorAvalonia`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/NodeEditorAvalonia.dll`); multi-targets net8.0 / net10.0, `net10.0` bound

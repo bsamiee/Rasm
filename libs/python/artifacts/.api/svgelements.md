@@ -17,53 +17,53 @@
 [PUBLIC_TYPE_SCOPE]: document, path, and transform roots
 - rail: figure
 
-| [INDEX] | TYPE     | KIND          | ROLE                                                                          |
-| :-----: | -------- | ------------- | ----------------------------------------------------------------------------- |
-|  [01]   | `SVG`    | document root | parse/build an SVG tree; `elements(conditional=)` iterate, resolve viewport   |
-|  [02]   | `Path`   | segment seq   | `Shape` + `MutableSequence` of `PathSegment`; `d()` serialize, `*` transform  |
-|  [03]   | `Matrix` | affine        | spec-faithful 2D affine; `pre_*`/`post_*` compose, `inverse`, apply by `*`    |
-|  [04]   | `Point`  | coordinate    | 2D point with complex-number compatibility; distance/angle/transform/reflect  |
-|  [05]   | `Length` | unit value    | CSS/SVG unit (`mm`/`cm`/`in`/`px`/`pt`/`pc`/`em`/`%`) with `value(...)`        |
-|  [06]   | `Color`  | color value   | SVG/CSS color parse, channel access, blend/over/distance math                 |
-|  [07]   | `Angle`  | angle value   | CSS angle (`deg`/`rad`/`grad`/`turn`); `as_degrees`/`as_radians`/`normalized` |
-|  [08]   | `Viewbox` | viewport      | viewBox + preserveAspectRatio -> a fitting `Matrix`                            |
+| [INDEX] | [TYPE] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `SVG` | document root | parse/build an SVG tree; `elements(conditional=)` iterate, resolve viewport |
+| [02] | `Path` | segment seq | `Shape` + `MutableSequence` of `PathSegment`; `d()` serialize, `*` transform |
+| [03] | `Matrix` | affine | spec-faithful 2D affine; `pre_*`/`post_*` compose, `inverse`, apply by `*` |
+| [04] | `Point` | coordinate | 2D point with complex-number compatibility; distance/angle/transform/reflect |
+| [05] | `Length` | unit value | CSS/SVG unit (`mm`/`cm`/`in`/`px`/`pt`/`pc`/`em`/`%`) with `value(...)` |
+| [06] | `Color` | color value | SVG/CSS color parse, channel access, blend/over/distance math |
+| [07] | `Angle` | angle value | CSS angle (`deg`/`rad`/`grad`/`turn`); `as_degrees`/`as_radians`/`normalized` |
+| [08] | `Viewbox` | viewport | viewBox + preserveAspectRatio -> a fitting `Matrix` |
 
 [PUBLIC_TYPE_SCOPE]: path-segment vocabulary
 - rail: figure
 
 `Path` is a `MutableSequence` of `PathSegment`; the segment subclasses are the bounded grammar. `Linear` (`Line`/`Close`) and `Curve` (`QuadraticBezier`/`CubicBezier`/`Arc`) are the two algebraic families; a figure transform applies to the segment, never to a re-parsed `d` string.
 
-| [INDEX] | TYPE              | BASE        | ROLE                                          |
-| :-----: | ----------------- | ----------- | --------------------------------------------- |
-|  [01]   | `PathSegment`     | (root)      | abstract segment base; `point`/`bbox`/`reverse` |
-|  [02]   | `Move`            | PathSegment | pen move (subpath start)                       |
-|  [03]   | `Line`            | Linear      | straight segment                              |
-|  [04]   | `Close`           | Linear      | close-subpath segment                          |
-|  [05]   | `QuadraticBezier` | Curve       | quadratic Bezier                              |
-|  [06]   | `CubicBezier`     | Curve       | cubic Bezier                                  |
-|  [07]   | `Arc`             | Curve       | elliptical arc                                |
-|  [08]   | `Subpath`         | (view)      | a contiguous-subpath view into a `Path`        |
+| [INDEX] | [TYPE] | [BASE] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `PathSegment` | (root) | abstract segment base; `point`/`bbox`/`reverse` |
+| [02] | `Move` | PathSegment | pen move (subpath start) |
+| [03] | `Line` | Linear | straight segment |
+| [04] | `Close` | Linear | close-subpath segment |
+| [05] | `QuadraticBezier` | Curve | quadratic Bezier |
+| [06] | `CubicBezier` | Curve | cubic Bezier |
+| [07] | `Arc` | Curve | elliptical arc |
+| [08] | `Subpath` | (view) | a contiguous-subpath view into a `Path` |
 
 [PUBLIC_TYPE_SCOPE]: document-tree nodes
 - rail: figure
 
 Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)` (or `SVGElement` for containers); they share `bbox()`, `* matrix` transform, `reify()`, and `values` style access. `Group`/`Use` are the structural containers `SVG.elements()` resolves through.
 
-| [INDEX] | TYPE                  | KIND      | ROLE                                              |
-| :-----: | --------------------- | --------- | ------------------------------------------------- |
-|  [01]   | `Shape`               | base      | transformable drawable base (bbox/reify/`*`)      |
-|  [02]   | `Rect`                | shape     | axis-aligned rectangle                            |
-|  [03]   | `Circle`              | shape     | circle by center and radius (`_RoundShape`)       |
-|  [04]   | `Ellipse`             | shape     | ellipse by center and two radii (`_RoundShape`)   |
-|  [05]   | `Polygon`             | shape     | closed point sequence (`_Polyshape`)              |
-|  [06]   | `Polyline`            | shape     | open point sequence (`_Polyshape`)                |
-|  [07]   | `SimpleLine`          | shape     | single line segment                               |
-|  [08]   | `Group`               | container | `<g>` transform/style container                   |
-|  [09]   | `Use`                 | container | `<use>` instanced reference                       |
-|  [10]   | `Text` / `SVGText`    | text node | text element with font/anchor style               |
-|  [11]   | `Image` / `SVGImage`  | image     | embedded/linked raster reference                  |
-|  [12]   | `Pattern` / `ClipPath` | paint/clip | pattern fill and clip-path container             |
-|  [13]   | `Desc` / `Title`      | metadata  | `<desc>`/`<title>` annotation nodes               |
+| [INDEX] | [TYPE] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Shape` | base | transformable drawable base (bbox/reify/`*`) |
+| [02] | `Rect` | shape | axis-aligned rectangle |
+| [03] | `Circle` | shape | circle by center and radius (`_RoundShape`) |
+| [04] | `Ellipse` | shape | ellipse by center and two radii (`_RoundShape`) |
+| [05] | `Polygon` | shape | closed point sequence (`_Polyshape`) |
+| [06] | `Polyline` | shape | open point sequence (`_Polyshape`) |
+| [07] | `SimpleLine` | shape | single line segment |
+| [08] | `Group` | container | `<g>` transform/style container |
+| [09] | `Use` | container | `<use>` instanced reference |
+| [10] | `Text` / `SVGText` | text node | text element with font/anchor style |
+| [11] | `Image` / `SVGImage` | image | embedded/linked raster reference |
+| [12] | `Pattern` / `ClipPath` | paint/clip | pattern fill and clip-path container |
+| [13] | `Desc` / `Title` | metadata | `<desc>`/`<title>` annotation nodes |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -72,69 +72,69 @@ Every drawable node derives `Shape(SVGElement, GraphicObject, Transformable)` (o
 
 `SVG.parse` is the single polymorphic ingestion factory across filename/file-object/`str` source; `reify=True` bakes transforms into element geometry so a downstream consumer reads absolute coordinates. `elements(conditional=)` is the single selection surface — the optional predicate discriminates which resolved nodes the iterator yields, so there is no `select`/`find`/`filter` family.
 
-| [INDEX] | MEMBER                                                                                                          | KIND    | ROLE                                                       |
-| :-----: | --------------------------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
-|  [01]   | `SVG.parse(source, reify=True, ppi=96.0, width=None, height=None, color='black', transform=None, context=None, parse_display_none=False, on_error='ignore')` | parse   | parse SVG from filename/file/`str` into a document tree    |
-|  [02]   | `SVG.elements(conditional=None)`                                                                                | iterate | iterate resolved nodes; optional predicate filters         |
-|  [03]   | `SVG.select(conditional=None)`                                                                                  | iterate | iterate raw (pre-resolution) elements                      |
-|  [04]   | `SVG.reify()`                                                                                                   | bake    | bake the document transform into element geometry          |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `SVG.parse(source, reify=True, ppi=96.0, width=None, height=None, color='black', transform=None, context=None, parse_display_none=False, on_error='ignore')` | parse | parse SVG from filename/file/`str` into a document tree |
+| [02] | `SVG.elements(conditional=None)` | iterate | iterate resolved nodes; optional predicate filters |
+| [03] | `SVG.select(conditional=None)` | iterate | iterate raw (pre-resolution) elements |
+| [04] | `SVG.reify()` | bake | bake the document transform into element geometry |
 
 [ENTRYPOINT_SCOPE]: `Path` construct, build, serialize, query
 - rail: figure
 
 `Path("M0,0 …")` parses an SVG `d` string; the builder rows (`move`/`line`/`cubic`/`quad`/`arc`/`horizontal`/`vertical`/`smooth_*`/`closed`) append segments fluently, each accepting `relative=`; `d()`/`bbox()`/`length()`/`point()` query and serialize. The path is one mutable owner — figure composition reads bounds, transforms by `*`, and re-serializes through the same `Path`, never a re-parsed string. The arc/bezier-approximation rows flatten curves for a downstream consumer that only accepts polylines or cubics.
 
-| [INDEX] | MEMBER                                          | KIND      | ROLE                                                        |
-| :-----: | ----------------------------------------------- | --------- | ----------------------------------------------------------- |
-|  [01]   | `Path(*args, **kwargs)` / `Path.parse(d)`       | construct | build a path from `d` string, segment list, or empty (`Path("M0,0 L10,10 Z")`) |
-|  [02]   | `Path.d(relative=None, transformed=True, smooth=None)` / `Path.svg_d(...)` | serialize | emit the SVG `d` path-data string (`svg_d` is the cached alias) |
-|  [03]   | `Path.bbox(transformed=True, with_stroke=False)` | query    | bounding box `(xmin, ymin, xmax, ymax)`                     |
-|  [04]   | `Path.point(position, error=1e-12)`             | query     | point at parametric position `0..1`                         |
-|  [05]   | `Path.npoint(positions, error=1e-12)`           | query     | vectorized points at multiple parametric positions          |
-|  [06]   | `Path.length(error=1e-12, min_depth=5)`         | query     | arc length of the path                                      |
-|  [07]   | `Path.segments(transformed=True)`               | iterate   | the `PathSegment` list (optionally transformed)             |
-|  [08]   | `Path.as_subpaths()` / `subpath(index)` / `count_subpaths()` | iterate | split into / address `Subpath` views               |
-|  [09]   | `Path.as_points()`                              | iterate   | the segment endpoint `Point` sequence                       |
-|  [10]   | `Path.reify()`                                  | bake      | bake the path's own transform into segment coordinates      |
-|  [11]   | `Path.move/line/cubic/quad/arc/horizontal/vertical/smooth_cubic/smooth_quad` `(*points, relative=False)` | build | fluent segment-append builder rows (each takes `relative=`) |
-|  [12]   | `Path.closed(relative=False)` / `Path.direct_close()` | build | append a `Close` to the current subpath (`closed` honors the relative flag) |
-|  [13]   | `Path.approximate_arcs_with_cubics(error=0.1)` / `approximate_arcs_with_quads(error=0.1)` | flatten | replace every `Arc` with cubic/quad Beziers for a consumer that cannot render arcs |
-|  [14]   | `Path.approximate_bezier_with_circular_arcs(error=0.01)` | flatten | replace cubics with circular arcs (toolpath/G-code egress) |
-|  [15]   | `Path.first_point` / `current_point` / `start` / `end` / `is_degenerate()` | state   | pen-state and degeneracy for incremental building          |
-|  [16]   | `Path.reverse()`                                | transform | reverse segment order                                       |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Path(*args, **kwargs)` / `Path.parse(d)` | construct | build a path from `d` string, segment list, or empty (`Path("M0,0 L10,10 Z")`) |
+| [02] | `Path.d(relative=None, transformed=True, smooth=None)` / `Path.svg_d(...)` | serialize | emit the SVG `d` path-data string (`svg_d` is the cached alias) |
+| [03] | `Path.bbox(transformed=True, with_stroke=False)` | query | bounding box `(xmin, ymin, xmax, ymax)` |
+| [04] | `Path.point(position, error=1e-12)` | query | point at parametric position `0..1` |
+| [05] | `Path.npoint(positions, error=1e-12)` | query | vectorized points at multiple parametric positions |
+| [06] | `Path.length(error=1e-12, min_depth=5)` | query | arc length of the path |
+| [07] | `Path.segments(transformed=True)` | iterate | the `PathSegment` list (optionally transformed) |
+| [08] | `Path.as_subpaths()` / `subpath(index)` / `count_subpaths()` | iterate | split into / address `Subpath` views |
+| [09] | `Path.as_points()` | iterate | the segment endpoint `Point` sequence |
+| [10] | `Path.reify()` | bake | bake the path's own transform into segment coordinates |
+| [11] | `Path.move/line/cubic/quad/arc/horizontal/vertical/smooth_cubic/smooth_quad` `(*points, relative=False)` | build | fluent segment-append builder rows (each takes `relative=`) |
+| [12] | `Path.closed(relative=False)` / `Path.direct_close()` | build | append a `Close` to the current subpath (`closed` honors the relative flag) |
+| [13] | `Path.approximate_arcs_with_cubics(error=0.1)` / `approximate_arcs_with_quads(error=0.1)` | flatten | replace every `Arc` with cubic/quad Beziers for a consumer that cannot render arcs |
+| [14] | `Path.approximate_bezier_with_circular_arcs(error=0.01)` | flatten | replace cubics with circular arcs (toolpath/G-code egress) |
+| [15] | `Path.first_point` / `current_point` / `start` / `end` / `is_degenerate()` | state | pen-state and degeneracy for incremental building |
+| [16] | `Path.reverse()` | transform | reverse segment order |
 
 [ENTRYPOINT_SCOPE]: `Matrix` construct, compose, apply
 - rail: figure
 
 `Matrix` is the one affine owner. The bare `scale`/`translate`/`rotate`/`skew` factories build a matrix; `pre_*`/`post_*` rows compose onto an existing matrix in the requested order; `inverse` and `transform_point`/`transform_vector` apply. A shape or path transforms by `element * matrix` (returns the same node type).
 
-| [INDEX] | MEMBER                                                              | KIND    | ROLE                                                       |
-| :-----: | ------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
-|  [01]   | `Matrix(*components)` / `Matrix.parse(transform_str)`               | construct | build affine from `(a, b, c, d, e, f)` or transform string |
-|  [02]   | `Matrix.scale(sx=1.0, sy=None)`                                     | factory | uniform/non-uniform scale matrix                           |
-|  [03]   | `Matrix.translate(tx=0.0, ty=0.0)`                                  | factory | translation matrix                                         |
-|  [04]   | `Matrix.rotate(angle=0.0)`                                          | factory | rotation matrix (radians)                                  |
-|  [05]   | `Matrix.skew(angle_a=0.0, angle_b=0.0)` / `skew_x` / `skew_y`       | factory | skew matrices                                              |
-|  [06]   | `Matrix.pre_scale/pre_translate/pre_rotate/pre_skew/pre_cat`        | compose | left-compose onto this matrix                              |
-|  [07]   | `Matrix.post_scale/post_translate/post_rotate/post_skew/post_cat`   | compose | right-compose onto this matrix                             |
-|  [08]   | `Matrix.inverse()`                                                  | invert  | inverse transform                                          |
-|  [09]   | `Matrix.transform_point(v)` / `transform_vector(v)` / `point_in_matrix_space(v)` | apply | apply to a point/vector                          |
-|  [10]   | `Matrix.is_identity()` / `determinant`                             | query   | identity test / determinant                                |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Matrix(*components)` / `Matrix.parse(transform_str)` | construct | build affine from `(a, b, c, d, e, f)` or transform string |
+| [02] | `Matrix.scale(sx=1.0, sy=None)` | factory | uniform/non-uniform scale matrix |
+| [03] | `Matrix.translate(tx=0.0, ty=0.0)` | factory | translation matrix |
+| [04] | `Matrix.rotate(angle=0.0)` | factory | rotation matrix (radians) |
+| [05] | `Matrix.skew(angle_a=0.0, angle_b=0.0)` / `skew_x` / `skew_y` | factory | skew matrices |
+| [06] | `Matrix.pre_scale/pre_translate/pre_rotate/pre_skew/pre_cat` | compose | left-compose onto this matrix |
+| [07] | `Matrix.post_scale/post_translate/post_rotate/post_skew/post_cat` | compose | right-compose onto this matrix |
+| [08] | `Matrix.inverse()` | invert | inverse transform |
+| [09] | `Matrix.transform_point(v)` / `transform_vector(v)` / `point_in_matrix_space(v)` | apply | apply to a point/vector |
+| [10] | `Matrix.is_identity()` / `determinant` | query | identity test / determinant |
 
 [ENTRYPOINT_SCOPE]: value objects
 - rail: figure
 
 `Length`/`Color`/`Angle`/`Point` are spec-faithful value objects; each owns its parse and resolution so figure egress never hand-multiplies a float or hand-parses a color string.
 
-| [INDEX] | MEMBER                                                                                          | KIND    | ROLE                                                       |
-| :-----: | ----------------------------------------------------------------------------------------------- | ------- | ---------------------------------------------------------- |
-|  [01]   | `Length(value).value(ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None)` | resolve | resolve a length to absolute px                            |
-|  [02]   | `Length.to_mm()` / `to_cm()` / `to_inch()` / `in_pixels()` / `value_in_units(unit, ...)`        | convert | absolute-unit conversions                                  |
-|  [03]   | `Color(*args)` / `Color.parse(color_string)` (static) / `Color.parse_color_hex/hsl/rgb/rgbp/lookup` (static) | parse | SVG/CSS color literal -> `Color` (channels) or int value |
-|  [04]   | `Color.red/green/blue/alpha/hex/hexa/hue/saturation/lightness/luminance`                        | channel | channel and derived-property (read/write) access           |
-|  [05]   | `Color.rgb` / `rgba` / `hsl` (props) ; `Color.over(c1, c2)` / `distance(c1, c2)` (static) / `instance.blend(other, opacity=None)` | math | color construction, alpha-over composite, distance metric  |
-|  [06]   | `Angle.parse(value)` / `as_degrees` / `as_radians` / `as_turns` / `as_gradians` / `normalized()` | angle  | CSS-angle parse and unit projection                        |
-|  [07]   | `Point(x, y)` / `Point.distance_to(p)` / `angle_to(p)` / `matrix_transform(m)` / `reflected_across(p)` / `polar_to(angle, dist)` | point | point geometry, transform, reflection, polar      |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Length(value).value(ppi=None, relative_length=None, font_size=None, font_height=None, viewbox=None)` | resolve | resolve a length to absolute px |
+| [02] | `Length.to_mm()` / `to_cm()` / `to_inch()` / `in_pixels()` / `value_in_units(unit, ...)` | convert | absolute-unit conversions |
+| [03] | `Color(*args)` / `Color.parse(color_string)` (static) / `Color.parse_color_hex/hsl/rgb/rgbp/lookup` (static) | parse | SVG/CSS color literal -> `Color` (channels) or int value |
+| [04] | `Color.red/green/blue/alpha/hex/hexa/hue/saturation/lightness/luminance` | channel | channel and derived-property (read/write) access |
+| [05] | `Color.rgb` / `rgba` / `hsl` (props) ; `Color.over(c1, c2)` / `distance(c1, c2)` (static) / `instance.blend(other, opacity=None)` | math | color construction, alpha-over composite, distance metric |
+| [06] | `Angle.parse(value)` / `as_degrees` / `as_radians` / `as_turns` / `as_gradians` / `normalized()` | angle | CSS-angle parse and unit projection |
+| [07] | `Point(x, y)` / `Point.distance_to(p)` / `angle_to(p)` / `matrix_transform(m)` / `reflected_across(p)` / `polar_to(angle, dist)` | point | point geometry, transform, reflection, polar |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

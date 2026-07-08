@@ -23,10 +23,10 @@
 - rail: energy-modeling
 - The entire code surface: two absolute-path strings to the bundled default-library JSON. There are no classes, functions, or types — the package is a resource carrier.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CAPABILITY]                                                       |
-| :-----: | :----------------------------- | :------------ | :---------------------------------------------------------------- |
-|  [01]   | `honeybee_standards.energy_default`   | path constant | absolute path to `energy_default.json` (the always-loaded energy defaults) |
-|  [02]   | `honeybee_standards.radiance_default` | path constant | absolute path to `radiance_default.json` (the always-loaded radiance defaults) |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `honeybee_standards.energy_default` | path constant | absolute path to `energy_default.json` (the always-loaded energy defaults) |
+| [02] | `honeybee_standards.radiance_default` | path constant | absolute path to `radiance_default.json` (the always-loaded radiance defaults) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -34,12 +34,12 @@
 - rail: energy-modeling
 - The package has no callable entry points; its "entry points" are the JSON data shape `honeybee-energy` reads and the config-layer path it resolves through. The owner accesses everything below via the `honeybee-energy` `lib.*_by_identifier` loaders, never by opening these files.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]             | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------- | :----------------------- | :------------------------------------------------- |
-|  [01]   | `energy_default.json` (= `honeybee_energy.config.folders.defaults_file`) | JSON document            | the abridged default library: keys `construction_sets`/`constructions`/`materials`/`program_types`/`schedules`/`schedule_type_limits` |
-|  [02]   | `radiance_default.json`                                        | JSON document            | the default radiance library: keys `modifiers`/`modifier_sets` |
-|  [03]   | data folders `constructions/` `constructionsets/` `programtypes/` `schedules/` `modifiers/` `modifiersets/` | `user_library.{json,idf,mat}` | empty user-extension templates (the per-domain user-library scaffold honeybee writes user objects into) |
-|  [04]   | `honeybee_energy.lib.*_by_identifier(identifier)`             | identifier string        | the ONLY supported read path: resolves a default (or extension/user) object by identifier, seeding from this bundle at import |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `energy_default.json` (= `honeybee_energy.config.folders.defaults_file`) | JSON document | the abridged default library: keys `construction_sets`/`constructions`/`materials`/`program_types`/`schedules`/`schedule_type_limits` |
+| [02] | `radiance_default.json` | JSON document | the default radiance library: keys `modifiers`/`modifier_sets` |
+| [03] | data folders `constructions/` `constructionsets/` `programtypes/` `schedules/` `modifiers/` `modifiersets/` | `user_library.{json,idf,mat}` | empty user-extension templates (the per-domain user-library scaffold honeybee writes user objects into) |
+| [04] | `honeybee_energy.lib.*_by_identifier(identifier)` | identifier string | the ONLY supported read path: resolves a default (or extension/user) object by identifier, seeding from this bundle at import |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
@@ -48,7 +48,7 @@
 - defaults axis: `energy_default.json` is the abridged baseline library `honeybee_energy.config.folders.defaults_file` points at. At `honeybee_energy.lib` import, `_loadprogramtypes`/`_loadschedules`/`_loadconstructions`/`_loadmaterials`/`_loadconstructionsets`/`_loadtypelimits` read this file FIRST and build the default objects (locked, identifier-keyed), establishing the guaranteed-resolvable baseline (the generic default construction set, the generic office/plenum programs, the always-on and seated-activity schedules, the base schedule type limits). Every honeybee energy model can resolve these identifiers with no extra package.
 - extension axis: AFTER the defaults, the same `_load*` modules scan `folders.standards_extension_folders` (default `~/ladybug_tools/resources/standards/`) for installed extension libraries — chiefly `honeybee-energy-standards`, the large ASHRAE 90.1 / DOE-prototype set (thousands of program types and schedules). That extension is a SEPARATE package, NOT honeybee-standards; the lib registry counts (e.g. ~1845 program types, ~3347 schedules — verified against `honeybee-energy-standards 2.3.0`, see `honeybee-energy-standards.md`) reflect the extension being installed, not this baseline bundle (which contributes 2 programs and 8 schedules). The owner treats the big library as an optional, separately-admitted extension and never conflates it with this defaults floor.
 - radiance axis: `radiance_default.json` is the parallel baseline for the radiance daylight extension (`honeybee-radiance`), consumed the same way through its own lib loaders; this package ships both the energy and radiance default bundles.
-- access-path axis: the data is abridged (objects reference each other by identifier within the file), so it is decoded through the same `from_dict_abridged` ordering `honeybee-energy` owns (schedule type limits -> schedules -> programs/constructions). The owner therefore resolves through `lib.*_by_identifier`, never by hand-parsing the JSON (which would re-implement the abridged-resolution order the lib loaders already own).
+- access-path axis: the data is abridged (objects reference each other by identifier within the file), so it is decoded through the same `from_dict_abridged` ordering `honeybee-energy` owns (schedule type limits -> schedules -> programs/constructions). The owner therefore resolves through `lib.*_by_identifier`, never by hand-parsing the JSON (which does re-implement the abridged-resolution order the lib loaders already own).
 - boundary: honeybee-standards owns ONLY the baseline default data and its two locating paths. The loaders, the by-identifier resolution, and the registries are `honeybee-energy.lib`; the large standards library is the separate `honeybee-energy-standards` extension (`honeybee-energy-standards.md`) — which is also `dragonfly-energy`'s `standards` extra, so an urban district resolving ASHRAE/DOE identifiers pulls that extension, never this floor; the radiance loaders are `honeybee-radiance`; the object model is `honeybee-core`. This package contains no executable code; the urban `dragonfly-energy` consumer resolves this same defaults floor transitively through `honeybee-energy.lib`.
 
 ## [05]-[LOCAL_ADMISSION]

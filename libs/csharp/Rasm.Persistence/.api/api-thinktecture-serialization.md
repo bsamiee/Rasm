@@ -12,17 +12,15 @@ System.Text.Json member roster lives in `api-thinktecture-json.md` and the deep 
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.MessagePack`
 - package: `Thinktecture.Runtime.Extensions.MessagePack`
-- version: `10.4.0`
 - license: file LICENSE.md (Pawel Gerr)
 - assembly: `Thinktecture.Runtime.Extensions.MessagePack`
 - namespace: `Thinktecture`, `Thinktecture.Formatters`
-- core package: `Thinktecture.Runtime.Extensions` 10.4.0 (generator + `IObjectFactory`/`IConvertible`/`IValidationError` contracts)
+- core package: `Thinktecture.Runtime.Extensions` (generator + `IObjectFactory`/`IConvertible`/`IValidationError` contracts)
 - target: `net8.0` only; the `net10.0` consumer binds `lib/net8.0`
 - rail: snapshot-codec
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
 - package: `Thinktecture.Runtime.Extensions.Json`
-- version: `10.4.0`
 - license: file LICENSE.md
 - assembly: `Thinktecture.Runtime.Extensions.Json`
 - namespace: `Thinktecture`, `Thinktecture.Text.Json.Serialization`, `Thinktecture.Internal`
@@ -32,7 +30,6 @@ System.Text.Json member roster lives in `api-thinktecture-json.md` and the deep 
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - package: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
-- version: `10.4.0`
 - license: file LICENSE.md
 - assembly: `Thinktecture.Runtime.Extensions.EntityFrameworkCore10`
 - namespace: `Thinktecture`, `Thinktecture.EntityFrameworkCore`, `Thinktecture.EntityFrameworkCore.Storage.ValueConversion`
@@ -119,7 +116,7 @@ The factory constructor optionally receives `skipObjectsWithJsonConverterAttribu
 - Codec profiles register the factory or resolver once; per-type converters/formatters are derived, not declared; a hand-written converter, formatter, or `HasConversion` beside the generated ones is the named defect.
 
 [RAIL_LAW]:
-- Packages: `Thinktecture.Runtime.Extensions.Json`, `Thinktecture.Runtime.Extensions.MessagePack`, `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (all 10.4.0, over `Thinktecture.Runtime.Extensions` 10.4.0)
+- Packages: `Thinktecture.Runtime.Extensions.Json`, `Thinktecture.Runtime.Extensions.MessagePack`, `Thinktecture.Runtime.Extensions.EntityFrameworkCore10` (all, over `Thinktecture.Runtime.Extensions`)
 - Own: the single-registration codec and store projection of Thinktecture-generated owners across JSON, MessagePack, and EF Core
 - Accept: `ThinktectureJsonConverterFactory` on `JsonSerializerOptions`, `ThinktectureMessageFormatterResolver.Instance` in the `CompositeResolver`, `UseThinktectureValueConverters(Configuration.Default)` on the options builder
 - Reject: handwritten converters/formatters for generated owners, a per-type `HasConversion`, a second registration shadowing the source-generated codec

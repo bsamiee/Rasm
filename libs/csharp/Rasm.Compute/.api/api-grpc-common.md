@@ -71,7 +71,7 @@
 |  [08]   | `Metadata.Get` / `GetValue` / `GetAll`        | metadata read    | reads a header by key               |
 
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Common` decompile-verified members
-- source: `Grpc.Net.Common` 2.80.0 decompile
+- source: `Grpc.Net.Common` decompile
 - rail: remote-wire
 
 | [INDEX] | [MEMBER]                                            | [SIGNATURE]                                                                                                                          |
@@ -89,7 +89,7 @@
 |  [11]   | `ConnectivityState`                                 | `enum ConnectivityState { Idle, Connecting, Ready, TransientFailure, Shutdown }`                                                     |
 
 [ENTRYPOINT_SCOPE]: `Grpc.Core.Api` decompile-verified members
-- source: `Grpc.Core.Api` 2.80.0 decompile
+- source: `Grpc.Core.Api` decompile
 - rail: remote-server#CONTROL_SERVICE
 
 | [INDEX] | [MEMBER]                                      | [SIGNATURE]                                                                                 |
@@ -114,21 +114,21 @@
 |  [18]   | `WriteOptions.ctor`                           | `WriteOptions(WriteFlags flags = 0)`; `static readonly WriteOptions Default`                |
 |  [19]   | `WriteFlags`                                  | `[Flags] enum WriteFlags { BufferHint = 1, NoCompress = 2 }`                                |
 |  [20]   | `AsyncStreamReaderExtensions.MoveNext`        | `static Task<bool> MoveNext<T>(this IAsyncStreamReader<T> streamReader) where T : class` — manual-pump alternative to `Grpc.Net.Common`'s `ReadAllAsync` |
-|  [18]   | `Metadata.ctor`                               | `Metadata()`                                                                                |
-|  [19]   | `Metadata.Add`                                | `void Add(string key, string value)`                                                        |
-|  [20]   | `Metadata.Add`                                | `void Add(string key, byte[] valueBytes)`                                                   |
-|  [21]   | `Metadata.Add`                                | `void Add(Metadata.Entry item)`                                                             |
-|  [22]   | `Metadata.Get`                                | `Metadata.Entry? Get(string key)`                                                           |
-|  [23]   | `Metadata.GetValue`                           | `string? GetValue(string key)`                                                              |
-|  [24]   | `Metadata.GetValueBytes`                      | `byte[]? GetValueBytes(string key)`                                                         |
-|  [25]   | `Metadata.GetAll`                             | `IEnumerable<Metadata.Entry> GetAll(string key)`                                            |
-|  [26]   | `Metadata.BinaryHeaderSuffix`                 | `const string BinaryHeaderSuffix = "-bin"`                                                  |
-|  [27]   | `Metadata.Empty`                              | `static readonly Metadata Empty`                                                            |
-|  [28]   | `Metadata.Entry.ctor`                         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)`                  |
-|  [29]   | `Metadata.Entry.Key`                          | `string Key { get; }`                                                                       |
-|  [30]   | `Metadata.Entry.Value`                        | `string Value { get; }`                                                                     |
-|  [31]   | `Metadata.Entry.ValueBytes`                   | `byte[] ValueBytes { get; }`                                                                |
-|  [32]   | `Metadata.Entry.IsBinary`                     | `bool IsBinary { get; }`                                                                    |
+|  [21]   | `Metadata.ctor`                               | `Metadata()`                                                                                |
+|  [22]   | `Metadata.Add`                                | `void Add(string key, string value)`                                                        |
+|  [23]   | `Metadata.Add`                                | `void Add(string key, byte[] valueBytes)`                                                   |
+|  [24]   | `Metadata.Add`                                | `void Add(Metadata.Entry item)`                                                             |
+|  [25]   | `Metadata.Get`                                | `Metadata.Entry? Get(string key)`                                                           |
+|  [26]   | `Metadata.GetValue`                           | `string? GetValue(string key)`                                                              |
+|  [27]   | `Metadata.GetValueBytes`                      | `byte[]? GetValueBytes(string key)`                                                         |
+|  [28]   | `Metadata.GetAll`                             | `IEnumerable<Metadata.Entry> GetAll(string key)`                                            |
+|  [29]   | `Metadata.BinaryHeaderSuffix`                 | `const string BinaryHeaderSuffix = "-bin"`                                                  |
+|  [30]   | `Metadata.Empty`                              | `static readonly Metadata Empty`                                                            |
+|  [31]   | `Metadata.Entry.ctor`                         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)`                  |
+|  [32]   | `Metadata.Entry.Key`                          | `string Key { get; }`                                                                       |
+|  [33]   | `Metadata.Entry.Value`                        | `string Value { get; }`                                                                     |
+|  [34]   | `Metadata.Entry.ValueBytes`                   | `byte[] ValueBytes { get; }`                                                                |
+|  [35]   | `Metadata.Entry.IsBinary`                     | `bool IsBinary { get; }`                                                                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

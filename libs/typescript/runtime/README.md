@@ -84,10 +84,12 @@ Every folder-specific external library, planned or implemented. Versions are cen
 
 [DELIVERY_DOCUMENTS]:
 - `nodemailer`
+- `@types/nodemailer`
 - `exceljs`
 - `jspdf`
 - `jszip`
 - `papaparse`
+- `@types/papaparse`
 
 [BROWSER_SHELL]:
 - `workbox-build`

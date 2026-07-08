@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `RabbitMQ.Client`
 - package: `RabbitMQ.Client`
-- version: `7.2.1`
 - license: `Apache-2.0 OR MPL-2.0` (dual-licensed)
 - assembly: `RabbitMQ.Client`
 - namespace: `RabbitMQ.Client`, `RabbitMQ.Client.Events`, `RabbitMQ.Client.Exceptions`

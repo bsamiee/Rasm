@@ -12,7 +12,7 @@ nationality of each governing body (RIBA→UK, HOAI→Germany, CSLP→Italy). On
 both the structural load/case standards key and the lifecycle stage governance. The enum→singleton
 resolution is the one entrypoint: `Utility.GetCountry(Country)` maps an enum member to its
 `ICountry` instance, and each singleton is a CRTP `SingletonCountryBase<T>` exposing a lazily
-constructed `T Default`. Every country is `ICountry : ITaxonomySerializable`, so the national
+constructed `T Default`. Every country is `ICountry: ITaxonomySerializable`, so the national
 context round-trips through the same VividOrange taxonomy-serialization marker as loads and cases —
 one serialization seam for the whole structural taxonomy. The package STACKS with the Eurocode
 `NationalAnnex` (`VividOrange.Standards.Eurocode.NationalAnnex`, a 37-member enum; `.api/api-vividorange-istandards`)
@@ -25,7 +25,6 @@ backs it is internal to `VividOrange.Standards`).
 
 [PACKAGE_SURFACE]: `VividOrange.Countries`
 - package: `VividOrange.Countries` (contract + enum + singletons together; no separate interface package — `ICountry` ships in this assembly)
-- version: `0.1.0`
 - license: MIT
 - assembly: `VividOrange.Countries`
 - namespace: `VividOrange.Countries`
@@ -39,34 +38,34 @@ backs it is internal to `VividOrange.Standards`).
 [PUBLIC_TYPE_SCOPE]: national-context family
 - rail: national-context
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]              | [RAIL]                                                       |
-| :-----: | :-------------------------- | :------------------------ | :--------------------------------------------------------- |
-|  [01]   | `ICountry`                  | nation contract           | `: ITaxonomySerializable` + `string Name`, `string CountryCode` |
-|  [02]   | `Country`                   | ISO 3166-1 nation enum    | 249 members (`Afghanistan`…`Zimbabwe`)                     |
-|  [03]   | `SingletonCountryBase<T>`   | CRTP singleton base       | `abstract … where T : SingletonCountryBase<T>` + `static T Default` (lazy) |
-|  [04]   | `Germany`/`France`/`…`      | per-nation singleton      | `sealed : SingletonCountryBase<T>, ICountry` — `Name`, `CountryCode` (`"DE"`…) |
-|  [05]   | `Utility`                   | enum→singleton resolver   | `static ICountry GetCountry(Country)`                       |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
+|:-----: |:-------------------------- |:------------------------ |:--------------------------------------------------------- |
+| [01] | `ICountry` | nation contract | `: ITaxonomySerializable` + `string Name`, `string CountryCode` |
+| [02] | `Country` | ISO 3166-1 nation enum | 249 members (`Afghanistan`…`Zimbabwe`) |
+| [03] | `SingletonCountryBase<T>` | CRTP singleton base | `abstract … where T: SingletonCountryBase<T>` + `static T Default` (lazy) |
+| [04] | `Germany`/`France`/`…` | per-nation singleton | `sealed: SingletonCountryBase<T>, ICountry` — `Name`, `CountryCode` (`"DE"`…) |
+| [05] | `Utility` | enum→singleton resolver | `static ICountry GetCountry(Country)` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: nation resolution and read
 - rail: national-context
 
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]      | [RAIL]                                                  |
-| :-----: | :--------------------------------- | :------------------ | :----------------------------------------------------- |
-|  [01]   | `Utility.GetCountry(Country)`      | enum→instance       | resolve a `Country` enum member to its `ICountry` singleton |
-|  [02]   | `Germany.Default` (`SingletonCountryBase<T>.Default`) | typed singleton | the lazily constructed per-nation instance             |
-|  [03]   | `new Germany()` (and family)       | direct construct    | a per-nation singleton class instance                  |
-|  [04]   | `ICountry.Name`                    | display read        | the nation display name                                |
-|  [05]   | `ICountry.CountryCode`             | ISO code read       | the ISO 3166-1 alpha-2 code (`"DE"`, `"FR"`, `"US"`)    |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+|:-----: |:--------------------------------- |:------------------ |:----------------------------------------------------- |
+| [01] | `Utility.GetCountry(Country)` | enum→instance | resolve a `Country` enum member to its `ICountry` singleton |
+| [02] | `Germany.Default` (`SingletonCountryBase<T>.Default`) | typed singleton | the lazily constructed per-nation instance |
+| [03] | `new Germany()` (and family) | direct construct | a per-nation singleton class instance |
+| [04] | `ICountry.Name` | display read | the nation display name |
+| [05] | `ICountry.CountryCode` | ISO code read | the ISO 3166-1 alpha-2 code (`"DE"`, `"FR"`, `"US"`) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COUNTRY_TOPOLOGY]:
 - namespace: `VividOrange.Countries`
-- contract: `ICountry : ITaxonomySerializable` — `Name`, `CountryCode` (ISO 3166-1 alpha-2)
+- contract: `ICountry: ITaxonomySerializable` — `Name`, `CountryCode` (ISO 3166-1 alpha-2)
 - enum: `Country` — the full ISO 3166-1 nation set (249 members, incl. 5 non-ASCII identifiers `Curaçao`/`CôteDivoire`/`Réunion`/`SaintBarthélemy`/`ÅlandIslands`), the discriminant `Utility.GetCountry` switches on; the 249 enum members and 249 `ICountry` singletons are 1:1, so `Utility.GetCountry` is total
-- singletons: 249 `sealed` classes (`Germany : SingletonCountryBase<Germany>, ICountry`), each a CRTP singleton whose `Default` is `Lazy<T>` over a non-public ctor
+- singletons: 249 `sealed` classes (`Germany: SingletonCountryBase<Germany>, ICountry`), each a CRTP singleton whose `Default` is `Lazy<T>` over a non-public ctor
 - resolver: `Utility.GetCountry(Country)` is the one enum→`ICountry` map
 
 [LOCAL_ADMISSION]:
@@ -77,7 +76,7 @@ backs it is internal to `VividOrange.Standards`).
 [STACKING]:
 - with `VividOrange.Cases` (`.api/api-vividorange-cases`) + `VividOrange.IStandards` (`.api/api-vividorange-istandards`): `Country` (249 ISO nations) is the broad national axis; `NationalAnnex` (37 members incl. `RecommendedValues`) is the Eurocode parameter axis the `ENLoadCaseFactory`/`ENCombinationFactory` and the `ITableA1_1`/`ITableA1_2` `GetProperties` dispatch on — the two meet at the project's nation, bridged by name at the design layer (there is no compiled `Country`→`NationalAnnex` map; the `NationalAnnex`→standards-body abbreviation table is internal to `VividOrange.Standards`)
 - with `VividOrange.Stages` (`.api/api-vividorange-stages`): the lifecycle stage taxonomy's `IGovernance.Country` returns this `ICountry` (a compiled `VividOrange.IStages`→`VividOrange.Countries` pin), so the project-phase family reads the SAME national-context owner — the country a governing body (RIBA/HOAI/CSLP/AB89) belongs to is the same `Utility.GetCountry` value the structural standards key selects, never a parallel nation enum on the stage side; Countries is the one national-context owner across BOTH the structural (loads/cases) and lifecycle (stages) VividOrange families
-- with `VividOrange.ISerialization`: `ICountry : ITaxonomySerializable` shares the one taxonomy-serialization marker with loads, cases, AND stages — every VividOrange taxonomy carries the same marker, so the national context serializes through the one rail that covers the whole family
+- with `VividOrange.ISerialization`: `ICountry: ITaxonomySerializable` shares the one taxonomy-serialization marker with loads, cases, AND stages — every VividOrange taxonomy carries the same marker, so the national context serializes through the one rail that covers the whole family
 - with `StructuralAnalysisFormat` (`.api/api-structuralanalysisformat`): the SAF `ExcelNationalCode` enum (`EC_DIN_EN`, `EC_NF_EN`, `EC_UNI_EN`, … plus `IBC`/`NBR`/`SIA_26x`) is the SAF design-code axis; a model's `ICountry` + selected `NationalAnnex` map onto the matching `ExcelNationalCode` at the XLSX boundary, and the `ExcelStructuralLoadCombination.NationalStandard` carries it on the wire
 - with `Thinktecture.Runtime.Extensions` (`.api/api-thinktecture-json`): when the Bim layer needs a canonical national discriminant it owns a `[SmartEnum]`/`[ValueObject]` keyed by the ISO `CountryCode`; the VividOrange `Country` enum + `ICountry` are the boundary vocabulary mapped onto it, never re-exported as the canonical shape
 - with `NetTopologySuite`/`ProjNET` (the `Semantics/georeference` owner): the ISO `CountryCode` keys the national CRS/datum and georeferenced site-context selection, joining the national-context taxonomy to the geospatial seam

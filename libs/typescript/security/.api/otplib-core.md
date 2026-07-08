@@ -1,4 +1,4 @@
-# [@otplib/core] — the OTP substrate under `otplib`: hooks, plugin factories, guardrail caps, the typed error taxonomy
+# [TS_SECURITY_API_OTPLIB_CORE]
 
 `@otplib/core` is the interfaces-and-primitives package the `otplib` metapackage builds on, pinned directly so the credential owner types against it without riding the metapackage's re-export selection. It carries the pieces `otplib` root does NOT re-export in full: the `OTPHooks` variant surface (`encodeToken`/`validateToken`/`truncateDigest` — Steam Guard alphabets and custom truncation without forking the rail), the named plugin factories (`createCryptoPlugin`/`createBase32Plugin`) behind the structural `CryptoPlugin`/`Base32Plugin` ports, the guardrail constant caps and `createGuardrails`, the RFC-4226 primitive kernel (`dynamicTruncate`, `counterToBytes`, `truncateDigits`, `constantTimeEqual`), and the full typed error taxonomy under the `OTPError` root. The strategy rail itself — `generate`/`verify`, `VerifyResult`, the option algebra — is the `otplib` root's (`.api/otplib.md`); this catalogue covers only the substrate reached by direct sub-import.
 
@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `@otplib/core`
 - package: `@otplib/core`
-- version: `13.4.1`
 - license: `MIT`
 - deps: none — pure TS substrate, no crypto binding (crypto arrives through the `CryptoPlugin` port)
 - module: dual ESM (`import` → `dist/index.js`) + CJS; subpaths `.` (all) · `./errors` · `./utils` · `./types`
@@ -19,16 +18,16 @@
 [PUBLIC_TYPE_SCOPE]: the hook surface, the factories, and the guardrail algebra
 - rail: authn/otp
 
-| [INDEX] | [SYMBOL]                                                                              | [TYPE_FAMILY]   | [CONSUMER / BOUNDARY]                                                              |
-| :-----: | :------------------------------------------------------------------------------------ | :-------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `OTPHooks { encodeToken?; validateToken?; truncateDigest? }`                            | variant hooks   | non-standard OTP dialects through the `hooks?` option field — the one variant seam  |
-|  [02]   | `createCryptoPlugin({ name?, hmac, randomBytes, constantTimeEqual? })`                  | plugin factory  | named construction of the crypto port; a plain object literal satisfies it equally  |
-|  [03]   | `createBase32Plugin({ name?, encode, decode })`                                         | plugin factory  | named construction of the base32 port                                               |
-|  [04]   | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)`                       | guardrail algebra | validation caps over the constant floor/ceiling set                                |
-|  [05]   | `MIN_SECRET_BYTES`/`MAX_SECRET_BYTES`/`RECOMMENDED_SECRET_BYTES`/`MIN_PERIOD`/`MAX_PERIOD`/`DEFAULT_PERIOD`/`MAX_COUNTER`/`MAX_WINDOW` | constant caps | the guardrail vocabulary — policy values, never re-derived literals |
-|  [06]   | `Digits` / `HashAlgorithm` / `SecretOptions` / `OTPResult`/`OTPResultOk`/`OTPResultError` | primitive types | option-field and result vocabulary shared with the `otplib` root                    |
-|  [07]   | `dynamicTruncate` / `truncateDigits` / `counterToBytes` / `constantTimeEqual` / `generateSecret` / `normalizeSecret` / `stringToBytes` / `bytesToString` | RFC kernel | the RFC-4226 primitive set — composed only when a hook implementation needs raw truncation |
-|  [08]   | `OTPError` root + `HMACError`/`SecretError`/`TokenError`/`CounterError`/`PeriodError`/`Base32Error`/`CryptoError`/`ConfigurationError` families (`./errors`) | error taxonomy | boundary conversion targets — each lifts through `Effect.try` into the credential fault rail |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------ |:-------------- |:---------------------------------------------------------------------------------- |
+| [01] | `OTPHooks { encodeToken?; validateToken?; truncateDigest? }` | variant hooks | non-standard OTP dialects through the `hooks?` option field — the one variant seam |
+| [02] | `createCryptoPlugin({ name?, hmac, randomBytes, constantTimeEqual? })` | plugin factory | named construction of the crypto port; a plain object literal satisfies it equally |
+| [03] | `createBase32Plugin({ name?, encode, decode })` | plugin factory | named construction of the base32 port |
+| [04] | `OTPGuardrails` / `OTPGuardrailsConfig` / `createGuardrails(cfg)` | guardrail algebra | validation caps over the constant floor/ceiling set |
+| [05] | `MIN_SECRET_BYTES`/`MAX_SECRET_BYTES`/`RECOMMENDED_SECRET_BYTES`/`MIN_PERIOD`/`MAX_PERIOD`/`DEFAULT_PERIOD`/`MAX_COUNTER`/`MAX_WINDOW` | constant caps | the guardrail vocabulary — policy values, never re-derived literals |
+| [06] | `Digits` / `HashAlgorithm` / `SecretOptions` / `OTPResult`/`OTPResultOk`/`OTPResultError` | primitive types | option-field and result vocabulary shared with the `otplib` root |
+| [07] | `dynamicTruncate` / `truncateDigits` / `counterToBytes` / `constantTimeEqual` / `generateSecret` / `normalizeSecret` / `stringToBytes` / `bytesToString` | RFC kernel | the RFC-4226 primitive set — composed only when a hook implementation needs raw truncation |
+| [08] | `OTPError` root + `HMACError`/`SecretError`/`TokenError`/`CounterError`/`PeriodError`/`Base32Error`/`CryptoError`/`ConfigurationError` families (`./errors`) | error taxonomy | boundary conversion targets — each lifts through `Effect.try` into the credential fault rail |
 
 ## [03]-[INTEGRATION]
 

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Avalonia.Controls.DataGrid`
 - package: `Avalonia.Controls.DataGrid`
-- version: `12.0.0`
 - license: `MIT`
 - assembly: `Avalonia.Controls.DataGrid`
 - consumer-tfm: `net10.0` (multi-target `net10.0`/`net8.0`; `net10.0` is the bound asset)

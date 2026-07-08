@@ -1,4 +1,4 @@
-# [@radix-ui/react-label] — `<label>` DOM primitive with target-scoped double-click text-guard and `asChild` merge, backing the composition-plane label row
+# [TS_UI_API_RADIX_UI_REACT_LABEL]
 
 `@radix-ui/react-label` is the composition-plane label primitive: one `forwardRef` component rendering `@radix-ui/react-primitive`'s `Primitive.label`, carrying exactly one behavior beyond native `<label>` passthrough — an `onMouseDown` wrapper that early-returns when the mousedown target is an interactive control (`button, input, select, textarea`), else runs the caller's `onMouseDown` first and then `preventDefault`s a multi-click (`event.detail > 1`) unless the caller already prevented it, so a double-click on the label *copy* drives the associated control instead of selecting text. It is deliberately thin: `react-aria`/`react-aria-components` own interaction, focus, and field association; `intl` owns the label string; the token plane (`class-variance-authority`/`clsx`/`tailwind-merge`) owns the class; this row owns the DOM `<label>` semantics, the `htmlFor` association feeding `Schema→aria` `FormBinding`, and the `asChild` slot merge inherited whole from `@radix-ui/react-slot`. Core `ui` only (`runtime:browser`), never `scope:viewer`.
 
@@ -6,9 +6,8 @@
 
 [PACKAGE_SURFACE]: `@radix-ui/react-label`
 - package: `@radix-ui/react-label`
-- version: `2.1.11`
 - license: `MIT`
-- react-peer: `react ^16.8 || ^17 || ^18 || ^19` (React 19 spine; `@types/react` `*`); depends on `@radix-ui/react-primitive@2.1.3` → `@radix-ui/react-slot@1.3.0` (`.api/radix-ui-react-slot.md`)
+- react-peer: `react catalog` (React 19 spine; `@types/react` `*`); depends on `@radix-ui/react-primitive@catalog` → `@radix-ui/react-slot@catalog` (`.api/radix-ui-react-slot.md`)
 - catalog-verdict: KEEP
 - runtime: `runtime:browser`, core `ui` — composition plane; not `scope:viewer`. `"use client"`.
 - modules: single `.` barrel — `Label` / `Root` component, `LabelProps` type (verified exports: `Label`, `LabelProps`, `Root`)
@@ -35,10 +34,10 @@ onMouseDown: (event) => {
 - rail: view/compose
 - `Label` and `Root` are the same `forwardRef` component under two names (`Root` is the namespace-import idiom `Label.Root`). `LabelProps extends React.ComponentPropsWithoutRef<typeof Primitive.label>` with an EMPTY body — every native `<label>` attribute (`htmlFor`, `id`, `className`, `children`, `onMouseDown`, …) plus the `asChild?: boolean` knob, all inherited from `Primitive.label` (`PrimitivePropsWithRef<E> = ComponentPropsWithRef<E> & { asChild?: boolean }`). There is no additional own-prop; the association surface is native `htmlFor`, and the only augmented behavior is the double-click text-guard.
 
-| [INDEX] | [SYMBOL]                                                          | [TYPE_FAMILY]      | [CONSUMER / BOUNDARY]                                              |
-| :-----: | :--------------------------------------------------------------- | :----------------- | :---------------------------------------------------------------- |
-|  [01]   | `Label` / `Root` (`ForwardRefExoticComponent<LabelProps & RefAttributes<HTMLLabelElement>>`) | primitive component | `view/compose` field-label row; ref forwards to the `<label>` element |
-|  [02]   | `LabelProps` (`= ComponentPropsWithoutRef<typeof Primitive.label>`) | prop contract      | native `<label>` attrs + `htmlFor` association + inherited `asChild` (empty own body) |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:--------------------------------------------------------------- |:----------------- |:---------------------------------------------------------------- |
+| [01] | `Label` / `Root` (`ForwardRefExoticComponent<LabelProps & RefAttributes<HTMLLabelElement>>`) | primitive component | `view/compose` field-label row; ref forwards to the `<label>` element |
+| [02] | `LabelProps` (`= ComponentPropsWithoutRef<typeof Primitive.label>`) | prop contract | native `<label>` attrs + `htmlFor` association + inherited `asChild` (empty own body) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,11 +45,11 @@ onMouseDown: (event) => {
 - rail: view/compose
 - One component, three composition modes: bare `<Label htmlFor={id}>` associates by native `htmlFor`; `<Label asChild>` merges label behavior onto a caller element through `Primitive.label` → the `createSlot('Primitive.label')` instance; the `onMouseDown` guard is target-scoped (interactive controls opt out entirely) and caller-composed (caller runs first, guard adds `preventDefault` on multi-click).
 
-| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY]  | [CONSUMER / BOUNDARY]                                              |
-| :-----: | :--------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------- |
-|  [01]   | `<Label htmlFor={fieldId}>{label}</Label>`                       | associate       | visible label ↔ control; `htmlFor` id feeds `aria-labelledby`     |
-|  [02]   | `<Label asChild><Slot-mergeable element/></Label>`              | slot-merge      | render-as-child via `Primitive.label`→`createSlot('Primitive.label')`; `view/compose` slot row |
-|  [03]   | `<Label onMouseDown={caller}>` — guard skips interactive targets, else caller-first then `preventDefault` on `detail > 1` | text-guard      | double-click on label copy drives the control; a mousedown on a nested control is untouched |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:--------------------------------------------------------------- |:-------------- |:---------------------------------------------------------------- |
+| [01] | `<Label htmlFor={fieldId}>{label}</Label>` | associate | visible label ↔ control; `htmlFor` id feeds `aria-labelledby` |
+| [02] | `<Label asChild><Slot-mergeable element/></Label>` | slot-merge | render-as-child via `Primitive.label`→`createSlot('Primitive.label')`; `view/compose` slot row |
+| [03] | `<Label onMouseDown={caller}>` — guard skips interactive targets, else caller-first then `preventDefault` on `detail > 1` | text-guard | double-click on label copy drives the control; a mousedown on a nested control is untouched |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,6 +1,8 @@
 # [PY_RUNTIME_API_GRPCIO]
 
-`grpcio` supplies the HTTP/2 RPC transport for the transport/serve rail. Integration overlay over the canonical branch catalog `libs/python/.api/grpcio.md`, which owns the full sync + `grpc.aio` channel/server/credential/interceptor/`StatusCode` surface and the generic wire/otel/stamina/structlog stacks. This overlay carries only the runtime-specific delta: the `grpc.aio` serve-leg method surface the branch tier declares abstract, the UDS locality credential pair, and the `AioRpcError` trailing-metadata lift.
+Full surface and stacking: `libs/python/.api/grpcio.md` (shared-tier canonical owner).
+
+`grpcio` supplies the HTTP/2 RPC transport for the transport/serve rail. This overlay carries only the runtime-specific delta: the `grpc.aio` serve-leg method surface the branch tier declares abstract, the UDS locality credential pair, and the `AioRpcError` trailing-metadata lift.
 
 ## [01]-[LOCAL_ADMISSION]
 

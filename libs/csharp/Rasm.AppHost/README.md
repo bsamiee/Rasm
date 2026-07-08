@@ -65,7 +65,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 [RESOURCES]:
 - `Microsoft.Extensions.Caching.Hybrid`
 - `Microsoft.Extensions.ObjectPool`
-- `System.Threading.Tasks.Dataflow`
+- `System.Threading.Tasks.Dataflow` — net10 framework-provided (SDK-pruned; no package row)
 
 [OBSERVABILITY]:
 - `Microsoft.Extensions.Diagnostics.HealthChecks`
@@ -77,7 +77,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `AspNetCore.HealthChecks.System`
 - `AspNetCore.HealthChecks.Uris`
 - `AspNetCore.HealthChecks.Kafka`
-- `AspNetCore.HealthChecks.Nats` — the `[V6]` NATS broker-anchor probe row binding the pooled `NATS.Net` connection.
+- `AspNetCore.HealthChecks.Nats` — the NATS broker-anchor probe row binding the pooled `NATS.Net` connection.
 - `Microsoft.Extensions.Compliance.Redaction`
 - `Microsoft.Extensions.Logging.Abstractions`
 - `Microsoft.Extensions.Telemetry`
@@ -86,12 +86,12 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `OpenTelemetry.Extensions.Hosting`
 - `OpenTelemetry.Instrumentation.Http`
 - `OpenTelemetry.Instrumentation.Runtime`
-- `OpenTelemetry.Exporter.OpenTelemetryProtocol` — app-root-reserved (`[V15]`): the lib emits `ILogger` + minted sources only; exporter projection composes at service app roots (central pin retained).
+- `OpenTelemetry.Exporter.OpenTelemetryProtocol` — composition-root exporter projection; library code emits `ILogger` and minted sources.
 - `Pyroscope.OpenTelemetry`
 - `Serilog`
 - `Serilog.Extensions.Hosting`
-- `Serilog.Sinks.Console` — app-root-reserved (`[V15]`): sink projection composes at app roots.
-- `Serilog.Sinks.File` — app-root-reserved (`[V15]`): sink projection composes at app roots.
+- `Serilog.Sinks.Console` — composition-root sink projection.
+- `Serilog.Sinks.File` — composition-root sink projection.
 
 [OUTBOUND]:
 - `Microsoft.Extensions.Http.Resilience`
@@ -122,7 +122,7 @@ Every AppHost-domain library the folder uses, planned or implemented. Versions a
 - `Microsoft.IdentityModel.JsonWebTokens`
 - `Microsoft.IdentityModel.Tokens`
 - `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-- `Microsoft.IdentityModel.Protocols` — transitive base of OpenIdConnect and `OpenIddict.Client`, version-locked; the `ConfigurationManager<T>` refresh seam.
+- `Microsoft.IdentityModel.Protocols` — transitive base of OpenIdConnect and `OpenIddict.Client`; `ConfigurationManager<T>` refresh seam.
 
 [SUPPLY_CHAIN]:
 - `Sigstore`
@@ -162,11 +162,6 @@ Cross-cutting C# substrate libraries AppHost consumes; package charters live in 
 [WIRE_CODEGEN]:
 - `Grpc.Net.Client`
 - `Grpc.AspNetCore`
-- `Grpc.AspNetCore.Web` — app-root-reserved (`[V15]`): `UseGrpcWeb` is composition-root pipeline middleware, zero fence consumers (central pin retained).
+- `Grpc.AspNetCore.Web` — composition-root `UseGrpcWeb` middleware.
 - `Grpc.AspNetCore.HealthChecks`
 - `Grpc.Core.Api`
-
-[TEST_SUBSTRATE]:
-- `Microsoft.Extensions.TimeProvider.Testing`
-- `NodaTime.Testing`
-- `Microsoft.Extensions.Diagnostics.Testing`

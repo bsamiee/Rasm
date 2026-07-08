@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Npgsql.NetTopologySuite`
 - package: `Npgsql.NetTopologySuite`
-- version: `10.0.3`
 - license: `PostgreSQL`
 - assembly: `Npgsql.NetTopologySuite`
 - namespace: `Npgsql`

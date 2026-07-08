@@ -1,12 +1,11 @@
 # [RASM_APPUI_API_SILK_OPENXR_FB]
 
-`Silk.NET.OpenXR.Extensions.FB` is the Meta/Facebook vendor-extension binding layered over the canonical `Silk.NET.OpenXR` core: the upstream `openxr.h` standard surface carries the cross-vendor `KHR`/`EXT` extensions, and the `FB_*` extensions — passthrough environment-blend, spatial-entity world-locked anchors, scene understanding, hand/body/face/eye tracking, foveation, color space, display refresh rate, render models, triangle mesh, and the composition-layer alpha/secure-content surfaces — live in this companion binding. Each `FB*` class (`FBPassthrough`, `FBSpatialEntity`, `FBScene`, `FBHandTrackingMesh`, ...) is a generated function-table root of instance methods returning `Result`; **the descriptor structs, native handles, and flag/purpose enums they pointer-pass (`PassthroughCreateInfoFB`, `PassthroughLayerFB`, `SpaceComponentTypeFB`, `RoomLayoutFB`, `PassthroughFlagsFB`, ...) are declared in `Silk.NET.OpenXR` core, not in this assembly** — the FB assembly carries only the entrypoint roots. The extension is enabled at instance create against the same `XR.GetApi()` instance `api-silk-openxr.md` owns and shares the host-installed OpenXR loader, so the env-blend passthrough composites on the very `Session`/`Swapchain` the `Wgpu` `GpuBackend` family already presents from — one GPU lifetime and one session across the rendered scene, the passthrough layer, and the world-locked anchor set.
+`Silk.NET.OpenXR.Extensions.FB` is the Meta/Facebook vendor-extension binding layered over the canonical `Silk.NET.OpenXR` core: the upstream `openxr.h` standard surface carries the cross-vendor `KHR`/`EXT` extensions, and the `FB_*` extensions — passthrough environment-blend, spatial-entity world-locked anchors, scene understanding, hand/body/face/eye tracking, foveation, color space, display refresh rate, render models, triangle mesh, and the composition-layer alpha/secure-content surfaces — live in this companion binding. Each `FB*` class (`FBPassthrough`, `FBSpatialEntity`, `FBScene`, `FBHandTrackingMesh`, ...) is a generated function-table root of instance methods returning `Result`; the descriptor structs, native handles, and flag/purpose enums they pointer-pass (`PassthroughCreateInfoFB`, `PassthroughLayerFB`, `SpaceComponentTypeFB`, `RoomLayoutFB`, `PassthroughFlagsFB`, ...) are declared in `Silk.NET.OpenXR` core, not in this assembly — the FB assembly carries only the entrypoint roots. The extension is enabled at instance create against the same `XR.GetApi()` instance `api-silk-openxr.md` owns and shares the host-installed OpenXR loader, so the env-blend passthrough composites on the very `Session`/`Swapchain` the `Wgpu` `GpuBackend` family already presents from — one GPU lifetime and one session across the rendered scene, the passthrough layer, and the world-locked anchor set.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.OpenXR.Extensions.FB`
 - package: `Silk.NET.OpenXR.Extensions.FB`
-- version: `2.23.0`
 - license: MIT (expression)
 - assembly: `Silk.NET.OpenXR.Extensions.FB`
 - namespace: `Silk.NET.OpenXR.Extensions.FB` (entrypoint roots only)
@@ -47,7 +46,7 @@
 |  [22]   | `FBKeyboardTracking`           | extension API root | tracked physical-keyboard space                 |
 |  [23]   | `FBPassthroughKeyboardHands`   | extension API root | hand-masked passthrough over keyboard           |
 
-[PUBLIC_TYPE_SCOPE]: passthrough native handles, descriptor carriers, flags — **all declared in `Silk.NET.OpenXR` core**, pointer-passed into the `FBPassthrough` root
+[PUBLIC_TYPE_SCOPE]: passthrough native handles, descriptor carriers, flags — all declared in `Silk.NET.OpenXR` core, pointer-passed into the `FBPassthrough` root
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                          | [KIND]        | [RAIL]                                  |
@@ -64,7 +63,7 @@
 |  [10]   | `PassthroughFlagsFB`              | enum (flags)  | `IsRunningAtCreationBitFB`              |
 |  [11]   | `PassthroughLayerPurposeFB`       | enum          | `ReconstructionFB` / `ProjectedFB`      |
 
-[PUBLIC_TYPE_SCOPE]: spatial-entity + scene carriers — **core-declared**, the anchor/scene-understanding surface the on-site review reads
+[PUBLIC_TYPE_SCOPE]: spatial-entity + scene carriers — core-declared, the anchor/scene-understanding surface the on-site review reads
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                            | [KIND]     | [RAIL]                                |

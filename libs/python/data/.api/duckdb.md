@@ -70,13 +70,13 @@
 
 ## [04]-[EXTENSIONS]
 
-The loadable-extension SQL surfaces the `tabular/columnar` `DuckDbSession`/`DuckDbExtension` rail installs and loads per connection — the repository (core vs `community`) a row property on the rail, never a load-mechanics concern at a call site. Two extensions carry their own standing catalogs this section ANCHORS, never re-catalogs: `ducklake.md` (the `ATTACH 'ducklake:<dsn>'` SQL-catalog lakehouse — `snapshots()`, versioned `AT (VERSION => n)` reads, `table_changes(name, start, end)`, and the `ducklake_merge_adjacent_files`/`ducklake_expire_snapshots`/`ducklake_cleanup_old_files`/`ducklake_set_option` maintenance CALLs) and `duckdb-substrait.md` (the `get_substrait`/`get_substrait_json`/`from_substrait`/`from_substrait_json` connection twins — the landed DuckDB half of the Substrait-portability scope, the `datafusion` codec the federation half).
+The loadable-extension SQL surfaces the `tabular/columnar` `DuckDbSession`/`DuckDbExtension` rail installs and loads per connection — the repository (core vs `community`) a row property on the rail, never a load-mechanics concern at a call site. `duckdb-extensions.md` is the standing catalog for extension evidence, including `ducklake` (`ATTACH 'ducklake:<dsn>'`, snapshots, time travel, change feed, maintenance CALLs) and `substrait` (`get_substrait`/`get_substrait_json`/`from_substrait`/`from_substrait_json`).
 
 | [INDEX] | [EXTENSION] | [REPOSITORY] | [SQL_SURFACE]                                                                                     | [CONSUMER]                                    |
 | :-----: | :---------- | :----------- | :------------------------------------------------------------------------------------------------ | :--------------------------------------------- |
 |  [01]   | `httpfs`    | core         | remote `read_parquet` globs over http/s3/gcs; pairs with `register_filesystem`                    | `tabular/columnar` RemoteGlob                  |
 |  [02]   | `spatial`   | core         | the `GEOMETRY` type and every `ST_` function (`ST_GeomFromWKB`/`ST_Intersects`/`ST_Transform`/...) | `spatial/query` engine prelude                 |
 |  [03]   | `h3`        | `community`  | `h3_latlng_to_cell`/`h3_cell_to_parent`/`h3_grid_disk` H3 SQL                                     | `spatial/query` H3Bin                          |
-|  [04]   | `substrait` | `community`  | `get_substrait`/`get_substrait_json`/`from_substrait`/`from_substrait_json` (see `duckdb-substrait.md`) | `tabular/query` `_ir_plan`                |
+|  [04]   | `substrait` | `community`  | `get_substrait`/`get_substrait_json`/`from_substrait`/`from_substrait_json` (see `duckdb-extensions.md`) | `tabular/query` `_ir_plan`                |
 |  [05]   | `iceberg`   | core         | `iceberg_scan('<uri>')`/`iceberg_snapshots`/`iceberg_metadata` reads                              | `tabular/lakehouse` ICEBERG primary read path  |
-|  [06]   | `ducklake`  | core         | `ATTACH 'ducklake:<dsn>'` + the ducklake catalog functions (see `ducklake.md`)                    | `tabular/lakehouse` DUCKLAKE arms              |
+|  [06]   | `ducklake`  | core         | `ATTACH 'ducklake:<dsn>'` + the ducklake catalog functions (see `duckdb-extensions.md`)           | `tabular/lakehouse` DUCKLAKE arms              |

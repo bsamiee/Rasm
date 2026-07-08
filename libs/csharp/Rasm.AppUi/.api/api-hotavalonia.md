@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `HotAvalonia`
 - package: `HotAvalonia`
-- version: `3.1.2`
 - license: `MIT` (file `LICENSE.md`)
 - assembly: no managed runtime assembly (no `lib/`)
 - min-avalonia: `11.0.0` (`HotAvaloniaMinimumSupportedAvaloniaVersion`); the workspace runs Avalonia `12.0.5` and overrides the transitive `Avalonia.Markup.Xaml.Loader` `11.0.0` pin to `12.0.5`

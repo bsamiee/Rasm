@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Confluent.SchemaRegistry.Serdes.Protobuf`
 - package: `Confluent.SchemaRegistry.Serdes.Protobuf`
-- version: `2.14.2`
 - license: Apache-2.0
 - assembly: `Confluent.SchemaRegistry.Serdes.Protobuf`
 - namespace: `Confluent.SchemaRegistry.Serdes` (plus `Confluent.SchemaRegistry.Serdes.Protobuf` for the bundled `Meta`/`Decimal` confluent.type descriptors)

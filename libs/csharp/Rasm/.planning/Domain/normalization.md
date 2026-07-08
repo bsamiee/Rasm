@@ -25,7 +25,7 @@ using System;
 using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.Linq;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using Rhino;
 using Rhino.Geometry;
@@ -181,7 +181,7 @@ public partial record CurveForm {
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using Rhino;
 using Rhino.Geometry;

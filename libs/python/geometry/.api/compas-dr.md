@@ -23,10 +23,10 @@
 
 `InputData` and `ResultData` live in `compas_dr.numdata`, not the package root (the `compas_dr.__init__` exports only `HOME`/`DATA`/`DOCS`/`TEMP` path anchors). `InputData` lazily materializes numpy arrays from its list inputs and round-trips through COMPAS JSON; `ResultData.__data__` returns `{}`, so it is an in-memory result carrier whose `from_json`/`to_json` round-trip is lossy — persist results by writing the solved `Mesh`, not the `ResultData`.
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]      | [CAPABILITY]                                                                                 |
-| :-----: | :------------------------ | :----------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `compas_dr.numdata.InputData`  | `Data` record | `vertices`/`edges`/`fixed`/`loads`/`qpre`/`fpre`/`lpre`/`linit`/`E`/`radius` inputs; lazy `vertices`/`edges`/`loads`/`qpre`/`fpre`/`lpre`/`linit`/`E`/`radius` numpy properties; derived `free`/`q0`/`l0`/`v0`/`r0`/`C` connectivity matrix; serializable |
-|  [02]   | `compas_dr.numdata.ResultData` | result carrier | `xyz`/`q`/`forces`/`lengths`/`residuals` solver-output fields; `update_mesh(mesh, vertex_index=None)` writes solved positions back to a `compas` `Mesh`; in-memory only (`__data__` is empty) |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `compas_dr.numdata.InputData` | `Data` record | `vertices`/`edges`/`fixed`/`loads`/`qpre`/`fpre`/`lpre`/`linit`/`E`/`radius` inputs; lazy `vertices`/`edges`/`loads`/`qpre`/`fpre`/`lpre`/`linit`/`E`/`radius` numpy properties; derived `free`/`q0`/`l0`/`v0`/`r0`/`C` connectivity matrix; serializable |
+| [02] | `compas_dr.numdata.ResultData` | result carrier | `xyz`/`q`/`forces`/`lengths`/`residuals` solver-output fields; `update_mesh(mesh, vertex_index=None)` writes solved positions back to a `compas` `Mesh`; in-memory only (`data` is empty) |
 
 [PUBLIC_TYPE_SCOPE]: constraint registry — `compas_dr.constraints`
 - rail: form-finding
@@ -34,22 +34,22 @@
 
 `Constraint(geometry)` is itself the polymorphic factory: `Constraint.__new__` calls `get_constraint_cls(geometry)`, which walks the geometry's MRO against the `GEOMETRY_CONSTRAINT` registry (`Line->LineConstraint`, `Plane->PlaneConstraint`, `Circle->CircleConstraint`, `NurbsCurve->CurveConstraint`, `NurbsSurface->SurfaceConstraint`) and returns the concrete subclass — there is no per-verb constructor proliferation. A node binds by setting `constraint.location` (the setter triggers `project()` on first assignment) and `constraint.residual`; `tangent`/`normal`/`param` are lazily computed managed properties.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [CAPABILITY]                                                                                                       |
-| :-----: | :------------------ | :----------------- | :----------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Constraint`        | base + factory     | `Constraint(geometry)` dispatches via `GEOMETRY_CONSTRAINT` MRO walk; managed `geometry`/`location`/`residual`/`tangent`/`normal`/`param`; static `register(gtype, ctype)`/`get_constraint_cls(geometry)`; serializable |
-|  [02]   | `LineConstraint`    | line constraint    | project node onto a segment; `update(damping=0.1)` steps along tangent then re-projects                            |
-|  [03]   | `PlaneConstraint`   | plane constraint   | project node onto a plane                                                                                           |
-|  [04]   | `CircleConstraint`  | circle constraint  | project node onto a circle                                                                                          |
-|  [05]   | `CurveConstraint`   | curve constraint   | project node onto a `NurbsCurve`                                                                                    |
-|  [06]   | `SurfaceConstraint` | surface constraint | project node onto a `NurbsSurface`                                                                                  |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Constraint` | base + factory | `Constraint(geometry)` dispatches via `GEOMETRY_CONSTRAINT` MRO walk; managed `geometry`/`location`/`residual`/`tangent`/`normal`/`param`; static `register(gtype, ctype)`/`get_constraint_cls(geometry)`; serializable |
+| [02] | `LineConstraint` | line constraint | project node onto a segment; `update(damping=0.1)` steps along tangent then re-projects |
+| [03] | `PlaneConstraint` | plane constraint | project node onto a plane |
+| [04] | `CircleConstraint` | circle constraint | project node onto a circle |
+| [05] | `CurveConstraint` | curve constraint | project node onto a `NurbsCurve` |
+| [06] | `SurfaceConstraint` | surface constraint | project node onto a `NurbsSurface` |
 
 [PUBLIC_TYPE_SCOPE]: load utilities — `compas_dr.loads`
 - rail: form-finding
 - type-family: callable load computer
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]   | [CAPABILITY]                                                                                                  |
-| :-----: | :--------------------- | :-------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SelfweightCalculator` | load calculator | constructed against a `Mesh`, then called as `calculator(xyz) -> FloatNx1` returning `tributary_area * (thickness * density)` per vertex |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `SelfweightCalculator` | load calculator | constructed against a `Mesh`, then called as `calculator(xyz) -> FloatNx1` returning `tributary_area * (thickness * density)` per vertex |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -58,56 +58,56 @@
 
 `dr` is the list-based reference path; `dr_numpy` and `dr_constrained_numpy` are the numpy/scipy production paths taking an `InputData`. The numpy solvers default to `kmax=10000` (the pure `dr` defaults to `kmax=100`), and `rk_steps in {1,2,4}` selects the Runge-Kutta integration order. `dr_constrained_numpy` is keyword-only.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                      | [ENTRY_FAMILY]           | [RAIL]                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------- | :--------------------------------------- |
-|  [01]   | `dr(vertices, edges, fixed, loads, qpre, fpre=None, lpre=None, linit=None, E=None, radius=None, kmax=100, dt=1.0, tol1=1e-3, tol2=1e-6, c=0.1, callback=None, callback_args=None)`                              | pure-Python solver       | list-based dynamic relaxation            |
-|  [02]   | `dr_numpy(indata: InputData, kmax=10000, dt=1.0, tol1=1e-3, tol2=1e-6, c=0.1, rk_steps: Literal[1,2,4]=2, callback=None, callback_args=None) -> ResultData`                                                     | numpy solver             | vectorized dynamic relaxation            |
-|  [03]   | `dr_constrained_numpy(*, indata: InputData, constraints: Sequence[Constraint], kmax=10000, dt=1.0, tol1=1e-3, tol2=1e-6, c=0.1, rk_steps: Literal[1,2,4]=2, callback=None, callback_args=None) -> ResultData`   | constrained numpy solver | vectorized DR with geometric constraints |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `dr(vertices, edges, fixed, loads, qpre, fpre=None, lpre=None, linit=None, E=None, radius=None, kmax=100, dt=1.0, tol1=1e-3, tol2=1e-6, c=0.1, callback=None, callback_args=None)` | pure-Python solver | list-based dynamic relaxation |
+| [02] | `dr_numpy(indata: InputData, kmax=10000, dt=1.0, tol1=1e-3, tol2=1e-6, c=0.1, rk_steps: Literal[1,2,4]=2, callback=None, callback_args=None) -> ResultData` | numpy solver | vectorized dynamic relaxation |
+| [03] | `dr_constrained_numpy(*, indata: InputData, constraints: Sequence[Constraint], kmax=10000, dt=1.0, tol1=1e-3, tol2=1e-6, c=0.1, rk_steps: Literal[1,2,4]=2, callback=None, callback_args=None) -> ResultData` | constrained numpy solver | vectorized DR with geometric constraints |
 
 [ENTRYPOINT_SCOPE]: InputData construction and serialization
 - rail: form-finding
 
 `callback(k, x, crit1, crit2, callback_args)` is invoked each iteration; a non-callable `callback` raises `ValueError`. `from_json`/`to_json`/`from_jsonstring`/`copy` are inherited from `compas.data.Data`.
 
-| [INDEX] | [SURFACE]                                                                                                            | [ENTRY_FAMILY]  | [RAIL]                       |
-| :-----: | :------------------------------------------------------------------------------------------------------------------- | :-------------- | :--------------------------- |
-|  [01]   | `InputData.from_mesh(mesh, fixed, loads, qpre, fpre=None, lpre=None, linit=None, E=None, radius=None) -> InputData`  | construction    | build from `compas` `Mesh` (`vertices_attributes("xyz")` + edge index map) |
-|  [02]   | `InputData.from_json(filepath) -> InputData` / `InputData.from_jsonstring(string) -> InputData`                      | deserialization | COMPAS JSON decode           |
-|  [03]   | `InputData.to_json(filepath, pretty=False, compact=False, minimal=False)`                                           | serialization   | COMPAS JSON encode           |
-|  [04]   | `InputData.copy(cls=None, copy_guid=False) -> InputData`                                                             | copy            | deep copy                    |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `InputData.from_mesh(mesh, fixed, loads, qpre, fpre=None, lpre=None, linit=None, E=None, radius=None) -> InputData` | construction | build from `compas` `Mesh` (`vertices_attributes("xyz")` + edge index map) |
+| [02] | `InputData.from_json(filepath) -> InputData` / `InputData.from_jsonstring(string) -> InputData` | deserialization | COMPAS JSON decode |
+| [03] | `InputData.to_json(filepath, pretty=False, compact=False, minimal=False)` | serialization | COMPAS JSON encode |
+| [04] | `InputData.copy(cls=None, copy_guid=False) -> InputData` | copy | deep copy |
 
 [ENTRYPOINT_SCOPE]: ResultData fields and mesh writeback
 - rail: form-finding
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]  | [RAIL]                                     |
-| :-----: | :--------------------------------------------------------- | :-------------- | :----------------------------------------- |
-|  [01]   | `ResultData.update_mesh(mesh, vertex_index=None)`          | writeback       | apply solved `xyz` back to a `compas` `Mesh` (defaults `vertex_index` to mesh enumeration) |
-|  [02]   | `ResultData.xyz` / `q` / `forces` / `lengths` / `residuals` | result fields | converged positions, force densities, axial forces, member lengths, per-node residuals |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `ResultData.update_mesh(mesh, vertex_index=None)` | writeback | apply solved `xyz` back to a `compas` `Mesh` (defaults `vertex_index` to mesh enumeration) |
+| [02] | `ResultData.xyz` / `q` / `forces` / `lengths` / `residuals` | result fields | converged positions, force densities, axial forces, member lengths, per-node residuals |
 
 [ENTRYPOINT_SCOPE]: Constraint operations
 - rail: form-finding
 
-`get_constraint_cls` returns the constraint **class** (not an instance) by MRO walk; an unregistered geometry raises `GeometryNotRegisteredAsConstraint`. `project`/`update`/`compute_param`/`compute_normal`/`compute_tangent`/`update_location_at_param` are subclass-implemented (the base raises `NotImplementedError`); `from_json`/`to_json` are inherited.
+`get_constraint_cls` returns the constraint class (not an instance) by MRO walk; an unregistered geometry raises `GeometryNotRegisteredAsConstraint`. `project`/`update`/`compute_param`/`compute_normal`/`compute_tangent`/`update_location_at_param` are subclass-implemented (the base raises `NotImplementedError`); `from_json`/`to_json` are inherited.
 
-| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY]  | [RAIL]                                         |
-| :-----: | :---------------------------------------------------------- | :-------------- | :--------------------------------------------- |
-|  [01]   | `Constraint(geometry, name=None) -> *Constraint`            | factory         | construct the registered subclass for the geometry type |
-|  [02]   | `Constraint.get_constraint_cls(geometry, **kwargs) -> type` | factory         | resolve the `*Constraint` class via the MRO registry walk |
-|  [03]   | `Constraint.register(gtype, ctype)`                         | registry        | bind a geometry type to a constraint subclass  |
-|  [04]   | `constraint.project()`                                      | constraint      | project the constrained node onto the geometry |
-|  [05]   | `constraint.update(damping=0.1)`                            | constraint      | step `location += tangent * damping`, re-project if off-geometry |
-|  [06]   | `constraint.compute_param()` / `compute_normal()` / `compute_tangent()` | geometry | populate the `param`/`normal`/`tangent` managed properties |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
+| --- | --- | --- | --- |
+| [01] | `Constraint(geometry, name=None) -> *Constraint` | factory | construct the registered subclass for the geometry type |
+| [02] | `Constraint.get_constraint_cls(geometry, **kwargs) -> type` | factory | resolve the `*Constraint` class via the MRO registry walk |
+| [03] | `Constraint.register(gtype, ctype)` | registry | bind a geometry type to a constraint subclass |
+| [04] | `constraint.project()` | constraint | project the constrained node onto the geometry |
+| [05] | `constraint.update(damping=0.1)` | constraint | step `location += tangent * damping`, re-project if off-geometry |
+| [06] | `constraint.compute_param()` / `compute_normal()` / `compute_tangent()` | geometry | populate the `param`/`normal`/`tangent` managed properties |
 
 [ENTRYPOINT_SCOPE]: SelfweightCalculator — `compas_dr.loads`
 - rail: form-finding
 - entry-family: load computation
 
-| [INDEX] | [SURFACE]                                                                | [RAIL]                                       |
-| :-----: | :----------------------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | `SelfweightCalculator(mesh, density=1.0, thickness_attr_name="t")`       | construct against a `Mesh`; reads per-vertex thickness attribute into `rho` |
-|  [02]   | `SelfweightCalculator.__call__(xyz: FloatNx3) -> FloatNx1`               | callable: tributary area per vertex times `rho`, for the current coordinates |
-|  [03]   | `SelfweightCalculator.compute_tributary_areas(xyz: FloatNx3) -> FloatNx1`| per-vertex tributary area from positions (halfedge fan over loaded faces) |
-|  [04]   | `SelfweightCalculator.compute_face_matrix() -> scipy.sparse.csr_matrix`  | normalized face-vertex matrix (face centroids) |
+| [INDEX] | [SURFACE] | [RAIL] |
+| --- | --- | --- |
+| [01] | `SelfweightCalculator(mesh, density=1.0, thickness_attr_name="t")` | construct against a `Mesh`; reads per-vertex thickness attribute into `rho` |
+| [02] | `SelfweightCalculator.call(xyz: FloatNx3) -> FloatNx1` | callable: tributary area per vertex times `rho`, for the current coordinates |
+| [03] | `SelfweightCalculator.compute_tributary_areas(xyz: FloatNx3) -> FloatNx1` | per-vertex tributary area from positions (halfedge fan over loaded faces) |
+| [04] | `SelfweightCalculator.compute_face_matrix() -> scipy.sparse.csr_matrix` | normalized face-vertex matrix (face centroids) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

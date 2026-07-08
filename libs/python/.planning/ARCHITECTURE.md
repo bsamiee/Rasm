@@ -26,7 +26,7 @@ data       ⇄  csharp:Rasm.Persistence  # [WIRE]: Substrait portable plan + Arr
 data       →  csharp:Rasm.Compute      # [SHAPE]: DOE dataset + GeoArrow study inputs
 geometry   ⇄  csharp:Rasm.Bim          # [TESSELLATION]: GLB/IFC tessellation companion
 geometry   ⇄  csharp:Rasm.Compute      # [WIRE]: ComputeService/ArtifactSync GLB rail
-artifacts  →  csharp:Rasm.Persistence  # [CONTENT_KEY]: exchange/credential signed-artifact binding; durable warm-fill elision GATED on the AppHost wire
+artifacts  →  csharp:Rasm.Persistence  # [CONTENT_KEY]: exchange/credential signed-artifact binding; durable warm-fill elision GATED on the AppHost
 ```
 
 ## [03]-[DEPENDENCY_DIRECTION]

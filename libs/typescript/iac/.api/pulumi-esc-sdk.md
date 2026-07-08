@@ -24,14 +24,14 @@
 - rail: environment
 
 | [INDEX] | [FAMILY] | [MEMBERS] |
-| :-----: | :------- | :-------- |
-|  [01]   | roster | `listEnvironments(org, continuationToken?)` → `OrgEnvironments` |
-|  [02]   | definition CRUD | `createEnvironment`, `getEnvironment` → `{ environment: EnvironmentDefinition, yaml }`, `getEnvironmentAtVersion`, `updateEnvironment(org, project, env, values: EnvironmentDefinition)`, `updateEnvironmentYaml(org, project, env, yaml)`, `deleteEnvironment`, `cloneEnvironment(org, srcProject, srcEnv, destProject, destEnv, options?)` |
-|  [03]   | open/read | `openEnvironment` → `OpenEnvironment { id }`, `readOpenEnvironment(org, project, env, openSessionID)`, `openAndReadEnvironment` (the composed spelling), `readOpenEnvironmentProperty(…, openSessionID, property)`, `openEnvironmentAtVersion` / `openAndReadEnvironmentAtVersion` |
-|  [04]   | validation | `checkEnvironment(org, env: EnvironmentDefinition)` / `checkEnvironmentYaml(org, yaml)` → `CheckEnvironment` with `diagnostics` |
-|  [05]   | operator | `decryptEnvironment(org, project, env)` — plaintext definition read, operator-only |
-|  [06]   | history | `listEnvironmentRevisions(…, before?, count?)`; revision tags: `listEnvironmentRevisionTags`, `getEnvironmentRevisionTag`, `createEnvironmentRevisionTag(…, tag, revision)`, `updateEnvironmentRevisionTag`, `deleteEnvironmentRevisionTag` |
-|  [07]   | labels | `listEnvironmentTags`, `getEnvironmentTag`, `createEnvironmentTag(…, tag, value)`, `updateEnvironmentTag`, `deleteEnvironmentTag` |
+|:-----: |:------- |:-------- |
+| [01] | roster | `listEnvironments(org, continuationToken?)` → `OrgEnvironments` |
+| [02] | definition CRUD | `createEnvironment`, `getEnvironment` → `{ environment: EnvironmentDefinition, yaml }`, `getEnvironmentAtVersion`, `updateEnvironment(org, project, env, values: EnvironmentDefinition)`, `updateEnvironmentYaml(org, project, env, yaml)`, `deleteEnvironment`, `cloneEnvironment(org, srcProject, srcEnv, destProject, destEnv, options?)` |
+| [03] | open/read | `openEnvironment` → `OpenEnvironment { id }`, `readOpenEnvironment(org, project, env, openSessionID)`, `openAndReadEnvironment` (the composed spelling), `readOpenEnvironmentProperty(…, openSessionID, property)`, `openEnvironmentAtVersion` / `openAndReadEnvironmentAtVersion` |
+| [04] | validation | `checkEnvironment(org, env: EnvironmentDefinition)` / `checkEnvironmentYaml(org, yaml)` → `CheckEnvironment` with `diagnostics` |
+| [05] | operator | `decryptEnvironment(org, project, env)` — plaintext definition read, operator-only |
+| [06] | history | `listEnvironmentRevisions(…, before?, count?)`; revision tags: `listEnvironmentRevisionTags`, `getEnvironmentRevisionTag`, `createEnvironmentRevisionTag(…, tag, revision)`, `updateEnvironmentRevisionTag`, `deleteEnvironmentRevisionTag` |
+| [07] | labels | `listEnvironmentTags`, `getEnvironmentTag`, `createEnvironmentTag(…, tag, value)`, `updateEnvironmentTag`, `deleteEnvironmentTag` |
 
 ```ts contract
 // the definition shape writes travel as — imports is the composition DAG

@@ -15,7 +15,6 @@ NodaTime/Thinktecture wire converters and the EF/linq2db bulk rails.
 
 [PACKAGE_SURFACE]: `Sep`
 - package: `Sep`
-- version: `0.15.0`
 - license: `MIT`
 - assembly: `Sep`
 - namespace: `nietras.SeparatedValues`

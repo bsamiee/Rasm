@@ -110,6 +110,12 @@
         "resolved": "1.0.4",
         "contentHash": "CVbSOftkn5PCbQbx9JOYNFta6c0OzlTjeZF2lfEdo4r1G2RgZz3FSRLLOUBisfucnfkdEsaxJq12svPKmtVvxA=="
       },
+      "Rhino3dm": {
+        "type": "Direct",
+        "requested": "[8.17.0, )",
+        "resolved": "8.17.0",
+        "contentHash": "3uoZ7sNs9NIJ8Vi1b3nO0XCU9KfwH9fef6a6cZPC05aIVtsWTYLzWAIopF07Xksvi9KDj0LAE0JTHqNwQQhLxw=="
+      },
       "Riok.Mapperly": {
         "type": "Direct",
         "requested": "[4.3.1, )",
@@ -316,12 +322,6 @@
         "requested": "[1.8.2, )",
         "resolved": "1.8.2",
         "contentHash": "d+A5KLoWbwOTpvubPaGXLgCzANE00jXmsT+yneHwLe2OlobBBFLaIHyoDwmekuHM17z9hU++RF6mL+zZ2x69nA=="
-      },
-      "Rhino3dm": {
-        "type": "CentralTransitive",
-        "requested": "[8.17.0, )",
-        "resolved": "8.17.0",
-        "contentHash": "3uoZ7sNs9NIJ8Vi1b3nO0XCU9KfwH9fef6a6cZPC05aIVtsWTYLzWAIopF07Xksvi9KDj0LAE0JTHqNwQQhLxw=="
       },
       "SkiaSharp": {
         "type": "CentralTransitive",

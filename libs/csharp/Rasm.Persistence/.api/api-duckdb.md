@@ -20,7 +20,6 @@ profile policy expressed as SQL.
 
 [PACKAGE_SURFACE]: `DuckDB.NET.Data.Full`
 - package: `DuckDB.NET.Data.Full`
-- version: `1.5.3`
 - assembly: `DuckDB.NET.Data` (managed ADO surface; namespaces `DuckDB.NET.Data`, `DuckDB.NET.Data.Mapping`, `DuckDB.NET.Data.DataChunk.Reader`, `DuckDB.NET.Data.DataChunk.Writer`)
 - companion: `DuckDB.NET.Bindings.Full` (`1.5.3`; transitive — assembly `DuckDB.NET.Bindings`, namespace `DuckDB.NET.Native`, carries `DuckDBQueryProgress`/`DuckDBErrorType`/`IDuckDBValueReader`/`DuckDBNativeConnection`/`DuckDBType`/`DuckDBDateOnly`/`DuckDBTimeOnly` and the native `duckdb` library)
 - native runtime: `DuckDB.NET.Bindings.Full/runtimes/<rid>/native` ships `osx`, `linux-x64`, `linux-arm64`, `win-x64`, `win-arm64` (no per-RID managed split; the native `duckdb` shared library is RID-resolved at load)
@@ -179,7 +178,7 @@ profile policy expressed as SQL.
 - BIM analytics frames: `Ara3D.BimOpenSchema.IO` (`api-ara3d-bimopenschema`) is the BIM analytics-frame producer this provider reads — its `WriteDuckDB` / `DuckDbUtils.WriteToDuckDB` bulk-appends the eleven columnar BIM tables (each suffixed `<Name>_<n>`, e.g. `Entities_4` / `DoubleParameters_6`) through a `DuckDBAppender`, and a Persistence analytics query opens that `.duckdb` over this same `DuckDBConnection` and SQL-joins the suffixed entity/parameter/relation tables; both sides share the one centrally pinned `DuckDB.NET.Data.Full` `1.5.3` runtime, never a second engine.
 
 [ARROW_BOUNDARY]:
-- Arrow C Data Interface (`QueryArrow`, `ArrowResultStream`, `ArrowArrayStream`): absent from the `DuckDB.NET.Data.Full`/`DuckDB.NET.Bindings.Full` v1.5.3 managed surface. Neither `DuckDB.NET.Data` nor `DuckDB.NET.Bindings` exposes any Arrow CLR type, method, or entry point at this version. The underlying DuckDB C library exports `duckdb_query_arrow`/`duckdb_arrow_array_stream` natively.
+- Arrow C Data Interface (`QueryArrow`, `ArrowResultStream`, `ArrowArrayStream`): absent from the `DuckDB.NET.Data.Full`/`DuckDB.NET.Bindings.Full` managed surface. Neither `DuckDB.NET.Data` nor `DuckDB.NET.Bindings` exposes any Arrow CLR type, method, or entry point at this version. The underlying DuckDB C library exports `duckdb_query_arrow`/`duckdb_arrow_array_stream` natively.
 - The admitted Arrow stack is the columnar bridge: `Apache.Arrow` (`api-arrow`) owns the `RecordBatch`/`Schema` CLR model and `Apache.Arrow.Adbc` is the ADBC driver-manager surface (`Apache.Arrow.Adbc` ships `net8.0`/`netstandard2.0`; no bundled DuckDB driver assembly — the DuckDB ADBC driver is a native `[LibraryImport]` against `duckdb` loaded through the driver manager). A managed DuckDB->Arrow zero-copy path is therefore an explicit native-bridge rail, never a `DuckDBConnection` member.
 
 [RAIL_LAW]:
@@ -216,7 +215,7 @@ profile policy expressed as SQL.
 [EXTENSION_ROSTER]: core + community extensions admitted by the Rasm analytical lanes
 - rail: store-provider
 
-| [INDEX] | [EXTENSION]        | [ALIAS]            | [CAPABILITY / KEY SQL]                                                        | [RASM_LANE]                          |
+| [INDEX] | [EXTENSION]        | [ALIAS]            | [CAPABILITY_KEY_SQL]                                                        | [RASM_LANE]                          |
 | :-----: | :----------------- | :----------------- | :--------------------------------------------------------------------------- | :----------------------------------- |
 |  [01]   | `spatial`          | —                  | `ST_*` geometry algebra, `ST_Read` (GDAL-backed shapefile/GeoJSON/FlatGeobuf), `ST_GeomFromWKB`/`ST_AsWKB`, GeoParquet read/write | geometry columnar; meets NTS/GDAL at WKB |
 |  [02]   | `httpfs`           | `http`/`https`/`s3` | read/write over HTTP(S) + S3 (`read_parquet('s3://…')`, `COPY … TO 's3://…'`) | remote/object-store extract           |

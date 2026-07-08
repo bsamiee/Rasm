@@ -1,4 +1,4 @@
-# [@opentelemetry/core] — the SDK primitive toolkit behind the `@effect/opentelemetry` facade, W3C propagation + export-rail + env-config source for `otel/emit`
+# [TS_RUNTIME_API_OPENTELEMETRY_CORE]
 
 `@opentelemetry/core` is the dependency-free primitive layer every `@opentelemetry/sdk-*` and `@opentelemetry/exporter-*` package builds on: the concrete W3C `TextMapPropagator` triad (`W3CTraceContextPropagator`/`W3CBaggagePropagator`/`CompositePropagator`) plus the raw `traceparent`/`tracestate`/`baggage` codecs, the `ExportResult`/`ExportResultCode` rail every exporter reports through, the `Context`-key operators (`suppressTracing`, `getRPCMetadata`), the typed `OTEL_*` env readers, and the `HrTime` conversion algebra. It carries no third-party runtime dependency — only the `@opentelemetry/api` peer and the pure-data `@opentelemetry/semantic-conventions` sibling. Inside Rasm it is one row of the `[OTLP_SDK]` SDK-bridge pin block behind the `@effect/opentelemetry` facade: `otel/emit` composes the propagation codecs to turn an inbound `traceparent` into a `SpanContext` for the facade's `Tracer.makeExternalSpan`/`withSpanContext`, and the SDK-bridge lane (`NodeSdk`/`WebSdk`) rides core's `ExportResult` rail. The edge ledger fences `@opentelemetry/*` to `scope:runtime` only; this whole block is the `[R3]`-collapse target that retires once native `Otlp` parity closes (`semantic-conventions` survives, this does not).
 
@@ -6,9 +6,8 @@
 
 [PACKAGE_SURFACE]: `@opentelemetry/core`
 - package: `@opentelemetry/core`
-- version: `2.8.0`
 - license: `Apache-2.0`
-- otel-peer: `@opentelemetry/api >=1.0.0 <1.10.0` (the `Context`/`SpanContext`/`TextMapPropagator`/`HrTime`/`Attributes` type source); dep `@opentelemetry/semantic-conventions ^1.29.0` (pure-data, the sole runtime dep) — no third-party runtime dependency
+- otel-peer: `@opentelemetry/api >=catalog <catalog` (the `Context`/`SpanContext`/`TextMapPropagator`/`HrTime`/`Attributes` type source); dep `@opentelemetry/semantic-conventions ^catalog` (pure-data, the sole runtime dep) — no third-party runtime dependency
 - consumed-by: `otel/emit` (W3C extract-and-continue codecs), the SDK-bridge lane on `otel/emit` (`ExportResult` rail), and every sibling `@opentelemetry/sdk-*`/`exporter-*` peer transitively
 - catalog-verdict: KEEP as SDK-bridge peer; edge-ledger fences `@opentelemetry/*` to `scope:runtime`; `[R3]`-collapse member of the `[OTLP_SDK]` block (retires when native `Otlp` covers W3C context + export)
 - runtime: dual — one index over a `platform/{node,browser}` split; `node` reads `process.env`, `browser` reads `globalThis`; the propagation, time, and export surfaces are runtime-neutral
@@ -20,27 +19,27 @@
 - rail: observability/propagation
 - The propagators are ONE parameterized family, not three unrelated classes: each implements `api.TextMapPropagator` (`inject`/`extract`/`fields`), and `CompositePropagator` folds an ordered `propagators[]` into one — a new wire format is a `TextMapPropagator` row in the composite config, never a new top-level propagator the ingress must special-case. `TraceState` is the immutable `tracestate` list carrier the facade's `makeExternalSpan({ traceState })` accepts (core's `TraceState` implements `api.TraceState`).
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]      | [CONSUMER / BOUNDARY]                                               |
-| :-----: | :-------------------------------------------------------------- | :----------------- | :----------------------------------------------------------------- |
-|  [01]   | `W3CTraceContextPropagator` (`implements TextMapPropagator`)    | propagator         | `otel/emit` `traceparent`/`tracestate` inject+extract |
-|  [02]   | `W3CBaggagePropagator` (`implements TextMapPropagator`)         | propagator         | W3C `baggage` header inject+extract at the same ingress            |
-|  [03]   | `CompositePropagator` (`implements TextMapPropagator`)          | propagator monoid  | fold trace-context + baggage into one ingress/egress propagator    |
-|  [04]   | `CompositePropagatorConfig { propagators?: TextMapPropagator[] }`| config             | the ordered propagator set the composite injects/extracts in turn  |
-|  [05]   | `TraceState` (`implements api.TraceState`)                      | `tracestate` list  | immutable `set`/`unset`/`get`/`serialize` list; `makeExternalSpan` |
-|  [06]   | `TRACE_PARENT_HEADER = "traceparent"` / `TRACE_STATE_HEADER = "tracestate"` | header const | the header keys `otel/emit` reads from the carrier              |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------- |:----------------- |:----------------------------------------------------------------- |
+| [01] | `W3CTraceContextPropagator` (`implements TextMapPropagator`) | propagator | `otel/emit` `traceparent`/`tracestate` inject+extract |
+| [02] | `W3CBaggagePropagator` (`implements TextMapPropagator`) | propagator | W3C `baggage` header inject+extract at the same ingress |
+| [03] | `CompositePropagator` (`implements TextMapPropagator`) | propagator monoid | fold trace-context + baggage into one ingress/egress propagator |
+| [04] | `CompositePropagatorConfig { propagators?: TextMapPropagator[] }`| config | the ordered propagator set the composite injects/extracts in turn |
+| [05] | `TraceState` (`implements api.TraceState`) | `tracestate` list | immutable `set`/`unset`/`get`/`serialize` list; `makeExternalSpan` |
+| [06] | `TRACE_PARENT_HEADER = "traceparent"` / `TRACE_STATE_HEADER = "tracestate"` | header const | the header keys `otel/emit` reads from the carrier |
 
 [PUBLIC_TYPE_SCOPE]: export rail + diagnostic carriers
 - rail: observability/export
 - Every exporter (`OTLPTraceExporter`/`OTLPMetricExporter` and every SDK processor) reports terminal disposition through `ExportResult`/`ExportResultCode` — the single result rail the SDK-bridge lane surfaces. `internal._export` adapts a callback-style `Exporter<T>` into a `Promise<ExportResult>` at the SDK seam.
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]     | [CONSUMER / BOUNDARY]                                              |
-| :-----: | :------------------------------------------------------ | :---------------- | :---------------------------------------------------------------- |
-|  [01]   | `ExportResult { code: ExportResultCode; error?: Error }`| result carrier    | terminal exporter disposition; the SDK-bridge lane's success rail |
-|  [02]   | `ExportResultCode { SUCCESS = 0, FAILED = 1 }`          | result enum       | the two-state export outcome discriminant                         |
-|  [03]   | `internal.Exporter<T> { export(arg, cb): void }`        | exporter shape    | callback-style exporter the `_export` promise adapter wraps       |
-|  [04]   | `RPCMetadata` (`= HTTPMetadata`) / `RPCType { HTTP }`   | context-key value | active HTTP-route metadata carried on `Context` for span naming   |
-|  [05]   | `InstrumentationScope { name; version?; schemaUrl? }`   | scope record      | the emitting-scope identity attached to spans/metrics/logs        |
-|  [06]   | `ErrorHandler = (ex: Exception) => void` / `Clock { now(): number }` | callback / clock | global error sink type; monotonic clock contract for `AnchoredClock` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------ |:---------------- |:---------------------------------------------------------------- |
+| [01] | `ExportResult { code: ExportResultCode; error?: Error }`| result carrier | terminal exporter disposition; the SDK-bridge lane's success rail |
+| [02] | `ExportResultCode { SUCCESS = 0, FAILED = 1 }` | result enum | the two-state export outcome discriminant |
+| [03] | `internal.Exporter<T> { export(arg, cb): void }` | exporter shape | callback-style exporter the `_export` promise adapter wraps |
+| [04] | `RPCMetadata` (`= HTTPMetadata`) / `RPCType { HTTP }` | context-key value | active HTTP-route metadata carried on `Context` for span naming |
+| [05] | `InstrumentationScope { name; version?; schemaUrl? }` | scope record | the emitting-scope identity attached to spans/metrics/logs |
+| [06] | `ErrorHandler = (ex: Exception) => void` / `Clock { now(): number }` | callback / clock | global error sink type; monotonic clock contract for `AnchoredClock` |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -48,50 +47,50 @@
 - rail: observability/propagation
 - `otel/emit` decodes an inbound header with `parseTraceParent` (never a hand-rolled regex — root policy bans stringy `traceparent` parsing), lifts the `tracestate` through `new TraceState(raw)`, and hands the resulting `SpanContext` to the facade's `Tracer.makeExternalSpan`/`withSpanContext`. `parseKeyPairsIntoRecord` is the symmetric `baggage` decoder.
 
-| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                          |
-| :-----: | :-------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `parseTraceParent(traceParent: string): SpanContext \| null`          | codec          | inbound `traceparent` → `SpanContext` for `makeExternalSpan`  |
-|  [02]   | `parseKeyPairsIntoRecord(value?: string): Record<string, string>`     | codec          | inbound W3C `baggage` header → flat record                    |
-|  [03]   | `new TraceState(rawTraceState?: string)` → `set`/`unset`/`get`/`serialize` | carrier ctor | `tracestate` list round-trip; `serialize()` for egress        |
-|  [04]   | `new CompositePropagator({ propagators })` → `inject`/`extract`/`fields` | propagator ctor | one propagator over the trace-context + baggage row set     |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------------- |:------------- |:------------------------------------------------------------ |
+| [01] | `parseTraceParent(traceParent: string): SpanContext \| null` | codec | inbound `traceparent` → `SpanContext` for `makeExternalSpan` |
+| [02] | `parseKeyPairsIntoRecord(value?: string): Record<string, string>` | codec | inbound W3C `baggage` header → flat record |
+| [03] | `new TraceState(rawTraceState?: string)` → `set`/`unset`/`get`/`serialize` | carrier ctor | `tracestate` list round-trip; `serialize()` for egress |
+| [04] | `new CompositePropagator({ propagators })` → `inject`/`extract`/`fields` | propagator ctor | one propagator over the trace-context + baggage row set |
 
 [ENTRYPOINT_SCOPE]: `Context`-key operators
 - rail: observability/context
 - Two immutable `Context`-key families, both `(Context) -> Context` writers with a matching reader: `suppressTracing` fences internal exporter HTTP calls out of their own trace (the SDK-bridge exporter calls this so OTLP egress is not self-traced), and `setRPCMetadata` carries active HTTP-route data for span naming.
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                          |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `suppressTracing(ctx)` / `unsuppressTracing(ctx)` / `isTracingSuppressed(ctx): boolean` | context key | fence exporter/self-instrumentation spans out of trace |
-|  [02]   | `setRPCMetadata(ctx, meta)` / `deleteRPCMetadata(ctx)` / `getRPCMetadata(ctx): RPCMetadata \| undefined` | context key | active HTTP-route metadata for span naming |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------ |
+| [01] | `suppressTracing(ctx)` / `unsuppressTracing(ctx)` / `isTracingSuppressed(ctx): boolean` | context key | fence exporter/self-instrumentation spans out of trace |
+| [02] | `setRPCMetadata(ctx, meta)` / `deleteRPCMetadata(ctx)` / `getRPCMetadata(ctx): RPCMetadata \| undefined` | context key | active HTTP-route metadata for span naming |
 
 [ENTRYPOINT_SCOPE]: typed `OTEL_*` env readers
 - rail: observability/config
 - ONE typed-coercion reader family keyed by the target type, not four ad-hoc parsers: each reads an `OTEL_*` key from `process.env` (node) or `globalThis` (browser) and coerces, so the exporter/resource config never touches `process.env` directly. `diagLogLevelFromString` maps `OTEL_LOG_LEVEL` to the api `DiagLogLevel`.
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                          |
-| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `getStringFromEnv(key): string \| undefined`                | env reader     | `OTEL_EXPORTER_OTLP_ENDPOINT` and string-valued config        |
-|  [02]   | `getNumberFromEnv(key): number \| undefined`                | env reader     | timeout/batch-size numeric config                             |
-|  [03]   | `getBooleanFromEnv(key): boolean`                           | env reader     | feature-flag booleans (default `false`)                       |
-|  [04]   | `getStringListFromEnv(key): string[] \| undefined`          | env reader     | comma-list config (`OTEL_RESOURCE_ATTRIBUTES`, header lists)  |
-|  [05]   | `diagLogLevelFromString(value): DiagLogLevel \| undefined`  | env reader     | `OTEL_LOG_LEVEL` → api diag level                             |
-|  [06]   | `SDK_INFO` / `_globalThis` / `otperformance`                | platform const | SDK name/version resource seed; cross-runtime global/perf     |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:--------------------------------------------------------- |:------------- |:------------------------------------------------------------ |
+| [01] | `getStringFromEnv(key): string \| undefined` | env reader | `OTEL_EXPORTER_OTLP_ENDPOINT` and string-valued config |
+| [02] | `getNumberFromEnv(key): number \| undefined` | env reader | timeout/batch-size numeric config |
+| [03] | `getBooleanFromEnv(key): boolean` | env reader | feature-flag booleans (default `false`) |
+| [04] | `getStringListFromEnv(key): string[] \| undefined` | env reader | comma-list config (`OTEL_RESOURCE_ATTRIBUTES`, header lists) |
+| [05] | `diagLogLevelFromString(value): DiagLogLevel \| undefined` | env reader | `OTEL_LOG_LEVEL` → api diag level |
+| [06] | `SDK_INFO` / `_globalThis` / `otperformance` | platform const | SDK name/version resource seed; cross-runtime global/perf |
 
 [ENTRYPOINT_SCOPE]: `HrTime` conversion algebra + primitives
 - rail: observability/time
 - The span/metric timestamp algebra: one `api.HrTime` `[seconds, nanos]` tuple, N total conversions and constructors — a new time representation is another conversion arm, never a new clock type. `AnchoredClock` pins a monotonic clock to a wall-clock origin so long-lived spans keep drift-free durations. The remaining rows are the attribute-sanitizer, global-error-handler, and small-util primitives every SDK peer shares.
 
-| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY]  | [CONSUMER / BOUNDARY]                                          |
-| :-----: | :------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------ |
-|  [01]   | `hrTime(performanceNow?)` / `millisToHrTime(ms)` / `timeInputToHrTime(t)`         | constructor     | current/derived `HrTime` from perf-now, millis, or `TimeInput`|
-|  [02]   | `hrTimeToNanoseconds` / `-Microseconds` / `-Milliseconds` / `-Seconds` / `-TimeStamp` | conversion  | `HrTime` → numeric unit or ISO string for OTLP serialization  |
-|  [03]   | `hrTimeDuration(start, end)` / `addHrTimes(a, b)` / `getTimeOrigin()`             | algebra         | span duration + offset arithmetic on the `HrTime` tuple       |
-|  [04]   | `isTimeInput(v)` / `isTimeInputHrTime(v)`                                         | guard           | narrow `TimeInput` at the span-start boundary                 |
-|  [05]   | `new AnchoredClock(systemClock, monotonicClock)` → `now()`                        | clock           | drift-free timestamps for long-lived spans                    |
-|  [06]   | `sanitizeAttributes(attrs): Attributes` / `isAttributeValue(v): v is AttributeValue` | validator   | scrub/guard attribute maps before they enter a signal         |
-|  [07]   | `globalErrorHandler(ex)` / `setGlobalErrorHandler(h)` / `loggingErrorHandler(): ErrorHandler` | error sink | the process-wide exporter error handler the SDK lane installs  |
-|  [08]   | `internal._export(exporter, arg): Promise<ExportResult>`                          | promise adapter | callback `Exporter<T>` → the `ExportResult` promise rail       |
-|  [09]   | `merge(...args)` / `BindOnceFuture` / `callWithTimeout` + `TimeoutError` / `isUrlIgnored`,`urlMatches` / `unrefTimer` | util | config-merge, once-guarded shutdown future, deadline wrap, URL filter, timer unref |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------- |:-------------- |:------------------------------------------------------------ |
+| [01] | `hrTime(performanceNow?)` / `millisToHrTime(ms)` / `timeInputToHrTime(t)` | constructor | current/derived `HrTime` from perf-now, millis, or `TimeInput`|
+| [02] | `hrTimeToNanoseconds` / `-Microseconds` / `-Milliseconds` / `-Seconds` / `-TimeStamp` | conversion | `HrTime` → numeric unit or ISO string for OTLP serialization |
+| [03] | `hrTimeDuration(start, end)` / `addHrTimes(a, b)` / `getTimeOrigin()` | algebra | span duration + offset arithmetic on the `HrTime` tuple |
+| [04] | `isTimeInput(v)` / `isTimeInputHrTime(v)` | guard | narrow `TimeInput` at the span-start boundary |
+| [05] | `new AnchoredClock(systemClock, monotonicClock)` → `now()` | clock | drift-free timestamps for long-lived spans |
+| [06] | `sanitizeAttributes(attrs): Attributes` / `isAttributeValue(v): v is AttributeValue` | validator | scrub/guard attribute maps before they enter a signal |
+| [07] | `globalErrorHandler(ex)` / `setGlobalErrorHandler(h)` / `loggingErrorHandler(): ErrorHandler` | error sink | the process-wide exporter error handler the SDK lane installs |
+| [08] | `internal._export(exporter, arg): Promise<ExportResult>` | promise adapter | callback `Exporter<T>` → the `ExportResult` promise rail |
+| [09] | `merge(...args)` / `BindOnceFuture` / `callWithTimeout` + `TimeoutError` / `isUrlIgnored`,`urlMatches` / `unrefTimer` | util | config-merge, once-guarded shutdown future, deadline wrap, URL filter, timer unref |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

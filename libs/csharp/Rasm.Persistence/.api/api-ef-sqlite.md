@@ -1,7 +1,7 @@
 # [RASM_PERSISTENCE_API_EF_SQLITE]
 
 `Microsoft.EntityFrameworkCore.Sqlite` admits the EF Core SQLite provider into the
-unified store-profile algebra. The package is a **meta-package**: its `lib/net10.0`
+unified store-profile algebra. The package is a meta-package: its `lib/net10.0`
 asset is an empty `_._` placeholder, so it carries no managed types of its own —
 it pulls the type-owning `Microsoft.EntityFrameworkCore.Sqlite.Core` assembly plus
 `SQLitePCLRaw.bundle_e_sqlite3` and the EF relational/cache/logging closure. The
@@ -14,7 +14,6 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 
 [PACKAGE_SURFACE]: `Microsoft.EntityFrameworkCore.Sqlite`
 - package: `Microsoft.EntityFrameworkCore.Sqlite` (meta) → type-owner `Microsoft.EntityFrameworkCore.Sqlite.Core`
-- version: `10.0.9` (`Directory.Packages.props`, whole EF family on the 10.0.9 line); license: MIT (.NET Foundation)
 - assembly: `Microsoft.EntityFrameworkCore.Sqlite.dll` (ships in `.Core`; the meta-package's `lib/net10.0/_._` is empty)
 - public namespaces: `Microsoft.EntityFrameworkCore` (extensions + builders), `Microsoft.Extensions.DependencyInjection` (service registration), `Microsoft.EntityFrameworkCore.Metadata` (`SqliteValueGenerationStrategy`), `Microsoft.EntityFrameworkCore.Migrations` (`SqliteMigrationsSqlGenerator`), `Microsoft.EntityFrameworkCore.Diagnostics` (`SqliteEventId`)
 - internal namespaces (provider services, `[EntityFrameworkInternal]`): `...Sqlite.Storage.Internal`, `...Sqlite.Query.Internal`, `...Sqlite.Migrations.Internal`, `...Sqlite.Update.Internal`, `...Sqlite.Infrastructure.Internal`, `...Sqlite.Scaffolding.Internal`, `...Sqlite.Diagnostics.Internal`
@@ -69,7 +68,7 @@ services are `[EntityFrameworkInternal]` provider internals, never a consumer ra
 [BASE_EF_TYPES]: base + relational EF surface the store/migration/query rails compose — `Microsoft.EntityFrameworkCore` / `.Relational`, NOT this provider package (the SQLite profile binds them through `UseSqlite`, like the existing `EF.CompileAsyncQuery` row)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                          | [ASSEMBLY/NS]                                  | [CAPABILITY]                                                                 |
+| [INDEX] | [SYMBOL]                          | [ASSEMBLY_NS]                                  | [CAPABILITY]                                                                 |
 | :-----: | :-------------------------------- | :--------------------------------------------- | :-------------------------------------------------------------------------- |
 |  [01]   | `PooledDbContextFactory<TContext>` | `Microsoft.EntityFrameworkCore.Infrastructure` | `IDbContextFactory<TContext>`; pooled-context lease (`Run`/`Scoped` bracket) |
 |  [02]   | `IExecutionStrategy`              | `…Storage`                                      | retry/resiliency strategy; `RetriesOnFailure`, `Execute`/`ExecuteAsync`      |

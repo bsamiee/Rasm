@@ -64,19 +64,21 @@
 |  [01]   | `IChatClient.AsBuilder()`                                                                          | extension    | `ChatClientBuilder`                 |
 |  [02]   | `ChatClientBuilder.Use(Func<IChatClient,IChatClient>)`                                             | builder call | `ChatClientBuilder`                 |
 |  [03]   | `ChatClientBuilder.Build(IServiceProvider?)`                                                       | builder call | `IChatClient`                       |
-|  [03a]  | `ChatClientBuilder.Use(Func<IChatClient,IServiceProvider,IChatClient>)`                            | builder call | `ChatClientBuilder`                 |
-|  [03b]  | `ChatClientBuilder.Use(Func<IEnumerable<ChatMessage>,ChatOptions?,Func<…,Task>,CancellationToken,Task> sharedFunc)` | builder call | `ChatClientBuilder` (wraps `AnonymousDelegatingChatClient`; pre/post only, no response handle) |
-|  [03c]  | `ChatClientBuilder.Use(getResponseFunc, getStreamingResponseFunc)`                                 | builder call | `ChatClientBuilder` (wraps `AnonymousDelegatingChatClient`; per-verb delegates) |
-|  [04]   | `ChatClientBuilder.UseFunctionInvocation(ILoggerFactory?, Action<FunctionInvokingChatClient>?)`    | extension    | `ChatClientBuilder`                 |
-|  [05]   | `ChatClientBuilder.UseDistributedCache(IDistributedCache?, Action<DistributedCachingChatClient>?)` | extension    | `ChatClientBuilder`                 |
-|  [06]   | `ChatClientBuilder.UseOpenTelemetry(ILoggerFactory?, string?, Action<OpenTelemetryChatClient>?)`   | extension    | `ChatClientBuilder`                 |
-|  [07]   | `ChatClientBuilder.UseLogging(ILoggerFactory?, Action<LoggingChatClient>?)`                        | extension    | `ChatClientBuilder`                 |
-|  [08]   | `ChatClientBuilder.ConfigureOptions(Action<ChatOptions>)`                                          | extension    | `ChatClientBuilder`                 |
-|  [09]   | `IChatClient.GetResponseAsync<T>(IEnumerable<ChatMessage> \| string \| ChatMessage, JsonSerializerOptions?, ChatOptions?, bool? useJsonSchemaResponseFormat = null, CancellationToken)` | extension | `Task<ChatResponse<T>>` — typed structured-output round-trip (NO streaming twin) |
-|  [10]   | `ChatResponse<T>.Result` / `ChatResponse<T>.TryGetResult(out T?)`                                  | typed read   | bound `T` deserialized from the response text against the generated JSON schema |
-|  [11]   | `IEmbeddingGenerator<TIn,TE>.AsBuilder()`                                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
-|  [12]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseDistributedCache(...)`                                       | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
-|  [13]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [04]  | `ChatClientBuilder.Use(Func<IChatClient,IServiceProvider,IChatClient>)`                            | builder call | `ChatClientBuilder`                 |
+|  [05]  | `ChatClientBuilder.Use(Func<IEnumerable<ChatMessage>,ChatOptions?,Func<…,Task>,CancellationToken,Task> sharedFunc)` | builder call | `ChatClientBuilder` (wraps `AnonymousDelegatingChatClient`; pre/post only, no response handle) |
+|  [06]  | `ChatClientBuilder.Use(getResponseFunc, getStreamingResponseFunc)`                                 | builder call | `ChatClientBuilder` (wraps `AnonymousDelegatingChatClient`; per-verb delegates) |
+|  [07]   | `ChatClientBuilder.UseFunctionInvocation(ILoggerFactory?, Action<FunctionInvokingChatClient>?)`    | extension    | `ChatClientBuilder`                 |
+|  [08]   | `ChatClientBuilder.UseDistributedCache(IDistributedCache?, Action<DistributedCachingChatClient>?)` | extension    | `ChatClientBuilder`                 |
+|  [09]   | `ChatClientBuilder.UseOpenTelemetry(ILoggerFactory?, string?, Action<OpenTelemetryChatClient>?)`   | extension    | `ChatClientBuilder`                 |
+|  [10]   | `ChatClientBuilder.UseLogging(ILoggerFactory?, Action<LoggingChatClient>?)`                        | extension    | `ChatClientBuilder`                 |
+|  [11]   | `ChatClientBuilder.ConfigureOptions(Action<ChatOptions>)`                                          | extension    | `ChatClientBuilder`                 |
+|  [12]   | `IChatClient.GetResponseAsync<T>(...)`                                                            | extension    | typed `Task<ChatResponse<T>>` |
+|  [13]   | `ChatResponse<T>.Result` / `ChatResponse<T>.TryGetResult(out T?)`                                  | typed read   | bound `T` deserialized from the response text against the generated JSON schema |
+|  [14]   | `IEmbeddingGenerator<TIn,TE>.AsBuilder()`                                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [15]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseDistributedCache(...)`                                       | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
+|  [16]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                          | extension    | `EmbeddingGeneratorBuilder<TIn,TE>` |
+
+`GetResponseAsync<T>` accepts `IEnumerable<ChatMessage>` / `string` / `ChatMessage`, serializer options, chat options, optional JSON-schema response formatting, and a cancellation token. It is the typed structured-output round-trip and has no streaming twin.
 
 [ENTRYPOINT_SCOPE]: decorator-tuning properties
 - rail: capability-agent

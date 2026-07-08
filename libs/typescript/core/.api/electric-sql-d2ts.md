@@ -1,31 +1,31 @@
-# [@electric-sql/d2ts] — the versioned differential-dataflow engine behind state/fold: partial-order time, signed multisets, an incremental operator algebra
+# [TS_CORE_API_ELECTRIC_SQL_D2TS]
 
 [PACKAGE_SURFACE]:
-- package: `@electric-sql/d2ts` · version `0.1.8` · license `Apache-2.0`
+- package: `@electric-sql/d2ts` · version `` · license `Apache-2.0`
 - module: ESM only (`type: module`, no CJS mirror); `.` barrel plus two peer-gated subpaths — `./sqlite` (durable operator state) and `./electric` (live-replication binding).
-- asset: `dist/index.d.ts` (barrel over `d2` / `order` / `multiset` / `version-index` / `operators` / `types`); the `.` core bundles `fractional-indexing` + `murmurhash-js` and has NO peer requirement.
-- runtime: pure-TS in-process dataflow; runs in node / bun / browser / worker. The `.` core is browser-safe; `./sqlite` requires the `better-sqlite3` peer (node durable altitude) and `./electric` the `@electric-sql/client` peer (Postgres replication) — neither peer crosses into `state`'s transport-free import surface.
+- asset: `dist/index.d.ts` (barrel over `d catalog` / `order` / `multiset` / `version-index` / `operators` / `types`); the `.` core bundles `fractional-indexing` + `murmurhash-js` and has NO peer requirement.
+- runtime: pure-TS in-process dataflow; runs in node / bun / browser / worker. The `.` core is browser-safe; `./sqlite` requires the `better-sqlite catalog` peer (node durable altitude) and `./electric` the `@electric-sql/client` peer (Postgres replication) — neither peer crosses into `state`'s transport-free import surface.
 - ABI: synchronous fixpoint scheduler — `graph.run()` / `graph.step()` drain the operator queue on the calling thread; every barrel-reachable operator is sync.
 - plane: `plane:runtime` (W1); folder-local to `state`, catalogued here.
 - rail: incremental-dataflow / fold-maintenance.
 
-`@electric-sql/d2ts` is the incremental engine the `state/fold` REPLAY_LAW rides: a fold is a dataflow graph over signed multisets at partially-ordered versions, and a delta pushed at a new version is maintained through the operator graph WITHOUT re-folding the prefix — the "array re-sort fallback" the design names as a defect is exactly the whole-collection recompute this package deletes. The `Version`/`Antichain` partial order IS the AsOf three-coordinate time the `state/fold` watermarks and `state/causal` frontiers are expressed in; `Index.reconstructAt(key, version)` is the time-travel read; `iterate` is the fixpoint the transitive folds (causal reachability, Merkle closure) run under. It is the durable-altitude counterpart to `d2mini.md`'s browser-in-memory core: same operator algebra, d2ts adds the versioned frontier and the `./sqlite` persistent trace so a node fold survives restart. A merge folded through `reduce`/`groupBy` is a `@effect/typeclass` Semigroup applied incrementally — the reducer law and the merge law are the same law at two speeds.
+`@electric-sql/d2ts` is the incremental engine the `state/fold` REPLAY_LAW rides: a fold is a dataflow graph over signed multisets at partially-ordered versions, and a delta pushed at a new version is maintained through the operator graph WITHOUT re-folding the prefix — the "array re-sort recovery" the design names as a defect is exactly the whole-collection recompute this package deletes. The `Version`/`Antichain` partial order IS the AsOf three-coordinate time the `state/fold` watermarks and `state/causal` frontiers are expressed in; `Index.reconstructAt(key, version)` is the time-travel read; `iterate` is the fixpoint the transitive folds (causal reachability, Merkle closure) run under. It is the durable-altitude counterpart to `d2mini.md`'s browser-in-memory core: same operator algebra, d2ts adds the versioned frontier and the `./sqlite` persistent trace so a node fold survives restart. A merge folded through `reduce`/`groupBy` is a `@effect/typeclass` Semigroup applied incrementally — the reducer law and the merge law are the same law at two speeds.
 
 ## [01]-[GRAPH_AND_TIME]
 
 The graph is constructed once, wired with `pipe`, then driven; time is a partial order so multi-dimensional versions (per-replica logical clocks) fold under one engine.
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]      | [CAPABILITY / BOUNDARY]                                                        |
-| :-----: | :------------------------------ | :----------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `D2` (`D2Options`)              | class              | the dataflow graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step` drive it |
-|  [02]   | `RootStreamBuilder<T>`          | class              | input handle — `sendData(version, collection)` + `sendFrontier(frontier)`      |
-|  [03]   | `StreamBuilder<T>`              | class (`IStreamBuilder`) | pipeline node; the 1..20-arity `pipe(...)` composes `PipedOperator`s      |
-|  [04]   | `Version` (`v()` factory)       | class              | partially-ordered logical time — `join`/`meet`/`lessThan`/`advanceBy`/`extend` |
-|  [05]   | `Antichain` / `Frontier`        | class              | minimal incomparable version set — `meet`, `lessEqualVersion`; the frontier bound |
-|  [06]   | `MultiSet<T>` (`MultiSetArray`) | class              | signed multiset (`[value, multiplicity][]`) — the delta unit; negative = retraction |
-|  [07]   | `Message<T>` / `MessageType`    | tagged union       | `DATA` (`data.version` + `data.collection`) \| `FRONTIER` (`data`: version\|antichain) — the `output` payload |
-|  [08]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias        | the keyed-record shape every keyed operator (`join`/`reduce`/`groupBy`) requires |
-|  [09]   | `PipedOperator<I, O>`           | function alias     | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape      |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY_BOUNDARY] |
+|:-----: |:------------------------------ |:----------------- |:----------------------------------------------------------------------------- |
+| [01] | `D2` (`D2Options`) | class | the dataflow graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step` drive it |
+| [02] | `RootStreamBuilder<T>` | class | input handle — `sendData(version, collection)` + `sendFrontier(frontier)` |
+| [03] | `StreamBuilder<T>` | class (`IStreamBuilder`) | pipeline node; the 1..20-arity `pipe(...)` composes `PipedOperator`s |
+| [04] | `Version` (`v()` factory) | class | partially-ordered logical time — `join`/`meet`/`lessThan`/`advanceBy`/`extend` |
+| [05] | `Antichain` / `Frontier` | class | minimal incomparable version set — `meet`, `lessEqualVersion`; the frontier bound |
+| [06] | `MultiSet<T>` (`MultiSetArray`) | class | signed multiset (`[value, multiplicity][]`) — the delta unit; negative = retraction |
+| [07] | `Message<T>` / `MessageType` | tagged union | `DATA` (`data.version` + `data.collection`) \| `FRONTIER` (`data`: version\|antichain) — the `output` payload |
+| [08] | `KeyValue<K, V>` = `[K, V]` | tuple alias | the keyed-record shape every keyed operator (`join`/`reduce`/`groupBy`) requires |
+| [09] | `PipedOperator<I, O>` | function alias | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape |
 
 ```ts contract
 // One graph, wired declaratively, driven synchronously. sendData carries a signed delta AT a version; the frontier closes a version.
@@ -75,13 +75,13 @@ declare class MultiSet<T> {
 
 The operator library is ONE parameterized shape — `PipedOperator<I, O>` composed left-to-right by `pipe` — not a fixed method wall. The roster below is SEED DATA on that shape: a new dataflow verb is a new `PipedOperator`, never a new graph type. Four families vary by what structure they exploit — element-wise, keyed-fold, ordered, and recursive.
 
-| [INDEX] | [FAMILY]        | [OPERATORS]                                                                 | [SHAPE / BOUNDARY]                                              |
-| :-----: | :-------------- | :-------------------------------------------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | element-wise    | `map` `filter` `negate` `concat` `consolidate` `buffer` `debug` `output`     | `PipedOperator<T, …>` — no key structure; `output` sees `Message` |
-|  [02]   | keying          | `keyBy(fn)` `unkey()` `rekey(fn)`                                            | `T ⇄ KeyValue<K, T>` — the adapter into/out of the keyed family |
-|  [03]   | keyed fold      | `join`(+`inner`/`left`/`right`/`full`/`anti`) `reduce` `count` `distinct` `groupBy` | `KeyValue<K, V>` in; the incremental fold — a Semigroup applied per key |
-|  [04]   | ordered         | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`) | keyed; fractional index maintains order WITHOUT a full re-sort |
-|  [05]   | recursive       | `iterate(f)` (`IngressOperator`/`EgressOperator`/`FeedbackOperator`)          | fixpoint scope — loops the sub-graph to convergence            |
+| [INDEX] | [FAMILY] | [OPERATORS] | [SHAPE_BOUNDARY] |
+|:-----: |:-------------- |:-------------------------------------------------------------------------- |:------------------------------------------------------------- |
+| [01] | element-wise | `map` `filter` `negate` `concat` `consolidate` `buffer` `debug` `output` | `PipedOperator<T, …>` — no key structure; `output` sees `Message` |
+| [02] | keying | `keyBy(fn)` `unkey()` `rekey(fn)` | `T ⇄ KeyValue<K, T>` — the adapter into/out of the keyed family |
+| [03] | keyed fold | `join`(+`inner`/`left`/`right`/`full`/`anti`) `reduce` `count` `distinct` `groupBy` | `KeyValue<K, V>` in; the incremental fold — a Semigroup applied per key |
+| [04] | ordered | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`) | keyed; fractional index maintains order WITHOUT a full re-sort |
+| [05] | recursive | `iterate(f)` (`IngressOperator`/`EgressOperator`/`FeedbackOperator`) | fixpoint scope — loops the sub-graph to convergence |
 
 ```ts contract
 // pipe is variadic (1..20 typed arities + a rest fallback); every stage is a PipedOperator. This is the whole composition mechanism.
@@ -119,16 +119,16 @@ declare function iterate<T>(f: (s: IStreamBuilder<T>) => IStreamBuilder<T>): (s:
 
 `Index<K, V>` is the versioned trace the keyed operators keep — a key → versions → signed values map that `reconstructAt` reads at any requested version and `compact` collapses below a stability frontier. It is the mechanism `reconstructAt` gives `state/fold` AsOf reads and `state/causal` retention-frontier handoff.
 
-| [INDEX] | [SURFACE]                                     | [PRODUCES]              | [CAPABILITY]                                                    |
-| :-----: | :-------------------------------------------- | :---------------------- | :------------------------------------------------------------- |
-|  [01]   | `new Index<K, V>()`                           | empty versioned trace   | default-constructible — an owned trace an `output` sink appends |
-|  [02]   | `Index<K, V>.addValue(key, version, [value, multiplicity])` | — (in-place) | the trace append — one signed row at a partial-order version    |
-|  [03]   | `Index<K, V>.reconstructAt(key, version)`     | `[V, number][]`         | time-travel read — the AsOf materialization at a partial-order version |
-|  [04]   | `Index<K, V>.compact(compactionFrontier: Antichain, keys?)` | — (in-place) | collapse trace below the stability frontier — the retention handoff |
-|  [05]   | `Index<K, V>.keys()` / `.entries()` / `.versions(key)` / `.join(other)` | `K[]` / rows / `Version[]` / diff rows | key census, entry walk, per-key version set, incremental join |
-|  [06]   | `./sqlite` `SQLiteDb` / `BetterSQLite3Wrapper`| durable operator state  | the persistent trace — a node fold survives restart (peer: `better-sqlite3`) |
-|  [07]   | `./electric` `electricStreamToD2Input(opts)`  | `RootStreamBuilder`     | binds a Postgres `ShapeStream` as graph input, `lsnToVersion` maps LSN → `Version` |
-|  [08]   | `./electric` `outputElectricMessages(fn)`     | `PipedOperator`         | emits `ChangeMessage<Row>[]` — the replication-shaped egress (peer: `@electric-sql/client`) |
+| [INDEX] | [SURFACE] | [PRODUCES] | [CAPABILITY] |
+|:-----: |:-------------------------------------------- |:---------------------- |:------------------------------------------------------------- |
+| [01] | `new Index<K, V>()` | empty versioned trace | default-constructible — an owned trace an `output` sink appends |
+| [02] | `Index<K, V>.addValue(key, version, [value, multiplicity])` | — (in-place) | the trace append — one signed row at a partial-order version |
+| [03] | `Index<K, V>.reconstructAt(key, version)` | `[V, number][]` | time-travel read — the AsOf materialization at a partial-order version |
+| [04] | `Index<K, V>.compact(compactionFrontier: Antichain, keys?)` | — (in-place) | collapse trace below the stability frontier — the retention handoff |
+| [05] | `Index<K, V>.keys()` / `.entries()` / `.versions(key)` / `.join(other)` | `K[]` / rows / `Version[]` / diff rows | key census, entry walk, per-key version set, incremental join |
+| [06] | `./sqlite` `SQLiteDb` / `BetterSQLite catalogWrapper`| durable operator state | the persistent trace — a node fold survives restart (peer: `better-sqlite catalog`) |
+| [07] | `./electric` `electricStreamToD2Input(opts)` | `RootStreamBuilder` | binds a Postgres `ShapeStream` as graph input, `lsnToVersion` maps LSN → `Version` |
+| [08] | `./electric` `outputElectricMessages(fn)` | `PipedOperator` | emits `ChangeMessage<Row>[]` — the replication-shaped egress (peer: `@electric-sql/client`) |
 
 ```ts contract
 // The ./sqlite subpath mirrors the core operator set (join/reduce/distinct/groupBy/orderBy/topK/consolidate/buffer) over a SQLite-backed version index — the durable node altitude.

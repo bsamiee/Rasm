@@ -1,4 +1,4 @@
-# [@aws-sdk/client-s3] — the S3-compatible object client behind the content-addressed object store and its conditional-put idempotency
+# [TS_DATA_API_AWS_SDK_CLIENT_S3]
 
 `@aws-sdk/client-s3` is the S3 protocol client the `object` plane wraps: one `S3Client` whose single polymorphic `send(command)` discriminates over ~113 command values, tuned to any S3-compatible endpoint (AWS, MinIO, Cloudflare R2, Tigris, Ceph) by `endpoint` + `forcePathStyle`, never a per-verb method family. The store composes it under Effect — the client is `acquireRelease`d, each `send` is an `Effect.tryPromise` with the fiber's `AbortSignal` bridging interruption to SDK cancellation, and the `S3ServiceException` hierarchy maps to a tagged error rail. Content-addressed idempotency is one parameterized pattern: `PutObjectCommand{ Key: contentKey, IfNoneMatch: "*", ChecksumSHA256 }` — the key IS the kernel `ContentKey` digest, the checksum verifies integrity server-side, and a caught `S3ServiceException` with `$metadata.httpStatusCode === 412` is the idempotent noop (there is no `PreconditionFailed` class). The client carries its own `requestHandler` (`@smithy/node-http-handler`), so it does NOT ride the `@effect/platform` `HttpClient` Tag; the Effect seam is the wrap, not the transport.
 
@@ -6,11 +6,10 @@
 
 [PACKAGE_SURFACE]: `@aws-sdk/client-s3`
 - package: `@aws-sdk/client-s3`
-- version: `3.1078.0`
 - license: `Apache-2.0`
 - peer: none — self-contained; `@smithy/*` and `@aws-sdk/*` submodules bundled
 - transport: own `requestHandler` — `@smithy/node-http-handler` (Node `https.Agent` pool / HTTP2) or `@smithy/fetch-http-handler` (browser); NOT the `@effect/platform` `HttpClient`
-- runtime: `runtime:node` (server object plane) and browser (presigned direct-to-S3 uploads); `credentialDefaultProvider` (`@aws-sdk/credential-provider-node`) is node-only
+- runtime: `runtime:node` (server object plane) and browser (presigned direct-to-S catalog uploads); `credentialDefaultProvider` (`@aws-sdk/credential-provider-node`) is node-only
 - module format: ESM/CJS dual, `sideEffects: false`, tree-shakeable command imports; deep-import subpaths per command
 - admitted companion: `@aws-sdk/lib-storage` (managed `Upload`; `.api/aws-sdk-lib-storage.md`) owns streaming/unknown-length bodies — bounded-bytes multipart stays hand-composed from the low-level command family under an Effect scope
 
@@ -20,44 +19,44 @@
 - rail: store/object
 - One `S3Client` owns the config, credential chain, retry, checksum, and endpoint resolution; `send` is the single dispatch. `S3` is the flat-method convenience subclass (`s3.putObject(input)`) — the command form is the tree-shakeable, Effect-wrappable target.
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [01]   | `S3Client` / `S3Client.send(command, options?)` / `.destroy()` | client          | `object/key`/`presign` — `acquireRelease`d; `send` is the one dispatch     |
-|  [02]   | `S3ClientConfig` (`region`/`credentials`/`endpoint`)           | config          | `host/config` — `credentials` `Redacted`; `endpoint`+`forcePathStyle` = S3-compat |
-|  [03]   | `S3ClientConfig` (`requestHandler`/`maxAttempts`/`retryMode`)  | transport/retry | `@smithy/node-http-handler` pool tuning; adaptive retry budget             |
-|  [04]   | `S3ClientConfig` (`requestChecksumCalculation`/`responseChecksumValidation`/`useDualstackEndpoint`/`useFipsEndpoint`/`useArnRegion`) | integrity/endpoint | default checksum policy (`WHEN_SUPPORTED`/`WHEN_REQUIRED`); dualstack/FIPS/ARN routing |
-|  [05]   | `S3` (extends `S3Client`)                                      | flat client     | convenience only; prefer the command form under Effect for tree-shaking    |
-|  [06]   | `RuntimeExtension` / `S3ClientConfig.extensions`              | extension       | credential/handler/checksum extension hooks at construction               |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
+| [01] | `S3Client` / `S3Client.send(command, options?)` / `.destroy()` | client | `object/key`/`presign` — `acquireRelease`d; `send` is the one dispatch |
+| [02] | `S3ClientConfig` (`region`/`credentials`/`endpoint`) | config | `host/config` — `credentials` `Redacted`; `endpoint`+`forcePathStyle` = S3-compat |
+| [03] | `S3ClientConfig` (`requestHandler`/`maxAttempts`/`retryMode`) | transport/retry | `@smithy/node-http-handler` pool tuning; adaptive retry budget |
+| [04] | `S3ClientConfig` (`requestChecksumCalculation`/`responseChecksumValidation`/`useDualstackEndpoint`/`useFipsEndpoint`/`useArnRegion`) | integrity/endpoint | default checksum policy (`WHEN_SUPPORTED`/`WHEN_REQUIRED`); dualstack/FIPS/ARN routing |
+| [05] | `S3` (extends `S3Client`) | flat client | convenience only; prefer the command form under Effect for tree-shaking |
+| [06] | `RuntimeExtension` / `S3ClientConfig.extensions` | extension | credential/handler/checksum extension hooks at construction |
 
 [PUBLIC_TYPE_SCOPE]: the object command rows — the space `send` discriminates
 - rail: store/object
 - These are the seed rows of the content-addressed plane; the full ~113-command surface is the space one `send` owns. Each command's `*CommandInput` carries the conditional, checksum, encryption, and range fields the store composes.
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [01]   | `PutObjectCommand` (`IfNoneMatch`/`IfMatch`/`ChecksumSHA256`/`ChecksumAlgorithm`/`ContentMD5`/`StorageClass`/`ServerSideEncryption`/`SSECustomerKey`/`Metadata`/`Tagging`) | write | `object/key` conditional-put idempotency; checksum = content-address verify |
-|  [02]   | `GetObjectCommand` (`Range`/`PartNumber`/`ChecksumMode`/`IfNoneMatch`/`IfModifiedSince`/`ResponseContentType`) → `GetObjectCommandOutput.Body: StreamingBlobPayloadOutputTypes` | read | ranged/part reads, `ChecksumMode: "ENABLED"` re-verifies on read; the response `Body` (node `SdkStream<Readable>`) is the `sharp` derivative-source stream |
-|  [03]   | `HeadObjectCommand` / `GetObjectAttributesCommand`            | metadata        | `object/key` existence + `ETag`/`Checksum`/`ObjectParts` probe without body |
-|  [04]   | `DeleteObjectCommand` / `DeleteObjectsCommand` (batch ≤1000)  | delete          | `object/key` reference-sweep GC; batch delete for retention-class sweeps    |
-|  [05]   | `CopyObjectCommand` (`CopySourceIfMatch`/`CopySourceIfNoneMatch`) | copy         | server-side content-key rename/rekey; conditional copy                     |
-|  [06]   | `ListObjectsV2Command` / `ListObjectVersionsCommand`         | list            | prefix walk for GC/audit; version enumeration                              |
-|  [07]   | `PutObjectTaggingCommand` / `GetObjectTaggingCommand`        | tagging         | retention-class + reference-count tags on the object                       |
-|  [08]   | `PutBucketLifecycleConfigurationCommand`                     | lifecycle       | `object/key` retention-class GC as a bucket rule set                       |
-|  [09]   | `RestoreObjectCommand` / `SelectObjectContentCommand`        | archive/query   | Glacier restore; server-side S3 Select over stored objects                 |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
+| [01] | `PutObjectCommand` (`IfNoneMatch`/`IfMatch`/`ChecksumSHA256`/`ChecksumAlgorithm`/`ContentMD5`/`StorageClass`/`ServerSideEncryption`/`SSECustomerKey`/`Metadata`/`Tagging`) | write | `object/key` conditional-put idempotency; checksum = content-address verify |
+| [02] | `GetObjectCommand` (`Range`/`PartNumber`/`ChecksumMode`/`IfNoneMatch`/`IfModifiedSince`/`ResponseContentType`) → `GetObjectCommandOutput.Body: StreamingBlobPayloadOutputTypes` | read | ranged/part reads, `ChecksumMode: "ENABLED"` re-verifies on read; the response `Body` (node `SdkStream<Readable>`) is the `sharp` derivative-source stream |
+| [03] | `HeadObjectCommand` / `GetObjectAttributesCommand` | metadata | `object/key` existence + `ETag`/`Checksum`/`ObjectParts` probe without body |
+| [04] | `DeleteObjectCommand` / `DeleteObjectsCommand` (batch ≤1000) | delete | `object/key` reference-sweep GC; batch delete for retention-class sweeps |
+| [05] | `CopyObjectCommand` (`CopySourceIfMatch`/`CopySourceIfNoneMatch`) | copy | server-side content-key rename/rekey; conditional copy |
+| [06] | `ListObjectsV2Command` / `ListObjectVersionsCommand` | list | prefix walk for GC/audit; version enumeration |
+| [07] | `PutObjectTaggingCommand` / `GetObjectTaggingCommand` | tagging | retention-class + reference-count tags on the object |
+| [08] | `PutBucketLifecycleConfigurationCommand` | lifecycle | `object/key` retention-class GC as a bucket rule set |
+| [09] | `RestoreObjectCommand` / `SelectObjectContentCommand` | archive/query | Glacier restore; server-side S3 Select over stored objects |
 
 [PUBLIC_TYPE_SCOPE]: multipart, pagination, waiters, and the error rail
 - rail: store/object
 - Multipart is the low-level command family (no `lib-storage`), composed under an Effect scope that `Abort`s on interrupt. Paginators and waiters are `AsyncIterable`/promise helpers the Effect wrap lifts. The error hierarchy is the tagged rail's source.
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [01]   | `CreateMultipartUploadCommand` / `UploadPartCommand` / `UploadPartCopyCommand` / `CompleteMultipartUploadCommand` (`IfNoneMatch` — the conditional rides COMPLETE; `CreateMultipartUploadRequest` has no conditional member) / `AbortMultipartUploadCommand` / `ListPartsCommand` / `ListMultipartUploadsCommand` | multipart | large-blob ingest, hand-composed; `Abort` on scope interrupt; first-writer-wins lands at completion |
-|  [02]   | `paginateListObjectsV2` / `paginateListParts` / `paginateListBuckets` / `paginateListDirectoryBuckets` / `paginateListObjectAnnotations` | paginator | `AsyncIterable` prefix/part walk → `Stream.fromAsyncIterable`             |
-|  [03]   | `waitUntilObjectExists` / `waitUntilObjectNotExists` / `waitUntilBucketExists` / `waitUntilBucketNotExists` (`WaiterConfiguration{ client, maxWaitTime }`) | waiter | poll-to-consistency after a write/delete |
-|  [04]   | `S3ServiceException` (base)                                    | error base      | the tagged-error mapping source; `$metadata.httpStatusCode` carries 412/404 |
-|  [05]   | `NoSuchKey` / `NoSuchBucket` / `NoSuchUpload` / `NotFound`     | tagged fault    | miss classification for `object/key` reads and probes                      |
-|  [06]   | `InvalidObjectState` / `InvalidWriteOffset` / `EncryptionTypeMismatch` / `TooManyParts` / `BucketAlreadyOwnedByYou` | tagged fault | archive-state, append-offset, SSE, and multipart faults |
-|  [07]   | `StorageClass` / `ChecksumAlgorithm` / `ChecksumMode` / `ServerSideEncryption` / `ObjectCannedACL` | enum vocabulary | bounded policy values on the command inputs                             |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
+| [01] | `CreateMultipartUploadCommand` / `UploadPartCommand` / `UploadPartCopyCommand` / `CompleteMultipartUploadCommand` (`IfNoneMatch` — the conditional rides COMPLETE; `CreateMultipartUploadRequest` has no conditional member) / `AbortMultipartUploadCommand` / `ListPartsCommand` / `ListMultipartUploadsCommand` | multipart | large-blob ingest, hand-composed; `Abort` on scope interrupt; first-writer-wins lands at completion |
+| [02] | `paginateListObjectsV2` / `paginateListParts` / `paginateListBuckets` / `paginateListDirectoryBuckets` / `paginateListObjectAnnotations` | paginator | `AsyncIterable` prefix/part walk → `Stream.fromAsyncIterable` |
+| [03] | `waitUntilObjectExists` / `waitUntilObjectNotExists` / `waitUntilBucketExists` / `waitUntilBucketNotExists` (`WaiterConfiguration{ client, maxWaitTime }`) | waiter | poll-to-consistency after a write/delete |
+| [04] | `S3ServiceException` (base) | error base | the tagged-error mapping source; `$metadata.httpStatusCode` carries 412/404 |
+| [05] | `NoSuchKey` / `NoSuchBucket` / `NoSuchUpload` / `NotFound` | tagged fault | miss classification for `object/key` reads and probes |
+| [06] | `InvalidObjectState` / `InvalidWriteOffset` / `EncryptionTypeMismatch` / `TooManyParts` / `BucketAlreadyOwnedByYou` | tagged fault | archive-state, append-offset, SSE, and multipart faults |
+| [07] | `StorageClass` / `ChecksumAlgorithm` / `ChecksumMode` / `ServerSideEncryption` / `ObjectCannedACL` | enum vocabulary | bounded policy values on the command inputs |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -65,26 +64,26 @@
 - rail: store/object
 - The store never touches the SDK imperatively. The client is a scoped resource; every command is a typed `Effect`; the `AbortSignal` bridges Effect interruption; the exception hierarchy folds to a tagged rail.
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `Effect.acquireRelease(Effect.sync(() => new S3Client(config)), (c) => Effect.sync(() => c.destroy()))` | client layer | `object` `S3Client` as a scoped `Layer.scoped` service   |
-|  [02]   | `Effect.tryPromise({ try: (signal) => client.send(command, { abortSignal: signal }), catch: mapS3Error })` | typed send | the one dispatch wrap; interruption → SDK abort          |
-|  [03]   | `mapS3Error(e)` → `Match` on `S3ServiceException` name / `$metadata.httpStatusCode`                 | error fold     | `Data.TaggedError` rail; 412 ⇒ idempotent noop, 404 ⇒ miss |
-|  [04]   | `Stream.fromAsyncIterable(paginateListObjectsV2({ client }, input), mapS3Error)`                    | paginated read | `object` GC prefix walk as an Effect `Stream`            |
-|  [05]   | `Config.redacted("S3_SECRET_ACCESS_KEY")` → `credentials` / `Config.string("S3_ENDPOINT")` → `endpoint` | config | `host/config` — secrets `Redacted`, endpoint/provider parameterized |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:------------------------------------------------------- |
+| [01] | `Effect.acquireRelease(Effect.sync(() => new S3Client(config)), (c) => Effect.sync(() => c.destroy()))` | client layer | `object` `S3Client` as a scoped `Layer.scoped` service |
+| [02] | `Effect.tryPromise({ try: (signal) => client.send(command, { abortSignal: signal }), catch: mapS3Error })` | typed send | the one dispatch wrap; interruption → SDK abort |
+| [03] | `mapS3Error(e)` → `Match` on `S3ServiceException` name / `$metadata.httpStatusCode` | error fold | `Data.TaggedError` rail; 412 ⇒ idempotent noop, 404 ⇒ miss |
+| [04] | `Stream.fromAsyncIterable(paginateListObjectsV2({ client }, input), mapS3Error)` | paginated read | `object` GC prefix walk as an Effect `Stream` |
+| [05] | `Config.redacted("S3_SECRET_ACCESS_KEY")` → `credentials` / `Config.string("S3_ENDPOINT")` → `endpoint` | config | `host/config` — secrets `Redacted`, endpoint/provider parameterized |
 
 [ENTRYPOINT_SCOPE]: content-address idempotency and multipart composition
 - rail: store/object
 - Conditional put is the idempotency mechanism; multipart is a scoped fold over the low-level commands.
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `PutObjectCommand{ Key: contentKey, IfNoneMatch: "*", ChecksumSHA256, ChecksumAlgorithm: "SHA256" }` | conditional put | `object/key` — first-writer wins; digest = key, checksum = integrity |
-|  [02]   | `catch` → `$metadata.httpStatusCode === 412` ⇒ `Effect.void` (idempotent noop)                     | idempotency     | the content-address re-put is a proven noop, not a fault |
-|  [03]   | `Effect.acquireRelease(CreateMultipartUpload, ({ UploadId }) ⇒ AbortMultipartUpload)` then `UploadPart` fold ⇒ `CompleteMultipartUpload{ IfNoneMatch: "*" }` | multipart | bounded-bytes large-blob ingest; abort on interrupt, conditional at completion; streaming bodies ride `lib-storage` `Upload` |
-|  [04]   | `GetObjectCommand{ ChecksumMode: "ENABLED" }` → verify `ChecksumSHA256` against the key             | read verify     | `object/key` end-to-end content-address verification     |
-|  [05]   | `PutBucketLifecycleConfigurationCommand{ Rules }` + `PutObjectTaggingCommand`                       | retention GC    | `object/key` reference-sweep GC by retention class       |
-|  [06]   | `GetObjectCommandOutput.Body` — node `SdkStream<IncomingMessage \| Readable>`; one-shot `transformToByteArray(): Promise<Uint8Array>` / `transformToWebStream(): ReadableStream` / `transformToString(enc?)` | body read | the `sharp` fan-out source read: `Body.transformToByteArray()` once → `Buffer` → `sharp(buffer).clone()` per derivative; the `Body` is single-consume, so buffer-then-clone, never a re-piped stream per derivative |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:------------------------------------------------------- |
+| [01] | `PutObjectCommand{ Key: contentKey, IfNoneMatch: "*", ChecksumSHA256, ChecksumAlgorithm: "SHA256" }` | conditional put | `object/key` — first-writer wins; digest = key, checksum = integrity |
+| [02] | `catch` → `$metadata.httpStatusCode === 412` ⇒ `Effect.void` (idempotent noop) | idempotency | the content-address re-put is a proven noop, not a fault |
+| [03] | `Effect.acquireRelease(CreateMultipartUpload, ({ UploadId }) ⇒ AbortMultipartUpload)` then `UploadPart` fold ⇒ `CompleteMultipartUpload{ IfNoneMatch: "*" }` | multipart | bounded-bytes large-blob ingest; abort on interrupt, conditional at completion; streaming bodies ride `lib-storage` `Upload` |
+| [04] | `GetObjectCommand{ ChecksumMode: "ENABLED" }` → verify `ChecksumSHA256` against the key | read verify | `object/key` end-to-end content-address verification |
+| [05] | `PutBucketLifecycleConfigurationCommand{ Rules }` + `PutObjectTaggingCommand` | retention GC | `object/key` reference-sweep GC by retention class |
+| [06] | `GetObjectCommandOutput.Body` — node `SdkStream<IncomingMessage \| Readable>`; one-shot `transformToByteArray(): Promise<Uint8Array>` / `transformToWebStream(): ReadableStream` / `transformToString(enc?)` | body read | the `sharp` fan-out source read: `Body.transformToByteArray()` once → `Buffer` → `sharp(buffer).clone()` per derivative; the `Body` is single-consume, so buffer-then-clone, never a re-piped stream per derivative |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

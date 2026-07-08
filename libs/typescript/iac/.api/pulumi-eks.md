@@ -19,20 +19,20 @@
 
 [CLUSTER_SCOPE]: `Cluster` — the one plane owner
 - rail: prepared-aws
-- `new Cluster(name, args?: ClusterArgs, opts?: pulumi.ComponentResourceOptions)`; `ClusterArgs` groups into axes — network (`vpcId`, `publicSubnetIds`, `privateSubnetIds`, `nodeSubnetIds`, `endpointPrivateAccess`/`endpointPublicAccess`, `publicAccessCidrs`, `ipFamily`, `kubernetesServiceIpAddressRange`), access (`authenticationMode`, `accessEntries`, the legacy `roleMappings`/`userMappings` aws-auth rows), identity (`serviceRole`, `instanceRole(s)`, `createInstanceRole`, `createOidcProvider`, `creationRoleProvider`), default capacity (`instanceType`, `desiredCapacity`/`minSize`/`maxSize`, `nodeAmiId`, `nodeRootVolume*`, `skipDefaultNodeGroup`, `nodeGroupOptions`), plane posture (`version`, `upgradePolicy`, `deletionProtection`, `enabledClusterLogTypes`, `encryptionConfigKeyArn`, `skipDefaultSecurityGroups`), addons (`vpcCniOptions`, `corednsAddonOptions`, `kubeProxyAddonOptions`, `useDefaultVpcCni`, `bootstrapSelfManagedAddons`), serverless (`fargate: boolean | FargateProfileArgs`, `autoMode: AutoModeOptionsArgs`), and `storageClasses`.
+- `new Cluster(name, args?: ClusterArgs, opts?: pulumi.ComponentResourceOptions)`; `ClusterArgs` groups into axes — network (`vpcId`, `publicSubnetIds`, `privateSubnetIds`, `nodeSubnetIds`, `endpointPrivateAccess`/`endpointPublicAccess`, `publicAccessCidrs`, `ipFamily`, `kubernetesServiceIpAddressRange`), access (`authenticationMode`, `accessEntries`, the retired `roleMappings`/`userMappings` aws-auth rows), identity (`serviceRole`, `instanceRole(s)`, `createInstanceRole`, `createOidcProvider`, `creationRoleProvider`), default capacity (`instanceType`, `desiredCapacity`/`minSize`/`maxSize`, `nodeAmiId`, `nodeRootVolume*`, `skipDefaultNodeGroup`, `nodeGroupOptions`), plane posture (`version`, `upgradePolicy`, `deletionProtection`, `enabledClusterLogTypes`, `encryptionConfigKeyArn`, `skipDefaultSecurityGroups`), addons (`vpcCniOptions`, `corednsAddonOptions`, `kubeProxyAddonOptions`, `useDefaultVpcCni`, `bootstrapSelfManagedAddons`), serverless (`fargate: boolean | FargateProfileArgs`, `autoMode: AutoModeOptionsArgs`), and `storageClasses`.
 
-| [INDEX] | [MEMBER] | [SHAPE / MEANING] |
-| :-----: | :------- | :---------------- |
-|  [01]   | `cluster.kubeconfigJson` | `Output<string>` — the provider seam; `kubeconfig` is its structured `Output<any>` twin |
-|  [02]   | `cluster.getKubeconfig({ profileName?, roleArn? })` | `Output<{ result: string }>` — a kubeconfig under an assumed role/profile for non-deploy-host consumers |
-|  [03]   | `cluster.provider` | the ready-bound provider handle for in-cluster children; an explicit `k8s.Provider({ kubeconfig })` remains the arm-seam spelling |
-|  [04]   | `cluster.eksCluster` | `Output<aws.eks.Cluster>` — the underlying typed resource for raw-attribute reach |
-|  [05]   | `cluster.core` | `Output<CoreData>` — the component's assembled internals (subnets, roles, security groups) satellite components consume |
-|  [06]   | `cluster.oidcProviderArn` / `oidcProviderUrl` / `oidcIssuer` | the IRSA anchors minted under `createOidcProvider` |
-|  [07]   | `cluster.clusterSecurityGroupId` / `nodeSecurityGroupId` / `instanceRoles` / `defaultNodeGroup` / `autoModeNodeRoleName` | realized security/identity/capacity evidence |
-|  [08]   | `cluster.createNodeGroup(name, ClusterNodeGroupOptionsArgs)` | mixin — a self-managed group bound to this plane |
-|  [09]   | `AccessEntryArgs` | `{ principalArn, accessPolicies?: {[k]: { policyArn, accessScope }}, kubernetesGroups?, type?: AccessEntryType, username? }` — keyed by entry name on `ClusterArgs.accessEntries` |
-|  [10]   | `AuthenticationMode.Api` | the current mode; `ConfigMap` and `ApiAndConfigMap` carry deprecation markers with the aws-auth rows they feed |
+| [INDEX] | [MEMBER] | [SHAPE_MEANING] |
+|:-----: |:------- |:---------------- |
+| [01] | `cluster.kubeconfigJson` | `Output<string>` — the provider seam; `kubeconfig` is its structured `Output<any>` twin |
+| [02] | `cluster.getKubeconfig({ profileName?, roleArn? })` | `Output<{ result: string }>` — a kubeconfig under an assumed role/profile for non-deploy-host consumers |
+| [03] | `cluster.provider` | the ready-bound provider handle for in-cluster children; an explicit `k8s.Provider({ kubeconfig })` remains the arm-seam spelling |
+| [04] | `cluster.eksCluster` | `Output<aws.eks.Cluster>` — the underlying typed resource for raw-attribute reach |
+| [05] | `cluster.core` | `Output<CoreData>` — the component's assembled internals (subnets, roles, security groups) satellite components consume |
+| [06] | `cluster.oidcProviderArn` / `oidcProviderUrl` / `oidcIssuer` | the IRSA anchors minted under `createOidcProvider` |
+| [07] | `cluster.clusterSecurityGroupId` / `nodeSecurityGroupId` / `instanceRoles` / `defaultNodeGroup` / `autoModeNodeRoleName` | realized security/identity/capacity evidence |
+| [08] | `cluster.createNodeGroup(name, ClusterNodeGroupOptionsArgs)` | mixin — a self-managed group bound to this plane |
+| [09] | `AccessEntryArgs` | `{ principalArn, accessPolicies?: {[k]: { policyArn, accessScope }}, kubernetesGroups?, type?: AccessEntryType, username? }` — keyed by entry name on `ClusterArgs.accessEntries` |
+| [10] | `AuthenticationMode.Api` | the current mode; `ConfigMap` and `ApiAndConfigMap` carry deprecation markers with the aws-auth rows they feed |
 
 ```ts contract
 import * as eks from "@pulumi/eks"
@@ -48,22 +48,22 @@ const provider = new k8s.Provider("k8s", { kubeconfig: cluster.kubeconfigJson, e
 [CAPACITY_SCOPE]: node groups — managed first
 - rail: prepared-aws
 
-| [INDEX] | [SYMBOL] | [SHAPE / BOUNDARY] |
-| :-----: | :------- | :----------------- |
-|  [01]   | `ManagedNodeGroup` | `{ cluster: Cluster \| CoreDataArgs (required), instanceTypes?, scalingConfig?, capacityType?, amiType?, operatingSystem?, labels?, taints?, launchTemplate?, diskSize?, enableIMDSv2?, kubeletExtraArgs?, nodeadmExtraOptions?, releaseVersion?, forceUpdateVersion?, ignoreScalingChanges? }` → outputs `nodeGroup: aws.eks.NodeGroup`; the default capacity row |
-|  [02]   | `NodeGroupV2` | ASG-native self-managed group (`autoScalingGroup: aws.autoscaling.Group` output, `minRefreshPercentage`, `launchTemplateTagSpecifications`) — the row for launch-template control managed groups do not expose |
-|  [03]   | `NodeGroup` | DEPRECATED CloudFormation-backed twin (`cfnStack` output); never author it new |
-|  [04]   | `Addon` | `{ addonName (required), cluster (required), addonVersion?, configurationValues?, serviceAccountRoleArn?, preserve?, resolveConflictsOnCreate?, resolveConflictsOnUpdate? }` — the generic EKS-addon lifecycle row |
-|  [05]   | `VpcCniAddon` | the CNI specialization (`clusterName` required; `enableNetworkPolicy`, `enablePrefixDelegation`, `enablePodEni`, `warmEniTarget`/`warmIpTarget`/`warmPrefixTarget`, `customNetworkConfig`, `externalSnat`) — the post-plane twin of `ClusterArgs.vpcCniOptions` |
-|  [06]   | `ClusterCreationRoleProvider` / `getRoleProvider` | `{ profile?, region? }` → `role: Output<aws.iam.Role>` — a distinct creator identity for `ClusterArgs.creationRoleProvider` |
-|  [07]   | `createManagedNodeGroup` / `createNodeGroupSecurityGroup` / `createStorageClass` | function twins of the component rows for composition inside `.apply` folds |
+| [INDEX] | [SYMBOL] | [SHAPE_BOUNDARY] |
+|:-----: |:------- |:----------------- |
+| [01] | `ManagedNodeGroup` | `{ cluster: Cluster \| CoreDataArgs (required), instanceTypes?, scalingConfig?, capacityType?, amiType?, operatingSystem?, labels?, taints?, launchTemplate?, diskSize?, enableIMDSv2?, kubeletExtraArgs?, nodeadmExtraOptions?, releaseVersion?, forceUpdateVersion?, ignoreScalingChanges? }` → outputs `nodeGroup: aws.eks.NodeGroup`; the default capacity row |
+| [02] | `NodeGroupV2` | ASG-native self-managed group (`autoScalingGroup: aws.autoscaling.Group` output, `minRefreshPercentage`, `launchTemplateTagSpecifications`) — the row for launch-template control managed groups do not expose |
+| [03] | `NodeGroup` | DEPRECATED CloudFormation-backed twin (`cfnStack` output); never author it new |
+| [04] | `Addon` | `{ addonName (required), cluster (required), addonVersion?, configurationValues?, serviceAccountRoleArn?, preserve?, resolveConflictsOnCreate?, resolveConflictsOnUpdate? }` — the generic EKS-addon lifecycle row |
+| [05] | `VpcCniAddon` | the CNI specialization (`clusterName` required; `enableNetworkPolicy`, `enablePrefixDelegation`, `enablePodEni`, `warmEniTarget`/`warmIpTarget`/`warmPrefixTarget`, `customNetworkConfig`, `externalSnat`) — the post-plane twin of `ClusterArgs.vpcCniOptions` |
+| [06] | `ClusterCreationRoleProvider` / `getRoleProvider` | `{ profile?, region? }` → `role: Output<aws.iam.Role>` — a distinct creator identity for `ClusterArgs.creationRoleProvider` |
+| [07] | `createManagedNodeGroup` / `createNodeGroupSecurityGroup` / `createStorageClass` | function twins of the component rows for composition inside `.apply` folds |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PLANE_TOPOLOGY]:
 - escalation law: the `aws` arm's realized workload cell is `awsx.ecs.FargateService`; EKS is the k8s-shaped escalation — when an AWS estate needs the `kube/*` tiers (CNPG data plane, typed ingress, LGTM observe), the arm swaps its provider seam to `cluster.kubeconfigJson → k8s.Provider` and reuses the tier roster the selfhosted arm already realizes; the equivalence map's GKE↔workloads reading applies to the EKS cells identically.
 - network law: the plane rides the arm's existing `awsx.ec2.Vpc` — `vpcId`, `publicSubnetIds`, `privateSubnetIds` bind the Vpc component's outputs so network intent has one owner; `endpointPublicAccess: false` plus `publicAccessCidrs` is the private-plane posture, decided by spec data.
-- access law: `authenticationMode: "API"` with `accessEntries` rows is the only access spelling — the deprecated ConfigMap modes and their `roleMappings`/`userMappings` exist for adopting a legacy plane, never for new ones; an entry is `principalArn` plus scoped `accessPolicies`, so cluster RBAC is data on the component.
+- access law: `authenticationMode: "API"` with `accessEntries` rows is the only access spelling — the deprecated ConfigMap modes and their `roleMappings`/`userMappings` exist for adopting a retired plane, never for new ones; an entry is `principalArn` plus scoped `accessPolicies`, so cluster RBAC is data on the component.
 - identity law: `createOidcProvider: true` mints the IRSA anchors once; a workload identity is `Addon.serviceAccountRoleArn` or an `aws.iam.Role` trust-bound to `oidcProviderArn` — node instance roles never widen to serve pod-level permissions.
 - capacity law: `ManagedNodeGroup` is the default row, `NodeGroupV2` the launch-template escalation, `skipDefaultNodeGroup: true` whenever explicit groups exist so capacity has named owners; `fargate` and `autoMode` are spec-profile decisions on the same component, not parallel cluster kinds.
 - addon law: cluster addons ride `Addon`/`VpcCniAddon` with the `ResolveConflictsOnCreate`/`ResolveConflictsOnUpdate` vocabulary — never a `helm.v4.Chart` re-install of what EKS manages natively; charts own only what the addon catalog does not carry.

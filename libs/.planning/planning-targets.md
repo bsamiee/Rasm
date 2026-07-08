@@ -1,3 +1,5 @@
+# [PLANNING_TARGETS]
+
 [CENTRAL]:
 - Directory: `libs/.planning`
 - Doctrine: `libs/.planning/campaign-method.md`, `libs/.planning/planning-targets.md`
@@ -8,8 +10,9 @@
 - Branch API catalogues: `libs/csharp/.api`
 - Routing: `libs/csharp/.planning/README.md`
 - Language-wide docs: `libs/csharp/.planning/ARCHITECTURE.md`, `libs/csharp/.planning/IDEAS.md`, `libs/csharp/.planning/TASKLOG.md`
-- Planning Folders: `libs/csharp/Rasm`, `libs/csharp/Rasm.AppHost`, `libs/csharp/Rasm.AppUi`, `libs/csharp/Rasm.Bim`, `libs/csharp/Rasm.Compute`, `libs/csharp/Rasm.Element`, `libs/csharp/Rasm.Fabrication`, `libs/csharp/Rasm.Grasshopper`, `libs/csharp/Rasm.Materials`, `libs/csharp/Rasm.Persistence`, `libs/csharp/Rasm.Rhino`
-- Planned Folders (not yet stood up): `libs/csharp/Rasm.Generation` (APP-PLATFORM layout/generation/assembly orchestration; seeded by `RASM-GENERATION-SPEC.md`)
+- Planning Folders: `libs/csharp/Rasm`, `libs/csharp/Rasm.AppHost`, `libs/csharp/Rasm.AppUi`, `libs/csharp/Rasm.Bim`, `libs/csharp/Rasm.Compute`, `libs/csharp/Rasm.Element`, `libs/csharp/Rasm.Fabrication`, `libs/csharp/Rasm.Materials`, `libs/csharp/Rasm.Persistence`
+- Host-Boundary Source Folders: `libs/csharp/Rasm.Grasshopper`, `libs/csharp/Rasm.Rhino` (durable host-bound source + card pools + folder `.api` tier)
+- Target Packages: `Rasm.Generation` (APP-PLATFORM layout/generation/assembly orchestration)
 
 [TYPESCRIPT]:
 - Core dir: `libs/typescript/.planning`
@@ -29,7 +32,6 @@
 - Central manifests: `Directory.Packages.props`, `Directory.Build.props`, `Directory.Build.targets`, `global.json`, `NuGet.config`, `pyproject.toml`, `pnpm-workspace.yaml`, `.config/`
 - Per-folder catalogues: every `<pkg>/.api/` catalogue set
 - Toolchain evidence: Assay provision reports and per-folder `.api` catalogues verify Forge-provided server services, native capabilities, and extension availability.
-- Pass-prompts: `.claude/prompts/1-ideate-pass.md`, `.claude/prompts/2-refine-pass.md`, `.claude/prompts/3-implement-pass.md`, `.claude/prompts/3-targeted-implement.md`
-- Workflow engine: `.claude/workflows/`
+- Pass execution: `.claude/workflows/` (campaign workflows) and `.claude/commands/` (session skills)
 - Code doctrine: `docs/stacks/<lang>/`, composed in full by whichever agent writes or judges fences in that language
 - Form standards: `docs/standards/information-structure.md`, `docs/standards/formatting.md`, `docs/standards/style-guide.md`

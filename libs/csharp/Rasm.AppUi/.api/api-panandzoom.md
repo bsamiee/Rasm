@@ -5,11 +5,11 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PanAndZoom`
-- package: `PanAndZoom` (12.0.0.1, MIT, © wieslawsoltes)
+- package: `PanAndZoom` (MIT, © wieslawsoltes)
 - assembly: `PanAndZoom`
 - namespace: `Avalonia.Controls.PanAndZoom`
 - asset: managed runtime library (`lib/net10.0` binds the `net10.0` consumer; `lib/net8.0` fallback)
-- depends: `Avalonia` (12.0.0) — `ZoomBorder` is `Decorator, ILogicalScrollable`; types are `StyledProperty`/`DirectProperty`/`Matrix`/`Point`/`Rect`/`Vector`/`Thickness`/`ICommand`-shaped
+- depends: `Avalonia` — `ZoomBorder` is `Decorator, ILogicalScrollable`; types are `StyledProperty`/`DirectProperty`/`Matrix`/`Point`/`Rect`/`Vector`/`Thickness`/`ICommand`-shaped
 - rail: viewport
 
 ## [02]-[PUBLIC_TYPES]

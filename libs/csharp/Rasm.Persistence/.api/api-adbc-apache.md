@@ -15,7 +15,6 @@ documented in `api-arrow.md`, not duplicated here.
 
 [PACKAGE_SURFACE]: `Apache.Arrow.Adbc.Drivers.Apache`
 - package: `Apache.Arrow.Adbc.Drivers.Apache`
-- version: `0.23.0`
 - license: Apache-2.0 (`licenses.nuget.org/Apache-2.0`)
 - assembly: `Apache.Arrow.Adbc.Drivers.Apache`
 - namespace: `Apache.Arrow.Adbc.Drivers.Apache`, `.Spark`, `.Hive2`, `.Impala`
@@ -84,9 +83,9 @@ are the wire contract — there is no strongly-typed options object.
 
 The result-execution path is the base `Apache.Arrow.Adbc` surface, NOT redefined here: `AdbcDatabase.Connect`
 -> `AdbcConnection`; `AdbcConnection.CreateStatement` -> `AdbcStatement`; `AdbcStatement.SqlQuery` set +
-`ExecuteQuery()` / `ExecuteQueryAsync()` (`ValueTask<QueryResult>`, decompile-verified at 0.23.0) ->
+`ExecuteQuery` / `ExecuteQueryAsync` (`ValueTask<QueryResult>`, decompile-verified at) ->
 `QueryResult.Stream` (`IArrowArrayStream`); `AdbcStatement.Bind(RecordBatch, Schema)` / `BindStream(IArrowArrayStream)`
-bind parameter batches ahead of execution (both real base virtuals at 0.23.0); `AdbcConnection.GetObjects` /
+bind parameter batches ahead of execution (both real base virtuals at); `AdbcConnection.GetObjects` /
 `GetTableSchema` / `GetInfo` / `GetTableTypes` for catalog metadata. The driver overrides those abstract
 members; consumers compose them through the `api-arrow.md` contract.
 

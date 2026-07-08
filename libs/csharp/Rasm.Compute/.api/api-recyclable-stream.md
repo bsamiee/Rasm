@@ -15,7 +15,7 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IO.RecyclableMemoryStream`
-- package: `Microsoft.IO.RecyclableMemoryStream` (version 3.0.1, direct pin)
+- package: `Microsoft.IO.RecyclableMemoryStream` (direct pin)
 - license: MIT (`microsoft/Microsoft.IO.RecyclableMemoryStream`)
 - assembly: `Microsoft.IO.RecyclableMemoryStream`
 - managed-tfm: multi-target (`net6.0`, `netstandard2.0`, `netstandard2.1`); the `net10.0` consumer binds `lib/net6.0`

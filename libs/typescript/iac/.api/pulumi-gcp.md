@@ -1,4 +1,4 @@
-# [API_CATALOGUE] @pulumi/gcp
+# [TS_IAC_API_PULUMI_GCP]
 
 `@pulumi/gcp` is the Terraform-bridged Pulumi provider SDK for Google Cloud: 138 service namespaces (`container`, `sql`, `storage`, `dns`, `compute`, `cloudrunv2`, `secretmanager`, `serviceaccount`, `projects`, `certificatemanager`, `artifactregistry`, …), each carrying the same generated resource quadruple (`class X extends pulumi.CustomResource` + `XArgs` + `XState` + `X.get`/`X.isInstance`) plus `get*`/`get*Output` data sources, under one `Provider` that binds project/region/zone/credentials. The package is ONE codegen pattern (identical to `@pulumi/postgresql`) applied across a service axis — never a bespoke API per resource. In `iac` this is a PREPARED cloud row, not a first-class arm: it is instantiated only when an app supplies a `gcp` `StackSpec` VALUE, and the value that makes it worth carrying is the SERVICE-EQUIVALENCE MAP — each `selfhosted-k8s` capability has a named managed-GCP counterpart (GKE↔workloads, Cloud SQL↔CNPG, GCS↔object-store, Cloud DNS↔traffic, Secret Manager↔Doppler), so finalizing the `gcp` target is app data, and adding it was one `provider/dispatch` arm + one `provider/surface` column.
 
@@ -17,9 +17,8 @@ export { config, types }                   // package-wide config reads + input/
 
 [PACKAGE_SURFACE]: `@pulumi/gcp`
 - package: `@pulumi/gcp`
-- version: `9.29.0`
 - license: `Apache-2.0`
-- build-floor: peer `@pulumi/pulumi ^3.142.0` (the engine owns `CustomResource`/`Output`/`Input`); the `pulumi-resource-gcp` plugin binary provisions against the Google APIs
+- build-floor: peer `@pulumi/pulumi ^catalog` (the engine owns `CustomResource`/`Output`/`Input`); the `pulumi-resource-gcp` plugin binary provisions against the Google APIs
 - target: `node` (Automation-API program process; needs GCP credentials — ADC, a `credentials` JSON, or impersonation — reachable at apply)
 - entry: `@pulumi/gcp` plus the service sub-paths (`@pulumi/gcp/container`, `/sql`, `/storage`, …) and `config`/`types`
 - asset: the generated `CustomResource` classes across 138 service namespaces, per-service `get*`/`get*Output` data sources, the connection `Provider` (project/region/zone/credentials + per-service `*CustomEndpoint` overrides), package-wide `config` readers, and the `types.input`/`types.output` shape namespaces
@@ -35,14 +34,14 @@ export { config, types }                   // package-wide config reads + input/
 
 Identical to `@pulumi/postgresql`'s pattern — the shared Pulumi Terraform-bridge codegen. Every resource across all 138 namespaces is this quadruple; the service axis is the only variable.
 
-| [INDEX] | [MEMBER]           | [SHAPE]                                                                                    |
-| :-----: | :----------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `class X`          | `extends pulumi.CustomResource`; `readonly <attr>: pulumi.Output<T>` per schema attribute  |
-|  [02]   | `constructor`      | `(name, args?: XArgs, opts?: pulumi.CustomResourceOptions)`                                |
-|  [03]   | `X.get`            | `static get(name, id: pulumi.Input<pulumi.ID>, state?: XState, opts?): X`                  |
-|  [04]   | `X.isInstance`     | `static isInstance(obj): obj is X`                                                         |
-|  [05]   | `interface XArgs`  | construction inputs; every field `pulumi.Input<T \| undefined>`                            |
-|  [06]   | `interface XState` | `.get` lookup inputs; mirrors `XArgs`                                                      |
+| [INDEX] | [MEMBER] | [SHAPE] |
+|:-----: |:----------------- |:---------------------------------------------------------------------------------------- |
+| [01] | `class X` | `extends pulumi.CustomResource`; `readonly <attr>: pulumi.Output<T>` per schema attribute |
+| [02] | `constructor` | `(name, args?: XArgs, opts?: pulumi.CustomResourceOptions)` |
+| [03] | `X.get` | `static get(name, id: pulumi.Input<pulumi.ID>, state?: XState, opts?): X` |
+| [04] | `X.isInstance` | `static isInstance(obj): obj is X` |
+| [05] | `interface XArgs` | construction inputs; every field `pulumi.Input<T \| undefined>` |
+| [06] | `interface XState` | `.get` lookup inputs; mirrors `XArgs` |
 
 ```ts contract
 import * as pulumi from "@pulumi/pulumi"
@@ -76,18 +75,18 @@ interface ClusterArgs {
 
 This is the integration shape of the prepared row: the `provider/surface` `gcp` column maps each `store/capability` and `selfhosted-k8s` concern to a named managed-GCP resource. Finalizing the `gcp` target = instantiating this subset with the `StackSpec` values; the other 130 namespaces stay dormant.
 
-| [INDEX] | [SELFHOSTED-K8S CONCERN]           | [GCP SERVICE.RESOURCE]                                             |
-| :-----: | :--------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | typed workloads (k8s cluster)      | `container.Cluster` + `container.NodePool` (GKE)                   |
-|  [02]   | CNPG PG18.4 database               | `sql.DatabaseInstance` + `sql.Database` + `sql.User` (Cloud SQL)   |
-|  [03]   | object-store (conditional-put row) | `storage.Bucket` + `storage.BucketIAMMember` (GCS)                 |
-|  [04]   | cert / dns / ingress (traffic)     | `dns.ManagedZone` + `dns.RecordSet`; `certificatemanager.Certificate`; `compute.GlobalAddress`/`compute.URLMap` |
-|  [05]   | secret owner (Doppler)             | `secretmanager.Secret` + `secretmanager.SecretVersion`            |
-|  [06]   | identity / RBAC                    | `serviceaccount.Account`; `projects.IAMMember`; `organizations.getClientConfig` |
-|  [07]   | image registry                     | `artifactregistry.Repository`                                     |
-|  [08]   | serverless compute (alt to k8s)    | `cloudrunv2.Service` / `cloudrunv2.Job`                            |
-|  [09]   | cache / queue                      | `redis.Instance`; `pubsub.Topic` + `pubsub.Subscription`         |
-|  [10]   | networking substrate               | `compute.Network` + `compute.Subnetwork` + `compute.Firewall`     |
+| [INDEX] | [SELFHOSTED_K8S_CONCERN] | [GCP_SERVICE_RESOURCE] |
+|:-----: |:--------------------------------- |:---------------------------------------------------------------- |
+| [01] | typed workloads (k8s cluster) | `container.Cluster` + `container.NodePool` (GKE) |
+| [02] | CNPG PG18.4 database | `sql.DatabaseInstance` + `sql.Database` + `sql.User` (Cloud SQL) |
+| [03] | object-store (conditional-put row) | `storage.Bucket` + `storage.BucketIAMMember` (GCS) |
+| [04] | cert / dns / ingress (traffic) | `dns.ManagedZone` + `dns.RecordSet`; `certificatemanager.Certificate`; `compute.GlobalAddress`/`compute.URLMap` |
+| [05] | secret owner (Doppler) | `secretmanager.Secret` + `secretmanager.SecretVersion` |
+| [06] | identity / RBAC | `serviceaccount.Account`; `projects.IAMMember`; `organizations.getClientConfig` |
+| [07] | image registry | `artifactregistry.Repository` |
+| [08] | serverless compute (alt to k8s) | `cloudrunv2.Service` / `cloudrunv2.Job` |
+| [09] | cache / queue | `redis.Instance`; `pubsub.Topic` + `pubsub.Subscription` |
+| [10] | networking substrate | `compute.Network` + `compute.Subnetwork` + `compute.Firewall` |
 
 ### `Provider` — project/region/credentials boundary
 
@@ -97,17 +96,17 @@ This is the integration shape of the prepared row: the `provider/surface` `gcp` 
 
 One explicit `Provider` per target project binds every resource in the arm. Credentials are polymorphic: a `credentials` JSON string, an `accessToken`, or `impersonateServiceAccount` — one shape, mode by field. The huge per-service `*CustomEndpoint` roster (`containerCustomEndpoint`, `sqlCustomEndpoint`, … one `Output<string | undefined>` per service) is a uniform override family, not app config — document as a pattern, never enumerate.
 
-| [INDEX] | [MEMBER]              | [SIGNATURE / FIELD]                                                                  |
-| :-----: | :-------------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `class Provider`      | `extends pulumi.ProviderResource`; `constructor(name, args?: ProviderArgs, opts?: pulumi.ResourceOptions)` |
-|  [02]   | `Provider.isInstance` | `static isInstance(obj): obj is Provider`                                            |
-|  [03]   | `project`             | `Input<string>` — target GCP project (`StackSpec`)                                   |
-|  [04]   | `region` / `zone`     | `Input<string>` — default region/zone (`StackSpec`)                                  |
-|  [05]   | `credentials`         | `Input<string>` — service-account JSON (← Doppler secret)                            |
-|  [06]   | `accessToken`         | `Input<string>` — short-lived OAuth token alternative                                |
-|  [07]   | `impersonateServiceAccount` | `Input<string>` — SA impersonation chain                                       |
-|  [08]   | `billingProject` / `userProjectOverride` | quota/billing project attribution                                |
-|  [09]   | `<service>CustomEndpoint` | uniform `Input<string | undefined>` override family (one per service)            |
+| [INDEX] | [MEMBER] | [SIGNATURE_FIELD] |
+|:-----: |:-------------------- |:---------------------------------------------------------------------------------- |
+| [01] | `class Provider` | `extends pulumi.ProviderResource`; `constructor(name, args?: ProviderArgs, opts?: pulumi.ResourceOptions)` |
+| [02] | `Provider.isInstance` | `static isInstance(obj): obj is Provider` |
+| [03] | `project` | `Input<string>` — target GCP project (`StackSpec`) |
+| [04] | `region` / `zone` | `Input<string>` — default region/zone (`StackSpec`) |
+| [05] | `credentials` | `Input<string>` — service-account JSON (← Doppler secret) |
+| [06] | `accessToken` | `Input<string>` — short-lived OAuth token alternative |
+| [07] | `impersonateServiceAccount` | `Input<string>` — SA impersonation chain |
+| [08] | `billingProject` / `userProjectOverride` | quota/billing project attribution |
+| [09] | `<service>CustomEndpoint` | uniform `Input<string \| undefined>` override family (one per service) |
 
 ```ts contract
 import * as pulumi from "@pulumi/pulumi"

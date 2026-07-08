@@ -8,7 +8,7 @@
         <!-- Contract assembly self-skips workspace libraries and analyzer injection. -->
         <UseWorkspaceLibraries>false</UseWorkspaceLibraries>
         <SkipLocalCSharpAnalyzerReference>true</SkipLocalCSharpAnalyzerReference>
-        <!-- CA1008: CspScope has no valid None row; IDE0130 preserves the consumed legacy namespace. -->
-        <NoWarn>$(NoWarn);CA1008;IDE0130</NoWarn>
+        <!-- CA1008: CspScope has no valid None row. -->
+        <NoWarn>$(NoWarn);CA1008</NoWarn>
     </PropertyGroup>
 </Project>

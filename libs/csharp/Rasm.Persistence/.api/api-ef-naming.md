@@ -12,7 +12,6 @@ generated migrations carry the rewritten names.
 
 [PACKAGE_SURFACE]: `EFCore.NamingConventions`
 - package: `EFCore.NamingConventions`
-- version: `10.0.1`
 - license: Apache-2.0
 - target: `net10.0`
 - assembly: `EFCore.NamingConventions`

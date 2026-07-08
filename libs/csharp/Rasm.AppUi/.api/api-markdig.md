@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Markdig`
 - package: `Markdig`
-- version: `1.3.2`
 - assembly: `Markdig`
 - namespace: `Markdig`
 - namespace: `Markdig.Syntax`

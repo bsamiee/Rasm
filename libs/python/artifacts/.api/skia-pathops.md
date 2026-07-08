@@ -1,6 +1,6 @@
 # [PY_ARTIFACTS_API_SKIA_PATHOPS]
 
-`skia-pathops` supplies the categorical-best planar **boolean / offset / stroke-to-outline** geometry surface the `graphic/vector` owner is missing: the abi3 Cython binding of Skia's `SkPathOps` + `SkStroke` + `SkPath` over a single mutable `Path` accumulator that ingests cubics/quads/conics/arcs, accumulates segments through a FontTools-pen-protocol `getPen()`/`draw(pen)` bridge, runs N-ary set operations (`union`/`difference`/`intersection`/`xor`/`reverse_difference`, the binary `op`, the N-way `OpBuilder`), self-intersection removal + winding repair through `simplify`, and converts an open contour into a filled closed outline through `Path.stroke` (width/cap/join/miter + dash) — the boolean/offset/outline algebra `svgelements`' `Path`/`Matrix` cannot express. The `Path` is one fontTools-pen-compatible owner: it round-trips an SVG `d`/`Shape` (drawn into `getPen()`), runs the Skia algebra, then re-emits geometry through `draw(outpen)` into any pen — the `svgelements` parse owner, a fontTools `SVGPathPen`, or a `uharfbuzz`/`fonttools` glyph pen — so the `graphic/vector` rail keeps one geometry spine across boolean ops, glyph outlines, and the typography plane. The package owner composes `op`/`OpBuilder`/`simplify`/`Path.stroke` plus the `Path.draw`/`getPen` pen bridge into the `Vector` boolean/offset/outline arms; it never re-implements set-ops, winding, or stroking algebra, and it never rasterizes (PNG/PDF egress stays `resvg_py`/`vl-convert`/`pyvips`).
+`skia-pathops` supplies the categorical-best planar boolean / offset / stroke-to-outline geometry surface the `graphic/vector` owner is missing: the abi3 Cython binding of Skia's `SkPathOps` + `SkStroke` + `SkPath` over a single mutable `Path` accumulator that ingests cubics/quads/conics/arcs, accumulates segments through a FontTools-pen-protocol `getPen()`/`draw(pen)` bridge, runs N-ary set operations (`union`/`difference`/`intersection`/`xor`/`reverse_difference`, the binary `op`, the N-way `OpBuilder`), self-intersection removal + winding repair through `simplify`, and converts an open contour into a filled closed outline through `Path.stroke` (width/cap/join/miter + dash) — the boolean/offset/outline algebra `svgelements`' `Path`/`Matrix` cannot express. The `Path` is one fontTools-pen-compatible owner: it round-trips an SVG `d`/`Shape` (drawn into `getPen()`), runs the Skia algebra, then re-emits geometry through `draw(outpen)` into any pen — the `svgelements` parse owner, a fontTools `SVGPathPen`, or a `uharfbuzz`/`fonttools` glyph pen — so the `graphic/vector` rail keeps one geometry spine across boolean ops, glyph outlines, and the typography plane. The package owner composes `op`/`OpBuilder`/`simplify`/`Path.stroke` plus the `Path.draw`/`getPen` pen bridge into the `Vector` boolean/offset/outline arms; it never re-implements set-ops, winding, or stroking algebra, and it never rasterizes (PNG/PDF egress stays `resvg_py`/`vl-convert`/`pyvips`).
 
 ## [01]-[PACKAGE_SURFACE]
 
@@ -23,127 +23,127 @@
 
 The whole surface is three runtime owners plus the bounded enum vocabulary. `Path` is the one mutable geometry accumulator every operation reads and writes; `PathPen` is the pen-protocol adapter `Path.getPen()` returns (it is what bridges `svgelements`/fontTools outlines INTO a `Path`); `OpBuilder` is the N-way boolean accumulator for folding more than two operands. There is no second path type, no document type, no canvas — the boolean/offset/outline concern is exactly these.
 
-| [INDEX] | TYPE        | KIND                | ROLE                                                                            |
-| :-----: | ----------- | ------------------- | ------------------------------------------------------------------------------- |
-|  [01]   | `Path`      | mutable accumulator | the one `SkPath` owner; ingest verbs, run boolean/simplify/stroke, draw/query    |
-|  [02]   | `PathPen`   | pen adapter         | FontTools-pen returned by `Path.getPen()`; receives `moveTo`/`lineTo`/`curveTo`/`qCurveTo`/`closePath` from a source outline |
-|  [03]   | `OpBuilder` | N-way builder       | accumulate `add(path, operator)` operands, then `resolve()` to one `Path`        |
+| [INDEX] | [TYPE] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Path` | mutable accumulator | the one `SkPath` owner; ingest verbs, run boolean/simplify/stroke, draw/query |
+| [02] | `PathPen` | pen adapter | FontTools-pen returned by `Path.getPen()`; receives `moveTo`/`lineTo`/`curveTo`/`qCurveTo`/`closePath` from a source outline |
+| [03] | `OpBuilder` | N-way builder | accumulate `add(path, operator)` operands, then `resolve()` to one `Path` |
 
 [PUBLIC_TYPE_SCOPE]: bounded enum vocabulary
 - rail: figure
 
-Six `IntFlag`/enum families (the `__init__` fixup forces full `_member_names_` so every alias member iterates on 3.11+). These are the closed vocabularies the `graphic/vector` owner keys its `VectorOp` boolean/stroke arms against — a boolean kind selects a `PathOp` member, a stroke style selects `LineCap`/`LineJoin`, a winding policy selects `FillType`. Each is a real catalogued enum, never a stringly knob.
+Six `IntFlag`/enum families (the `__init__` fixup forces full `_member_names_` so every alias member iterates on release). These are the closed vocabularies the `graphic/vector` owner keys its `VectorOp` boolean/stroke arms against — a boolean kind selects a `PathOp` member, a stroke style selects `LineCap`/`LineJoin`, a winding policy selects `FillType`. Each is a real catalogued enum, never a stringly knob.
 
-| [INDEX] | ENUM        | MEMBERS                                                          | ROLE                                                          |
-| :-----: | ----------- | --------------------------------------------------------------- | ------------------------------------------------------------ |
-|  [01]   | `PathOp`    | `DIFFERENCE=0` `INTERSECTION=1` `UNION=2` `XOR=3` `REVERSE_DIFFERENCE=4` | the boolean operator selector for `op`/`OpBuilder.add`        |
-|  [02]   | `FillType`  | `WINDING=0` `EVEN_ODD=1` `INVERSE_WINDING=2` `INVERSE_EVEN_ODD=3` | the fill rule governing what "inside" means for booleans/area |
-|  [03]   | `LineCap`   | `BUTT_CAP=0` `ROUND_CAP=1` `SQUARE_CAP=2`                        | the open-end cap style for `Path.stroke`                      |
-|  [04]   | `LineJoin`  | `MITER_JOIN=0` `ROUND_JOIN=1` `BEVEL_JOIN=2`                     | the corner join style for `Path.stroke`                      |
-|  [05]   | `ArcSize`   | `SMALL=0` `LARGE=1`                                              | the arc-sweep selector for `Path.arcTo` (SVG large-arc flag)  |
-|  [06]   | `Direction` | `CW=0` `CCW=1`                                                   | contour winding direction (paired with `Path.clockwise`)     |
-|  [07]   | `PathVerb`  | `MOVE=0` `LINE=1` `QUAD=2` `CONIC=3` `CUBIC=4` `CLOSE=5`         | the segment grammar `Path.verbs`/`Path.segments` reports      |
+| [INDEX] | [ENUM] | [MEMBERS] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `PathOp` | `DIFFERENCE=0` `INTERSECTION=1` `UNION=2` `XOR=3` `REVERSE_DIFFERENCE=4` | the boolean operator selector for `op`/`OpBuilder.add` |
+| [02] | `FillType` | `WINDING=0` `EVEN_ODD=1` `INVERSE_WINDING=2` `INVERSE_EVEN_ODD=3` | the fill rule governing what "inside" means for booleans/area |
+| [03] | `LineCap` | `BUTT_CAP=0` `ROUND_CAP=1` `SQUARE_CAP=2` | the open-end cap style for `Path.stroke` |
+| [04] | `LineJoin` | `MITER_JOIN=0` `ROUND_JOIN=1` `BEVEL_JOIN=2` | the corner join style for `Path.stroke` |
+| [05] | `ArcSize` | `SMALL=0` `LARGE=1` | the arc-sweep selector for `Path.arcTo` (SVG large-arc flag) |
+| [06] | `Direction` | `CW=0` `CCW=1` | contour winding direction (paired with `Path.clockwise`) |
+| [07] | `PathVerb` | `MOVE=0` `LINE=1` `QUAD=2` `CONIC=3` `CUBIC=4` `CLOSE=5` | the segment grammar `Path.verbs`/`Path.segments` reports |
 
 [PUBLIC_TYPE_SCOPE]: typed faults
 - rail: figure
 
 `PathOpsError` is the one provider exception root; the three leaves name the precise structural cause. The `graphic/vector` owner maps these onto its closed `VectorFault` `@tagged_union` at the arm that incurs them (a boolean/simplify raise onto a `singular`/`empty`-class case, an `OpenPathError` onto a stroke/boolean precondition fault), never a bare `except Exception`.
 
-| [INDEX] | TYPE                   | BASE           | RAISE SITE                                                            |
-| :-----: | ---------------------- | -------------- | -------------------------------------------------------------------- |
-|  [01]   | `PathOpsError`         | `Exception`    | provider root for every `pathops` failure                            |
-|  [02]   | `UnsupportedVerbError` | `PathOpsError` | a pen received a verb the `SkPath` grammar cannot represent           |
-|  [03]   | `OpenPathError`        | `PathOpsError` | a closed-path operation (or `draw` with `allow_open_paths=False`) met an unclosed contour |
-|  [04]   | `NumberOfPointsError`  | `PathOpsError` | a verb received the wrong control-point count                        |
+| [INDEX] | [TYPE] | [BASE] | [RAISE_SITE] |
+| --- | --- | --- | --- |
+| [01] | `PathOpsError` | `Exception` | provider root for every `pathops` failure |
+| [02] | `UnsupportedVerbError` | `PathOpsError` | a pen received a verb the `SkPath` grammar cannot represent |
+| [03] | `OpenPathError` | `PathOpsError` | a closed-path operation (or `draw` with `allow_open_paths=False`) met an unclosed contour |
+| [04] | `NumberOfPointsError` | `PathOpsError` | a verb received the wrong control-point count |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: boolean set operations
 - rail: figure
 
-The boolean surface is one binary `op` plus the pure-Python contour-pen wrappers plus the N-way `OpBuilder`. `op(one, two, operator, …)` is the single polymorphic binary primitive over all five `PathOp` members and returns a new `Path`. The `operations.py` wrappers (`union`/`difference`/`intersection`/`xor`/`reverse_difference`) accept FontTools **contour** lists + an **output pen** (the pen-protocol form that drops straight into a fontTools/`svgelements` glyph pipeline). `OpBuilder` folds an arbitrary number of operands into one resolve — the right owner when the `graphic/vector` rail unions a whole sheet of marks rather than two. Import-path note: `union`/`difference`/`intersection`/`xor` are re-exported at the top-level `pathops` namespace; `reverse_difference` is in `pathops.operations.__all__` but is NOT re-exported at top level — reach it as `pathops.operations.reverse_difference` (or simply key the binary `op(one, two, PathOp.REVERSE_DIFFERENCE)` form, which is always top-level).
+The boolean surface is one binary `op` plus the pure-Python contour-pen wrappers plus the N-way `OpBuilder`. `op(one, two, operator, …)` is the single polymorphic binary primitive over all five `PathOp` members and returns a new `Path`. The `operations.py` wrappers (`union`/`difference`/`intersection`/`xor`/`reverse_difference`) accept FontTools contour lists + an output pen (the pen-protocol form that drops straight into a fontTools/`svgelements` glyph pipeline). `OpBuilder` folds an arbitrary number of operands into one resolve — the right owner when the `graphic/vector` rail unions a whole sheet of marks rather than two. Import-path note: `union`/`difference`/`intersection`/`xor` are re-exported at the top-level `pathops` namespace; `reverse_difference` is in `pathops.operations.__all__` but is NOT re-exported at top level — reach it as `pathops.operations.reverse_difference` (or simply key the binary `op(one, two, PathOp.REVERSE_DIFFERENCE)` form, which is always top-level).
 
-| [INDEX] | MEMBER                                                                                          | KIND       | ROLE                                                                 |
-| :-----: | ----------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------------------------- |
-|  [01]   | `op(one, two, operator, fix_winding=True, keep_starting_points=True, clockwise=False) -> Path`   | binary     | the one binary boolean primitive over all five `PathOp` members (the always-top-level form, including `REVERSE_DIFFERENCE`) |
-|  [02]   | `pathops.union(contours, outpen, fix_winding=True, keep_starting_points=True, clockwise=False)`   | pen-form   | self-union a contour list into `outpen` (`simplify`-backed; merges overlaps + repairs winding) |
-|  [03]   | `pathops.difference(subject_contours, clip_contours, outpen, …)`                                  | pen-form   | subject − clip into `outpen`                                         |
-|  [04]   | `pathops.intersection(subject_contours, clip_contours, outpen, …)`                               | pen-form   | subject ∩ clip into `outpen`                                         |
-|  [05]   | `pathops.xor(subject_contours, clip_contours, outpen, …)`                                         | pen-form   | symmetric difference into `outpen`                                  |
-|  [06]   | `pathops.operations.reverse_difference(subject_contours, clip_contours, outpen, …)`              | pen-form   | clip − subject into `outpen` (only top-level form is `op(…, PathOp.REVERSE_DIFFERENCE)`) |
-|  [07]   | `OpBuilder(fix_winding=True, keep_starting_points=True, clockwise=False)`                         | construct  | N-way boolean accumulator                                           |
-|  [08]   | `OpBuilder.add(path, operator)`                                                                   | accumulate | stage one `Path` operand under a `PathOp` (first add seeds the base) |
-|  [09]   | `OpBuilder.resolve() -> Path`                                                                     | resolve    | fold every staged operand into one result `Path`                    |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `op(one, two, operator, fix_winding=True, keep_starting_points=True, clockwise=False) -> Path` | binary | the one binary boolean primitive over all five `PathOp` members (the always-top-level form, including `REVERSE_DIFFERENCE`) |
+| [02] | `pathops.union(contours, outpen, fix_winding=True, keep_starting_points=True, clockwise=False)` | pen-form | self-union a contour list into `outpen` (`simplify`-backed; merges overlaps + repairs winding) |
+| [03] | `pathops.difference(subject_contours, clip_contours, outpen, …)` | pen-form | subject − clip into `outpen` |
+| [04] | `pathops.intersection(subject_contours, clip_contours, outpen, …)` | pen-form | subject ∩ clip into `outpen` |
+| [05] | `pathops.xor(subject_contours, clip_contours, outpen, …)` | pen-form | symmetric difference into `outpen` |
+| [06] | `pathops.operations.reverse_difference(subject_contours, clip_contours, outpen, …)` | pen-form | clip − subject into `outpen` (only top-level form is `op(…, PathOp.REVERSE_DIFFERENCE)`) |
+| [07] | `OpBuilder(fix_winding=True, keep_starting_points=True, clockwise=False)` | construct | N-way boolean accumulator |
+| [08] | `OpBuilder.add(path, operator)` | accumulate | stage one `Path` operand under a `PathOp` (first add seeds the base) |
+| [09] | `OpBuilder.resolve() -> Path` | resolve | fold every staged operand into one result `Path` |
 
 [ENTRYPOINT_SCOPE]: simplify, stroke-to-outline, conic flatten
 - rail: figure
 
-`simplify`/`Path.simplify` removes self-intersections and fixes winding (the canonicalizer every boolean result and every imported outline passes through before fill). `Path.stroke` is the **stroke-to-outline / fixed-width offset** primitive — it replaces the contour with the filled outline of a `width`-wide stroke under the chosen cap/join/miter and optional dash, turning an open centerline into a closed fill (a true offset for closed input, the offsetting `svgelements` lacks). `convertConicsToQuads` flattens Skia's conic arcs to quads because SVG/most consumers have no conic verb.
+`simplify`/`Path.simplify` removes self-intersections and fixes winding (the canonicalizer every boolean result and every imported outline passes through before fill). `Path.stroke` is the stroke-to-outline / fixed-width offset primitive — it replaces the contour with the filled outline of a `width`-wide stroke under the chosen cap/join/miter and optional dash, turning an open centerline into a closed fill (a true offset for closed input, the offsetting `svgelements` lacks). `convertConicsToQuads` flattens Skia's conic arcs to quads because SVG/most consumers have no conic verb.
 
-| [INDEX] | MEMBER                                                                                          | KIND     | ROLE                                                                       |
-| :-----: | ----------------------------------------------------------------------------------------------- | -------- | ------------------------------------------------------------------------- |
-|  [01]   | `simplify(path, fix_winding=True, keep_starting_points=True, clockwise=False) -> Path`           | function | self-intersection removal + winding repair, returning a new `Path`         |
-|  [02]   | `Path.simplify(fix_winding=True, keep_starting_points=True, clockwise=False)`                     | in-place | the same canonicalization mutating the path                                |
-|  [03]   | `Path.stroke(width, cap, join, miter_limit, dash_array=None, dash_offset=0.0)`                    | offset   | stroke-to-outline: replace the contour with the filled `width`-wide stroke outline (cap=`LineCap`, join=`LineJoin`, optional dash) |
-|  [04]   | `Path.convertConicsToQuads(tolerance=0.25)`                                                       | flatten  | replace every conic verb with quads (SVG/quad-consumer egress)             |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `simplify(path, fix_winding=True, keep_starting_points=True, clockwise=False) -> Path` | function | self-intersection removal + winding repair, returning a new `Path` |
+| [02] | `Path.simplify(fix_winding=True, keep_starting_points=True, clockwise=False)` | in-place | the same canonicalization mutating the path |
+| [03] | `Path.stroke(width, cap, join, miter_limit, dash_array=None, dash_offset=0.0)` | offset | stroke-to-outline: replace the contour with the filled `width`-wide stroke outline (cap=`LineCap`, join=`LineJoin`, optional dash) |
+| [04] | `Path.convertConicsToQuads(tolerance=0.25)` | flatten | replace every conic verb with quads (SVG/quad-consumer egress) |
 
 [ENTRYPOINT_SCOPE]: `Path` build, ingest, draw, compose
 - rail: figure
 
 `Path` builds three ways — the SkPath-native cursor methods (`moveTo`/`lineTo`/`quadTo`/`conicTo`/`cubicTo`/`arcTo`/`close`), the generic `add(verb, *pts)`, or (the integration spine) a FontTools pen via `getPen()` that a source outline draws into. `draw(pen)` is the reverse: it replays the accumulated geometry into any output pen, so a `Path` round-trips back to `svgelements`/fontTools/a SVG-path pen. `addPath` composes another path's contours in.
 
-| [INDEX] | MEMBER                                                                                          | KIND      | ROLE                                                                  |
-| :-----: | ----------------------------------------------------------------------------------------------- | --------- | ------------------------------------------------------------------- |
-|  [01]   | `Path(verbs=None, points=None, …)` / `Path()`                                                    | construct | empty path, or seed from parallel `verbs`/`points` arrays            |
-|  [02]   | `Path.getPen(glyphSet=None, allow_open_paths=True) -> PathPen`                                    | ingest    | the FontTools pen that a `svgelements`/fontTools/HarfBuzz outline draws INTO this path |
-|  [03]   | `Path.draw(pen)`                                                                                  | egress    | replay this path's geometry into any output pen (round-trip to SVG/glyph) |
-|  [04]   | `Path.moveTo(x, y)` / `lineTo(x, y)` / `quadTo(x1, y1, x2, y2)` / `cubicTo(x1, y1, x2, y2, x3, y3)` | build   | SkPath-native cursor segment appends                                |
-|  [05]   | `Path.conicTo(x1, y1, x2, y2, w)` / `arcTo(rx, ry, xAxisRotate, largeArc, sweep, x, y)`           | build     | rational conic / SVG-style elliptical arc append (emit `CONIC` verbs)|
-|  [06]   | `Path.close()`                                                                                   | build     | close the current contour                                           |
-|  [07]   | `Path.add(verb, *pts)`                                                                            | build     | generic verb append keyed by `PathVerb`                             |
-|  [08]   | `Path.addPath(path)`                                                                              | compose   | append every contour of another `Path`                             |
-|  [09]   | `Path.reset()` / `Path.rewind()`                                                                  | clear     | empty the path (`rewind` keeps allocated capacity)                  |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Path(verbs=None, points=None, …)` / `Path()` | construct | empty path, or seed from parallel `verbs`/`points` arrays |
+| [02] | `Path.getPen(glyphSet=None, allow_open_paths=True) -> PathPen` | ingest | the FontTools pen that a `svgelements`/fontTools/HarfBuzz outline draws INTO this path |
+| [03] | `Path.draw(pen)` | egress | replay this path's geometry into any output pen (round-trip to SVG/glyph) |
+| [04] | `Path.moveTo(x, y)` / `lineTo(x, y)` / `quadTo(x1, y1, x2, y2)` / `cubicTo(x1, y1, x2, y2, x3, y3)` | build | SkPath-native cursor segment appends |
+| [05] | `Path.conicTo(x1, y1, x2, y2, w)` / `arcTo(rx, ry, xAxisRotate, largeArc, sweep, x, y)` | build | rational conic / SVG-style elliptical arc append (emit `CONIC` verbs) |
+| [06] | `Path.close()` | build | close the current contour |
+| [07] | `Path.add(verb, *pts)` | build | generic verb append keyed by `PathVerb` |
+| [08] | `Path.addPath(path)` | compose | append every contour of another `Path` |
+| [09] | `Path.reset()` / `Path.rewind()` | clear | empty the path (`rewind` keeps allocated capacity) |
 
 [ENTRYPOINT_SCOPE]: transform, reverse, geometric query, introspection
 - rail: figure
 
 `Path.transform` is the full 3×3 affine (matches the `svgelements` `Matrix` 6-tuple plus perspective). The query properties answer the layout/hit-test/winding questions a placement or toolpath consumer needs without re-deriving geometry. The introspection views (`segments`/`verbs`/`points`/`contours`/`firstPoints`) are the read side a winding/hole/contour consumer keys per loop, and the pen-replay `draw` is the canonical serialization path.
 
-| [INDEX] | MEMBER                                                                                          | KIND       | ROLE                                                              |
-| :-----: | ----------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------- |
-|  [01]   | `Path.transform(scaleX=1.0, skewY=0.0, skewX=0.0, scaleY=1.0, translateX=0.0, translateY=0.0, perspectiveX=0.0, perspectiveY=0.0, perspectiveBias=1.0)` | transform | apply a 3×3 affine/perspective in place |
-|  [02]   | `Path.reverse()`                                                                                 | transform  | reverse contour direction (flip winding)                         |
-|  [03]   | `Path.area` (property)                                                                            | query      | signed/absolute enclosed area (sign encodes winding)             |
-|  [04]   | `Path.bounds` / `Path.controlPointBounds` (properties)                                            | query      | tight geometric bbox / control-hull bbox `(xmin, ymin, xmax, ymax)` |
-|  [05]   | `Path.contains(pt)`                                                                               | query      | point-in-path hit test under the fill rule                       |
-|  [06]   | `Path.isConvex` / `Path.clockwise` (properties)                                                   | query      | convexity test / dominant winding (settable)                     |
-|  [07]   | `Path.fillType` (property)                                                                        | policy     | the `FillType` governing inside/area/contains (read/write)       |
-|  [08]   | `Path.firstPoints` (property)                                                                     | query      | the start point of each contour                                  |
-|  [09]   | `Path.segments` / `Path.verbs` / `Path.points` / `Path.contours` (properties)                     | introspect | `(verb-name, points)` tuples / `PathVerb` list / flat point list / per-contour `Path` views |
-|  [10]   | `Path.dump(cpp=False, as_hex=False)`                                                              | debug      | print the path as SkPath C++ / hex literal (diagnostic, not egress)|
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Path.transform(scaleX=1.0, skewY=0.0, skewX=0.0, scaleY=1.0, translateX=0.0, translateY=0.0, perspectiveX=0.0, perspectiveY=0.0, perspectiveBias=1.0)` | transform | apply a 3×3 affine/perspective in place |
+| [02] | `Path.reverse()` | transform | reverse contour direction (flip winding) |
+| [03] | `Path.area` (property) | query | signed/absolute enclosed area (sign encodes winding) |
+| [04] | `Path.bounds` / `Path.controlPointBounds` (properties) | query | tight geometric bbox / control-hull bbox `(xmin, ymin, xmax, ymax)` |
+| [05] | `Path.contains(pt)` | query | point-in-path hit test under the fill rule |
+| [06] | `Path.isConvex` / `Path.clockwise` (properties) | query | convexity test / dominant winding (settable) |
+| [07] | `Path.fillType` (property) | policy | the `FillType` governing inside/area/contains (read/write) |
+| [08] | `Path.firstPoints` (property) | query | the start point of each contour |
+| [09] | `Path.segments` / `Path.verbs` / `Path.points` / `Path.contours` (properties) | introspect | `(verb-name, points)` tuples / `PathVerb` list / flat point list / per-contour `Path` views |
+| [10] | `Path.dump(cpp=False, as_hex=False)` | debug | print the path as SkPath C++ / hex literal (diagnostic, not egress) |
 
 [ENTRYPOINT_SCOPE]: `PathPen` pen protocol + float helpers
 - rail: figure
 
 `PathPen` is the FontTools `AbstractPen` shape — what `getPen()` returns and what every drawable outline calls. The float helpers expose the exact IEEE-754 round-trip Skia uses internally; `decompose_quadratic_segment` splits an over-long quad for a consumer with a degree cap.
 
-| [INDEX] | MEMBER                                                                  | KIND   | ROLE                                                       |
-| :-----: | ----------------------------------------------------------------------- | ------ | ---------------------------------------------------------- |
-|  [01]   | `PathPen.moveTo(pt)` / `lineTo(pt)` / `curveTo(*points)` / `qCurveTo(*points)` | pen | cubic/quad/line pen appends into the owning `Path`         |
-|  [02]   | `PathPen.closePath()` / `endPath()`                                      | pen    | close (filled contour) / end-open (stroke centerline)      |
-|  [03]   | `PathPen.addComponent(glyphName, transformation)`                       | pen    | composite-glyph reference (the fontTools component verb)    |
-|  [04]   | `bits2float(float_as_bits)` / `float2bits(x)`                            | helper | IEEE-754 int↔float round-trip (exact coordinate fidelity)  |
-|  [05]   | `decompose_quadratic_segment(points)`                                   | helper | split a quadratic chain into renderable quad segments      |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `PathPen.moveTo(pt)` / `lineTo(pt)` / `curveTo(*points)` / `qCurveTo(*points)` | pen | cubic/quad/line pen appends into the owning `Path` |
+| [02] | `PathPen.closePath()` / `endPath()` | pen | close (filled contour) / end-open (stroke centerline) |
+| [03] | `PathPen.addComponent(glyphName, transformation)` | pen | composite-glyph reference (the fontTools component verb) |
+| [04] | `bits2float(float_as_bits)` / `float2bits(x)` | helper | IEEE-754 int↔float round-trip (exact coordinate fidelity) |
+| [05] | `decompose_quadratic_segment(points)` | helper | split a quadratic chain into renderable quad segments |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 - import: `import pathops` at boundary scope only; the distribution name is `skia-pathops`, the import name is `pathops`; the version is `pathops.__version__` (not a `_VERSION` constant). In the `graphic/vector` page this is a `lazy import pathops` beside the existing `lazy from svgelements import …` and `lazy import resvg_py`, deferring the abi3 `.so` load off the import-time path.
-- boolean axis: `op(one, two, operator)` is the single binary boolean primitive over all five `PathOp` members; the `graphic/vector` owner keys a boolean `VectorOp` arm to a `PathOp` member, never five sibling boolean methods. For more than two operands `OpBuilder.add(path, op)` × N then `resolve()` is the one N-way fold — never a hand-rolled reduce of repeated `op` calls when the builder accumulates natively. The pure-Python `union`/`difference`/`intersection`/`xor` (top-level) and `pathops.operations.reverse_difference` (operations-module only) wrappers are the **pen-protocol** form (contour list + output pen) for a fontTools-shaped caller; the `Path`+`op` form is the in-rail form. Pick the form by whether the operands are already `Path`s (use `op`/`OpBuilder`) or fontTools contours (use the wrappers). Because the `graphic/vector` rail already holds `Path`s, the binary `op(one, two, PathOp.<MEMBER>)` / `OpBuilder` form is the canonical in-rail choice and sidesteps the `reverse_difference` import asymmetry entirely.
+- boolean axis: `op(one, two, operator)` is the single binary boolean primitive over all five `PathOp` members; the `graphic/vector` owner keys a boolean `VectorOp` arm to a `PathOp` member, never five sibling boolean methods. For more than two operands `OpBuilder.add(path, op)` × N then `resolve()` is the one N-way fold — never a hand-rolled reduce of repeated `op` calls when the builder accumulates natively. The pure-Python `union`/`difference`/`intersection`/`xor` (top-level) and `pathops.operations.reverse_difference` (operations-module only) wrappers are the pen-protocol form (contour list + output pen) for a fontTools-shaped caller; the `Path`+`op` form is the in-rail form. Pick the form by whether the operands are already `Path`s (use `op`/`OpBuilder`) or fontTools contours (use the wrappers). Because the `graphic/vector` rail already holds `Path`s, the binary `op(one, two, PathOp.<MEMBER>)` / `OpBuilder` form is the canonical in-rail choice and sidesteps the `reverse_difference` import asymmetry entirely.
 - offset / stroke-to-outline axis: `Path.stroke(width, cap, join, miter_limit, dash_array=None, dash_offset=0.0)` is the one fixed-width offset / stroke-to-outline owner — it converts an open centerline into a closed filled outline (and offsets a closed contour by half-width each side), the offsetting algebra `svgelements` has no member for. Cap is a `LineCap`, join a `LineJoin`, and the dash is `(dash_array, dash_offset)` — never a hand-tessellated parallel-curve offset. Because `stroke` emits conic arcs for round caps/joins, follow it with `convertConicsToQuads(tolerance)` before drawing into a SVG/quad pen.
 - canonicalize axis: `simplify`/`Path.simplify` is the self-intersection-removal + winding-repair canonicalizer; every boolean result and every imported third-party outline passes through it before a fill/area/contains read is trusted. `fix_winding`/`keep_starting_points`/`clockwise` are the policy knobs shared by `op`/`simplify`/`OpBuilder`/the wrappers — one consistent policy triple, never a per-call re-derivation.
 - ingest/egress axis: `Path.getPen()` returns a FontTools `PathPen`; a `svgelements` `Path`, a fontTools glyph, or a `uharfbuzz` outline draws INTO it, so geometry enters from any pen-speaking producer. `Path.draw(pen)` replays the accumulated geometry into any output pen, so the boolean/offset result round-trips back to a SVG-path pen (`fonttools.pens.svgPathPen.SVGPathPen`) or a glyph pen — the `graphic/vector` rail keeps ONE geometry spine: ingest the `svgelements`-parsed `Path` segments → `pathops.Path` → boolean/simplify/stroke → `draw` back to a SVG `d`. Never re-parse the `d` string between ops.
 - conic axis: `arcTo`/`conicTo` and round-cap/round-join strokes emit `PathVerb.CONIC` segments; SVG (and most quad/cubic consumers) have no conic, so `convertConicsToQuads(tolerance)` flattens them before egress. This is the one conic→quad bridge — distinct from the `svgelements` arc-flatten rows (`approximate_arcs_with_cubics`), which operate on the `svgelements` side; pick the flattener that matches which owner currently holds the geometry.
-- query axis: `area`/`bounds`/`controlPointBounds`/`contains`/`isConvex`/`clockwise`/`firstPoints` answer the area/extent/hit-test/winding/convexity question a placement, hole-detection, or toolpath consumer needs; `len(path)` is the **contour count** (not segment count), and `segments`/`verbs`/`points`/`contours` are the per-loop read side. The fill rule for `area`/`contains` is `Path.fillType` (`FillType`), set before the query, never assumed.
+- query axis: `area`/`bounds`/`controlPointBounds`/`contains`/`isConvex`/`clockwise`/`firstPoints` answer the area/extent/hit-test/winding/convexity question a placement, hole-detection, or toolpath consumer needs; `len(path)` is the contour count (not segment count), and `segments`/`verbs`/`points`/`contours` are the per-loop read side. The fill rule for `area`/`contains` is `Path.fillType` (`FillType`), set before the query, never assumed.
 - transform axis: `Path.transform(...)` is the full 3×3 affine/perspective owner on the `pathops` side; for geometry already living in `svgelements`, the `svgelements` `Matrix` is the affine owner — transform on whichever side holds the geometry, never round-trip solely to transform.
 - fault axis: `PathOpsError` is the provider root; `OpenPathError` (closed-op/`draw` met an open contour), `UnsupportedVerbError` (pen got an unrepresentable verb), and `NumberOfPointsError` (wrong control-point count) are the named leaves. The `graphic/vector` owner maps each onto its closed `VectorFault` `@tagged_union` at the incurring arm — a boolean/simplify degeneracy onto an `empty`/`singular`-class case, an `OpenPathError` onto a stroke/boolean precondition fault — never a bare `except Exception` and never trusting `async_boundary` to swallow an unclassified Skia raise.
 - offload axis: every `op`/`simplify`/`stroke`/`OpBuilder.resolve` call is synchronous native CPU work; in the `graphic/vector` page it rides the same `WORKER_BAND`-bounded `to_process` seam the existing `resvg`/`svgelements` ops cross, never inline on the event loop.

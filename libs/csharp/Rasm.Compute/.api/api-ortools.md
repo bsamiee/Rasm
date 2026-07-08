@@ -5,12 +5,12 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Google.OrTools`
-- package: `Google.OrTools` (meta-package, version 9.15.6755, direct pin)
+- package: `Google.OrTools` (meta-package, direct pin)
 - license: Apache-2.0 (`google/or-tools`)
 - assembly: `Google.OrTools` → the `net10.0` consumer binds `lib/net8.0/Google.OrTools.dll` (the package also ships `lib/net462`; only `net8.0` is the bound asset)
 - namespace: `Google.OrTools.Sat`, `Google.OrTools.LinearSolver`, `Google.OrTools.ConstraintSolver`, `Google.OrTools.Graph`, `Google.OrTools.Util`, `Google.OrTools.OperationsResearch`
 - asset: managed SWIG/protobuf wrapper plus per-RID native solver libraries (`Google.OrTools.runtime.{osx-arm64,osx-x64,linux-arm64,linux-x64,win-x64}`; `osx-arm64` verified) — a solve with no matching RID payload faults at native load
-- transitive: bundles `Google.Protobuf` 3.33.1 transitively for the proto carriers; the central 3.35.1 pin (`api-protobuf`) wins resolution and is binary-compatible
+- transitive: bundles `Google.Protobuf` transitively for the proto carriers; the central pin (`api-protobuf`) wins resolution and is binary-compatible
 - rail: solver
 
 ## [02]-[PUBLIC_TYPES]
@@ -300,7 +300,7 @@
 - Native solver handles enter only through declared `IDisposable` roots and release deterministically; the SWIG `SWIGTYPE_p_*` and `*PINVOKE` types are interop plumbing and stay out of canonical owners.
 
 [RAIL_LAW]:
-- Package: `Google.OrTools` (9.15.6755, Apache-2.0, managed net8.0 + per-RID native)
+- Package: `Google.OrTools` (Apache-2.0, managed net8.0 + per-RID native)
 - Owns: CP-SAT constraint programming (with reification + structural-family builders + `Domain` algebra), MIP/LP exact optimization across pluggable backends, vehicle-routing search, and the `Google.OrTools.Graph` specialized network-flow engines (max-flow/min-cut, min-cost-flow, linear-sum-assignment); the proto carriers are `api-protobuf` messages
 - Accept: declared decision variables, typed constraints reified through `OnlyEnforceIf`, admissible sets expressed as `Domain` algebra, and an objective solved to a classified status — stacked onto the `OptimizerKind` row, the proto wire, and the NodaTime deadline budget
 - Reject: hand-rolled branch-and-bound, simplex, or routing search; float-equality feasibility checks outside the solver; per-backend solve entrypoints where one `Solve` discriminates on `OptimizerKind`; a managed solve DTO beside the proto carriers; the SWIG `SWIGTYPE_p_*`/`*PINVOKE` interop types leaking into canonical owners; a solve with no matching native RID payload

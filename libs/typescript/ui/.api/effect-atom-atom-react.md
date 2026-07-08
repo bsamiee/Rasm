@@ -1,14 +1,14 @@
-# [@effect-atom/atom-react] — React hooks binding the atom algebra into the component spine
+# [TS_UI_API_EFFECT_ATOM_ATOM_REACT]
 
 `@effect-atom/atom-react` is the React binding for `@effect-atom/atom`: it re-exports the entire atom algebra (`Atom`, `Result`, `Registry`, `AtomRef`, `AtomHttpApi`, `AtomRpc`, `Hydration`) and adds only the hooks and providers that thread atoms through the React 19 render tree — the concrete surface every `view` row consumes to read and drive the one `ONE_FOLD_ONE_BINDING` store. Reads are dependency-tracked and slice-scoped (`useAtomValue(atom, selector)` re-renders only on the selected projection); writes carry a `"value" | "promise" | "promiseExit"` mode so a mutation is either fire-and-forget or awaitable inside an async event handler / transition; `useAtomSuspense` folds the async `Result` into React Suspense so `waiting` suspends and `Failure` throws `Cause.squash(cause)` (the squashed tagged `E`) to the nearest error boundary. `RegistryProvider` supplies the store, `ScopedAtom` gives a component-subtree-local atom, and `HydrationBoundary` rehydrates a server-dehydrated registry before children read — the SSR handoff. react-compiler memoizes the callers, so no hook result is manually wrapped.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@effect-atom/atom-react`
-- package: `@effect-atom/atom-react` (0.5.0, MIT)
+- package: `@effect-atom/atom-react` (MIT)
 - module format: ESM + CJS dual (`.d.ts` under `dist/dts`), `sideEffects: []`; subpaths `.`, `./Hooks`, `./RegistryContext`, `./ScopedAtom`, `./ReactHydration`; the barrel re-exports every `@effect-atom/atom` namespace so a `view` row imports `Atom`/`Result`/`Registry` from here
 - runtime target: React 19 client + server (SSR via `HydrationBoundary`); the `scheduler` peer drives concurrent-mode task scheduling, react-compiler compiles memoization
-- peer: `effect@^3.19`, `react@>=18 <20`, `scheduler@*`; dep `@effect-atom/atom@^0.5.0`
+- peer: `effect catalog`, `react catalog`, `scheduler@*`; dep `@effect-atom/atom@^catalog`
 - asset: pure-TypeScript React hook library — hooks + `RegistryProvider`/`ScopedAtom`/`HydrationBoundary` over the atom `Registry`
 - rail: state binding (the React-facing edge of `ONE_FOLD_ONE_BINDING`; every `view` row reads it, `atom/binding` provides the registry)
 
@@ -17,59 +17,59 @@
 [PUBLIC_TYPE_SCOPE]: re-exported atom algebra — the input to every hook
 - rail: state binding
 
-| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]    | [CONSUMER]                                                        |
-| :-----: | :------------------------------------------------------ | :--------------- | :--------------------------------------------------------------- |
-|  [01]   | `Atom` / `Registry` / `Result` namespaces (re-export)  | algebra re-export | `view` rows import `Atom.make`/`Result.match`/`Registry.layer` from this barrel; `Result<A,E> = Initial \| Success \| Failure` (the `Failure` arm carries `Cause<E>`) is the value every read hook surfaces — the data source and the failure source; catalogued in `effect-atom-atom.md` |
-|  [02]   | `AtomRef` / `AtomHttpApi` / `AtomRpc` / `Hydration` (re-export) | algebra re-export | the binding rows and fine-grained refs reach through the same barrel |
-|  [03]   | `ScopedAtom<A, Input>` (`.use()`, `.Provider`, `.Context`) | subtree-scoped atom | `view/compose` — a per-instance atom (per-row, per-panel state) provided down a subtree, optionally seeded with `Input` |
-|  [04]   | `HydrationBoundaryProps` (`{ state?, children? }`)      | SSR props         | app root — the `DehydratedAtom[]` a server emits, rehydrated before children read |
-|  [05]   | write `mode` union `"value" \| "promise" \| "promiseExit"` | write modality  | `view` — selects whether a setter is fire-and-forget, awaitable to `Success`, or awaitable to `Exit` |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
+| [01] | `Atom` / `Registry` / `Result` namespaces (re-export) | algebra re-export | `view` rows import `Atom.make`/`Result.match`/`Registry.layer` from this barrel; `Result<A,E> = Initial \| Success \| Failure` (the `Failure` arm carries `Cause<E>`) is the value every read hook surfaces — the data source and the failure source; catalogued in `effect-atom-atom.md` |
+| [02] | `AtomRef` / `AtomHttpApi` / `AtomRpc` / `Hydration` (re-export) | algebra re-export | the binding rows and fine-grained refs reach through the same barrel |
+| [03] | `ScopedAtom<A, Input>` (`.use()`, `.Provider`, `.Context`) | subtree-scoped atom | `view/compose` — a per-instance atom (per-row, per-panel state) provided down a subtree, optionally seeded with `Input` |
+| [04] | `HydrationBoundaryProps` (`{ state?, children? }`) | SSR props | app root — the `DehydratedAtom[]` a server emits, rehydrated before children read |
+| [05] | write `mode` union `"value" \| "promise" \| "promiseExit"` | write modality | `view` — selects whether a setter is fire-and-forget, awaitable to `Success`, or awaitable to `Exit` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: reading atoms — dependency-tracked, slice-scoped
 - rail: state binding
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `useAtomValue(atom)` / `useAtomValue(atom, (a) => b)`                                            | read / select  | `view` — the primary read; the selector overload re-renders only when the projected slice changes |
-|  [02]   | `useAtomSuspense(atom, { suspendOnWaiting?, includeFailure? })`                                  | suspense read  | `view` — returns `Result.Success`; suspends while `waiting`, throws `Cause.squash(cause)` (the squashed `E`) to the error boundary unless `includeFailure` returns the `Failure` arm inline |
-|  [03]   | `useAtomMount(atom)`                                                                             | keep-mounted   | `view` — pin an atom hot for the component's lifetime without reading its value |
-|  [04]   | `useAtomSubscribe(atom, (a) => …, { immediate? })`                                               | side-effect    | `view` — run an imperative effect on each atom change (focus, scroll, analytics) without re-render |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `useAtomValue(atom)` / `useAtomValue(atom, (a) => b)` | read / select | `view` — the primary read; the selector overload re-renders only when the projected slice changes |
+| [02] | `useAtomSuspense(atom, { suspendOnWaiting?, includeFailure? })` | suspense read | `view` — returns `Result.Success`; suspends while `waiting`, throws `Cause.squash(cause)` (the squashed `E`) to the error boundary unless `includeFailure` returns the `Failure` arm inline |
+| [03] | `useAtomMount(atom)` | keep-mounted | `view` — pin an atom hot for the component's lifetime without reading its value |
+| [04] | `useAtomSubscribe(atom, (a) => …, { immediate? })` | side-effect | `view` — run an imperative effect on each atom change (focus, scroll, analytics) without re-render |
 
 [ENTRYPOINT_SCOPE]: writing and refreshing atoms — the three write modes
 - rail: state binding
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `useAtom(atom, { mode? })`                                                                       | read + write   | `view` — the `[value, write]` tuple; `mode` selects the setter shape (below) |
-|  [02]   | `useAtomSet(atom, { mode? })`                                                                    | write only     | `view` — a setter with no subscription; `"value"` → `(W \| (R=>W)) => void`, `"promise"` → `(W) => Promise<Success>`, `"promiseExit"` → `(W) => Promise<Exit>` for awaitable async handlers |
-|  [03]   | `useAtomRefresh(atom)`                                                                           | refresh        | `view` — returns a `() => void` that re-runs an effect/pull atom (pull-to-refresh, retry) |
-|  [04]   | `useAtomInitialValues(iterable)`                                                                 | seed           | `view` — seed atoms with initial values at first render (server-provided data, route params) |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `useAtom(atom, { mode? })` | read + write | `view` — the `[value, write]` tuple; `mode` selects the setter shape (below) |
+| [02] | `useAtomSet(atom, { mode? })` | write only | `view` — a setter with no subscription; `"value"` → `(W \| (R=>W)) => void`, `"promise"` → `(W) => Promise<Success>`, `"promiseExit"` → `(W) => Promise<Exit>` for awaitable async handlers |
+| [03] | `useAtomRefresh(atom)` | refresh | `view` — returns a `() => void` that re-runs an effect/pull atom (pull-to-refresh, retry) |
+| [04] | `useAtomInitialValues(iterable)` | seed | `view` — seed atoms with initial values at first render (server-provided data, route params) |
 
 [ENTRYPOINT_SCOPE]: fine-grained refs — sub-value cursors without re-running the owner
 - rail: state binding
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `useAtomRef(ref)`                                                                                | ref read       | `view/compose` — read an `AtomRef`/`ReadonlyRef` value with `Equal`-based change detection |
-|  [02]   | `useAtomRefProp(ref, key)`                                                                       | ref narrow     | `view/compose` — derive a child `AtomRef` for one property (a single form field of a form-state ref) |
-|  [03]   | `useAtomRefPropValue(ref, key)`                                                                  | ref prop read  | `view/compose` — read one property value directly, re-rendering only when that property changes |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `useAtomRef(ref)` | ref read | `view/compose` — read an `AtomRef`/`ReadonlyRef` value with `Equal`-based change detection |
+| [02] | `useAtomRefProp(ref, key)` | ref narrow | `view/compose` — derive a child `AtomRef` for one property (a single form field of a form-state ref) |
+| [03] | `useAtomRefPropValue(ref, key)` | ref prop read | `view/compose` — read one property value directly, re-rendering only when that property changes |
 
 [ENTRYPOINT_SCOPE]: providers, scoped atoms, and SSR
 - rail: composition
 
-| [INDEX] | [SURFACE]                                                                                       | [ENTRY_FAMILY] | [CONSUMER]                                                    |
-| :-----: | :---------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `RegistryProvider({ children, initialValues?, scheduleTask?, timeoutResolution?, defaultIdleTTL? })` / `RegistryContext` | store provider | app root — supplies the one `Registry`; a nested provider is a test/story isolation boundary |
-|  [02]   | `ScopedAtom.make((input?) => atom)` → `.Provider` / `.use()` / `.Context`                        | subtree atom   | `view/compose` — a per-instance atom scoped to a subtree (per-row expansion, per-panel draft), optionally seeded with `Input` |
-|  [03]   | `HydrationBoundary({ state, children })`                                                         | SSR handoff    | app root — rehydrate `Hydration.dehydrate(registry)` output into the client registry before children read |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
+| [01] | `RegistryProvider({ children, initialValues?, scheduleTask?, timeoutResolution?, defaultIdleTTL? })` / `RegistryContext` | store provider | app root — supplies the one `Registry`; a nested provider is a test/story isolation boundary |
+| [02] | `ScopedAtom.make((input?) => atom)` → `.Provider` / `.use()` / `.Context` | subtree atom | `view/compose` — a per-instance atom scoped to a subtree (per-row expansion, per-panel draft), optionally seeded with `Input` |
+| [03] | `HydrationBoundary({ state, children })` | SSR handoff | app root — rehydrate `Hydration.dehydrate(registry)` output into the client registry before children read |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [HOOK_TOPOLOGY]:
 - Every hook resolves the ambient `Registry` from `RegistryContext` and subscribes through React's `useSyncExternalStore` — the one external-store seam `react` (`.api/react.md`) and `@types/react` (`.api/types-react.md`) reserve for this package; `useAtom`/`useAtomValue`/`useAtomSet` are built on it, so `react` reaches the atom binding through `useSyncExternalStore` and nowhere else. The store is React context, the reactivity is the atom graph, and React's render is only the projection. A component reads with `useAtomValue`, and the selector overload (`useAtomValue(atom, f)`) scopes the subscription to the projected slice so an unrelated field change does not re-render; this replaces a `useMemo`-over-selector idiom entirely, and react-compiler handles the residual memoization.
-- Async is folded, not branched: `useAtomSuspense` turns a `Result` atom into a Suspense boundary — `waiting` suspends to the nearest `<Suspense>` fallback, `Failure` throws `Cause.squash(cause)` (the squashed tagged `E`, so the boundary fallback `Match.tags` it directly) to the nearest error boundary, and `Success` is the returned value, so a component body never carries `if (loading)`/`if (error)` ladders. When inline handling is wanted, `includeFailure: true` returns the `Failure` arm and the component folds it with `Result.match`.
+- Async is folded, not branched: `useAtomSuspense` turns a `Result` atom into a Suspense boundary — `waiting` suspends to the nearest `<Suspense>` recovery, `Failure` throws `Cause.squash(cause)` (the squashed tagged `E`, so the boundary recovery `Match.tags` it directly) to the nearest error boundary, and `Success` is the returned value, so a component body never carries `if (loading)`/`if (error)` ladders. When inline handling is wanted, `includeFailure: true` returns the `Failure` arm and the component folds it with `Result.match`.
 - Writes carry a modality: `useAtom`/`useAtomSet` accept `mode` — `"value"` for fire-and-forget UI writes, `"promise"`/`"promiseExit"` for handlers that must `await` the effect's completion (form submit that awaits the server `Result`, an optimistic write reconciled in a `startTransition`). One hook, three write shapes, discriminated by the mode value — no `useAtomSetAsync` sibling.
 - `AtomRef` hooks give fine-grained cursors: `useAtomRefProp(ref, key)` derives a child `AtomRef` for one property so a large form-state atom re-renders only the edited field, and an undo/redo cursor (an `AtomRef.collection`) subscribes per item — the fine-grained counterpart to the coarse `useAtomValue`.
 - `ScopedAtom` is per-instance state done right: `ScopedAtom.make(f)` yields a `{ Provider, use, Context }` triple so a component subtree owns its own atom instance (one draft per open editor) without a global key registry, and the atom still participates in the same `Registry` lifecycle and devtools.

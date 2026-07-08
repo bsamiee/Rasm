@@ -21,28 +21,28 @@
 
 The constraint system is five types: a `Solver` mutable owner, a `Variable` free symbol, the `Term`/`Expression` linear-combination value objects (immutable — built by operator overloading, never mutated), and a `Constraint` (an `Expression op 0` plus a priority). `Variable`/`Term`/`Expression` are explicitly unhashable (`__hash__ = None`) — they are algebraic operands, never dict keys; key constraint layouts on the stable `rustworkx` node index, not on a `Variable`.
 
-| [INDEX] | TYPE         | KIND         | ROLE                                                                                   |
-| :-----: | ------------ | ------------ | -------------------------------------------------------------------------------------- |
-|  [01]   | `Solver`     | system owner | the mutable constraint system; `addConstraint`/`updateVariables`/`suggestValue`/`reset` |
-|  [02]   | `Variable`   | free symbol  | a named unknown the solver writes; `value()` reads the solved coordinate                |
-|  [03]   | `Term`       | linear value | a `coefficient * Variable` product (immutable); built by `coeff * var`                  |
-|  [04]   | `Expression` | linear value | a sum of `Term`s plus a constant (immutable); built by `+`/`-` over variables/terms     |
-|  [05]   | `Constraint` | relation     | an `Expression` + relational op (`==`/`<=`/`>=`) + a `strength`; built by `expr <= rhs` |
-|  [06]   | `Strength`   | priority     | the `strength` singleton (`type_check_only` class); `weak`/`medium`/`strong`/`required` + `create` |
+| [INDEX] | [TYPE] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Solver` | system owner | the mutable constraint system; `addConstraint`/`updateVariables`/`suggestValue`/`reset` |
+| [02] | `Variable` | free symbol | a named unknown the solver writes; `value()` reads the solved coordinate |
+| [03] | `Term` | linear value | a `coefficient * Variable` product (immutable); built by `coeff * var` |
+| [04] | `Expression` | linear value | a sum of `Term`s plus a constant (immutable); built by `+`/`-` over variables/terms |
+| [05] | `Constraint` | relation | an `Expression` + relational op (`==`/`<=`/`>=`) + a `strength`; built by `expr <= rhs` |
+| [06] | `Strength` | priority | the `strength` singleton (`type_check_only` class); `weak`/`medium`/`strong`/`required` + `create` |
 
 [PUBLIC_TYPE_SCOPE]: typed solver-fault family
 - rail: figure
 
 Every solver-state failure is a distinct exception carrying the offending object, so the `rasm.runtime.faults` boundary discriminates the fault kind without string-matching a message. `addConstraint`/`addEditVariable`/`suggestValue`/`removeConstraint` are the throwing surfaces; `__slots__` carries the offending `constraint` or `edit_variable`.
 
-| [INDEX] | TYPE                      | SLOT            | RAISED BY                                                          |
-| :-----: | ------------------------- | --------------- | ----------------------------------------------------------------- |
-|  [01]   | `UnsatisfiableConstraint` | `constraint`    | `addConstraint` when a new required constraint conflicts          |
-|  [02]   | `DuplicateConstraint`     | `constraint`    | `addConstraint` for an already-added constraint                   |
-|  [03]   | `UnknownConstraint`       | `constraint`    | `removeConstraint`/`hasConstraint` for a never-added constraint   |
-|  [04]   | `BadRequiredStrength`     | (none)          | `addEditVariable` with `required` strength (edits must be non-required) |
-|  [05]   | `DuplicateEditVariable`   | `edit_variable` | `addEditVariable` for an already-added edit variable              |
-|  [06]   | `UnknownEditVariable`     | `edit_variable` | `suggestValue`/`removeEditVariable` for a non-edit variable       |
+| [INDEX] | [TYPE] | [SLOT] | [RAISED_BY] |
+| --- | --- | --- | --- |
+| [01] | `UnsatisfiableConstraint` | `constraint` | `addConstraint` when a new required constraint conflicts |
+| [02] | `DuplicateConstraint` | `constraint` | `addConstraint` for an already-added constraint |
+| [03] | `UnknownConstraint` | `constraint` | `removeConstraint`/`hasConstraint` for a never-added constraint |
+| [04] | `BadRequiredStrength` | (none) | `addEditVariable` with `required` strength (edits must be non-required) |
+| [05] | `DuplicateEditVariable` | `edit_variable` | `addEditVariable` for an already-added edit variable |
+| [06] | `UnknownEditVariable` | `edit_variable` | `suggestValue`/`removeEditVariable` for a non-edit variable |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -51,50 +51,50 @@ Every solver-state failure is a distinct exception carrying the offending object
 
 `Variable("x")` is the free symbol; the linear form is built by operator overloading, never by a constructor call — `2 * x` is a `Term`, `2 * x + y - 30` is an `Expression`, and a relational operator turns an expression into a `Constraint`. `__eq__`/`__ge__`/`__le__` produce a `Constraint`; `__ne__`/`__gt__`/`__lt__` are `NoReturn` (strict orderings and inequality are intentionally unsupported — Cassowary models `==`/`<=`/`>=` only). Build alignment/separation expressions directly from the operator overloads; never hand-construct a `Term`/`Expression` tuple.
 
-| [INDEX] | MEMBER                                              | KIND      | ROLE                                                              |
-| :-----: | --------------------------------------------------- | --------- | ---------------------------------------------------------------- |
-|  [01]   | `Variable(name="", context=None)`                   | construct | a named free unknown; optional `context` carries an opaque payload |
-|  [02]   | `Variable.value()`                                  | read      | the solved value after `updateVariables()` (`0.0` before solve)   |
-|  [03]   | `Variable.name()` / `setName(name)`                 | identity  | get/set the variable name (used in `Solver.dumps()` provenance)   |
-|  [04]   | `Variable.context()` / `setContext(obj)`            | payload   | get/set the opaque context object the consumer threads through    |
-|  [05]   | `var * c` / `c * var` -> `Term`                     | algebra   | scale a variable to a `Term` (coefficient product)               |
-|  [06]   | `var + other` / `var - other` -> `Expression`       | algebra   | sum variables/terms/floats into an `Expression`                  |
-|  [07]   | `Term(variable, coefficient=1.0)`                   | construct | explicit `Term` (prefer `c * var`); `coefficient()`/`variable()`/`value()` |
-|  [08]   | `Expression(terms, constant=0.0)`                   | construct | explicit `Expression`; `terms()` (a `tuple[Term, ...]`)/`constant()`/`value()` |
-|  [09]   | `expr == rhs` / `expr <= rhs` / `expr >= rhs` -> `Constraint` | relation  | build a `Constraint` (rhs is `float`/`Variable`/`Term`/`Expression`) |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Variable(name="", context=None)` | construct | a named free unknown; optional `context` carries an opaque payload |
+| [02] | `Variable.value()` | read | the solved value after `updateVariables()` (`0.0` before solve) |
+| [03] | `Variable.name()` / `setName(name)` | identity | get/set the variable name (used in `Solver.dumps()` provenance) |
+| [04] | `Variable.context()` / `setContext(obj)` | payload | get/set the opaque context object the consumer threads through |
+| [05] | `var * c` / `c * var` -> `Term` | algebra | scale a variable to a `Term` (coefficient product) |
+| [06] | `var + other` / `var - other` -> `Expression` | algebra | sum variables/terms/floats into an `Expression` |
+| [07] | `Term(variable, coefficient=1.0)` | construct | explicit `Term` (prefer `c * var`); `coefficient()`/`variable()`/`value()` |
+| [08] | `Expression(terms, constant=0.0)` | construct | explicit `Expression`; `terms()` (a `tuple[Term, ...]`)/`constant()`/`value()` |
+| [09] | `expr == rhs` / `expr <= rhs` / `expr >= rhs` -> `Constraint` | relation | build a `Constraint` (rhs is `float`/`Variable`/`Term`/`Expression`) |
 
 [ENTRYPOINT_SCOPE]: `Constraint` and `strength` priority
 - rail: figure
 
 A `Constraint` carries an `Expression`, a relational op, and a `strength`. The relational operators default to `required` strength; `constraint | strength` (or the `strength=` arg of the explicit constructor) lowers it to `weak`/`medium`/`strong` or any numeric band. `strength.create(a, b, c, weight=1.0)` blends the three bands symbolically (`a` -> strong slot ×10^6, `b` -> medium ×10^3, `c` -> weak ×1, each clamped to its band, the whole scaled by `weight`) for a custom priority between the canonical bands. `required` (= `1001001000.0`) constraints must be satisfiable or the add raises `UnsatisfiableConstraint`; non-required constraints are minimized as soft objectives, so a layout expresses hard rules as `required` and aesthetic preferences (centering, equal spacing) as `weak`/`medium`.
 
-| [INDEX] | MEMBER                                              | KIND      | ROLE                                                              |
-| :-----: | --------------------------------------------------- | --------- | ---------------------------------------------------------------- |
-|  [01]   | `Constraint(expression, op, strength="required")`   | construct | explicit build; `op` is `"=="`/`"<="`/`">="`, `strength` float or band name |
-|  [02]   | `constraint \| strength`                            | priority  | lower a constraint's strength (`(x == y) \| "weak"`); band name or float |
-|  [03]   | `Constraint.expression()` / `op()` / `strength()`   | read      | the constraint's expression, relational op, and numeric strength  |
-|  [04]   | `Constraint.violated()`                             | introspect | whether the constraint is unsatisfied in the current solver state (post-solve QA) |
-|  [05]   | `strength.weak` / `medium` / `strong` / `required`  | band      | the four canonical priority floats (`1.0` / `1e3` / `1e6` / `1001001000.0`) |
-|  [06]   | `strength.create(a, b, c, weight=1.0)`              | blend     | a symbolic priority between bands (e.g. `strength.create(0, 1, 0, 2)` = 2×medium) |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Constraint(expression, op, strength="required")` | construct | explicit build; `op` is `"=="`/`"<="`/`">="`, `strength` float or band name |
+| [02] | `constraint \| strength` | priority | lower a constraint's strength (`(x == y) \| "weak"`); band name or float |
+| [03] | `Constraint.expression()` / `op()` / `strength()` | read | the constraint's expression, relational op, and numeric strength |
+| [04] | `Constraint.violated()` | introspect | whether the constraint is unsatisfied in the current solver state (post-solve QA) |
+| [05] | `strength.weak` / `medium` / `strong` / `required` | band | the four canonical priority floats (`1.0` / `1e3` / `1e6` / `1001001000.0`) |
+| [06] | `strength.create(a, b, c, weight=1.0)` | blend | a symbolic priority between bands (e.g. `strength.create(0, 1, 0, 2)` = 2×medium) |
 
 [ENTRYPOINT_SCOPE]: `Solver` system lifecycle and edit-variable re-solve
 - rail: figure
 
 `Solver` is the one mutable owner of the constraint system — `addConstraint`/`removeConstraint` mutate in place and return `None` (the solver is the stateful sink, never a fluent value object). Solving is two-phase: register constraints and edit variables, then `updateVariables()` writes the solved `value()` into every `Variable`. Edit variables (`addEditVariable` + `suggestValue` + `updateVariables`) are the interactive re-solve path — register an edit variable at a non-`required` strength, suggest a new value (a dragged handle, a resized sheet width), and re-solve incrementally without rebuilding the system, the amortized-incremental advantage over a from-scratch LP. `dump()`/`dumps()` serialize the full solver internals (objective, tableau, variable bindings, edit variables, constraints) for a layout-debug receipt.
 
-| [INDEX] | MEMBER                                              | KIND      | ROLE                                                              |
-| :-----: | --------------------------------------------------- | --------- | ---------------------------------------------------------------- |
-|  [01]   | `Solver()`                                          | construct | a fresh empty constraint system                                  |
-|  [02]   | `Solver.addConstraint(constraint)`                  | mutate    | add a constraint (raises `Duplicate`/`Unsatisfiable`); returns `None` |
-|  [03]   | `Solver.removeConstraint(constraint)`               | mutate    | remove a constraint (raises `UnknownConstraint`)                 |
-|  [04]   | `Solver.hasConstraint(constraint)`                  | query     | whether the solver contains the constraint                       |
-|  [05]   | `Solver.addEditVariable(variable, strength)`        | mutate    | register an edit variable (non-`required`; raises `BadRequiredStrength`/`Duplicate`) |
-|  [06]   | `Solver.removeEditVariable(variable)`               | mutate    | drop an edit variable (raises `UnknownEditVariable`)             |
-|  [07]   | `Solver.hasEditVariable(variable)`                  | query     | whether the solver contains the edit variable                    |
-|  [08]   | `Solver.suggestValue(variable, value)`              | mutate    | suggest a desired value for an edit variable (raises `UnknownEditVariable`) |
-|  [09]   | `Solver.updateVariables()`                          | solve     | write the solved values into every `Variable` (the solve commit) |
-|  [10]   | `Solver.reset()`                                    | mutate    | clear all constraints/edit variables back to empty               |
-|  [11]   | `Solver.dump()` / `dumps()`                         | introspect | print / return the full solver-internals text (debug receipt)    |
+| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
+| --- | --- | --- | --- |
+| [01] | `Solver()` | construct | a fresh empty constraint system |
+| [02] | `Solver.addConstraint(constraint)` | mutate | add a constraint (raises `Duplicate`/`Unsatisfiable`); returns `None` |
+| [03] | `Solver.removeConstraint(constraint)` | mutate | remove a constraint (raises `UnknownConstraint`) |
+| [04] | `Solver.hasConstraint(constraint)` | query | whether the solver contains the constraint |
+| [05] | `Solver.addEditVariable(variable, strength)` | mutate | register an edit variable (non-`required`; raises `BadRequiredStrength`/`Duplicate`) |
+| [06] | `Solver.removeEditVariable(variable)` | mutate | drop an edit variable (raises `UnknownEditVariable`) |
+| [07] | `Solver.hasEditVariable(variable)` | query | whether the solver contains the edit variable |
+| [08] | `Solver.suggestValue(variable, value)` | mutate | suggest a desired value for an edit variable (raises `UnknownEditVariable`) |
+| [09] | `Solver.updateVariables()` | solve | write the solved values into every `Variable` (the solve commit) |
+| [10] | `Solver.reset()` | mutate | clear all constraints/edit variables back to empty |
+| [11] | `Solver.dump()` / `dumps()` | introspect | print / return the full solver-internals text (debug receipt) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -41,7 +41,7 @@ Every folder-specific external library, planned or implemented. Versions are cen
 - `@effect/sql-clickhouse`
 - `@duckdb/node-api`
 - `@duckdb/duckdb-wasm`
-- `apache-arrow`
+- `apache-arrow` (`../ui/.api/apache-arrow.md`)
 
 [OBJECT_PLANE]:
 - `@aws-sdk/client-s3`
@@ -57,6 +57,7 @@ Every folder-specific external library, planned or implemented. Versions are cen
 [REMOTE_TRANSFER]:
 - `basic-ftp`
 - `webdav`
+- `ssh2`
 
 ## [03]-[SUBSTRATE_PACKAGES]
 
@@ -72,6 +73,3 @@ Cross-cutting TypeScript substrate this folder consumes; canonical registry and 
 
 [OVERLAY]:
 - `@effect/experimental`
-
-[REMOTE_ROOT]:
-- `ssh2`

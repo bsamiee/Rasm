@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.NpgSql`
 - package: `AspNetCore.HealthChecks.NpgSql`
-- version: `9.0.0`
 - license: `Apache-2.0`
 - assembly: `HealthChecks.NpgSql`
 - namespace: `HealthChecks.NpgSql`

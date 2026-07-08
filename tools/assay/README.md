@@ -1,6 +1,6 @@
 # [ASSAY_OPERATOR]
 
-`tools.assay` is the Rasm polyglot quality operator over the `static`, `code`, `test`, `bridge`, `package`, `api`, `docs`, and `provision` claims, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. Command surfaces, verbs, flags, and parameter signatures live in Cyclopts help (`uv run python -m tools.assay --help`, per-claim `--help`) and the `self-test` census — never in this document.
+`tools.assay` is the Rasm polyglot quality operator over the `static`, `code`, `test`, `bridge`, `package`, `api`, `docs`, and `provision` claims, validating C#, Python, TypeScript, Bash, SQL, and Markdown surfaces. Command surfaces, verbs, flags, and parameter signatures live in Cyclopts help (`uv run python -m tools.assay --help`, per-claim `--help`) and the `self-test` census.
 
 ## [01]-[SCOPE]
 
@@ -97,12 +97,12 @@ Parse stdout for results, read stderr for diagnosis, and treat the process exit 
 
 [REMOTE_EXECUTION]:
 - Target switch: the `--exec` global flag selects offload; `--exec local` (default) keeps execution local, `--exec ssh://[user@]host[:port]` offloads process execution over SSH. The flag wins over its `ASSAY_EXEC_TARGET` env fallback. Scheme, host, and port validate at settings load, so a malformed target fails before any spawn; a missing port defaults to 22 at connect.
-- Offload-capable lanes: heavy closures — mutation `full`, the full `static` lane, and `.NET` build graphs — run on the remote host and return the same one-`Envelope` result locally. Remote facts ride the `ExecReceipt`; signalled kills synthesize exit 255 with an `ssh.signal=<name>` note. Remote runs carry no process-stall telemetry.
+- Offload-capable lanes: heavy closures — the full `static` lane and `.NET` build graphs — run on the remote host and return the same one-`Envelope` result locally; mutation rides copy-staged tools, so it stays local under the host-bound reject. Remote facts ride the `ExecReceipt`; signalled kills synthesize exit 255 with an `ssh.signal=<name>` note. Remote runs carry no process-stall telemetry.
 - Host-bound reject: `bridge`, `package`, and `provision` claims and copy-staged tools reject under `exec_target` as an `UNSUPPORTED` fault before argv composition.
 - Working-tree push: before the remote exec, `core/remote.py` pushes the lane-scoped build closure to `<workroot>/<run_id>` over the pooled SFTP connection; `git ls-files` is the source universe and gitignored roots never cross. Push and pull each run under their own shielded budget while the bracketed exec stays cancellable by the check deadline. Build argv scope paths rebase from host-absolute to `<workroot>/<run_id>/...` before remote argv composition.
 - Toolchain pre-flight: the exec probes the remote `PATH` for the runner's leading tool (`uv`, `dotnet`) under the injected fixed Linux toolchain prefix; an absent tool returns a typed `unsupported` receipt. The agent's local `PATH` never crosses.
-- Artifact pull-back: `sftp` is the sole admitted remote backend, derived from the SSH host and pinned under `<workroot>/<run_id>/.artifacts/assay`; a shielded post-exit download lands scope artifacts locally, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run. A once-per-fan sweep prunes all but `artifact_retention` newest of this host's own remote run dirs.
-- Cloud posture: `s3`, `gs`, and `gcs` sit in the backend-capability table as `(reachable, admitted=False, SHARED)` rows; re-admission is a one-row `admitted=True` flip plus a `SHARED` pull arm.
+- Artifact pull-back: `sftp` is the sole `TRANSFER` backend, derived from the SSH host and pinned under `<workroot>/<run_id>/.artifacts/assay`; a shielded post-exit download lands scope artifacts locally, degrading to a `remote.artifacts.degraded` note rather than reclassifying a completed run. A once-per-fan sweep prunes all but `artifact_retention` newest of this host's own remote run dirs.
+- Cloud posture: `s3`, `gs`, and `gcs` are admitted `SHARED` backends — the remote tool writes and the agent reads the same universal object-store paths, so the pull transfers zero bytes.
 
 [PROVISIONING_BOUNDARY]:
 - The `provision` claim delegates to the Forge-owned `forge-provision`/`forge-scientific-env` executables on `PATH` and projects sanitized schema-v3 JSON into `ProvisionRun` evidence; assay pins no version, and a missing executable is a process fault.

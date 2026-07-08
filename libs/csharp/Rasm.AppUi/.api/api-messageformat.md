@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `MessageFormat`
 - package: `MessageFormat` (NuGet id `MessageFormat`)
-- version: `8.0.0`
 - assembly: `Jeffijoe.MessageFormat` (the shipped assembly id differs from the package id)
 - namespace: `Jeffijoe.MessageFormat`, `Jeffijoe.MessageFormat.Formatting` (the `IFormatter`/`IFormatterLibrary` SPI), `Jeffijoe.MessageFormat.Formatting.Formatters` (the concrete `PluralFormatter`/`SelectFormatter`/`VariableFormatter` handlers), `Jeffijoe.MessageFormat.Parsing` (the pattern parser)
 - license: MIT (repo `github.com/jeffijoe/messageformat.net`; the nuspec ships `<authors>Jeff Hansen</authors>` with no `<license>` expression — MIT per the repository LICENSE)
@@ -46,7 +45,7 @@
 [FORMAT]: the resolution surface
 - rail: locale
 
-| [INDEX] | [SURFACE]                                                                  | [SHAPE / CAPABILITY]                                          |
+| [INDEX] | [SURFACE]                                                                  | [SHAPE_CAPABILITY]                                          |
 | :-----: | :------------------------------------------------------------------------- | :----------------------------------------------------------- |
 |  [01]   | `new MessageFormatter(bool useCache = true, CultureInfo? culture = null, CustomValueFormatter? customValueFormatter = null)` | construct a reusable engine (default culture + cached compiled patterns) |
 |  [02]   | `string FormatMessage(string pattern, IReadOnlyDictionary<string,object?> args, CultureInfo? culture = null)` | the instance resolution — per-call culture override          |
@@ -68,7 +67,7 @@
 [BOUNDARY_FAULTS]: the failure surface lifted at the locale edge
 - rail: locale
 
-| [INDEX] | [THROWN]                          | [DISCRIMINANT / CAUSE]                                        |
+| [INDEX] | [THROWN]                          | [DISCRIMINANT_CAUSE]                                        |
 | :-----: | :-------------------------------- | :----------------------------------------------------------- |
 |  [01]   | `MessageFormatterException`       | a malformed ICU pattern — unbalanced braces, bad argument syntax (the parse fault) |
 |  [02]   | `FormatterNotFoundException`      | a pattern argument-type keyword with no matching `IFormatter` in the library |

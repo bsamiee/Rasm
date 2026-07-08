@@ -151,8 +151,8 @@ def _seed_solution(assay_root: AssayHarness) -> tuple[str, ...]:
         "tests/csharp/libs/Rasm.Host/Rasm.Host.Tests.csproj": _HOST_CSPROJ,
         "tests/csharp/scenarios/Rasm.Scenarios.csproj": _SHELL_CSPROJ,
         "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj": "<Project />",
-        "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj": "<Project />",
-        "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj": "<Project />",
+        "tests/csharp/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj": "<Project />",
+        "tests/csharp/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj": "<Project />",
     }
     folders = "".join(f'<Folder Name="/{Path(p).parent.as_posix()}/"><Project Path="{p}" /></Folder>' for p in markers)
     assay_root.write("Workspace.slnx", f"<Solution>{folders}</Solution>")
@@ -438,8 +438,8 @@ def test_select_solution_admission_arms(assay_root: AssayHarness) -> None:
     assert set(selected.routed.projects) == {
         "tests/csharp/_architecture/Rasm.Architecture.Tests.csproj",
         "tests/csharp/tools/cs-analyzer/Csp.Analyzer.Tests.csproj",
-        "tests/csharp/tools/rhino-bridge/Contract/Contract.csproj",
-        "tests/csharp/tools/rhino-bridge/Supervisor/Supervisor.csproj",
+        "tests/csharp/tools/rhino-bridge/Contract/Rasm.Bridge.Contract.Tests.csproj",
+        "tests/csharp/tools/rhino-bridge/Supervisor/Rasm.Bridge.Supervisor.Tests.csproj",
         host,
     }
     # Shell projects never reach dispatch even when they carry real content — the marker wins; the unreadable

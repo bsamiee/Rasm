@@ -24,7 +24,7 @@ Face metrics are ngon-aware by construction: `MeshMetric` `[SmartEnum<int>]` (Ed
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System;
 using System.Globalization;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rhino.Geometry;
@@ -230,7 +230,7 @@ using System;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
-using Foundation.CSharp.Analyzers.Contracts;
+using Rasm.Csp;
 using LanguageExt;
 using Rasm.Domain;
 using Rasm.Processing;

@@ -1,13 +1,13 @@
-# [SECURITY_API_NODE_RS_ARGON2]
+# [TS_SECURITY_API_NODE_RS_ARGON2]
 
-`@node-rs/argon2` is the argon2 password-hashing primitive the `security/sign/crypto` design composes for credential-at-rest — a NAPI-RS native addon (Rust `argon2` crate) exposing `hash`/`verify` as promise-returning members off the libuv threadpool, with `hashRaw` for raw digest bytes and `*Sync` mirrors for non-Effect boot paths. The whole cost/policy surface is ONE `Options` carrier — `memoryCost`/`timeCost`/`parallelism`/`outputLen`/`algorithm`/`version`/`secret`/`salt` — so the design pins a single named policy row per credential class rather than scattering knobs across call sites. `hash` emits a self-describing PHC string that embeds the salt and every cost parameter, so `verify` needs no options to check a stored digest; the argon2id variant (`Algorithm.Argon2id`, `Version.V0x13`) is the hybrid GPU-and-side-channel-resistant default the design fixes. `secret` is a server-side pepper (a `Redacted` key injected at layer construction), `salt` defaults to a fresh CSPRNG value, and both async members accept an `AbortSignal` so a request-scoped hash cancels with its fiber. The package is node-only (native `.node` binary per platform, wasm32-wasi fallback), which is why `sign/` carries the node-only-subpath ban.
+`@node-rs/argon2` is the argon2 password-hashing primitive the `security/sign/crypto` design composes for credential-at-rest — a NAPI-RS native addon (Rust `argon2` crate) exposing `hash`/`verify` as promise-returning members off the libuv threadpool, with `hashRaw` for raw digest bytes and `*Sync` mirrors for non-Effect boot paths. The whole cost/policy surface is ONE `Options` carrier — `memoryCost`/`timeCost`/`parallelism`/`outputLen`/`algorithm`/`version`/`secret`/`salt` — so the design pins a single named policy row per credential class rather than scattering knobs across call sites. `hash` emits a self-describing PHC string that embeds the salt and every cost parameter, so `verify` needs no options to check a stored digest; the argon2id variant (`Algorithm.Argon2id`, `Version.V0x13`) is the hybrid GPU-and-side-channel-resistant default the design fixes. `secret` is a server-side pepper (a `Redacted` key injected at layer construction), `salt` defaults to a fresh CSPRNG value, and both async members accept an `AbortSignal` so a request-scoped hash cancels with its fiber. The package is node-only (native `.node` binary per platform, wasm32-wasi recovery), which is why `sign/` carries the node-only-subpath ban.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `@node-rs/argon2`
-- package: `@node-rs/argon2` (2.0.2, MIT, © NAPI-RS / node-rs)
+- package: `@node-rs/argon2` (MIT, © NAPI-RS / node-rs)
 - module format: CommonJS (`main: index.js`, `engines.node >= 10`); the `.node` loader is selected by the root package via per-platform `optionalDependencies`, imported through the `@node-rs/argon2` root — no deep subpaths
-- runtime target: node-only — a native NAPI addon linking the Rust `argon2` crate, prebuilt for 14 targets (`darwin-arm64`/`-x64`, `linux-x64/arm64-gnu/musl`, `win32-x64/arm64/ia32`, `android`, `freebsd`, `armv7`) with a `wasm32-wasi` fallback; no browser build, so `sign/crypto` is node-boundary despite jose's isomorphism
+- runtime target: node-only — a native NAPI addon linking the Rust `argon2` crate, prebuilt for 14 targets (`darwin-arm64`/`-x64`, `linux-x64/arm64-gnu/musl`, `win32-x64/arm64/ia32`, `android`, `freebsd`, `armv7`) with a `wasm32-wasi` recovery; no browser build, so `sign/crypto` is node-boundary despite jose's isomorphism
 - asset: native addon (`.node` per-platform binary + `.js` loader + `.d.ts`); the ABI is the real gate — a missing/mismatched prebuilt or Node ABI break is a load-time failure, not a type error, so the install must resolve the arch-matched optional dependency
 - rail: `security/sign` — the argon2 hashing primitive within the crypto owner (admitted in `sign/` only, node-only subpath; catalogued at the folder tier)
 
@@ -16,23 +16,23 @@
 [PUBLIC_TYPE_SCOPE]: the single cost/policy carrier and its bounded vocabularies
 - rail: shapes
 
-| [INDEX] | [SYMBOL]                                                                | [TYPE_FAMILY]     | [CONSUMER]                                                          |
-| :-----: | :---------------------------------------------------------------------- | :---------------- | :----------------------------------------------------------------- |
-|  [01]   | `Options` (`memoryCost`/`timeCost`/`parallelism`/`outputLen`/`algorithm`/`version`/`secret`/`salt`) | cost policy | `sign/crypto` — the one policy carrier; the design pins named rows (login vs api-key) as `Config`/`Layer` values, never inline knobs |
-|  [02]   | `Algorithm` (`Argon2d` = 0, `Argon2i` = 1, `Argon2id` = 2)              | variant enum      | `sign/crypto` — `Argon2id` is the only admitted arm (hybrid GPU + side-channel resistance) |
-|  [03]   | `Version` (`V0x10` = 0, `V0x13` = 1)                                    | format-version enum | `sign/crypto` — `V0x13` (argon2 v1.3) is the pinned default; `V0x10` exists only to verify legacy digests |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
+|:-----: |:---------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------- |
+| [01] | `Options` (`memoryCost`/`timeCost`/`parallelism`/`outputLen`/`algorithm`/`version`/`secret`/`salt`) | cost policy | `sign/crypto` — the one policy carrier; the design pins named rows (login vs api-key) as `Config`/`Layer` values, never inline knobs |
+| [02] | `Algorithm` (`Argon2d` = 0, `Argon2i` = 1, `Argon2id` = 2) | variant enum | `sign/crypto` — `Argon2id` is the only admitted arm (hybrid GPU + side-channel resistance) |
+| [03] | `Version` (`V0x10` = 0, `V0x13` = 1) | format-version enum | `sign/crypto` — `V0x13` (argon2 catalog-bound) is the pinned default; `V0x10` exists only to verify retired digests |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: hash and verify — the async rail (default) and its sync mirror
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]  | [CONSUMER]                                                          |
-| :-----: | :--------------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------------- |
-|  [01]   | `hash(password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<string>` | hash → PHC | `sign/crypto` ← `authn/apikey` (digest-at-rest), `secret/material` — the credential mint; PHC string stored verbatim |
-|  [02]   | `verify(hashed: string \| Uint8Array, password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<boolean>` | verify | `sign/crypto` — constant-time check; reads cost params from the PHC string, returns `false` on mismatch (throws only on a malformed hash) |
-|  [03]   | `hashRaw(password, options?, abortSignal?)` → `Promise<Buffer>`                          | hash → raw      | `sign/crypto` — raw digest bytes when the design owns its own salt/encoding (KDF-style key derivation), not the PHC envelope |
-|  [04]   | `hashSync` / `hashRawSync` / `verifySync` (no `AbortSignal`)                             | sync mirror     | `sign/crypto` — boot/CLI paths outside the Effect rail only; never on a request fiber |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
+|:-----: |:--------------------------------------------------------------------------------------- |:-------------- |:----------------------------------------------------------------- |
+| [01] | `hash(password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<string>` | hash → PHC | `sign/crypto` ← `authn/apikey` (digest-at-rest), `secret/material` — the credential mint; PHC string stored verbatim |
+| [02] | `verify(hashed: string \| Uint8Array, password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<boolean>` | verify | `sign/crypto` — constant-time check; reads cost params from the PHC string, returns `false` on mismatch (throws only on a malformed hash) |
+| [03] | `hashRaw(password, options?, abortSignal?)` → `Promise<Buffer>` | hash → raw | `sign/crypto` — raw digest bytes when the design owns its own salt/encoding (KDF-style key derivation), not the PHC envelope |
+| [04] | `hashSync` / `hashRawSync` / `verifySync` (no `AbortSignal`) | sync mirror | `sign/crypto` — boot/CLI paths outside the Effect rail only; never on a request fiber |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

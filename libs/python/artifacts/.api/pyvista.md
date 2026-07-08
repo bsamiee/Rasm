@@ -24,30 +24,30 @@
 [PUBLIC_TYPE_SCOPE]: dataset mesh family
 - rail: scene — wraps `vtkmodules.vtkCommonDataModel` (`libs/python/artifacts/.api/vtk.md`); mesh kind is a subclass row, never a parallel per-source wrapper
 
-| [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]   | [CAPABILITY]                                                  |
-| :-----: | :----------------- | :--------------- | :----------------------------------------------------------- |
-|  [01]   | `DataSet`          | mesh base        | points/cells/scalar arrays plus the `DataObjectFilters`/`DataSetFilters` family; the `scene/render#SCENE` `FieldFilter.apply` fold target |
-|  [02]   | `PolyData`         | surface mesh     | points/faces surface; adds `triangulate`/`decimate`/`smooth`/`subdivide`/`fill_holes`/`clean`/`boolean_*`; the glTF-export and USD-author surface |
-|  [03]   | `UnstructuredGrid` | volume mesh      | arbitrary-cell unstructured volume; `clip`/`clip_box`/`threshold` return this; the `from_meshio` wrap target |
-|  [04]   | `StructuredGrid`   | structured grid  | curvilinear i/j/k grid                                       |
-|  [05]   | `RectilinearGrid`  | rectilinear grid | axis-aligned variable-spacing grid                           |
-|  [06]   | `ImageData`        | uniform grid     | regular volumetric image grid; the `RenderStyle.VOLUME` `add_volume` target |
-|  [07]   | `MultiBlock`       | mesh container   | named dataset collection; filters fan over blocks; `combine`/`save` merge or persist the whole collection; `slice_orthogonal` returns this |
-|  [08]   | `pyvista_ndarray`  | array view       | zero-copy VTK-backed numpy array view over `.points`/`.point_normals`/point-cell data — writes propagate in place |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `DataSet` | mesh base | points/cells/scalar arrays plus the `DataObjectFilters`/`DataSetFilters` family; the `scene/render#SCENE` `FieldFilter.apply` fold target |
+| [02] | `PolyData` | surface mesh | points/faces surface; adds `triangulate`/`decimate`/`smooth`/`subdivide`/`fill_holes`/`clean`/`boolean_*`; the glTF-export and USD-author surface |
+| [03] | `UnstructuredGrid` | volume mesh | arbitrary-cell unstructured volume; `clip`/`clip_box`/`threshold` return this; the `from_meshio` wrap target |
+| [04] | `StructuredGrid` | structured grid | curvilinear i/j/k grid |
+| [05] | `RectilinearGrid` | rectilinear grid | axis-aligned variable-spacing grid |
+| [06] | `ImageData` | uniform grid | regular volumetric image grid; the `RenderStyle.VOLUME` `add_volume` target |
+| [07] | `MultiBlock` | mesh container | named dataset collection; filters fan over blocks; `combine`/`save` merge or persist the whole collection; `slice_orthogonal` returns this |
+| [08] | `pyvista_ndarray` | array view | zero-copy VTK-backed numpy array view over `.points`/`.point_normals`/point-cell data — writes propagate in place |
 
 [PUBLIC_TYPE_SCOPE]: render owner and geometric-source family
 - rail: scene — `Plotter` wraps the `vtkRenderer`/`vtkRenderWindow` stack; the sources wrap `vtkmodules.vtkFiltersSources`
 
-| [INDEX] | [SYMBOL]   | [PACKAGE_ROLE] | [CAPABILITY]                                            |
-| :-----: | :--------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `Plotter`  | render owner    | add meshes/volumes/points, render offscreen, tune quality, capture, export; the one `scene/render#SCENE` capsule per modality |
-|  [02]   | `Sphere`   | source          | parametric sphere mesh (also `Icosphere`)              |
-|  [03]   | `Cube`     | source          | box mesh (also `Box`/`Pyramid`)                        |
-|  [04]   | `Cylinder` | source          | cylinder mesh (also `Cone`/`Tube`)                     |
-|  [05]   | `Plane`    | source          | plane mesh (also `Disc`/`Circle`/`Polygon`/`Triangle`) |
-|  [06]   | `Arrow`    | source          | arrow glyph mesh (the default `glyph` geometry)        |
-|  [07]   | `Line`     | source          | line/spline mesh (also `Spline`/`lines_from_points`)   |
-|  [08]   | `Text3D`   | source          | extruded 3D text mesh                                  |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Plotter` | render owner | add meshes/volumes/points, render offscreen, tune quality, capture, export; the one `scene/render#SCENE` capsule per modality |
+| [02] | `Sphere` | source | parametric sphere mesh (also `Icosphere`) |
+| [03] | `Cube` | source | box mesh (also `Box`/`Pyramid`) |
+| [04] | `Cylinder` | source | cylinder mesh (also `Cone`/`Tube`) |
+| [05] | `Plane` | source | plane mesh (also `Disc`/`Circle`/`Polygon`/`Triangle`) |
+| [06] | `Arrow` | source | arrow glyph mesh (the default `glyph` geometry) |
+| [07] | `Line` | source | line/spline mesh (also `Spline`/`lines_from_points`) |
+| [08] | `Text3D` | source | extruded 3D text mesh |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -56,74 +56,74 @@
 
 `wrap` is the canonical zero-copy entry (`scene/render#SCENE` `render_plotter`/`surface_arrays` call it exactly once per cross-seam payload so the interior is total over an admitted `DataSet`); `read` is the file path. The `Plotter` keyword-only kwargs and the `screenshot(return_img=True)` raster array feed `media/video#MEDIA` through `VideoFrame.from_ndarray` with zero PNG round-trip.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                                                                                  | [CAPABILITY]                                                |
-| :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `pyvista.wrap`         | `wrap(dataset: vtk.DataSet | numpy.ndarray | trimesh.Trimesh | meshio.Mesh, validate: bool | None = None) -> DataSet | pyvista_ndarray | None`                | wrap a VTK object (zero-copy), a 2D `(N,3)` XYZ vertex array or 3D scalar-volume array, OR a `trimesh.Trimesh` (via `from_trimesh`, no array copy since 0.47) / `meshio.Mesh` (via `from_meshio`); no-op on an already-wrapped object; `validate=None` honors `Config.validate_on_wrap` |
-|  [02]   | `pyvista.read`         | `read(filename, force_ext=None, file_format=None, progress_bar=False, *, cls=None) -> DataObject`                                                            | read a mesh from a file (reader chosen by extension)        |
-|  [03]   | `pyvista.from_meshio`  | `from_meshio(mesh) -> UnstructuredGrid`                                                                                                                      | the meshio-specific import row `wrap` dispatches to         |
-|  [04]   | `Plotter`              | `Plotter(off_screen=None, window_size=None, lighting='light_kit', theme=None, ...)`                                                                          | construct an offscreen render owner (`off_screen=True` for the host-free path) |
-|  [05]   | `Plotter.add_mesh`     | `add_mesh(mesh, scalars=None, cmap=None, clim=None, opacity=None, show_edges=None, pbr=None, metallic=None, roughness=None, ambient=None, diffuse=None, specular=None, smooth_shading=None, ...) -> Actor` | add a mesh with scalar coloring + the PBR/lighting material band |
-|  [06]   | `Plotter.add_volume`   | `add_volume(volume, scalars=None, clim=None, opacity='linear', cmap=None, mapper=None, blending='composite', ...) -> Actor`                                  | GPU/smart volume rendering of `ImageData` (`opacity` accepts a transfer-function name e.g. `'sigmoid_6'`) |
-|  [07]   | `Plotter.add_points`   | `add_points(points, style='points', point_size=None, render_points_as_spheres=None, **kwargs) -> Actor`                                                      | point-cloud actor (also `add_lines`/`add_arrows`/`add_point_labels`) |
-|  [08]   | `Plotter.screenshot`   | `screenshot(filename=None, transparent_background=None, return_img=True, window_size=None, scale=None) -> pyvista_ndarray | None`                            | rasterize the scene; `return_img=True` yields the `(H,W,3)`/`(H,W,4)` rgb(a) array `media/video#MEDIA` ingests, `filename=` writes a PNG |
-|  [09]   | `Plotter.camera_position` | `camera_position` property — set to `[position, focal_point, view_up]`, a preset (`'iso'`/`'xy'`/`'yz'`), or read the auto-framed triple                   | the `scene/render#SCENE` `CameraPose`/orbit viewpoint write; the `_orbit` walk reads then re-sets it per step |
-|  [10]   | `Plotter.show`         | `show(screenshot=False, window_size=None, return_img=False, cpos=None, auto_close=True, ...)`                                                                | render and optionally capture/return (host-only `interactive=` never used on the host-free path) |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `pyvista.wrap` | `wrap(dataset: vtk.DataSet \| numpy.ndarray \| trimesh.Trimesh \| meshio.Mesh, validate: bool \| None = None) -> DataSet \| pyvista_ndarray \| None` | wrap a VTK object (zero-copy), a 2D `(N,3)` XYZ vertex array or 3D scalar-volume array, OR a `trimesh.Trimesh` (via `from_trimesh`, no array copy since 0.47) / `meshio.Mesh` (via `from_meshio`); no-op on an already-wrapped object; `validate=None` honors `Config.validate_on_wrap` |
+| [02] | `pyvista.read` | `read(filename, force_ext=None, file_format=None, progress_bar=False, *, cls=None) -> DataObject` | read a mesh from a file (reader chosen by extension) |
+| [03] | `pyvista.from_meshio` | `from_meshio(mesh) -> UnstructuredGrid` | the meshio-specific import row `wrap` dispatches to |
+| [04] | `Plotter` | `Plotter(off_screen=None, window_size=None, lighting='light_kit', theme=None, ...)` | construct an offscreen render owner (`off_screen=True` for the host-free path) |
+| [05] | `Plotter.add_mesh` | `add_mesh(mesh, scalars=None, cmap=None, clim=None, opacity=None, show_edges=None, pbr=None, metallic=None, roughness=None, ambient=None, diffuse=None, specular=None, smooth_shading=None, ...) -> Actor` | add a mesh with scalar coloring + the PBR/lighting material band |
+| [06] | `Plotter.add_volume` | `add_volume(volume, scalars=None, clim=None, opacity='linear', cmap=None, mapper=None, blending='composite', ...) -> Actor` | GPU/smart volume rendering of `ImageData` (`opacity` accepts a transfer-function name e.g. `'sigmoid_6'`) |
+| [07] | `Plotter.add_points` | `add_points(points, style='points', point_size=None, render_points_as_spheres=None, **kwargs) -> Actor` | point-cloud actor (also `add_lines`/`add_arrows`/`add_point_labels`) |
+| [08] | `Plotter.screenshot` | `screenshot(filename=None, transparent_background=None, return_img=True, window_size=None, scale=None) -> pyvista_ndarray \| None` | rasterize the scene; `return_img=True` yields the `(H,W,3)`/`(H,W,4)` rgb(a) array `media/video#MEDIA` ingests, `filename=` writes a PNG |
+| [09] | `Plotter.camera_position` | `camera_position` property — set to `[position, focal_point, view_up]`, a preset (`'iso'`/`'xy'`/`'yz'`), or read the auto-framed triple | the `scene/render#SCENE` `CameraPose`/orbit viewpoint write; the `_orbit` walk reads then re-sets it per step |
+| [10] | `Plotter.show` | `show(screenshot=False, window_size=None, return_img=False, cpos=None, auto_close=True, ...)` | render and optionally capture/return (host-only `interactive=` never used on the host-free path) |
 
 [ENTRYPOINT_SCOPE]: publication-quality render control, scene import, raw-vtk bridge
 - rail: scene — the `scene/render#SCENE` `RenderFeature` `_FEATURE` enable-table and the `scene/stage#STAGE` USD bridge
 
 `set_background`/the `enable_*` family/`add_axes`/`add_scalar_bar`/`add_text` are the `RenderSpec.viewed` projection targets — eight parallel quality bools collapse into one `RenderFeature` `frozenset` folded over this table. `import_gltf`/`import_obj`/`import_vrml` keep a render-tune-re-export round-trip in-process. `render_window` is the `vtkRenderWindow` the `scene/stage#STAGE` source-build-gated `vtkUSDExporter` reads (the standard `vtk` wheel ships no `vtkmodules.vtkIOUSD`); the wheel-available USD path is the `surface_arrays` numpy seam, not the render window.
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                                                                                            | [CAPABILITY]                                               |
-| :-----: | :----------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `Plotter.enable_anti_aliasing` | `enable_anti_aliasing(aa_type='ssaa', multi_samples=None, all_renderers=True)`                                                                         | `'ssaa'`/`'msaa'`/`'fxaa'` — the `AntiAlias` StrEnum source (`multi_samples` only for `'msaa'`) |
-|  [02]   | `Plotter.enable_ssao`          | `enable_ssao(radius=0.5, bias=0.005, kernel_size=256, blur=True)`                                                                                      | screen-space ambient occlusion (`RenderFeature.SSAO`)      |
-|  [03]   | `Plotter` quality family       | `enable_depth_peeling(number_of_peels=4, occlusion_ratio=0.0)` / `enable_eye_dome_lighting()` / `enable_shadows()` / `enable_parallel_projection()` / `enable_hidden_line_removal(all_renderers=True)`   | order-independent transparency, point-cloud EDL, shadows, parallel projection, and hidden-line removal (the drafting/wireframe drawing look) — the remaining `RenderFeature` `_FEATURE` rows |
-|  [04]   | `Plotter` scene annotation     | `set_background(color, top=None)` / `add_axes(...)` / `add_scalar_bar(title=None, ...)` / `add_text(text, position='upper_left', font_size=18)`        | background gradient, orientation axes widget, scalar legend, annotation — `RenderSpec.viewed`/`RenderFeature.AXES`/`SCALAR_BAR` |
-|  [05]   | `Plotter` scene import         | `import_gltf(filename, set_camera=True)` / `import_obj(filename)` / `import_vrml(filename)`                                                            | load an existing glTF/OBJ/VRML scene for re-render/re-export round-trip (the `scene/export#EXPORT` import inverse) |
-|  [06]   | `Plotter.render_window`        | `render_window -> vtkRenderWindow` (property on `BasePlotter`)                                                                                         | the underlying `vtkRenderWindow` the `scene/stage#STAGE` source-build-gated `vtkUSDExporter.SetRenderWindow` reads (absent from the standard vtk wheel; the wheel-available USD path is `surface_arrays`) — the raw-`vtk` bridge pyvista does not wrap |
-|  [07]   | `Plotter.close`               | `close(render=False)`                                                                                                                                  | deterministic VTK render-window/GL-context teardown — every `scene/render#SCENE`/`scene/export#EXPORT` arm brackets the plotter in `try`/`finally` `close()` |
-|  [08]   | `Plotter` standard-view family | `view_xy(negative=False, render=True, bounds=None)` / `view_yz(...)` / `view_xz(...)` / `view_isometric(negative=False, render=True, bounds=None)` / `view_vector(vector, viewup=None)` | the AEC plan/elevation/section/axonometric preset viewpoints as named methods (`view_xy`=plan, `view_xz`/`view_yz`=elevations, `view_isometric`=axonometric); the `scene/render#SCENE` V9 `StandardView` case source — one call sets camera position + view-up parallel to a principal plane, `negative=True` flips to the opposite face, superseding a hand-built `camera_position` triple |
-|  [09]   | `Plotter.add_silhouette`      | `add_silhouette(mesh, color=None, line_width=None, opacity=1.0, feature_angle=None, decimate=None, params=None) -> Actor`                              | draw the view-dependent silhouette outline of a mesh (wraps `vtkPolyDataSilhouette`); `feature_angle` adds crease edges, `params` overrides the filter — the drawing-egress occluding-contour linework, also reachable as the `add_mesh(..., silhouette=True|dict)` kwarg |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Plotter.enable_anti_aliasing` | `enable_anti_aliasing(aa_type='ssaa', multi_samples=None, all_renderers=True)` | `'ssaa'`/`'msaa'`/`'fxaa'` — the `AntiAlias` StrEnum source (`multi_samples` only for `'msaa'`) |
+| [02] | `Plotter.enable_ssao` | `enable_ssao(radius=0.5, bias=0.005, kernel_size=256, blur=True)` | screen-space ambient occlusion (`RenderFeature.SSAO`) |
+| [03] | `Plotter` quality family | `enable_depth_peeling(number_of_peels=4, occlusion_ratio=0.0)` / `enable_eye_dome_lighting()` / `enable_shadows()` / `enable_parallel_projection()` / `enable_hidden_line_removal(all_renderers=True)` | order-independent transparency, point-cloud EDL, shadows, parallel projection, and hidden-line removal (the drafting/wireframe drawing look) — the remaining `RenderFeature` `_FEATURE` rows |
+| [04] | `Plotter` scene annotation | `set_background(color, top=None)` / `add_axes(...)` / `add_scalar_bar(title=None, ...)` / `add_text(text, position='upper_left', font_size=18)` | background gradient, orientation axes widget, scalar legend, annotation — `RenderSpec.viewed`/`RenderFeature.AXES`/`SCALAR_BAR` |
+| [05] | `Plotter` scene import | `import_gltf(filename, set_camera=True)` / `import_obj(filename)` / `import_vrml(filename)` | load an existing glTF/OBJ/VRML scene for re-render/re-export round-trip (the `scene/export#EXPORT` import inverse) |
+| [06] | `Plotter.render_window` | `render_window -> vtkRenderWindow` (property on `BasePlotter`) | the underlying `vtkRenderWindow` the `scene/stage#STAGE` source-build-gated `vtkUSDExporter.SetRenderWindow` reads (absent from the standard vtk wheel; the wheel-available USD path is `surface_arrays`) — the raw-`vtk` bridge pyvista does not wrap |
+| [07] | `Plotter.close` | `close(render=False)` | deterministic VTK render-window/GL-context teardown — every `scene/render#SCENE`/`scene/export#EXPORT` arm brackets the plotter in `try`/`finally` `close()` |
+| [08] | `Plotter` standard-view family | `view_xy(negative=False, render=True, bounds=None)` / `view_yz(...)` / `view_xz(...)` / `view_isometric(negative=False, render=True, bounds=None)` / `view_vector(vector, viewup=None)` | the AEC plan/elevation/section/axonometric preset viewpoints as named methods (`view_xy`=plan, `view_xz`/`view_yz`=elevations, `view_isometric`=axonometric); the `scene/render#SCENE` V9 `StandardView` case source — one call sets camera position + view-up parallel to a principal plane, `negative=True` flips to the opposite face, superseding a hand-built `camera_position` triple |
+| [09] | `Plotter.add_silhouette` | `add_silhouette(mesh, color=None, line_width=None, opacity=1.0, feature_angle=None, decimate=None, params=None) -> Actor` | draw the view-dependent silhouette outline of a mesh (wraps `vtkPolyDataSilhouette`); `feature_angle` adds crease edges, `params` overrides the filter — the drawing-egress occluding-contour linework, also reachable as the `add_mesh(..., silhouette=True \| dict)` kwarg |
 
 [ENTRYPOINT_SCOPE]: dataset filters, the numpy mesh seam, mesh repair, write
 - rail: scene — `DataObjectFilters`/`DataSetFilters` methods return a NEW dataset (no mutation unless `inplace=True`); `PolyData` adds repair/CSG; the `.points`/`.regular_faces`/`.point_normals` accessors are the `usd-core` author seam
 
 The filter family is the `scene/render#SCENE` `FieldFilter` closed-payload `tagged_union` — a slice-then-threshold-then-glyph visualization is a `RenderSpec.filters` tuple folded by `functools.reduce`, never a parallel filtered-mesh type. The numpy mesh accessors are the bridge a `usd-core` author path consumes: the same buffers cross to `Vt.<Type>Array.FromNumpy` (`libs/python/artifacts/.api/usd-core.md`).
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                                                                                                          | [CAPABILITY]                                               |
-| :-----: | :------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `DataSet.clip`             | `clip(normal='x', origin=None, invert=True, value=0.0, inplace=False, return_clipped=False, crinkle=False)`                                          | clip by a plane (`FieldFilter.Clip`)                       |
-|  [02]   | `DataSet.clip_box`         | `clip_box(bounds=None, invert=True, factor=0.35, progress_bar=False, merge_points=True, crinkle=False) -> UnstructuredGrid`                          | clip by an axis-aligned box; returns an `UnstructuredGrid` (`FieldFilter.ClipBox`) |
-|  [03]   | `DataSet.clip_scalar`      | `clip_scalar(scalars=None, invert=True, value=0.0, inplace=False, progress_bar=False, both=False) -> PolyData | tuple`                                | clip by a scalar value/range; `both=True` returns both complements (NOT `return_clipped`) (`FieldFilter.ClipScalar`) |
-|  [04]   | `DataSet.slice`            | `slice(normal='x', origin=None, generate_triangles=False, contour=False, progress_bar=False) -> PolyData`                                            | cut a planar slice (`FieldFilter.Slice`)                   |
-|  [05]   | `DataSet.slice_orthogonal` | `slice_orthogonal(x=None, y=None, z=None, generate_triangles=False, contour=False) -> MultiBlock`                                                    | three cartesian-plane slices as a `MultiBlock` (`FieldFilter.SliceOrthogonal`; `x`/`y`/`z` kwargs) |
-|  [06]   | `DataSet.threshold`        | `threshold(value=None, scalars=None, invert=False, continuous=False, preference='cell', all_scalars=False, method='upper') -> UnstructuredGrid`     | extract cells in a value range (`FieldFilter.Threshold`)   |
-|  [07]   | `DataSet.contour`          | `contour(isosurfaces=10, scalars=None, compute_normals=False, rng=None, method='contour', progress_bar=False) -> PolyData`                           | extract isosurfaces (`method` in `'contour'`/`'marching_cubes'`/`'flying_edges'`) (`FieldFilter.Contour`) |
-|  [08]   | `DataSet.warp_by_scalar`   | `warp_by_scalar(scalars=None, factor=1.0, normal=None, inplace=False, progress_bar=False)`                                                           | displace points by a scalar field (`FieldFilter.Warp`; also `warp_by_vector`) |
-|  [09]   | `DataSet.glyph`            | `glyph(orient=True, scale=True, factor=1.0, geom=None, indices=None, tolerance=None, absolute=False, clamping=False, rng=None, progress_bar=False) -> PolyData` | place an oriented/scaled glyph (default `Arrow`) per point (`FieldFilter.Glyph`) |
-|  [10]   | `DataSet.streamlines`      | `streamlines(vectors=None, source_center=None, source_radius=None, n_points=100, pointa=None, pointb=None, max_time=None, integration_direction='both', return_source=False, ...) -> PolyData` | integrate a vector field into streamline polylines (`FieldFilter.Streamlines`) |
-|  [11]   | `DataObjectFilters.extract_surface` | `extract_surface(pass_pointid=True, pass_cellid=True, nonlinear_subdivision=1, algorithm=None, progress_bar=False) -> PolyData`              | extract the boundary surface as `PolyData` (precedes glTF/USD export) (`FieldFilter.Surface`; `algorithm=None` auto-selects) |
-|  [12]   | `PolyDataFilters.triangulate` | `triangulate(pass_verts=False, pass_lines=False, inplace=False, progress_bar=False) -> PolyData`                                                  | reduce to an all-triangle mesh so `regular_faces` is uniform `(M,3)` (the `surface_arrays` USD pre-pass) |
-|  [13]   | `DataSet.sample`           | `sample(target, tolerance=None, pass_cell_data=True, pass_point_data=True, ...)` / `cell_data_to_point_data()` / `point_data_to_cell_data()`         | transfer/resample fields between datasets or cell<->point attributes |
-|  [14]   | `PolyData` mesh repair     | `decimate(target_reduction, volume_preservation=False, attribute_error=False, inplace=False)` / `smooth(n_iter=20, ...)` / `subdivide(nsub, subfilter='linear')` / `fill_holes(hole_size)` / `clean(...)` | reduce/smooth/refine/repair a surface (`FieldFilter.Decimate` + the repair siblings) |
-|  [15]   | `PolyData` CSG boolean     | `boolean_union(other_mesh, tolerance=1e-05)` / `boolean_difference(...)` / `boolean_intersection(...)`                                               | watertight-surface CSG (also the `+`/`-` operators)        |
-|  [16]   | `PolyData.points` / `.regular_faces` / `.point_normals` | `.points -> pyvista_ndarray (N,3)` ; `.regular_faces -> numpy.ndarray (M,k)` (raises `ValueError` if irregular) ; `.point_normals -> pyvista_ndarray (N,3)` (auto-`compute_normals`) | the numpy mesh buffers the `scene/stage#STAGE` `surface_arrays` seam reads after `extract_surface().triangulate()` — fed to `usd-core` `Vt.<Type>Array.FromNumpy` |
-|  [17]   | `PolyDataFilters.extract_feature_edges` | `extract_feature_edges(feature_angle=30.0, boundary_edges=True, non_manifold_edges=True, feature_edges=True, manifold_edges=True, clear_data=False, inplace=False, progress_bar=False) -> PolyData` | extract crease/boundary/non-manifold edges as line `PolyData` (wraps `vtkFeatureEdges`) — the `scene/render#SCENE` V9 `FieldFilter` crease-linework case feeding the plan/section drawing egress as extracted vectors |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `DataSet.clip` | `clip(normal='x', origin=None, invert=True, value=0.0, inplace=False, return_clipped=False, crinkle=False)` | clip by a plane (`FieldFilter.Clip`) |
+| [02] | `DataSet.clip_box` | `clip_box(bounds=None, invert=True, factor=0.35, progress_bar=False, merge_points=True, crinkle=False) -> UnstructuredGrid` | clip by an axis-aligned box; returns an `UnstructuredGrid` (`FieldFilter.ClipBox`) |
+| [03] | `DataSet.clip_scalar` | `clip_scalar(scalars=None, invert=True, value=0.0, inplace=False, progress_bar=False, both=False) -> PolyData \| tuple` | clip by a scalar value/range; `both=True` returns both complements (NOT `return_clipped`) (`FieldFilter.ClipScalar`) |
+| [04] | `DataSet.slice` | `slice(normal='x', origin=None, generate_triangles=False, contour=False, progress_bar=False) -> PolyData` | cut a planar slice (`FieldFilter.Slice`) |
+| [05] | `DataSet.slice_orthogonal` | `slice_orthogonal(x=None, y=None, z=None, generate_triangles=False, contour=False) -> MultiBlock` | three cartesian-plane slices as a `MultiBlock` (`FieldFilter.SliceOrthogonal`; `x`/`y`/`z` kwargs) |
+| [06] | `DataSet.threshold` | `threshold(value=None, scalars=None, invert=False, continuous=False, preference='cell', all_scalars=False, method='upper') -> UnstructuredGrid` | extract cells in a value range (`FieldFilter.Threshold`) |
+| [07] | `DataSet.contour` | `contour(isosurfaces=10, scalars=None, compute_normals=False, rng=None, method='contour', progress_bar=False) -> PolyData` | extract isosurfaces (`method` in `'contour'`/`'marching_cubes'`/`'flying_edges'`) (`FieldFilter.Contour`) |
+| [08] | `DataSet.warp_by_scalar` | `warp_by_scalar(scalars=None, factor=1.0, normal=None, inplace=False, progress_bar=False)` | displace points by a scalar field (`FieldFilter.Warp`; also `warp_by_vector`) |
+| [09] | `DataSet.glyph` | `glyph(orient=True, scale=True, factor=1.0, geom=None, indices=None, tolerance=None, absolute=False, clamping=False, rng=None, progress_bar=False) -> PolyData` | place an oriented/scaled glyph (default `Arrow`) per point (`FieldFilter.Glyph`) |
+| [10] | `DataSet.streamlines` | `streamlines(vectors=None, source_center=None, source_radius=None, n_points=100, pointa=None, pointb=None, max_time=None, integration_direction='both', return_source=False, ...) -> PolyData` | integrate a vector field into streamline polylines (`FieldFilter.Streamlines`) |
+| [11] | `DataObjectFilters.extract_surface` | `extract_surface(pass_pointid=True, pass_cellid=True, nonlinear_subdivision=1, algorithm=None, progress_bar=False) -> PolyData` | extract the boundary surface as `PolyData` (precedes glTF/USD export) (`FieldFilter.Surface`; `algorithm=None` auto-selects) |
+| [12] | `PolyDataFilters.triangulate` | `triangulate(pass_verts=False, pass_lines=False, inplace=False, progress_bar=False) -> PolyData` | reduce to an all-triangle mesh so `regular_faces` is uniform `(M,3)` (the `surface_arrays` USD pre-pass) |
+| [13] | `DataSet.sample` | `sample(target, tolerance=None, pass_cell_data=True, pass_point_data=True, ...)` / `cell_data_to_point_data()` / `point_data_to_cell_data()` | transfer/resample fields between datasets or cell<->point attributes |
+| [14] | `PolyData` mesh repair | `decimate(target_reduction, volume_preservation=False, attribute_error=False, inplace=False)` / `smooth(n_iter=20, ...)` / `subdivide(nsub, subfilter='linear')` / `fill_holes(hole_size)` / `clean(...)` | reduce/smooth/refine/repair a surface (`FieldFilter.Decimate` + the repair siblings) |
+| [15] | `PolyData` CSG boolean | `boolean_union(other_mesh, tolerance=1e-05)` / `boolean_difference(...)` / `boolean_intersection(...)` | watertight-surface CSG (also the `+`/`-` operators) |
+| [16] | `PolyData.points` / `.regular_faces` / `.point_normals` | `.points -> pyvista_ndarray (N,3)` ; `.regular_faces -> numpy.ndarray (M,k)` (raises `ValueError` if irregular) ; `.point_normals -> pyvista_ndarray (N,3)` (auto-`compute_normals`) | the numpy mesh buffers the `scene/stage#STAGE` `surface_arrays` seam reads after `extract_surface().triangulate()` — fed to `usd-core` `Vt.<Type>Array.FromNumpy` |
+| [17] | `PolyDataFilters.extract_feature_edges` | `extract_feature_edges(feature_angle=30.0, boundary_edges=True, non_manifold_edges=True, feature_edges=True, manifold_edges=True, clear_data=False, inplace=False, progress_bar=False) -> PolyData` | extract crease/boundary/non-manifold edges as line `PolyData` (wraps `vtkFeatureEdges`) — the `scene/render#SCENE` V9 `FieldFilter` crease-linework case feeding the plan/section drawing egress as extracted vectors |
 
 [ENTRYPOINT_SCOPE]: scene-file export, mesh-file write, multiblock merge
 - rail: scene — `Plotter.export_*` emit a rendered-scene file; `save`/`MultiBlock.combine` are the mesh-file/merge rows
 
 The four `export_*` are the `scene/export#EXPORT` `_EXPORTER` `frozendict` of bound closures over one `Sink.PLOTTER` arm — never four arms. The VTK glTF exporter handles only surface `PolyData`, so the `GLTF` row's `surface` flag folds `FieldFilter.Surface()` into the `RenderSpec.filters` chain before render.
 
-| [INDEX] | [SURFACE]               | [CALL_SHAPE]                                                                                                  | [CAPABILITY]                                               |
-| :-----: | :---------------------- | :----------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `Plotter.export_gltf`   | `export_gltf(filename, inline_data=True, rotate_scene=True, save_normals=True)`                              | export the scene to glTF (`scene/export#EXPORT` `SceneTarget.GLTF` `options`; surface `PolyData` only) |
-|  [02]   | `Plotter.export_vrml`   | `export_vrml(filename)`                                                                                      | export the scene to VRML (`SceneTarget.VRML`)              |
-|  [03]   | `Plotter.export_obj`    | `export_obj(filename)`                                                                                       | export the scene to OBJ — writes `.obj`+`.mtl`, captured by the `scene/export#EXPORT` `stream_zip` bundle (`SceneTarget.OBJ`) |
-|  [04]   | `Plotter.export_html`   | `export_html(filename) -> io.StringIO | None`                                                                | interactive HTML scene (requires `trame`; `None` filename returns a `StringIO`) (`SceneTarget.HTML`) |
-|  [05]   | `PolyData.save`         | `save(filename, binary=True, texture=None, recompute_normals=True)`                                          | write a single mesh file (`.vtp`/`.ply`/`.stl`/`.obj`) where a full scene is not needed |
-|  [06]   | `MultiBlock.combine` / `.save` | `combine(merge_points=False, tolerance=0.0) -> UnstructuredGrid` ; `save(filename, binary=True)`        | merge a block collection into one mesh, or persist the whole `.vtm` collection |
+| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| --- | --- | --- | --- |
+| [01] | `Plotter.export_gltf` | `export_gltf(filename, inline_data=True, rotate_scene=True, save_normals=True)` | export the scene to glTF (`scene/export#EXPORT` `SceneTarget.GLTF` `options`; surface `PolyData` only) |
+| [02] | `Plotter.export_vrml` | `export_vrml(filename)` | export the scene to VRML (`SceneTarget.VRML`) |
+| [03] | `Plotter.export_obj` | `export_obj(filename)` | export the scene to OBJ — writes `.obj`+`.mtl`, captured by the `scene/export#EXPORT` `stream_zip` bundle (`SceneTarget.OBJ`) |
+| [04] | `Plotter.export_html` | `export_html(filename) -> io.StringIO \| None` | interactive HTML scene (requires `trame`; `None` filename returns a `StringIO`) (`SceneTarget.HTML`) |
+| [05] | `PolyData.save` | `save(filename, binary=True, texture=None, recompute_normals=True)` | write a single mesh file (`.vtp`/`.ply`/`.stl`/`.obj`) where a full scene is not needed |
+| [06] | `MultiBlock.combine` / `.save` | `combine(merge_points=False, tolerance=0.0) -> UnstructuredGrid` ; `save(filename, binary=True)` | merge a block collection into one mesh, or persist the whole `.vtm` collection |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

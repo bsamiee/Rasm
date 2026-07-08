@@ -36,10 +36,9 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 
 [PACKAGE_SURFACE]: `Marten`
 - package: `Marten`
-- version: `9.12.0`
 - license: MIT (© Jeremy D. Miller + JasperFx contributors)
 - assembly: `Marten`
-- transitive surface: `JasperFx.Events` 2.16.0 (database-agnostic event store), `JasperFx` 2.16.0 (`TenancyStyle`, `AutoCreate`, `DaemonMode`), `Weasel.Postgresql`/`Weasel.Core` 9.3.0 (DDL/schema diff)
+- transitive surface: `JasperFx.Events` (database-agnostic event store), `JasperFx` (`TenancyStyle`, `AutoCreate`, `DaemonMode`), `Weasel.Postgresql`/`Weasel.Core` (DDL/schema diff)
 - namespace: `Marten`, `Marten.Events`, `Marten.Events.Aggregation`, `Marten.Events.Projections`, `Marten.Events.Projections.Flattened`, `Marten.Events.Daemon`, `Microsoft.Extensions.DependencyInjection`; transitive `JasperFx.Events`, `JasperFx.Events.Projections`, `JasperFx.Events.Daemon`, `JasperFx.Events.Aggregation`, `JasperFx.MultiTenancy`
 - target framework: `net10.0` asset binds the `net10.0` consumer (package also ships `net9.0`)
 - asset: managed runtime library over `Npgsql`/`Npgsql.DataSource`; ships `analyzers/dotnet/cs/JasperFx.Events.SourceGenerator.dll` (compile-time projection/aggregation source generator, enabled via `TryUseSourceGeneratedDiscovery`/`UseSourceGeneratedDiscovery`)
@@ -214,10 +213,10 @@ assembly adds the Postgres binding, document store, and JSON-passthrough extras.
 |  [01]   | `services.AddMarten(Action<StoreOptions>)` / `AddMarten(Func<IServiceProvider,StoreOptions>)` / `AddMarten(string connectionString)` | register the store + sessions in DI |
 |  [02]   | `.AddAsyncDaemon(DaemonMode mode)` / `.UseLightweightSessions()` / `.UseIdentitySessions()` / `.UseDirtyTrackedSessions()` | host the daemon / pick the default session tracking |
 |  [03]   | `.ApplyAllDatabaseChangesOnStartup()` / `.AssertDatabaseMatchesConfigurationOnStartup()` | migrate / assert schema at host startup    |
-|  [07]   | `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync()` (via `store.Storage`) | the runtime single-writer schema apply — the `Element/identity#SCHEMA_VERDICT` `AdmitMarten` leg (decompile-verified) |
-|  [04]   | `.AddProjectionWithServices<TProjection>(ProjectionLifecycle, ServiceLifetime, [Action<ProjectionBase>?])` | register a DI-injected projection           |
-|  [05]   | `services.AddMartenStore<T>(Action<StoreOptions>) where T : IDocumentStore` / `ConfigureMarten(...)` | register a separate ancillary store / extend config |
-|  [06]   | `host.WaitForNonStaleProjectionDataAsync(TimeSpan)` / `store.WaitForNonStaleProjectionDataAsync([tenantIdOrDatabaseName], TimeSpan)` (`Marten.Events`) | block until async projections are caught up |
+|  [04]   | `IMartenStorage.ApplyAllConfiguredChangesToDatabaseAsync()` (via `store.Storage`) | the runtime single-writer schema apply — the `Element/identity#SCHEMA_VERDICT` `AdmitMarten` leg (decompile-verified) |
+|  [05]   | `.AddProjectionWithServices<TProjection>(ProjectionLifecycle, ServiceLifetime, [Action<ProjectionBase>?])` | register a DI-injected projection           |
+|  [06]   | `services.AddMartenStore<T>(Action<StoreOptions>) where T : IDocumentStore` / `ConfigureMarten(...)` | register a separate ancillary store / extend config |
+|  [07]   | `host.WaitForNonStaleProjectionDataAsync(TimeSpan)` / `store.WaitForNonStaleProjectionDataAsync([tenantIdOrDatabaseName], TimeSpan)` (`Marten.Events`) | block until async projections are caught up |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

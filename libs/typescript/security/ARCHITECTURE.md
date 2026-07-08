@@ -10,11 +10,11 @@ Each codemap node is the eventual source file its `.planning/` design page becom
 security/
 └── src/
     ├── crypt/                 # The crypto authority: signing, minting, shredding, custody, inbound verification
-    │   ├── sign.ts            # Argon2id digest-at-rest, HMAC egress signing, opaque tokens, AES-GCM Shredder, jose key admission, JWT/JWS/JWKS/JWE authority
+    │   ├── sign.ts            # Argon2id, HMAC egress, opaque tokens, AES-GCM Shredder, jose keys, JWT/JWS/JWKS/JWE
     │   ├── verify.ts          # The inbound-signature dialect table + one constant-time verify fold over HELD request octets
     │   └── secret.ts          # DopplerSDK leased-secret custody behind Layer.scoped — download, targeted read, name census
     ├── authn/                 # Authentication: session spine, digest credentials, OAuth, passkeys
-    │   ├── session.ts         # Subject/Session/CredentialRef/TokenPair spine, reuse-detecting rotation, SessionStore/IdentityJournal ports, CSRF egress
+    │   ├── session.ts         # Subject/Session/CredentialRef/TokenPair spine, rotation, ports, CSRF egress
     │   ├── credential.ts      # Digest — the one mint-and-resolve idiom over OTP, recovery codes, and machine API keys
     │   ├── oauth.ts           # Issuer-row OAuth authorization-code ceremony over arctic — url/exchange/refresh/revoke legs per row
     │   └── webauthn.ts        # Both passkey halves as per-runtime subpaths: RP verifier (./server) + browser invocation (./browser)

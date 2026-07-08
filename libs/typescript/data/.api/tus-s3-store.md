@@ -1,4 +1,4 @@
-# [@tus/s3-store] — the S3 `DataStore` mapping tus offsets onto multipart parts: the staging band of the resumable rail
+# [TS_DATA_API_TUS_S3_STORE]
 
 `@tus/s3-store` implements the `@tus/utils` `DataStore` contract over S3: `create` opens a multipart upload and writes a `${id}.info` metadata object, `write(src, id, offset)` streams the PATCH body into `UploadPart` calls sized by `partSize` under a `maxConcurrentPartUploads` semaphore, sub-part remainders persist as incomplete-part objects so a resumed PATCH re-reads them, and the final write triggers `CompleteMultipartUpload` — so the tus offset IS the multipart high-water mark and resume costs a `HeadObject` on the info object plus `ListParts`. The store rides the same `@aws-sdk/client-s3` config vocabulary as the object plane (`s3ClientConfig` embeds `S3ClientConfig` plus `bucket`), so endpoint, credentials, and `forcePathStyle` are the one set of provider `Config` facts. The rail treats this store as the STAGING band only: uploads land under tus-minted ids, the finish hook's finalize fold re-homes bytes to their `ContentKey`, and expiration (`expirationPeriodInMilliseconds` + `deleteExpired`) grooms abandoned staging uploads.
 
@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `@tus/s3-store`
 - package: `@tus/s3-store`
-- version: `2.0.4`
 - license: `MIT`
 - backing: `@aws-sdk/client-s3` (the `S3` client it constructs from `s3ClientConfig`), `@shopify/semaphore` (part-upload concurrency), `@tus/utils` (`DataStore`, `Upload`, `KvStore`)
 - runtime: server plane (node/bun) — streams PATCH bodies through `node:stream`/temp files
@@ -18,16 +17,16 @@
 [PUBLIC_TYPE_SCOPE]: the store, its options, and the metadata record
 - rail: object/stream
 
-| [INDEX] | [SYMBOL]                                                        | [TYPE_FAMILY]  | [CONSUMER / BOUNDARY]                                                       |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
-|  [01]   | `S3Store` (`extends DataStore`, `constructor(options)`)        | store           | the `datastore` slot of `@tus/server`'s `Server`                            |
-|  [02]   | `Options.s3ClientConfig` (`S3ClientConfig & { bucket }`)       | provider config | the object plane's endpoint/credential/`forcePathStyle` facts, plus the staging bucket |
-|  [03]   | `Options.partSize` / `.minPartSize` / `.maxMultipartParts`     | part policy     | preferred part bytes (≥ 5 MiB), uniform-part floor, 10 000-part ceiling — the server recomputes optimal size against declared length |
-|  [04]   | `Options.maxConcurrentPartUploads`                              | concurrency     | the part-upload semaphore width per PATCH                                  |
-|  [05]   | `Options.expirationPeriodInMilliseconds` / `.useTags`          | expiry          | staging TTL; completion tags on the info object drive tag-based lifecycle  |
-|  [06]   | `Options.cache` (`KvStore<MetadataValue>`)                     | metadata cache  | fronts the `${id}.info` `HeadObject` reads; in-memory default              |
-|  [07]   | `MetadataValue` (`{ file: Upload, "upload-id", "tus-version" }`) | record        | the staged upload's identity — the S3 `UploadId` rides here                 |
-|  [08]   | `S3Store.maxUploadSize` (`5497558138880`)                      | bound           | the 5 TiB S3 object ceiling the store enforces                              |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
+| [01] | `S3Store` (`extends DataStore`, `constructor(options)`) | store | the `datastore` slot of `@tus/server`'s `Server` |
+| [02] | `Options.s3ClientConfig` (`S3ClientConfig & { bucket }`) | provider config | the object plane's endpoint/credential/`forcePathStyle` facts, plus the staging bucket |
+| [03] | `Options.partSize` / `.minPartSize` / `.maxMultipartParts` | part policy | preferred part bytes (≥ 5 MiB), uniform-part floor, 10 000-part ceiling — the server recomputes optimal size against declared length |
+| [04] | `Options.maxConcurrentPartUploads` | concurrency | the part-upload semaphore width per PATCH |
+| [05] | `Options.expirationPeriodInMilliseconds` / `.useTags` | expiry | staging TTL; completion tags on the info object drive tag-based lifecycle |
+| [06] | `Options.cache` (`KvStore<MetadataValue>`) | metadata cache | fronts the `${id}.info` `HeadObject` reads; in-memory default |
+| [07] | `MetadataValue` (`{ file: Upload, "upload-id", "tus-version" }`) | record | the staged upload's identity — the S3 `UploadId` rides here |
+| [08] | `S3Store.maxUploadSize` (`5497558138880`) | bound | the 5 TiB S3 object ceiling the store enforces |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -35,13 +34,13 @@
 - rail: object/stream
 - The rail never calls these directly — `@tus/server` drives them per protocol verb; the rail's own reads are `read` (the staged bytes for the finalize fold) and `deleteExpired` (the groom).
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CONSUMER / BOUNDARY]                                     |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `new S3Store({ s3ClientConfig: { bucket, endpoint, forcePathStyle, credentials, region }, partSize, maxConcurrentPartUploads, expirationPeriodInMilliseconds })` | construct | one store per staging band, built beside the server        |
-|  [02]   | `store.create(upload)` / `store.write(src, id, offset)` / `store.getUpload(id)`                     | protocol       | driven by POST/PATCH/HEAD — offsets map onto `ListParts`-derived progress |
-|  [03]   | `store.read(id): Promise<stream.Readable>`                                                          | staged read    | the finalize fold's byte source — lifts through `Stream.fromReadableStream` after `Readable.toWeb` |
-|  [04]   | `store.remove(id)` / `store.deleteExpired(): Promise<number>` / `store.getExpiration()`             | groom          | staging removal after re-home; the scheduled expiry sweep |
-|  [05]   | `store.declareUploadLength(id, length)`                                                             | deferred size  | tus `Upload-Defer-Length` — size declared after creation  |
+| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
+|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
+| [01] | `new S3Store({ s3ClientConfig: { bucket, endpoint, forcePathStyle, credentials, region }, partSize, maxConcurrentPartUploads, expirationPeriodInMilliseconds })` | construct | one store per staging band, built beside the server |
+| [02] | `store.create(upload)` / `store.write(src, id, offset)` / `store.getUpload(id)` | protocol | driven by POST/PATCH/HEAD — offsets map onto `ListParts`-derived progress |
+| [03] | `store.read(id): Promise<stream.Readable>` | staged read | the finalize fold's byte source — lifts through `Stream.fromReadableStream` after `Readable.toWeb` |
+| [04] | `store.remove(id)` / `store.deleteExpired(): Promise<number>` / `store.getExpiration()` | groom | staging removal after re-home; the scheduled expiry sweep |
+| [05] | `store.declareUploadLength(id, length)` | deferred size | tus `Upload-Defer-Length` — size declared after creation |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

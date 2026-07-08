@@ -10,7 +10,7 @@
 - import: `@pulumiverse/acme` → `{ Registration, Certificate, Provider, getServerUrl, getServerUrlOutput, types }`
 - owner: `iac`
 - rail: fabric / cert (the CA-trusted lane beside `@pulumi/tls`'s self-signed lane)
-- runtime: Node deploy-host; DNS-01 needs the DNS provider API reachable, HTTP/TLS challenges need the target host to answer on 80/443
+- runtime: Node deploy-host; DNS-0 catalog needs the DNS provider API reachable, HTTP/TLS challenges need the target host to answer on 80/443
 - depends-on: `@pulumi/pulumi`; composes `@pulumi/tls` (CSR mode), `@pulumi/cloudflare` (the challenged zone), `@pulumiverse/doppler` (challenge credentials)
 - capability: ACME account registration (EAB-capable), certificate order/issue/renew as one resource lifecycle, DNS-01/HTTP-01/TLS-ALPN challenge rows, CSR-mode or provider-minted keys, ARI-driven renewal windows, revoke-on-destroy
 - abi-note: every `Certificate` output mirrors its arg resolved through `Output<T>`; the issued material rides `certificatePem`/`issuerPem`/`privateKeyPem` with the private key state-encrypted and present only when the provider minted the key
@@ -21,34 +21,34 @@
 - rail: cert
 - `Registration` self-mints its account key when given `accountKeyAlgorithm`/`accountKeyEcdsaCurve`/`accountKeyRsaBits`, or adopts one through `accountKeyPem` (a `tls.PrivateKey.privateKeyPem` output, keeping key mint in the one entropy owner). `externalAccountBinding` (`keyId` + `hmacBase64`) is the EAB row for CAs that require it. `registrationUrl` and the resolved `accountKeyPem` are the outputs every `Certificate` consumes.
 
-| [INDEX] | [SYMBOL] | [SHAPE / BOUNDARY] |
-| :-----: | :------- | :----------------- |
-|  [01]   | `Registration` | `new Registration(name, RegistrationArgs, opts?)`; outputs `accountKeyPem` (state-encrypted), `registrationUrl` |
-|  [02]   | `RegistrationArgs.emailAddress` | `Input<string>` — the account contact |
-|  [03]   | `accountKeyAlgorithm` / `accountKeyEcdsaCurve` / `accountKeyRsaBits` | self-mint policy; ECDSA floor mirrors the `Certs` profile law |
-|  [04]   | `accountKeyPem` | adopt an upstream `tls.PrivateKey.privateKeyPem` instead of self-minting |
-|  [05]   | `externalAccountBinding` | `{ keyId, hmacBase64 }` — EAB credentials from the Doppler fan-in, never literals |
-|  [06]   | `ProviderArgs.serverUrl` | the sole provider field — the ACME directory URL; staging/production is provider data |
-|  [07]   | `getServerUrl` / `getServerUrlOutput` | invoke mirror pair reading the configured directory URL |
+| [INDEX] | [SYMBOL] | [SHAPE_BOUNDARY] |
+|:-----: |:------- |:----------------- |
+| [01] | `Registration` | `new Registration(name, RegistrationArgs, opts?)`; outputs `accountKeyPem` (state-encrypted), `registrationUrl` |
+| [02] | `RegistrationArgs.emailAddress` | `Input<string>` — the account contact |
+| [03] | `accountKeyAlgorithm` / `accountKeyEcdsaCurve` / `accountKeyRsaBits` | self-mint policy; ECDSA floor mirrors the `Certs` profile law |
+| [04] | `accountKeyPem` | adopt an upstream `tls.PrivateKey.privateKeyPem` instead of self-minting |
+| [05] | `externalAccountBinding` | `{ keyId, hmacBase64 }` — EAB credentials from the Doppler fan-in, never literals |
+| [06] | `ProviderArgs.serverUrl` | the sole provider field — the ACME directory URL; staging/production is provider data |
+| [07] | `getServerUrl` / `getServerUrlOutput` | invoke mirror pair reading the configured directory URL |
 
 [CERTIFICATE_SCOPE]: the one lifecycle resource
 - rail: cert
 - Two key postures on one resource: provider-minted (`commonName` + `subjectAlternativeNames` + `keyType`, the key lands in `privateKeyPem`) or CSR mode (`certificateRequestPem` from a `tls.CertRequest`, the key never leaves the `tls` owner). `accountKeyPem` is the required account bind; exactly one challenge family activates per certificate.
 
-| [INDEX] | [MEMBER] | [SHAPE / MEANING] |
-| :-----: | :------- | :---------------- |
-|  [01]   | `accountKeyPem` | `Input<string>` (required) — `registration.accountKeyPem` |
-|  [02]   | `commonName` / `subjectAlternativeNames` / `keyType` | provider-minted posture; SANs carry the extra hostnames |
-|  [03]   | `certificateRequestPem` | CSR posture — `tls.CertRequest.certRequestPem`; mutually exclusive with the minted posture |
-|  [04]   | `dnsChallenges` | `Input<Input<CertificateDnsChallenge>[]>` — `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }`; the lego provider slug plus its credential map |
-|  [05]   | `httpChallenge` / `httpWebrootChallenge` / `httpMemcachedChallenge` / `httpS3Challenge` / `tlsChallenge` | the non-DNS challenge rows (`{port?, proxyHeader?}` / `{directory}` / `{hosts}` / `{s3Bucket}` / `{port?}`) |
-|  [06]   | `recursiveNameservers` / `disableCompletePropagation` / `preCheckDelay` / `propagationWait` | DNS-01 propagation controls |
-|  [07]   | `minDaysRemaining` / `useRenewalInfo` / `renewalInfoMaxSleep` / `renewalInfoIgnoreRetryAfter` | the renewal window: threshold days plus ARI adoption |
-|  [08]   | `revokeCertificateOnDestroy` / `revokeCertificateReason` / `deactivateAuthorizations` | teardown hygiene |
-|  [09]   | `preferredChain` / `profile` / `mustStaple` / `validityDays` / `certTimeout` | chain selection, CA profile, OCSP must-staple, requested validity, order timeout |
-|  [10]   | `certificatePem` / `issuerPem` / `privateKeyPem` / `certificateP12` (+`certificateP12Password`) | issued outputs; `privateKeyPem` only in the minted posture |
-|  [11]   | `certificateDomain` / `certificateNotAfter` / `certificateNotBefore` / `certificateSerial` / `certificateUrl` | issued identity evidence |
-|  [12]   | `renewalInfoWindowStart` / `renewalInfoWindowEnd` / `renewalInfoWindowSelected` / `renewalInfoRetryAfter` / `renewalInfoExplanationUrl` | the ARI window outputs the drift fold reads |
+| [INDEX] | [MEMBER] | [SHAPE_MEANING] |
+|:-----: |:------- |:---------------- |
+| [01] | `accountKeyPem` | `Input<string>` (required) — `registration.accountKeyPem` |
+| [02] | `commonName` / `subjectAlternativeNames` / `keyType` | provider-minted posture; SANs carry the extra hostnames |
+| [03] | `certificateRequestPem` | CSR posture — `tls.CertRequest.certRequestPem`; mutually exclusive with the minted posture |
+| [04] | `dnsChallenges` | `Input<Input<CertificateDnsChallenge>[]>` — `{ provider: Input<string>, config?: Input<{[k]: Input<string>}> }`; the lego provider slug plus its credential map |
+| [05] | `httpChallenge` / `httpWebrootChallenge` / `httpMemcachedChallenge` / `httpS3Challenge` / `tlsChallenge` | the non-DNS challenge rows (`{port?, proxyHeader?}` / `{directory}` / `{hosts}` / `{s3Bucket}` / `{port?}`) |
+| [06] | `recursiveNameservers` / `disableCompletePropagation` / `preCheckDelay` / `propagationWait` | DNS-01 propagation controls |
+| [07] | `minDaysRemaining` / `useRenewalInfo` / `renewalInfoMaxSleep` / `renewalInfoIgnoreRetryAfter` | the renewal window: threshold days plus ARI adoption |
+| [08] | `revokeCertificateOnDestroy` / `revokeCertificateReason` / `deactivateAuthorizations` | teardown hygiene |
+| [09] | `preferredChain` / `profile` / `mustStaple` / `validityDays` / `certTimeout` | chain selection, CA profile, OCSP must-staple, requested validity, order timeout |
+| [10] | `certificatePem` / `issuerPem` / `privateKeyPem` / `certificateP12` (+`certificateP12Password`) | issued outputs; `privateKeyPem` only in the minted posture |
+| [11] | `certificateDomain` / `certificateNotAfter` / `certificateNotBefore` / `certificateSerial` / `certificateUrl` | issued identity evidence |
+| [12] | `renewalInfoWindowStart` / `renewalInfoWindowEnd` / `renewalInfoWindowSelected` / `renewalInfoRetryAfter` / `renewalInfoExplanationUrl` | the ARI window outputs the drift fold reads |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

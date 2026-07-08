@@ -1,10 +1,10 @@
-# [hash-wasm] — the WebAssembly XxHash128 kernel behind the one seed-zero ContentKey mint
+# [TS_CORE_API_HASH_WASM]
 
 [PACKAGE_SURFACE]:
-- package: `hash-wasm` · version `4.12.0` · license `MIT`
+- package: `hash-wasm` · version `` · license `MIT`
 - module: dual — `dist/index.esm.js` (ESM `module`) + `dist/index.umd.js` (UMD `main`); `type: commonjs`; single barrel, no subpaths.
 - asset: `dist/lib/index.d.ts` (barrel); every algorithm is a peer module re-exported flat.
-- runtime: WebAssembly; each algorithm's `.wasm` is embedded base64 IN the JS (`IEmbeddedWasm { name, data, hash }`) — no separate `.wasm` fetch, no network, runs in node / bun / browser / worker. `MAX_HEAP` bounds a single hashed chunk.
+- runtime: WebAssembly; each algorithm's `.wasm` is embedded base6 catalog IN the JS (`IEmbeddedWasm { name, data, hash }`) — no separate `.wasm` fetch, no network, runs in node / bun / browser / worker. `MAX_HEAP` bounds a single hashed chunk.
 - ABI: every entry is ASYNC (`Promise<…>`) — the WASM module compiles on first await; the streaming factory hands back a reusable `IHasher` so the compile amortizes across an update loop.
 - plane: `plane:runtime` (core W0); folder-local to `core`, catalogued only here.
 - rail: content-identity / cryptographic-digest.
@@ -15,10 +15,10 @@
 
 Two exported types are the entire substrate; every algorithm composes them. One-shot functions take `IDataType` and return a hex `string`; the `create*` factories return a reusable `IHasher` state machine.
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY / BOUNDARY]                                                        |
-| :-----: | :------------ | :------------ | :----------------------------------------------------------------------------- |
-|  [01]   | `IDataType`   | type alias    | `string \| Buffer \| Uint8Array \| Uint16Array \| Uint32Array` — the input union |
-|  [02]   | `IHasher`     | type          | reusable streaming state: `init`/`update`/`digest` + `save`/`load` + sizes      |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY_BOUNDARY] |
+|:-----: |:------------ |:------------ |:----------------------------------------------------------------------------- |
+| [01] | `IDataType` | type alias | `string \| Buffer \| Uint8Array \| Uint16Array \| Uint32Array` — the input union |
+| [02] | `IHasher` | type | reusable streaming state: `init`/`update`/`digest` + `save`/`load` + sizes |
 
 ```ts contract
 type ITypedArray = Uint8Array | Uint16Array | Uint32Array
@@ -38,18 +38,18 @@ type IHasher = {
 
 The digest surface is ONE parameterized pattern — `{ name(data, …seed?): Promise<string>; createName(…seed?): Promise<IHasher> }` per algorithm — not a fixed API per hash. The roster below is SEED DATA on that pattern; the columns that vary are the seed/config parameters. A new digest is a new row, never a new shape.
 
-| [INDEX] | [ONE-SHOT]                            | [FACTORY]           | [CONFIG AXIS / OUTPUT]                                    |
-| :-----: | :------------------------------------ | :------------------ | :-------------------------------------------------------- |
-|  [01]   | `xxhash128(data, seedLow?, seedHigh?)`| `createXXHash128`   | 64-bit seed split into two 32-bit halves; 128-bit → 32 hex |
-|  [02]   | `xxhash3(data, seedLow?, seedHigh?)`  | `createXXHash3`     | two-half seed; 64-bit → 16 hex                            |
-|  [03]   | `xxhash64(data, seedLow?, seedHigh?)` | `createXXHash64`    | two-half seed; 64-bit → 16 hex                            |
-|  [04]   | `xxhash32(data, seed?)`               | `createXXHash32`    | single 32-bit seed; 32-bit → 8 hex                        |
-|  [05]   | `blake3(data, bits?, key?)`           | `createBLAKE3`      | variable output `bits` (÷8, default 256) + optional 32-B key |
-|  [06]   | `blake2b(data, bits?, key?)` / `blake2s` | `createBLAKE2b`/`…2s` | variable-length keyed digest                         |
-|  [07]   | `sha256` / `sha224` / `sha384` / `sha512` | `createSHA256`…  | SHA-2 family; no config                                  |
-|  [08]   | `sha1` / `sha3(data, bits?)` / `keccak(data, bits?)` | `createSHA1`/`createSHA3`/`createKeccak` | SHA-1, SHA-3, Keccak; `bits` selects width |
-|  [09]   | `md4` / `md5` / `ripemd160` / `whirlpool` / `sm3` | `createMD5`… | legacy + regional digests                        |
-|  [10]   | `crc32` / `crc64` / `adler32`         | `createCRC32`…      | checksums                                                |
+| [INDEX] | [ONE_SHOT] | [FACTORY] | [CONFIG_AXIS_OUTPUT] |
+|:-----: |:------------------------------------ |:------------------ |:-------------------------------------------------------- |
+| [01] | `xxhash128(data, seedLow?, seedHigh?)`| `createXXHash128` | 64-bit seed split into two 32-bit halves; 128-bit → 32 hex |
+| [02] | `xxhash3(data, seedLow?, seedHigh?)` | `createXXHash3` | two-half seed; 64-bit → 16 hex |
+| [03] | `xxhash64(data, seedLow?, seedHigh?)` | `createXXHash64` | two-half seed; 64-bit → 16 hex |
+| [04] | `xxhash32(data, seed?)` | `createXXHash32` | single 32-bit seed; 32-bit → 8 hex |
+| [05] | `blake3(data, bits?, key?)` | `createBLAKE3` | variable output `bits` (÷8, default 256) + optional 32-B key |
+| [06] | `blake2b(data, bits?, key?)` / `blake2s` | `createBLAKE2b`/`…2s` | variable-length keyed digest |
+| [07] | `sha256` / `sha224` / `sha384` / `sha512` | `createSHA256`… | SHA-2 family; no config |
+| [08] | `sha1` / `sha3(data, bits?)` / `keccak(data, bits?)` | `createSHA1`/`createSHA3`/`createKeccak` | SHA-1, SHA-3, Keccak; `bits` selects width |
+| [09] | `md4` / `md5` / `ripemd160` / `whirlpool` / `sm3` | `createMD5`… | retired + regional digests |
+| [10] | `crc32` / `crc64` / `adler32` | `createCRC32`… | checksums |
 
 ```ts contract
 // The consumed row — both seed halves omitted ⇒ the seed-zero mint. Return is lowercase hex in canonical big-endian digest order.
@@ -63,14 +63,14 @@ declare function sha256(data: IDataType): Promise<string>
 
 Password/derivation functions break the digest pattern: they take an options object and carry a return-type discriminant keyed on `outputType`. This is the advanced surface — verify against the object shape, not a positional guess.
 
-| [INDEX] | [SURFACE]                          | [OPTIONS]                | [RETURN DISCRIMINANT]                          |
-| :-----: | :--------------------------------- | :----------------------- | :--------------------------------------------- |
-|  [01]   | `argon2i` / `argon2id` / `argon2d` | `IArgon2Options`         | `outputType:"binary"` → `Uint8Array`, else `string` |
-|  [02]   | `argon2Verify`                     | `Argon2VerifyOptions`    | `Promise<boolean>`                             |
-|  [03]   | `bcrypt`                           | `BcryptOptions`          | `outputType`-discriminated `Uint8Array \| string` |
-|  [04]   | `bcryptVerify`                     | `BcryptVerifyOptions`    | `Promise<boolean>`                             |
-|  [05]   | `scrypt` / `pbkdf2`                | options object           | derived-key hex / binary                       |
-|  [06]   | `createHMAC(hash, key)`            | combinator               | takes another algorithm's `Promise<IHasher>`   |
+| [INDEX] | [SURFACE] | [OPTIONS] | [RETURN_DISCRIMINANT] |
+|:-----: |:--------------------------------- |:----------------------- |:--------------------------------------------- |
+| [01] | `argon2i` / `argon2id` / `argon2d` | `IArgon2Options` | `outputType:"binary"` → `Uint8Array`, else `string` |
+| [02] | `argon2Verify` | `Argon2VerifyOptions` | `Promise<boolean>` |
+| [03] | `bcrypt` | `BcryptOptions` | `outputType`-discriminated `Uint8Array \| string` |
+| [04] | `bcryptVerify` | `BcryptVerifyOptions` | `Promise<boolean>` |
+| [05] | `scrypt` / `pbkdf2` | options object | derived-key hex / binary |
+| [06] | `createHMAC(hash, key)` | combinator | takes another algorithm's `Promise<IHasher>` |
 
 ```ts contract
 // Conditional return type: the binary variant narrows to Uint8Array, everything else to string.

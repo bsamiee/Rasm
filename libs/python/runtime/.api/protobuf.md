@@ -1,6 +1,8 @@
 # [PY_RUNTIME_API_PROTOBUF]
 
-`protobuf` supplies the Protocol Buffers message runtime — descriptor-pool reflection, the `proto.*` functional codec façade, `json_format`/`text_format`, and the well-known wrapper types. Integration overlay over the canonical branch catalog `libs/python/.api/protobuf.md`, which owns the full `Message`/descriptor/`proto`/`json_format`/well-known/`FieldDescriptor` surface and the generic OTLP/boundary/streaming law. This overlay carries only the runtime-specific delta: the `WireProtoCodec` `CrdtOp*` composition, the `descriptor_pool` drift-gate, and the msgspec-envelope seam.
+Full surface and stacking: `libs/python/.api/protobuf.md` (shared-tier canonical owner).
+
+`protobuf` supplies the Protocol Buffers message runtime: descriptor-pool reflection, the `proto.*` functional codec facade, `json_format`/`text_format`, and the well-known wrapper types. This overlay carries only the runtime-specific delta: the `WireProtoCodec` `CrdtOp*` composition, the `descriptor_pool` drift-gate, and the msgspec-envelope seam.
 
 ## [01]-[LOCAL_ADMISSION]
 

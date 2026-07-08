@@ -1,4 +1,4 @@
-# [@perspective-dev/viewer] — the `<perspective-viewer>` custom element: one config value (`save`/`restore`) over a plugin roster, riding the client's Table/View protocol
+# [TS_UI_API_PERSPECTIVE_DEV_VIEWER]
 
 [PACKAGE_SURFACE]:
 - package: `@perspective-dev/viewer` · license `Apache-2.0` — the LIVE scope; `@finos/*` is dead.

@@ -6,7 +6,6 @@
 
 [PACKAGE_SURFACE]: `Chr.Avro.Binary`
 - package: `Chr.Avro.Binary`
-- version: `10.13.1`
 - license: MIT
 - assembly: `Chr.Avro.Binary`
 - namespace: `Chr.Avro.Serialization`

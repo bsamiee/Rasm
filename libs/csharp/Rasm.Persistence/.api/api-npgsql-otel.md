@@ -11,7 +11,6 @@ two subscriptions onto the provider builders.
 
 [PACKAGE_SURFACE]: `Npgsql.OpenTelemetry`
 - package: `Npgsql.OpenTelemetry`
-- version: `10.0.3`
 - license: PostgreSQL (Npgsql's BSD-style license)
 - assembly: `Npgsql.OpenTelemetry`
 - target: `net8.0` (single-TFM package; binds under the `net10.0` consumer with no fallback ambiguity)
@@ -36,7 +35,7 @@ Extension signatures (verified against the package XML/IL):
 
 `NpgsqlMetricsOptions` is declared by the `Npgsql` driver package with a parameterless ctor and **no
 settable property knobs** at `10.0.3`; the configuration delegate is the registration seam, not a
-property surface. Histogram bucketing and cardinality posture ride OpenTelemetry meter-**view**
+property surface. Histogram bucketing and cardinality posture ride OpenTelemetry meter-view
 configuration (`AddView`/explicit-bucket boundaries on the `MeterProviderBuilder`), not options
 properties.
 
