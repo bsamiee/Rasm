@@ -30,6 +30,8 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
+# Vendored RID-keyed natives are deliberate LFS assets, exempt from the build-output *.so rule.
+!**/vendor/runtimes/**/*.so
 .Python
 *.egg
 *.egg-info/

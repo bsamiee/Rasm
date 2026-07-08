@@ -27,8 +27,9 @@
     </ItemGroup>
 
     <ItemGroup Label="Vendored Natives" Condition="Exists('vendor')">
-        <!-- lib3mf 2.5.0 (BSD-2) + OpenCAMLib 2023.01.11 SHARED libocl (LGPL-2.1 dynamic-link): no NuGet artifact exists for either; RID-keyed LFS natives ride vendor/runtimes. -->
+        <!-- lib3mf 2.5.0 (BSD-2) + OpenCAMLib 2023.01.11 SHARED libocl (LGPL-2.1 dynamic-link): no NuGet artifact exists for either; RID-keyed LFS natives ride vendor/runtimes, the ACT binding source stages compile-excluded at vendor/sdk until realization. -->
         <Content Include="vendor/runtimes/**" CopyToOutputDirectory="PreserveNewest" />
+        <Compile Remove="vendor/**/*.cs" />
     </ItemGroup>
 
     <ItemGroup Label="Substrate">
