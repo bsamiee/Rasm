@@ -4,7 +4,7 @@
   "triggerOnUpdates": true,
   "statusCheck": true,
   "fixWithAI": true,
-  "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/obj/**\n**/bin/**",
+  "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/obj/**\n**/bin/**\n**/node_modules/**",
   "context": {
     "repos": ["bsamiee/Parametric_Forge", "bsamiee/Maghz"]
   },
@@ -29,6 +29,18 @@
       "rule": "NuGet versions live only in Directory.Packages.props, hand-edited. TypeScript dependencies are registry packages via pnpm with the committed lockfile; vendored SDKs are defects.",
       "severity": "high",
       "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json"]
+    },
+    {
+      "id": "fence-as-product",
+      "rule": "Code fences in planning design pages are the work product: transcription-complete signatures verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and wrapper or grab-bag abstractions inside fences are defects.",
+      "severity": "high",
+      "scope": ["libs/.planning/**", "libs/**/.planning/**"]
+    },
+    {
+      "id": "workflow-determinism",
+      "rule": "Workflow scripts are deterministic orchestration: schema-typed agent outputs, bounded loops, stage products written to disk with path receipts. Bare promises, unbounded polling, wall-clock branching, and subagents instructed to wait are defects.",
+      "severity": "medium",
+      "scope": [".claude/workflows/**"]
     }
   ]
 }

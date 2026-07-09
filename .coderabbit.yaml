@@ -1,14 +1,25 @@
 language: en-US
 tone_instructions: "Senior-to-senior register. Dense, declarative, evidence-anchored findings. No praise, no emojis, no hedging. Doctrine violations (CLAUDE.md, docs/stacks) are defects, not suggestions. Prefer polymorphic collapse over additive patches."
+early_access: false
 reviews:
   profile: assertive
+  request_changes_workflow: false
   high_level_summary: true
+  high_level_summary_instructions: >-
+    Lead with contract-surface and behavior deltas, one dense paragraph. No restated
+    diff statistics, no methodology narration.
   collapse_walkthrough: true
-  sequence_diagrams: true
+  changed_files_summary: false
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
   suggested_labels: false
   suggested_reviewers: false
   in_progress_fortune: false
   poem: false
+  enable_prompt_for_ai_agents: true
   path_filters:
     - "!**/pnpm-lock.yaml"
     - "!**/uv.lock"
@@ -23,40 +34,68 @@ reviews:
         knob/param/flag spam, hardcoded values, fragile string plumbing, naive happy-path
         logic, hand-rolled reimplementations of capability the ecosystem already provides.
         External packages are first-class implementation material used at full power, newest
-        stable versions (Python 3.15, TypeScript 7 beta lane where declared). Everything is
-        agent-first: composable, receipt-bearing, self-describing. Collapse spam relentlessly.
+        stable versions. Everything is agent-first: composable, receipt-bearing,
+        self-describing, no interactive-only paths. Collapse spam relentlessly.
     - path: "**/*.cs"
       instructions: >-
         The C# doctrine lives in docs/stacks/csharp — review against it, not generic
         convention. Functional-first: monadic result rails over exceptions for domain logic,
         polymorphic dispatch surfaces over method proliferation, one entry point
-        discriminating on input shape over get/getMany/getById spam. Central package
-        management via Directory.Packages.props — hand-edited, never dotnet add. Aggressive
-        API breaking beats compat wrappers; no [Obsolete] aliases.
+        discriminating on input shape over get/getMany/getById spam. Language and framework
+        floor per global.json and Directory.Packages.props. Aggressive API breaking beats
+        compat wrappers; no [Obsolete] aliases.
+    - path: "**/*.{csproj,props,targets}"
+      instructions: >-
+        Project files carry structure only. Package versions live exclusively in
+        Directory.Packages.props, hand-edited — a Version attribute on a PackageReference
+        outside central management is a defect, as is any dotnet-add-shaped drift.
     - path: "**/*.py"
       instructions: >-
-        The Python doctrine lives in docs/stacks/python. Python 3.15+, uv-managed, ruff and
-        ty clean, anyio + aiofiles for async. Typed result/effect rails; expression-shaped
-        logic; no bare exceptions crossing domain boundaries. Singleton helper modules where
-        an owning surface exists are defects.
+        The Python doctrine lives in docs/stacks/python — review against it, not generic
+        convention. Version floor per pyproject.toml; uv-managed, ruff and ty clean, anyio
+        for async. Typed result/effect rails; expression-shaped logic; no bare exceptions
+        crossing domain boundaries. Singleton helper modules where an owning surface exists
+        are defects.
     - path: "**/*.ts"
       instructions: >-
-        The TypeScript doctrine lives in docs/stacks/typescript. Effect rails with tagged
-        faults, Config.redacted for secret-bearing config, Schema decodes at every boundary,
-        no any, no class-based services, pnpm with committed lockfile, registry dependencies
-        only — vendored SDKs and nested src/ trees are defects.
+        The TypeScript doctrine lives in docs/stacks/typescript — review against it, not
+        generic convention. Version floor per package.json and tsconfig. Effect rails with
+        tagged faults, Config.redacted for secret-bearing config, Schema decodes at every
+        boundary, no any, no class-based services, pnpm with committed lockfile, registry
+        dependencies only — vendored SDKs and nested src/ trees are defects.
+    - path: "libs/**"
+      instructions: >-
+        Design pages under .planning follow the campaign method: code fences are the work
+        product, transcription-complete — external members verified against the folder's
+        .api/ catalogue; abstract sketches, pseudo-code fences, and hand-waved contracts
+        are defects. Root-up rebuild law applies to planning prose exactly as to source;
+        wrappers and grab-bag abstractions in fences are defects. Strata depend only
+        upward; geometry, meshing, and IFC each keep exactly one owner per runtime;
+        branches couple only through wire contracts and companion seams.
+    - path: "tools/**"
+      instructions: >-
+        Repo tooling: each GritQL pattern encodes one doctrine defect with a precise match
+        shape — patterns overlapping an existing pattern's territory are defects. Bridge and
+        manifest changes keep deterministic proof rails intact; analyzer and assay surfaces
+        stay parameterized, never hardcoded to a fixture.
+    - path: ".claude/workflows/**"
+      instructions: >-
+        Workflow scripts are deterministic orchestration: plain control flow, schema-typed
+        agent outputs, bounded loops and harvest rounds, every stage writing its product to
+        disk and returning a path receipt. Defects: bare promises without await ownership,
+        unbounded polling, branching on wall clock, subagents asked to wait — codex wrappers
+        are launch-only and the orchestrator owns time.
     - path: "**/*.md"
       instructions: >-
         Review prose and structure against docs/standards/style-guide.md,
         docs/standards/formatting.md, and docs/standards/information-structure.md — the
-        docgen discipline. Agent-facing declarative artifacts: rules stated as fact, neutral
-        placeholders in reusable examples. Defects: no-op sentences that change no reader
-        decision, leading filler words, research provenance, freshness disclaimers,
-        checklist tails, heading proliferation, duplicated content an owning doc already
-        carries, drift from the [UPPER_CASE] label convention, quality ladders
-        (good/better/best tiers) where a contract gate belongs, restated obligations the
-        instruction chain already carries (follow CLAUDE.md, use available tools), and
-        defensive caveats softening settled rules.
+        docgen discipline. Defects: no-op sentences that change no reader decision, leading
+        filler words, meta-commentary, provenance/freshness tails, checklist tails, heading
+        proliferation for short content, tables carrying explanations instead of enumerable
+        facts, duplicated content an owning doc already carries, drift from the [UPPER_CASE]
+        label convention, quality ladders (good/better/best tiers) where a contract gate
+        belongs, restated obligations the instruction chain already carries (follow
+        CLAUDE.md, use available tools), and defensive caveats softening settled rules.
     - path: ".claude/skills/**"
       instructions: >-
         Skill bundles under the docgen skill-craft law. Defects: first- or second-person
@@ -76,22 +115,80 @@ reviews:
         and verification.
   auto_review:
     enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 0
+  finishing_touches:
+    docstrings:
+      enabled: false
+    unit_tests:
+      enabled: false
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "off"
+    description:
+      mode: "off"
+    issue_assessment:
+      mode: "off"
   tools:
     ruff:
       enabled: true
     shellcheck:
       enabled: true
+    biome:
+      enabled: true
+    yamllint:
+      enabled: true
     actionlint:
+      enabled: true
+    zizmor:
       enabled: true
     gitleaks:
       enabled: true
+    trufflehog:
+      enabled: true
+    markdownlint:
+      enabled: false
+    languagetool:
+      enabled: false
+chat:
+  art: false
+  integrations:
+    jira:
+      usage: disabled
+    linear:
+      usage: disabled
 knowledge_base:
   web_search:
     enabled: true
+  code_guidelines:
+    enabled: true
+    filePatterns:
+      - "docs/standards/*.md"
+      - "docs/stacks/*/README.md"
   learnings:
     scope: local
+  issues:
+    scope: local
+  jira:
+    usage: disabled
+  linear:
+    usage: disabled
   pull_requests:
     scope: local
+  linked_repositories:
+    - repository: bsamiee/Parametric_Forge
+      instructions: >-
+        Machine owner for shell, PATH, provisioning, and launcher rails the Rasm toolchain
+        rides; harness skill masters mirror between the repos — flag divergence in mirrored
+        surfaces.
+    - repository: bsamiee/Maghz
+      instructions: >-
+        Sibling consumer of the shared stack doctrine and mirrored skills; doctrine changes
+        here ripple to its copied stack law.
 issue_enrichment:
   auto_enrich:
+    enabled: false
+  planning:
     enabled: false

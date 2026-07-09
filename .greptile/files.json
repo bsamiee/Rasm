@@ -5,6 +5,10 @@
       "description": "Repo execution standards and agent instructions"
     },
     {
+      "path": "docs/standards/design-doctrine.md",
+      "description": "Universal design law binding every executable surface: rails, dispatch, admitted substrate, parameterization, boundaries, density, vocabularies"
+    },
+    {
       "path": "docs/stacks/csharp/README.md",
       "description": "C# doctrine entry: rails, shapes, surfaces, boundaries",
       "scope": [
@@ -39,6 +43,13 @@
     {
       "path": "libs/.planning/architecture.md",
       "description": "System architecture: layer boundaries and ownership map"
+    },
+    {
+      "path": "libs/.planning/campaign-method.md",
+      "description": "Campaign method: fence-as-product, plan completeness, density and red-team bar for design pages",
+      "scope": [
+        "libs/**"
+      ]
     },
     {
       "path": "docs/standards/style-guide.md",

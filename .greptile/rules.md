@@ -8,6 +8,8 @@ C#/.NET-primary monorepo with TypeScript and Python lanes. Language doctrine is 
 - The unit of design is the polymorphic dispatch surface, not the file. Fewer deep surfaces beat many shallow ones; a new capability is a case, row, or dispatch arm on the owning surface.
 - Boundary kernels may use language-native control flow only where it preserves correctness, typing, performance, or interop clarity; domain logic never does.
 - Central manifests own versions: Directory.Packages.props for NuGet, per-package package.json + committed pnpm lockfile for TS, pyproject.toml + uv for Python.
+- Topology: strata depend only upward; geometry, meshing, and IFC each have exactly one owner per runtime; branches couple only through wire contracts and companion/offline seams.
+- Planning pages under libs/.planning are the product: fences are transcription-complete implementation, verified against .api/ catalogues, held naive until they survive adversarial reading.
 
 ## Universal bar
 
@@ -18,6 +20,17 @@ Anticipate 10x functionality growth: surfaces absorb new modalities as rows, cas
 1. Doctrine regressions (rails, dispatch, package custody) outrank style and naming.
 2. New public surfaces demand justification against extending an existing owner.
 3. Generated or lock content is never review substrate.
+
+## Load-bearing exceptions
+
+Code that violates generic best practice on purpose — do not flag:
+
+- Aggressive API breaks with every call site updated in the same change are the sanctioned rename path, not regressions.
+- Dense single-expression bodies and heavy polymorphic dispatch are the bar, not obfuscation.
+- Absent defensive guards inside domain logic reflect admission-once boundaries, not missing error handling.
+- Sparse 1-2 line agent-facing comments are compliance with comment law, not missing documentation.
+- Fences in .planning pages are implementation, not documentation examples — hold them to source standards, never suggest simplifying them into sketches.
+- A large file that owns one full concern is sanctioned; never recommend splitting by size.
 
 ## Durable prose and skill detection
 
