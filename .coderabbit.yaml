@@ -61,7 +61,12 @@ reviews:
         owner sized for the current instance is the defect. A parameter that re-describes
         the input (a batch/many/mode flag beside the value) is a smuggled knob; one
         entrypoint discriminates on the input shape itself, and forward plus inverse of
-        one correspondence ride one owner, never direction-named siblings.
+        one correspondence ride one owner, never direction-named siblings. Naming
+        grammar: one semantic word default, two when owner plus action, result, axis, or
+        boundary is load-bearing, three the ceiling absent a generated or external
+        contract; a name resolves in one hop — no forwarding helpers, helper/util
+        shells, or compat aliases; renaming for variety, tense drift, abbreviations, and
+        prefix/suffix families are collapse debt.
         Abort-vs-accumulate is fixed once at the boundary: independent operands compose
         applicatively and accumulate evidence — a bind chain reporting only the first
         failure over independent validations is a defect; abort is reserved for dependent
@@ -101,6 +106,11 @@ reviews:
         without a recorded reason in the diff is a defect. A sanctioned pin carries its
         mechanism inline as a comment stating exactly what breaks without it; a pin
         without the mechanism comment is a defect, a pin carrying one is never flagged.
+        A ProjectReference is topology: Rasm references nothing, Rasm.Element only Rasm
+        and no provider package, the AEC peers (Rasm.Materials, Rasm.Bim,
+        Rasm.Fabrication) depend up on Rasm and Rasm.Element and never on each other,
+        Rhino and Grasshopper assemblies admit only at app roots — a reference breaching
+        an edge is a strata defect.
     - path: "**/*.py"
       instructions: >-
         Python doctrine lives in docs/stacks/python; the gates own mechanics — review owns
@@ -183,7 +193,9 @@ reviews:
         suites mirror production trees; TS unit specs colocate beside source and
         tests/typescript never hosts them; ad hoc helpers beside specs are kit bypass —
         new kit capability is a row or fold on the existing kit owner, never a sibling
-        API. Deterministic clocks, schedulers, and barriers; sleeps and wall-clock waits
+        API. Substitution rides Layer provision or kit doubles — mock frameworks and
+        module patches are kit bypass, and a spec asserting only that its own doubles
+        were called proves the wiring it wrote, a mirror test. Deterministic clocks, schedulers, and barriers; sleeps and wall-clock waits
         are defects; TS specs ride the kit's effect-aware runners, never direct
         fast-check or real-time waits. Tool admission proves cache and artifact routing
         through the tool's own config — zero new repo-root entries after checks run; every
@@ -244,7 +256,9 @@ reviews:
         stay atomic; bullets cap at two sentences. Marker families are closed — heading
         grammar, token sets, and glyphs per formatting.md; invocation markers only in
         instruction files; one concept never carries both an invocation marker and a
-        prose modal.
+        prose modal. The planning corpus's closed markers — [QUEUED]/[ACTIVE]/[BLOCKED]
+        task status and marked RESEARCH items — are that standard's vocabulary, never
+        process-ledger or hedge findings.
     - path: ".claude/skills/**"
       instructions: >-
         Skill bundles under the docgen skill-craft law. Defects: first- or second-person
