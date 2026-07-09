@@ -1,46 +1,102 @@
 {
   "strictness": 2,
-  "commentTypes": ["logic", "syntax"],
+  "commentTypes": [
+    "logic",
+    "syntax"
+  ],
   "triggerOnUpdates": true,
+  "triggerOnDrafts": true,
   "statusCheck": true,
+  "statusCommentsEnabled": true,
   "fixWithAI": true,
+  "shouldUpdateDescription": false,
+  "updateSummaryOnly": false,
+  "hideFooter": false,
+  "labels": [],
+  "disabledLabels": [],
+  "includeAuthors": [],
+  "excludeAuthors": [],
+  "includeBranches": [],
+  "excludeBranches": [],
+  "includeKeywords": "",
+  "ignoreKeywords": "",
+  "disabledRules": [],
+  "summarySection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": true
+  },
+  "issuesTableSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": true
+  },
+  "confidenceScoreSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": true
+  },
+  "sequenceDiagramSection": {
+    "included": true,
+    "collapsible": true,
+    "defaultOpen": false
+  },
   "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/obj/**\n**/bin/**\n**/node_modules/**\n**/goldens/**\n*.verified.*\n*.har",
   "context": {
-    "repos": ["bsamiee/Parametric_Forge", "bsamiee/Maghz"]
+    "repos": [
+      "bsamiee/Parametric_Forge",
+      "bsamiee/Maghz"
+    ]
   },
   "rules": [
     {
       "id": "greenfield-only",
       "rule": "No compat shims, [Obsolete] aliases, backwards-compat wrappers, or migration helpers. Aggressive API breaking with every call site updated in the same change.",
-      "severity": "high"
+      "severity": "high",
+      "enabled": true
     },
     {
       "id": "monadic-rails",
       "rule": "Domain logic rides typed result/effect rails — C# monadic results, TypeScript Effect with tagged faults, Python typed results. Raw exceptions or dual error paradigms crossing domain boundaries are defects.",
-      "severity": "high"
+      "severity": "high",
+      "enabled": true
     },
     {
       "id": "polymorphic-dispatch",
       "rule": "One function owns all modalities of a concern, discriminating on input shape. get/getMany/getById proliferation, function spam, and singleton helper files where an owning surface exists are defects.",
-      "severity": "medium"
+      "severity": "medium",
+      "enabled": true
     },
     {
       "id": "central-package-management",
       "rule": "NuGet versions live only in Directory.Packages.props, hand-edited. TypeScript dependencies are registry packages via pnpm with the committed lockfile; vendored SDKs are defects. Version movement is forward-only: a downgrade or stale floor without a recorded reason is a defect.",
       "severity": "high",
-      "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json", "**/pyproject.toml"]
+      "scope": [
+        "**/*.csproj",
+        "Directory.Packages.props",
+        "**/package.json",
+        "**/pyproject.toml"
+      ],
+      "enabled": true
     },
     {
       "id": "fence-as-product",
       "rule": "Code fences in planning design pages are the work product: transcription-complete signatures verified against the folder's .api/ catalogue. Abstract sketches, pseudo-code fences, hand-waved contracts, and wrapper or grab-bag abstractions inside fences are defects.",
       "severity": "high",
-      "scope": ["libs/.planning/**", "libs/**/.planning/**"]
+      "scope": [
+        "libs/.planning/**",
+        "libs/**/.planning/**"
+      ],
+      "enabled": true
     },
     {
       "id": "workflow-determinism",
       "rule": "Workflow scripts are deterministic orchestration: schema-typed agent outputs, bounded loops, stage products written to disk with path receipts. Bare promises, unbounded polling, wall-clock branching, and subagents instructed to wait are defects.",
       "severity": "medium",
-      "scope": [".claude/workflows/**"]
+      "scope": [
+        ".claude/workflows/**"
+      ],
+      "enabled": true
     }
   ]
 }
