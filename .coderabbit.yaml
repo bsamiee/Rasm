@@ -148,8 +148,10 @@ reviews:
         registry dependencies only — vendored SDKs and nested src/ trees are defects.
     - path: "libs/**"
       instructions: >-
-        Planning pages under .planning are the work product; the measure of a planning
-        item is the diff to a code fence, never the prose around it. Fences are
+        Planning-corpus law lives in libs/.planning/README.md — page anatomy, index-doc
+        templates, card grammar, and the closed seams kind vocabulary; breaches of that
+        standard are defects. Planning pages under .planning are the work product; the
+        measure of a planning item is the diff to a code fence, never the prose around it. Fences are
         transcription-complete: an external member appears as settled fence code only
         when the folder's .api/ catalogue verifies its spelling — otherwise it is a
         marked RESEARCH item, and a fence contradicting a sibling RESEARCH item fails.

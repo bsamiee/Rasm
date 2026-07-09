@@ -63,6 +63,7 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - Seams rows follow `<SourceFile> <glyph> <lang:pkg/subdomain> # [<KIND>]: <shared shape>` with glyphs →/←/⇄ and the closed kind vocabulary owned by libs/.planning/README.md; a new kind is an amendment to that standard, never a fence-local mint; every edge mirrors on both endpoint folders with identical kind; in-package relations are never seams; seams fence lines cap at 160 columns.
 - `.planning/` is transient greenfield scaffold: one per package root, sub-domains mirroring the eventual tree; mature folders carry none — the sole exception is a genuinely new sub-domain inside a mature package. A `.planning/` added inside a source sub-folder, or at a mature package root, is misplaced scaffold.
 - Codemap nodes name real domain concepts; rail, axis, and lane doctrine jargon never surfaces as an ARCHITECTURE sub-domain name.
+- Fence comments obey comment law — rare, 1-2 lines, stating the in-situ invariant the fence cannot show; flag narrative fence comments, never law-bearing ones. This ruling governs where the planning standard's zero-comment line disagrees.
 - A planning task naming source-file creation is out of scope and must be removed; implement means deepening a fence plus manifest, `.api/`, and tooling work. Integration points use `page#CLUSTER` notation; standalone cross-reference ledgers are drift channels.
 
 ## Tests
