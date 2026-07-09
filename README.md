@@ -53,6 +53,7 @@ Every root, tool, and library routes generated output through an owned store: `.
 - `tools/cs-analyzer` captures repeated C# shape laws after source diffs prove the rule reduces surface while preserving behavior. Analyzer diagnostics are architecture pressure, not suppression targets.
 - `tools/biome` carries the promoted GritQL rule roster — the TypeScript doctrine's mechanical shape laws. The root `biome.json` registers every rule at error, and the `tests/typescript/_architecture` gauge proves the roster, its firing spans, and its severity against disk.
 - `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
+- GitHub repository settings — merge hygiene, rulesets, review automation — are settings-as-code `@pulumi/github` rows in Parametric_Forge `services/topology.ts`; the services driver preview is the verification surface, never the GitHub UI. Agent secrets arrive through the canonical `.claude/hooks/setup-env.sh` Doppler rail; custody law is the `secrets` skill.
 
 ## [06]-[PLANNING_AND_EVIDENCE]
 
