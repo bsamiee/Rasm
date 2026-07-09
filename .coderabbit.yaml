@@ -77,6 +77,11 @@ reviews:
         the formatters and gates already enforce; flag their suppressions and bypasses,
         adjudicated as architecture pressure (fix the shape) or rule pressure (refine the
         rule) — suppression is neither.
+        Fix-to-root is a review demand: a PR that patches a symptom while its root cause
+        stands, leaves a known defect unfixed because it sits outside the change's scope, or
+        defers a residual for a later pass is defective — the root fix belongs in the same
+        change, and a genuinely blocked item is an explicit unreachable naming its owner,
+        never a silent residual.
     - path: "**/*.cs"
       instructions: >-
         C# doctrine lives in docs/stacks/csharp; no custom analyzer doctrine rules exist,

@@ -23,6 +23,7 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - Expected domain outcomes (non-convergence, absence, degraded verify) ride the success receipt as typed status; unexpected host faults ride the fault rail. Raising on max-iterations instead of returning a status slot on the receipt conflates the two.
 - Every table-, law-, or row-driven surface refuses empty input loudly; a fold that silently succeeds on zero rows is a vacuous fold.
 - Comments are rare, 1-2 lines, and state the design law, invariant, or trap the code cannot show — never the what, never paths or session narration; every pass touching a file prunes stale comments in the same pass.
+- Fix-to-root completeness: a change that patches a symptom while its root cause stands, leaves a known defect unfixed because it sits outside the diff's scope, or defers a residual for a later pass is a defect — the root fix belongs in the same change, and a genuinely blocked item is an explicit unreachable naming its owner, never a silent residual.
 
 ## C#
 
