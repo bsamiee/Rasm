@@ -10,6 +10,10 @@
 pnpm-lock.yaml
 packages.lock.json
 docs/atlas/**
+# Generated verification fixtures: goldens, snapshot receipts, replay recordings
+**/goldens/**
+*.verified.*
+*.har
 # Media and model binaries
 *.png
 *.jpg

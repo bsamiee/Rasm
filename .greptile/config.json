@@ -4,7 +4,7 @@
   "triggerOnUpdates": true,
   "statusCheck": true,
   "fixWithAI": true,
-  "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/obj/**\n**/bin/**\n**/node_modules/**",
+  "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/obj/**\n**/bin/**\n**/node_modules/**\n**/goldens/**\n*.verified.*\n*.har",
   "context": {
     "repos": ["bsamiee/Parametric_Forge", "bsamiee/Maghz"]
   },

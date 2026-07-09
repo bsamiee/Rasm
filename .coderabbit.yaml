@@ -26,6 +26,9 @@ reviews:
     - "!**/packages.lock.json"
     - "!**/obj/**"
     - "!**/bin/**"
+    - "!**/goldens/**"
+    - "!**/*.verified.*"
+    - "!**/*.har"
   path_instructions:
     - path: "**"
       instructions: >-
