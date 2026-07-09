@@ -47,11 +47,14 @@ reviews:
         discriminating on input shape over get/getMany/getById spam. Language and framework
         floor per global.json and Directory.Packages.props. Aggressive API breaking beats
         compat wrappers; no [Obsolete] aliases.
-    - path: "**/*.{csproj,props,targets}"
+    - path: "**/{*.csproj,*.props,*.targets,package.json,pyproject.toml,global.json}"
       instructions: >-
-        Project files carry structure only. Package versions live exclusively in
-        Directory.Packages.props, hand-edited — a Version attribute on a PackageReference
-        outside central management is a defect, as is any dotnet-add-shaped drift.
+        Manifests carry structure and centrally owned versions: Directory.Packages.props
+        for NuGet, hand-edited — a Version attribute on a PackageReference outside central
+        management is a defect, as is any dotnet-add-shaped drift; package.json with the
+        committed pnpm lockfile for TypeScript; pyproject.toml with uv for Python. Version
+        movement is forward-only — a downgrade or stale floor without a recorded reason is
+        a defect.
     - path: "**/*.py"
       instructions: >-
         The Python doctrine lives in docs/stacks/python — review against it, not generic

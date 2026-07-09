@@ -7,7 +7,7 @@ C#/.NET-primary monorepo with TypeScript and Python lanes. Language doctrine is 
 - Functional programming exclusively; monadic railway-oriented flows unify error handling — never dual paradigms in one surface.
 - The unit of design is the polymorphic dispatch surface, not the file. Fewer deep surfaces beat many shallow ones; a new capability is a case, row, or dispatch arm on the owning surface.
 - Boundary kernels may use language-native control flow only where it preserves correctness, typing, performance, or interop clarity; domain logic never does.
-- Central manifests own versions: Directory.Packages.props for NuGet, per-package package.json + committed pnpm lockfile for TS, pyproject.toml + uv for Python.
+- Central manifests own versions: Directory.Packages.props for NuGet, per-package package.json + committed pnpm lockfile for TS, pyproject.toml + uv for Python. Version movement is forward-only; a downgrade or stale floor without a recorded reason is a defect.
 - Topology: strata depend only upward; geometry, meshing, and IFC each have exactly one owner per runtime; branches couple only through wire contracts and companion/offline seams.
 - Planning pages under libs/.planning are the product: fences are transcription-complete implementation, verified against .api/ catalogues, held naive until they survive adversarial reading.
 

@@ -26,9 +26,9 @@
     },
     {
       "id": "central-package-management",
-      "rule": "NuGet versions live only in Directory.Packages.props, hand-edited. TypeScript dependencies are registry packages via pnpm with the committed lockfile; vendored SDKs are defects.",
+      "rule": "NuGet versions live only in Directory.Packages.props, hand-edited. TypeScript dependencies are registry packages via pnpm with the committed lockfile; vendored SDKs are defects. Version movement is forward-only: a downgrade or stale floor without a recorded reason is a defect.",
       "severity": "high",
-      "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json"]
+      "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json", "**/pyproject.toml"]
     },
     {
       "id": "fence-as-product",
