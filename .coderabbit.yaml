@@ -1,5 +1,5 @@
 language: en-US
-tone_instructions: "Senior-to-senior register. Dense, declarative, evidence-anchored findings. No praise, no emojis, no hedging. Doctrine violations (CLAUDE.md, docs/stacks) are defects, not suggestions. Prefer polymorphic collapse over additive patches."
+tone_instructions: "Senior-to-senior register. Findings name the defect class and the line. No praise, no emojis, no hedging. Doctrine (docs/stacks, docs/standards) outranks generic convention; violations are defects. Prefer collapse over additive patches."
 early_access: false
 enable_free_tier: true
 inheritance: false
@@ -8,8 +8,9 @@ reviews:
   request_changes_workflow: false
   high_level_summary: true
   high_level_summary_instructions: >-
-    Lead with contract-surface and behavior deltas, one dense paragraph. No restated
-    diff statistics, no methodology narration.
+    One dense paragraph leading with contract-surface and behavior deltas: which owners
+    changed shape, which strata or seams the diff crosses, what a consumer must now do
+    differently. No restated diff statistics, no methodology narration, no praise.
   high_level_summary_placeholder: "@coderabbitai summary"
   high_level_summary_in_walkthrough: false
   auto_title_placeholder: "@coderabbitai"
@@ -51,58 +52,160 @@ reviews:
   path_instructions:
     - path: "**"
       instructions: >-
-        Universal bar: anticipate 10x functionality growth — surfaces absorb new modalities
-        as rows, cases, or dispatch arms, never as new files, flags, or knobs. Defects:
-        knob/param/flag spam, hardcoded values, fragile string plumbing, naive happy-path
-        logic, hand-rolled reimplementations of capability the ecosystem already provides.
-        External packages are first-class implementation material used at full power, newest
-        stable versions. Everything is agent-first: composable, receipt-bearing,
-        self-describing, no interactive-only paths. Collapse spam relentlessly.
+        Universal bar: anticipate 10x growth — surfaces absorb new modalities as rows,
+        cases, or dispatch arms, never as new files, flags, or knobs. Two shapes collapse
+        the moment they share an identity regime, an admission path, a payload timing, or
+        a consumer; a sibling survives only on a genuinely distinct discriminant named at
+        the site that keeps it. The proof of a shape is the next feature's diff: one
+        declaration inside the owner, consumers untouched or loudly compile-broken — an
+        owner sized for the current instance is the defect. A parameter that re-describes
+        the input (a batch/many/mode flag beside the value) is a smuggled knob; one
+        entrypoint discriminates on the input shape itself, and forward plus inverse of
+        one correspondence ride one owner, never direction-named siblings.
+        Abort-vs-accumulate is fixed once at the boundary: independent operands compose
+        applicatively and accumulate evidence — a bind chain reporting only the first
+        failure over independent validations is a defect; abort is reserved for dependent
+        steps. Expected domain outcomes (non-convergence, absence, degraded verify) ride
+        the success receipt as typed status; only unexpected host faults ride the fault
+        rail — raising on an expected outcome conflates the two. An admitted package
+        capability left unmined is the same defect as hand-rolling it. Never restate law
+        the formatters and gates already enforce; flag their suppressions and bypasses,
+        adjudicated as architecture pressure (fix the shape) or rule pressure (refine the
+        rule) — suppression is neither.
     - path: "**/*.cs"
       instructions: >-
-        The C# doctrine lives in docs/stacks/csharp — review against it, not generic
-        convention. Functional-first: monadic result rails over exceptions for domain logic,
-        polymorphic dispatch surfaces over method proliferation, one entry point
-        discriminating on input shape over get/getMany/getById spam. Language and framework
-        floor per global.json and Directory.Packages.props. Aggressive API breaking beats
-        compat wrappers; no [Obsolete] aliases.
+        C# doctrine lives in docs/stacks/csharp; no custom analyzer doctrine rules exist,
+        so every shape demand is live review duty. Raw material admits once at the
+        boundary — Optional(x).ToFin(...) for presence, Catch/Try lifts for native
+        failures, Option<T> for non-failing absence; the interior never re-validates and
+        never sees nulls, sentinels, or provider shapes. Rails are semantic:
+        Validation<Fault,T> accumulates over independent operands, Fin<T> aborts over
+        dependent steps, IO<T> effects — Fin where accumulation is owed is a carrier
+        misselection. Domain shape lives in generated owners ([Union], [SmartEnum],
+        [ValueObject], [ComplexValueObject]) with behavior bracketed through generated
+        state-threaded Switch and static lambdas; a hand enum with an external switch, or
+        an is-chain over a union, is the deleted form. Named arguments at call sites are
+        house register even for obvious parameters. UI-bound host work routes through one
+        dispatch owner; a batch takes one dispatch under one policy bracket; native object
+        access returns Fin/Option, never leaked nulls; consumers never sequence an owner's
+        internals. A #pragma, [SuppressMessage], or severity downgrade in a diff demands
+        the ownership justification; suppression-as-fix is the defect. Aggressive API
+        breaking with every call site updated beats compat wrappers; no [Obsolete] aliases.
     - path: "**/{*.csproj,*.props,*.targets,package.json,pyproject.toml,global.json}"
       instructions: >-
         Manifests carry structure and centrally owned versions: Directory.Packages.props
         for NuGet, hand-edited — a Version attribute on a PackageReference outside central
         management is a defect, as is any dotnet-add-shaped drift; package.json with the
-        committed pnpm lockfile for TypeScript; pyproject.toml with uv for Python. Version
-        movement is forward-only — a downgrade or stale floor without a recorded reason is
-        a defect.
+        committed pnpm lockfile and workspace catalogs for TypeScript; pyproject.toml with
+        uv for Python. Version movement is forward-only — a downgrade or stale floor
+        without a recorded reason in the diff is a defect. A sanctioned pin carries its
+        mechanism inline as a comment stating exactly what breaks without it; a pin
+        without the mechanism comment is a defect, a pin carrying one is never flagged.
     - path: "**/*.py"
       instructions: >-
-        The Python doctrine lives in docs/stacks/python — review against it, not generic
-        convention. Version floor per pyproject.toml; uv-managed, ruff and ty clean, anyio
-        for async. Typed result/effect rails; expression-shaped logic; no bare exceptions
-        crossing domain boundaries. Singleton helper modules where an owning surface exists
-        are defects.
+        Python doctrine lives in docs/stacks/python; the gates own mechanics — review owns
+        the residue the doctrine itself names: class/type/string/constant spam, one-method
+        classes, get/get_many families, private-dunder enum probes, thin rename wrappers,
+        scattered importlib, sys.modules mutation. Lifecycle: raw admits once into a
+        canonical owner, then rail, projection, egress — Option for non-failing absence,
+        Result for fallibility, exceptions convert at the owning boundary; None-as-failure
+        and sentinel flow are defects. Dispatch totality is review-critical because no
+        compiler backs it: closed dispatch is a tagged-union case, StrEnum member,
+        frozendict row, or match with assert_never; string dispatch and if/elif ladders
+        are open dispatch. A parallel dataclass or mini hierarchy minted beside an owner
+        is the deleted form; the absorbed case is a row, vocabulary member, or fold.
+        Cross-cutting capability is one signature-preserving, rail-preserving decorator; a
+        recurring wrapper stack collapses into one parameterized aspect factory at the
+        second occurrence. Concurrency is AnyIO-structured; cancellation is never railed
+        into Result; domain packages mint zero CapacityLimiters — capacity is
+        runtime-owned. Do not flag lazy import at module scope (the deferred lane is
+        doctrine), explicit match arms over merged ternaries, named rail intermediates,
+        inline messages in frozen error constructors, or bracketed section dividers —
+        those carve-outs are deliberate.
     - path: "**/*.ts"
       instructions: >-
-        The TypeScript doctrine lives in docs/stacks/typescript — review against it, not
-        generic convention. Version floor per package.json and tsconfig. Effect rails with
-        tagged faults, Config.redacted for secret-bearing config, Schema decodes at every
-        boundary, no any, no class-based services, pnpm with committed lockfile, registry
-        dependencies only — vendored SDKs and nested src/ trees are defects.
+        TypeScript doctrine lives in docs/stacks/typescript. The GritQL plugins cover only
+        libs/typescript non-spec sources — the same defect classes in tools/, workflow
+        scripts, config TS, and every spec file are review duty here. Declarations are
+        authored unexported; the file closes at one terminal EXPORTS block that declares
+        the surface, never widens it; an export keyword on a body declaration is a defect;
+        no barrels. The Schema owner is the single shape authority: static types derive
+        from it, wire twins via transform, variants via pick/omit/extend — a hand
+        interface, alias, or DTO beside a Schema owner is a parallel-shape defect on
+        sight. One contract-checked as-const vocabulary anchors each keyed domain with
+        rows carrying behavior; a Match or switch enumerating a domain a vocabulary row
+        already keys is a keyed-switch restatement — Match owns structural and predicate
+        dispatch only. pipe owns the linear chain; Effect.gen takes over at the second
+        live binding; a combinator body opening another combinator is the deleted pyramid.
+        Retry/timeout/span policy attaches at the Effect.fn declaration tail, recoverable
+        from the declaration, never buried in the body. Every dependency is a Tag
+        satisfied by the Layer graph; the service IS one Effect.Service class owner —
+        never flag that class as OO drift; the defects are ad hoc class hierarchies and
+        hand interface+Tag+Layer triples beside it. catchTag/catchTags over blanket
+        catchAll; TS2589/2590 are architecture pressure on the derivation — repair is
+        value-level, and a ts-expect-error/biome-ignore/as cast adding ceremony without
+        correctness is itself the defect. Config.redacted for secret-bearing config;
+        registry dependencies only — vendored SDKs and nested src/ trees are defects.
     - path: "libs/**"
       instructions: >-
-        Design pages under .planning follow the campaign method: code fences are the work
-        product, transcription-complete — external members verified against the folder's
-        .api/ catalogue; abstract sketches, pseudo-code fences, and hand-waved contracts
-        are defects. Root-up rebuild law applies to planning prose exactly as to source;
-        wrappers and grab-bag abstractions in fences are defects. Strata depend only
-        upward; geometry, meshing, and IFC each keep exactly one owner per runtime;
-        branches couple only through wire contracts and companion seams.
+        Planning pages under .planning are the work product; the measure of a planning
+        item is the diff to a code fence, never the prose around it. Fences are
+        transcription-complete: an external member appears as settled fence code only
+        when the folder's .api/ catalogue verifies its spelling — otherwise it is a
+        marked RESEARCH item, and a fence contradicting a sibling RESEARCH item fails.
+        Card fields are earned, not templated; two carry the completeness burden:
+        Packages enumerates exact verified spellings including load-bearing arguments and
+        names deprecated spellings as deleted; Growth pairs every next-capability with
+        its one-declaration landing spot and its named rejected form — either half
+        missing is a hand-waved contract. Fence lines cap at 160 columns; fence comments
+        obey comment law (rare, 1-2 lines, stating the in-situ invariant) — flag
+        narrative fence comments, never law-bearing ones. README package rows carry no
+        version pins and no .api/ links; codemap nodes name real domain concepts, never
+        rail/axis/lane doctrine jargon; no per-folder manifests. A planning task naming
+        source-file creation is out of scope and must be removed — implement means
+        deepening a fence plus manifest, .api/, and tooling work. Integration points use
+        page#CLUSTER notation; standalone cross-reference ledgers are drift channels.
+        Strata depend only upward; geometry, meshing, and IFC each keep exactly one owner
+        per runtime; branches couple only through wire contracts and companion seams.
+    - path: "tests/**"
+      instructions: >-
+        A test falsifies production behavior with an independent oracle — grade A
+        independent prediction, B metamorphic/model relation, C durable failure-category
+        rail, D shape-only inspection; D stands alone nowhere. Banned shapes: existence
+        tests, mirror tests (asserting a constructed value's own fields, re-implementing
+        the algorithm as its own oracle, same-body snapshots), speculative-state tests,
+        per-function spam. Every law family registers a refuting witness the law must
+        fail on; a surviving witness, or one trivially outside the domain, exposes a
+        tautology. The integration lane is reserved for real process/IO boundaries;
+        in-process with doubles is unit regardless of owner span. One kit per language;
+        suites mirror production trees; TS unit specs colocate beside source and
+        tests/typescript never hosts them; ad hoc helpers beside specs are kit bypass —
+        new kit capability is a row or fold on the existing kit owner, never a sibling
+        API. Deterministic clocks, schedulers, and barriers; sleeps and wall-clock waits
+        are defects; TS specs ride the kit's effect-aware runners, never direct
+        fast-check or real-time waits. Tool admission proves cache and artifact routing
+        through the tool's own config — zero new repo-root entries after checks run; every
+        auto-discovered heavy config carries its own concurrency cap, timeouts, explicit
+        scope, and routed output. A failing law is evidence — investigate the owner before
+        weakening the test. Specs importing the private testkit and magic values in specs
+        are sanctioned.
     - path: "tools/**"
       instructions: >-
-        Repo tooling: each GritQL pattern encodes one doctrine defect with a precise match
-        shape — patterns overlapping an existing pattern's territory are defects. Bridge and
-        manifest changes keep deterministic proof rails intact; analyzer and assay surfaces
-        stay parameterized, never hardcoded to a fixture.
+        Each GritQL pattern encodes one doctrine defect with trigger, predicate, and
+        exemption stated in comments plus paired FIRES/CLEAN exemplar lines carrying
+        near-miss guards; a pattern without the pair, or overlapping a sibling's
+        territory, is a defect. Analyzer rules promote only doctrine-breaking shapes
+        nothing mechanical rejects; rules describe semantic shape, never paths or one-off
+        symbols; the inventory is the code — a prose catalog of rules anywhere is a
+        defect. Assay: the stdout Envelope is the sole result contract; Completed (with
+        defects as completed failed runs) stays distinct from Fault (routing, spawn,
+        lease, timeout); every command routes through the registry; the envelope derives
+        exit codes — hand-authored exit semantics are a bypass; remote env stays
+        allowlisted; retry stays narrow. Bridge wire evolution is additive-only;
+        vocabulary owners never scatter as literals; scenario code uses the SDK
+        vocabulary, never load directives, absolute paths, or direct MCP. The grit
+        plugins do not reach this tree — the defect classes they encode are review duty
+        here.
     - path: ".claude/workflows/**"
       instructions: >-
         Workflow scripts are deterministic orchestration: plain control flow, schema-typed
@@ -112,15 +215,34 @@ reviews:
         are launch-only and the orchestrator owns time.
     - path: "**/*.md"
       instructions: >-
-        Review prose and structure against docs/standards/style-guide.md,
-        docs/standards/formatting.md, and docs/standards/information-structure.md — the
-        docgen discipline. Defects: no-op sentences that change no reader decision, leading
-        filler words, meta-commentary, provenance/freshness tails, checklist tails, heading
-        proliferation for short content, tables carrying explanations instead of enumerable
-        facts, duplicated content an owning doc already carries, drift from the [UPPER_CASE]
-        label convention, quality ladders (good/better/best tiers) where a contract gate
-        belongs, restated obligations the instruction chain already carries (follow
-        CLAUDE.md, use available tools), and defensive caveats softening settled rules.
+        Prose law is docs/standards/style-guide.md, formatting.md, and
+        information-structure.md; findings cite the style-guide defect name and the line.
+        The catalog: [ENUMERATION_ANCHOR] prose listing or counting enumerable content or
+        the doc's own members; [STALE_MIRROR] hand-maintained copies of disk or manifest
+        truth; [MECHANISM_LEAK] index-tier prose carrying spec-tier mechanism — repair is
+        demotion, never deletion; [META_FRAME] the artifact describing itself, its
+        audience, or its process; [TWIN_TRUTH] one fact worded in two tiers; [HEDGE]
+        modal and hedge vocabulary — contract qualifiers (optional, if present, where
+        supported, unless) survive, and TODO/FIXME are banned in durable markdown yet
+        sanctioned as source comment markers, never cross-apply; [REPORT_FRAME]
+        provenance, freshness, or verification narration; [CAPABILITY_GATE] capability
+        adjudicated by consumer count in either polarity; [LEGACY_COMPAT] shapes
+        preserved for predecessors; [IMPORTED_POSTURE] upstream maturity labels adopted
+        over the corpus ruling; [VERSION_ANCHOR] pins, dates, newest/latest/currently;
+        [SET_IN_STONE] sealed/frozen chants restating a contract away from its
+        declaration; [WEAK_VERBS] supports/allows/enables/provides where an owning verb
+        states law; [PROCESS_LEDGER] ship-status markers, decision tags, session
+        narration; [ASSERTED_IMPOSSIBILITY] impossibility without the enforcing
+        structure named in-clause; [DELETED_FORM_LITANY] law as an inventory of
+        forbidden alternatives with the positive rule buried; [COUPLING] links or
+        citations outside declared routing surfaces. Apply the regeneration test: a fact
+        a fresh agent regenerates from disk plus stated invariants is a mirror — delete
+        it; facts land at the lowest owning tier, repair is demote-then-collapse.
+        Tables enumerate, cards legislate: one prose column disqualifies a table; cells
+        stay atomic; bullets cap at two sentences. Marker families are closed — heading
+        grammar, token sets, and glyphs per formatting.md; invocation markers only in
+        instruction files; one concept never carries both an invocation marker and a
+        prose modal.
     - path: ".claude/skills/**"
       instructions: >-
         Skill bundles under the docgen skill-craft law. Defects: first- or second-person

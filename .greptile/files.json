@@ -45,10 +45,31 @@
       "description": "System architecture: layer boundaries and ownership map"
     },
     {
+      "path": "libs/.planning/README.md",
+      "description": "Planning-corpus standard: page grammar, index templates, seams kind vocabulary, .api verification gate",
+      "scope": [
+        "libs/**"
+      ]
+    },
+    {
       "path": "libs/.planning/campaign-method.md",
       "description": "Campaign method: fence-as-product, plan completeness, density and red-team bar for design pages",
       "scope": [
         "libs/**"
+      ]
+    },
+    {
+      "path": "tests/README.md",
+      "description": "Test estate law: oracle grades, refuting witnesses, banned shapes, lane vocabulary, kit custody, artifact routing",
+      "scope": [
+        "tests/**"
+      ]
+    },
+    {
+      "path": "tests/contracts/README.md",
+      "description": "Contracts corpus custody: C# sole producer, read-only round-trips, manifest-first directories, DESIGN-PIN vs REAL grammar",
+      "scope": [
+        "tests/contracts/**"
       ]
     },
     {
