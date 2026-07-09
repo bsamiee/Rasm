@@ -19,7 +19,7 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 
 | [INDEX] | [SURFACE]            | [OWNER]                  | [ROLE]                                                                        |
 | :-----: | :------------------- | :----------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `libs/csharp`        | C# library suite         | Foundational packages for AEC app development (Rhino 9/wip, gh2)              |
+|  [01]   | `libs/csharp`        | C# library suite         | Foundational packages for AEC app development (Rhino 9/WIP, GH2)              |
 |  [02]   | `libs/python`        | Python library suite     | Host-free companion packages.                                                 |
 |  [03]   | `libs/typescript`    | TypeScript library suite | Host-free web/edge platform.                                                  |
 |  [04]   | `tests`              | Polyglot proof surface   | C#, Python, and TypeScript suites plus generated contract fixtures.           |
