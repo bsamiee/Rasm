@@ -45,11 +45,15 @@ reviews:
         faults, Config.redacted for secret-bearing config, Schema decodes at every boundary,
         no any, no class-based services, pnpm with committed lockfile, registry dependencies
         only — vendored SDKs and nested src/ trees are defects.
-    - path: "docs/**"
+    - path: "**/*.md"
       instructions: >-
-        Agent-facing declarative artifacts: rules stated as fact, no research provenance,
-        no freshness disclaimers, no checklist tails. Neutral placeholders in reusable
-        examples. Duplicated content that an owning doc already carries is a defect.
+        Review prose and structure against docs/standards/style-guide.md,
+        docs/standards/formatting.md, and docs/standards/information-structure.md — the
+        docgen discipline. Agent-facing declarative artifacts: rules stated as fact, neutral
+        placeholders in reusable examples. Defects: no-op sentences that change no reader
+        decision, leading filler words, research provenance, freshness disclaimers,
+        checklist tails, heading proliferation, duplicated content an owning doc already
+        carries, drift from the [UPPER_CASE] label convention.
   auto_review:
     enabled: true
   tools:

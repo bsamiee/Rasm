@@ -7,26 +7,59 @@
     {
       "path": "docs/stacks/csharp/README.md",
       "description": "C# doctrine entry: rails, shapes, surfaces, boundaries",
-      "scope": ["**/*.cs", "**/*.csproj"]
+      "scope": [
+        "**/*.cs",
+        "**/*.csproj"
+      ]
     },
     {
       "path": "docs/stacks/csharp/rails-and-effects.md",
       "description": "C# monadic result and effect law",
-      "scope": ["**/*.cs"]
+      "scope": [
+        "**/*.cs"
+      ]
     },
     {
       "path": "docs/stacks/typescript/README.md",
       "description": "TypeScript doctrine entry: Effect rails, services, boundaries",
-      "scope": ["**/*.ts", "**/*.tsx", "**/package.json"]
+      "scope": [
+        "**/*.ts",
+        "**/*.tsx",
+        "**/package.json"
+      ]
     },
     {
       "path": "docs/stacks/python/README.md",
       "description": "Python doctrine entry",
-      "scope": ["**/*.py", "**/pyproject.toml"]
+      "scope": [
+        "**/*.py",
+        "**/pyproject.toml"
+      ]
     },
     {
       "path": "libs/.planning/architecture.md",
       "description": "System architecture: layer boundaries and ownership map"
+    },
+    {
+      "path": "docs/standards/style-guide.md",
+      "description": "Prose law: sentence altitude, register, banned patterns",
+      "scope": [
+        "**/*.md"
+      ]
+    },
+    {
+      "path": "docs/standards/formatting.md",
+      "description": "Formatting law for durable artifacts",
+      "scope": [
+        "**/*.md"
+      ]
+    },
+    {
+      "path": "docs/standards/information-structure.md",
+      "description": "Information architecture law: structure, density, tables vs prose",
+      "scope": [
+        "**/*.md"
+      ]
     }
   ]
 }
