@@ -12,10 +12,11 @@ The bootstrap-axis legs the estate stands on before and after a deploy: `Source`
 ## [2]-[SOURCE_CONTROL]
 
 [SOURCE_CONTROL]:
-- Owner: `Source` — one `github.Provider` per owner scope constructed from the `GITHUB_TOKEN` fan-in read, one `Repository` (or an adopted pre-existing one through the class `get`), one `RepositoryRuleset` carrying the branch law, one `RepositoryEnvironment` per environments row with reviewer and self-review gates plus a branch-pattern `RepositoryEnvironmentDeploymentPolicy`, one `RepositoryDeployKey` binding a `tls.PrivateKey.publicKeyOpenssh` (read-only posture by default; the private half stays in the entropy owner), one `RepositoryWebhook` whose `configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies, and `ActionsVariable` rows for non-secret pipeline configuration.
+- Owner: `Source` — one `github.Provider` per owner scope constructed from the `GITHUB_TOKEN` fan-in read, one `Repository` (a pre-existing repo adopts through the `import` resource option so its settings become plan-managed; the class `get` is a read-only reference, never the management path), one `RepositoryRuleset` carrying the branch law, one `RepositoryEnvironment` per environments row with reviewer and self-review gates plus a branch-pattern `RepositoryEnvironmentDeploymentPolicy`, one `RepositoryDeployKey` binding a `tls.PrivateKey.publicKeyOpenssh` (read-only posture by default; the private half stays in the entropy owner), one `RepositoryWebhook` whose `configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies, and `ActionsVariable` rows for non-secret pipeline configuration.
 - Law: environments align three surfaces — an environments row's `name` is a `StackSpec.doppler.config` spelling, so the `secretssync.GithubActions` mirror targeting that environment, the gate reviewers protecting it, and the stack deploying under it read one vocabulary; an environment named outside the doppler axis is the split-brain this alignment law forbids.
 - Law: material splits by kind — secret values arrive ONLY through the Doppler mirror into the shells; `ActionsVariable` carries non-secret configuration; a credential authored through an Actions secret beside the mirror is the second-source defect, and the deploy key's `key` field accepts only the public half.
 - Law: one branch-law owner per repo — `RepositoryRuleset` for this estate; `BranchProtection` survives only when adopting a classic-protected repo, never beside the ruleset.
+- Law: merge hygiene is settings-as-code — the `Repository` row carries the whole merge posture (`allowMergeCommit: false`, `allowSquashMerge: true`, `allowRebaseMerge: true`, `deleteBranchOnMerge: true`, `hasWiki: false`), so a dashboard toggle is an out-of-band edit the drift fold surfaces and repo posture never lives in operator memory.
 - Law: rate posture is provider data — retries, delays, and parallelism ride the `Provider` knobs, never per-resource retry wrappers.
 - Entry: `new Source("source", { spec, owner, token, repository, environments, webhook, variables }, opts)` from the composing root, `token` the `GITHUB_TOKEN` fan-in read; `source.deployKey.privateKeyOpenssh` stays graph-interior; `RepositoryEnvironment` names feed the `_MIRRORS` githubActions rows.
 - Growth: a new gated environment is one `environments` row; a new org-level posture (`Team`, `TeamRepository`, `OrganizationRuleset`) is one row when the estate grows an org.
@@ -58,6 +59,11 @@ class Source extends Tier {
       name: args.repository.name,
       visibility: args.repository.visibility,
       vulnerabilityAlerts: true,
+      allowMergeCommit: false,
+      allowSquashMerge: true,
+      allowRebaseMerge: true,
+      deleteBranchOnMerge: true,
+      hasWiki: false,
     }, child)
     new github.RepositoryRuleset(`${name}-law`, {
       repository: repo.name,
