@@ -1,0 +1,34 @@
+{
+  "strictness": 2,
+  "commentTypes": ["logic", "syntax"],
+  "triggerOnUpdates": true,
+  "statusCheck": true,
+  "fixWithAI": true,
+  "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/obj/**\n**/bin/**",
+  "context": {
+    "repos": ["bsamiee/Parametric_Forge", "bsamiee/Maghz"]
+  },
+  "rules": [
+    {
+      "id": "greenfield-only",
+      "rule": "No compat shims, [Obsolete] aliases, backwards-compat wrappers, or migration helpers. Aggressive API breaking with every call site updated in the same change.",
+      "severity": "high"
+    },
+    {
+      "id": "monadic-rails",
+      "rule": "Domain logic rides typed result/effect rails — C# monadic results, TypeScript Effect with tagged faults, Python typed results. Raw exceptions or dual error paradigms crossing domain boundaries are defects.",
+      "severity": "high"
+    },
+    {
+      "id": "polymorphic-dispatch",
+      "rule": "One function owns all modalities of a concern, discriminating on input shape. get/getMany/getById proliferation, function spam, and singleton helper files where an owning surface exists are defects.",
+      "severity": "medium"
+    },
+    {
+      "id": "central-package-management",
+      "rule": "NuGet versions live only in Directory.Packages.props, hand-edited. TypeScript dependencies are registry packages via pnpm with the committed lockfile; vendored SDKs are defects.",
+      "severity": "high",
+      "scope": ["**/*.csproj", "Directory.Packages.props", "**/package.json"]
+    }
+  ]
+}

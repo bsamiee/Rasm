@@ -1,0 +1,73 @@
+language: en-US
+tone_instructions: "Senior-to-senior register. Dense, declarative, evidence-anchored findings. No praise, no emojis, no hedging. Doctrine violations (CLAUDE.md, docs/stacks) are defects, not suggestions. Prefer polymorphic collapse over additive patches."
+reviews:
+  profile: assertive
+  high_level_summary: true
+  collapse_walkthrough: true
+  sequence_diagrams: true
+  suggested_labels: false
+  suggested_reviewers: false
+  in_progress_fortune: false
+  poem: false
+  path_filters:
+    - "!**/pnpm-lock.yaml"
+    - "!**/uv.lock"
+    - "!**/packages.lock.json"
+    - "!**/obj/**"
+    - "!**/bin/**"
+  path_instructions:
+    - path: "**"
+      instructions: >-
+        Universal bar: anticipate 10x functionality growth — surfaces absorb new modalities
+        as rows, cases, or dispatch arms, never as new files, flags, or knobs. Defects:
+        knob/param/flag spam, hardcoded values, fragile string plumbing, naive happy-path
+        logic, hand-rolled reimplementations of capability the ecosystem already provides.
+        External packages are first-class implementation material used at full power, newest
+        stable versions (Python 3.15, TypeScript 7 beta lane where declared). Everything is
+        agent-first: composable, receipt-bearing, self-describing. Collapse spam relentlessly.
+    - path: "**/*.cs"
+      instructions: >-
+        The C# doctrine lives in docs/stacks/csharp — review against it, not generic
+        convention. Functional-first: monadic result rails over exceptions for domain logic,
+        polymorphic dispatch surfaces over method proliferation, one entry point
+        discriminating on input shape over get/getMany/getById spam. Central package
+        management via Directory.Packages.props — hand-edited, never dotnet add. Aggressive
+        API breaking beats compat wrappers; no [Obsolete] aliases.
+    - path: "**/*.py"
+      instructions: >-
+        The Python doctrine lives in docs/stacks/python. Python 3.15+, uv-managed, ruff and
+        ty clean, anyio + aiofiles for async. Typed result/effect rails; expression-shaped
+        logic; no bare exceptions crossing domain boundaries. Singleton helper modules where
+        an owning surface exists are defects.
+    - path: "**/*.ts"
+      instructions: >-
+        The TypeScript doctrine lives in docs/stacks/typescript. Effect rails with tagged
+        faults, Config.redacted for secret-bearing config, Schema decodes at every boundary,
+        no any, no class-based services, pnpm with committed lockfile, registry dependencies
+        only — vendored SDKs and nested src/ trees are defects.
+    - path: "docs/**"
+      instructions: >-
+        Agent-facing declarative artifacts: rules stated as fact, no research provenance,
+        no freshness disclaimers, no checklist tails. Neutral placeholders in reusable
+        examples. Duplicated content that an owning doc already carries is a defect.
+  auto_review:
+    enabled: true
+  tools:
+    ruff:
+      enabled: true
+    shellcheck:
+      enabled: true
+    actionlint:
+      enabled: true
+    gitleaks:
+      enabled: true
+knowledge_base:
+  web_search:
+    enabled: true
+  learnings:
+    scope: local
+  pull_requests:
+    scope: local
+issue_enrichment:
+  auto_enrich:
+    enabled: false

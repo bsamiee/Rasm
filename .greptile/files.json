@@ -1,0 +1,32 @@
+{
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "description": "Repo execution standards and agent instructions"
+    },
+    {
+      "path": "docs/stacks/csharp/README.md",
+      "description": "C# doctrine entry: rails, shapes, surfaces, boundaries",
+      "scope": ["**/*.cs", "**/*.csproj"]
+    },
+    {
+      "path": "docs/stacks/csharp/rails-and-effects.md",
+      "description": "C# monadic result and effect law",
+      "scope": ["**/*.cs"]
+    },
+    {
+      "path": "docs/stacks/typescript/README.md",
+      "description": "TypeScript doctrine entry: Effect rails, services, boundaries",
+      "scope": ["**/*.ts", "**/*.tsx", "**/package.json"]
+    },
+    {
+      "path": "docs/stacks/python/README.md",
+      "description": "Python doctrine entry",
+      "scope": ["**/*.py", "**/pyproject.toml"]
+    },
+    {
+      "path": "libs/.planning/architecture.md",
+      "description": "System architecture: layer boundaries and ownership map"
+    }
+  ]
+}
