@@ -8,7 +8,7 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 
 ## [01]-[TARGET]
 
-- [CRITICAL]: Rhino 9/WIP on macOS (WIP will eventually be Rhino 9)
+- [CRITICAL]: Rhino 9/WIP on macOS — the WIP lane IS the Rhino 9 target
 - `net10.0` for hosted plugins and shared C# projects.
 - Grasshopper product surfaces through `Grasshopper2`.
 - Yak package output for Mac package roots.
@@ -30,11 +30,18 @@ All `libs/` content powers future apps of every kind — in-host on Rhino 9/WIP 
 |  [09]   | `tools/yak`          | Package metadata         | Tracked Yak manifests and icons for package roots.                            |
 |  [10]   | `docs`               | Durable doctrine         | Agent-facing standards, host notes, stack doctrine, and reference material.   |
 
-## [03]-[LIBRARY_OWNERS]
+## [03]-[ENTRY]
+
+- Session grounding: `/prime` (`.claude/commands/prime.md`) grounds a planning session — topology, campaign state, planning law — before the objective arrives; this README and `CLAUDE.md` arrive preloaded.
+- Operator proof: `uv run python -m tools.assay self-test` is the first command; one JSON `Envelope` on stdout is the health receipt, and `--rhino` opts the live bridge lane into the smoke.
+- Campaign engines: `ls .claude/workflows/` enumerates the standing roster, each script self-describing through its `meta` block; `rebuild.js` is the hostile rebuild engine over any mix of `libs/` planning targets, and `libs/.planning/campaign-method.md` is the loop those engines execute.
+- Review depth: `.coderabbit.yaml` and `.greptile/` carry the repo's reviewer tone, scope maps, and doctrine-derived guidance; review behavior is tuned there and never duplicated into docs.
+
+## [04]-[LIBRARY_OWNERS]
 
 The package roster, each package's charter, the dependency direction, and the universal-vs-host-capture rule are owned by `libs/.planning/architecture.md`; the branch roles and the planning corpus are introduced in `libs/.planning/README.md`.
 
-## [04]-[HOST_RUNTIME]
+## [05]-[HOST_RUNTIME]
 
 RhinoWIP and GH2 assemblies resolve through shared build properties, not per-project references. Host assemblies stay outside package output: `RhinoCommon`, `Rhino.UI`, `Rhino.Runtime.Code`, `Grasshopper2`, `GrasshopperIO`, `Eto`, `Microsoft.macOS`, and RhinoWIP-hosted drawing assemblies.
 
@@ -42,11 +49,11 @@ Live host evidence flows through the bridge plugin. Scenarios are source-only di
 
 Plugin projects classify themselves in their project files; build behavior does not depend on product names. Package membership is evaluated from MSBuild properties and package metadata.
 
-## [05]-[TOOL_OWNERS]
+## [06]-[TOOL_OWNERS]
 
 Every root, tool, and library routes generated output through an owned store: `.artifacts`, `.cache`, package staging roots, scoped report directories, or owner-declared state files. Root scratch output is a defect, and the boundary is enforced rather than assumed — `tests/python/_testkit/test_policy.py` holds the closed allowlist of legitimate repo-root entries, so any unrouted tool write fails the suite by name and a deliberate new root file lands with its allowlist row in the same change.
 
-- `tools/assay` is the repo operator. Its registry owns public command shape; its envelopes own result interpretation. It returns typed reports, artifacts, faults, routing notes, and evidence rather than relying on stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
+- `tools/assay` is the repo operator: its registry owns public command shape, its envelopes own result interpretation, and it returns typed reports, artifacts, faults, routing notes, and evidence rather than stderr or human-scanned logs. Structural search, API catalogs, static analysis, tests, bridge orchestration, package work, and docs checks route through the relevant Assay rail.
 - `tools/assay provision` is the Rasm evidence envelope for Forge-provisioned server and native campaign facts. `Parametric_Forge` owns service composition, installed provisioning and scientific executables, Docker/Compose assets, credential and port policy, and native exports; Rasm owns the sanitized `ProvisionRun` facts, manifests, locks, `.api` catalogues, and evidence that consume those machine surfaces.
 - Rasm agents invoke Assay as `uv run python -m tools.assay provision up|down|status|doctor|ports|inventory|extensions|plan|env|check|apply`. Assay accepts Forge schema-v3 JSON only and projects sanitized `ProvisionRun` evidence. Direct `forge-provision`, `psql`, `paths`, `prune`, `self-test`, Docker/Compose, cleanup, and diagnostic JSON remain Forge-level debugging surfaces.
 - `tools/rhino-bridge` owns live RhinoWIP execution. Contract owns protocol and fault shapes; Supervisor owns host lifecycle and folds; Stub stays dependency-zero; Shell owns in-host RPC/admission; Cargo owns scenarios and capture evidence. Libraries and prompts do not recreate launch, endpoint, quit, cargo, or spool choreography.
@@ -55,11 +62,11 @@ Every root, tool, and library routes generated output through an owned store: `.
 - `tools/yak` stores package metadata only. Package staging, deployment, publish, artifact roots, and host refresh are Assay/package responsibilities.
 - GitHub repository settings — merge hygiene, rulesets, review automation — are settings-as-code `@pulumi/github` rows in Parametric_Forge `services/topology.ts`; the services driver preview is the verification surface, never the GitHub UI. Agent secrets arrive through the canonical `.claude/hooks/setup-env.sh` Doppler rail; custody law is the `secrets` skill.
 
-## [06]-[PLANNING_AND_EVIDENCE]
+## [07]-[PLANNING_AND_EVIDENCE]
 
 New foundational libraries use planning campaigns before production source when scope is broad or future-consumer-facing. The planning law lives in `libs/.planning/` — `architecture.md` (the topology), `campaign-method.md` (the loop, the bar, the agent-role law), `README.md` (the authoring standard), `planning-targets.md` (every planning surface). A campaign makes infra truth honest, captures manifests and lockfiles, extracts API catalogs through repo evidence rails, runs research and adversarial passes before authoring, enumerates isolated and in-concert capability across modalities, then collapses surviving capability into owner ledgers, row/case/policy axes, and decision-complete pages.
 
-## [07]-[DEVELOPMENT_MODEL]
+## [08]-[DEVELOPMENT_MODEL]
 
 Code starts from the deepest reusable library owner that can absorb the capability. App and plugin layers declare product intent, ports, and output bindings; they do not reimplement geometry kernels, host lifecycles, GH2 wiring, runtime composition, UI primitives, compute orchestration, persistence, packaging, or evidence capture.
 
