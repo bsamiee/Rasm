@@ -3,7 +3,8 @@
     "vcs": {
         "enabled": true,
         "clientKind": "git",
-        "useIgnoreFile": true
+        "useIgnoreFile": true,
+        "defaultBranch": "main"
     },
     "files": {
         "ignoreUnknown": true,
@@ -42,120 +43,55 @@
     "plugins": [
         {
             "path": "./tools/biome/no-arity-sibling.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-await-in-domain.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-barrel-reexport.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-blanket-catchall.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-domain-throw.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-fetch-in-domain.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-mutable-accumulation.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-nullable-return.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-process-env-in-domain.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-rename-wrapper.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-run-in-domain.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-standalone-brand.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         },
         {
             "path": "./tools/biome/no-stdlib-in-domain.grit",
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ]
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
         }
     ],
     "formatter": {
@@ -176,8 +112,18 @@
             "complexity": {
                 "useLiteralKeys": "off"
             },
+            "nursery": {
+                "useExhaustiveSwitchCases": "error"
+            },
+            "performance": {
+                "noAccumulatingSpread": "error",
+                "noBarrelFile": "error",
+                "noDelete": "error",
+                "noReExportAll": "error"
+            },
             "suspicious": {
                 "noExplicitAny": "error",
+                "noImportCycles": "error",
                 "noShadowRestrictedNames": "off"
             }
         }
@@ -189,14 +135,14 @@
             "trailingCommas": "all"
         }
     },
+    "json": {
+        "parser": {
+            "allowComments": true
+        }
+    },
     "overrides": [
         {
-            "includes": [
-                "**/libs/typescript/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ],
+            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
             "linter": {
                 "rules": {
                     "style": {

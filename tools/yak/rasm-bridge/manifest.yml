@@ -1,9 +1,9 @@
 name: rasm-bridge
 version: $version
 authors:
-- Rasm
+    - Rasm
 description: RhinoWIP macOS package for the runtime analyzer bridge.
 keywords:
-- rhino-wip
-- rhinocommon
-- bridge
+    - rhino-wip
+    - rhinocommon
+    - bridge
