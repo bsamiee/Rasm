@@ -12,9 +12,6 @@
             "!!**/node_modules",
             "!!**/.cache",
             "!!**/.artifacts",
-            "!!**/.claude",
-            "!!**/.claude/skills/**/.cache",
-            "!!**/.claude/worktrees",
             "!!**/.mypy_cache",
             "!!**/.nx",
             "!!**/.parcel-cache",
@@ -32,57 +29,133 @@
             "!!**/_tmp",
             "!!**/packages.lock.json",
             "!!**/pnpm-lock.yaml",
-            "!!**/uv.lock"
+            "!!**/uv.lock",
+            "!!**/.archive",
+            "!!**/_archive",
+            "!!**/scratch",
+            "!!**/.scratch",
+            "!!**/.tmp",
+            "!!.claude/workflows/**",
+            "!!.claude/skills/workflow-creator/assets/**"
         ]
     },
-    "formatter": {
-        "enabled": true,
-        "indentStyle": "space",
-        "indentWidth": 4,
-        "lineWidth": 150
-    },
-    "javascript": {
-        "formatter": {
-            "quoteStyle": "single"
-        }
-    },
     "plugins": [
-        { "path": "./tools/biome/no-arity-sibling.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
+        {
+            "path": "./tools/biome/no-arity-sibling.grit",
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
+        },
         {
             "path": "./tools/biome/no-await-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         },
         {
             "path": "./tools/biome/no-barrel-reexport.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         },
         {
             "path": "./tools/biome/no-blanket-catchall.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         },
-        { "path": "./tools/biome/no-domain-throw.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
-        { "path": "./tools/biome/no-fetch-in-domain.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
+        {
+            "path": "./tools/biome/no-domain-throw.grit",
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
+        },
+        {
+            "path": "./tools/biome/no-fetch-in-domain.grit",
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
+        },
         {
             "path": "./tools/biome/no-mutable-accumulation.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         },
         {
             "path": "./tools/biome/no-nullable-return.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         },
         {
             "path": "./tools/biome/no-process-env-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         },
-        { "path": "./tools/biome/no-rename-wrapper.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
-        { "path": "./tools/biome/no-run-in-domain.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
+        {
+            "path": "./tools/biome/no-rename-wrapper.grit",
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
+        },
+        {
+            "path": "./tools/biome/no-run-in-domain.grit",
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
+        },
         {
             "path": "./tools/biome/no-standalone-brand.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         },
         {
             "path": "./tools/biome/no-stdlib-in-domain.grit",
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"]
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ]
         }
     ],
     "formatter": {
@@ -118,7 +191,12 @@
     },
     "overrides": [
         {
-            "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
+            "includes": [
+                "**/libs/typescript/**",
+                "!**/*.spec.*",
+                "!**/*.test.*",
+                "!**/*.bench.*"
+            ],
             "linter": {
                 "rules": {
                     "style": {

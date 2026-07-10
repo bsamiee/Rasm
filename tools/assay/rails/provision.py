@@ -2,6 +2,7 @@
 
 from collections.abc import Callable  # noqa: TC003  # handler factory annotations are runtime-evaluated at registry weave
 from dataclasses import dataclass
+from functools import reduce
 import re
 from typing import ClassVar, Final, override
 
@@ -256,6 +257,48 @@ _SENSITIVE_VALUE: Final[re.Pattern[str]] = re.compile(
     r")"
 )
 _SAFE_WIRE_CAP: Final[int] = 512
+# Curated schema-v3 runtime facts: one row per doctor/status/teardown wire path; the label is the evidence key.
+_DOCTOR_ROWS: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
+    ("dockerPolicyStatus", ("docker", "policy", "status")),
+    ("dockerPolicyReason", ("docker", "policy", "reason")),
+    ("dockerEndpointKind", ("docker", "endpointKind")),
+    ("dockerEndpointPathExists", ("docker", "endpointPathExists")),
+    ("dockerPresent", ("docker", "present")),
+    ("dockerExecutableKind", ("docker", "executableKind")),
+    ("dockerComposeVersion", ("docker", "compose")),
+    ("dockerServerVersion", ("docker", "server")),
+    ("anonymousPullConfig", ("docker", "anonymousPullConfig", "exists")),
+    ("credentialHelperPresent", ("docker", "hostConfig", "credentialHelperPresent")),
+    ("credentialHelperWarning", ("docker", "hostConfig", "warning")),
+    ("runtimeForgeProvisionPresent", ("forgeProvision", "present")),
+    ("runtimeForgeProvisionSchemaVersion", ("forgeProvision", "schemaVersion")),
+    ("runtimeComposePresent", ("compose", "present")),
+    ("runtimeComposeVersion", ("compose", "version")),
+    ("runtimeJqPresent", ("jq", "present")),
+    ("runtimeListenerProbeMethod", ("listenerProbeMethod",)),
+    ("runtimeAnonymousDockerConfig", ("anonymousDockerConfig",)),
+    ("runtimeHostCredentialHelperPresent", ("hostCredentialHelperPresent",)),
+    ("portsInspectable", ("portsInspectable",)),
+    ("portsUsable", ("portsUsable",)),
+    ("dockerAvailable", ("dockerAvailable",)),
+    ("dockerIssue", ("dockerIssue",)),
+    ("cleanupPolicy", ("cleanupPolicy",)),
+    ("includeVolumes", ("includeVolumes",)),
+    ("lockState", ("lock", "state")),
+    ("lockPresent", ("lock", "present")),
+    ("lockActive", ("lock", "active")),
+    ("lockPidAlive", ("lock", "pidAlive")),
+    ("lockHeartbeatStale", ("lock", "heartbeatStale")),
+    ("lockCommand", ("lock", "command")),
+    ("colimaAvailable", ("colima", "available")),
+    ("colimaRuntime", ("colima", "status", "runtime")),
+    ("colimaArch", ("colima", "status", "arch")),
+    ("colimaDriver", ("colima", "status", "driver")),
+    ("colimaMountType", ("colima", "status", "mountType")),
+    ("appleContainerPresent", ("appleContainer", "present")),
+    ("appleContainerSystem", ("appleContainer", "system")),
+    ("appleContainerEligible", ("appleContainer", "eligible", "gate")),
+)
 # Catalog owns every probe row and its argv; the roster names pin the check-verb fan order.
 _PROBE_NAMES: Final[tuple[str, ...]] = ("forge-python-abi", "forge-openblas", "forge-onnxruntime-lib")
 _PROVISION_ROWS: Final[dict[tuple[str, Mode], Tool]] = {(t.name, t.mode): t for t in select(Claim.PROVISION, Language.PYTHON)}
@@ -656,38 +699,12 @@ def _dict_child(source: object, key: str) -> dict[str, object]:
 
 def _doctor(payload: _ProvisionPayload) -> tuple[tuple[str, str], ...]:
     runtime = payload.resources.runtime
-    docker = _dict_child(runtime, "docker")
-    colima = _dict_child(runtime, "colima")
-    runtime_facts = {
-        "dockerPolicyStatus": _wire(_dict_child(docker, "policy").get("status")),
-        "dockerPolicyReason": _wire(_dict_child(docker, "policy").get("reason")),
-        "dockerEndpointKind": _wire(docker.get("endpointKind")),
-        "dockerExecutablePresent": _wire(docker.get("executablePresent", docker.get("present"))),
-        "dockerExecutableKind": _wire(docker.get("executableKind")),
-        "dockerComposeVersion": _wire(docker.get("compose")),
-        "dockerServerVersion": _wire(docker.get("server")),
-        "anonymousPullConfig": _wire(_dict_child(docker, "anonymousPullConfig").get("exists")),
-        "credentialHelperPresent": _wire(_dict_child(docker, "hostConfig").get("credentialHelperPresent")),
-        "runtimeForgeProvisionPresent": _wire(_dict_child(runtime, "forgeProvision").get("present")),
-        "runtimeForgeProvisionSchemaVersion": _wire(_dict_child(runtime, "forgeProvision").get("schemaVersion")),
-        "runtimeDockerPresent": _wire(docker.get("present")),
-        "runtimeComposePresent": _wire(_dict_child(runtime, "compose").get("present")),
-        "runtimeComposeVersion": _wire(_dict_child(runtime, "compose").get("version")),
-        "runtimeJqPresent": _wire(_dict_child(runtime, "jq").get("present")),
-        "runtimeListenerProbeMethod": _wire(runtime.get("listenerProbeMethod")),
-        "runtimeAnonymousDockerConfig": _wire(runtime.get("anonymousDockerConfig")),
-        "runtimeHostCredentialHelperPresent": _wire(runtime.get("hostCredentialHelperPresent")),
-        "lockState": _wire(_dict_child(runtime, "lock").get("state")),
-        "lockPresent": _wire(_dict_child(runtime, "lock").get("present")),
-        "lockActive": _wire(_dict_child(runtime, "lock").get("active")),
-        "lockPidAlive": _wire(_dict_child(runtime, "lock").get("pidAlive")),
-        "lockHeartbeatStale": _wire(_dict_child(runtime, "lock").get("heartbeatStale")),
-        "colimaAvailable": _wire(colima.get("available")),
-        "colimaRunning": _wire(_dict_child(colima, "status").get("running")),
-        "colimaRuntime": _wire(_dict_child(colima, "status").get("runtime")),
-        "colimaArch": _wire(_dict_child(colima, "status").get("arch")),
-    }
-    return tuple((key, value) for key, value in runtime_facts.items() if value)
+    blocked = runtime.get("blockedPorts")
+    rows = (
+        *((key, _wire(reduce(_dict_child, path[:-1], runtime).get(path[-1]))) for key, path in _DOCTOR_ROWS),
+        ("blockedPorts", _wire(len(blocked)) if isinstance(blocked, list) else ""),
+    )
+    return tuple((key, value) for key, value in rows if value)
 
 
 def _tool_surface_status(value: object) -> str:

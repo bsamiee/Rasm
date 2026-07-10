@@ -585,7 +585,7 @@ _CHECKED: ReportLayer = CHECKED_LAYER  # ty: ignore[invalid-assignment]
 _RAIL_LAYERS: Final[tuple[ReportLayer, ...]] = (_CHECKED, logged(event="rail", keys=_correlate), traced(span="assay.rail", attrs=_correlate))
 
 REGISTRY: Final[tuple[Bind, ...]] = (
-    Bind(Claim.STATIC, "static", static_rail.run, StaticParams, "Polyglot quality: auto-fix + diagnose + build per language."),
+    Bind(Claim.STATIC, "static", static_rail.run, StaticParams, "Polyglot quality: diagnose + build per language; --fix runs fixers first."),
     Bind(Claim.CODE, "search", code_rail.search, CodeParams, "Search: $-metavar -> ast-grep structural; literal -> ripgrep content."),
     Bind(Claim.CODE, "query", code_rail.query, CodeParams, "AST query via tree-sitter (in-process)."),
     Bind(Claim.TEST, "run", test_rail.run, TestParams, "Unit + coverage + mutation fold."),
@@ -602,7 +602,7 @@ REGISTRY: Final[tuple[Bind, ...]] = (
     Bind(Claim.API, "query", api_rail.query, ApiParams, "Polymorphic ilspy surface; fingerprint cache."),
     Bind(Claim.API, "show", api_rail.show, ApiParams, "Artifact preview."),
     Bind(Claim.API, "status", api_rail.status, ApiParams, "Host/NuGet/tool health; --strict -> FAULTED."),
-    Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown + Mermaid validation."),
+    Bind(Claim.DOCS, "check", docs_rail.check, DocsParams, "Markdown prose gate + Mermaid validation."),
     Bind(Claim.PROVISION, "up", provision_rail.up, ProvisionParams, "Start enabled Forge-owned provisioning services."),
     Bind(Claim.PROVISION, "down", provision_rail.down, ProvisionParams, "Stop labelled provisioning services while preserving owned volumes."),
     Bind(Claim.PROVISION, "status", provision_rail.status, ProvisionParams, "Show local provisioning service status."),
@@ -680,8 +680,9 @@ def _register[**P](
 def build_app(registry: tuple[Bind, ...], *, executor: Executor | None = None) -> App:
     """Build the Cyclopts command tree from registry rows.
 
-    Multi-verb claims become sub-apps; single-verb claims register as root leaves.
-    `self_test` and `delta` stay outside the claim fold.
+    Every claim registers as a sub-app whose leaves are its verbs; a claim collapses
+    to a root leaf only when its lone verb duplicates the claim token. `self_test`
+    and `delta` stay outside the claim fold.
 
     Args:
         registry: Ordered Bind tuple; typically the module-level REGISTRY constant.
@@ -714,10 +715,11 @@ def build_app(registry: tuple[Bind, ...], *, executor: Executor | None = None) -
 
 
 def _register_claim(app: App, group: tuple[Claim, tuple[Bind, ...]], executor: Executor) -> App:
-    # Single-verb claims are root leaves; multi-verb claims are sub-apps.
+    # A claim collapses to a root leaf only when its lone verb duplicates the claim token; every other claim
+    # takes the explicit verb token, so the surface, help roster, and Envelope verb agree across the registry.
     claim, rows = group
     match rows:
-        case (single,):
+        case (single,) if single.verb == claim.value:
             return _register(app, _leaf(single, executor), name=claim.value, help=single.help, usage=_usage(single, root_leaf=True))
         case _:
             sub = reduce(

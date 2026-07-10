@@ -90,41 +90,65 @@ def test_static_help_admits_scoped_target_flags(monkeypatch: pytest.MonkeyPatch,
     assert b"--project" in cap.out
     assert b"--folder" in cap.out
     assert b"--file" in cap.out
+    assert b"--fix" in cap.out
     assert b"--no-all" not in cap.out
+    assert b"--no-fix" not in cap.out
+    assert b"--plan" not in cap.out
 
 
 # --- [LANE_LAWS]
 
 
-def test_python_lane_runs_fix_before_diagnostics(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """Python static runs fix rows before diagnostics."""
+def test_python_default_lane_is_diagnose_only(assay_root: AssayHarness) -> None:
+    """Default Python static diagnoses only: no fix phase, no write-mode row, and no write lease taken."""
+    assay_root.write("tools/assay/probe.py", "")
+    calls: list[tuple[Mode, ...]] = []
+    executor = SeamExecutor(fan_fn=_recording_fan(calls))
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("tools/assay",)), executor))
+    assert isinstance(report.detail, StaticRun)
+    assert report.detail.phases == ("diagnostic",)
+    assert all(Mode.WRITE not in modes for modes in calls)
+    assert all(phase != "fix" for phase, _, _ in report.detail.planned)
+    assert report.notes[0] == f"planned={len(report.detail.planned)} skipped={len(report.detail.skipped)}"
+
+
+def test_python_fix_lane_runs_fix_before_diagnostics(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
+    """``--fix`` prepends the write-mode fixer rows before the same diagnostics."""
     assay_root.write("tools/assay/probe.py", "")
     calls: list[tuple[Mode, ...]] = []
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
     executor = SeamExecutor(fan_fn=_recording_fan(calls))
-    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("tools/assay",)), executor))
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(folders=("tools/assay",), fix=True), executor))
     assert isinstance(report.detail, StaticRun)
     assert report.detail.phases == ("fix", "diagnostic")
     write_index = next(i for i, modes in enumerate(calls) if Mode.WRITE in modes)
     check_index = next(i for i, modes in enumerate(calls) if Mode.CHECK in modes)
     assert write_index < check_index
-    assert report.notes[0] == f"planned={len(report.detail.planned)} skipped={len(report.detail.skipped)}"
 
 
-def test_csharp_project_lane_runs_full_ordered_lane(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """A C# project target runs the full ordered lane: fix, diagnostics, restore, then build."""
+_LANE_ROWS: tuple[tuple[str, bool, tuple[str, ...]], ...] = (
+    ("diagnose", False, ("diagnostic", "restore", "build")),
+    ("fix", True, ("fix", "diagnostic", "restore", "build")),
+)
+
+
+@pytest.mark.parametrize("fix, phases", [row[1:] for row in _LANE_ROWS], ids=[row[0] for row in _LANE_ROWS])
+def test_csharp_project_lane_runs_ordered_lane(
+    monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness, *, fix: bool, phases: tuple[str, ...]
+) -> None:
+    """A C# project target diagnoses, restores, and builds; ``--fix`` prepends the probe-gated fix phase."""
     assay_root.write("src/App/App.csproj", "<Project />")
     monkeypatch.setattr(static_rail, "leased", lambda _resource, run, **_kw: run(object()))
     executor = SeamExecutor(run_fn=_compiling_probe, fan_fn=_ok_static_fan)
-    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(project="src/App/App.csproj"), executor))
+    report = assert_ok(run(assay_root.settings, assay_root.scope(Claim.STATIC), StaticParams(project="src/App/App.csproj", fix=fix), executor))
     assert isinstance(report.detail, StaticRun)
-    assert report.detail.phases == ("fix", "diagnostic", "restore", "build")
+    assert report.detail.phases == phases
     assert any(row[0] == "csharp" and row[3] == "1" for row in report.detail.routes)
     assert any("dotnet build" in argv and "src/App/App.csproj" in argv for _, _, argv in report.detail.planned)
 
 
 def test_folder_lane_spans_python_typescript_and_csharp(monkeypatch: pytest.MonkeyPatch, assay_root: AssayHarness) -> None:
-    """A mixed folder runs the admitted fix + diagnostic + build rows for every language touched."""
+    """A mixed folder runs the admitted diagnostic + build rows for every language touched."""
     assay_root.write("src/App/App.csproj", "<Project />")
     assay_root.write("src/App/a.cs", "class A {}")
     assay_root.write("src/pkg/a.py", "")
@@ -173,10 +197,10 @@ def test_only_one_target_axis_admitted(assay_root: AssayHarness) -> None:
 def test_typescript_scope_gates_tsc_and_keeps_scoped_fixer(assay_root: AssayHarness) -> None:
     """Full TS keeps the project-wide tsc build row; scoped TS skips it whole while the scoped Biome write fixer stays."""
     full_phases, full_skipped = static_rail._phase_checks(
-        Routed(Language.TYPESCRIPT, Scope.FULL, files=(".",)), assay_root.settings, assay_root.scope(Claim.STATIC)
+        Routed(Language.TYPESCRIPT, Scope.FULL, files=(".",)), assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES
     )
     scoped_phases, scoped_skipped = static_rail._phase_checks(
-        Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",)), assay_root.settings, assay_root.scope(Claim.STATIC)
+        Routed(Language.TYPESCRIPT, Scope.CHANGED, files=("src/web/a.ts",)), assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES
     )
     assert any(check.tool.name == "tsc" for _, checks in full_phases for check in checks)
     assert not any(row[1] == "tsc" for row in full_skipped)
@@ -188,7 +212,7 @@ def test_typescript_scope_gates_tsc_and_keeps_scoped_fixer(assay_root: AssayHarn
 def test_full_typescript_tsc_has_no_file_tail(assay_root: AssayHarness) -> None:
     """Full TypeScript build invokes the project owner once; it never mixes ``-p`` with file tails."""
     routed = Routed(Language.TYPESCRIPT, Scope.FULL, files=("vite.config.ts", "vitest.config.ts"))
-    phases, _ = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC))
+    phases, _ = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
     assert ("build", "tsc", "pnpm exec tsc --noEmit -p tsconfig.base.json") in planned
 
@@ -218,7 +242,7 @@ def test_csharp_format_placement_matrix(
     assay_root: AssayHarness, routed: Routed, admitted: Callable[[tuple[tuple[str, str, str], ...]], bool]
 ) -> None:
     """C# format rows bind to the owner project (plus ``--include`` file tails when files route), never Workspace.slnx."""
-    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC))
+    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
     assert skipped == ()
     assert admitted(planned)
@@ -227,7 +251,7 @@ def test_csharp_format_placement_matrix(
 def test_csharp_workspace_format_uses_solution_placement(assay_root: AssayHarness) -> None:
     """Explicit all-workspace routes place dotnet format/restore/build on Workspace.slnx."""
     routed = Routed(Language.CSHARP, Scope.FULL, full_triggers=(str(assay_root.settings.solution),))
-    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC))
+    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, assay_root.scope(Claim.STATIC), static_rail._MODES)
     planned = static_rail._planned(routed, phases, assay_root.settings, assay_root.scope(Claim.STATIC))
     assert skipped == ()
     assert all(str(assay_root.settings.solution) in argv for _, name, argv in planned if name.startswith("dotnet-"))
@@ -239,7 +263,7 @@ def test_csharp_build_checks_use_distinct_sarif_dirs(assay_root: AssayHarness) -
     """Expanded C# build checks write SARIF into per-invocation directories, not one shared project-name path."""
     scope = assay_root.scope(Claim.STATIC)
     routed = Routed(Language.CSHARP, Scope.CHANGED, projects=("src/App/App.csproj", "src/Lib/Lib.csproj"))
-    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, scope)
+    phases, skipped = static_rail._phase_checks(routed, assay_root.settings, scope, static_rail._MODES)
     assert skipped == ()
     sarif_dirs = tuple(check.args.sarif_dir for phase, checks in phases if phase is static_rail.Phase.BUILD for check in checks)
     assert len(sarif_dirs) == 2

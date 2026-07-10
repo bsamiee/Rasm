@@ -555,17 +555,17 @@ def test_provision_extensions_projection_matrix(
 
 
 def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness) -> None:
-    """Doctor JSON projects runtime facts without paths, sockets, or helper names."""
+    """Doctor JSON projects the schema-v3 runtime facts without paths, sockets, or helper names."""
     payload = _json(
         "doctor",
         docker={
-            "executablePresent": True,
             "executableKind": "nix-store",
             "policy": {"status": "ok", "reason": None},
             "endpointKind": "unix",
+            "endpointPathExists": True,
             "compose": "Docker Compose version v2.39.0",
             "server": "29.0.0",
-            "hostConfig": {"credentialHelperPresent": True, "warning": "credential-helper-present-for-host-config"},
+            "hostConfig": {"credentialHelperPresent": True, "credHelpers": 0, "warning": "credential-helper-present-for-host-config"},
             "anonymousPullConfig": {"exists": True},
         },
         runtime={
@@ -576,39 +576,56 @@ def test_provision_doctor_projects_sanitized_runtime(assay_root: AssayHarness) -
             "listenerProbeMethod": "lsof",
             "anonymousDockerConfig": True,
             "hostCredentialHelperPresent": True,
+            "portsInspectable": True,
+            "portsUsable": True,
+            "blockedPorts": [],
+            "appleContainer": {"present": True, "system": "running", "eligible": {"gate": True}},
         },
-        lock={"present": True, "active": False, "state": "ownerless", "pidAlive": False, "heartbeatStale": False},
-        colima={"available": True, "status": {"running": True, "runtime": "docker", "arch": "aarch64"}},
+        lock={"present": True, "active": False, "state": "ownerless", "pidAlive": False, "heartbeatStale": False, "command": "doctor"},
+        colima={
+            "available": True,
+            "status": {"runtime": "docker", "arch": "aarch64", "driver": "macOS Virtualization.Framework", "mountType": "virtiofs"},
+            "raw": None,
+        },
     )
     executor = SeamExecutor(fan_fn=_fan_payload(("forge-provision", "--json", "doctor"), payload))
     detail = _detail(assert_ok(_run(provision_rail.doctor, assay_root, executor)))
     assert dict(detail.doctor) == {
         "dockerPolicyStatus": "ok",
         "dockerEndpointKind": "unix",
-        "dockerExecutablePresent": "true",
+        "dockerEndpointPathExists": "true",
+        "dockerPresent": "true",
         "dockerExecutableKind": "nix-store",
         "dockerComposeVersion": "Docker Compose version v2.39.0",
         "dockerServerVersion": "29.0.0",
         "anonymousPullConfig": "true",
         "credentialHelperPresent": "true",
+        "credentialHelperWarning": "credential-helper-present-for-host-config",
         "runtimeForgeProvisionPresent": "true",
         "runtimeForgeProvisionSchemaVersion": "3",
-        "runtimeDockerPresent": "true",
         "runtimeComposePresent": "true",
         "runtimeComposeVersion": "Docker Compose version v2.39.0",
         "runtimeJqPresent": "true",
         "runtimeListenerProbeMethod": "lsof",
         "runtimeAnonymousDockerConfig": "true",
         "runtimeHostCredentialHelperPresent": "true",
+        "portsInspectable": "true",
+        "portsUsable": "true",
+        "blockedPorts": "0",
         "lockState": "ownerless",
         "lockPresent": "true",
         "lockActive": "false",
         "lockPidAlive": "false",
         "lockHeartbeatStale": "false",
+        "lockCommand": "doctor",
         "colimaAvailable": "true",
-        "colimaRunning": "true",
         "colimaRuntime": "docker",
         "colimaArch": "aarch64",
+        "colimaDriver": "macOS Virtualization.Framework",
+        "colimaMountType": "virtiofs",
+        "appleContainerPresent": "true",
+        "appleContainerSystem": "running",
+        "appleContainerEligible": "true",
     }
 
 

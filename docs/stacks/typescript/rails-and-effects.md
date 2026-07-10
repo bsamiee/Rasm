@@ -43,7 +43,7 @@ Choose the narrowest carrier that states the real outcome; a wider carrier is ea
 - Law: forensics are egress projections over the carried tree — `Cause.pretty` renders it for a text sink, `Cause.prettyErrors` reifies `PrettyError` values whose `span` survives into structured logs, and `Cause.squash`/`Cause.squashWith` collapse to the one dominant value for a foreign single-argument sink; every one is a terminal-seam spelling, never a recovery input.
 - Use: `Effect.sandbox` when recovery itself must read defects and interruptions on the typed channel; `Effect.exit` when the outcome becomes state.
 
-```typescript
+```typescript conceptual
 import { Cause, Data, Effect, type Either, Exit, Number, type Option } from "effect"
 
 class GaugeFault extends Data.TaggedError("GaugeFault")<{ readonly detail: string }> {}
@@ -123,7 +123,7 @@ Abort versus accumulate is a correctness decision fixed once at the boundary as 
 - Use: `Effect.reduce(items, zero, body)` for the dependent batch fold — the accumulator threads the rail with no mutable cell, `Effect.reduceWhile` carries its own stop predicate, and `Effect.mergeAll(effects, zero, f)` accumulates a batch of already-railed operands into one value; a `let` written from inside `Effect.forEach` restates the seeded fold.
 - Reject: a disposition parameter the body re-reads; a `for` loop collecting failures beside the rail; `Effect.forEach` over a batch whose faults the caller must enumerate — its first-failure abort is the dependent-chain default, not the batch report.
 
-```typescript
+```typescript conceptual
 import { type Array, Data, Effect, type Either, Number, type Option } from "effect"
 
 class SlotFault extends Data.TaggedError("SlotFault")<{ readonly slot: string; readonly raw: string }> {}
@@ -183,7 +183,7 @@ A surface owns one reason-discriminated fault family whose policy lives in one v
 - Law: an accumulated fault set collapses to one representative through the rank lattice — `Order.mapInput` projects the table's rank, `Array.max` folds the `NonEmptyArray` the accumulating forms mint, and the instance with its fold ride the family class as statics so policy arrives through the owner's one import; an if-ladder comparing tags, or a loose comparator const beside the class, re-implements the order the table already declares.
 - Law: quarantine is a typed divert, never a dropped element — a quarantinable fault is delivered to a typed intake and continues as `Either.left` on the success channel, so the rail proceeds and the evidence survives to the drain; a recovery that substitutes a default value destroys the evidence and is rejected wherever the fault feeds a report.
 
-```typescript
+```typescript conceptual
 import { Array, Data, Effect, Either, Function, Option, Order } from "effect"
 
 const FaultPolicy = {                                        // exported anchor: plain as const keeps every literal; the merged guard carries the contract
@@ -258,7 +258,7 @@ export { FaultPolicy, PermitFault, routed, salvaged, SurfaceFault }
 A lifetime rides the rail as a bracket whose release is part of the computation's type, and where the bracket sits against resilience is semantics, not style: a transformer governs everything below it in the pipe.
 
 [BRACKET_SELECTION]:
-- Law: the form is selected by two questions — does a value need releasing, and does teardown read the outcome. `Effect.acquireRelease` owns a resource value with an `Exit`-aware release; `Effect.acquireUseRelease` is the closed bracket when use is known at the declaration and no `Scope` should escape; `Effect.ensuring` finalizes unconditionally with no resource; `Effect.onExit` observes the settled outcome; `Effect.onError` observes failure alone; `Effect.addFinalizer` registers into the ambient `Scope` mid-`gen`.
+- Law: the form is selected by two questions — does a value need releasing, and does teardown read the outcome. `Effect.acquireRelease` owns a resource value with an `Exit`-aware release; `Effect.acquireUseRelease` is the closed bracket when use is known at the declaration and no `Scope` escapes; `Effect.ensuring` finalizes unconditionally with no resource; `Effect.onExit` observes the settled outcome; `Effect.onError` observes failure alone; `Effect.addFinalizer` registers into the ambient `Scope` mid-`gen`.
 - Law: an `Exit`-aware release is transactional disposal — `Exit.isFailure` selects commit or abort — the discrimination a `finally` cannot express.
 - Law: the release channel is `never` by signature — a fallible release resolves its own failure internally, because the primary outcome must survive teardown; a release failure is a defect, never a fault.
 - Boundary: uninterruptible windows, shielded teardown, and cross-fiber finalization order are `concurrency.md`'s; a service whose lifetime is its Layer is `services-and-layers.md`'s.
@@ -267,7 +267,7 @@ A lifetime rides the rail as a bracket whose release is part of the computation'
 - Law: `Effect.scoped` placement against `Effect.retry` decides re-acquisition — retry around the scoped bracket re-acquires per attempt, the poisoned-resource recovery; the bracket around retry holds one acquisition across attempts, the kept-session form. Neither is a default; the fault family names which resource state survives its faults.
 - Reject: teardown as an ordinary step after use — it silently skips on failure and interruption; `try`/`finally` in domain flow; a bracket whose acquire is retried by a loop instead of sitting under the same policy value as its use.
 
-```typescript
+```typescript conceptual
 import { Data, Effect, Exit, type Schedule, type Scope } from "effect"
 
 class LeaseFault extends Data.TaggedError("LeaseFault")<{
@@ -335,7 +335,7 @@ Recurrence is a named `Schedule` value composed once beside the fault family it 
 - Law: `Effect.repeat` recurs on the success channel — `while`/`until` read the output and the first run is not a recurrence — so polling and convergence are repeat policies over a state-advancing step, never `while` statements; `Effect.schedule` hands even the first run to the policy where the cadence, not the caller, owns the start.
 - Boundary: a circuit breaker is composed, never a new owner — the trip-and-cool state is `computation.md`'s transition actor, the transient gate is the `whileInput` policy value, and the shed arm is `concurrency.md`'s load-shed permit; a breaker class hand-rolled on the rail restates all three.
 
-```typescript
+```typescript conceptual
 import { Data, type Duration, Effect, Schedule } from "effect"
 
 class PressFault extends Data.TaggedError("PressFault")<{ readonly reason: "jam" | "starve" }> {
@@ -385,7 +385,7 @@ export { backoff, converged, nightly, PressFault, resilient, staged, stamped }
 - Law: a step's `while` gate reads the fault — plain `boolean` or a railed predicate — so a tier engages only for the faults its gate admits and the ladder keys on the family's own policy projection, never a foreign predicate; `ExecutionPlan.merge` composes whole plans when two ladders serve one surface.
 - Law: the module ships `@experimental` in the installed release — the admission is deliberate, and the plan value stays the one failover spelling; each tier's `Layer` construction is `services-and-layers.md`'s, this page owns only the ladder.
 
-```typescript
+```typescript conceptual
 import { Context, Data, Effect, ExecutionPlan, type Layer, Schedule } from "effect"
 
 class RouteFault extends Data.TaggedError("RouteFault")<{ readonly reason: "saturated" | "rejected" }> {
@@ -427,14 +427,14 @@ Telemetry is a transformer stack attached at the owner declaration, and every si
 
 [BOUNDED_DIMENSIONS]:
 - Law: a metric tag value is drawn from a bounded vocabulary — the derived outcome union, the family's reason rows — because every distinct value mints a series; interpolating an identifier into a tag is the cardinality defect. Identifier-grade context belongs in span attributes and log annotations, which are per-occurrence, never per-series.
-- Law: instruments are declared once beside the family they measure — `Metric.counter` with `incremental: true` for monotonic counts, `Metric.gauge` written through `Metric.set` at the observation point for level reads no fold accumulates, `Metric.frequency` over the reason vocabulary so its value set is exactly the derived union, `Metric.timerWithBoundaries` with boundaries the budget names, `MetricBoundaries.exponential` where the range spans decades, `Metric.summary` where quantiles matter and no boundary row can be pre-named — and `Metric.tagged` at call time is licensed only by a bounded value.
+- Law: instruments are declared once beside the family they measure — `Metric.counter` with `incremental: true` for monotonic counts, `Metric.gauge` written through `Metric.set` at the observation point for level reads no fold accumulates, `Metric.frequency` over the reason vocabulary so its value set is exactly the derived union, `Metric.timerWithBoundaries` with boundaries the budget names, `MetricBoundaries.exponential` where the range spans decades, `Metric.summary` where quantiles matter and no boundary row pre-names the range — and `Metric.tagged` at call time is licensed only by a bounded value.
 
 [OUTCOME_FROM_EXIT]:
 - Law: one `Exit` fold derives the outcome dimension for every signal, discriminating in interrupt-first order — `Cause.isInterruptedOnly`, then `Cause.failureOption`, then defect — because an interrupted run has no outcome and a defect is not a fault; the dimension vocabulary anchors as a type — the three cause rows plus a template over the family's own reason axis — and the fold's stated annotation governs it, so a new reason widens the vocabulary at the anchor, never inside an arm.
 - Law: `Effect.onExit` is the single emission point — once per computation, after the outcome settles; outcome strings minted inside recovery arms drift, double-count retried attempts, and never see defects.
 - Law: measurement placement follows `[05]`'s layering law — `Metric.trackDuration` and `Metric.trackErrorWith` below the retry stack measure attempts, above it the composed operation; the choice is the instrument's meaning, stated by its position.
 
-```typescript
+```typescript conceptual
 import { Cause, Data, Effect, Exit, Metric, Option } from "effect"
 
 class PourFault extends Data.TaggedError("PourFault")<{ readonly reason: "clog" | "spill" }> {}

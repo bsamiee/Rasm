@@ -8,29 +8,29 @@ Six siblings own material this page composes as settled: the `Effect` carrier al
 
 This table maps a dataflow shape to the form that owns it; the most specific shape wins.
 
-| [INDEX] | [DATAFLOW]                                | [OWNING_FORM]                                         | [REJECTED_FORM]                         |
-| :-----: | :---------------------------------------- | :---------------------------------------------------- | :-------------------------------------- |
-|  [01]   | bounded pure reduction over admitted data | `Chunk.reduce` fold, no carrier                       | a `Stream` over in-memory data          |
-|  [02]   | bounded collection, effect per element    | `Effect.forEach` with explicit `{ concurrency }`      | hand fiber loop; stream ceremony        |
-|  [03]   | unbounded, incremental, or scoped source  | `Stream` pipeline into one `run*` terminal            | whole-feed materialization              |
-|  [04]   | cursor-paged provider read                | `Stream.paginateChunkEffect`                          | an offset pump materializing all pages  |
-|  [05]   | point read repeated on a cadence          | `Stream.repeatEffectWithSchedule`                     | a sleep loop pushing into a queue       |
-|  [06]   | element-to-element state                  | `Stream.mapAccum` Mealy step                          | `Ref` mutated inside `map`              |
-|  [07]   | running trace of an accumulator           | `Stream.scan`, seed emitted first                     | a fold that swallows intermediates      |
-|  [08]   | neighbor access or fixed lookback         | `Stream.zipWithPrevious` / `Stream.sliding`           | a hand Mealy carrying the prior element |
-|  [09]   | consecutive-repeat suppression            | `Stream.changes` / `Stream.changesWith`               | a `last` cell compared inside `filter`  |
-|  [10]   | count-or-latency window                   | `Stream.groupedWithin(width, patience)`               | timer fiber plus mutable buffer         |
-|  [11]   | budget-closed, cadence-flushed batch      | `Stream.aggregateWithin` + `Sink.foldWeighted`        | count windows over uneven payloads      |
-|  [12]   | static N consumers of one source          | `Stream.broadcast(n, lag)` scoped tuple               | re-running the source per consumer      |
-|  [13]   | late or dynamic consumers of one source   | `Stream.share` replay window                          | re-plumbed `broadcast` per subscriber   |
-|  [14]   | per-key partitioned processing            | `Stream.groupByKey` + `GroupBy.evaluate`              | keyed map of arrays, then re-stream     |
-|  [15]   | heterogeneous source union                | `Stream.mergeWithTag` derived tagged merge            | hand-tagged `map` before `merge`        |
-|  [16]   | keyed alignment of two sorted feeds       | `Stream.zipAllSortedByKeyWith`                        | materialize both sides and join         |
-|  [17]   | callback or queue ingress                 | `Stream.asyncScoped` / `Stream.fromQueue`             | listener pushing into an outer array    |
-|  [18]   | stalled pull or failing long-lived source | `Stream.timeoutFail` + `Stream.retry`                 | a hand reconnect loop around the source |
-|  [19]   | pipeline feeding channel consumers        | `Stream.toQueue` / `Stream.toPubSub` `Take` handoff   | `runForEach` offers, end hand-signaled  |
-|  [20]   | N identical lookups in one flow           | `Request.TaggedClass` + `RequestResolver.makeBatched` | per-element query — the N+1             |
-|  [21]   | batch collapse across unrelated fibers    | `RequestResolver.dataLoader` wall-clock window        | same-traversal proximity as the window  |
+| [INDEX] | [DATAFLOW]                            | [OWNING_FORM]                                         | [REJECTED_FORM]                         |
+| :-----: | :------------------------------------ | :---------------------------------------------------- | :-------------------------------------- |
+|  [01]   | bounded pure reduction, admitted data | `Chunk.reduce` fold, no carrier                       | a `Stream` over in-memory data          |
+|  [02]   | bounded collection, effect/element    | `Effect.forEach` with explicit `{ concurrency }`      | hand fiber loop; stream ceremony        |
+|  [03]   | unbounded, incremental, or scoped     | `Stream` pipeline into one `run*` terminal            | whole-feed materialization              |
+|  [04]   | cursor-paged provider read            | `Stream.paginateChunkEffect`                          | an offset pump materializing all pages  |
+|  [05]   | point read repeated on a cadence      | `Stream.repeatEffectWithSchedule`                     | a sleep loop pushing into a queue       |
+|  [06]   | element-to-element state              | `Stream.mapAccum` Mealy step                          | `Ref` mutated inside `map`              |
+|  [07]   | running trace of an accumulator       | `Stream.scan`, seed emitted first                     | a fold that swallows intermediates      |
+|  [08]   | neighbor access or fixed lookback     | `Stream.zipWithPrevious` / `Stream.sliding`           | a hand Mealy carrying the prior element |
+|  [09]   | consecutive-repeat suppression        | `Stream.changes` / `Stream.changesWith`               | a `last` cell compared inside `filter`  |
+|  [10]   | count-or-latency window               | `Stream.groupedWithin(width, patience)`               | timer fiber plus mutable buffer         |
+|  [11]   | budget-closed, cadence-flushed batch  | `Stream.aggregateWithin` + `Sink.foldWeighted`        | count windows over uneven payloads      |
+|  [12]   | static N consumers of one source      | `Stream.broadcast(n, lag)` scoped tuple               | re-running the source per consumer      |
+|  [13]   | late or dynamic consumers, one source | `Stream.share` replay window                          | re-plumbed `broadcast` per subscriber   |
+|  [14]   | per-key partitioned processing        | `Stream.groupByKey` + `GroupBy.evaluate`              | keyed map of arrays, then re-stream     |
+|  [15]   | heterogeneous source union            | `Stream.mergeWithTag` derived tagged merge            | hand-tagged `map` before `merge`        |
+|  [16]   | keyed alignment of two sorted feeds   | `Stream.zipAllSortedByKeyWith`                        | materialize both sides and join         |
+|  [17]   | callback or queue ingress             | `Stream.asyncScoped` / `Stream.fromQueue`             | listener pushing into an outer array    |
+|  [18]   | stalled or failing long-lived source  | `Stream.timeoutFail` + `Stream.retry`                 | a hand reconnect loop around the source |
+|  [19]   | pipeline feeding channel consumers    | `Stream.toQueue` / `Stream.toPubSub` `Take` handoff   | `runForEach` offers, end hand-signaled  |
+|  [20]   | N identical lookups in one flow       | `Request.TaggedClass` + `RequestResolver.makeBatched` | per-element query — the N+1             |
+|  [21]   | batch collapse, unrelated fibers      | `RequestResolver.dataLoader` wall-clock window        | same-traversal proximity as the window  |
 
 ## [02]-[PIPELINE_SELECTION]
 
@@ -49,7 +49,7 @@ Three discriminants select the carrier — boundedness, effectfulness, increment
 - Law: a long-lived feed survives its faults by re-registration — `Stream.retry(policy)` re-runs the entire stream through its acquires on each fault and resets the schedule once an element flows again, so backoff never compounds across outages — and `Stream.timeoutFail(fault, gap)` converts a stalled pull into the typed fault the policy consumes; the restart re-emits from wherever the source starts, so the resume coordinate lives in the source's own state — the cursor, the poll's high-water mark — never in a downstream dedup set.
 - Reject: an offset `while` pump; `Stream.fromIterable` around a fully fetched result; a recursive effect pushing into a `Queue` as a hand-rolled feed — the constructor family already owns registration, cadence, and termination.
 
-```typescript
+```typescript conceptual
 import { Chunk, type Duration, type Effect, Number, type Option, Schedule, Stream } from "effect"
 
 type Reading = { readonly key: string; readonly value: number }
@@ -110,7 +110,7 @@ State that threads element-to-element lives inside the pipeline as a fold accumu
 - Boundary: cross-fiber shared state is `concurrency.md`'s `Ref`/`STM`; the accumulator here is pipeline-local and single-fiber by construction, so reaching for a cell inside a pipeline marks state that belongs to the fold.
 - Boundary: the Mealy step's `(state, element) => [state, output]` shape is `computation.md`'s law — this page owns its lift into the stream and everything the carrier adds.
 
-```typescript
+```typescript conceptual
 import { HashMap, Number, Option, Stream } from "effect"
 
 type Sample = { readonly key: string; readonly value: number }
@@ -158,7 +158,7 @@ A window is a pair of policy values — a `Sink` deciding what closes a batch, a
 - Use: `Sink.fold`/`Sink.foldUntil`/`Sink.collectAllN` for predicate and count closure; `Sink.zip` and `Sink.race` keep composed consumers one `Sink` value so the terminal `Stream.run(sink)` receives one consumer.
 - Reject: count-only batching of variable-size payloads; a byte counter threaded through `mapAccum` to fake a weighted window; a flush raced against a hand timer.
 
-```typescript
+```typescript conceptual
 import { Chunk, type Duration, Function, Schedule, Sink, Stream } from "effect"
 
 type Entry = { readonly key: string; readonly payload: string }
@@ -211,7 +211,7 @@ Fan-out multiplies consumers of one pull; fan-in funds one consumer from many so
 - Law: two feeds sorted by distinct keys align with `Stream.zipAllSortedByKeyWith({ other, onSelf, onOther, onBoth, order })` — a constant-space keyed join total over all three presence cases; the caller owes distinct sorted keys, the operator's named precondition, and `Stream.zipLatest` pairs by arrival time, not key — choosing it for keyed data is the named confusion.
 - Boundary: `Match.valueTags` mechanics are `surfaces-and-dispatch.md`'s; `Order` instances are `values.md`'s — both compose here as values.
 
-```typescript
+```typescript conceptual
 import { type Duration, Effect, GroupBy, Match, Order, type Scope, Stream } from "effect"
 
 type Sample = { readonly key: string; readonly value: number }
@@ -302,7 +302,7 @@ The seam between a push world and pull geometry is a bridge with an explicit buf
 - Law: rate shaping is `Stream.throttle({ cost, units, duration, burst, strategy })` — a declared token bucket where `"shape"` delays and `"enforce"` drops, `cost` prices a whole chunk (`Chunk.size` for per-element pricing), and `burst` prices the allowance above steady state; `Stream.debounce(duration)` owns quiescence — emit only after input pauses — and `Stream.schedule(policy)` paces per element on a `Schedule` value, cadence where `throttle` prices volume.
 - Reject: a hand token bucket around `mapEffect`; sleep-loop pacing; shedding via a mutable counter inside `filter`.
 
-```typescript
+```typescript conceptual
 import { Chunk, Data, type Duration, Effect, Stream } from "effect"
 
 class FeedFault extends Data.TaggedError("FeedFault")<{ readonly reason: string }> {}
@@ -354,7 +354,7 @@ N identical lookups inside one flow are one declared request family and one reso
 - Law: batch windows group by resolver identity, so the resolver is built once and travels as a value — a capability-consuming resolver bakes its services at construction through `RequestResolver.contextFromServices(...tags)`, yielding a context-free (`R = never`) identity-stable resolver; `Effect.provide` wrapped around each call site re-mints identity and defeats the window.
 - Law: a tagged request family shares one resolver through `RequestResolver.fromEffectTagged<Family>()({ ... })` — each handler receives its tag's whole window and answers positionally, index `i` resolving request `i`, so the family grows by a tag and a handler row, never a sibling resolver.
 - Law: window shape is combinator algebra at the owner — `RequestResolver.batchN(n)` caps width, `RequestResolver.aroundRequests(before, after)` brackets every window with both effects receiving the request array and `after` also receiving `before`'s result, the evidence pair a timing bracket rides, and `RequestResolver.dataLoader(resolver, { window, maxBatchSize })` trades same-traversal collapse for a wall-clock window that batches across unrelated fibers — a scoped acquisition over a context-free resolver.
-- Law: `RequestResolver.persisted(resolver, { storeId, timeToLive })` adds a durable result store keyed by the request's schema identity — the family upgrades to `Schema.TaggedRequest` so results serialize, and `timeToLive` folds the request and its `Exit` into the retention window, so hits and misses age separately; `dataLoader` and `persisted` ride `@effect/experimental`, the stated experimental admission.
+- Law: `RequestResolver.persisted(resolver, { storeId, timeToLive })` adds a durable result store keyed by the request's schema identity — the family upgrades to `Schema.TaggedRequest` so results serialize, and `timeToLive` folds the request and its `Exit` into the retention window, so hits and misses age separately; `dataLoader` and `persisted` ride `@effect/experimental`, the admission the manifest pin owns.
 - Boundary: the `Persistence.ResultPersistence` backing arrives as a Layer — the durable-cache axis is `concurrency.md`'s.
 
 [BATCH_GEOMETRY]:
@@ -362,7 +362,7 @@ N identical lookups inside one flow are one declared request family and one reso
 - Law: in stream geometry the window is declared upstream — `Stream.groupedWithin(width, patience)` pages the key feed by count or latency, one batched `Effect.forEach` runs per page under `Stream.mapEffect` with `{ concurrency }` lanes, and `Stream.flattenIterables` restores element flow; width, patience, and lanes ride one `as const satisfies` policy row.
 - Boundary: the resolver's provider call is `boundaries.md`'s seam — material is decoded before the resolver distributes it; this page owns only the collapse geometry.
 
-```typescript
+```typescript conceptual
 import { dataLoader } from "@effect/experimental/RequestResolver"
 import {
   Array, Clock, Data, type Duration, Effect, HashMap, Option, Request, RequestResolver, type Scope, Stream,

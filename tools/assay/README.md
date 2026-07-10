@@ -7,7 +7,7 @@
 Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stderr. The programmatic arm is `automation.engine.drive(trigger, action, settings, executor=...)`, which hosts `Watch`/`Schedule`/`Manual` fires under one AnyIO loop, writes NDJSON output, and spawns every check through the `Executor` port (the engine-bound port when absent).
 
 - Invoke as `uv run python -m tools.assay <claim> [verb] ...`; bare `assay ...` is valid only when `command -v assay` proves a local wrapper exists. The language axis is the mutually-exclusive `--csharp`/`--python`/`--typescript` flags; an unset selection routes every eligible language.
-- `static` never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.
+- `static` diagnoses by default and mutates only under `--fix`; even then it never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.
 - `api query` reports provable absence: a no-match reflects the current artifact, never a stale cache.
 - The Python mutation lane is a staged gate scored against a kill-floor by `rails/mutation_gate.py`, which also emits a `mutation-testing-report-schema` JSON under `.artifacts/python/mutmut/`; mutmut runs copy-staged with `cwd=.artifacts/python/mutmut/work`, so a root `mutants/` directory is forbidden litter.
 - `dotnet-ef` stays in the local tool manifest for a future Persistence design-time rail only; package health is SDK-first (`dotnet package list`, `dotnet nuget why`), and a `dotnet-outdated` fallback requires an explicit rail before the tool returns to the manifest.
@@ -25,38 +25,62 @@ Verify: stdout contains one JSON `Envelope`; `Envelope.status`/`exit_code` are t
 ```mermaid
 ---
 config:
-  layout: elk
-  look: neo
   theme: base
-  elk:
-    mergeEdges: false
-    nodePlacementStrategy: BRANDES_KOEPF
-    cycleBreakingStrategy: GREEDY_MODEL_ORDER
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
 ---
 flowchart LR
   accTitle: Assay orchestration boundary
   accDescr: CLI commands and automation fires enter rail or program execution, rail handlers select catalog tools and route inputs into Check rows, the Executor port returns Completed receipts or Faults, and emit writes Report or error Envelopes to stdout.
 
-  cli["CLI argv"] --> registry["registry.py\nREGISTRY Bind rows"]
-  registry --> rail["registry.rail(bind)\nsettings + scope"]
-  auto["Automation fire"] --> drive["automation.engine.drive\nlimiter/coalesce"]
+  cli["CLI argv"] --> registry["registry.py<br/>REGISTRY Bind rows"]
+  registry --> rail["registry.rail(bind)<br/>settings + scope"]
+  auto["Automation fire"] --> drive["automation.engine.drive<br/>limiter/coalesce"]
   drive -->|"Rail"| rail
   drive -->|"Program / Sequence"| executor
 
-  rail --> plan["rail-local plan\ncatalog.select TOOLS + routing"]
-  plan --> checks["Check rows\nargv | INPROC"]
-  checks --> executor["exec.py Executor\nrun | fan"]
+  rail --> plan["rail-local plan<br/>catalog.select TOOLS + routing"]
+  plan --> checks["Check rows<br/>argv | INPROC"]
+  checks --> executor["exec.py Executor<br/>run | fan"]
 
-  executor -->|"Completed"| fold["diagnostics.fold -> Report"]
+  executor received@-->|"Completed"| fold["diagnostics.fold -> Report"]
   executor -->|"Fault"| distill["registry._distill -> Diagnostic"]
-  fold --> emit["registry._emit\nEnvelope.report"]
-  distill --> emitError["registry._emit\nEnvelope.error"]
-  emit --> stdout["stdout\none JSON line"]
+  fold --> emit["registry._emit<br/>Envelope.report"]
+  distill --> emitError["registry._emit<br/>Envelope.error"]
+  emit --> stdout["stdout<br/>one JSON line"]
   emitError --> stdout
-  drive -.-> ndjson["automation: NDJSON\nper fire / leaf"]
+  drive -.-> ndjson["automation: NDJSON<br/>per fire / leaf"]
 
-  rail -.-> railAspect["rail seam\nchecked -> logged -> traced"]
-  executor -.-> execAspect["exec seam\nretry + deadline + transport (remote.py)"]
+  rail -.-> railAspect["rail seam<br/>checked -> logged -> traced"]
+  executor -.-> execAspect["exec seam<br/>retry + deadline + transport (remote.py)"]
+
+  received@{ animate: true }
+  linkStyle 9,11,13 stroke:#FF5555,stroke-width:3px,color:#F8F8F2
+  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+  classDef error fill:#FF555580,stroke:#FF5555,color:#F8F8F2
+  classDef annotation fill:#21222C,stroke:#6272A4,color:#F8F8F2
+  class cli,auto,stdout,ndjson boundary
+  class registry,rail,drive,plan,checks,executor,fold,emit primary
+  class distill,emitError error
+  class railAspect,execAspect annotation
 ```
 
 Text equivalent: CLI argv resolves through `composition/registry.py` `REGISTRY` into a `Bind`; the rail owns settings, scope, routing (`core/routing.py`), check construction from `composition/catalog.py` rows, Executor dispatch, and fold. `core/exec.py` owns the `Executor` port (`run`/`fan`), argv composition from catalog templates, telemetry, and retry; `core/remote.py` owns the SSH transport; `core/govern.py` owns leases, dotnet slots, and fan scheduling. A `Completed` receipt folds through `diagnostics.fold` into a `Report`; a `Fault` distills into an error `Envelope`. Automation uses the same Executor and registry rails and emits NDJSON per fire or sequence leaf.

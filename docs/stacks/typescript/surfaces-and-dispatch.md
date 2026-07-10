@@ -1,26 +1,28 @@
 # [TYPESCRIPT_SURFACES_AND_DISPATCH]
 
-A concern with many call shapes keeps one dense surface, never a family of shallow ones. One entrypoint absorbs every modality — key, batch, and query call shapes are one input union under one declaration whose overload signatures, ordered narrow to wide so every published signature stays reachable, give each shape its own return; plurality is proven by `NonEmptyReadonlyArray` arity rather than promised over a widened array, and pipe-versus-direct posture is one `Function.dual` definition, never a parallel pair. A closed tagged family dispatches through its own generated surface — `$match`, `$is` — or one exhaustive arm record (`Match.valueTags`, `Match.tagsExhaustive`, `Match.discriminatorsExhaustive` over a foreign field), while structural and predicate dispatch composes `Match` arms whose terminal is the architectural decision: `exhaustive` proves closure, `option` declares the unmatched residue non-failing absence, `either` hands the residue to the next stage as typed material, and a foreign thrown value triages through `Match.instanceOf` arms whose residue only `orElse` may absorb. Per-kind behavior is one mapped handler record dispatched by one generic indexed call, and cross-cutting policy attaches at the `Effect.fn` definition seam, where the pipeline states deadline, resilience, and telemetry in wrap order and every step reads the original call arguments. The named defect this page refuses is surface spam: `resolve`/`resolveMany`/`resolveByKey` siblings, arity twins, suffix families, boolean mode knobs, data-first/data-last twins, dead overloads below a wide signature, consumer-side handler reassembly, policy buried in bodies the declaration should state, and a consumer orchestrating what the owner internalizes — resolving policy, sequencing retries, or wiring telemetry at the call site: a consumer composes outcomes, never operates internals.
+A concern with many call shapes keeps one dense surface, never a family of shallow ones. One entrypoint absorbs every modality — key, batch, and query call shapes are one input union under one declaration whose overload signatures, ordered narrow to wide so every published signature stays reachable, give each shape its own return; plurality is proven by `NonEmptyReadonlyArray` arity rather than promised over a widened array, and pipe-versus-direct posture is one `Function.dual` definition, never a parallel pair. A closed tagged family dispatches through its own generated surface — `$match`, `$is` — or one exhaustive arm record (`Match.valueTags`, `Match.tagsExhaustive`, `Match.discriminatorsExhaustive` over a foreign field), while structural and predicate dispatch composes `Match` arms whose terminal is the architectural decision: `exhaustive` proves closure, `option` declares the unmatched residue non-failing absence, `either` hands the residue to the next stage as typed material, and a foreign thrown value triages through `Match.instanceOf` arms whose residue only `orElse` may absorb. Per-kind behavior is one mapped handler record dispatched by one generic indexed call, and cross-cutting policy attaches at the `Effect.fn` definition seam, where the pipeline states deadline, resilience, and telemetry in wrap order and every step reads the original call arguments. The named defect this page refuses is surface spam: `resolve`/`resolveMany`/`resolveByKey` siblings, arity twins, suffix families, boolean mode knobs, data-first/data-last twins, dead overloads below a wide signature, consumer-side handler reassembly, policy buried in bodies the declaration owns, and a consumer orchestrating what the owner internalizes — resolving policy, sequencing retries, or wiring telemetry at the call site: a consumer composes outcomes, never operates internals.
 
 ## [01]-[FORM_CHOOSER]
 
 When a concern matches several rows, the most specific wins; the rail the arms return is orthogonal to the form and is read after the form is fixed.
 
-| [INDEX] | [CONCERN_SIGNATURE]                      | [FORM]                                         | [REJECTED_FORM]                                  |
-| :-----: | :--------------------------------------- | :--------------------------------------------- | :----------------------------------------------- |
-|  [01]   | one concern, several call shapes         | overloaded declaration over one input union    | `resolve`/`resolveMany`/`resolveWhere` siblings  |
-|  [02]   | plural call shape must prove plurality   | `NonEmptyReadonlyArray` modality               | `batch: boolean` beside a widened array          |
-|  [03]   | possibly-empty plural, proof unavailable | wide `ReadonlyArray` overload below the tuple  | batch overload widened to admit empty            |
-|  [04]   | closed family, arms local, coverage owed | `$match` / `Match.exhaustive` terminal         | `orElse` fallback absorbing future tags          |
-|  [05]   | partial dispatch, residue is absence     | `Match.option` terminal                        | `null` return or sentinel                        |
-|  [06]   | staged dispatch, residue flows onward    | `Match.tag`/`Match.tags` arms + `Match.either` | pre-filtered parallel matchers per stage         |
-|  [07]   | foreign-field discriminant on the wire   | `Match.discriminatorsExhaustive("<field>")`    | re-tagging the provider shape before dispatch    |
-|  [08]   | foreign thrown value, classed but open   | `Match.instanceOf` ladder + `orElse` residue   | `name` string probe; `as Error` cast             |
-|  [09]   | keyed static correspondence              | vocabulary row lookup                          | `Match`/`switch` arms restating the table        |
-|  [10]   | operator with a pipe subject             | one `Function.dual` definition                 | data-first plus curried twin pair                |
-|  [11]   | per-kind behavior owned familywide       | mapped handler record, one generic dispatch    | `switch` per consumer; call-site record assembly |
-|  [12]   | cross-cutting policy on one function     | `Effect.fn` definition-seam pipeline           | policy hand-woven inside the body                |
-|  [13]   | open structural input, no tag            | `Match.when` pattern and refinement arms       | `typeof` ladder with casts                       |
+| [INDEX] | [CONCERN_SIGNATURE]                      | [FORM]                                         | [REJECTED_FORM]                           |
+| :-----: | :--------------------------------------- | :--------------------------------------------- | :---------------------------------------- |
+|  [01]   | one concern, several call shapes         | overloaded declaration over one input union    | `resolve` sibling proliferation           |
+|  [02]   | plural call shape must prove plurality   | `NonEmptyReadonlyArray` modality               | `batch: boolean` beside a widened array   |
+|  [03]   | possibly-empty plural, proof unavailable | wide `ReadonlyArray` overload below the tuple  | batch overload widened to admit empty     |
+|  [04]   | closed family, arms local, coverage owed | `$match` / `Match.exhaustive` terminal         | `orElse` fallback absorbing future tags   |
+|  [05]   | partial dispatch, residue is absence     | `Match.option` terminal                        | `null` return or sentinel                 |
+|  [06]   | staged dispatch, residue flows onward    | `Match.tag`/`Match.tags` arms + `Match.either` | pre-filtered parallel matchers per stage  |
+|  [07]   | foreign-field discriminant on the wire   | `Match.discriminatorsExhaustive("<field>")`    | re-tag provider shape before dispatch     |
+|  [08]   | foreign thrown value, classed but open   | `Match.instanceOf` ladder + `orElse` residue   | `name` string probe; `as Error` cast      |
+|  [09]   | keyed static correspondence              | vocabulary row lookup                          | `Match`/`switch` arms restating the table |
+|  [10]   | operator with a pipe subject             | one `Function.dual` definition                 | data-first plus curried twin pair         |
+|  [11]   | per-kind behavior owned familywide       | mapped handler record, one generic dispatch    | `switch` per consumer; call-site assembly |
+|  [12]   | cross-cutting policy on one function     | `Effect.fn` definition-seam pipeline           | policy hand-woven inside the body         |
+|  [13]   | open structural input, no tag            | `Match.when` pattern and refinement arms       | `typeof` ladder with casts                |
+
+- [01]: `resolve`/`resolveMany`/`resolveWhere` siblings.
 
 ## [02]-[ENTRYPOINT_COLLAPSE]
 
@@ -35,10 +37,10 @@ When a concern matches several rows, the most specific wins; the rail the arms r
 
 [MODAL_ARITY]:
 - Law: the batch modality is `NonEmptyReadonlyArray` — `readonly [A, ...Array<A>]` — so plurality is a fact of the type: the batch overload returns a non-empty result derived by construction (`Array.headNonEmpty` resolves the proven head, `Effect.forEach` sweeps the tail, `[head, ...tail] as const` recombines the tuple), never a claimed plurality the interior must re-prove over a possibly-empty array.
-- Law: empty is not a batch — the unproven, possibly-empty collection is its own modality one signature below the tuple, same lookup contract at the honestly weaker return with no non-empty claim, so the caller who cannot prove plurality is served without widening the batch overload to admit empty, which would discard non-emptiness for every proven caller at once.
+- Law: empty is not a batch — the unproven, possibly-empty collection is its own modality one signature below the tuple, same lookup contract at the honestly weaker return with no non-empty claim, so the caller who cannot prove plurality is served without widening the batch overload to admit empty, which discards non-emptiness for every proven caller at once.
 - Boundary: how the swept rail combines — abort versus accumulate — is `rails-and-effects.md`'s disposition and the declared degree is `concurrency.md`'s; this surface owns only the arity discriminant and the shape-following return.
 
-```typescript
+```typescript conceptual
 import { Array, Data, Effect, HashMap, Predicate } from "effect"
 
 type Key = string
@@ -86,7 +88,7 @@ export type { Batch, Key, Ledger, Row, Sweep }
 ## [03]-[MATCH_TERMINAL]
 
 [TERMINAL_SELECTION]:
-- Law: the `Match` terminal is an architecture decision made by what the unmatched residue means: `Match.exhaustive` is the only terminal for a closed family the module owns — a missing arm is a compile error, so a new tag breaks every dispatch site; `Match.option` declares the residue non-failing absence; `Match.either` keeps the residue as typed material — the left channel carries the narrowed leftover union, so staged dispatch threads stages through `Either` and the next stage's input type is the proof of what remains; `Match.orElse` is lawful only over genuinely open input, because on a closed family the fallback silently absorbs every future tag the exhaustive terminal would have surfaced; `Match.orElseAbsurd` throws and is rejected outright.
+- Law: the `Match` terminal is an architecture decision made by what the unmatched residue means: `Match.exhaustive` is the only terminal for a closed family the module owns — a missing arm is a compile error, so a new tag breaks every dispatch site; `Match.option` declares the residue non-failing absence; `Match.either` keeps the residue as typed material — the left channel carries the narrowed leftover union, so staged dispatch threads stages through `Either` and the next stage's input type is the proof of what remains; `Match.orElse` is lawful only over genuinely open input, because on a closed family the fallback silently absorbs every future tag the exhaustive terminal surfaces; `Match.orElseAbsurd` throws and is rejected outright.
 - Law: `Match.withReturnType<Ret>()` composes immediately after `Match.type`/`Match.value` and before the first arm, so every arm is checked against the contract at the arm; placed later it only validates the accumulated union, and a misfit surfaces at the terminal instead of at the offending arm.
 - Law: `Match.tag` subtracts exactly and its leading segment is variadic — one arm carries several tags and receives their extracted union; literal and type-refinement patterns subtract the matched shape from the residue, while bare boolean predicates admit without subtracting, so the residue the terminal sees is computed arm by arm and the `either` left type is read, not asserted.
 - Law: several structural patterns share one arm through `Match.whenOr`, a conjunction demands `Match.whenAnd`, and a complement arm rides `Match.not` — the hand-written `||`-predicate arm is the deleted spelling: a bare predicate admits without subtracting and forfeits the pattern's payload narrowing.
@@ -97,7 +99,7 @@ export type { Batch, Key, Ledger, Row, Sweep }
 - Reject: `Match.instanceOfUnsafe`, which subtracts `InstanceType<Ctor>` and deletes the fallback arm the runtime can still reach; a `name` string probe or an `as Error` cast admitting what the ladder proves.
 - Boundary: the conversion that consumes this triage — the `catch` slot of `Effect.try`/`Effect.tryPromise` — is `rails-and-effects.md`'s carrier embedding; this page owns the dispatch that types the caught value.
 
-```typescript
+```typescript conceptual
 import { Data, Either, Function, Match, type Option, pipe } from "effect"
 
 type Wire =
@@ -156,7 +158,7 @@ export type { Probe, Wire }
 - Law: record form versus pipeline: the record forms (`$match`, `Match.valueTags`, `Match.tagsExhaustive`, `Match.discriminatorsExhaustive`) serve a closed family whose arms are all local — coverage read at a glance; the `Match.type` pipeline builds the reusable dispatch value and serves arms that mix tag, structural, and predicate patterns or a terminal other than exhaustive; `Match.value` opens the same pipeline over one already-held value and earns its matcher only when arms exceed what `valueTags` states in place; `Match.typeTags` restates the `tagsExhaustive` pipeline as a second reusable spelling and is the rejected twin — one concept, one form.
 - Boundary: a `Match` whose arms each return a static row restates a keyed table — a keyed correspondence dispatches through the vocabulary lookup the table already is; `Match` owns structural and predicate dispatch on non-keyed shapes.
 
-```typescript
+```typescript conceptual
 import { Array, Data, Effect, Match, Number, Option, pipe, Unify } from "effect"
 
 type Signal<A> = Data.TaggedEnum<{
@@ -235,7 +237,7 @@ export type { Frame, Pulse, Signal }
 - Law: arity discriminates when every call shape has a distinct length — `Function.dual(2, body)` routes the two-argument call to data-first; a trailing optional or variadic parameter collides the lengths, so the discriminant becomes a predicate over the first argument — `(args) => Array.isArray(args[0])`, `(args) => Effect.isEffect(args[0])`, a `Predicate.isTagged` probe — answering only whether the first argument is the subject, never selecting behavior: behavior routed through the discriminant is the boolean knob smuggled into the calling convention.
 - Law: the predicate reads `IArguments` — the raw call — so it is total over both postures, including the zero-argument data-last call, where `args[0]` is `undefined` and must answer false.
 
-```typescript
+```typescript conceptual
 import { Array, Data, Effect, Function, Order } from "effect"
 
 type Row = { readonly key: string; readonly rank: number }
@@ -291,7 +293,7 @@ export type { Row }
 - Law: composition attaches at the row — each handler's admission, guard, and projection compose inside its own row value, and shared per-kind policy is a column on the vocabulary row the handler reads, so behavior variation is data the table already owns, never a wrapper stack applied after the record exists.
 - Law: a method record on an owner object is the same law — the object is contract-annotated or `satisfies`-checked at its declaration and never assembled field-by-field afterward; a record built by staged mutation forfeits the missing-key compile error that is the record's reason to exist.
 
-```typescript
+```typescript conceptual
 import { Data, Effect } from "effect"
 
 const _rows = {                                              // interior row anchor: the discriminant and guards anchor here, never on the assembled owner
@@ -357,7 +359,7 @@ export { Refused, ROUTE }
 - Law: pipeline order is wrap order — the first step is innermost, each later step encloses everything before it — so both resilience geometries are spellable and the declaration states which was chosen; which budget each geometry buys is `rails-and-effects.md`'s layering law, consumed here as settled.
 - Law: retry policy is a value — one `Schedule` composed once at the module and referenced by the seam — refined by `while`/`until` on the fault tag so only the transient family re-drives; a hand-rolled retry loop, or a schedule rebuilt inline per declaration, dissolves the policy the value form makes auditable.
 
-```typescript
+```typescript conceptual
 import { Data, Effect, Predicate, Schedule } from "effect"
 
 type Quote = { readonly key: string; readonly grade: number }

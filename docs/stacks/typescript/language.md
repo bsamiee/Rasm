@@ -1,13 +1,13 @@
 # [TYPESCRIPT_LANGUAGE]
 
-TypeScript on the dual compiler floor — `tsgo` and `tsc` in parity — is the active language surface, and this page is the legality law: what a legal file, import, export, annotation, merge, and statement is before any type or value is designed. The type plane erases at emit, so every construct is either fully erased or plain JavaScript — emit-bearing syntax is banned outright, the public surface is one terminal exports block that reads without inference, absence and index trust are spelled exactly, deferred evaluation is boot-edge vocabulary, declaration merging asserts only what a machine discharges, and statements survive only at named seams — the marked kernel, the boot edge, an owning page's platform exemption. Everything above legality is shed by kind: type-level derivation rides `derivation.md`, value primitives and identity ride `values.md`, the kernel's earn test and algorithmic forms ride `computation.md`, shape authority rides `shapes.md`, call-surface collapse rides `surfaces-and-dispatch.md`, the carrier rides `rails-and-effects.md`, capability wiring rides `services-and-layers.md`, and edge admission rides `boundaries.md`.
+TypeScript on the dual compiler floor — TS7 `tsc` and TS6 `tsc6` in parity — is the active language surface, and this page is the legality law: what a legal file, import, export, annotation, merge, and statement is before any type or value is designed. The type plane erases at emit, so every construct is either fully erased or plain JavaScript — emit-bearing syntax is banned outright, the public surface is one terminal exports block that reads without inference, absence and index trust are spelled exactly, deferred evaluation is boot-edge vocabulary, declaration merging asserts only what a machine discharges, and statements survive only at named seams — the marked kernel, the boot edge, an owning page's platform exemption. Everything above legality is shed by kind: type-level derivation rides `derivation.md`, value primitives and identity ride `values.md`, the kernel's earn test and algorithmic forms ride `computation.md`, shape authority rides `shapes.md`, call-surface collapse rides `surfaces-and-dispatch.md`, the carrier rides `rails-and-effects.md`, capability wiring rides `services-and-layers.md`, and edge admission rides `boundaries.md`.
 
 `tsconfig.base.json` owns the compiler-flag facts. This page names a flag only where it changes the form a source file may assume.
 
 ## [01]-[ACTIVE_SURFACE]
 
 [ACTIVE_SURFACE]:
-- Compiler floor: `tsgo` and `tsc` under one flag set — a construct is legal when both accept it, and `tsc` diagnostic codes are the ones doctrine cites
+- Compiler floor: TS7 `tsc` and TS6 `tsc6` under one flag set — a construct is legal when both accept it, and TS7 `tsc` diagnostic codes are the ones doctrine cites
 - Module law: every file is a module under `moduleDetection: "force"`; a specifier names a real file with its real `.ts` extension; resolution rides the package exports map; every side-effect specifier resolves (`TS2882` otherwise); the value-plane import graph is a DAG and a domain module's top level is declaration space
 - Syntax law: erased syntax only — `enum`, runtime `namespace`, constructor parameter properties, and `import =`/`export =` are `TS1294` at compile; decorators are legal JavaScript and still never appear — wrapping attaches through `pipe` at the owner declaration, never through a second composition channel
 - Import law: emit is verbatim — nothing elides by inference, so type-only traffic is spelled at every import and export; deferral is two distinct forms — `import defer` postpones evaluation at the boot edge, the boundary loader postpones loading at its seam
@@ -16,7 +16,7 @@ TypeScript on the dual compiler floor — `tsgo` and `tsc` in parity — is the 
 - Absence law: `?:`, `| undefined`, and the unproven index are three distinct type-seam facts with three distinct spellings; the read spelling carries key provenance — dot proves a declared key, bracket marks index trust; domain absence is `Option`
 - Statement law: statements, `throw`, mutation, `as`, and `!` live only at `// BOUNDARY ADAPTER` sites, and load-order statements only at the boot edge; this page sanctions the in-process kernel. `Effect.gen` bindings are the rail's do-notation, never statement residue, and a platform-forced statement seam is legal only under its owning page's named exemption
 
-Treat source as modern erased-syntax TypeScript, never a compatibility layer. Replace an emit-bearing form, a declaration-site export, an inference-hidden signature, a pass-through re-export, a parallel import pair, or an assertion-repaired read the moment the active surface carries the concept in one form.
+Treat source as idiomatic erased-syntax TypeScript, never a compatibility layer. Replace an emit-bearing form, a declaration-site export, an inference-hidden signature, a pass-through re-export, a parallel import pair, or an assertion-repaired read the moment the active surface carries the concept in one form.
 
 ## [02]-[CANONICAL_CHOOSER]
 
@@ -24,36 +24,36 @@ Each table routes a concern to the legal form that owns it, and every `[USE]` na
 
 [MODULE_AND_IMPORT_FORMS]: how a file consumes another surface.
 
-| [INDEX] | [CONCERN]                        | [USE]                                                   | [REPLACE]                                          |
-| :-----: | :------------------------------- | :------------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | type-only specifier              | `import type { Shape } from "<specifier>"`              | a value import kept live for type positions        |
-|  [02]   | mixed specifier                  | one statement, inline `type` specifiers                 | a value line and a type line on one specifier      |
-|  [03]   | package namespace                | one named root binding under its canonical name         | per-member cherry-picking, alias drift             |
-|  [04]   | shadowed global                  | `globalThis.<Name>` at the FFI seam                     | renaming the module binding to spare a global      |
-|  [05]   | load-time effect                 | side-effect import leading a boot-edge module           | registration import inside a domain module         |
-|  [06]   | qualified type via erased import | `Shape.Field` type access through the erased binding    | importing the value side for one type name         |
-|  [07]   | data-file import                 | `with { type: "json" }` ingress feeding the decode seam | a JSON binding trusted as domain shape             |
-|  [08]   | deferred module load             | boundary loader; the promise converts at its seam       | bare `import()` or `require` in domain flow        |
-|  [09]   | deferred module evaluation       | `import defer * as Name` leading a boot-edge module     | a hand-rolled lazy-init singleton over a cold path |
+| [INDEX] | [CONCERN]                        | [USE]                                                | [REJECTED_FORM]                               |
+| :-----: | :------------------------------- | :--------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | type-only specifier              | `import type { Shape } from "<specifier>"`           | a value import kept live for type positions   |
+|  [02]   | mixed specifier                  | one statement, inline `type` specifiers              | a value line and a type line on one specifier |
+|  [03]   | package namespace                | one named root binding under its canonical name      | per-member cherry-picking, alias drift        |
+|  [04]   | shadowed global                  | `globalThis.<Name>` at the FFI seam                  | renaming the module binding to spare a global |
+|  [05]   | load-time effect                 | side-effect import leading a boot-edge module        | registration import inside a domain module    |
+|  [06]   | qualified type via erased import | `Shape.Field` type access through the erased binding | importing the value side for one type name    |
+|  [07]   | data-file import                 | `with { type: "json" }` ingress feeding decode seam  | a JSON binding trusted as domain shape        |
+|  [08]   | deferred module load             | boundary loader; the promise converts at its seam    | bare `import()` or `require` in domain flow   |
+|  [09]   | deferred module evaluation       | `import defer * as Name` leading a boot-edge module  | hand-rolled lazy-init singleton, cold path    |
 
 [EXPORT_SURFACE_FORMS]: how a module declares its public surface.
 
-| [INDEX] | [CONCERN]                  | [USE]                                                         | [REPLACE]                                         |
-| :-----: | :------------------------- | :------------------------------------------------------------ | :------------------------------------------------ |
-|  [01]   | public surface site        | one terminal `// --- [EXPORTS]` block                         | `export` riding body declarations, default export |
-|  [02]   | value-bearing name         | `export { Shape }` — one entry, every meaning                 | a value entry plus a parallel type entry per name |
-|  [03]   | pure-type name             | `export type { Shape }` in the block                          | a type smuggled through the value statement       |
-|  [04]   | companion type family      | type-only `declare namespace` merged on the owner             | prefixed sibling type exports                     |
-|  [05]   | value-keyed type           | same-name `const` plus `type` pair                            | a `<Name>Kind` alias beside its const             |
-|  [06]   | single-signature operation | annotated arrow `const`, listed in the block                  | hoisted `function` statement, inferred signature  |
-|  [07]   | interior symbol            | `_`-prefixed, absent from the block                           | exported helper, promotion alias                  |
-|  [08]   | package entry point        | exports-map subpath; consumers import the owner               | `export ... from` pass-through, `export *`        |
-|  [09]   | public type surface        | `type` alias or the owner's merged companion                  | exported `interface` open to remote merge         |
-|  [10]   | machine-implanted members  | same-name `interface` beside its class at the implanting seam | a merge promising members nothing implants        |
+| [INDEX] | [CONCERN]                  | [USE]                                             | [REJECTED_FORM]                                   |
+| :-----: | :------------------------- | :------------------------------------------------ | :------------------------------------------------ |
+|  [01]   | public surface site        | one terminal `// --- [EXPORTS]` block             | `export` riding body declarations, default export |
+|  [02]   | value-bearing name         | `export { Shape }` — one entry, every meaning     | a value entry plus a parallel type entry per name |
+|  [03]   | pure-type name             | `export type { Shape }` in the block              | a type smuggled through the value statement       |
+|  [04]   | companion type family      | type-only `declare namespace` merged on the owner | prefixed sibling type exports                     |
+|  [05]   | value-keyed type           | same-name `const` plus `type` pair                | a `<Name>Kind` alias beside its const             |
+|  [06]   | single-signature operation | annotated arrow `const`, listed in the block      | hoisted `function` statement, inferred signature  |
+|  [07]   | interior symbol            | `_`-prefixed, absent from the block               | exported helper, promotion alias                  |
+|  [08]   | package entry point        | exports-map subpath; consumers import the owner   | `export ... from` pass-through, `export *`        |
+|  [09]   | public type surface        | `type` alias or the owner's merged companion      | exported `interface` open to remote merge         |
+|  [10]   | machine-implanted members  | same-name `interface` by its class, implant seam  | a merge promising members nothing implants        |
 
 [ERASURE_REPLACEMENT_FORMS]: the legal form for each banned emit-bearing construct.
 
-| [INDEX] | [CONCERN]                | [USE]                                              | [REPLACE]                                  |
+| [INDEX] | [CONCERN]                | [USE]                                              | [REJECTED_FORM]                            |
 | :-----: | :----------------------- | :------------------------------------------------- | :----------------------------------------- |
 |  [01]   | closed vocabulary        | `as const` table with a one-name derived type      | `enum`, `const enum`                       |
 |  [02]   | value-and-type grouping  | the module itself; type-only `declare namespace`   | runtime `namespace`, instantiated module   |
@@ -62,23 +62,23 @@ Each table routes a concern to the legal form that owns it, and every `[USE]` na
 
 [STRICTNESS_CONSEQUENCE_FORMS]: the spelling each strictness fact forces open.
 
-| [INDEX] | [CONCERN]                   | [USE]                                                    | [REPLACE]                                            |
-| :-----: | :-------------------------- | :------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | key whose presence varies   | `?:` under exact-optional semantics                      | `?: T \| undefined` blur                             |
-|  [02]   | present cell, maybe empty   | `T \| undefined` spelled in the type                     | `?:` on a key that always exists                     |
-|  [03]   | exact-optional construction | conditional spread `...(guard && { key })`               | a `key: undefined` write, post-build delete          |
-|  [04]   | proven-key read             | key typed `keyof typeof Table`; total access             | membership re-check, `!` repair                      |
-|  [05]   | open-index read             | bracket read lifted to `Option` at the seam              | `!` assertion on the unproven cell                   |
-|  [06]   | key-provenance spelling     | dot on the declared key, bracket on the signature member | uniform dot; a signature widened to spare brackets   |
-|  [07]   | side-effect specifier       | a resolving specifier; assets declare their module shape | an unresolvable registration import trusted silently |
-|  [08]   | builtin iterator input      | collection combinator over the iterable                  | hand `.next()` stepping that trusts `.value`         |
+| [INDEX] | [CONCERN]                    | [USE]                                            | [REJECTED_FORM]                                  |
+| :-----: | :--------------------------- | :----------------------------------------------- | :----------------------------------------------- |
+|  [01]   | key whose presence varies    | `?:` under exact-optional semantics              | `?: T \| undefined` blur                         |
+|  [02]   | always-present key, no value | `T \| undefined` spelled in the type             | `?:` on a key that always exists                 |
+|  [03]   | exact-optional construction  | conditional spread `...(guard && { key })`       | a `key: undefined` write, post-build delete      |
+|  [04]   | proven-key read              | key typed `keyof typeof Table`; total access     | membership re-check, `!` repair                  |
+|  [05]   | open-index read              | bracket read lifted to `Option` at the seam      | `!` assertion on the unproven cell               |
+|  [06]   | key-provenance spelling      | dot on declared key, bracket on signature member | uniform dot; signature widened to spare brackets |
+|  [07]   | side-effect specifier        | resolving specifier; assets declare module shape | unresolvable registration import, silent trust   |
+|  [08]   | builtin iterator input       | collection combinator over the iterable          | hand `.next()` stepping that trusts `.value`     |
 
 ## [03]-[LANGUAGE_FORM_CONTRACTS]
 
 Each contract fixes the placement rule the chooser row cannot state. Snippets compose settled doctrine as supporting material; the spotlight is the legality form itself, and each contract closes on the boundary that hands the value to its owning page.
 
 [COMPILER_PARITY_SITE]:
-- Law: `tsc` is the conformance authority — when `tsgo` and `tsc` disagree, `tsc` decides which behavior was specified and its diagnostic codes are the ones doctrine cites; the same rejection may surface under sibling codes across the floor, and the repair lands at the shape until both compilers accept it.
+- Law: TS7 `tsc` is the conformance authority — when `tsc` and `tsc6` disagree, `tsc` decides which behavior was specified and its diagnostic codes are the ones doctrine cites; the same rejection may surface under sibling codes across the floor, and the repair lands at the shape until both compilers accept it.
 - Law: divergence concentrates where inference runs deepest — unbounded conditional recursion, implicit-instantiation blowups, inference-dependent export types; value-anchored types and annotation-explicit exports present both checkers with shallow, decidable obligations, which is why this corpus legislates them.
 - Law: the directive channel is not a repair surface — a suppression converts a compile-time fact into a runtime surprise, so a diagnostic is repaired at the shape it indicts; `@ts-expect-error` is a proof token asserting an intended illegality where a surface must prove a form rejected, never a silencer over live code.
 - Reject: `@ts-nocheck` and `@ts-ignore` in any file; a `@ts-expect-error` spanning a live finding or a compiler disagreement; a type only one checker resolves — collapse it to the form both prove.
@@ -93,7 +93,7 @@ Each contract fixes the placement rule the chooser row cannot state. Snippets co
 - Law: the value-plane import graph is a DAG — a cycle is split ownership and its repair moves the shared declaration to its owner, never defers the read behind a lazy accessor; a cycle whose every edge is `import type` erases to no cycle at all, so type-plane back-references are free exactly where value edges are illegal.
 - Boundary: which package a specifier may name is the exports-map edge; this site owns the statement forms inside one legal file.
 
-```typescript
+```typescript conceptual
 import { Array, type Duration, Option, Order, pipe } from "effect" // one statement per specifier: inline type specifiers ride the named list; Array shadows the global value plane deliberately
 import type { Frame } from "./frame.ts" // type-only module: the whole statement erases; Frame stays reachable in type positions
 import { type Gauge, admit } from "./gauge.ts"
@@ -133,7 +133,7 @@ export { Lens, spread } // one entry carries every meaning of Lens: the const va
 - Law: interior types are free — a `_`-declaration's checker-computed type costs nothing while no exported signature speaks it; the moment a public signature needs its keys, the declaration itself goes public under one name.
 - Boundary: package subpaths and per-runtime entry points are manifest surface; this site owns the shape of one module.
 
-```typescript
+```typescript conceptual
 import { Array, Option, Order, pipe } from "effect"
 
 const Band = { // public vocabulary: bare `as const` emits clean; the contract check homes below, not in a satisfies clause
@@ -166,7 +166,7 @@ export { Band, widest }                                    // the tail is the wh
 - Law: the class-interface merge is gated to the implanting seam — a same-name `interface` beside a `class` asserts instance members the class body never authors, which is legal exactly where a machine discharges the promise: generated-owner heritage whose constructor types what its prototype installs (`Data.Class`, `Effectable.Class`, `Streamable.Class` — implanting the `Pipeable` `.pipe` and `Inspectable` `toJSON`/`[NodeInspectSymbol]` surfaces off the shared prototype, the canonical members a body never writes) or a prototype implant the same module performs at its FFI seam; anywhere else the merge fabricates evidence — an `as`-grade assertion moved to the declaration plane, invisible at every call site.
 - Boundary: the derivation algebra the vocabulary table feeds is `derivation.md`'s, and the TypeId and variance-struct regime that legitimately rides same-name merging is `derivation.md`'s; the generated owner's identity semantics are `values.md`'s, and which owner form a domain product takes is `shapes.md`'s chooser; FFI prototype-implant mechanics are `boundaries.md`'s; this site owns which declaration form is legal.
 
-```typescript
+```typescript conceptual
 import { Data } from "effect"
 
 const Phase = { draft: 0, sealed: 1, retired: 2 } as const // the enum replacement: one object literal at runtime, ordinals as readable rows
@@ -190,7 +190,7 @@ export { Phase, Seal }                                     // Phase is one entry
 - Law: these forms live at the type-level seam — option bags, platform payloads, interop cells; a domain shape's absence is `Option` admitted at the Schema owner, and a type-seam bag never crosses into domain flow carrying `undefined`.
 - Boundary: the `Option` lift combinators are `values.md` material; Schema absence admission is `shapes.md`'s; this site owns the spelling and the read posture.
 
-```typescript
+```typescript conceptual
 import { Option } from "effect"
 
 const Grade = { low: 0, mid: 5, high: 9 } as const
@@ -225,7 +225,7 @@ export { Grade, overlay } // overlay is one entry: the operation and its merged 
 - Boundary: the conversion combinators that lift a kernel throw are `rails-and-effects.md`'s; worker and marshal statement seams are `boundaries.md`'s; this site owns the in-process compute kernel.
 - Boundary: the kernel's earn test — fold first, measure, then mark — and its algorithmic forms are `computation.md`'s; this site owns the mark's legality and its cast algebra.
 
-```typescript
+```typescript conceptual
 import { type Cause, Effect } from "effect"
 
 const _parse = (text: string): unknown => JSON.parse(text) as unknown // BOUNDARY ADAPTER: any-pin — the platform any never escapes; the parse throw exits only into the conversion below

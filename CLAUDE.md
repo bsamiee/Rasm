@@ -4,7 +4,7 @@
 
 BEFORE ANY ACTION IN REPO, LIST ALL ROOT-LEVEL FILES; BE AWARE OF ALL CONFIGS, TOOLING, ETC FOR ANY LANGUAGE OR SOURCE, NEVER IGNORE WHEN RELEVANT.
 
-[COMMENT_DISCIPLINE]: Never tolerate comment spam. Maintain the section organizational style per `[09]-[FILE_ORGANIZATION]` — proper sub-section styling (no trailing dashes) and canonical section labels. Whenever any file is created or edited, aggressively refactor/prune/refine its prose and comments in the same pass (including inside code fences). Comments are RARELY larger than 1-2 lines, framed agent-first, and justified only as critical signal for maintaining/understanding code — never boilerplate or self-explanation. ALL prose, comments included, follows `docs/standards/style-guide.md`: concise, declarative, active voice, assertive, never hedging or qualifying, always concrete decisions — never ambiguity. Remove noise comments on sight; a comment earns its keep only when it serves agents working the file, never humans. THE SAME STANDARD APPLIES TO ALL `.md` PROSE WITHIN `libs/`.
+[COMMENT_DISCIPLINE]: Never tolerate comment spam. Maintain the section organizational style per `[09]-[FILE_ORGANIZATION]` — proper sub-section styling (no trailing dashes) and canonical section labels. Whenever any file is created or edited, aggressively refactor/prune/refine its prose and comments in the same pass (including inside code fences). Comments are RARELY larger than 1-2 lines, framed agent-first, and justified only as critical signal for maintaining/understanding code — never boilerplate or self-explanation. Width, stack, shred, runt, inlining, header-zone, and repair law for comments is global agent law; this repo adds only the `[09]-[FILE_ORGANIZATION]` section grammar and the `libs/` scope below. ALL prose, comments included, follows `docs/standards/style-guide.md`: concise, declarative, active voice, assertive, never hedging or qualifying, always concrete decisions — never ambiguity. Remove noise comments on sight; a comment earns its keep only when it serves agents working the file, never humans. THE SAME STANDARD APPLIES TO ALL `.md` PROSE WITHIN `libs/`.
 
 Read: `README.md` + `tools/assay/README.md`
 
@@ -35,7 +35,7 @@ How to apply:
 - Heavy exploration, investigation, and research legs: dispatch to gpt-5.5 (`codex exec -s read-only`) before spawning Claude subagents - the transcript stays out of context and the usage is free. Work that must author or edit files dispatches the same way at `-s workspace-write`; the sandbox flag IS the modality (read/response vs write/edit) and is always set explicitly.
 - Codex is a first-class worker, never a bent fallback: hand it ONE self-contained prompt (it inherits none of this conversation), let it drive its own tools to completion, and take its final message as the result - relay a read leg's report, apply a write leg's edits as delivered. Verify load-bearing claims against source before acting; never silently rewrite, re-judge, or wrap its output in extra ceremony.
 - Anything user-facing (UI, copy, API design) needs taste ≥ 7.
-- Reviews of plans/implementations: fable-5 or opus-4.8, optionally gpt-5.5 as an extra independent perspective.
+- Reviews of plans/implementations: fable-5 or opus-4.8, optionally gpt-5.5 as an extra independent perspective. A fable agent never delegates to another fable: inline work first, and unavoidable delegation dispatches a single bounded opus (or below) sub-task, never a chain.
 - Mechanics: gpt-5.5 is only reachable through the Codex CLI - `codex exec` / `codex review` (`~/.codex/config.toml` defaults to gpt-5.5 at medium reasoning).
 - Load the codex skill `.claude/skills/codex/SKILL.md` whenever dispatching work to codex - delegation triggers, invocation mechanics, sandboxing, effort tiers, sessions, and review modes live there.
 - Reasoning effort defaults to medium; escalate a single run with `codex exec -c model_reasoning_effort="high"` (or `--profile xhigh`) for the hardest research, review, and design legs - multi-minute latency, reserve for depth over throughput.
@@ -77,16 +77,16 @@ Using gpt-5.5 inside workflows and subagents (the model parameter only takes Cla
 
 Use the route-owned standard for the file being edited:
 
-| [INDEX] | [FILE_TYPE]                             | [ROUTE]                  |
-| :-----: | :-------------------------------------- | :----------------------- |
-|  [01]   | TypeScript (`.ts`, `.tsx`)              | `docs/stacks/typescript` |
-|  [02]   | C# production (`.cs`)                   | `docs/stacks/csharp`     |
-|  [03]   | Python (`.py`)                          | `docs/stacks/python`     |
-|  [04]   | Bash/sh (`.sh`, `.bash`)                | `coding-bash`            |
-|  [05]   | SQL (`.sql`)                            | `coding-pg`              |
-|  [06]   | Durable markdown (`.md`)                | `docgen`                 |
-|  [07]   | Mermaid fences                          | `mermaid-diagramming`    |
-|  [08]   | HTML artifacts (`.html`)                | `html-studio`            |
+| [INDEX] | [FILE_TYPE]                | [ROUTE]                  |
+| :-----: | :------------------------- | :----------------------- |
+|  [01]   | TypeScript (`.ts`, `.tsx`) | `docs/stacks/typescript` |
+|  [02]   | C# production (`.cs`)      | `docs/stacks/csharp`     |
+|  [03]   | Python (`.py`)             | `docs/stacks/python`     |
+|  [04]   | Bash/sh (`.sh`, `.bash`)   | `coding-bash`            |
+|  [05]   | SQL (`.sql`)               | `coding-pg`              |
+|  [06]   | Durable markdown (`.md`)   | `docgen`                 |
+|  [07]   | Mermaid fences             | `mermaid-diagramming`    |
+|  [08]   | HTML artifacts (`.html`)   | `html-studio`            |
 
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 

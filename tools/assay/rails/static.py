@@ -1,4 +1,4 @@
-"""Run one polyglot static lane: fix, diagnose, restore, then build."""
+"""Run one polyglot static lane: diagnose, restore, then build; ``--fix`` prepends the write-mode fixer rows."""
 
 from collections.abc import Callable  # noqa: TC003  # runtime: callable annotation is resolved through the rail layer
 from dataclasses import dataclass
@@ -72,7 +72,8 @@ type SkipRows = tuple[tuple[Phase, str, str], ...]
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-# Fixed per-language order: writes land before diagnostics; restore precedes closure builds.
+# Full per-language order: write fixers land before diagnostics; restore precedes closure builds. The default
+# lane derives its roster by dropping the Mode.writes rows; --fix restores the full order.
 _MODES: tuple[Mode, ...] = (Mode.WRITE, Mode.CHECK, Mode.RESTORE, Mode.BUILD)
 # Reverse of the Phase->Mode payload; a non-lane mode is a loud KeyError, not a silent default.
 _PHASE: dict[Mode, Phase] = {phase.mode: phase for phase in Phase}
@@ -91,7 +92,7 @@ _PROBE_ROW: Tool = next(t for t in select(Claim.STATIC, Language.CSHARP) if t.mo
 class StaticParams:
     """Targets for the polyglot static lane."""
 
-    SLOTS: ClassVar[dict[str, str]] = {"": "[--all | --project PROJECT | --folder F... --file F...]"}
+    SLOTS: ClassVar[dict[str, str]] = {"": "[--fix] [--all | --project PROJECT | --folder F... --file F...]"}
 
     all: Annotated[
         bool,
@@ -120,8 +121,9 @@ class StaticParams:
             help="File target(s); consumes values until the next option.",
         ),
     ] = ()
-    plan: Annotated[
-        bool, Parameter(name="--plan", negative="", show_default=False, help="Plan-only: emit planned argv without running any tool.")
+    fix: Annotated[
+        bool,
+        Parameter(name="--fix", negative="", show_default=False, help="Run every write-mode fixer row before diagnostics; default mutates nothing."),
     ] = False
 
 
@@ -191,10 +193,10 @@ def _tool_skip(tool: Tool, routed: Routed) -> str:
             return ""
 
 
-def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope) -> tuple[PhaseChecks, SkipRows]:
+def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope, modes: tuple[Mode, ...]) -> tuple[PhaseChecks, SkipRows]:
     rows = tuple(
         (_phase(active), projected, _tool_skip(projected, routed))
-        for active in _MODES
+        for active in modes
         for tool in select(Claim.STATIC, routed.language)
         if tool.mode is active
         for projected in (_routed_tool(tool, routed),)
@@ -204,7 +206,7 @@ def _phase_checks(routed: Routed, settings: AssaySettings, scope: ArtifactScope)
     expanded = tuple(
         (phase, _build_args(clone, routed, settings, scope)) for phase, check in selected for clone in expand((check,), routed, settings=settings)
     )
-    phases = tuple(dict.fromkeys(_phase(mode) for mode in _MODES))
+    phases = tuple(dict.fromkeys(_phase(mode) for mode in modes))
     return tuple((phase, tuple(check for row_phase, check in expanded if row_phase is phase)) for phase in phases), skipped
 
 
@@ -297,7 +299,7 @@ def _params_argv(params: StaticParams) -> tuple[str, ...]:
         *(("--project", params.project) if params.project else ()),
         *(("--folder", *params.folders) if params.folders else ()),
         *(("--file", *params.files) if params.files else ()),
-        *(("--plan",) if params.plan else ()),
+        *(("--fix",) if params.fix else ()),
     )
 
 
@@ -548,10 +550,10 @@ def _closure_notes(report: Report, routed: tuple[Routed, ...]) -> Report:
 
 
 def _fold(
-    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], executor: Executor, *, plan: bool = False
+    settings: AssaySettings, scope: ArtifactScope, targets: TargetFiles, routed: tuple[Routed, ...], executor: Executor, *, modes: tuple[Mode, ...]
 ) -> Result[Report, Fault]:
     routed = tuple(_build_route(route_row) for route_row in routed)
-    phase_sets = tuple((route_row, *_phase_checks(route_row, settings, scope)) for route_row in routed)
+    phase_sets = tuple((route_row, *_phase_checks(route_row, settings, scope, modes)) for route_row in routed)
     planned = tuple(row for route_row, phases, _ in phase_sets for row in _planned(route_row, phases, settings, scope))
     checks = tuple(check for _, phases, _ in phase_sets for check in _all_checks(phases))
     skipped = tuple(row for _, _, rows in phase_sets for row in rows)
@@ -571,9 +573,6 @@ def _fold(
             routed,
         )
 
-    if plan:
-        # Dry-run: the populated `planned` argv rides the detail; no tool spawns and no file mutates.
-        return Ok(executed(()))
     rows = (
         row for route_row, phases, _ in phase_sets for row in _dispatch(route_row, phases=phases, settings=settings, scope=scope, executor=executor)
     )
@@ -586,14 +585,16 @@ def _fold(
 def run(settings: AssaySettings, scope: ArtifactScope, params: StaticParams, executor: Executor) -> Result[Report, Fault]:
     """Run the static quality lane for the selected target scope.
 
-    The target value alone selects whole-workspace, project, folder/file, or changed-default routing. Every
-    touched language runs write-capable tools before diagnostics, and C# closure builds observe restored outputs.
+    The target value alone selects whole-workspace, project, folder/file, or changed-default routing. The default
+    lane is diagnose-only; ``--fix`` prepends every write-capable fixer row (compile-probe-gated for C#) before the
+    same diagnostics, and C# closure builds observe restored outputs either way.
 
     Returns:
         Folded static report, or a routing/restore/strict-promotion fault.
     """
+    modes = _MODES if params.fix else tuple(mode for mode in _MODES if not mode.writes)
     return _target_result(settings, params).bind(
-        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, executor, plan=params.plan))
+        lambda targets: _routed(targets, settings).bind(lambda routed: _fold(settings, scope, targets, routed, executor, modes=modes))
     )
 
 

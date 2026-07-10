@@ -9,7 +9,7 @@ This page is the derivation law: every type, vocabulary, and secondary surface c
 - Direction law: the algebra runs three directions and closes — types derive from values, secondary types compute from primary types, and generated types govern values back through contract checks — so an anchor edit propagates as compile pressure around the whole loop; a hand parallel in any direction is the break that lets the loop drift silently
 - Gate law: the stated-annotation export gate leaves an exported anchor plain `as const` — its contract homes as constrained-default guard aliases in the merged namespace, an assembled owner states a `typeof`-derived annotation over its interior anchors, and the expression-seam `satisfies` spelling survives only where no export reaches the anchor
 - Placement law: a contract check rides the anchor declaration, an annotation states a public operation surface, and `as` is kernel material — each declaration fixes its form once, and a widening annotation on an anchor destroys every literal downstream
-- Pre-solve law: inference is the owner's obligation — `const` type parameters, `NoInfer` check-only positions, instantiation expressions, and reverse-mapped parameters fix literals and row payloads at the declaration; a consumer writing a type argument, an `as const`, a lambda annotation the owner could solve, or a re-assertion marks the owner's signature as the defect
+- Pre-solve law: inference is the owner's obligation — `const` type parameters, `NoInfer` check-only positions, instantiation expressions, and reverse-mapped parameters fix literals and row payloads at the declaration; a consumer writing a type argument, an `as const`, a lambda annotation the owner solves, or a re-assertion marks the owner's signature as the defect
 - Posture law: distribution and variance are declared decisions — a naked conditional parameter maps a union member-wise, `[T] extends [U]` asks one question of the whole, and `in`/`out` paired with a variance struct makes variance checked and witnessed intent
 - Plane law: nominal identity runs two regimes disjoint by plane — `Schema.brand` marks admitted values with decode evidence inside Schema owners, and the annotated `unique symbol` TypeId with its variance struct marks own carrier types; neither substitutes for the other, and a brand minted on the wrong plane is the defect
 - Budget law: the type plane computes inside verified budgets — recursion depth, union width, and the ASCII alphabet bound decomposition; `TS2589` and `TS2590` name the overruns, and an overrun repairs as one value-level computation the type derives from, never a directive
@@ -23,35 +23,40 @@ Each table routes a correspondence to the form that owns it, and every `[USE]` n
 
 [ANCHOR_FORMS]: which declaration anchors a correspondence.
 
-| [INDEX] | [CONCERN]                          | [USE]                                                                               | [REPLACE]                                      |
-| :-----: | :--------------------------------- | :---------------------------------------------------------------------------------- | :--------------------------------------------- |
-|  [01]   | keyed rows any export reaches      | plain `as const` anchor + merged guard hub; assembled owner where companions attach | hand union, annotation restating every row     |
-|  [02]   | keyed rows no export reaches       | `as const satisfies Record<string, Row>` at the anchor                              | guard ceremony where `satisfies` still rides   |
-|  [03]   | key set for wire, order, iteration | `as const` key tuple; table guarded against its elements                            | keys restated at the literal, `as`-cast spread |
-|  [04]   | row set contributed across modules | merged registry interface; rows via `declare module`                                | central table every contributor edits          |
-|  [05]   | governed value, literals inert     | stated `Record<GeneratedUnion, V>` annotation                                       | hand-synced parallel table that drifts         |
-|  [06]   | pure type-plane correspondence     | `type` literal-union or template-pattern anchor                                     | a dead runtime table no value reads            |
-|  [07]   | caller-supplied literal shape      | `const` type parameter at the owner                                                 | caller `as const` discipline                   |
-|  [08]   | own-carrier nominal identity       | annotated `unique symbol` TypeId + variance struct                                  | structural carrier forged by look-alikes       |
-|  [09]   | protocol call order                | accumulating state parameter, structurally witnessed                                | runtime flag re-checked per call               |
-|  [10]   | boundary shape                     | Schema owner                                                                        | interface plus parallel decoder pair           |
+| [INDEX] | [CONCERN]                       | [USE]                                                | [REJECTED_FORM]                            |
+| :-----: | :------------------------------ | :--------------------------------------------------- | :----------------------------------------- |
+|  [01]   | keyed rows any export reaches   | plain `as const` anchor + merged guard hub           | hand union, annotation restating every row |
+|  [02]   | keyed rows no export reaches    | `as const satisfies Record<string, Row>`             | guard ceremony despite `satisfies`         |
+|  [03]   | key set: wire, order, iteration | `as const` key tuple; guarded by its elements        | keys restated at literal, `as`-cast spread |
+|  [04]   | rows contributed across modules | merged registry interface; rows via `declare module` | central table every contributor edits      |
+|  [05]   | governed value, literals inert  | stated `Record<GeneratedUnion, V>` annotation        | hand-synced parallel table that drifts     |
+|  [06]   | pure type-plane correspondence  | `type` literal-union or template-pattern anchor      | a dead runtime table no value reads        |
+|  [07]   | caller-supplied literal shape   | `const` type parameter at the owner                  | caller `as const` discipline               |
+|  [08]   | own-carrier nominal identity    | annotated `unique symbol` TypeId + variance struct   | structural carrier forged by look-alikes   |
+|  [09]   | protocol call order             | accumulating state parameter, structurally witnessed | runtime flag re-checked per call           |
+|  [10]   | boundary shape                  | Schema owner                                         | interface plus parallel decoder pair       |
+
+- [01]: assembled owner where companions attach.
 
 [PROJECTION_FORMS]: how a surface derives from its anchor.
 
-| [INDEX] | [CONCERN]                    | [USE]                                                                                       | [REPLACE]                                      |
-| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------ | :--------------------------------------------- |
-|  [01]   | discriminant union           | `keyof typeof rows`; `keyof Registry` on the merge seam                                     | hand-written union                             |
-|  [02]   | row and axis types           | indexed access `(typeof rows)[Kind]["axis"]`                                                | per-row aliases                                |
-|  [03]   | tag union of a tagged family | `Family["_tag"]` — indexed access distributes over the union                                | hand-listed tag union                          |
-|  [04]   | literal-keyed return         | indexed-access return on the generic key                                                    | conditional return needing a cast to implement |
-|  [05]   | package-carrier channel      | `Effect.Effect.Success`, `Schema.Schema.Type`, `Context.Tag.Service`, `Layer.Layer.Success` | hand `infer` over package types                |
-|  [06]   | local-carrier channels       | one bracketed multi-clause `infer` conditional                                              | chained single-`infer` conditionals            |
-|  [07]   | union subset by pattern      | `Extract`/`Exclude` with a template pattern                                                 | re-listed members                              |
-|  [08]   | derived-surface flatten      | `Types.Simplify` at the public alias                                                        | hand-rolled `{ [K in keyof T]: T[K] }` alias   |
+| [INDEX] | [CONCERN]                    | [USE]                                          | [REJECTED_FORM]                                |
+| :-----: | :--------------------------- | :--------------------------------------------- | :--------------------------------------------- |
+|  [01]   | discriminant union           | `keyof typeof rows`; `keyof Registry`          | hand-written union                             |
+|  [02]   | row and axis types           | indexed access `(typeof rows)[Kind]["axis"]`   | per-row aliases                                |
+|  [03]   | tag union of a tagged family | `Family["_tag"]` distributes over the union    | hand-listed tag union                          |
+|  [04]   | literal-keyed return         | indexed-access return on the generic key       | conditional return needing a cast to implement |
+|  [05]   | package-carrier channel      | `Effect.Effect.Success` and peers              | hand `infer` over package types                |
+|  [06]   | local-carrier channels       | one bracketed multi-clause `infer` conditional | chained single-`infer` conditionals            |
+|  [07]   | union subset by pattern      | `Extract`/`Exclude` with a template pattern    | re-listed members                              |
+|  [08]   | derived-surface flatten      | `Types.Simplify` at the public alias           | hand-rolled `{ [K in keyof T]: T[K] }` alias   |
+
+- [01]: `keyof Registry` reads the merge seam.
+- [05]: package carriers: `Effect.Effect.Success`, `Schema.Schema.Type`, `Context.Tag.Service`, `Layer.Layer.Success`.
 
 [GENERATION_FORMS]: how a member family generates from anchors.
 
-| [INDEX] | [CONCERN]                  | [USE]                                                 | [REPLACE]                     |
+| [INDEX] | [CONCERN]                  | [USE]                                                 | [REJECTED_FORM]               |
 | :-----: | :------------------------- | :---------------------------------------------------- | :---------------------------- |
 |  [01]   | renamed member family      | mapped type, `as` key remap, intrinsic case operators | sibling interfaces per member |
 |  [02]   | capability cross product   | template literal over union anchors                   | enumerated string constants   |
@@ -60,18 +65,18 @@ Each table routes a correspondence to the form that owns it, and every `[USE]` n
 |  [05]   | generated-union governance | contract-checked value closing the loop               | hand-synced tables that drift |
 |  [06]   | consumed-union residue     | `satisfies never` on the terminal narrowing arm       | silent default, thrown guard  |
 
-[INFERENCE_FORMS]: how the owner pre-solves what consumers would otherwise repair.
+[INFERENCE_FORMS]: how the owner pre-solves what consumers otherwise repair.
 
-| [INDEX] | [CONCERN]                    | [USE]                                                         | [REPLACE]                                    |
-| :-----: | :--------------------------- | :------------------------------------------------------------ | :------------------------------------------- |
-|  [01]   | literal retention            | `const` type parameter                                        | `as const` at every call site                |
-|  [02]   | check-only position          | `NoInfer<T>`                                                  | mirror generic, argument-order repair        |
-|  [03]   | pre-solved generic           | instantiation expression under a semantic name                | wrapper arrow restating the signature        |
-|  [04]   | per-row lambda typing        | reverse-mapped owner parameter                                | annotated handlers, call-site type arguments |
-|  [05]   | tuple shape through an owner | variadic signature `readonly [...Init, Next]`                 | positional overload ladder, widened arrays   |
-|  [06]   | distribution posture         | naked parameter to map; `[T] extends [U]` for one answer      | accidental union distribution                |
-|  [07]   | variance intent              | `in`/`out` paired with the variance struct                    | inference drift, phantom bivariance          |
-|  [08]   | container polymorphism       | `HKT.TypeLambda` plus `HKT.Kind` under a typeclass constraint | per-container operator copies                |
+| [INDEX] | [CONCERN]                    | [USE]                                                    | [REJECTED_FORM]                              |
+| :-----: | :--------------------------- | :------------------------------------------------------- | :------------------------------------------- |
+|  [01]   | literal retention            | `const` type parameter                                   | `as const` at every call site                |
+|  [02]   | check-only position          | `NoInfer<T>`                                             | mirror generic, argument-order repair        |
+|  [03]   | pre-solved generic           | instantiation expression under a semantic name           | wrapper arrow restating the signature        |
+|  [04]   | per-row lambda typing        | reverse-mapped owner parameter                           | annotated handlers, call-site type arguments |
+|  [05]   | tuple shape through an owner | variadic signature `readonly [...Init, Next]`            | positional overload ladder, widened arrays   |
+|  [06]   | distribution posture         | naked parameter to map; `[T] extends [U]` for one answer | accidental union distribution                |
+|  [07]   | variance intent              | `in`/`out` paired with the variance struct               | inference drift, phantom bivariance          |
+|  [08]   | container polymorphism       | `HKT.TypeLambda` + `HKT.Kind` under typeclass constraint | per-container operator copies                |
 
 ## [03]-[DERIVATION_CONTRACTS]
 
@@ -85,7 +90,7 @@ Each contract fixes the placement rule its chooser rows cannot state. Snippets c
 - Law: the tuple spread holds `Schema.Literal`'s non-empty overload and preserves the exact literal tuple; spreading derived keys lands in the widened `ReadonlyArray` overload and demotes the schema to `SchemaClass<Kind>` — non-emptiness and order are tuple facts stated once at the anchor, never assertion repairs at the seam.
 - Boundary: the stated-annotation export gate is `language.md`'s; the Schema owner that admits the wire value, and the class families vocabularies embed into, are `shapes.md`'s; dispatch composed over row lookups is `surfaces-and-dispatch.md`'s.
 
-```typescript
+```typescript conceptual
 import { Schema, type Types } from "effect"
 
 const _kinds = ["narrow", "level", "broad"] as const         // interior key anchor: order, iteration, and non-emptiness are tuple facts stated once
@@ -130,7 +135,7 @@ export { Tier }
 - Law: the registry is type-plane only — the paired runtime row arrives by registration at the composition graph, never a mutable module-level table; `services-and-layers.md` owns registration.
 - Boundary: `declare module` augmentation capturing a foreign package's codec quirk is `boundaries.md`'s; this seam owns own-registry row contribution only.
 
-```typescript
+```typescript conceptual
 interface Registry {                                         // the one sanctioned open interface: the row set is open, the row shape is not
   readonly narrow: { readonly weight: 5; readonly admit: (raw: string) => boolean }
 }
@@ -166,7 +171,7 @@ export type { Registry }
 - Law: generation is type-plane — a key the runtime must compute crosses at a value, because runtime case conversion widens to `string` and cannot index a generated record; a family the runtime addresses by key anchors as table rows instead.
 - Boundary: domain shape variants, partial views, and wire projections derive on the Schema owner in `shapes.md`; `Match.exhaustive` is the residue proof's combinator form and `surfaces-and-dispatch.md`'s; kernel legality is `language.md`'s.
 
-```typescript
+```typescript conceptual
 import type { Effect } from "effect"
 
 const Signal = {
@@ -214,7 +219,7 @@ export { quota, Signal, toll }
 - Law: pre-solving is not renaming — the instantiation expression changes the type surface by monomorphizing the generic to the domain shape, and the binding carries the domain role's semantic name; a binding that changes neither type nor name is the deleted hop.
 - Boundary: data-first/data-last pairing on a pre-solved operator is `surfaces-and-dispatch.md`'s.
 
-```typescript
+```typescript conceptual
 import { Array } from "effect"
 
 type Step = { readonly lane: "bulk" | "live"; readonly take: number } // the lane union lives in the field: consumers project Step["lane"], never a parallel alias
@@ -253,7 +258,7 @@ export type { Step }
 - Law: the relation holds at depth 2 — `T[K]` reaches each row through at most one property step before the function layer: one shallow value site drives, any number of function sites consume; burying the driving site breaks the reverse map, and the repair lifts one value position to depth 1, never annotates lambdas.
 - Boundary: `satisfies`-checked handler records and `Match` dispatch over these rows are `surfaces-and-dispatch.md`'s; this contract owns the inference mechanics.
 
-```typescript
+```typescript conceptual
 declare namespace lattice {                                  // the row contract rides the operation's own merged hub: one export serves both planes
   type Cell<A> = { readonly seed: A; readonly step: (state: A, tick: number) => A }
 }
@@ -286,10 +291,10 @@ export { lattice }
 - Reject: chained single-`infer` conditionals where one clause extracts every channel; a naked conditional that must answer once for the whole — `boolean` splits to `true | false` and `never` distributes to nothing, so an undeclared posture is a latent bug, not a style choice; recursion that wraps its own result — pending work stacks toward the depth gate that the tail form elides; a directive over `TS2589` or `TS2590` — the overrun is the architecture finding, not the noise.
 - Law: `infer M extends Realm` narrows inside the clause — the constraint participates in the match itself, and a failed constraint selects the false branch; a post-filter conditional after an unconstrained `infer` is the rejected two-step spelling.
 - Law: budgets are form-selected — the tail-position accumulator evaluates to roughly 800 iterations before the depth gate where the self-wrapping form holds roughly 40, so the accumulator buys a 20x budget; a template cross product carries to roughly 10^4 members before the union gate; type-level parsing or arithmetic over domain data re-derives what the value level owns, and the repair is one value computation whose result the type level derives from the anchor.
-- Law: decomposition is ASCII-bounded — a single-step `infer` split advances by UTF-16 code unit under `tsc` and by code point under `tsgo`, so a literal beyond ASCII has no parity-stable decomposition; alphabets past ASCII split at the value level, and the type derives from that computation's anchor.
+- Law: decomposition is ASCII-bounded — a single-step `infer` split advances by UTF-16 code unit under TS6 `tsc6` and by code point under TS7 `tsc`, so a literal beyond ASCII has no parity-stable decomposition; alphabets past ASCII split at the value level, and the type derives from that computation's anchor.
 - Boundary: exhaustive dispatch over an extracted union is `surfaces-and-dispatch.md`'s; variance declaration and witness on public carriers is the nominal-carrier contract's.
 
-```typescript
+```typescript conceptual
 import type { Effect } from "effect"
 
 type Realm = "doc" | "layer"                                 // type anchor: no runtime row exists, so the union itself anchors the correspondence
@@ -334,7 +339,7 @@ export type { Facet, Flow, Parse, Realm, Trail, Verb }
 - Law: the fence is plural instantiation — the lambda earns existence when combinator call sites apply distinct instances; when every call site names one container, the combinator collapses into that container's module and the lambda dies.
 - Boundary: which container a domain value rides, and the instance merge algebra over `struct` and `tuple` composition, are `values.md`'s.
 
-```typescript
+```typescript conceptual
 import * as covariant from "@effect/typeclass/Covariant"
 import * as ArrayInstances from "@effect/typeclass/data/Array"
 import * as OptionInstances from "@effect/typeclass/data/Option"
@@ -374,10 +379,10 @@ export type { Ranked, RankedTypeLambda }
 - Accept: the annotated `unique symbol` pair — `const FeedTypeId: unique symbol = Symbol.for("<scope>/Feed")` with the same-name `type FeedTypeId = typeof FeedTypeId` — the symbol is the nominal key and `Symbol.for` holds one identity across module instances; the carrier keyed by `[FeedTypeId]` holding a variance struct, one row per parameter at its true variance — `Types.Contravariant<Cmd>`, `Types.Covariant<Row>`, `Types.Invariant` where reads meet writes — paired with `in`/`out` on the parameter list; cast-free runtime witnesses — `Function.constVoid` inhabits a contravariant row and `(_: never) => _` a covariant row; assignability then follows declared variance, so a carrier of narrower commands and wider rows flows where the wider carrier is demanded.
 - Reject: `Schema.brand` reached for carrier identity — the brand marks admitted values at the decode seam inside Schema owners and carries parse evidence, never carrier identity; a TypeId minted for a domain shape a Schema owner admits — the same defect from the other plane; a variance struct omitting a parameter — the omitted parameter erases from comparison exactly like an unwitnessed typestate parameter, and instantiations unify; a string-literal brand field as the key — two modules spelling one string forge each other, where `unique symbol` identity cannot collide.
 - Law: the struct is the witness and the annotation is the check — `in`/`out` declare intent the compiler verifies against inference, and the struct rows make the same variance structural so it survives assignability on its own; the two disagree only when one is wrong, and the error lands at the declaration.
-- Law: module-instance identity is two-plane — `Symbol.for` holds the runtime key while the `unique symbol` declaration holds the type identity, and a runtime companion the carrier must hold once across duplicated module loads — an intern table, a registry cell — anchors as `GlobalValue.globalValue(FeedTypeId, () => value)` keyed by the same symbol; the admission is identity, never state: a `globalValue` holding what a Layer could own is a module-level live instance under a global key, and capability still enters through the requirement channel.
+- Law: module-instance identity is two-plane — `Symbol.for` holds the runtime key while the `unique symbol` declaration holds the type identity, and a runtime companion the carrier must hold once across duplicated module loads — an intern table, a registry cell — anchors as `GlobalValue.globalValue(FeedTypeId, () => value)` keyed by the same symbol; the admission is identity, never state: a `globalValue` holding what a Layer owns is a module-level live instance under a global key, and capability still enters through the requirement channel.
 - Boundary: brand-in-field refinements on admitted values are `shapes.md`'s; the `TypeLambda` an own carrier needs to ride typeclass combinators is this page's container contract.
 
-```typescript
+```typescript conceptual
 import { Function, type Types } from "effect"
 
 const FeedTypeId: unique symbol = Symbol.for("<scope>/Feed") // annotated unique symbol: Symbol.for holds one nominal key across module instances
@@ -412,14 +417,14 @@ export type { Feed }
 ```
 
 [TYPESTATE_SITE]:
-- Use when: the legality of a call depends on protocol position — a terminal operation forbidden until every slot is set, a transition forbidden after it fires — and the runtime holds no state that could check it.
+- Use when: the legality of a call depends on protocol position — a terminal operation forbidden until every slot is set, a transition forbidden after it fires — and the runtime holds no state to check it.
 - Accept: one state parameter accumulating filled keys through `Exclude`-constrained transitions, so a refill fails at the key constraint; the terminal operation demanding completion structurally — its parameter typed at the full record, never a conditional return; `Record.singleton` composing the accumulated record — a generic computed key in an object literal widens to a string index, so the package construction carries what the checker cannot type; `@ts-expect-error` proof tokens pinning each forbidden call as rejected.
 - Reject: a phantom parameter carrying ordinary domain data — a value the program reads at runtime is a field on its owner, never a type argument; an unreferenced state parameter — an unused type parameter does not participate in assignability, so every instantiation unifies and the protocol it claims is unenforced; a runtime flag re-checking what the state parameter proves; a conditional-return terminal whose implementation needs the cast.
 - Law: the witness law — a protocol parameter is witnessed structurally in a real position or through a `Types.Invariant` variance slot; unwitnessed state erases from comparison and enforces nothing.
 - Law: the subtraction law — each transition subtracts its key from the open set and intersects it into the filled record, so the protocol is order-free, refills are compile errors, and completion is exactly the spent key set.
 - Boundary: a builder whose product is a domain shape terminates at the Schema owner in `shapes.md`; runtime acquire/release ordering is `rails-and-effects.md`'s.
 
-```typescript
+```typescript conceptual
 import { Record } from "effect"
 
 type Slots = { readonly route: string; readonly limit: number; readonly lane: "bulk" | "live" }
@@ -457,13 +462,13 @@ export type { Draft, Slots }
 Use these tests before keeping a form the derivation layer already owns.
 
 [PARALLEL_RESTATEMENT]:
-- Smell: a hand union tracks a table's keys, an interface mirrors a derivable type, a second constant restates rows another declaration carries, an exported anchor's annotation restates every row, a central table collects rows other modules contribute, or a value the type plane could govern drifts unchecked beside its generated union.
+- Smell: a hand union tracks a table's keys, an interface mirrors a derivable type, a second constant restates rows another declaration carries, an exported anchor's annotation restates every row, a central table collects rows other modules contribute, or a value ungoverned by the type plane drifts unchecked beside its generated union.
 - Collapse: derive — `keyof typeof`, indexed access, mapped generation, template cross product, or the shipped extractor — home the contract as the namespace guard pair, open the row set through the registry seam when contribution crosses modules, and govern the value under the generated union's stated annotation.
 - Done when: every secondary surface computes from its anchor, every governed value breaks on anchor growth, and deleting the parallel changes no meaning anywhere.
 
 [CALL_SITE_RESIDUE]:
 - Smell: consumers write `as const`, type arguments, or literal re-assertions, annotate lambda parameters a sibling site already solves, re-derive a union the owner already carries, aim `Parameters`/`ReturnType` at an owner's export, or a call-result binding sits in the exports block.
-- Collapse: `const` type parameters, `NoInfer` check-only positions, instantiation expressions, and reverse-mapped parameters at the owner; the owner's merged namespace carries the type a consumer would re-derive; proofs and staging bindings stay interior.
+- Collapse: `const` type parameters, `NoInfer` check-only positions, instantiation expressions, and reverse-mapped parameters at the owner; the owner's merged namespace carries the type a consumer otherwise re-derives; proofs and staging bindings stay interior.
 - Done when: call sites carry values only, and the owner's signature is the only place inference is described.
 
 [TYPE_PLANE_OVERREACH]:

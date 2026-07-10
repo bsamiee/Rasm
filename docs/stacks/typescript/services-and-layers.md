@@ -40,13 +40,13 @@ When a concern matches several rows, the most specific wins; owner form is decid
 - Reject: `Effect.Tag` accessor-only owners and `Context.GenericTag` string minting — both survive only as quarry in code this page replaces; a service shape key named `make`, `use`, `of`, `key`, `pipe`, `name`, `context`, `stack`, `_tag`, `Default`, or `DefaultWithoutDependencies` — the class statics own those names and the compiler rejects the shadow with a `property "…" is forbidden` literal.
 
 [TAG_TIER]:
-- Law: the tier is requirement pressure, and the pressure is visible in `R` — `yield*` on a `Context.Tag` types as `Effect<Shape, never, Shape>` so the root must answer; `yield*` on a `Context.Reference` types as `Effect<Value>` because `defaultValue` answers when no Layer overrides; `Effect.serviceOption(Tag)` types as `Effect<Option<Shape>>` so presence is data and the read never blocks the wiring proof. Choose by asking what an unwired root should mean: a compile error, a default, or a `None`.
+- Law: the tier is requirement pressure, and the pressure is visible in `R` — `yield*` on a `Context.Tag` types as `Effect<Shape, never, Shape>` so the root must answer; `yield*` on a `Context.Reference` types as `Effect<Value>` because `defaultValue` answers when no Layer overrides; `Effect.serviceOption(Tag)` types as `Effect<Option<Shape>>` so presence is data and the read never blocks the wiring proof. Choose by what an unwired root means: a compile error, a default, or a `None`.
 - Law: a `Context.Reference` override is still Layer provision — `Layer.succeed(Ref, value)` at the root or a scoped `Effect.provideService` around one call — so ambient policy rides the same substitution mechanism as every hard capability and never becomes a parameter tail; the constructor ships `@experimental`, an admission the pin owns.
 - Law: the tier ledger is visible in the owner's own `Default` type — a constructor that reads only defaulted and optional tiers publishes `Layer.Layer<Self>` with the requirement tail already `never`, so how much of the graph a service drags behind it is read off one annotation, never discovered at the root.
 - Boundary: a port whose implementations vary by deployment is chooser row `[02]` even when a default exists — a `Reference` default is policy data, never a live engine; an engine default smuggles the root's selection into the definition.
 - Reject: `Effect.serviceOptional` where the absence case has a policy — it converts absence into `NoSuchElementException` and forfeits the `Option` fold.
 
-```typescript
+```typescript conceptual
 import { Context, Effect, HashMap, Option, Ref } from "effect"
 
 class Budget extends Context.Reference<Budget>()("<scope>/Budget", {
@@ -117,7 +117,7 @@ export { Budget, Probe, Registry }
 - Law: `Layer.unwrapEffect` admits a value-decided graph — an `Effect<Layer<…>>` whose result shape the root cannot know statically — and `Layer.unwrapScoped` is the same seam when the deciding effect holds resources; both keep selection inside the layer algebra, so a runtime decision never leaks upward into two hand-assembled runtimes.
 - Boundary: which services exist is this page's concern; what a built service does on the rail — spans, schedules, brackets — is `rails-and-effects.md`.
 
-```typescript
+```typescript conceptual
 import { Context, Effect, Layer, Schedule } from "effect"
 
 class Conn extends Context.Tag("<scope>/Conn")<Conn, {
@@ -194,7 +194,7 @@ export { Conn, Meter, Sender, Store, probed, root }
 - Law: selection composes as `Layer.unwrapEffect` over the config read — the decision is itself an effect in the layer algebra, its `ConfigError` rides the layer's error channel, and the root that provides the selected engine still proves `never, never` or declares the config fault, one line either way.
 - Use: `Layer.succeed(Port, Port.of({ … }))` as the zero-construction engine — the same table row shape serves a live engine, a stub, and a recorded fake.
 
-```typescript
+```typescript conceptual
 import { Config, type ConfigError, Context, Data, Effect, Layer, Ref, Struct } from "effect"
 
 class TransportFault extends Data.TaggedError("TransportFault")<{ readonly frame: string }> {}
@@ -261,7 +261,7 @@ export { Transport, TransportFault, TransportLive, relayed }
 - Use: `Reloadable.manual(Tag, { layer })` with `Reloadable.reload(Tag)` when refresh is event-driven — the signal calls reload, readers are untouched — and `Reloadable.reloadFork(Tag)` when the signaler must not wait on reconstruction.
 - Boundary: reload cadence is a `Schedule` value; its composition algebra is `rails-and-effects.md`.
 
-```typescript
+```typescript conceptual
 import { Clock, Context, Duration, Effect, Layer, LayerMap, ManagedRuntime, Reloadable, Schedule } from "effect"
 
 class Roster extends Context.Tag("<scope>/Roster")<Roster, {
@@ -325,12 +325,12 @@ export { Roster, RosterAuto, Tenants, Vault, halted, host, served }
 - Reject: `Layer.mock` where the omitted member is reachable on the asserted path — the defect becomes the test outcome and the proof reads as a crash.
 
 [PROOF_BLOCK]:
-- Law: a proof block opens with the standalone `layer(SharedGraph)(name, (it) => { … })` — the graph builds once, every `it.effect` in the block receives it, teardown runs after — and block-local extension nests through `it.layer(child)`; acquiring per test what the block could share is the harness restating the memoization law by hand.
+- Law: a proof block opens with the standalone `layer(SharedGraph)(name, (it) => { … })` — the graph builds once, every `it.effect` in the block receives it, teardown runs after — and block-local extension nests through `it.layer(child)`; acquiring per test what the block shares is the harness restating the memoization law by hand.
 - Law: the block options are the harness's graph policy — `{ memoMap }` extends the by-reference share across sibling blocks handed the same map, `{ timeout }` bounds the build, and `{ excludeTestServices: true }` runs the block's testers on live services where determinism must yield — and `it.scoped` is the tester whose proof itself acquires, the block graph plus a per-test `Scope`.
 - Law: `it.effect` runs under deterministic `TestServices` — time is virtual until `TestClock.adjust` moves it, randomness is seeded — so a duration-dependent path is proven by forking the effect, adjusting the clock, and joining the fiber: zero wall-clock waits, zero flake.
 - Boundary: a spec module's public surface is empty — the collector call is its one side effect, so the exports block carries nothing and inline exports remain banned.
 
-```typescript
+```typescript test-only
 import { expect, layer } from "@effect/vitest"
 import { Config, ConfigProvider, Context, Duration, Effect, Fiber, Layer, TestClock } from "effect"
 

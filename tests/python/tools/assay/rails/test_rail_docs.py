@@ -28,10 +28,11 @@ _SKIP = Ok(Completed(("engine",), 0, status=RailStatus.SKIP))
 _FAULT_A = Fault(("engine",), RailStatus.FAULTED, "first fault")
 _FAULT_B = Fault(("engine",), RailStatus.UNSUPPORTED, "second fault")
 
-# One NDJSON row per finding: ``check`` carries validate-mermaid findings, ``rule`` carries check-canon findings.
+# One NDJSON row per finding: ``check`` carries validate-mermaid and prose-gate findings, ``rule`` carries check-canon findings.
 _NDJSON = (
     b'{"file":"docs/diagram.md","line":7,"status":"fail","detail":"broken edge","check":"graph-logic"}\n'
     b'{"file":"docs/diagram.md","line":2,"status":"warn","detail":"weak label","rule":"canon-x"}\n'
+    b'{"file":"docs/diagram.md","line":4,"status":"fail","detail":"probably","check":"hedge"}\n'
     b'{"file":"docs/diagram.md","line":1,"status":"ok","check":"render"}\n'
     b"engine banner, never a finding row\n"
 )
@@ -91,20 +92,22 @@ def test_check_promotion_and_fault_matrix(
 
 
 def test_check_builds_one_check_per_engine_per_file_and_threads_dependencies(assay_root: AssayHarness) -> None:
-    """Check routes paths under settings.root and builds one input-only Check per (engine, file); fan receives the live deps."""
+    """Check routes paths under settings.root and builds one input-only Check per (engine, owned file); fan receives the live deps."""
     captured: list[Check] = []
     seen: dict[str, object] = {}
     executor = SeamExecutor(fan_fn=lambda checks, **kw: (captured.extend(checks), seen.update(checks=checks, **kw), (_OK,) * len(checks))[-1])
-    files = ("docs/a/README.md", "docs/b/README.md")
+    files = ("docs/a/README.md", "docs/b/README.md", "docs/c/flow.mmd")
     [assay_root.write(f, "# d") for f in files]
+    markdown = tuple(f for f in files if f.endswith(".md"))
     scope = assay_root.scope(Claim.DOCS)
 
     assert_ok(check(assay_root.settings, scope, DocsParams(paths=files), executor))
 
-    assert len(captured) == 4, "the docs claim fans both skill engines over every routed file"
+    assert len(captured) == 8, "the docs claim fans every skill engine over every routed file it owns"
     pairs = {(chk.tool.name, chk.args.input) for chk in captured}
-    assert pairs == {(engine, f) for engine in ("validate-mermaid", "check-canon") for f in files}, f"engine x file product broke: {pairs}"
-    scripts = {"validate-mermaid": "validate_mermaid.py", "check-canon": "check_canon.py"}
+    expected = {(engine, f) for engine in ("validate-mermaid", "check-canon") for f in files} | {("prose-gate", f) for f in markdown}
+    assert pairs == expected, f"engine x owned-file product broke: {pairs}"
+    scripts = {"validate-mermaid": "validate_mermaid.py", "check-canon": "check_canon.py", "prose-gate": "prose_gate.py"}
     for chk in captured:
         cmd = chk.args.fill(chk.tool.command)
         assert cmd[:3] == ("uv", "run", "--no-project"), "engines launch through the project-free uv runner"
@@ -123,8 +126,9 @@ def test_check_parses_ndjson_findings_and_keeps_crash_tails(assay_root: AssayHar
     assay_root.write("docs/diagram.md", "# d")
     parsed = assert_ok(_check(assay_root, (Ok(receipt(("engine",), 0, stdout=_NDJSON)),), paths=("docs/diagram.md",)))
     assert [(m.id, m.severity, m.line, m.path, m.message) for m in parsed.results] == [
-        ("mermaid:graph-logic", "error", 7, "docs/diagram.md", "broken edge"),
-        ("mermaid:canon-x", "warning", 2, "docs/diagram.md", "weak label"),
+        ("docs:graph-logic", "error", 7, "docs/diagram.md", "broken edge"),
+        ("docs:canon-x", "warning", 2, "docs/diagram.md", "weak label"),
+        ("docs:hedge", "error", 4, "docs/diagram.md", "probably"),
     ], f"NDJSON rows misfolded: {parsed.results}"
     assert parsed.status is RailStatus.OK, "finding rows ride the report; status follows the process fold"
 

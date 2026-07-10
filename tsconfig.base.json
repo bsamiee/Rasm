@@ -37,7 +37,20 @@
         "types": ["node", "vite/client", "vitest"],
         "verbatimModuleSyntax": true
     },
-    "exclude": ["**/node_modules", "**/dist", "**/build", "**/.cache", "**/.artifacts", "**/.history"],
+    "exclude": [
+        "**/node_modules",
+        "**/dist",
+        "**/build",
+        "**/.cache",
+        "**/.artifacts",
+        "**/.history",
+        "**/.archive",
+        "**/_archive",
+        "**/scratch",
+        "**/.scratch",
+        "**/_tmp",
+        "**/.tmp"
+    ],
     "watchOptions": {
         "excludeDirectories": [
             "**/node_modules",

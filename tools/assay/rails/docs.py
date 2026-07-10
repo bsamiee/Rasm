@@ -1,6 +1,7 @@
-"""Validate Mermaid diagrams in routed Markdown files through the skill engine."""
+"""Gate routed Markdown files through the skill engines: Mermaid validation and the prose gate."""
 
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 from expression import Result  # noqa: TC002  # beartype resolves return annotations at import time
@@ -45,7 +46,7 @@ class DocsParams(BaseParams):
 
 
 class _Finding(msgspec.Struct, frozen=True):
-    """One engine NDJSON row: ``check`` (validate-mermaid) and ``rule`` (check-canon) are the mutually exclusive kind slots."""
+    """One engine NDJSON row: ``check`` (validate-mermaid, prose-gate) and ``rule`` (check-canon) are the mutually exclusive kind slots."""
 
     file: str
     line: int
@@ -59,6 +60,8 @@ class _Finding(msgspec.Struct, frozen=True):
 
 _FINDING = msgspec.json.Decoder(_Finding)
 _SEVERITY = {"fail": "error", "warn": "warning"}
+# Engine suffix ownership: prose-gate owns Markdown only; unlisted engines take every routed docs suffix.
+_SUFFIXES: dict[str, frozenset[str]] = {"prose-gate": frozenset((".md",))}
 
 
 # --- [ERRORS] ---------------------------------------------------------------------------
@@ -86,9 +89,9 @@ def _findings(done: tuple[Completed, ...]) -> tuple[Match, ...]:
     # The engines print one NDJSON row per finding to stdout; ``ok`` rows are passes and never surface.
     return tuple(
         Match(
-            id=f"mermaid:{kind}",
+            id=f"docs:{kind}",
             kind=ArtifactKind.CODE,
-            text=f"mermaid: {found.file}:{found.line}: {kind}: {found.detail}",
+            text=f"docs: {found.file}:{found.line}: {kind}: {found.detail}",
             line=found.line,
             severity=severity,
             path=found.file,
@@ -99,15 +102,21 @@ def _findings(done: tuple[Completed, ...]) -> tuple[Match, ...]:
         if (line := raw.strip()).startswith("{")
         for found in (_decode(line),)
         if found is not None and (severity := _SEVERITY.get(found.status)) is not None
-        for kind in (found.check or found.rule or "mermaid",)
+        for kind in (found.check or found.rule or "engine",)
     )
 
 
 def _outcomes(
     routed: Routed, *, settings: AssaySettings, scope: ArtifactScope, claim: Claim, verb: str, mode: Mode, executor: Executor
 ) -> Result[Report, Fault]:
-    # The skill engine reads each file and renders to its own cache; assay passes only the input, never a sink placement.
-    checks = tuple(Check(tool=t, args=ToolArgs(input=f)) for t in select(claim, routed.language) if t.mode is mode for f in routed.files)
+    # Each engine reads its file and writes to its own cache; assay passes only the input, never a sink placement.
+    checks = tuple(
+        Check(tool=t, args=ToolArgs(input=f))
+        for t in select(claim, routed.language)
+        if t.mode is mode
+        for f in routed.files
+        if PurePosixPath(f).suffix in _SUFFIXES.get(t.name, routed.language.suffixes)
+    )
     slots = executor.fan(checks, settings=settings, scope=scope, routed=routed)
 
     def _promote(done: tuple[Completed, ...]) -> Report:
@@ -134,7 +143,10 @@ def _strict(report: Report, *, strict: bool) -> Report:
 
 
 def check(settings: AssaySettings, scope: ArtifactScope, params: DocsParams, executor: Executor) -> Result[Report, Fault]:
-    """Validate Mermaid diagrams across routed Markdown files, with optional strict EMPTY/SKIP promotion.
+    """Gate routed Markdown files through every docs engine, with optional strict EMPTY/SKIP promotion.
+
+    Mermaid validation, canon conformance, and the prose gate fan per (engine, file); NDJSON findings fold
+    into typed result rows with fail as error and warn as warning.
 
     Returns:
         Folded report, or a routing/spawn/strict-promotion fault.

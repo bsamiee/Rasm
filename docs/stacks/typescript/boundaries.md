@@ -6,23 +6,26 @@ The edge is the only place the system meets material it did not mint: wire paylo
 
 This table selects the owner for a foreign signal; when a signal matches several rows, the most specific wins, and identity rows are read before transport rows.
 
-| [INDEX] | [FOREIGN_SIGNAL]                    | [SEAM_OWNER]                                 | [INTERIOR_FORM]                         | [REJECTED_FORM]                  |
-| :-----: | :---------------------------------- | :------------------------------------------- | :-------------------------------------- | :------------------------------- |
-|  [01]   | raw payload — body, file, message   | Schema owner at first sight                  | decoded value on the rail               | interior re-validation           |
-|  [02]   | signed or hashed octets             | opaque byte band held at admission           | digest receipt + content projection     | parse-then-reserialize           |
-|  [03]   | trace identity in headers           | `HttpTraceContext` codec family              | `Option`-carried parent span            | hand-parsed `traceparent`        |
-|  [04]   | HTTP, RPC, or CLI surface           | contribution family — endpoint/group as data | derived server, client, and spec        | hand-rolled route table          |
-|  [05]   | foreign binary or text format       | codec engine behind `Schema.transformOrFail` | `ParseError` on the one decode rail     | second codec fault family        |
-|  [06]   | platform capability — fs, net, exec | abstract `Context.Tag`                       | requirement in the `R` channel          | direct `node:*`/`fetch` import   |
-|  [07]   | foreign callback API                | `Effectify.effectify` at the seam owner      | typed effect signature                  | per-site `Effect.async` wrap     |
-|  [08]   | environment or config read          | `Config` through the provider chain          | validated value at construction         | scattered `process.env` reads    |
-|  [09]   | process start                       | `runMain` in one boot module                 | drained fibers and finalizers           | top-level `Effect.runPromise`    |
-|  [10]   | host cancellation signal            | `{ signal }` run option; `tryPromise` signal | fiber interruption on `Cause`           | `AbortController` in domain flow |
-|  [11]   | off-thread or socket handoff        | Schema-typed marshal frame                   | tagged request/response family          | untyped `postMessage` payload    |
-|  [12]   | relational store — statements, rows | `SqlClient` Tag; statements as `sql` values  | `SqlSchema`-fused decoded rows          | string-built SQL, driver import  |
-|  [13]   | store read that must follow writes  | `Reactivity` keyed invalidation bus          | re-run `Mailbox`/`Stream` delivery      | cadence poll of unchanged rows   |
-|  [14]   | reactive view binding               | `Atom.runtime` over the built Layer graph    | `useAtomValue`/`useAtomSet` projections | in-view `run*`, per-render Layer |
-|  [15]   | wasm module                         | scoped instantiation behind a capability Tag | calls through the marked kernel         | escaping linear-memory view      |
+| [INDEX] | [FOREIGN_SIGNAL]               | [SEAM_OWNER]                    | [INTERIOR_FORM]                 | [REJECTED_FORM]                |
+| :-----: | :----------------------------- | :------------------------------ | :------------------------------ | :----------------------------- |
+|  [01]   | raw payload: body/file/message | Schema owner at first sight     | decoded value on the rail       | interior re-validation         |
+|  [02]   | signed or hashed octets        | opaque byte band at admission   | digest receipt + projection     | parse-then-reserialize         |
+|  [03]   | trace identity in headers      | `HttpTraceContext` codec family | `Option`-carried parent span    | hand-parsed `traceparent`      |
+|  [04]   | HTTP, RPC, or CLI surface      | contribution family             | derived server, client, spec    | hand-rolled route table        |
+|  [05]   | foreign binary or text format  | `Schema.transformOrFail` codec  | `ParseError` on the decode rail | second codec fault family      |
+|  [06]   | platform capability            | abstract `Context.Tag`          | requirement in the `R` channel  | direct `node:*`/`fetch` import |
+|  [07]   | foreign callback API           | `Effectify.effectify`           | typed effect signature          | per-site `Effect.async` wrap   |
+|  [08]   | environment or config read     | `Config` provider chain         | validated value at construction | scattered `process.env` reads  |
+|  [09]   | process start                  | `runMain` in one boot module    | drained fibers and finalizers   | top-level `Effect.runPromise`  |
+|  [10]   | host cancellation signal       | `{ signal }`, `tryPromise`      | fiber interruption on `Cause`   | `AbortController` in domain    |
+|  [11]   | off-thread or socket handoff   | Schema-typed marshal frame      | tagged request/response family  | untyped `postMessage` payload  |
+|  [12]   | relational store               | `SqlClient`; `sql` statements   | `SqlSchema`-fused decoded rows  | hand-built SQL, driver import  |
+|  [13]   | store read after writes        | `Reactivity` keyed invalidation | re-run `Mailbox`/`Stream`       | cadence poll of unchanged rows |
+|  [14]   | reactive view binding          | `Atom.runtime` over Layer graph | `useAtomValue`/`useAtomSet`     | `run*`, per-render Layer       |
+|  [15]   | wasm module                    | scoped capability-Tag instance  | calls through the marked kernel | escaping linear-memory view    |
+
+- [04]: contribution family: endpoint/group expressed as data.
+- [06]: platform capability: fs, net, exec.
 
 ## [02]-[ADMISSION]
 
@@ -42,7 +45,7 @@ This table selects the owner for a foreign signal; when a signal matches several
 - Law: parse-then-reserialize is rejected for signed material — a re-encode respells float forms, key order, and escapes — so forwarding emits the held octets verbatim, and `Schema.encode` of the envelope re-emits the same band bytes by construction.
 - Boundary: the receipt carries the coordinate and the digest, never the octets; the digest function is fixed at composition and arrives as a parameter or service, never chosen per site.
 
-```typescript
+```typescript conceptual
 import { Effect, Option, type ParseResult, Schema } from "effect"
 
 // --- [MODELS] ---------------------------------------------------------------------------
@@ -99,22 +102,22 @@ export { admitted, Envelope, Passport }
 - Law: group-scoped concerns ride the declaration — `.middleware(Tag)` on the group, `.addError` for group-wide faults, `.prefix` for mount points — so a cross-cutting obligation is recoverable from the contract value, never from handler bodies.
 - Reject: a hand-rolled router table where the declarative family fits; a route registered beside the contract; transport or codec baked into a handler; a second contract authored for a client variant.
 
-Axes pair freely — any protocol row under any serialization row, selected only at the root; the client mirror rows are `RpcClient.layerProtocolHttp`/`layerProtocolSocket`/`layerProtocolWorker`.
+Axes pair freely — any protocol row under any serialization row, selected only at the root; protocol rows live on `RpcServer`, serialization rows on `RpcSerialization`, and the client mirror rows are `RpcClient.layerProtocolHttp`/`layerProtocolSocket`/`layerProtocolWorker`.
 
-| [INDEX] | [PROTOCOL_ROW] — `RpcServer`       | [SERIALIZATION_ROW] — `RpcSerialization` |
-| :-----: | :--------------------------------- | :--------------------------------------- |
-|  [01]   | `layerProtocolHttp({ path })`      | `layerJson`                              |
-|  [02]   | `layerProtocolWebsocket({ path })` | `layerNdjson`                            |
-|  [03]   | `layerProtocolWorkerRunner`        | `layerMsgPack`                           |
-|  [04]   | `layerProtocolStdio`               | `layerJsonRpc()`                         |
-|  [05]   | `layerProtocolSocketServer`        | `layerNdJsonRpc()`                       |
+| [INDEX] | [PROTOCOL_ROW]                     | [SERIALIZATION_ROW] |
+| :-----: | :--------------------------------- | :------------------ |
+|  [01]   | `layerProtocolHttp({ path })`      | `layerJson`         |
+|  [02]   | `layerProtocolWebsocket({ path })` | `layerNdjson`       |
+|  [03]   | `layerProtocolWorkerRunner`        | `layerMsgPack`      |
+|  [04]   | `layerProtocolStdio`               | `layerJsonRpc()`    |
+|  [05]   | `layerProtocolSocketServer`        | `layerNdJsonRpc()`  |
 
 [DERIVED_SURFACES]:
 - Law: one declaration derives every consumer surface — `HttpApiBuilder.api` plus `HttpApiBuilder.serve` derive the server, `HttpApiClient.make` derives the fully typed client, `OpenApi.fromApi` derives the spec, `HttpApiBuilder.toWebHandler` derives the fetch-shaped handler for hostless runtimes; server, client, and spec cannot drift because they are projections of one value. `RpcClient.make` against the same group is the identical law on the RPC axis, `RpcServer.toWebHandler` its hostless projection, and `RpcTest.makeClient` short-circuits transport in specs — the production and test callers share the contract.
 - Law: endpoint faults are declared — `Schema.TaggedError` classes on `.addError` with their status — so the caller reconstructs the exact tagged family the handler failed with, and one error vocabulary spans the wire; the family's design is `rails-and-effects.md`'s.
 - Reject: a hand-written fetch client beside a contract; an API document authored by hand; a client-side error type parallel to the declared fault; a spec regenerated into source and committed as a second truth.
 
-```typescript
+```typescript conceptual
 import { HttpApi, HttpApiBuilder, HttpApiClient, HttpApiEndpoint, type HttpApiError, HttpApiGroup, type HttpClient, type HttpClientError, OpenApi } from "@effect/platform"
 import { Effect, Layer, type ParseResult, Schema } from "effect"
 
@@ -186,7 +189,7 @@ export { Contract, ContractLive, Missing, probed, Row, specification }
 - Law: behavioral quirks — a default option that engages a proprietary dialect, a shared global registry, a native accelerator probe — are internalized as the owner's configuration facts; the owner's construction encodes the correct posture, so no consumer can reach the quirk path.
 - Reject: an `as` bridge at call sites where the augmentation owns the truth; the augmentation in a global ambient dump far from the engine; a wrapper whose only job is smuggling a corrected type.
 
-```typescript
+```typescript conceptual
 import { type Effect, Either, ParseResult, Schema } from "effect"
 
 // --- [TYPES] ----------------------------------------------------------------------------
@@ -257,7 +260,7 @@ export type { Engine }
 - Law: `Config.withDescription` rides every row — a missing or malformed variable reports its meaning in the `ConfigError`, never a bare key name.
 - Reject: scattered per-site `Config.string` reads; a raw scalar carried where the brand exists; a default buried at a read site where `Config.withDefault` states it at the owner; a regex check after `Config.string` where `Schema.Config` owns the shape.
 
-```typescript
+```typescript conceptual
 import { Command, FileSystem, HttpClient, Path, PlatformConfigProvider } from "@effect/platform"
 import { NodeContext, NodeHttpClient, NodeRuntime } from "@effect/platform-node"
 import { Config, Effect, Layer, Schema } from "effect"
@@ -330,7 +333,7 @@ export {}
 - Law: the socket is a byte `Channel` — `Socket.toChannelWith<E>()` — and its construction is capability, not code: `Socket.makeWebSocket(url)` against the `Socket.WebSocketConstructor` Tag the runtime row satisfies, so one framed transport definition serves every runtime lane; the pipeline geometry above the frame is `streams.md`'s.
 - Reject: raw socket event listeners; a hand-written length-prefix parser; `JSON.stringify` written to a socket where a frame row owns the framing; a per-format duplex owner where the frame table and the one schema seam compose.
 
-```typescript
+```typescript conceptual
 import { ChannelSchema, Ndjson, Socket, Transferable, Worker, type WorkerError, WorkerRunner } from "@effect/platform"
 import { type Channel, type Chunk, Context, Effect, type Layer, type ParseResult, Schema, Stream } from "effect"
 
@@ -417,7 +420,7 @@ export { Bench, BenchLive, framed, Grade, MarshalFault, RunnerLive, Sweep }
 - Law: a read that must follow writes rides the `Reactivity` bus (`@effect/experimental`, provisioned by `Reactivity.layer`) — `mutation(keys, write)` stamps the write's invalidation coordinates, `query(keys, read)` yields a `Mailbox` re-delivering on every overlapping mutation, `stream` is the same feed as a `Stream`, and `invalidate(keys)` is the foreign-write edge; keys are the currency — the array form names whole bands, the record form scopes `{ band: ids }`, and a record mutation wakes member readers and whole-band readers both — the same coordinates `[05]`'s view lane refreshes on, so a cadence poll of unchanged rows restates delivery the keys already own.
 - Reject: a stored string re-shaped by hand where the `SchemaStore` fuses admission; an in-process quota beside the store-backed window; a hand pub/sub of table-changed strings beside the bus.
 
-```typescript
+```typescript conceptual
 import { Reactivity } from "@effect/experimental"
 import { KeyValueStore } from "@effect/platform"
 import { Migrator, SqlClient, SqlResolver, SqlSchema } from "@effect/sql"

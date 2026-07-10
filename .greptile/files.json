@@ -5,6 +5,14 @@
       "description": "Repo execution standards and agent instructions"
     },
     {
+      "path": "AGENTS.md",
+      "description": "Repo role and ownership boundaries for agents"
+    },
+    {
+      "path": "README.md",
+      "description": "Workspace structure register: strata, branch coupling, library-first ownership"
+    },
+    {
       "path": "docs/standards/design-doctrine.md",
       "description": "Universal design law binding every executable surface: rails, dispatch, admitted substrate, parameterization, boundaries, density, vocabularies"
     },

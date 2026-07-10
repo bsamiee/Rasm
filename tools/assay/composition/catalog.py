@@ -305,6 +305,14 @@ TOOLS: tuple[Tool, ...] = (
         DOCS,
         Claim.DOCS,
     ),
+    Tool(
+        "prose-gate",
+        DIRECT,
+        ("uv", "run", "--no-project", ".claude/skills/docgen/scripts/prose_gate.py", "--json", "{input}"),
+        OWNED,
+        DOCS,
+        Claim.DOCS,
+    ),
     # --- [CODE]
     Tool(
         "ast-grep",

@@ -139,11 +139,12 @@ def test_build_app_structure_and_root_configuration() -> None:
 
     app = build_app(REGISTRY)
     assert isinstance(app, App)
-    # Single-verb claims register as root leaves (verb folded into the claim token); multi-verb claims as sub-apps.
-    single_verb = frozenset(c for c in _EXPECTED_CLAIMS if sum(b.claim is c for b in REGISTRY) == 1)
+    # A claim collapses to a root leaf only when its lone verb duplicates the claim token; every other claim
+    # registers as a sub-app whose leaves are its verbs, so the surface always accepts the verb the help names.
+    collapsed = frozenset(c for c in _EXPECTED_CLAIMS if [b.verb for b in REGISTRY if b.claim is c] == [c.value])
     validity_matrix(
         (ValidityCase(label=f"{b.claim.value}/{b.verb}", value=b, expected=True) for b in REGISTRY),
-        valid=lambda b: (b.claim.value in app) if b.claim in single_verb else (b.verb in app[b.claim.value]),
+        valid=lambda b: (b.claim.value in app) if b.claim in collapsed else (b.verb in app[b.claim.value]),
     )
     support_matrix(("self-test reachable", lambda: "self-test" in app, True), ("delta reachable", lambda: "delta" in app, True))
     assert app.name == ("assay",)

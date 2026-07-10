@@ -12,15 +12,6 @@
   "shouldUpdateDescription": false,
   "updateSummaryOnly": false,
   "hideFooter": false,
-  "labels": [],
-  "disabledLabels": [],
-  "includeAuthors": [],
-  "excludeAuthors": [],
-  "includeBranches": [],
-  "excludeBranches": [],
-  "includeKeywords": "",
-  "ignoreKeywords": "",
-  "disabledRules": [],
   "summarySection": {
     "included": true,
     "collapsible": true,
@@ -41,7 +32,7 @@
     "collapsible": true,
     "defaultOpen": false
   },
-  "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/obj/**\n**/bin/**\n**/node_modules/**\n**/goldens/**\n*.verified.*\n*.har",
+  "ignorePatterns": "**/pnpm-lock.yaml\n**/uv.lock\n**/packages.lock.json\n**/goldens/**\n*.verified.*\n*.har",
   "context": {
     "repos": [
       "bsamiee/Parametric_Forge",

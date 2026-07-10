@@ -1,57 +1,43 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-env.sh",
-            "timeout": 10
-          }
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "hooks": {
+        "SessionStart": [
+            {
+                "matcher": "startup|resume|compact",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "bash \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/setup-env.sh",
+                        "timeout": 10
+                    }
+                ]
+            }
         ]
-      }
-    ]
-  },
-  "effortLevel": "high",
-  "claudeMdExcludes": [
-    "**/.cache/**/CLAUDE.md",
-    "**/node_modules/**/CLAUDE.md",
-    "**/bin/**/CLAUDE.md",
-    "**/obj/**/CLAUDE.md",
-    "**/.artifacts/**/CLAUDE.md"
-  ],
-  "permissions": {
-    "allow": [
-      "Bash(git *)",
-      "Bash(node *)",
-      "Bash(uv *)",
-      "Bash(rg *)",
-      "Bash(fd *)",
-      "Bash(ls *)",
-      "Bash(tree *)",
-      "Bash(loc *)",
-      "Bash(cat *)",
-      "Bash(mkdir *)",
-      "Bash(mv *)"
+    },
+    "effortLevel": "high",
+    "claudeMdExcludes": [
+        "**/.cache/**/CLAUDE.md",
+        "**/node_modules/**/CLAUDE.md",
+        "**/bin/**/CLAUDE.md",
+        "**/obj/**/CLAUDE.md",
+        "**/.artifacts/**/CLAUDE.md"
     ],
-    "deny": [
-      "Bash(git push --force:*)",
-      "Bash(git push -f:*)",
-      "Bash(git reset --hard:*)"
-    ],
-    "defaultMode": "bypassPermissions"
-  },
-  "skipDangerousModePermissionPrompt": true,
-  "enabledPlugins": {
-    "ty-lsp@forge-lsp": true,
-    "roslyn-lsp@forge-lsp": true,
-    "tsgo-lsp@forge-lsp": true,
-    "bash-lsp@forge-lsp": true,
-    "nixd-lsp@forge-lsp": true,
-    "lua-lsp@forge-lsp": true,
-    "postgres-lsp@forge-lsp": true,
-    "yaml-lsp@forge-lsp": true
-  }
+    "permissions": {
+        "allow": [
+            "Bash(git *)",
+            "Bash(node *)",
+            "Bash(uv *)",
+            "Bash(rg *)",
+            "Bash(fd *)",
+            "Bash(ls *)",
+            "Bash(tree *)",
+            "Bash(loc *)",
+            "Bash(cat *)",
+            "Bash(mkdir *)",
+            "Bash(mv *)"
+        ],
+        "deny": ["Bash(git push --force:*)", "Bash(git push -f:*)", "Bash(git reset --hard:*)"],
+        "defaultMode": "bypassPermissions"
+    },
+    "skipDangerousModePermissionPrompt": true
 }
