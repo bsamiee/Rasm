@@ -35,6 +35,17 @@
             "!!**/uv.lock"
         ]
     },
+    "formatter": {
+        "enabled": true,
+        "indentStyle": "space",
+        "indentWidth": 4,
+        "lineWidth": 150
+    },
+    "javascript": {
+        "formatter": {
+            "quoteStyle": "single"
+        }
+    },
     "plugins": [
         { "path": "./tools/biome/no-arity-sibling.grit", "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"] },
         {
