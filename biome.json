@@ -36,8 +36,9 @@
             "!!**/scratch",
             "!!**/.scratch",
             "!!**/.tmp",
-            "!!.claude/workflows/**",
-            "!!.claude/skills/workflow-creator/assets/**"
+            "!!.claude/workflows",
+            "!!.claude/skills/workflow-creator/assets",
+            "!!**/*.html"
         ]
     },
     "plugins": [
@@ -141,6 +142,36 @@
         }
     },
     "overrides": [
+        {
+            "includes": ["tests/typescript/e2e/platform/blocked.pw.ts"],
+            "linter": {
+                "enabled": false
+            }
+        },
+        {
+            "includes": [".claude/skills/applescript/assets/**"],
+            "linter": {
+                "rules": {
+                    "correctness": {
+                        "noUnusedVariables": "off"
+                    },
+                    "suspicious": {
+                        "noRedundantUseStrict": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": [".claude/skills/workflow-creator/scripts/**"],
+            "linter": {
+                "rules": {
+                    "suspicious": {
+                        "noAssignInExpressions": "off",
+                        "noTemplateCurlyInString": "off"
+                    }
+                }
+            }
+        },
         {
             "includes": ["**/libs/typescript/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
             "linter": {
