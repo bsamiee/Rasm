@@ -1,7 +1,7 @@
 export const meta = {
     name: 'brief',
     description:
-        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all on gpt-5.6-terra via codex dispatch wrappers (sonnet shells; surveyors write dossiers workspace-write, deep lanes add live web search; CODEX flag false restores native lanes; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md. 10-12 agents per target + 3 review.',
+        'Durable polyglot campaign-brief author over libs/{python,csharp,typescript} planning corpora. args = {targets, upstream, deep, mandate, review, gold} — targets a folder path or an ORDERED array (a waterfall: each later brief consumes every earlier one as finalized law with surgical ripple authority back); upstream = pre-existing finalized brief paths (any language) joining the corpus; deep = true or a target-path subset gaining 2 OSS-ecosystem research lanes; mandate = a scope-expansion law string for all targets or a {targetPath: text} map; review = extra brief paths for the terminal cross-corpus review, or false to skip it; gold = the exemplar brief (default RASM-PY-ARTIFACTS-BRIEF.md). Per target: 5 surveyors (corpus halves + api/manifest tiers + seam/consumer census + cross-folder strata census; +2 deep lanes) all on gpt-5.6-terra via codex dispatch wrappers (sonnet shells; surveyors write dossiers workspace-write, deep lanes add live web search; CODEX flag false restores native lanes; every lane leaves its dossier + typed report on disk and returns a thin receipt) -> 1 author (a single-phase decision-complete brief that never requires a second document, carrying the bidirectional CROSS_FOLDER enablement section, the section-utility anti-chaff law, and the header campaign law) -> 4 sequential adversarial passes (architecture, capability incl. the cross-folder audit, roster under the integration-first/seal-challenge/package-waterfall laws, cold-read + hedge-kill + chaff-sweep + RIPPLE AUDIT re-verifying every claimed upstream edit on disk). Terminal: when 1+ briefs were produced, 3 sequential review passes (initial/critique/redteam) cross-align the WHOLE corpus in place. Every adversarial refine + review pass carries a required-but-usually-empty harvest attestation; when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Output naming RASM-<PY|CS|TS>-<NAME>-BRIEF.md. 10-12 agents per target + 3 review + optional lander.',
     whenToUse:
         'The standing brief engine: author one brief, or a dependency-ordered waterfall of them, in any language mix, with the cross-corpus review built in. Empty args = no-op.',
 };
@@ -145,6 +145,43 @@ const RECEIPT = {
     },
 };
 
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['stacks', 'reviewer', 'constitution', 'planning', 'readme', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+    },
+};
+
 const AUTHOR_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -160,7 +197,7 @@ const AUTHOR_SCHEMA = {
 const PASS_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['edits', 'findings', 'roster_changes', 'upstream_ripples', 'ripple_audit', 'final_verdict', 'top_risks'],
+    required: ['edits', 'findings', 'roster_changes', 'upstream_ripples', 'ripple_audit', 'harvest', 'final_verdict', 'top_risks'],
     properties: {
         edits: {
             type: 'array',
@@ -204,6 +241,7 @@ const PASS_SCHEMA = {
                 properties: { claimed: { type: 'string' }, verdict: { type: 'string', enum: ['LANDED', 'APPLIED-BY-ME', 'CORRECTED'] } },
             },
         },
+        harvest: HARVEST,
         final_verdict: { type: 'string' },
         top_risks: { type: 'array', items: { type: 'string' } },
     },
@@ -212,7 +250,7 @@ const PASS_SCHEMA = {
 const REVIEW_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['edits', 'opportunities', 'alignments', 'final_verdict', 'residual_risks'],
+    required: ['edits', 'opportunities', 'alignments', 'harvest', 'final_verdict', 'residual_risks'],
     properties: {
         edits: {
             type: 'array',
@@ -241,6 +279,7 @@ const REVIEW_SCHEMA = {
                 properties: { seam: { type: 'string' }, fix: { type: 'string' } },
             },
         },
+        harvest: HARVEST,
         final_verdict: { type: 'string' },
         residual_risks: { type: 'array', items: { type: 'string' } },
     },
@@ -294,6 +333,18 @@ const ENTRY_LAW =
     'witness under 20 words, or empty when path+line suffice; an `absence` anchor names where the expected thing was searched and not found); ' +
     '`members` = verified member/package spellings backing a stacking or roster entry. COVERAGE is part of the product: `requested` = your ' +
     'assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you did not reach — an honest skip beats a silent one.';
+
+const LAWS_READ =
+    'LAWS — read `docs/laws/` before any durable edit (README + topology + patterns + scars; short registry pages): a topology row ' +
+    'whose [SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row binds each branch it names.';
+
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this brief — a collapse pattern reusable ' +
+    'across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE review, a ' +
+    'cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, ' +
+    'claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause it ' +
+    'would harden, quoted with its path — or "absent" plus the surfaces searched). A brief-local fix never nominates; an empty array is ' +
+    'the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 const preOf = (t, corpus) => {
     const L = langOf(t),
@@ -483,6 +534,7 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
     [
         pre,
         ROSTER_LAW,
+        LAWS_READ,
         'TASK: AUTHOR the campaign brief ' +
             out +
             ' (repo root) for the ground-up ' +
@@ -518,6 +570,8 @@ const authorPrompt = (pre, t, out, roster, unmapped) =>
 const passPrompts = (pre, brief) => [
     [
         pre,
+        LAWS_READ,
+        HARVEST_LAW,
         'TASK: ADVERSARIAL PASS 1 of 4 — ARCHITECTURE. You WRITE: fix and improve ' +
             brief +
             ' in place. Interrogate the brief AS AN ' +
@@ -528,6 +582,8 @@ const passPrompts = (pre, brief) => [
     ].join('\n'),
     [
         pre,
+        LAWS_READ,
+        HARVEST_LAW,
         'TASK: ADVERSARIAL PASS 2 of 4 — CAPABILITY/OUTPUT GRADE. You WRITE: fix and improve ' +
             brief +
             " in place. Walk the target's " +
@@ -541,6 +597,8 @@ const passPrompts = (pre, brief) => [
     [
         pre,
         ROSTER_LAW,
+        LAWS_READ,
+        HARVEST_LAW,
         'TASK: ADVERSARIAL PASS 3 of 4 — ROSTER + API ULTRA-STACKING. You WRITE: fix and improve ' +
             brief +
             ' in place. Inventory ' +
@@ -551,6 +609,8 @@ const passPrompts = (pre, brief) => [
     ].join('\n'),
     [
         pre,
+        LAWS_READ,
+        HARVEST_LAW,
         'TASK: ADVERSARIAL PASS 4 of 4 — COLD RE-READ + RIPPLE AUDIT, the last hands on this brief. You WRITE: fix in place. Read the ENTIRE ' +
             'brief twice, as a first reader and as the most hostile one: cross-reference closure (every verdict <-> evidence row <-> escalation delta ' +
             '<-> package row <-> leg assignment <-> cross-folder row; fix every dangling end); hedge-kill (where "the campaign decides" is decidable ' +
@@ -587,6 +647,8 @@ const reviewPre = (scope) =>
 const reviewPrompts = (scope) => [
     [
         reviewPre(scope),
+        LAWS_READ,
+        HARVEST_LAW,
         'TASK: PASS 1 of 3 — INITIAL HOLISTIC. First full read of the corpus as one program. Per brief: fix mistakes, close gaps, ' +
             'kill silences on concerns a sibling brief treats as load-bearing. Collectively: walk the dependency chain both directions — enumerate ' +
             'every predecessor-enabled opportunity no brief names yet and every consumer-demand hole (what a later brief assumes upstream that ' +
@@ -594,6 +656,8 @@ const reviewPrompts = (scope) => [
     ].join('\n'),
     [
         reviewPre(scope),
+        LAWS_READ,
+        HARVEST_LAW,
         'TASK: PASS 2 of 3 — CRITIQUE. Verify every pass-1 edit against disk and the briefs (an unanchored or wrong edit is ' +
             'repaired, never tolerated). Then the mechanical floor per brief: cross-reference closure, disposition completeness, seam-ledger ' +
             'consistency ACROSS briefs (one seam, one spelling, both sides), header campaign lines current, corpus references valid after pass-1 ' +
@@ -601,6 +665,8 @@ const reviewPrompts = (scope) => [
     ].join('\n'),
     [
         reviewPre(scope),
+        LAWS_READ,
+        HARVEST_LAW,
         'TASK: PASS 3 of 3 — RED-TEAM COLD READ, the last hands on this corpus. Read the whole set twice as its future ' +
             'implementing agents will: hostile, fresh, lens-by-lens — counterfactual (would faithful execution actually produce world-class folders, ' +
             'or is a brief load-bearing on an unstated assumption?), long-tail (rare-but-real cases no brief covers), boundary (every cross-folder and ' +
@@ -623,6 +689,7 @@ if (bad.length) {
 
 const corpus = [...UPSTREAM];
 const produced = [];
+const harvestRows = []; // pooled doctrine nominations from every adversarial refine + review pass
 for (let ti = 0; ti < TARGETS.length; ti++) {
     const t = TARGETS[ti];
     const L = langOf(t);
@@ -755,6 +822,7 @@ for (let ti = 0; ti < TARGETS.length; ti++) {
             stallMs: STALL,
         });
         if (p) lastPass = p;
+        if (p) harvestRows.push(...(p.harvest || []));
         log(
             P +
                 ' pass ' +
@@ -792,6 +860,7 @@ if (produced.length && !REVIEW_OFF) {
             stallMs: STALL,
         });
         passes.push(p);
+        if (p) harvestRows.push(...(p.harvest || []));
         log(
             'review ' +
                 (i + 1) +
@@ -818,4 +887,50 @@ if (produced.length && !REVIEW_OFF) {
     };
 }
 
-return { targets: TARGETS, produced, review };
+// --- [DOCTRINE_LANDER]
+
+// The run's durable-learning terminal — pooled harvest from every adversarial refine + review pass, adjudicated
+// against the live doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
+let doctrine = null;
+if (harvestRows.length) {
+    phase('doctrine');
+    doctrine = await agent(
+        'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
+            '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
+            'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+            'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+            '`mermaid-diagramming` before touching any diagram. ' +
+            "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+            JSON.stringify(harvestRows) +
+            '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+            'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+            'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+            'whose coupling no longer holds, land a coupling this run proved.\n' +
+            'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+            'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+        { label: 'doctrine', phase: 'doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+    );
+    log(
+        'doctrine: ' +
+            harvestRows.length +
+            ' nominated -> ' +
+            ((doctrine && doctrine.landed) || []).length +
+            ' landed, ' +
+            ((doctrine && doctrine.rejected) || []).length +
+            ' rejected',
+    );
+}
+
+return {
+    targets: TARGETS,
+    produced,
+    review,
+    doctrine: doctrine && {
+        nominated: harvestRows.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
+    },
+};

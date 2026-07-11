@@ -2,7 +2,7 @@ export const meta = {
     name: 'ideate',
     whenToUse: 'Rebuild a folder IDEAS and TASK pool to world-class when the deferred idea or task pool is stale or thin.',
     description:
-        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler (CAP=10) so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder holding more than 12 planning pages runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run read-only on gpt-5.6-terra dispatched through sonnet codex wrappers (CODEX flag; false restores native opus); ideate and redteam stay fable writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (workspace-write; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
+        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler (CAP=10) so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder holding more than 12 planning pages runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run read-only on gpt-5.6-terra dispatched through sonnet codex wrappers (CODEX flag; false restores native opus); ideate and redteam stay fable writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (workspace-write; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. Every writing stage also nominates generalizable lessons into a required-usually-empty harvest, folded forward through the redteam and the orphan drain; one terminal doctrine lander then adjudicates the pooled harvest against the docs/laws admission bar (land-nothing legal) before the run closes. The terminal stays the single fold-forward orphan drain, not a round-based DRAIN LOOP: Ripples land both ends in-pass by design and the cardlog carries no {files, claim} backlog, so nothing pools across stages. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
     phases: [
         {
             title: 'Survey',
@@ -126,16 +126,56 @@ const RECEIPT = {
     },
 };
 
+// Doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row.
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['stacks', 'reviewer', 'constitution', 'planning', 'readme', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+};
+
 // Required-but-possibly-empty `beyondFolder` is an attestation: the cross-folder Ripple hunt ran, and every counterpart landed.
 const CARDLOG_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'beyondFolder', 'verdict', 'summary', 'applied'],
+    required: ['files', 'beyondFolder', 'verdict', 'summary', 'applied', 'harvest'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         beyondFolder: { type: 'array', items: { type: 'string' } },
         applied: { type: 'array', items: { type: 'string' } },
         verdict: { type: 'string', enum: ['authored', 'refined', 'hardened', 'clean'] },
+        harvest: HARVEST,
+        summary: { type: 'string' },
+    },
+};
+
+// The run's durable-learning terminal product: nominations adjudicated against the docs/laws admission bar.
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
         summary: { type: 'string' },
     },
 };
@@ -193,6 +233,18 @@ const SELF_CHECK =
     'endpoints. An entry that fails re-confirmation is corrected or deleted, never returned; a guess, an assumption, a skimmed summary, or a ' +
     'vague/hedged entry is a defect. Completeness is part of correctness: after the re-read, hunt once more for what the first pass missed — an ' +
     'omitted load-bearing fact is as wrong as a false one.';
+
+const LAWS =
+    'LAWS — read `docs/laws/` IN FULL (README + topology + patterns + scars; short registry pages) before any edit: a topology row whose ' +
+    '[SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row binds each branch it names.';
+
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this folder — a collapse pattern reusable across ' +
+    'folders, a naivety class no card rubric names, a review rule that would have caught a defect BEFORE review, a cross-surface coupling ' +
+    'discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the generalized law, one ' +
+    'sentence), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause it would harden, quoted with its path — or ' +
+    '"absent" plus the surfaces searched). A card-local fix never nominates; an empty array is the normal verdict — the terminal doctrine ' +
+    'lander refutes weak rows, so nominate substance, never volume.';
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -333,6 +385,8 @@ const surveyPrompt = (folder, slice) =>
     [
         LAW,
         '',
+        LAWS,
+        '',
         INFO_LAW,
         '',
         SELF_CHECK,
@@ -375,6 +429,8 @@ const ideatePrompt = (folder, roster, unmapped) =>
     [
         LAW,
         '',
+        LAWS,
+        '',
         'TASK: author/rebuild the IDEAS + TASKS pool in ' +
             folder +
             '/IDEAS.md ' +
@@ -387,8 +443,9 @@ const ideatePrompt = (folder, roster, unmapped) =>
             'at the 7-point rubric and naive on neither axis, genuinely-deferred ONLY (never a realized page from the survey), correctly anchored, with every ' +
             'Ripple bidirectional per the RIPPLE + CURRENT-STATE laws — the cross-folder counterpart referenced where it exists, authored in the sibling ' +
             'folder NOW where it does not. Match the exact card schema from libs/.planning/README.md and the voice from campaign-method.md. Fix-in-place ' +
-            '(write the files, create if absent). Return the card-log listing every file you edited, sibling folders included. ' +
-            'UNMAPPED: ' +
+            '(write the files, create if absent). Return the card-log listing every file you edited (with `harvest`), sibling folders included. ' +
+            HARVEST_LAW +
+            ' UNMAPPED: ' +
             JSON.stringify(unmapped) +
             ' ROSTER: ' +
             JSON.stringify(roster),
@@ -405,8 +462,9 @@ const critiquePrompt = (folder) =>
             'framing in Capability/Shape. Attack both naivety axes: widen COVERAGE thin-slices to the full concept; rewrite APPROACH roster-cards so the ' +
             'roster is seed data feeding one parameterized generator. Check every member a card cites against both .api tiers — correct or delete ' +
             'phantoms; card any admitted capability the pool ignores. These checks are a floor — hunt past them. A cross-folder Ripple asymmetry is ' +
-            'repaired at BOTH ends NOW per the RIPPLE + CURRENT-STATE laws. EDIT the card files. Return the card-log listing every file you edited, ' +
-            'sibling folders included.',
+            'repaired at BOTH ends NOW per the RIPPLE + CURRENT-STATE laws. EDIT the card files. Return the card-log listing every file you edited ' +
+            '(with `harvest`), sibling folders included. ' +
+            HARVEST_LAW,
     ].join('\n');
 const redteamPrompt = (folder, critRep) =>
     [
@@ -416,8 +474,8 @@ const redteamPrompt = (folder, critRep) =>
             ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique cardlog is ON DISK at ' +
               critRep +
               ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never a ' +
-              "settled record. Your card-log's `files`/`beyondFolder` are the folder's CONSOLIDATED record: union the critique " +
-              "cardlog's rows (each verified on disk) with your own edits; a dropped critique row is a silent loss."
+              "settled record. Your card-log's `files`/`beyondFolder`/`harvest` are the folder's CONSOLIDATED record: union the critique " +
+              "cardlog's rows (each verified on disk) with your own edits; a dropped critique or harvest row is a silent loss."
             : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this pool gets; judge from CURRENT ' +
               'disk alone.') + '\n',
         'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE of the cards in ' +
@@ -433,8 +491,20 @@ const redteamPrompt = (folder, critRep) =>
             'capability no card exploits, a pool that understates the real domain — author what is missing. Run COUNTERFACTUALS (is this the strongest ' +
             'set of deferred bets, or is there a denser/higher-leverage framing?), then END with a full cold re-review of both files as one body — ' +
             'verdict=clean only when that cold attack finds nothing. Repair every defect in place, wherever it lives. Return the card-log listing every ' +
-            'file you edited, sibling folders included.',
+            'file you edited (with `harvest`), sibling folders included. ' +
+            HARVEST_LAW,
     ].join('\n');
+const doctrinePrompt = (rows) =>
+    'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND `docs/laws/landing.md` FIRST — they ' +
+    'own the admission table, the harden>extend>mint bar, the per-surface routing and justification, the laws page grammar, and the poison ' +
+    'guard; obey them over any restatement. Load the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; ' +
+    'load `mermaid-diagramming` before touching any diagram. ' +
+    "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+    JSON.stringify(rows) +
+    '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on CURRENT disk; LAND NOTHING is a ' +
+    'first-class verdict.\nTOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
+    'coupling no longer holds, land a coupling this run proved.\nGATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched ' +
+    '.md>` and repair to zero FAILs before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.';
 
 const ideateFolder = async (u) => {
     const folder = u.folder;
@@ -539,6 +609,8 @@ const complete = done.filter((r) => r.ok);
 const failed = done.filter((r) => !r.ok).map((r) => r.folder);
 // ORPHAN DRAIN: a critique cardlog whose redteam died never folded forward — its card edits persist
 // on disk, but its rows would vanish from the run record; one terminal drain re-verifies and folds them.
+// No round-based DRAIN LOOP: Ripples land BOTH ends in-pass by the RIPPLE law and CARDLOG carries no
+// {files, claim} backlog, so nothing pools across stages — the single fold-forward drain is the whole terminal.
 const ORPHANS = done.filter((r) => !r.ok && r.critReport).map((r) => r.critReport);
 const drained = ORPHANS.length
     ? await agent(
@@ -546,7 +618,7 @@ const drained = ORPHANS.length
               'folder record. Read each report IN FULL from disk: ' +
               JSON.stringify(ORPHANS) +
               '. Re-verify every row against the live card files and return the consolidated union as your cardlog — files, ' +
-              'beyondFolder, and verdict; a dropped row is a silent loss.',
+              'beyondFolder, harvest, and verdict; a dropped row is a silent loss.',
           { label: 'drain:orphans', phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA, stallMs: STALL },
       )
     : null;
@@ -573,6 +645,19 @@ log(
         JSON.stringify(verdicts) +
         (failed.length ? ' — FAILED (reported, run continues): ' + failed.join(', ') : ''),
 );
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations from every landed cardlog
+// adjudicated against the live docs/laws surfaces; refutation-first, land-nothing legal. Fires only when non-empty.
+const HARVEST_ROWS = complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].harvest) || []));
+const doctrine = HARVEST_ROWS.length
+    ? await agent(doctrinePrompt(HARVEST_ROWS), {
+          label: 'doctrine',
+          phase: 'Redteam',
+          model: 'fable',
+          effort: 'high',
+          schema: DOCTRINE_SCHEMA,
+          stallMs: STALL,
+      })
+    : null;
 return {
     scope: SWEEP,
     folders: FOLDERS.length,
@@ -582,4 +667,12 @@ return {
     filesTouched: touched.length,
     beyondFolder: beyond,
     verdicts,
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
+    },
 };

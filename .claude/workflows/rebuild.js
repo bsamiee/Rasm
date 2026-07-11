@@ -1713,21 +1713,15 @@ const HARVEST_ROWS = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).conca
 const doctrine = HARVEST_ROWS.length
     ? await slot(() =>
           agent(
-              'TASK: DOCTRINE LANDER — the durable-learning terminal of a hostile rebuild run. Load the `docgen` skill AND the ' +
-                  '`skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before touching any ' +
-                  "diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+              'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
+                  '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
+                  'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+                  'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+                  '`mermaid-diagramming` before touching any diagram. ' +
+                  "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
                   JSON.stringify(HARVEST_ROWS) +
-                  '\nADJUDICATE each row: cold-read its target surface IN FULL, verify its anchors on CURRENT disk, and demand ' +
-                  'admission evidence — recurrence across independent batches, or a structural singleton whose blast radius spans ' +
-                  'folders. Read `docs/laws/README.md` FIRST: its [02]-[ADMISSION] table is the routing owner. LANDING LAW: harden ' +
-                  'an existing clause > extend an existing file > mint a new file (a new file only at the stacks or laws altitude, ' +
-                  'with proof of absence); LAND NOTHING is a first-class verdict.\n' +
-                  'ROUTING: stacks -> the owning `docs/stacks/<lang>/` page, refactored in place, never append-beside; reviewer -> ' +
-                  '`.greptile/rules.md` + `.coderabbit.yaml` (machine-law boundary: a rule a formatter, analyzer, or gate can ' +
-                  'enforce routes to that gate owner and is REJECTED here with that reason, never landed as reviewer prose); ' +
-                  'constitution -> `CLAUDE.md` or `AGENTS.md` at the reader that ACTS on the fact, cross-referenced never ' +
-                  'duplicated; planning -> the owning `libs/.planning/` or `libs/<lang>/.planning/` index doc or system page; laws ' +
-                  '-> `docs/laws/` per its admission table; readme -> the named README.\n' +
+                  '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+                  'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
                   'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
                   'whose coupling no longer holds, land a coupling this run proved.\n' +
                   'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +

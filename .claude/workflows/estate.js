@@ -412,28 +412,25 @@ const passPrompt = (t, name, tier, reconRows) =>
 // Doctrine lander: adjudicates pooled harvest nominations against the live doctrine surfaces; an estate run owns test/tool/config
 // infrastructure and monorepo alignment, so its routing weighs toward the constitution, the test/tool READMEs, and the reviewer rules.
 const doctrinePrompt = (rows, residuals) =>
-    'TASK: DOCTRINE LANDER — the durable-learning terminal of an estate run over tests/tools/root config across every language plus the monorepo final ' +
-    'track. Load the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before touching ' +
-    "any diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+    'TASK: DOCTRINE LANDER — the durable-learning terminal of an estate run over tests/tools/root config across every ' +
+    'language plus the monorepo final track. Read `docs/laws/README.md` AND `docs/laws/landing.md` FIRST — they own the ' +
+    'admission table, the harden>extend>mint bar, the per-surface routing and justification, the laws page grammar, and the ' +
+    'poison guard; obey them over any restatement. ROUTING EMPHASIS (orders where you look first, never overrides the ' +
+    'landing page): an estate run owns test/tool/config infrastructure and monorepo alignment, so its lessons weigh toward ' +
+    'the constitution at the acting reader, the tests/tools/root READMEs, and the reviewer rules first. Load the `docgen` ' +
+    'skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before ' +
+    "touching any diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
     JSON.stringify(rows) +
-    '\nPOOLED RESIDUALS (deliberately-left estate items with reasons — CONTEXT only, never a drain queue: a residual recurring across tracks may itself be ' +
-    'a durable law worth nominating, but you never mechanically clear one here): ' +
+    '\nPOOLED RESIDUALS (deliberately-left estate items with reasons — CONTEXT only, never a drain queue: a residual ' +
+    'recurring across tracks may itself be a durable law worth nominating, but you never mechanically clear one here): ' +
     JSON.stringify(residuals) +
-    '\nADJUDICATE each nomination: cold-read its target surface IN FULL, verify its anchors on CURRENT disk, and demand admission evidence — recurrence ' +
-    'across independent tracks, or a structural singleton whose blast radius spans branches. Read `docs/laws/README.md` FIRST: its [02]-[ADMISSION] table ' +
-    'is the routing owner. LANDING LAW: harden an existing clause > extend an existing file > mint a new file (a new file only at the stacks or laws ' +
-    'altitude, with proof of absence); LAND NOTHING is a first-class verdict.\n' +
-    'ROUTING (an estate run owns test/tool/config infrastructure and monorepo alignment, so its lessons weigh toward the constitution, the test/tool ' +
-    'READMEs, and the reviewer rules): constitution -> `CLAUDE.md` or `AGENTS.md` at the reader that ACTS on the fact, cross-referenced never duplicated; ' +
-    'readme -> the OWNING README at the acting surface — `tests/README.md`, `tests/<lang>/README.md`, `tests/contracts/README.md`, ' +
-    '`tools/assay|cs-analyzer|rhino-bridge/README.md`, or the root `README.md` when entry truth drifted; reviewer -> `.greptile/rules.md` + ' +
-    '`.coderabbit.yaml` (machine-law boundary: a rule a formatter, analyzer, or gate can enforce routes to that gate owner and is REJECTED here with that ' +
-    'reason, never landed as reviewer prose); laws -> `docs/laws/` per its admission table; stacks -> the owning `docs/stacks/<lang>/` page, refactored in ' +
-    'place, never append-beside; planning -> the owning `libs/.planning/` or `libs/<lang>/.planning/` index doc.\n' +
-    'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose coupling no longer holds, land a ' +
-    'coupling this run proved.\n' +
-    'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs before returning; yamllint proves ' +
-    '`.coderabbit.yaml` and jq proves the `.greptile` JSON files if you touch them. Return landed/refined/rejected (each rejection with its reason)/files/summary.';
+    '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on CURRENT disk; ' +
+    'LAND NOTHING is a first-class verdict.\n' +
+    'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
+    'coupling no longer holds, land a coupling this run proved.\n' +
+    'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs before ' +
+    'returning; yamllint proves `.coderabbit.yaml` and jq proves the `.greptile` JSON files if you touch them. Return ' +
+    'landed/refined/rejected (each rejection with its reason)/files/summary.';
 
 // --- [COMPOSITION] -------------------------------------------------------------------------
 

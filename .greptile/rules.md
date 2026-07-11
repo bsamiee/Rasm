@@ -4,6 +4,8 @@ C#/.NET-primary monorepo with TypeScript and Python lanes. Language doctrine is 
 
 Cross-surface coupling is review law: docs/laws/topology.md maps which surfaces obligate which counterparts — a diff editing a listed SURFACE without its obligated counterparts in the same change is a finding naming the missing counterpart; docs/laws/patterns.md rows bind every branch they name; docs/laws/scars.md laws are standing review duty.
 
+Doctrine-surface diffs (docs/laws, docs/stacks, docs/standards, CLAUDE.md, AGENTS.md, the reviewer configs themselves) are judged against docs/laws/landing.md: hardening an existing clause beats extending a file beats minting one, and each move needs the prior proven insufficient; a new file under docs/stacks is a defect; run provenance, freshness tails, or process narration in a landed row is a defect; a doctrine addition without recurrence evidence or branch-spanning blast radius is spam — flag it, and flag equally the miss where a diff hardens a symptom clause while the neighboring clause it should have collapsed into stands untouched.
+
 ## Machine-law boundary
 
 Formatters and gates own mechanics — never restate their law as findings; flag only suppressions and bypasses. A true positive from any gate is architecture pressure (fix the shape); a false positive is rule pressure (refine the rule); a suppression (`#pragma`, `[SuppressMessage]`, `noqa`, `type: ignore`, `biome-ignore`, `@ts-expect-error`, a bare `as` cast) is neither and demands the ownership justification in the diff. Two scope facts govern deference:

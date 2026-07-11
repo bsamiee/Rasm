@@ -4,11 +4,12 @@ Repo-wide maintenance law: the coupling topology every cross-surface edit obeys,
 
 ## [01]-[PAGES]
 
-| [INDEX] | [PAGE]        | [OWNS]                                                                        |
-| :-----: | :------------ | :---------------------------------------------------------------------------- |
-|  [01]   | `topology.md` | The coupling map: which surfaces obligate which counterparts on edit, and why |
-|  [02]   | `patterns.md` | Pattern law binding two or more language branches                             |
-|  [03]   | `scars.md`    | Regression-proven laws with no other owner, each with its falsifiable trigger |
+| [INDEX] | [PAGE]        | [OWNS]                                                                         |
+| :-----: | :------------ | :----------------------------------------------------------------------------- |
+|  [01]   | `landing.md`  | The landing doctrine: the bar, the per-surface justification, the page grammar |
+|  [02]   | `topology.md` | The coupling map: which surfaces obligate which counterparts on edit, and why  |
+|  [03]   | `patterns.md` | Pattern law binding two or more language branches                              |
+|  [04]   | `scars.md`    | Regression-proven laws with no other owner, each with its falsifiable trigger  |
 
 ## [02]-[ADMISSION]
 

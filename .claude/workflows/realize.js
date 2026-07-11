@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Execute a root campaign DECISION/brief into its target planning folder. args = {doc, root} or an array of such pairs; campaigns run as parallel lanes. Wide read-only gpt-5.6-terra (codex) reconnaissance hands one fable executor everything on a golden platter — the doc, exact disk locations, ripple endpoints across every libs/ folder, and the full two-tier .api stacking inventory — and the executor implements the whole campaign under the language doctrine with libs-wide ripple authority. Run cold-verify after.',
     description:
-        'Campaign realization in two moves. RECON: gpt-5.6-terra (codex) mapper lanes fan out read-only through sonnet dispatch wrappers (CODEX flag; false restores native opus) — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one fable per campaign takes the root doc plus every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. No stage after the executor; cold-verify is the separate closure gate.',
+        'Campaign realization in two moves. RECON: gpt-5.6-terra (codex) mapper lanes fan out read-only through sonnet dispatch wrappers (CODEX flag; false restores native opus) — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one fable per campaign takes the root doc plus every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. The executor carries a required-but-usually-empty harvest attestation; when any campaign pools a non-empty nomination, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal). Otherwise no stage after the executor; cold-verify is the separate closure gate.',
     phases: [
         { title: 'Plan', detail: 'per campaign: enumerate the page set (disk + doc-ruled new pages), partition into mapper slices', model: 'opus' },
         {
@@ -14,6 +14,11 @@ export const meta = {
         {
             title: 'Execute',
             detail: 'per campaign: one fable implements the whole campaign — doc + maps + doctrine, every ripple in-pass, libs-wide',
+            model: 'fable',
+        },
+        {
+            title: 'Doctrine',
+            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest: adjudicates executor nominations against docs/laws, refutation-first, land-nothing legal',
             model: 'fable',
         },
     ],
@@ -119,10 +124,47 @@ const RECEIPT = {
     },
 };
 
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['stacks', 'reviewer', 'constitution', 'planning', 'readme', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+    },
+};
+
 const FIXLOG = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'built', 'beyond', 'blocked', 'summary'],
+    required: ['files', 'built', 'beyond', 'blocked', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         built: {
@@ -161,6 +203,7 @@ const FIXLOG = {
                 },
             },
         },
+        harvest: HARVEST,
         summary: { type: 'string' },
     },
 };
@@ -195,6 +238,19 @@ const SELF_CHECK =
     'returned; a guess, an assumption, a skimmed summary, or a vague/hedged entry is a defect. Completeness is part of ' +
     'correctness: after the re-read, hunt once more for what the first pass missed — an omitted load-bearing fact is as ' +
     'wrong as a false one.';
+
+const LAWS_READ =
+    'LAWS — read `docs/laws/` before any durable edit (README + topology + patterns + scars; short registry pages): a ' +
+    'topology row whose [SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row ' +
+    'binds each branch it names.';
+
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this campaign — a collapse pattern ' +
+    'reusable across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE ' +
+    'review, a cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|' +
+    'laws), lang, claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or ' +
+    'reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A campaign-local fix never ' +
+    'nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
@@ -466,6 +522,10 @@ const lanes = await parallel(
         );
         const fix = await agent(
             CTX(c) +
+                '\n\n' +
+                LAWS_READ +
+                '\n\n' +
+                HARVEST_LAW +
                 '\n\nTASK: EXECUTE THE CAMPAIGN (WRITER — full authority over ' +
                 c.root +
                 ', its ' +
@@ -508,9 +568,42 @@ const lanes = await parallel(
             built: (fix && fix.built && fix.built.length) || 0,
             beyond: (fix && fix.beyond && fix.beyond.length) || 0,
             blocked: (fix && fix.blocked) || [],
+            harvest: (fix && fix.harvest) || [],
             summary: (fix && fix.summary) || '',
         };
     }),
 );
 
-return { campaigns: lanes.filter(Boolean) };
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live
+// doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Fires only on non-empty rows.
+const HARVEST_ROWS = lanes.filter(Boolean).flatMap((l) => l.harvest || []);
+const doctrine = HARVEST_ROWS.length
+    ? await agent(
+          'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
+              '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
+              'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+              'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+              '`mermaid-diagramming` before touching any diagram. ' +
+              "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+              JSON.stringify(HARVEST_ROWS) +
+              '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+              'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+              'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+              'whose coupling no longer holds, land a coupling this run proved.\n' +
+              'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+              'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+      )
+    : null;
+
+return {
+    campaigns: lanes.filter(Boolean),
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
+    },
+};

@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; target lanes run CONCURRENTLY — only the Admit stage (the central-manifest writer) serializes across targets.',
     description:
-        'Package survey-and-integrate over one target planning folder per lane. Scout (read-only, on gpt-5.6-terra dispatched through a sonnet codex wrapper; the CODEX flag false restores native opus) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.6-terra codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer (fable) reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.6-terra codex wrappers, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE fable executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap (CAP=14); the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. Nothing follows the executor; cold-verify runs separately when wanted.',
+        'Package survey-and-integrate over one target planning folder per lane. Scout (read-only, on gpt-5.6-terra dispatched through a sonnet codex wrapper; the CODEX flag false restores native opus) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.6-terra codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer (fable) reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.6-terra codex wrappers, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE fable executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap (CAP=14); the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. The admit and integrate writers carry a required-but-usually-empty harvest attestation; when any lane pools a non-empty nomination, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal) and nothing follows it. Otherwise nothing follows the executor; cold-verify runs separately when wanted.',
     phases: [
         {
             title: 'Scout',
@@ -30,6 +30,11 @@ export const meta = {
         {
             title: 'Integrate',
             detail: 'one executor: reads map reports from disk, then the whole integration in place — new owners where demanded, existing pages grown, index docs closed, ripples in-pass',
+            model: 'fable',
+        },
+        {
+            title: 'Doctrine',
+            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest: adjudicates admit/integrate nominations against docs/laws, refutation-first, land-nothing legal',
             model: 'fable',
         },
     ],
@@ -147,6 +152,43 @@ const COVERAGE = {
     },
 };
 
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['stacks', 'reviewer', 'constitution', 'planning', 'readme', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+    },
+};
+
 const RESEARCH_SCHEMA = {
     type: 'object',
     additionalProperties: false,
@@ -205,7 +247,7 @@ const RESEARCH_SCHEMA = {
 const ADMIT_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['admitted', 'skipped', 'files', 'green', 'summary'],
+    required: ['admitted', 'skipped', 'files', 'green', 'harvest', 'summary'],
     properties: {
         admitted: {
             type: 'array',
@@ -236,6 +278,7 @@ const ADMIT_SCHEMA = {
         },
         files: { type: 'array', items: { type: 'string' } },
         green: { type: 'boolean' },
+        harvest: HARVEST,
         summary: { type: 'string' },
     },
 };
@@ -294,7 +337,7 @@ const RECEIPT = {
 const FIXLOG = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'built', 'beyond', 'summary'],
+    required: ['files', 'built', 'beyond', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         built: {
@@ -321,6 +364,7 @@ const FIXLOG = {
                 },
             },
         },
+        harvest: HARVEST,
         summary: { type: 'string' },
     },
 };
@@ -644,6 +688,19 @@ const WRITE_LAW =
     'never a to-do or a hedge. Every ripple your edit exposes is YOURS in the same pass — any project file, both seam ends, ' +
     'consumer sites, index docs. Landed sibling work is composed as found; a conflict resolves to the stronger form, never a revert.';
 
+const LAWS_READ =
+    'LAWS — read `docs/laws/` before any durable edit (README + topology + patterns + scars; short registry pages): a ' +
+    'topology row whose [SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row ' +
+    'binds each branch it names.';
+
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this target — a collapse pattern reusable ' +
+    'across folders, a naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE review, a ' +
+    'cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, ' +
+    'claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact doctrine or reviewer clause ' +
+    'it would harden, quoted with its path — or "absent" plus the surfaces searched). A target-local fix never nominates; an empty ' +
+    'array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
+
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
 if (!TARGETS.length) {
@@ -669,6 +726,7 @@ phase('Admit');
 phase('Catalog');
 phase('Map');
 phase('Integrate');
+phase('Doctrine');
 
 const lane = async (t) => {
     const L = LANG[langOf(t)];
@@ -798,6 +856,8 @@ const lane = async (t) => {
         ADMISSION_GATE,
         ADDITION_LAW,
         WRITE_LAW,
+        LAWS_READ,
+        HARVEST_LAW,
         "TASK: ADMISSION WRITER — you are the run's only central-manifest writer while you hold the serial window. The research " +
             'products are ON DISK, one report file per facet (ROSTER below; consume only lanes with ok=true). CONSUMPTION: (a) ' +
             'UNRESEARCHED facets below got no research coverage — they admit nothing this run; never back-fill them from memory; ' +
@@ -848,6 +908,7 @@ const lane = async (t) => {
             MEMBER_TRUTH(L),
             CATALOG_LAW(L),
             WRITE_LAW,
+            LAWS_READ,
             'TASK: AUTHOR the full-depth .api catalog for each of these admitted packages, at the exact `catalog` path each carries: ' +
                 JSON.stringify(batch) +
                 '. Read the sibling catalogs at the owning tier first for the house convention, then write each ' +
@@ -927,6 +988,8 @@ const lane = async (t) => {
         CTX(t, L),
         MEMBER_TRUTH(L),
         WRITE_LAW,
+        LAWS_READ,
+        HARVEST_LAW,
         "TASK: INTEGRATION EXECUTOR (WRITER — you are the run's LAST agent for this target; nothing follows you; full write " +
             'authority over the folder, its index docs, and any file a ripple exposes). Read the ' +
             L.stack +
@@ -970,6 +1033,7 @@ const lane = async (t) => {
             .map((r) => r.lane),
         built: (fix && fix.built && fix.built.length) || 0,
         beyond: (fix && fix.beyond && fix.beyond.length) || 0,
+        harvest: ((admit && admit.harvest) || []).concat((fix && fix.harvest) || []),
         summary: (fix && fix.summary) || (fix ? '' : 'integrate agent died twice'),
     };
 };
@@ -985,4 +1049,39 @@ const lanes = (
     )
 ).filter(Boolean);
 
-return { targets: TARGETS, lanes };
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live
+// doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Fires only on non-empty rows.
+const HARVEST_ROWS = lanes.flatMap((l) => (l && l.harvest) || []);
+const doctrine = HARVEST_ROWS.length
+    ? await slot(() =>
+          agent(
+              'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
+                  '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
+                  'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+                  'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+                  '`mermaid-diagramming` before touching any diagram. ' +
+                  "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+                  JSON.stringify(HARVEST_ROWS) +
+                  '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+                  'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+                  'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+                  'whose coupling no longer holds, land a coupling this run proved.\n' +
+                  'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+                  'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+              { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          ),
+      )
+    : null;
+
+return {
+    targets: TARGETS,
+    lanes,
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
+    },
+};

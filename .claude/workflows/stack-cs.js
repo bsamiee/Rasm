@@ -2,7 +2,7 @@ export const meta = {
     name: 'stack-cs',
     whenToUse: 'Harden the docs/stacks/csharp code doctrine in place to the dense per-file bar.',
     description:
-        "Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep; nothing follows it. Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.",
+        "Focused full HARDENING of the docs/stacks/csharp code doctrine — every core page AND every domain/ shard, improved in place to the same 13/10, ultra-dense, page-craft-conformant bar the python doctrine holds. The csharp set is the historical FLOOR/reference; this pass pulls it UP to that rigor: page-craft grammar (narrow index table -> deep family cards -> one agnostic snippet per region, zero duplicated demonstrations), the ~450 soft LOC density signal, extreme ADT collapse ([Union]/[SmartEnum<TKey>]/[ValueObject<T>]/[ComplexValueObject] + source-generated case families), two-weave AOP (definition-time source-gen aspects + composition-time effect transformers), LanguageExt Fin/Validation/Option/Eff rails, full parameterization/polymorphism, C# 14 on net10 to the metal. Carries the bounded interface/graph/mapping LAW extension (cross-stratum seam, graph-as-closed-family, generated mapping/equality aspects, QuikGraph/Riok.Mapperly/Generator.Equals as admitted core substrate) hardened into existing owners, plus a default-off gated new-core-page valve; restructure-free at heart — a hostile per-file harden. Inventory rules the ordered file set and the Gate rules the page roster BEFORE per-file work — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/csharp, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/csharp page). Snippets agnostic (neutral names, no project anchor); every host/NuGet member verified via assay api with the .api-catalog/nuget-MCP/Context7/exa fallback; every edit scoped to docs/stacks/csharp (NEVER edit a python/typescript file). Takes no args.",
     phases: [
         {
             title: 'Inventory',
@@ -18,7 +18,11 @@ export const meta = {
         },
         {
             title: 'Corpus',
-            detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold — nothing follows it',
+            detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
+        },
+        {
+            title: 'Doctrine',
+            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/csharp); refutation-first, land-nothing legal',
         },
     ],
 };
@@ -48,16 +52,55 @@ const INVENTORY_SCHEMA = {
         },
     },
 };
+// Altitude is RESTRICTED to surfaces this run does NOT author: the run owns docs/stacks/csharp, so a stacks nomination is already landed.
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['reviewer', 'constitution', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+    },
+};
+
 const FIXLOG_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['file', 'verdict', 'summary', 'collapsed', 'extended', 'regions', 'residual_high'],
+    required: ['file', 'verdict', 'summary', 'collapsed', 'extended', 'regions', 'harvest', 'residual_high'],
     properties: {
         file: { type: 'string' },
         verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] },
         collapsed: { type: 'string' },
         extended: { type: 'string' },
         regions: { type: 'array', items: { type: 'string' } },
+        harvest: HARVEST,
         residual_high: {
             type: 'array',
             items: {
@@ -108,7 +151,7 @@ const SEED_SCHEMA = {
 const CORPUS_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'resolved', 'beyond', 'rejected', 'summary'],
+    required: ['files', 'resolved', 'beyond', 'rejected', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         resolved: {
@@ -138,6 +181,7 @@ const CORPUS_SCHEMA = {
                 properties: { claim: { type: 'string' }, reason: { type: 'string' } },
             },
         },
+        harvest: HARVEST,
         summary: { type: 'string' },
     },
 };
@@ -150,6 +194,9 @@ const LAW = [
         'owns routing + the 17 named laws + the COLLAPSE_SCAN + page-craft; the domain/ README is a one-table router whose shards compose the core ' +
         'laws and never re-open them; each concept page owns ONE disjoint layer and states doctrine as fact. READ docs/stacks/csharp/README.md (its ' +
         '[DOCTRINE]/[COLLAPSE_SCAN]/[PAGE_CRAFT]/[CORPUS_LAW] sections) and the domain/README.md router and hold them as law.',
+    'LAWS — read `docs/laws/` before any durable edit (README + topology + patterns + scars; short registry pages): a topology row whose ' +
+        '[SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row binds each branch it names ' +
+        '(the python/csharp parity coupling is a patterns concern).',
     'PARITY BAR: the PYTHON doctrine docs/stacks/python/ is the peer-rigor reference — this csharp set is pulled UP to match its page-craft, ~450 ' +
         'soft LOC density signal, extreme ADT/AOP/parameterization, and zero-duplicated-demonstration corpus law. READ docs/stacks/python/ read-only ' +
         'as the rigor benchmark; carry the SHARED density laws into C# idiom, never a Python spelling. The csharp doctrine is its own language: C# 14 ' +
@@ -403,6 +450,15 @@ const CURRENT_STATE =
     'You EDIT ONLY your own file while pipelines run — the anti-collision rule; a genuinely cross-file defect is a residual_high the terminal ' +
     'corpus agent resolves in this same run, never a sibling edit.';
 
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): this run AUTHORS the docs/stacks/csharp corpus, so a stacks-altitude lesson is already owned by ' +
+    'the run and is NEVER nominated. Nominate ONLY a lesson that lands at an altitude this run does NOT own — reviewer (a diff-checkable ' +
+    'review rule that would have caught a defect BEFORE review), constitution (a most-sessions CLAUDE.md/AGENTS.md behavioral fact), or laws ' +
+    '(a cross-surface coupling or cross-branch pattern discovered the hard way). Each row: altitude (reviewer|constitution|laws), lang, claim ' +
+    '(the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
+    'harden, quoted with its path — or "absent" plus the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
+    'verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
+
 const DOCTRINE = [
     LAW,
     '',
@@ -467,6 +523,8 @@ const authorPrompt = (page) =>
     [
         DOCTRINE,
         '',
+        HARVEST_LAW,
+        '',
         'TASK: HOSTILE HARDEN of ' +
             page +
             ' to the ULTRA-DENSE C# doctrine bar; you own THIS file alone ' +
@@ -490,6 +548,8 @@ const critiquePrompt = (page) =>
         DOCTRINE,
         '',
         CURRENT_STATE,
+        '',
+        HARVEST_LAW,
         '',
         'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' +
             page +
@@ -521,6 +581,8 @@ const redteamPrompt = (page) =>
         '',
         CURRENT_STATE,
         '',
+        HARVEST_LAW,
+        '',
         'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' +
             page +
             ' — the LAST and MOST AGGRESSIVE per-file stage; red-team is critique AND ' +
@@ -548,9 +610,12 @@ const corpusPrompt = (ordered, residuals, failed) =>
     [
         DOCTRINE,
         '',
+        HARVEST_LAW,
+        '',
         'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1),
         '',
-        'TASK: TERMINAL CORPUS SWEEP (WRITER — you are the run`s LAST agent, nothing follows you; the per-file pipelines are done and every page is on ' +
+        'TASK: TERMINAL CORPUS SWEEP (WRITER — no agent edits a docs/stacks/csharp page after you; the per-file pipelines are ' +
+            'done and every page is on ' +
             'CURRENT disk). Read the README first, then every atlas page IN FULL in order; WRITE every fix in place via Edit/Write across ANY page under ' +
             ROOT +
             '/ — a finding is a fix, never a note. The sweep owns FIVE mandates at once:',
@@ -748,6 +813,32 @@ const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED), {
     schema: CORPUS_SCHEMA,
     stallMs: STALL,
 });
+
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest from every per-file stage + the corpus sweep,
+// RESTRICTED to reviewer/laws/constitution (this run owns docs/stacks/csharp); refutation-first, land-nothing legal.
+phase('Doctrine');
+const HARVEST_ROWS = results.flatMap((r) => (r.logs || []).flatMap((l) => (l && l.harvest) || [])).concat((corpus && corpus.harvest) || []);
+const doctrine = HARVEST_ROWS.length
+    ? await agent(
+          'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
+              '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
+              'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+              'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+              '`mermaid-diagramming` before touching any diagram. This run AUTHORED the docs/stacks/csharp corpus — adjudicate ' +
+              'ONLY reviewer/laws/constitution nominations and NEVER edit a docs/stacks/csharp page; a stacks-altitude nomination ' +
+              'is already owned by the run and is rejected. ' +
+              "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+              JSON.stringify(HARVEST_ROWS) +
+              '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+              'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+              'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+              'whose coupling no longer holds, land a coupling this run proved.\n' +
+              'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+              'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+      )
+    : null;
+
 return {
     workflow: 'stack-cs',
     root: ROOT,
@@ -762,5 +853,13 @@ return {
         beyond: (corpus.beyond || []).length,
         rejected: (corpus.rejected || []).length,
         summary: corpus.summary,
+    },
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
     },
 };

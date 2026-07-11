@@ -2,7 +2,7 @@ export const meta = {
     name: 'stack-py',
     whenToUse: 'Harden the docs/stacks/python code doctrine in place across the whole settled corpus.',
     description:
-        "Full-stack hardening of the docs/stacks/python CODE DOCTRINE — the standing python-stack harden engine (peer to stack-cs and stack-ts), run whenever to push the whole settled corpus (the core concept pages plus any sub-folder shard set present on disk) to the 13/10 ultra-dense bar. NOT a from-scratch build and NOT a restructure: the file set is settled and admits no new-page valve here — a structure decision routes through a rebuild campaign, never this harden (hence no Gate phase). Each FILE runs its own initial -> critique -> redteam pipeline; ALL files run concurrently under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Every stage is HOSTILE: the page is naive/shallow/illusory until it survives an aggressive attack, the burden of proof on the page. CRITIQUE is the mechanical line-by-line doctrinal-conformance audit (COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, AOP, rails, py3.15/payloads, citation tier, agnostic snippet law, page-craft, altitude, zero-meta, capability-completeness) fixed in place; REDTEAM is critique AND MORE — counterfactual on the core teaching shape, anticipatory-collapse of the next case, corpus-wide duplication, AOP + shape-budget maximization, substrate-depth + phantoms, plus a full cold adversarial re-review. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep; nothing follows it. The csharp doc set is the read-only FLOOR/reference; snippets agnostic; every cited member verified against the .api catalogs (novel members via assay api with its Context7/exa fallback); every edit scoped to docs/stacks/python. Takes no args.",
+        "Full-stack hardening of the docs/stacks/python CODE DOCTRINE — the standing python-stack harden engine (peer to stack-cs and stack-ts), run whenever to push the whole settled corpus (the core concept pages plus any sub-folder shard set present on disk) to the 13/10 ultra-dense bar. NOT a from-scratch build and NOT a restructure: the file set is settled and admits no new-page valve here — a structure decision routes through a rebuild campaign, never this harden (hence no Gate phase). Each FILE runs its own initial -> critique -> redteam pipeline; ALL files run concurrently under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Every stage is HOSTILE: the page is naive/shallow/illusory until it survives an aggressive attack, the burden of proof on the page. CRITIQUE is the mechanical line-by-line doctrinal-conformance audit (COLLAPSE_SCAN, OWNER_CHOOSER, KNOB_TEST, AOP, rails, py3.15/payloads, citation tier, agnostic snippet law, page-craft, altitude, zero-meta, capability-completeness) fixed in place; REDTEAM is critique AND MORE — counterfactual on the core teaching shape, anticipatory-collapse of the next case, corpus-wide duplication, AOP + shape-budget maximization, substrate-depth + phantoms, plus a full cold adversarial re-review. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep. Every per-file stage and the corpus sweep carry a required-but-usually-empty harvest attestation RESTRICTED to reviewer/laws/constitution altitudes (the run authors docs/stacks/python, so a stacks lesson is already owned and never nominated); when the pooled nominations are non-empty, ONE terminal fable doctrine lander adjudicates them against docs/laws (refutation-first, land-nothing legal, never re-editing a docs/stacks/python page). The csharp doc set is the read-only FLOOR/reference; snippets agnostic; every cited member verified against the .api catalogs (novel members via assay api with its Context7/exa fallback); every edit scoped to docs/stacks/python. Takes no args.",
     phases: [
         {
             title: 'Inventory',
@@ -14,7 +14,11 @@ export const meta = {
         },
         {
             title: 'Corpus',
-            detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold — nothing follows it',
+            detail: 'ONE terminal fable agent: align seams, close gaps, computation-law bodies, resolve every reported residual, finalize cold',
+        },
+        {
+            title: 'Doctrine',
+            detail: 'terminal doctrine lander (fable), fires only on non-empty pooled harvest RESTRICTED to reviewer/laws/constitution (the run owns docs/stacks/python); refutation-first, land-nothing legal',
         },
     ],
 };
@@ -44,16 +48,55 @@ const INVENTORY_SCHEMA = {
         },
     },
 };
+// Altitude is RESTRICTED to surfaces this run does NOT author: the run owns docs/stacks/python, so a stacks nomination is already landed.
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['reviewer', 'constitution', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+    },
+};
+
 const FIXLOG_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['file', 'verdict', 'summary', 'collapsed', 'extended', 'regions', 'residual_high'],
+    required: ['file', 'verdict', 'summary', 'collapsed', 'extended', 'regions', 'harvest', 'residual_high'],
     properties: {
         file: { type: 'string' },
         verdict: { type: 'string', enum: ['rebuilt', 'refined', 'clean'] },
         collapsed: { type: 'string' },
         extended: { type: 'string' },
         regions: { type: 'array', items: { type: 'string' } },
+        harvest: HARVEST,
         residual_high: {
             type: 'array',
             items: {
@@ -71,7 +114,7 @@ const FIXLOG_SCHEMA = {
 const CORPUS_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'resolved', 'beyond', 'rejected', 'summary'],
+    required: ['files', 'resolved', 'beyond', 'rejected', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         resolved: {
@@ -101,6 +144,7 @@ const CORPUS_SCHEMA = {
                 properties: { claim: { type: 'string' }, reason: { type: 'string' } },
             },
         },
+        harvest: HARVEST,
         summary: { type: 'string' },
     },
 };
@@ -114,6 +158,9 @@ const LAW = [
         'COLLAPSE_SCAN + page-craft; a sub-folder README, where one exists on disk, is a one-table router whose shards compose the core laws and never ' +
         're-open them; each concept page owns ONE disjoint layer and states doctrine as fact. READ docs/stacks/python/README.md sections [02]-[DOCTRINE], ' +
         '[03]-[COLLAPSE_SCAN], [05]-[PAGE_CRAFT], [06]-[CORPUS_LAW] + any sub-folder routers on disk and hold them as law.',
+    'LAWS — read `docs/laws/` before any durable edit (README + topology + patterns + scars; short registry pages): a topology row whose ' +
+        '[SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row binds each branch it names ' +
+        '(the python/csharp parity coupling is a patterns concern).',
     'QUALITY BAR: the PYTHON stack is the highest-rigor stack in the repo; docs/stacks/csharp/ (the README + shapes + surfaces-and-dispatch + the ' +
         'domain/ shards) is the read-only FLOOR/reference — NEVER edit a csharp file. Mirror its DENSITY — SHAPE_BUDGET, DEEP_SURFACES, MODAL_ARITY, ' +
         'ANTICIPATORY_COLLAPSE (one owner ready to replace 10+ loose things), POLICY_VALUES, OWNER_CHOOSER — in pure-Python idiom and push PAST it to ' +
@@ -331,6 +378,15 @@ const CURRENT_STATE =
     'You EDIT ONLY your own file while pipelines run — the anti-collision rule; a genuinely cross-file defect is a residual_high the terminal ' +
     'corpus agent resolves in this same run, never a sibling edit.';
 
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): this run AUTHORS the docs/stacks/python corpus, so a stacks-altitude lesson is already owned by ' +
+    'the run and is NEVER nominated. Nominate ONLY a lesson that lands at an altitude this run does NOT own — reviewer (a diff-checkable ' +
+    'review rule that would have caught a defect BEFORE review), constitution (a most-sessions CLAUDE.md/AGENTS.md behavioral fact), or laws ' +
+    '(a cross-surface coupling or cross-branch pattern discovered the hard way). Each row: altitude (reviewer|constitution|laws), lang, claim ' +
+    '(the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact reviewer/laws/constitution clause it would ' +
+    'harden, quoted with its path — or "absent" plus the surfaces searched). A page-local fix never nominates; an empty array is the normal ' +
+    'verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
+
 const DOCTRINE = [
     LAW,
     '',
@@ -393,6 +449,8 @@ const authorPrompt = (page) =>
     [
         DOCTRINE,
         '',
+        HARVEST_LAW,
+        '',
         'TASK: HOSTILE HARDEN of ' +
             page +
             ' to the ULTRA-DENSE Python doctrine bar; you own THIS file alone ' +
@@ -419,6 +477,8 @@ const critiquePrompt = (page) =>
         DOCTRINE,
         '',
         CURRENT_STATE,
+        '',
+        HARVEST_LAW,
         '',
         'TASK: HOSTILE DOCTRINAL-CONFORMANCE AUDIT + FIX IN PLACE of ' +
             page +
@@ -473,6 +533,8 @@ const redteamPrompt = (page) =>
         '',
         CURRENT_STATE,
         '',
+        HARVEST_LAW,
+        '',
         'TASK: ADVERSARIAL ARCHITECT RED-TEAM + FIX IN PLACE of ' +
             page +
             '. You are the LAST and MOST AGGRESSIVE per-file stage: assume the author ' +
@@ -508,9 +570,11 @@ const corpusPrompt = (ordered, residuals, failed) =>
     [
         DOCTRINE,
         '',
+        HARVEST_LAW,
+        '',
         'THE SETTLED ATLAS (order):\n' + JSON.stringify(ordered, null, 1),
         '',
-        'TASK: TERMINAL CORPUS SWEEP (WRITER — you are the run`s LAST agent, nothing follows you; the per-file pipelines are done and every page is on ' +
+        'TASK: TERMINAL CORPUS SWEEP (WRITER — no agent edits a docs/stacks/python page after you; the per-file pipelines are done and every page is on ' +
             'CURRENT disk). Read the README first, then every atlas page IN FULL in order; WRITE every fix in place via Edit/Write across ANY page under ' +
             ROOT +
             '/ — a finding is a fix, never a note. The sweep owns FIVE mandates at once:',
@@ -634,6 +698,31 @@ const corpus = await agent(corpusPrompt(ordered, RESIDUALS, FAILED), {
     stallMs: STALL,
 });
 
+// DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest from every per-file stage + the corpus sweep,
+// RESTRICTED to reviewer/laws/constitution (this run owns docs/stacks/python); refutation-first, land-nothing legal.
+phase('Doctrine');
+const HARVEST_ROWS = results.flatMap((r) => (r.logs || []).flatMap((l) => (l && l.harvest) || [])).concat((corpus && corpus.harvest) || []);
+const doctrine = HARVEST_ROWS.length
+    ? await agent(
+          'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
+              '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
+              'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+              'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
+              '`mermaid-diagramming` before touching any diagram. This run AUTHORED the docs/stacks/python corpus — adjudicate ' +
+              'ONLY reviewer/laws/constitution nominations and NEVER edit a docs/stacks/python page; a stacks-altitude nomination ' +
+              'is already owned by the run and is rejected. ' +
+              "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+              JSON.stringify(HARVEST_ROWS) +
+              '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+              'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
+              'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+              'whose coupling no longer holds, land a coupling this run proved.\n' +
+              'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+              'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+          { label: 'doctrine', phase: 'Doctrine', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+      )
+    : null;
+
 return {
     workflow: 'stack-py',
     root: ROOT,
@@ -647,5 +736,13 @@ return {
         beyond: (corpus.beyond || []).length,
         rejected: (corpus.rejected || []).length,
         summary: corpus.summary,
+    },
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
     },
 };
