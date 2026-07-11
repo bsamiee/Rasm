@@ -3,16 +3,16 @@ export const meta = {
     whenToUse:
         'Realize open IDEAS and TASKLOG cards into design-page code fences across the C# target folders (default: AppHost, Compute, AppUi, Persistence).',
     description:
-        "Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp bar, repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified catalog members, seam targets) and never verdicts; it runs read-only on gpt-5.5 dispatched through a sonnet codex wrapper (CODEX flag; false restores the native inherit-model lane), writes its COMPLETE product as one on-disk report the folder's implement/critique/redteam stages read IN FULL from disk, and returns a thin receipt plus the jq-extracted structural skeleton (order, card rows with verified pages, ripple classes, gates) the orchestrator's no-op/fan/ripple control flow runs on; when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope C# counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central Directory.Packages.props pin and the package ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal sonnet writer applies them serially. C#-only. args = a target path string, an array of target paths, or empty for the four defaults.",
+        "Realize every open IDEAS/TASKLOG card across the C# target set (default: Rasm.AppHost, Rasm.Compute, Rasm.AppUi, Rasm.Persistence; any libs/csharp package via args) into deep design-page code FENCES at the docs/stacks/csharp bar, repair every ripple in-pass, and truthfully close the cards. Each target folder runs its OWN discover -> implement -> critique -> redteam chain, ALL chains concurrent under one pooled cap: a folder starts the moment its own discovery lands, a folder with no open cards no-ops after its own discovery, and a failed chain isolates without rejecting the pool. Discovery hands downstream stages navigation FACTS (paths, verified catalog members, seam targets) and never verdicts; it runs read-only on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores the native inherit-model lane), writes its COMPLETE product as one on-disk report the folder's implement/critique/redteam stages read IN FULL from disk, and returns a thin receipt plus the jq-extracted structural skeleton (order, card rows with verified pages, ripple classes, gates) the orchestrator's no-op/fan/ripple control flow runs on; when the skeleton proves page-disjoint card groups, the implement stage fans over them. Every stage WRITES and repairs the page-level ripples its own work exposes in the same pass — in-scope seams aligned against current disk, 1-hop out-of-scope C# counterpart fences realized directly — with BLOCKED probes and folder-local package admission inline. The redteam is each folder chain's terminal stage and sole card-status owner: it final-remediates weak realizations in place and closes only cards whose realization it verified strong on disk. Two handoffs route to the run's terminal single-writer, the central Directory.Packages.props pin and the package ARCHITECTURE.md [02]-[SEAMS] row: folder agents report exact rows, one terminal opus writer applies them serially. C#-only. args = a target path string, an array of target paths, or empty for the four defaults.",
     phases: [
         {
             title: 'Realize',
-            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.5 via codex wrapper, read-only; navigation-facts product to disk, thin receipt + structural skeleton on the wire) -> implement(high; reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(high) -> redteam(high, terminal close); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
+            detail: 'all folder chains concurrent under one pooled cap: discover(gpt-5.6-terra via codex wrapper, read-only; navigation-facts product to disk, thin receipt + structural skeleton on the wire) -> implement(fable; reads the discovery report from disk, fans over discovery-proven page-disjoint card groups) -> critique(ONE gpt-5.6-sol codex lane, workspace-write; fixlog to disk, receipt on the wire) -> redteam(fable, terminal close; reads the critique fixlog from disk as refutation targets and folds its surviving ripples/pins/seams/deferred rows into its own return); a folder with no open cards no-ops after its own discovery; every writing stage re-reads current disk, repairs page-level ripples in-pass, and reports central pin rows + ARCHITECTURE.md [02]-[SEAMS] rows for the terminal single-writer instead of editing those surfaces',
         },
         {
             title: 'Pins',
-            detail: 'one terminal single-writer applies every reported central Directory.Packages.props pin row at the symbol anchor and every reported ARCHITECTURE.md [02]-[SEAMS] row serially; runs only when rows were reported',
-            model: 'sonnet',
+            detail: 'one terminal single-writer applies every reported central Directory.Packages.props pin row at the symbol anchor and every reported ARCHITECTURE.md [02]-[SEAMS] row serially, and drains the pins/seams rows of any orphaned critique fixlog (a folder whose redteam died); runs only when rows or orphans exist',
+            model: 'opus',
         },
     ],
 };
@@ -23,12 +23,14 @@ const CAP = 14; // concurrent folder-CHAIN ceiling — the default target sets r
 const IMPL_FAN = 3; // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
 const STAGGER_MS = 1500;
 const STALL = 300000;
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const ROOT = 'libs/csharp';
 const SHARED_API = 'libs/csharp/.api';
 const CENTRAL = 'Directory.Packages.props';
 const DEFAULT_TARGETS = ['libs/csharp/Rasm.AppHost', 'libs/csharp/Rasm.Compute', 'libs/csharp/Rasm.AppUi', 'libs/csharp/Rasm.Persistence'];
 const CODEX = true;
-const CODEX_DIR = '.claude/scratch/implement-cs'; // wrapper task/schema/report files, one triple per lane
+const CODEX_DIR = '.claude/scratch/implement-cs'; // per-lane MCP reports
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -213,6 +215,20 @@ const RECEIPT = {
     },
 };
 
+// Thin wire receipt for the sol critique lane: its FIXLOG product stays on disk at `report`.
+const LANE_RECEIPT = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['ok', 'report', 'entries', 'headline', 'failure'],
+    properties: {
+        ok: { type: 'boolean' },
+        report: { type: 'string' },
+        entries: { type: 'integer' },
+        headline: { type: 'string' },
+        failure: { type: 'string' },
+    },
+};
+
 // Required-but-possibly-empty `ripples`/`pins`/`seams` are attestations: ripple repair ran in-pass,
 // and pin + seam rows are the run's only single-writer handoffs — empty attests none arose, never a skip.
 const RIPPLES = {
@@ -366,7 +382,8 @@ const LAW = [
         'card charter (Capability/Shape/Unlocks/Anchors), mining every admitted package to full capability and crushing surface sprawl into fewer ' +
         'richer owners with zero functionality loss.',
     'WRITE-FULLY + FIX-IT-NOW: every fix you identify you MUST make NOW via Edit/Write directly in the file — the structured fix-log you return is a ' +
-        'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge. A cross-file ripple your edit exposes is YOURS in the ' +
+        'REPORT of edits ALREADY MADE, never a to-do list, a ledger, or a would/should-fix hedge. The writing is YOURS: never delegate authoring to ' +
+        'another agent — a delegate may only fetch information. A cross-file ripple your edit exposes is YOURS in the ' +
         'same pass, wherever it lives: the seam counterpart on both ends, the consumer site, the stale sibling page, the 1-hop counterpart card fence ' +
         'in another libs/csharp package — repaired now and recorded in `ripples` (an empty `ripples` attests your pass exposed none, never that repair ' +
         "was skipped). TWO handoffs route to the run's terminal single-writer and are NEVER edited by a folder agent: the central `" +
@@ -575,115 +592,106 @@ const pool = async (items, cap, worker) => {
     return out;
 };
 
-// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns a thin RECEIPT plus the jq-extracted structural
-// skeleton — the product stays on disk for the folder's stages. It never does, edits, judges, or relays the work.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const codexPrompt = (label, task, schema, writes) => {
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+          '</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+const codexPrompt = (label, task, schema, o) => {
     const base = CODEX_DIR + '/' + fileTag(label);
-    const rpt = fileTag(label) + '-report.json'; // unique per lane; pgrep matches the -o path on the codex cmdline
-    const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1); // self-excluding pgrep/pkill pattern
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
+    const model = o.model || 'gpt-5.6-terra';
     return [
-        'DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
-            'RECEIPT plus a jq-extracted structural skeleton for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
-        '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' +
-            CODEX_DIR +
-            "; purge stale lane artifacts (a leftover report would READY instantly with last run's data): rm -f " +
-            base +
-            '-report.json ' +
-            base +
-            '-stderr.log; Write the TASK block below verbatim to ' +
-            base +
-            '-task.md; Write this JSON ' +
-            'Schema exactly to ' +
-            base +
-            '-schema.json — both paths resolved ABSOLUTE under the repository root: ' +
-            JSON.stringify(schema),
-        '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' +
-            base +
-            '-task.md && test -s ' +
-            base +
-            '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never ' +
-            'retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, ' +
-            'zero-CPU, no report): ' +
-            'codex exec -s ' +
-            (writes ? 'workspace-write' : 'read-only') +
-            ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
-            '--output-schema ' +
-            base +
-            '-schema.json -o ' +
-            base +
-            '-report.json "Do the task in ' +
-            base +
-            '-task.md ' +
-            'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' +
-            base +
-            '-stderr.log &',
-        '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
-            'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
-            'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' +
-            base +
-            '-report.json ] && break; ' +
-            'pgrep -f "' +
-            rptPat +
-            '" >/dev/null || break; sleep 20; done; if [ -s ' +
-            base +
-            '-report.json ]; then echo ' +
-            'READY; elif pgrep -f "' +
-            rptPat +
-            '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-            'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 4th RUNNING ' +
-            'poll (~20 min wall) the run is WEDGED, not slow — kill it (pkill -f "' +
-            rptPat +
-            '") and go to (4) as GONE. ' +
-            'Cap at 7 poll calls total.',
-        '(4) READY: do NOT relay the report body through your output — build the MECHANICAL receipt with jq (never your own ' +
-            "judgment): cards=$(jq '(.tasks | length) + (.ideas | length)' " +
-            base +
-            '-report.json); parts=$(jq -r \'"\\(.tasks|length)t+\\(.ideas|length)i cards | ripples:\\(.ripples|length) | gates:\\(.gates|length) | map:\\(.map|length)"\' ' +
-            base +
-            "-report.json); skeleton=$(jq '{folder, order, tasks: [.tasks[] | {slug, status, atomic, pages}], ideas: [.ideas[] | {slug, status, pages}], ripples, gates, malformed_ripples}' " +
-            base +
-            '-report.json). ' +
-            'Return: ok=true, report=' +
-            base +
-            "-report.json, entries=that cards count, headline=that parts string, failure empty, and every skeleton field copied VERBATIM from the jq output — a mechanical transcription (the orchestrator's no-op/fan/ripple control flow runs on these rows), never retyped, filtered, reworded, or summarized. " +
-            'GONE with no report: tail -5 ' +
-            base +
-            '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
-            'foreground) and resume polling; a second GONE returns ok=false, entries=0, report, headline, and folder empty, every skeleton array empty, failure=the stderr tail in one line.',
-        'TASK — write verbatim to the task file, then dispatch:',
-        task,
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox=' +
+            (o.writes ? '"workspace-write"' : '"read-only"') +
+            ', cwd=' +
+            JSON.stringify(root) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+            report +
+            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        o.receipt(base),
     ].join('\n\n');
 };
-
-// The discovery lane routes here: gpt-5.5 wrapper when CODEX, the native inherit-model lane otherwise.
-// The row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
-// territory is exact even when the lane died before writing anything; downstream filters on `ok`.
-const recon = (task, o) =>
-    (CODEX
-        ? agent(codexPrompt(o.label, task, DISCOVERY, !!o.writes), {
-              label: 'gpt-5.5:' + o.label,
-              phase: o.phase,
-              model: 'sonnet',
-              effort: 'low',
-              schema: RECEIPT,
-              stallMs: STALL,
-          })
-        : agent(
-              task +
-                  '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-                  CODEX_DIR +
-                  '/' +
-                  fileTag(o.label) +
-                  '-report.json (Write tool, absolute path under the repo root): ' +
-                  JSON.stringify(DISCOVERY) +
-                  ' — then return ONLY the receipt + skeleton: ok, report path, entries = open card count, one-line ' +
-                  'mechanical headline, failure empty, and folder/order/tasks/ideas/ripples/gates/malformed_ripples transcribed from the ' +
-                  'product (task rows reduced to slug/status/atomic/pages, idea rows to slug/status/pages — theses, map, and coverage stay on disk).',
-              { label: o.label, phase: o.phase, effort: 'high', schema: RECEIPT, stallMs: STALL },
-          )
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(task + o.nativeTail(CODEX_DIR + '/' + fileTag(o.label) + '-report.json'), {
+        label: o.label,
+        phase: o.phase,
+        model: o.nativeModel || twinOf(o.model),
+        effort: 'high',
+        schema: o.wire,
+        stallMs: o.stallMs || STALL,
+    });
+// The discovery lane routes here: gpt-5.6-terra wrapper when CODEX (a read-only mapping lane — recon law,
+// never fix), the native twin otherwise. The row carries `scope` from the ORCHESTRATOR (never the lane's
+// self-report) so a failed lane's territory is exact even when the lane died before writing anything.
+const discoveryReceipt = (base) =>
+    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+    base +
+    '-report.json, entries=(tasks.length + ideas.length), headline="<entries> cards | <tasks.length>t+<ideas.length>i | ' +
+    'ripples:<ripples.length> | gates:<gates.length> | map:<map.length>", failure empty, and copy folder, order, ' +
+    'tasks[{slug,status,atomic,pages}], ideas[{slug,status,pages}], ripples, gates, and malformed_ripples verbatim from the result. On ' +
+    'a second tool error return ok=false, entries=0, report, headline, and folder empty, every structural array empty, and failure ' +
+    'equal to the error text VERBATIM.';
+const discoveryTail = (report) =>
+    '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+    report +
+    ' (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(DISCOVERY) +
+    ' — then return ONLY the receipt + skeleton: ok, report path, entries = open card count, one-line ' +
+    'mechanical headline, failure empty, and folder/order/tasks/ideas/ripples/gates/malformed_ripples transcribed from the ' +
+    'product (task rows reduced to slug/status/atomic/pages, idea rows to slug/status/pages — theses, map, and coverage stay on disk).';
+const recon = (task, o) => {
+    const opts = { ...o, writes: !!o.writes, receipt: discoveryReceipt, nativeTail: discoveryTail, wire: RECEIPT };
+    return (
+        CODEX
+            ? agent(codexPrompt(o.label, task, DISCOVERY, opts), {
+                  label: 'terra:' + o.label,
+                  phase: o.phase,
+                  model: 'sonnet',
+                  effort: 'low',
+                  schema: RECEIPT,
+                  stallMs: o.stallMs || CODEX_STALL,
+              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+            : nativeLane(task, opts)
     ).then((r) => ({
         scope: o.scope || [],
         ok: !!(r && r.ok && r.report),
@@ -699,7 +707,46 @@ const recon = (task, o) =>
         gates: (r && r.gates) || [],
         malformed_ripples: (r && r.malformed_ripples) || [],
     }));
+};
 const folderName = (p) => p.split('/').filter(Boolean).pop() || p;
+
+// Sol critique lane: one blocking Codex MCP call at the operator-default tier in a workspace-write sandbox — a FIX lane
+// (persistence + post-edit verification law), FIXLOG product to disk, thin receipt on the wire; CODEX=false (or a quota
+// fallback) restores the native fable twin writing the same product to the same path.
+const critiqueReceipt = (base) =>
+    '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+    base +
+    '-report.json, entries=the length of result["realized"], headline="<entries> realized | verdict <verdict>", and failure ' +
+    'empty. On a second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.';
+const critiqueTail = (report) =>
+    '\n\nPRODUCT TO DISK: write your COMPLETE fix-log as one JSON file matching this schema at ' +
+    report +
+    ' (Write tool, absolute path under the repo root): ' +
+    JSON.stringify(FIXLOG_SCHEMA) +
+    ' — then return ONLY the receipt: ok, report path, entries = realized count, one-line mechanical headline, failure empty.';
+const solLane = (task, o) => {
+    const opts = { ...o, model: 'gpt-5.6-sol', writes: true, fix: true, receipt: critiqueReceipt, nativeTail: critiqueTail, wire: LANE_RECEIPT };
+    return (
+        CODEX
+            ? agent(codexPrompt(o.label, task, FIXLOG_SCHEMA, opts), {
+                  label: 'sol:' + o.label,
+                  phase: o.phase,
+                  model: 'sonnet',
+                  effort: 'low',
+                  schema: LANE_RECEIPT,
+                  stallMs: SOL_STALL,
+              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, opts) : r))
+            : nativeLane(task, opts)
+    )
+        .then((r) => ({
+            ok: !!(r && r.ok && r.report),
+            report: (r && r.report) || '',
+            entries: (r && r.entries) || 0,
+            headline: (r && r.headline) || '',
+            failure: (r && r.failure) || (r ? '' : 'lane died'),
+        }))
+        .catch(() => ({ ok: false, report: '', entries: 0, headline: '', failure: 'lane died' }));
+};
 
 // Page-disjointness is PROVEN, never assumed: every ordered card must carry >=1 verified page,
 // gate pairs merge, and components pack heaviest-first into <= IMPL_FAN buckets without splitting.
@@ -803,7 +850,9 @@ const discoverPrompt = (folder) =>
             'to_pkg, to_slug}: klass=`in_scope` if to_pkg is one of the session targets, `oos_csharp` if it is another libs/csharp package, `cross_lang` ' +
             'if it points at `libs/.planning` / `libs/typescript` / `libs/python`; (6) gates — for any [BLOCKED] card, {blocked_slug, gated_by_slug, ' +
             'in_scope} where in_scope is true iff the gating work is itself an open card in one of the session targets (that card becomes actionable ' +
-            'this run once its gate lands); (7) map — one row per design page the open cards target: {page, files: every file (the page, its cited ' +
+            'this run once its gate lands); (7) map — one row per design page the open cards target, PLUS one row per ripple-counterpart page ' +
+            "(the design page a `Ripple:` row's counterpart card names in its own folder — read it and anchor its seam surface, so the writers " +
+            'reach every counterpart hot instead of cold-hunting it): {page, files: every file (the page, its cited ' +
             "catalogs, its seam counterparts) the implementer must open for this row, anchors: exact coordinates backing the row's facts per the ROW " +
             'FORM law, members: the exact verified member spellings backing underutilized, each verified against its owning `.api` catalog (verified ' +
             'members ONLY — a member you cannot verify is a phantom and is NEVER listed; exact spellings and locations, never judgment wording), ' +
@@ -957,7 +1006,7 @@ const critiquePrompt = (folder, seq, report) =>
             '+ collapsed + ripples + pins + seams + summary.',
     ].join('\n');
 
-const redteamPrompt = (folder, seq, report) =>
+const redteamPrompt = (folder, seq, report, critRep) =>
     [
         DOCTRINE,
         '',
@@ -967,6 +1016,15 @@ const redteamPrompt = (folder, seq, report) =>
             'assume the author and critique missed things and that the chosen design is not the strongest until proven, with the burden of proof ON THE ' +
             'DESIGN. The cards realized this turn (read each FULL body):\n' +
             seq +
+            '\n' +
+            (critRep
+                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at `' +
+                  critRep +
+                  '` — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never a settled ' +
+                  'record. FOLD-FORWARD DUTY: its surviving `ripples`, `pins`, `seams`, and `deferred` rows are folded into YOUR return ' +
+                  "(re-verified against current disk, deduped) — your return is the folder's consolidated record; a dropped critique row is a " +
+                  'silent loss.'
+                : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this folder gets; judge from CURRENT disk alone.') +
             '\nThe discovery report at `' +
             report +
             '` carries the navigation ' +
@@ -1024,7 +1082,7 @@ const redteamPrompt = (folder, seq, report) =>
             'reopened [{slug, reason}] + summary.',
     ].join('\n');
 
-const pinPrompt = (pins, seams) =>
+const pinPrompt = (pins, seams, orphans) =>
     [
         LAW,
         '',
@@ -1033,7 +1091,11 @@ const pinPrompt = (pins, seams) =>
         "TASK: TERMINAL SINGLE-WRITER — you are the run's SOLE writer for the repo-root `" +
             CENTRAL +
             '` and for every package `ARCHITECTURE.md` ' +
-            '`[02]-[SEAMS]` section, and its LAST agent. PINS: apply each reported row below exactly once — hand-edit the grouped manifest at the SYMBOL ' +
+            '`[02]-[SEAMS]` section, and its LAST agent. ORPHANED CRITIQUE FIXLOGS (folders whose redteam never landed, so these on-disk ' +
+            "fixlogs' `pins` and `seams` rows were never folded forward — read each IN FULL from disk and apply those rows under the same law " +
+            'as the reported rows below): ' +
+            JSON.stringify(orphans) +
+            '. PINS: apply each reported row below exactly once — hand-edit the grouped manifest at the SYMBOL ' +
             'anchor (never a line number), preserving label-group and alphabetical order, deduping semantically identical rows; verify each package + ' +
             'version via the `nuget` MCP or `uv run python -m tools.assay api`' +
             FB +
@@ -1083,6 +1145,7 @@ const runFolder = async (target) => {
                             label: 'implement:' + tag + ':g' + gi,
                             phase: 'Realize',
                             schema: FIXLOG_SCHEMA,
+                            model: 'fable',
                             effort: 'high',
                             stallMs: STALL,
                         });
@@ -1094,27 +1157,37 @@ const runFolder = async (target) => {
                 label: 'implement:' + tag,
                 phase: 'Realize',
                 schema: FIXLOG_SCHEMA,
+                model: 'fable',
                 effort: 'high',
                 stallMs: STALL,
             });
             impls = one ? [one] : [];
         }
         if (!impls.length) return { folder: target, failed: true, empty: false, logs: [], red: null, cross_lang: cross, malformed }; // failure isolation: a dead implement skips its reviews
-        const crit = await agent(critiquePrompt(target, seq, report), {
-            label: 'critique:' + tag,
-            phase: 'Realize',
-            schema: FIXLOG_SCHEMA,
-            effort: 'high',
-            stallMs: STALL,
-        });
-        const red = await agent(redteamPrompt(target, seq, report), {
+        // Sol critique: fixlog to disk, receipt on the wire; the redteam folds its rows forward,
+        // and a folder whose redteam dies leaves the fixlog ORPHANED for the terminal single-writer.
+        await stagger();
+        const crit = await solLane(critiquePrompt(target, seq, report), { label: 'critique:' + tag, phase: 'Realize' });
+        const critRep = crit.ok ? crit.report : '';
+        await stagger();
+        const red = await agent(redteamPrompt(target, seq, report, critRep), {
             label: 'redteam:' + tag,
             phase: 'Realize',
             schema: REDTEAM_SCHEMA,
+            model: 'fable',
             effort: 'high',
             stallMs: STALL,
         });
-        return { folder: target, failed: false, empty: false, logs: [...impls, crit, red].filter(Boolean), red, cross_lang: cross, malformed };
+        return {
+            folder: target,
+            failed: false,
+            empty: false,
+            logs: [...impls, red].filter(Boolean),
+            red,
+            critReport: critRep && !red ? critRep : '',
+            cross_lang: cross,
+            malformed,
+        };
     } catch (e) {
         return {
             folder: target,
@@ -1170,14 +1243,15 @@ log(
 
 // --- [PINS]
 
+const ORPHANS = done.map((r) => r.critReport || '').filter(Boolean);
 let pinlog = null;
-if (pinsReported.length || seamsReported.length) {
+if (pinsReported.length || seamsReported.length || ORPHANS.length) {
     phase('Pins');
-    pinlog = await agent(pinPrompt(pinsReported, seamsReported), {
+    pinlog = await agent(pinPrompt(pinsReported, seamsReported, ORPHANS), {
         label: 'pins',
         phase: 'Pins',
         schema: PIN_SCHEMA,
-        model: 'sonnet',
+        model: 'opus',
         effort: 'high',
         stallMs: STALL,
     });

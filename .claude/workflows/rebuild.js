@@ -3,20 +3,20 @@ export const meta = {
     whenToUse:
         'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it plans, triple-lens-discovers, hostile-implements, critiques, and red-teams every page batch CONCURRENTLY at each owning-language doctrine bar with libs-wide ripple authority, then a read-only finder fan and one terminal fixer close the run.',
     description:
-        'Language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets}; empty = no-op; targets may MIX languages — each batch derives its doctrine, both .api tiers, casing, and member-verification rail from its own owning package. Plan (1 sonnet) expands targets to pages in dependency order under the owning-package charter, seam-cohesive pages adjacent. Build runs ALL batches (even-split, max 8 pages) concurrently under one agent-level slot scheduler: per batch THREE concurrent recon lenses (context/seams + two-tier .api stacking + doctrine-bar quality attack, each second-pass self-verified, information never prescriptions) write their complete products as on-disk JSON reports beside two grounding dossiers and return thin receipts on the wire - recon and finder lanes run on gpt-5.5 dispatched through codex wrapper agents (CODEX flag; false restores native opus); then implement, critique, and redteam (all fable) chain behind their own batch only, consuming the lens reports IN FULL from disk with failed-lens territory cold-read first. Handoffs between chain stages carry NAVIGATION FACTS ONLY (files, symbol deltas, seam rows, deferred backlog) — never self-assessment; reviewers derive their own defect list from disk first and receive prior claims strictly as refutation targets. Cross-batch coordination runs through per-batch seam-ledger files in scratch (typed fact rows, read by area before any cross-batch edit). Every writer holds LIBS-WIDE ripple authority under four non-arbitrary bounds: evidence (anchored ripples only), expand-form (concurrent foreign edits are additive; collapse serializes to the fixer), depth (first-order fixed both ends now; second-order recorded to the backlog), and decision/propagation (index docs + central manifests + IDEAS rows single-writer via the terminal fixer; ruled-contract propagation distributed). Generative openings land now as owner-grammar growth anywhere in libs/, or as a fully-specified IDEAS row the fixer applies this run. Close: read-only finder fan per language on gpt-5.5 (landed pages + seam-ledger verification + one governance finder per language), typed anchored findings graded substantive|hypothetical written as on-disk reports with thin receipts, stale findings discarded; ONE terminal fable fixer reads every ok report IN FULL from disk (failed-finder territory cold-read first), applies every index row, re-verifies findings as signals, drains the deferred backlog, hunts past everything, and returns the final fixlog. Nothing follows the fixer.',
+        'Language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets}; empty = no-op; targets may MIX languages — each batch derives its doctrine, both .api tiers, casing, and member-verification rail from its own owning package. Plan (1 opus) expands targets to pages in dependency order under the owning-package charter, seam-cohesive pages adjacent. Build runs ALL batches (even-split, max 8 pages) concurrently under one agent-level slot scheduler: per batch THREE concurrent recon lenses (context/seams + two-tier .api stacking + doctrine-bar quality attack, each second-pass self-verified, information never prescriptions) write their complete products as on-disk JSON reports beside two grounding dossiers and return thin receipts on the wire - recon and finder lanes run on gpt-5.6-terra dispatched through codex wrapper agents (CODEX flag; false restores native lanes); then implement (fable), critique (ONE gpt-5.6-sol codex lane per batch, workspace-write, running the full conformance audit in place with its fixlog written to disk), and redteam (fable, terminal — reading the critique fixlog from disk as refutation targets and FOLDING its surviving deferred/index/seam rows into the batch record) chain behind their own batch only, consuming the lens reports IN FULL from disk with failed-lens territory cold-read first; a batch whose redteam dies leaves its critique fixlog ORPHANED, drained by the terminal fixer. Handoffs between chain stages carry NAVIGATION FACTS ONLY (files, symbol deltas, seam rows, deferred backlog) — never self-assessment; reviewers derive their own defect list from disk first and receive prior claims strictly as refutation targets. Cross-batch coordination runs through per-batch seam-ledger files in scratch (typed fact rows, read by area before any cross-batch edit). Every writer holds LIBS-WIDE ripple authority under four non-arbitrary bounds: evidence (anchored ripples only), expand-form (concurrent foreign edits are additive; collapse serializes to the fixer), depth (first-order fixed both ends now; second-order recorded to the backlog), and decision/propagation (index docs + central manifests + IDEAS rows single-writer via the terminal fixer; ruled-contract propagation distributed). Generative openings land now as owner-grammar growth anywhere in libs/, or as a fully-specified IDEAS row the fixer applies this run. Close: read-only finder fan per language on gpt-5.6-terra (landed pages + seam-ledger verification + one governance finder per language), typed anchored findings graded substantive|hypothetical written as on-disk reports with thin receipts, stale findings discarded; ONE terminal fable fixer reads every ok report IN FULL from disk (failed-finder territory cold-read first), applies every index row, re-verifies findings as signals, drains the deferred backlog, hunts past everything, and returns the final fixlog. Nothing follows the fixer.',
     phases: [
         {
             title: 'Plan',
             detail: 'one thin agent expands the targets into the dependency-ordered, seam-cohesion-adjacent page list under each owning-package charter: existing pages as rebuild, charter-demanded absent pages as new, settled pages skipped',
-            model: 'sonnet',
+            model: 'opus',
         },
         {
             title: 'Build',
-            detail: 'all batches concurrent under the agent-level slot cap: per batch a 3-lens gpt-5.5 recon burst (codex wrappers; products to disk, receipts on the wire) then implement, critique, redteam (fable) chained behind their own batch; navigation-fact handoffs, seam-ledger coordination, libs-wide bounded ripple authority',
+            detail: 'all batches concurrent under the agent-level slot cap: per batch a 3-lens gpt-5.6-terra recon burst (codex wrappers; products to disk, receipts on the wire) then implement (fable), critique (gpt-5.6-sol codex lane, fixlog to disk), redteam (fable, folding the critique rows forward) chained behind their own batch; navigation-fact handoffs, seam-ledger coordination, libs-wide bounded ripple authority',
         },
         {
             title: 'Close',
-            detail: 'read-only gpt-5.5 finder fan (codex wrappers; products to disk, receipts on the wire) per language over landed pages + the seam ledger, plus one governance finder per language; ONE terminal fable fixer reads the reports from disk, applies index rows, resolves findings as signals, drains the deferred backlog, hunts past them, returns the final fixlog',
+            detail: 'read-only gpt-5.6-terra finder fan (codex wrappers; products to disk, receipts on the wire) per language over landed pages + the seam ledger, plus one governance finder per language; ONE terminal fable fixer reads the reports from disk, applies index rows, resolves findings as signals, drains the deferred backlog, hunts past them, returns the final fixlog',
         },
     ],
 };
@@ -26,10 +26,12 @@ export const meta = {
 const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
 const STAGGER_MS = 1500;
 const STALL = 300000;
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
 const BATCH_MAX = 8; // even-split ceiling; editing fidelity degrades past ~8 dense pages per writer under full doctrine reads
 const FINDER_PAGES = 8; // landed pages per close-phase finder
 const SCRATCH = '.claude/scratch/rebuild'; // lane report files + grounding dossiers + per-batch seam-ledger files
-const CODEX = true; // recon/finder lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
+const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -644,124 +646,109 @@ const makeSlots = (cap) => {
 };
 const slot = makeSlots(CAP);
 
-// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// SCRATCH, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
-// consuming reader. It never does, edits, judges, or relays the work.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const codexPrompt = (label, task, schema, writes, hl) => {
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+          '</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const rpt = fileTag(label) + '-report.json'; // unique per lane; pgrep matches the -o path on the codex cmdline
-    const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1); // self-excluding pgrep/pkill pattern
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
+    const model = o.model || 'gpt-5.6-terra';
     return [
-        'DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
-            'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
-        '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' +
-            SCRATCH +
-            "; purge stale lane artifacts (a leftover report would READY instantly with last run's data): rm -f " +
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox=' +
+            (o.writes ? '"workspace-write"' : '"read-only"') +
+            ', cwd=' +
+            JSON.stringify(root) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+            report +
+            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
-            '-report.json ' +
-            base +
-            '-stderr.log; Write the TASK block below verbatim to ' +
-            base +
-            '-task.md; Write this JSON ' +
-            'Schema exactly to ' +
-            base +
-            '-schema.json — both paths resolved ABSOLUTE under the repository root: ' +
-            JSON.stringify(schema),
-        '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' +
-            base +
-            '-task.md && test -s ' +
-            base +
-            '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, zero-CPU, no report): ' +
-            'codex exec -s ' +
-            (writes ? 'workspace-write' : 'read-only') +
-            ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
-            '--output-schema ' +
-            base +
-            '-schema.json -o ' +
-            base +
-            '-report.json "Do the task in ' +
-            base +
-            '-task.md ' +
-            'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' +
-            base +
-            '-stderr.log &',
-        '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
-            'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
-            'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' +
-            base +
-            '-report.json ] && break; ' +
-            'pgrep -f "' +
-            rptPat +
-            '" >/dev/null || break; sleep 20; done; if [ -s ' +
-            base +
-            '-report.json ]; then echo ' +
-            'READY; elif pgrep -f "' +
-            rptPat +
-            '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-            'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 4th RUNNING poll (~20 min wall) the run is WEDGED, not slow — kill it (pkill -f "' +
-            rptPat +
-            '") and go to (4) as GONE. Cap at 7 poll calls total.',
-        '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
-            "judgment): entries=$(jq '." +
-            hl.arr +
-            " | length' " +
-            base +
-            '-report.json)' +
-            (hl.group
-                ? "; groups=$(jq -r '[." +
-                  hl.arr +
-                  '[].' +
-                  hl.group +
-                  '] | group_by(.) | map("\\(.[0])x\\(length)") | join(",")\' ' +
-                  base +
-                  '-report.json)'
-                : '') +
-            "; top=$(jq -r '[." +
-            hl.arr +
-            '[].files[0]] | group_by(.) | max_by(length) | .[0] // "none"\' ' +
-            base +
-            '-report.json). ' +
-            'Return the RECEIPT: ok=true, report=' +
-            base +
-            '-report.json, entries=that count, headline="<entries> ' +
-            hl.arr +
-            (hl.group ? ' | <groups>' : '') +
-            ' | top: <top>", failure empty. ' +
-            'GONE with no report: tail -5 ' +
-            base +
-            '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
-            'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
-        'TASK — write verbatim to the task file, then dispatch:',
-        task,
+            '-report.json, entries=the length of result["' +
+            o.hl.arr +
+            '"], headline="<entries> ' +
+            o.hl.arr +
+            (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
+            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-
-// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
-// The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
-// unmapped territory is exact even when the lane died before writing anything.
+// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores
+// a fully native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches
+// the SAME task natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns
+// the re-dispatch; the sonnet wrapper never executes work itself. The roster row carries `scope` from the
+// ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is exact even when the
+// lane died before writing anything.
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(
+        task +
+            '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+            SCRATCH +
+            '/' +
+            fileTag(o.label) +
+            '-report.json (Write tool, absolute path under the repo root): ' +
+            JSON.stringify(o.schema) +
+            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+        {
+            label: o.label,
+            phase: o.phase,
+            model: o.nativeModel || twinOf(o.model),
+            effort: 'high',
+            schema: RECEIPT,
+            stallMs: o.stallMs || STALL,
+        },
+    );
 const recon = (task, o) =>
     (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, !!o.writes, o.hl), {
-              label: 'gpt-5.5:' + o.label,
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
               phase: o.phase,
               model: 'sonnet',
               effort: 'low',
               schema: RECEIPT,
-              stallMs: STALL,
-          })
-        : agent(
-              task +
-                  '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-                  SCRATCH +
-                  '/' +
-                  fileTag(o.label) +
-                  '-report.json (Write tool, absolute path under the repo root): ' +
-                  JSON.stringify(o.schema) +
-                  ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
-              { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL },
-          )
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        : nativeLane(task, o)
     ).then((r) => ({
         lane: o.label,
         scope: o.scope || [],
@@ -880,7 +867,8 @@ const VERIFY = (L) =>
 
 const RIPPLE_LAW =
     'RIPPLE LAW — every fix you identify you make NOW via Edit/Write; the fix-log is a report of edits ' +
-    'already made, never a to-do, a ledger, or a would/should hedge. Your ripple authority is LIBS-WIDE — any file under ' +
+    'already made, never a to-do, a ledger, or a would/should hedge. The writing is YOURS: never delegate authoring to ' +
+    'another agent — a delegate may only fetch information. Your ripple authority is LIBS-WIDE — any file under ' +
     'libs/, any language, corrective AND generative — under four bounds that are evidence, never radius. (1) EVIDENCE — an ' +
     'out-of-scope edit traces to a resolvable anchor: a seam-ledger row, a consumer anchor, an index claim, or a wire row in ' +
     'the branch ARCHITECTURE.md [02]-[SEAMS] ledger; an edit with no anchor is drift, forbidden. (2) EXPAND-FORM — a foreign ' +
@@ -1254,9 +1242,15 @@ const redteamPrompt = (L, batch, dossiers, scopes, roster, unmapped, nav, crit) 
     preamble(L, batch, dossiers, scopes, roster, unmapped)
         .concat([
             'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
-            'PRIOR CLAIMS (UNVERIFIED — a previous pass asserts these edits and verdicts; they are refutation targets you judge ' +
-                'against CURRENT disk, never a settled record): ' +
-                JSON.stringify(crit ? { files: crit.files, verdict: crit.verdict, summary: crit.summary, seamsTouched: crit.seamsTouched } : {}),
+            crit && crit.ok
+                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' +
+                  crit.report +
+                  ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never ' +
+                  'a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, and `indexRows` ' +
+                  "rows are folded into YOUR return (re-verified against current disk, deduped) — your fix-log is the batch's " +
+                  'consolidated record; a dropped critique row is a silent loss.'
+                : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this batch gets; judge from ' +
+                  'CURRENT disk alone.',
             GIT_GROUND,
             'TASK: ADVERSARIAL ARCHITECT RED-TEAM; fix EACH page in place: ' +
                 batch.map((p) => p.page).join(', ') +
@@ -1338,7 +1332,7 @@ const govFinderPrompt = (L, pkgs, pages, rows) =>
             'anchored graded findings.',
     ].join('\n\n');
 
-const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages) =>
+const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orphans) =>
     [
         'Rasm monorepo — the libs/ planning corpora. Per-language doctrine bars:\n' +
             langs
@@ -1374,6 +1368,10 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages) =>
             '(2) DEFERRED BACKLOG (second-order and cross-batch ripples the writers recorded — drain it: re-verify each {files, ' +
             'claim} on current disk, fix what holds, reject what disk already resolved): ' +
             JSON.stringify(backlog) +
+            '.\n' +
+            "(2b) ORPHANED CRITIQUE FIXLOGS (batches whose redteam never landed, so these on-disk fixlogs' seamsTouched/deferred/" +
+            'indexRows rows were never folded forward — read each IN FULL from disk and drain those rows under the same law): ' +
+            JSON.stringify(orphans) +
             '.\n' +
             '(3) FINDER REPORTS — the finder products are ON DISK as JSON report files; the ROSTER receipts below are navigation, ' +
             'never the product. CONSUMPTION PROTOCOL, in order: (a) UNMAPPED scope below is your direct-hunt queue — a failed ' +
@@ -1413,7 +1411,7 @@ if (!TARGETS.length) {
 
 phase('Plan');
 const plan = await slot(() =>
-    agent(planPrompt(), { label: 'plan', phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN_SCHEMA, stallMs: STALL }),
+    agent(planPrompt(), { label: 'plan', phase: 'Plan', model: 'opus', effort: 'high', schema: PLAN_SCHEMA, stallMs: STALL }),
 );
 const PAGES = normalizePages(plan);
 const UNRESOLVED = (plan && plan.unresolved) || [];
@@ -1509,18 +1507,25 @@ const built = (
                 }),
             );
             if (!fix) return { pkg: b.pkg, pages: b.pages, fix: null, crit: null, rt: null }; // failure isolation: a dead implement skips its reviews
+            // Sol critique: a workspace-write codex lane running the full conformance audit in place;
+            // fixlog to disk, receipt on the wire; the redteam reads the fixlog from disk and folds its rows forward.
             const crit = await slot(() =>
-                agent(critiquePrompt(L, batch, dossiers, SCOPES, roster, unmapped, navOf([fix])), {
+                recon(critiquePrompt(L, batch, dossiers, SCOPES, roster, unmapped, navOf([fix])), {
                     label: 'crit:' + tag,
                     phase: 'Build',
-                    model: 'fable',
-                    effort: 'high',
                     schema: REVIEW_SCHEMA,
-                    stallMs: STALL,
+                    writes: true,
+                    fix: true,
+                    model: 'gpt-5.6-sol',
+                    nativeModel: 'fable',
+                    stallMs: SOL_STALL,
+                    scope: pageScope,
+                    hl: { arr: 'files' },
                 }),
             );
+            const critR = crit && crit.ok ? crit : null;
             const rt = await slot(() =>
-                agent(redteamPrompt(L, batch, dossiers, SCOPES, roster, unmapped, navOf([fix, crit]), crit), {
+                agent(redteamPrompt(L, batch, dossiers, SCOPES, roster, unmapped, navOf([fix]), critR), {
                     label: 'rt:' + tag,
                     phase: 'Build',
                     model: 'fable',
@@ -1529,17 +1534,18 @@ const built = (
                     stallMs: STALL,
                 }),
             );
-            return { pkg: b.pkg, pages: b.pages, fix, crit, rt };
+            return { pkg: b.pkg, pages: b.pages, fix, crit: critR, rt };
         }).map((p) => p.catch(() => null)),
     )
 ).filter(Boolean);
 const FAILED = built.filter((d) => !d.fix).flatMap((d) => d.pages.map((p) => p.page));
 const LANDED = built.filter((d) => d.fix).flatMap((d) => d.pages.map((p) => p.page));
-const ROWS = built.flatMap((d) => ((d.fix && d.fix.indexRows) || []).concat((d.crit && d.crit.indexRows) || [], (d.rt && d.rt.indexRows) || []));
-const SEAM_ROWS = built.flatMap((d) =>
-    ((d.fix && d.fix.seamsTouched) || []).concat((d.crit && d.crit.seamsTouched) || [], (d.rt && d.rt.seamsTouched) || []),
-);
-const BACKLOG = built.flatMap((d) => ((d.fix && d.fix.deferred) || []).concat((d.crit && d.crit.deferred) || [], (d.rt && d.rt.deferred) || []));
+// The critique fixlog lives on disk; the redteam folds its rows into its own return, so aggregation
+// reads fix + rt only. A batch whose redteam died leaves the critique fixlog ORPHANED for the fixer.
+const ROWS = built.flatMap((d) => ((d.fix && d.fix.indexRows) || []).concat((d.rt && d.rt.indexRows) || []));
+const SEAM_ROWS = built.flatMap((d) => ((d.fix && d.fix.seamsTouched) || []).concat((d.rt && d.rt.seamsTouched) || []));
+const BACKLOG = built.flatMap((d) => ((d.fix && d.fix.deferred) || []).concat((d.rt && d.rt.deferred) || []));
+const ORPHANS = built.filter((d) => d.crit && !d.rt).map((d) => d.crit.report);
 log(
     'Build: ' +
         LANDED.length +
@@ -1615,7 +1621,7 @@ log(
         ' backlog row(s) pending',
 );
 const fixer = await slot(() =>
-    agent(fixerPrompt(LANDED_LANGS, found, UNMAPPED, ROWS, BACKLOG, FAILED, LANDED), {
+    agent(fixerPrompt(LANDED_LANGS, found, UNMAPPED, ROWS, BACKLOG, FAILED, LANDED, ORPHANS), {
         label: 'fixer',
         phase: 'Close',
         model: 'fable',

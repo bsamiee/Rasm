@@ -9,6 +9,7 @@ BEFORE ANY ACTION IN REPO, LIST ALL ROOT-LEVEL FILES; BE AWARE OF ALL CONFIGS, T
 Read: `README.md` + `tools/assay/README.md`
 
 [CRITICAL]:
+
 - The project is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning`, and read them fully: `libs/.planning/planning-targets.md`, `libs/.planning/campaign-method.md`, `libs/.planning/README.md`, `libs/.planning/architecture.md`.
 - [ALWAYS]: Load the `docgen` skill before authoring, editing, reviewing, or rewriting ANY durable markdown in this planning phase — index docs, specs, `.api` catalogs, standards, briefs, tool docs. It owns the register, the defect catalog, the file-kind templates, and the prose gate; work on durable prose without it loaded is a process defect, and every touched doc passes its gate before the turn ends.
 - All main agent + sub-agents MUST approach any/all content within `libs/` with EXTREME hostility and be adversarial, always attacking code quality, naivety, and structure; files are aggressively and constantly rebuilt ground/root-up to achieve world-class, award winning folders, functionality, and code.
@@ -21,35 +22,34 @@ Read: `README.md` + `tools/assay/README.md`
 
 Rankings, higher = better. Cost reflects actual operator spend (OpenAI is near-free under the operator's deal), not list price. Intelligence is how hard a problem the model takes unsupervised. Taste covers UI/UX, code quality, API design, and copy.
 
-| [INDEX] | [MODEL]  | [COST] | [INTELLIGENCE] | [TASTE] |
-| :-----: | :------- | :----: | :------------: | :-----: |
-|  [01]   | gpt-5.5  |   9    |       8        |    5    |
-|  [02]   | sonnet-5 |   5    |       4        |    6    |
-|  [03]   | opus-4.8 |   4    |       7        |    7    |
-|  [04]   | fable-5  |   2    |       9        |    9    |
+| [INDEX] | [MODEL]       | [COST] | [INTELLIGENCE] | [TASTE] |
+| :-----: | :------------ | :----: | :------------: | :-----: |
+|  [01]   | gpt-5.6-terra |   9    |       7        |    6    |
+|  [02]   | gpt-5.6-sol   |   8    |       8        |    7    |
+|  [03]   | gpt-5.6-luna  |   10   |       5        |    5    |
+|  [04]   | sonnet-5      |   5    |       3        |    6    |
+|  [05]   | opus-4.8      |   4    |       7        |    7    |
+|  [06]   | fable-5       |   2    |       9        |    9    |
 
 How to apply:
+
 - These are defaults, not limits, under standing permission to override: when a cheaper model's output misses the bar, rerun or redo the work with a smarter model without asking. Judge the output, not the price tag. Escalating costs less than shipping mediocre work.
 - Never let cost block the right model for the job. Instead, exploit cheaper options to gather more information and trial approaches before moving the work to a more expensive option.
-- Bulk/mechanical work (clear-spec implementation, data analysis, migrations): gpt-5.5 - it's effectively free.
-- Heavy exploration, investigation, and research legs: dispatch to gpt-5.5 (`codex exec -s read-only`) before spawning Claude subagents - the transcript stays out of context and the usage is free. Work that must author or edit files dispatches the same way at `-s workspace-write`; the sandbox flag IS the modality (read/response vs write/edit) and is always set explicitly.
+- Bulk/mechanical work (clear-spec implementation, data analysis, migrations): gpt-5.6-terra - it's effectively free.
+- Heavy exploration, investigation, and research legs: dispatch to terra before spawning Claude subagents - the transcript stays out of context and the usage is free. Work that must author or edit files dispatches at the write sandbox; the sandbox IS the modality (read/response vs write/edit) and is always pinned explicitly.
+- Complex code authoring and deep planning legs that are self-contained: dispatch to sol - the flagship owns ambiguous, open-ended, high-value work; terra stays the dispatch default for everything else.
 - Codex is a first-class worker, never a bent fallback: hand it ONE self-contained prompt (it inherits none of this conversation), let it drive its own tools to completion, and take its final message as the result - relay a read leg's report, apply a write leg's edits as delivered. Verify load-bearing claims against source before acting; never silently rewrite, re-judge, or wrap its output in extra ceremony.
 - Anything user-facing (UI, copy, API design) needs taste ≥ 7.
-- Reviews of plans/implementations: fable-5 or opus-4.8, optionally gpt-5.5 as an extra independent perspective. A fable agent never delegates to another fable: inline work first, and unavoidable delegation dispatches a single bounded opus (or below) sub-task, never a chain.
-- Mechanics: gpt-5.5 is only reachable through the Codex CLI - `codex exec` / `codex review` (`~/.codex/config.toml` defaults to gpt-5.5 at medium reasoning).
-- Load the codex skill `.claude/skills/codex/SKILL.md` whenever dispatching work to codex - delegation triggers, invocation mechanics, sandboxing, effort tiers, sessions, and review modes live there.
-- Reasoning effort defaults to medium; escalate a single run with `codex exec -c model_reasoning_effort="high"` (or `--profile xhigh`) for the hardest research, review, and design legs - multi-minute latency, reserve for depth over throughput.
+- Reviews of plans/implementations: fable-5 or opus-4.8, optionally a codex leg (terra; sol for the deepest reviews) as an extra independent perspective. A fable agent never delegates to another fable: inline work first, and unavoidable delegation dispatches a single bounded opus (or below) sub-task, never a chain.
+- Delegated agents inherit this table at every depth under the agent-dispatch placement law - writing/judgment at capable tiers, recon to terra, the extra perspective from the other lineage, never self-escalating beyond the brief.
+- Load the codex skill `.claude/skills/codex/SKILL.md` whenever dispatching work to codex - invocation surfaces (`codex` MCP tool, `codex exec`/`codex review`), sandbox, model and effort tiers, MCP grading, sessions, and review modes live there; every dispatch pins sandbox and model explicitly, while effort inherits the operator default (`xhigh` in `~/.codex/config.toml`) and is stated only to deviate.
+- Dispatch effort defaults to xhigh for every model; low/medium serve trivial glue and bulk throughput, max deepens the single hardest leg, and ultra only biases codex to self-decompose into its own subagents - redundant where a workflow already owns the fan-out, multi-minute latency.
 - Claude models (sonnet-5, opus-4.8, fable-5) run via the Agent/Workflow model parameter.
 - [NEVER]: use Haiku.
-
-Using gpt-5.5 inside workflows and subagents (the model parameter only takes Claude models, so use a wrapper):
-- Spawn a thin Claude wrapper agent with `model: 'sonnet', effort: 'low'` whose prompt instructs it to write a self-contained codex prompt, run `codex exec` via Bash, and return the report (use `schema` on the wrapper to get structured output back).
-- Always label these agents with a `gpt-5.5:` prefix, e.g. `{label: 'gpt-5.5:review-auth'}` - the workflow UI shows the wrapper's Claude model, so the label is the only indication the real worker is gpt-5.5.
-- A short leg runs synchronously: `codex exec` prints its final message to stdout (banner and reasoning go to stderr), so the wrapper captures stdout under a tier-matched Bash timeout. A long leg exceeds one Bash call's 10-minute cap and the wrapper's own stall window, so it launches detached (a bare `&`, never `nohup`, stdout to `/dev/null`, stderr to a per-run log whose tail is the crash reason) against a `-o` report and polls by liveness across bounded calls - report present, or the codex process gone - never relaunching a live run. Inside workflows wrappers are LAUNCH-ONLY - a subagent has no legal wait (foreground sleep is blocked, background tasks never notify it, idle no-ops trip no-progress enforcement and file a false failure while codex runs on): the wrapper returns a launch receipt in seconds, the orchestrator owns time (`await new Promise(r => setTimeout(r, ms))` between harvest rounds), and a short-lived harvester agent per round promotes finished reports mechanically from disk - never relaunch a live run. Liveness is not health: alive past ~20 min with no report is WEDGED - kill it and relaunch once, a second wedge is the failure. Fan-out and file-only legs pass `--ignore-user-config` and restate the effort tier (`-c model_reasoning_effort="medium"` - config.toml is skipped wholesale, so effort resets to none while auth, the gpt-5.5 default, and skills survive) - every codex process spawns the full config MCP fleet otherwise, a `required = true` server that misses its startup handshake kills the lane at session creation (exit 1, no turn, zero JSONL, stderr holds the reason), surgical removal is `-c 'mcp_servers.<name>.enabled=false'`, and `-c mcp_servers={}` is a merge no-op that clears nothing. `--output-schema` schemas are STRICT: every property in `required` (conditional fields required-but-empty) or the API 400s `invalid_json_schema`; task/schema files are Write-tool-written at absolute paths and `test -s`-verified before launch.
-- `codex exec -o <file>` writes the final message to a file (the report artifact a detached run polls); `--output-schema <schema.json>` constrains that final message to a JSON Schema when the wrapper must return typed results.
-- Workflow token budgets only count Claude tokens; codex work is free and invisible to `budget.spent()`.
+- Inside workflows the model parameter takes only Claude models, so a codex leg rides a thin sonnet wrapper making ONE blocking `codex` MCP call, labeled with the real worker (`terra:`/`sol:`/`luna:`/`gemini:`); the wrapper contract, batching economics, and receipt law are the workflow-creator codex-lanes reference, and codex tokens stay invisible to `budget.spent()`.
 
 [WORKFLOW_ENGINE]:
+
 - Workflows launch by `scriptPath` (the absolute path to `.claude/workflows/<name>.js`), never by registry `name`: name-resolution serves a session-start snapshot and silently runs a stale contract after any in-session workflow edit; `scriptPath` reads the current disk file. After editing a workflow, verify the launch summary echoes the edited contract before trusting the run shape.
 - `ls .claude/workflows/` enumerates the standing engine roster and each script's `meta` block states its own contract — the roster is never restated in prose. `rebuild.js` is the standing hostile rebuild engine over any mix of `libs/` planning targets; `/prime` grounds a planning session before campaign entry.
 - A campaign needing a shape the roster lacks gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing.
@@ -57,6 +57,7 @@ Using gpt-5.5 inside workflows and subagents (the model parameter only takes Cla
 - Workflow runs resume only in the launching session: capture a run ledger (run ID, scriptPath, args, resume command) at every launch; never edit a launched script while its run is resumable; a campaign brief travels as a PATH, so editing the brief means a fresh run, never a resume.
 
 [IMPORTANT]:
+
 - [ALWAYS]: Hold both forces of the DEPTH-OVER-SURFACE law at once, in every folder, file, and fence. INTERIOR MAXIMALISM: every domain owner models its full domain — every attribute, sub-kind, state, relationship, invariant, and operation the concept carries, every admitted package mined to modern operator depth — no gaps, no underutilized capability, no thin slices. EXTERIOR FOCUS: capability reaches consumers through FEW dense unified entry points — one polymorphic entry per rail discriminating on input shape (single|batch|stream absorbed by input detection, forward and inverse directions on one surface wherever the domain admits an inverse), with policy resolution, routing, retries, telemetry, and lifecycle internalized so a consumer composes outcomes and never orchestrates internals, imports dozens of symbols, or learns provider nuance. Variation lives in input shape, policy values, and table rows — never in parallel exports, knob/ceremony spam, or modality-named siblings. The surface narrows by ABSORPTION, never by omission: flexibility and capability are never reduced to make the surface small.
 - [ALWAYS]: Aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized/advanced code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
 - [ALWAYS]: Create monorepo code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
@@ -91,6 +92,7 @@ Use the route-owned standard for the file being edited:
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
 
 [SKILL_CONCERT]: The visualization skills compose; each owns one medium and hands off at the seam.
+
 - Interviewing owns elicitation and its schema instances; a comparative, scored, or spatial ruling renders through the html-studio type rows, and an interactive carrier (quiz, wargame board, direction picker) runs served through the html-studio return channel so user verdicts come back as submission receipts.
 - html-studio owns single-file interactive HTML pages including their inline-SVG diagrams; mermaid-diagramming owns mermaid fences inside markdown; the dataviz skill owns chart-mark and chart-palette decisions in any medium.
 - Durable artifact pages home at `docs/atlas/` as `<kind>.<scope>[.<slug>].html`; session-scoped pages stay in scratch space and never commit.
@@ -108,6 +110,7 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [04]-[DEPENDENCY_POLICY]
 
 [IMPORTANT]: External libraries, manifests, and host APIs are implementation surfaces.
+
 - [ALWAYS]: Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
 - [ALWAYS]: Mine admitted packages to their full useful capability before writing local kernels.
 - [ALWAYS]: Prefer ecosystem libraries that already own the domain concern over lower-level reinvention.
@@ -123,6 +126,7 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [05]-[IMPLEMENTATION_CONSTRAINTS]
 
 [CRITICAL]:
+
 - [NEVER]: Use weak, unbounded, or erased types where the language can express the domain precisely.
 - [NEVER]: Use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
 - [NEVER]: Use imperative branching when a bounded vocabulary, dispatch table, generated switch, match, fold, or monadic rail can own the variation.
@@ -134,6 +138,7 @@ Folders, namespaces, and source files follow each branch language's standard cas
 - [NEVER]: Add comments that carry task, session, subagent, review-label, proof, history, or process narration.
 
 [IMPORTANT]:
+
 - [ALWAYS]: Frame all comments and prose within code files, code-fences and docs in general to be AGENT FIRST/ONLY/FOCUSED, the only useful comments/prose are those that IMPLICITLY guide agentic coding/management/maintenance.
 - [ALWAYS]: Collapse related variants into one polymorphic surface before adding entrypoints.
 - [ALWAYS]: Drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
@@ -145,6 +150,7 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [06]-[BEHAVIOR]
 
 [IMPORTANT]:
+
 - [ALWAYS]: Tools over internal knowledge: read files, search code, verify assumptions through source, manifests, docs, and tool output.
 - [ALWAYS]: Parallelize independent searches, reads, and checks.
 - [ALWAYS]: Use bounded subagents for independent exploration, research, verification, and disjoint implementation.
@@ -152,6 +158,7 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [07]-[OWNER_ROUTING]
 
 [IMPORTANT]:
+
 - [ALWAYS]: Resolve external library, framework, SDK, or host-API usage through `Context7` before internalizing into a canonical owner: `Context7` also indexes this repo's own packages, so resolve internal API shape through it before opening source, while `uv run python -m tools.assay api` answers which members verifiably exist locally; verified-local wins on conflict. The web/docs research selection law is the user-global doctrine, not restated here.
 - [ALWAYS]: Dependency graph facts live in manifests, package-manager configuration, lockfiles, project files, and the tool owner that consumes them.
 - [ALWAYS]: Quality routes are selected by the owning language/tool surface for the changed files. Root policy owns intent, not command catalogs.
@@ -173,6 +180,7 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [08]-[DOCUMENTATION_AND_OUTPUT]
 
 [IMPORTANT]:
+
 - [ALWAYS]: Use `backticks` for file paths, symbols, and CLI commands.
 - [ALWAYS]: Keep responses actionable and lead with what changed.
 - [ALWAYS]: Treat durable docs, prompts, standards, skills, examples, and templates as agent-facing declarative law.
@@ -218,6 +226,7 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - `[EXPORTS]`: named exports, `__all__`, or language-equivalent public surface declarations.
 
 [IMPORTANT]:
+
 - [ALWAYS]: Apply ordering as `section` -> `owner block` -> `runtime/declaration dependency` -> `semantic rank` -> `kind` -> `smaller-to-larger` -> `alphabetical`.
 - [ALWAYS]: Prefer concept discovery order from stable declarations to composition: vocabulary, constants, models, failures, services, operations, wiring, exports.
 - [ALWAYS]: Treat one generated type, smart enum, value object, schema/model family, wire model family, kernel, registry, catalog, table, dispatcher, query family, or composition root as an owner block; sort inside the owner instead of flattening its members into unrelated top-level sections.
@@ -238,6 +247,7 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - [NEVER]: Use alias or drift labels that merely rename core categories or hide complexity: `SCHEMA`, `FUNCTIONS`, `LAYERS`, `IMPORTS`, `INTERFACES`, `ENUMS`, `DTO`, `QUERIES`, `HELPERS`, `UTILS`, `COMMON`, `MISC`.
 
 Language overlays refine the canonical order by runtime semantics:
+
 - C#: `[Union]`, `[SmartEnum]`, `[ValueObject]`, generated case families, static entries, delegate partials, validation partials, factories, and projections stay inside the declaring owner block. Preserve generated-case and smart-enum semantic order, with one generated case or static entry per physical declaration line unless a generator or runtime contract requires grouping. Static construction order inside a type is semantic when later fields derive from earlier fields. Static kernels, projectors, acceptors, and extension folds are `[OPERATIONS]` unless they own an actual dependency or service boundary. Inside a section, prefer attributes/delegates/marker types, enums/smart enums, readonly structs/records/value objects, records/classes/services, then owner-local private types when all earlier ordering constraints are equal. Inside a C# owner block, prefer generated/static dependency entries, fields/state, constructors/factories, properties, public operations, explicit boundary adapters, internal operations, then private kernels/implementation details.
 - Python: imports, `TYPE_CHECKING`, and import-time gates precede ordinary sections. Runtime decoders, encoders, registries, and tables follow the models/functions they inspect because module-level assignments execute immediately and runtime annotation consumers such as `msgspec` and `beartype` resolve real objects. `Annotated` validator functions may use `[BOUNDARIES]` between immutable constants and dependent aliases when the aliases must reference the real validator object.
 - TypeScript: side-effect/value imports preserve runtime order, and `import type`/`export type` stay explicit. Runtime schemas/classes are `[MODELS]`, `Effect.Service` owners are `[SERVICES]`, `Layer`/runtime wiring is `[COMPOSITION]`, and catalog or registry rows that reference functions/classes stay after their referenced owners.

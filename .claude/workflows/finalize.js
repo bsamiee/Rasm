@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed to kill split-brain, unify paradigms, adjudicate phantoms, collapse duplication and indirection in place, smooth logic flow end-to-end, and finish naive surfaces — every folder concurrent under one pool cap, every defect fixed by the run that finds it.',
     description:
-        "Language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages and emits folders in dependency order — the order biases launch, never serializes. All folders run CONCURRENTLY under one pool cap: Context — ONE sonnet agent per folder reads the package README/ARCHITECTURE, its manifest rows, and a real ls of both .api tiers ONCE, writing a grounding dossier file (verbatim extracts with file:line anchors, pointer rows for the tail — facts only, never verdicts) under .claude/scratch/; Census — ONE read-only lane PER PAGE on gpt-5.5 dispatched through a sonnet codex wrapper (CODEX flag; false restores native opus) reads the grounding dossier + its page + its related pages + every relevant .api catalog, spot-verifying dossier anchors on disk instead of re-reading the whole shared context, and writes the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references) as one typed report file under .claude/scratch/, returning a thin receipt; Fix — ONE fable agent per folder, chained only behind its own folder's census, holds the folder census roster (every ok report read IN FULL from disk; a failed lane's page cold-read directly) + the grounding dossier + the doctrine ROOT pages and corrects the folder in place under the fix-it-now law (every defect its work exposes, anywhere in the project, fixed in the same pass) and the current-state law (concurrently landed sibling corrections composed as found, conflicts resolved to the stronger form, never a revert). The package index docs and central manifests are the one single-writer surface: fixers report exact rows, ONE terminal fable writer applies them once. Nothing else follows the fixers; cold-verify is a separate run.",
+        "Language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages and emits folders in dependency order — the order biases launch, never serializes. All folders run CONCURRENTLY under one pool cap: Context — ONE sonnet agent per folder reads the package README/ARCHITECTURE, its manifest rows, and a real ls of both .api tiers ONCE, writing a grounding dossier file (verbatim extracts with file:line anchors, pointer rows for the tail — facts only, never verdicts) under .claude/scratch/; Census — ONE read-only lane PER PAGE on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores native opus) reads the grounding dossier + its page + its related pages + every relevant .api catalog, spot-verifying dossier anchors on disk instead of re-reading the whole shared context, and writes the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references) as one typed report file under .claude/scratch/, returning a thin receipt; Fix — ONE fable agent per folder, chained only behind its own folder's census, holds the folder census roster (every ok report read IN FULL from disk; a failed lane's page cold-read directly) + the grounding dossier + the doctrine ROOT pages and corrects the folder in place under the fix-it-now law (every defect its work exposes, anywhere in the project, fixed in the same pass) and the current-state law (concurrently landed sibling corrections composed as found, conflicts resolved to the stronger form, never a revert). The package index docs and central manifests are the one single-writer surface: fixers report exact rows, ONE terminal fable writer applies them once. Nothing else follows the fixers; cold-verify is a separate run.",
     phases: [
         {
             title: 'Plan',
@@ -12,7 +12,7 @@ export const meta = {
         },
         {
             title: 'Finalize',
-            detail: "all folders concurrent under the one pool cap: one sonnet context agent per folder writes the grounding dossier once, one gpt-5.5 census lane per page (codex wrapper, read-only) reads it plus its page and related pages and writes its census report to disk, then ONE fable fixer per folder chained only behind its own folder's census — fix-it-now write authority over the whole project, current-state composition of concurrent sibling work",
+            detail: "all folders concurrent under the one pool cap: one sonnet context agent per folder writes the grounding dossier once, one gpt-5.6-terra census lane per page (codex wrapper, read-only) reads it plus its page and related pages and writes its census report to disk, then ONE fable fixer per folder chained only behind its own folder's census — fix-it-now write authority over the whole project, current-state composition of concurrent sibling work",
         },
         {
             title: 'Index',
@@ -27,8 +27,9 @@ export const meta = {
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 480000;
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
 const SCRATCH = '.claude/scratch/finalize'; // per-folder grounding dossiers: shared-context extracts, facts only
-const CODEX = true; // census lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
+const CODEX = true; // census lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -313,109 +314,108 @@ const pool = async (items, cap, worker) => {
     return out;
 };
 
-// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// SCRATCH, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
-// folder fixer. It never does, edits, judges, or relays the work.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the
+// lane report, and returns mechanical orchestration data. Lane law rides developer-instructions (role split,
+// battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const codexPrompt = (label, task, schema, writes) => {
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in coverage.unverified instead of ' +
+          're-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited spelling ' +
+          'appears verbatim in the cited file; move anything unconfirmed into coverage.unverified.\n</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const rpt = fileTag(label) + '-report.json'; // unique per lane; pgrep matches the -o path on the codex cmdline
-    const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1); // self-excluding pgrep/pkill pattern
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
+    const model = o.model || 'gpt-5.6-terra';
     return [
-        'DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
-            'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
-        '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' +
-            SCRATCH +
-            "; purge stale lane artifacts (a leftover report would READY instantly with last run's data): rm -f " +
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox=' +
+            (o.writes ? '"workspace-write"' : '"read-only"') +
+            ', cwd=' +
+            JSON.stringify(root) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute ' +
+            'path: ' +
+            report +
+            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
-            '-report.json ' +
-            base +
-            '-stderr.log; Write the TASK block below verbatim to ' +
-            base +
-            '-task.md; Write this JSON ' +
-            'Schema exactly to ' +
-            base +
-            '-schema.json — both paths resolved ABSOLUTE under the repository root: ' +
-            JSON.stringify(schema),
-        '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' +
-            base +
-            '-task.md && test -s ' +
-            base +
-            '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, zero-CPU, no report): ' +
-            'codex exec -s ' +
-            (writes ? 'workspace-write' : 'read-only') +
-            ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
-            '--output-schema ' +
-            base +
-            '-schema.json -o ' +
-            base +
-            '-report.json "Do the task in ' +
-            base +
-            '-task.md ' +
-            'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' +
-            base +
-            '-stderr.log &',
-        '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
-            'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
-            'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' +
-            base +
-            '-report.json ] && break; ' +
-            'pgrep -f "' +
-            rptPat +
-            '" >/dev/null || break; sleep 20; done; if [ -s ' +
-            base +
-            '-report.json ]; then echo ' +
-            'READY; elif pgrep -f "' +
-            rptPat +
-            '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-            'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 4th RUNNING poll (~20 min wall) the run is WEDGED, not slow — kill it (pkill -f "' +
-            rptPat +
-            '") and go to (4) as GONE. Cap at 7 poll calls total.',
-        '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
-            "judgment): entries=$(jq '.findings | length' " +
-            base +
-            '-report.json); kinds=$(jq -r \'[.findings[].kind] | group_by(.) | map("\\(.[0])x\\(length)") | join(",")\' ' +
-            base +
-            '-report.json); top=$(jq -r \'[.findings[].files[0]] | group_by(.) | max_by(length) | .[0] // "none"\' ' +
-            base +
-            '-report.json). ' +
-            'Return the RECEIPT: ok=true, report=' +
-            base +
-            '-report.json, entries=that count, headline="<entries> findings | <kinds> | top: <top>", failure empty. ' +
-            'GONE with no report: tail -5 ' +
-            base +
-            '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
-            'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
-        'TASK — write verbatim to the task file, then dispatch:',
-        task,
+            '-report.json, entries=the length of result["' +
+            o.hl.arr +
+            '"], headline="<entries> ' +
+            o.hl.arr +
+            (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
+            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, ' +
+            'entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-
-// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
-// The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
-// uncensused territory is exact even when the lane died before writing anything.
+// Every heavy read/investigate lane routes here: gpt-5.6-terra wrapper when CODEX, native otherwise. QUOTA FALLBACK: a
+// codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the role's Claude twin
+// (terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster row carries
+// `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's uncensused territory is exact even
+// when the lane died before writing anything.
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(
+        task +
+            '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+            SCRATCH +
+            '/' +
+            fileTag(o.label) +
+            '-report.json (Write tool, absolute path under the repo root): ' +
+            JSON.stringify(o.schema) +
+            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+        {
+            label: o.label,
+            phase: o.phase,
+            model: o.nativeModel || twinOf(o.model),
+            effort: 'high',
+            schema: RECEIPT,
+            stallMs: o.stallMs || STALL,
+        },
+    );
 const recon = (task, o) =>
     (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, !!o.writes), {
-              label: 'gpt-5.5:' + o.label,
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
               phase: o.phase,
               model: 'sonnet',
               effort: 'low',
               schema: RECEIPT,
-              stallMs: STALL,
-          })
-        : agent(
-              task +
-                  '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-                  SCRATCH +
-                  '/' +
-                  fileTag(o.label) +
-                  '-report.json (Write tool, absolute path under the repo root): ' +
-                  JSON.stringify(o.schema) +
-                  ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
-              { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL },
-          )
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        : nativeLane(task, o)
     ).then((r) => ({
         lane: o.label,
         scope: o.scope || [],
@@ -644,6 +644,7 @@ const results = (
                 phase: 'Finalize',
                 schema: CENSUS_SCHEMA,
                 scope: [it.page],
+                hl: { arr: 'findings', group: 'kind' },
             });
             censusBag.get(it.folder).push(row); // a failed census never blocks the folder — its row lands ok=false and the fixer cold-reads its page
             arm(it.folder);

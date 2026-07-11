@@ -4,7 +4,11 @@ export const meta = {
     description:
         "Adversarial HARDEN engine for the docs/stacks/typescript code doctrine. Every page is SUSPECT until it survives attack — naive, shallow, or illusory by default, rebuilt ground-up wherever the attack finds weakness — but the settled atlas roster is challenged with disqualifying evidence, never re-decided from zero. Inventory rules the real disk state and the Gate rules the file set BEFORE per-file work (structure challenge: merge/split/kill/rename only on disqualifying evidence, applies structure only) — true data dependence, kept. Then each FILE runs its own initial -> critique -> redteam pipeline, ALL files concurrent under one pool cap — the chain is the file's own stage dependence, never a corpus barrier. Critique and redteam read the LIVE corpus — the current on-disk state of every page, landed sibling hardening composed as found, a conflict resolved to the stronger form, never a revert — and edit ONLY their own file (the anti-collision rule among concurrent pipelines), reporting cross-file residuals. ONE terminal fable corpus agent then aligns cross-file seams, closes gaps, enforces the computation-law bodies, resolves every reported residual, and finalizes cold in one sweep; nothing follows it. SUPREMACY LAW: python and csharp stacks are BOTH the floor, never the ceiling. Every edit is scoped to docs/stacks/typescript. Takes no args.",
     phases: [
-        { title: 'Inventory', detail: 'read-only recon: real page set in atlas order, per-page capability map + hostile weak/strong call' },
+        {
+            title: 'Inventory',
+            detail: 'read-only recon: real page set in atlas order, per-page capability map + hostile weak/strong call',
+            model: 'opus',
+        },
         {
             title: 'Gate',
             detail: '1 agent: challenge the settled atlas structure with disqualifying evidence; apply approved renames/skeletons only, never content',
@@ -593,12 +597,11 @@ const inv = await agent(
         'large; resolve scope against real disk state. Return every CONCEPT page as a row {path (repo-relative, e.g. ' +
         ROOT +
         '/shapes.md), order ' +
-        '(atlas position, integer)}, EXCLUDING README.md and any page that does not exist on disk. Per page the product is a MAP, not a verdict: ' +
-        '`map` = composed capability + underutilized capability with CONCRETE members (verified against the .api catalogs/node_modules only — never ' +
-        'list a phantom) + contextual seams to sibling pages + stacking guidance; `verdict` = the hostile weak/strong call (which surfaces look naive, ' +
-        'thin, or illusory and why); `regions` = its current snippet-demonstration region tags. The map is an initial pointer, never a ceiling — ' +
-        'downstream stages re-read and exceed it; it never licenses a skim. Use fd/find/read; do not cd; do not edit.',
-    { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'sonnet', effort: 'low', stallMs: STALL },
+        '(atlas position, integer)}, EXCLUDING README.md and any page that does not exist on disk. Per page the product is a capability MAP, not a ' +
+        'verdict: `map` = composed capability + underutilized capability with CONCRETE members (verified against the .api catalogs/node_modules only — ' +
+        'never list a phantom) + contextual seams to sibling pages + stacking guidance — facts only, never a weak/strong assessment. The map is an ' +
+        'initial pointer, never a ceiling — downstream stages re-read and exceed it; it never licenses a skim. Use fd/find/read; do not cd; do not edit.',
+    { label: 'inventory', phase: 'Inventory', schema: INVENTORY_SCHEMA, model: 'opus', effort: 'high', stallMs: STALL },
 );
 const invFiles = ((inv && inv.files) || []).filter((f) => f && f.path && f.path.indexOf('/.reports/') < 0).sort((a, b) => a.order - b.order);
 log('Inventory: ' + invFiles.length + ' TS doctrine pages under ' + ROOT + '; CAP=' + CAP);

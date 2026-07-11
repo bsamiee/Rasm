@@ -14,7 +14,7 @@
 
 ## [02]-[ENGINEERING_CONTRACT]
 
-- The repo is in a long-term planning state, working exclusively on `.md` design/spec sheets within planning folders, NOT implementing code. Aggressively and iteratively refine, rebuild, and push existing design docs to the pinnacle of possibility — never by spamming code, but through cycles of adding functionality then aggressively rebuilding/collapsing: reduce LOC, surface, and object/shape/type/constant count while maintaining functionality, and ULTRA-stack all external libs/packages per planning folder as sources of new functionality and capability.
+- The repo is in a long-term planning state, working exclusively on `.md` design/spec sheets within planning folders, never implementing code. Iteratively refine, rebuild, and push existing design docs to the pinnacle of possibility — never by spamming code, but through cycles of adding functionality then rebuilding and collapsing: reduce LOC, surface, and object/shape/type/constant count while maintaining functionality, and ULTRA-stack all external libs/packages per planning folder as sources of new functionality and capability.
 - Every planned folder has a `.api/` folder that MUST be FULLY read whenever working in that folder; every language also has one that MUST be fully read when working within that language's planning folders: `libs/csharp/.api`, `libs/python/.api`, `libs/typescript/.api`; folder-level example: `libs/csharp/Rasm.Bim/.api`.
 - Design docs are implementation surfaces. A design/spec MUST be file-grouped and decision-complete: each target file names the owner section or card, replacement shape, exact types/signatures/fields/rows/fences, admitted package or API surfaces, deletion/collapse moves, and consumer consequences. Loose prose, placeholder bullets, ceremony tails, and "add docs about" items are not acceptable planning output.
 - ALWAYS follow `docs/standards/formatting.md`, `docs/standards/information-structure.md`, and `docs/standards/style-guide.md`; maintain consistency with sibling files.
@@ -36,8 +36,8 @@
 
 ## [04]-[TOOL_OWNERS]
 
-- ANY PROVISIONING/SUBSTRATE PROVIDED BY `Parametric_Forge` IS ONLY FOR LOCAL DEVELOPMENT, NOT PART OF FINAL PACKAGING/DELIVERABLES; THE PROJECT MUST STAND ON ITS OWN.
-- AGGRESSIVELY LIVE-PROBE ON THE LOCAL MACHINE, NEVER HESITATE: RHINO WIP + GH2 EXIST LOCALLY, and the tooling exists to create provisioned containers, CLI tooling, and substrate packages. `Parametric_Forge` may be added to or updated when needed — agnostic alignment, never coupling to `Rasm`.
+- Provisioning and substrate provided by `Parametric_Forge` serve local development only — never final packaging or deliverables; the project stands on its own.
+- Live-probe on the local machine without hesitation where the sandbox admits it: Rhino WIP + GH2 exist locally, and the tooling exists to create provisioned containers, CLI tooling, and substrate packages. `Parametric_Forge` may be added to or updated when needed — agnostic alignment, never coupling to `Rasm`.
 - Assay command truth lives in `tools/assay/composition/registry.py` and `tools/assay/README.md`.
 - Normal Assay invocations emit one stdout `Envelope`; automation emits NDJSON. Parse `report.detail`, `report.results`, `report.artifacts`, `error`, and `error_context` as the result channel. Stderr is transport noise unless the envelope says otherwise.
 - Monorepo routing comes from manifests, project graph closure, trigger files, explicit `AssayHostBound`, package slugs, route maps, and catalog rows. Avoid path-name heuristics and single-project assumptions.
@@ -47,6 +47,7 @@
 - Machine-level scientific and provisioning executables live in `Parametric_Forge`. Rasm campaign work enters through zero-arity Assay `provision` verbs and reads sanitized `ProvisionRun` evidence from `report.detail`; direct `forge-provision`, `forge-scientific-env`, direct database shells, cleanup, diagnostic JSON, Docker/Compose, Apple Container runtime selection, port, and credential work are Forge-level debugging. Rasm owns the manifests, lockfiles, `.api` catalogues, and assay evidence that consume those tools.
 - NuGet feed, version, vulnerability, and supply-chain intelligence routes through the `nuget` MCP; the apply path (`Directory.Packages.props` hand-edit, `assay api` member-truth precedence, `survey` modernization) is owned by `CLAUDE.md` and not restated here.
 - The `ifcopenshell` CLI runs through the cp312 `forge-companion-env` lane for batch convert and validate; the `ifc` MCP live-inspection surface and the `Rasm.Bim` sole-authority split are owned by `CLAUDE.md`. The `jupyter-notebooks` skill owns notebook execution: headless `papermill`/`nbclient` via `uv run`, or the always-on `jupyter` MCP for a live kernel.
+- Gemini second-perspective, visual-judgment, and image-prompt legs route through the `agy` skill (`.claude/skills/agy`), pinned to the strongest Gemini reasoning tier; its review lanes are read-only and return typed findings a Claude writer adjudicates. A codex session reaches `agy` only under `-s danger-full-access` — the Seatbelt sandbox kills the process at lower sandbox levels.
 - The proof estate law — lane vocabulary, proof grades, the witness mandate, artifact routing, gate ownership — is `tests/README.md`; read it before touching any testing surface, and never restate its thresholds or routes elsewhere.
 
 ## [05]-[DOCUMENTATION]

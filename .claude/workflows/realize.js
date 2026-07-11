@@ -1,14 +1,14 @@
 export const meta = {
     name: 'realize',
     whenToUse:
-        'Execute a root campaign DECISION/brief into its target planning folder. args = {doc, root} or an array of such pairs; campaigns run as parallel lanes. Wide read-only gpt-5.5 (codex) reconnaissance hands one fable executor everything on a golden platter — the doc, exact disk locations, ripple endpoints across every libs/ folder, and the full two-tier .api stacking inventory — and the executor implements the whole campaign under the language doctrine with libs-wide ripple authority. Run cold-verify after.',
+        'Execute a root campaign DECISION/brief into its target planning folder. args = {doc, root} or an array of such pairs; campaigns run as parallel lanes. Wide read-only gpt-5.6-terra (codex) reconnaissance hands one fable executor everything on a golden platter — the doc, exact disk locations, ripple endpoints across every libs/ folder, and the full two-tier .api stacking inventory — and the executor implements the whole campaign under the language doctrine with libs-wide ripple authority. Run cold-verify after.',
     description:
-        'Campaign realization in two moves. RECON: gpt-5.5 (codex) mapper lanes fan out read-only through sonnet dispatch wrappers (CODEX flag; false restores native opus) — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one fable per campaign takes the root doc plus every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. No stage after the executor; cold-verify is the separate closure gate.',
+        'Campaign realization in two moves. RECON: gpt-5.6-terra (codex) mapper lanes fan out read-only through sonnet dispatch wrappers (CODEX flag; false restores native opus) — page-slice mappers (root doc IN FULL + slice pages IN FULL + sibling context), one governance mapper (manifests, csproj/README registries, .api anchors, index docs), two stacking mappers (one per .api tier: the shared libs/<lang>/.api substrate and the folder <root>/.api tier, full inventory mined to operator depth against the doc page set — doc-demanded AND beyond-doc underutilized capability, exact verified members), and ONE BRANCH RIPPLE MAPPER PER language lib (libs/csharp, libs/python, libs/typescript — each sweeping its branch package folders except the target, skipping the branch .planning core; seam ledgers, consumer anchors, counterpart obligations, frozen wire names the campaign touches). Every mapper runs a mandatory second-pass self-verify: each entry re-derived from disk, anchors re-opened, spellings re-checked; a guess, a skim, or a vague entry is deleted before return. Mappers provide information — locations, anchors, ripples, inventory — never prescriptions. EXECUTE: one fable per campaign takes the root doc plus every map and implements everything in place at the docs/stacks/<language>/ bar: the full page set, registry and index closure, every ripple in the same pass with LIBS-WIDE ripple authority (sibling counterparts repaired in place both ends, except where the doc rules a counterpart recorded-only), the two-tier stacking woven in, its own hunt past the maps. No stage after the executor; cold-verify is the separate closure gate.',
     phases: [
-        { title: 'Plan', detail: 'per campaign: enumerate the page set (disk + doc-ruled new pages), partition into mapper slices', model: 'sonnet' },
+        { title: 'Plan', detail: 'per campaign: enumerate the page set (disk + doc-ruled new pages), partition into mapper slices', model: 'opus' },
         {
             title: 'Recon',
-            detail: 'per campaign: page-slice + governance + two-tier stacking + per-branch ripple mappers on gpt-5.5 via codex wrappers (sonnet shells), read-only, self-verified information not prescriptions',
+            detail: 'per campaign: page-slice + governance + two-tier stacking + per-branch ripple mappers on gpt-5.6-terra via codex wrappers (sonnet shells), read-only, self-verified information not prescriptions',
             model: 'sonnet',
         },
         {
@@ -24,8 +24,9 @@ export const meta = {
 const SLICE_SIZE = 4;
 const MAX_SLICES = 8;
 const STALL = 300000;
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
 const CODEX = true;
-const SCRATCH = '.claude/scratch/realize'; // wrapper task/schema/report files, one triple per lane
+const SCRATCH = '.claude/scratch/realize'; // per-lane MCP reports
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -197,111 +198,101 @@ const SELF_CHECK =
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
-// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// SCRATCH, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
-// terminal reader. It never does, edits, judges, or relays the work.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// (role split, battery-validated); the prompt carries only the task; the output contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const codexPrompt = (label, task, schema, writes) => {
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+          '</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+const codexPrompt = (label, task, schema, o) => {
     const base = SCRATCH + '/' + fileTag(label);
-    const rpt = fileTag(label) + '-report.json'; // unique per lane; pgrep matches the -o path on the codex cmdline
-    const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1); // self-excluding pgrep/pkill pattern
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
+    const model = o.model || 'gpt-5.6-terra';
+    const hl = o.hl || { arr: 'entries', group: 'kind' };
     return [
-        'DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
-            'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
-        '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' +
-            SCRATCH +
-            '; purge stale ' +
-            "lane artifacts (a leftover report would READY instantly with last run's data): rm -f " +
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox=' +
+            (o.writes ? '"workspace-write"' : '"read-only"') +
+            ', cwd=' +
+            JSON.stringify(root) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+            report +
+            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
             base +
-            '-report.json ' +
-            base +
-            '-stderr.log; Write the TASK block below verbatim to ' +
-            base +
-            '-task.md; Write this JSON ' +
-            'Schema exactly to ' +
-            base +
-            '-schema.json — both paths resolved ABSOLUTE under the repository root: ' +
-            JSON.stringify(schema),
-        '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' +
-            base +
-            '-task.md && test -s ' +
-            base +
-            '-schema.json || echo ' +
-            'FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never ' +
-            'retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, ' +
-            'zero-CPU, no report): ' +
-            'codex exec -s ' +
-            (writes ? 'workspace-write' : 'read-only') +
-            ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
-            '--output-schema ' +
-            base +
-            '-schema.json -o ' +
-            base +
-            '-report.json "Do the task in ' +
-            base +
-            '-task.md ' +
-            'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' +
-            base +
-            '-stderr.log &',
-        '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
-            'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
-            'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' +
-            base +
-            '-report.json ] && break; ' +
-            'pgrep -f "' +
-            rptPat +
-            '" >/dev/null || break; sleep 20; done; if [ -s ' +
-            base +
-            '-report.json ]; then echo ' +
-            'READY; elif pgrep -f "' +
-            rptPat +
-            '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-            'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 4th RUNNING ' +
-            'poll (~20 min wall) the run is WEDGED, not slow — kill it (pkill -f "' +
-            rptPat +
-            '") and go to (4) as GONE. ' +
-            'Cap at 7 poll calls total.',
-        '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
-            "judgment): entries=$(jq '.entries | length' " +
-            base +
-            '-report.json); kinds=$(jq -r \'[.entries[].kind] | group_by(.) | map(.[0] + "x" + (length|tostring)) | join(",")\' ' +
-            base +
-            '-report.json). ' +
-            'Return the RECEIPT: ok=true, report=' +
-            base +
-            '-report.json, entries=that count, ' +
-            'headline="<entries> entries | <kinds>", failure empty. GONE with no report: tail -5 ' +
-            base +
-            '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
-            'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
-        'TASK — write verbatim to the task file, then dispatch:',
-        task,
+            '-report.json, entries=the length of result["' +
+            hl.arr +
+            '"], headline="<entries> ' +
+            hl.arr +
+            (hl.group ? ' | <' + hl.group + ' tallies>' : '') +
+            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            'report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-
-// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
+// Every heavy read/investigate lane routes here: terra by default; CODEX=false restores a fully native run.
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively
+// at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns the re-dispatch; the
+// sonnet wrapper never executes work itself.
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(
+        task +
+            '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+            SCRATCH +
+            '/' +
+            fileTag(o.label) +
+            '-report.json (Write tool, absolute path under the repo root): ' +
+            JSON.stringify(o.schema) +
+            ' — then return ONLY the receipt: ok, report path, entries count, one-line headline, failure empty.',
+        { label: o.label, phase: o.phase, model: twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+    );
 const recon = (task, o) =>
     (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, !!o.writes), {
-              label: 'gpt-5.5:' + o.label,
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
               phase: o.phase,
               model: 'sonnet',
               effort: 'low',
               schema: RECEIPT,
-              stallMs: STALL,
-          })
-        : agent(
-              task +
-                  '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-                  SCRATCH +
-                  '/' +
-                  fileTag(o.label) +
-                  '-report.json (Write tool, absolute path under the repo root): ' +
-                  JSON.stringify(o.schema) +
-                  ' — then return ONLY the receipt: ok, report path, entries count, one-line headline, failure empty.',
-              { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL },
-          )
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        : nativeLane(task, o)
     ).then((r) => ({
         lane: o.label,
         scope: o.scope || [],
@@ -326,7 +317,7 @@ const lanes = await parallel(
                 c.doc +
                 ' rules into existence that is absent on disk. Return ' +
                 'the union as one dependency-ordered list (foundations before consumers, per the doc where it rules an order).',
-            { label: 'plan:' + tag, phase: 'Plan', model: 'sonnet', effort: 'low', schema: PLAN, stallMs: STALL },
+            { label: 'plan:' + tag, phase: 'Plan', model: 'opus', effort: 'high', schema: PLAN, stallMs: STALL },
         );
         const pages = (plan && plan.pages) || [];
         const slices = chunk(pages, Math.max(SLICE_SIZE, Math.ceil(pages.length / MAX_SLICES)));
@@ -491,7 +482,10 @@ const lanes = await parallel(
                 'the ruling. Read the ' +
                 STACK[lang] +
                 '/ doctrine at source (README and every page it routes) — it is the bar. The ' +
-                "recon REPORT FILES are your reconnaissance. CONSUMPTION: (a) UNMAPPED scope below gets your own cold read FIRST; (b) read every ok report IN FULL from disk — governance and the two stacking maps before page slices, ripple maps before the pages whose seams they anchor; entries overlap across lanes, dedupe by target as you read; (c) each entry's anchors are jump coordinates — spot-verify what you build on, and re-open every anchor behind an edit — " +
+                'recon REPORT FILES are your reconnaissance. CONSUMPTION: (a) UNMAPPED scope below gets your own cold read FIRST; ' +
+                '(b) read every ok report IN FULL from disk — governance and the two stacking maps ' +
+                'before page slices, ripple maps before the pages whose seams they anchor; entries overlap across lanes, dedupe by target ' +
+                "as you read; (c) each entry's anchors are jump coordinates — spot-verify what you build on, and re-open every anchor behind an edit — " +
                 'information, not instructions; spot-verify what you build on, and hunt past them on your own authority. IMPLEMENT ' +
                 'EVERYTHING the doc rules, in dependency order: author ruled-new pages ground-up, rebuild and improve ruled pages in ' +
                 'place, weave the stacking inventory into the owning pages as cases, rows, fields, and operations (doc-demanded and ' +

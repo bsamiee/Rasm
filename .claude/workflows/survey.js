@@ -3,15 +3,15 @@ export const meta = {
     whenToUse:
         'Deep-research the modern external packages a target planning folder is missing — packages that REPLACE hand-rolled design-page capability or ADD genuine domain capability — then execute end to end in one run: central admission with gates, full-depth .api catalogs, registry closure, and immediate holistic integration into the design pages. args = a planning folder path, an array of paths, or {targets}; target lanes run CONCURRENTLY — only the Admit stage (the central-manifest writer) serializes across targets.',
     description:
-        'Package survey-and-integrate over one target planning folder per lane. Scout (read-only, on gpt-5.5 dispatched through a sonnet codex wrapper; the CODEX flag false restores native opus) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.5 codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer (fable) reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.5 codex wrappers, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE fable executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap (CAP=14); the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. Nothing follows the executor; cold-verify runs separately when wanted.',
+        'Package survey-and-integrate over one target planning folder per lane. Scout (read-only, on gpt-5.6-terra dispatched through a sonnet codex wrapper; the CODEX flag false restores native opus) maps the folder — admitted packages, hand-rolled capability an ecosystem package owns, domain gaps against the bleeding-edge state of the art — and emits bounded research facets. Research fan (gpt-5.6-terra codex wrappers with live web search enabled, parallel) hunts the best-in-class modern package per facet, self-validating the admission gate (best-of, platform, newest stable, license, modern packaging, no-dup) with verified versions and members, writing its full candidate dossier to a per-lane report file and returning a thin receipt. ONE admission writer (fable) reads every research report IN FULL from disk, consolidates adversarially, hand-edits the central manifest + owning project registry + folder README bidirectionally (adds, and ripple-removes superseded packages), runs the restore/lock gate with the toolchain fallback, self-heals, and reverts what cannot resolve. Catalog writers (fable, parallel) author the .api catalogs at FULL depth — decompile/feed-verified members, [STACKING], homed to the owning tier (folder or language root). Mapper fan (gpt-5.6-terra codex wrappers, read-only) then reads ALL planning-folder pages plus the landed catalogs (new first) and the language-root tier, writing information maps to report files — locations, verified members, integration shapes as fact, never prescriptions — and returning thin receipts. ONE fable executor reads the map reports from disk and implements the whole integration: new pages/sub-folders where the capability demands an owner, existing pages improved and extended in place, holistic composition never tacked-on rows, index-doc closure, every ripple in the same pass. All target lanes run CONCURRENTLY under one agent-level slot cap (CAP=14); the Admit stage alone serializes across targets, and shared-tier catalogs of one language route through one serialized writer so concurrent lanes never collide on the language-root .api files. The scout hand-roll census feeds every Research facet and the Integrate executor; Scout, Admit, and Integrate each carry one bounded re-attempt. Nothing follows the executor; cold-verify runs separately when wanted.',
     phases: [
         {
             title: 'Scout',
-            detail: 'one read-only gpt-5.5 lane per target (codex wrapper): folder map, hand-roll census, domain gaps, bounded research facets',
+            detail: 'one read-only gpt-5.6-terra lane per target (codex wrapper): folder map, hand-roll census, domain gaps, bounded research facets',
         },
         {
             title: 'Research',
-            detail: 'one gpt-5.5 lane per facet (codex wrapper with live web search), parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified, dossier to disk + thin receipt',
+            detail: 'one gpt-5.6-terra lane per facet (codex wrapper with live web search), parallel under the pool cap: best-in-class modern candidates, gate self-validated, versions/licenses/members verified, dossier to disk + thin receipt',
         },
         {
             title: 'Admit',
@@ -25,7 +25,7 @@ export const meta = {
         },
         {
             title: 'Map',
-            detail: 'read-only gpt-5.5 mappers (codex wrappers) over all planning pages + both .api tiers, new catalogs first: information maps to disk + thin receipts, never prescriptions',
+            detail: 'read-only gpt-5.6-terra mappers (codex wrappers) over all planning pages + both .api tiers, new catalogs first: information maps to disk + thin receipts, never prescriptions',
         },
         {
             title: 'Integrate',
@@ -41,10 +41,11 @@ const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const EXEC_STALL = 480000;
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
 const MAP_SLICE = 5; // planning pages per mapper
 const CATALOG_BATCH = 2; // admitted packages per catalog writer
-const CODEX = true; // scout/research/map lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/survey'; // wrapper task/schema/report files, one triple per lane
+const CODEX = true; // scout/research/map lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
+const CODEX_DIR = '.claude/scratch/survey'; // per-lane MCP reports
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -419,147 +420,132 @@ const chunk = (arr, n) => {
     return o;
 };
 
-// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
-// consuming writer. It never does, edits, judges, or relays the work. `web` inserts live web search.
+// gpt-5.6-terra dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
+// verbatim to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
+// (role split); the prompt carries only the task; the output contract sits LAST. A web-research lane (o.web)
+// takes a territory clause that admits its web tools and the named packages' official sources over repo files.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: ' +
+          (o.web
+              ? 'the official sources of the packages the task names — the package registry (PyPI/NuGet/npm), the package docs, ' +
+                'and the source repository — for landscape, newest version, license, and maintenance, PLUS the exact repo files the ' +
+                'task cites for cross-check. Use web search and fetch freely over those sources; do not open repo files beyond the ' +
+                'ones the task names, and never open skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).'
+              : 'the exact files and directories the task names. Do not open files outside it, including skill or instruction ' +
+                'files (.claude/, CLAUDE.md, AGENTS.md).') +
+          '\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in the product coverage/unverified field ' +
+          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+          'spelling appears verbatim in the cited file or source; anything unconfirmed is recorded as a gap, never asserted.\n' +
+          '</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
 
-const codexCore = (base, rpt, schema, writes, web) => [
-    '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' +
-        CODEX_DIR +
-        "; purge stale lane artifacts (a leftover report would READY instantly with last run's data): rm -f " +
-        base +
-        '-report.json ' +
-        base +
-        '-stderr.log; Write the TASK block below verbatim to ' +
-        base +
-        '-task.md; Write this JSON ' +
-        'Schema exactly to ' +
-        base +
-        '-schema.json — both paths resolved ABSOLUTE under the repository root: ' +
-        JSON.stringify(schema),
-    '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' +
-        base +
-        '-task.md && test -s ' +
-        base +
-        '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, zero-CPU, no report): ' +
-        'codex exec -s ' +
-        (writes ? 'workspace-write' : 'read-only') +
-        ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
-        (web ? '-c web_search="live" ' : '') +
-        '--output-schema ' +
-        base +
-        '-schema.json -o ' +
-        base +
-        '-report.json ' +
-        '"Do the task in ' +
-        base +
-        '-task.md from the repository root. Final message: JSON per the output schema." ' +
-        '</dev/null >/dev/null 2>' +
-        base +
-        '-stderr.log &',
-    '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
-        'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
-        'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' +
-        base +
-        '-report.json ] && break; ' +
-        'pgrep -f "' +
-        rptPat +
-        '" >/dev/null || break; sleep 20; done; if [ -s ' +
-        base +
-        '-report.json ]; then echo ' +
-        'READY; elif pgrep -f "' +
-        rptPat +
-        '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-        'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 4th RUNNING poll (~20 min wall) the run is WEDGED, not slow — kill it (pkill -f "' +
-        rptPat +
-        '") and go to (4) as GONE. Cap at 7 poll calls total.',
-];
-
-const codexPrompt = (label, task, schema, writes, web, head) => {
+// One core builder for both codex lanes; only step (4) differs — codexPrompt returns a thin receipt, codexInline
+// relays the product JSON verbatim (scout's payload is small orchestration input that fans Research and slices Map).
+const codexSteps = (label, task, schema, o, step4) => {
     const base = CODEX_DIR + '/' + fileTag(label);
-    const rpt = fileTag(label) + '-report.json'; // unique per lane; pgrep matches the -o path on the codex cmdline
-    const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1); // self-excluding pgrep/pkill pattern
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
     return [
-        'DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
-            'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
-        ...codexCore(base, rpt, schema, writes, web),
-        '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
-            "judgment): entries=$(jq '" +
-            head.arr +
-            " | length' " +
-            base +
-            "-report.json); kinds=$(jq -r '" +
-            head.kind +
-            ' | group_by(.) | map("\\(.[0])x\\(length)") | join(",")\' ' +
-            base +
-            '-report.json). ' +
-            'Return the RECEIPT: ok=true, report=' +
+        'DISPATCH ROLE: gpt-5.6-terra performs the complete TASK below through one blocking Codex MCP call. Follow exactly four ' +
+            'steps; never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model gpt-5.6-terra --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="gpt-5.6-terra", sandbox=' +
+            (o.writes ? '"workspace-write"' : '"read-only"') +
+            ', cwd=' +
+            JSON.stringify(root) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute ' +
+            'path: ' +
+            report +
+            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        step4(base, report),
+    ].join('\n\n');
+};
+const codexPrompt = (label, task, schema, o) =>
+    codexSteps(
+        label,
+        task,
+        schema,
+        o,
+        (base) =>
+            '(4) Parse the tool result text only to compute ' +
+            o.head.arr +
+            '.length and the configured kind tallies. Return ok=true, report=' +
             base +
             '-report.json, entries=that count, headline="<entries> ' +
-            head.unit +
-            ' | <kinds>", failure empty. ' +
-            'GONE with no report: tail -5 ' +
-            base +
-            '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
-            'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
-        'TASK — write verbatim to the task file, then dispatch:',
+            o.head.unit +
+            ' | <kind tallies>", and failure empty. On a second tool error return ok=false, entries=0, report and headline ' +
+            'empty, and failure equal to the error text VERBATIM.',
+    );
+const codexInline = (label, task, schema, o) =>
+    codexSteps(
+        label,
         task,
-    ].join('\n\n');
-};
-
-// Scout is the run's one INLINE codex lane: its payload is orchestration input, so the typed report
-// JSON travels through structured output verbatim; failure is ok=false + `failure`, never sentinels.
-const codexInline = (label, task, schema, writes, web) => {
-    const base = CODEX_DIR + '/' + fileTag(label);
-    const rpt = fileTag(label) + '-report.json'; // unique per lane; pgrep matches the -o path on the codex cmdline
-    const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1); // self-excluding pgrep/pkill pattern
-    return [
-        'DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and relay ' +
-            'its typed answer VERBATIM. Never perform, edit, judge, soften, or summarize the task yourself.',
-        ...codexCore(base, rpt, schema, writes, web),
-        '(4) READY: return the report-file JSON through your structured output VERBATIM, unchanged. GONE with no report: ' +
-            'tail -5 ' +
-            base +
-            '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
-            'foreground) and resume polling; a second GONE returns the schema shape with `ok` false, `failure` = the stderr tail ' +
-            'in one line, every array empty, and every other string empty.',
-        'TASK — write verbatim to the task file, then dispatch:',
-        task,
-    ].join('\n\n');
-};
-
+        schema,
+        o,
+        () =>
+            '(4) Return that CONTENT JSON through your structured output VERBATIM. On a second tool error return the schema ' +
+            'shape with ok=false, failure equal to the error text VERBATIM, every array empty, and every other string empty.',
+    );
 // jq headline bits per receipt product: mechanical counts by gate/kind, never lane judgment.
 const HEAD = {
     research: { arr: '.candidates', kind: '[.candidates[] | if .ok then "gated" else "rejected" end]', unit: 'candidates' },
     map: { arr: '.entries', kind: '[.entries[].kind]', unit: 'entries' },
 };
 
-// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise.
-// The roster row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's
-// uncovered territory is exact even when the lane died before writing anything.
+// Native re-dispatch target for a codex lane: terra->opus (survey is terra-only; the sol/luna arms carry for parity).
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(
+        task +
+            '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+            CODEX_DIR +
+            '/' +
+            fileTag(o.label) +
+            '-report.json (Write tool, absolute path under the repo root): ' +
+            JSON.stringify(o.schema) +
+            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+    );
+
+// Every heavy read/investigate lane routes here: gpt-5.6-terra wrapper when CODEX, native opus otherwise.
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at
+// the role's Claude twin; the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The roster
+// row carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's uncovered territory
+// is exact even when the lane died before writing anything.
 const recon = (task, o) =>
     (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, !!o.writes, !!o.web, o.head), {
-              label: 'gpt-5.5:' + o.label,
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: 'terra:' + o.label,
               phase: o.phase,
               model: 'sonnet',
               effort: 'low',
               schema: RECEIPT,
-              stallMs: STALL,
-          })
-        : agent(
-              task +
-                  '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-                  CODEX_DIR +
-                  '/' +
-                  fileTag(o.label) +
-                  '-report.json (Write tool, absolute path under the repo root): ' +
-                  JSON.stringify(o.schema) +
-                  ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
-              { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL },
-          )
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        : nativeLane(task, o)
     ).then((r) => ({
         lane: o.label,
         scope: o.scope || [],
@@ -569,17 +555,22 @@ const recon = (task, o) =>
         headline: (r && r.headline) || '',
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
-const scoutLane = (task, o) =>
-    CODEX
-        ? agent(codexInline(o.label, task, o.schema, !!o.writes, !!o.web), {
-              label: 'gpt-5.5:' + o.label,
+// Scout is the run's one inline codex lane: the wrapper relays the SCOUT_SCHEMA product verbatim (ok/failure carried
+// in-shape). Quota failure re-dispatches the same task at native opus; a non-quota codex failure is final (the wrapper
+// already retried its call once).
+const scoutLane = (task, o) => {
+    const native = () => agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL });
+    return CODEX
+        ? agent(codexInline(o.label, task, o.schema, o), {
+              label: 'terra:' + o.label,
               phase: o.phase,
               model: 'sonnet',
               effort: 'low',
               schema: o.schema,
-              stallMs: STALL,
-          })
-        : agent(task, { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: o.schema, stallMs: STALL });
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && r.ok === false && /usage|quota|limit/i.test(r.failure || '') ? native() : r))
+        : native();
+};
 
 // --- [SHARED_BLOCKS] ---------------------------------------------------------------------
 
@@ -705,7 +696,7 @@ const lane = async (t) => {
             'never a ceiling. A completed scout sets `ok` true with `failure` empty; a scout that cannot complete sets `ok` false with ' +
             'the one-line reason in `failure` and every array empty.',
     ].join('\n\n');
-    const scoutOpts = { label: 'scout:' + tag, phase: 'Scout', schema: SCOUT_SCHEMA };
+    const scoutOpts = { label: 'scout:' + tag, phase: 'Scout', schema: SCOUT_SCHEMA, calls: 120 };
     // One bounded re-attempt: a dead or failed scout silently no-ops the whole lane.
     let scout = await slot(() => scoutLane(scoutPrompt, scoutOpts));
     if (!(scout && scout.ok)) scout = await slot(() => scoutLane(scoutPrompt, { ...scoutOpts, label: 'scout:' + tag + ':retry' }));
@@ -767,6 +758,7 @@ const lane = async (t) => {
                             phase: 'Research',
                             schema: RESEARCH_SCHEMA,
                             web: true,
+                            calls: 80,
                             head: HEAD.research,
                             scope: [fc.id + ' | ' + fc.direction + ' | ' + fc.gap],
                         },
@@ -903,7 +895,7 @@ const lane = async (t) => {
                                 'exact anchors), where a new page or sub-folder is warranted because no existing page owns the concept (`gap`), and every ' +
                                 'registry/index surface the integration will touch (`registry`/`ripple`).',
                         ].join('\n\n'),
-                        { label: 'map:' + tag + ':s' + i, phase: 'Map', schema: MAP_SCHEMA, head: HEAD.map, scope: s },
+                        { label: 'map:' + tag + ':s' + i, phase: 'Map', schema: MAP_SCHEMA, calls: 80, head: HEAD.map, scope: s },
                     ),
                 ),
             ),

@@ -1,15 +1,26 @@
 export const meta = {
     name: 'estate',
-    description: 'Per-language estate tracks - recon dossiers, then initial/critique/redteam fable passes - closing with a monorepo final track',
-    whenToUse:
-        'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; launch from a fable session (passes inherit the session model)',
-    phases: [{ title: 'Recon' }, { title: 'Estate' }, { title: 'Final' }],
+    description:
+        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam fable passes - closing with a monorepo final track. The T-passes stay native fable because their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install) a codex sandbox cannot reach.',
+    whenToUse: 'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; passes run on fable.',
+    phases: [
+        {
+            title: 'Recon',
+            detail: 'per track: two read-only gpt-5.6-terra lanes via codex wrappers (sonnet shells) with split charges - estate-scope facts and the libs-complexity map - each writing its dossier to scratch; CODEX=false restores native opus lanes',
+            model: 'sonnet',
+        },
+        { title: 'Estate' },
+        { title: 'Final' },
+    ],
 };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SCRATCH = '.claude/scratch/estate';
 const CORE_PAGES = 4;
+const STALL = 300000;
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const CODEX = true; // recon lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
 const TRACKS = {
     csharp: {
@@ -123,7 +134,8 @@ const PASS_RECEIPT = {
 
 const MODEL_LAW =
     'MODEL LAW: you execute every file write and every judgment yourself. Delegate read-only reconnaissance roughly 50/50 between codex ' +
-    '(Bash: codex exec -s read-only --skip-git-repo-check -c \'mcp_servers={}\' "<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
+    '(Bash: codex exec -s read-only --skip-git-repo-check --ignore-user-config -m gpt-5.6-terra -c model_reasoning_effort=xhigh ' +
+    '"<self-contained scoped question>" </dev/null 2>/dev/null — synchronous, ' +
     'one bounded question per leg) and opus subagents (Agent tool, model opus, explicit READ-ONLY mandate; fall back to codex if Agent is unavailable). ' +
     'Recon returns facts, locations, inventories, and verified member lists — never instructions, prescriptions, or edits; recon agents use exa/tavily, ' +
     'the nuget MCP, Context7, uv run python -m tools.assay, and fd/rg/loc/tree.';
@@ -194,25 +206,119 @@ const docsOrder = (t) =>
 
 const dossierPath = (name, lane) => SCRATCH + '/' + name + '-recon-' + lane + '-report.md';
 
+// Split recon charges: the two lanes never duplicate a read — scope owns the estate facts, libs owns the complexity map.
+const LANE_CHARGE = {
+    scope:
+        'Build a factual dossier of the estate scope below: file inventories with one-line states, package/consumer matrices from ' +
+        'manifests and lockfiles, config cross-references, upstream versions where staleness is suspected (the nuget MCP, PyPI, npm), ' +
+        'and exact file:line anchors for everything notable.',
+    libs:
+        'Build the LIBS-COMPLEXITY dossier for the estate scope below: map the relevant libs/ planning corpus in depth — every package ' +
+        'folder with its domains, owners, seams, receipt families, and wire shapes, each with exact file:line anchors — as facts the ' +
+        'shared test infrastructure must anticipate when every folder goes live.',
+};
+
 const reconPrompt = (t, name, lane) =>
-    'READ-ONLY recon lane for the ' +
+    'RECON lane for the ' +
     name +
-    ' estate of this repo. Build a factual dossier of the estate scope below: file inventories with one-line ' +
-    'states, package/consumer matrices from manifests and lockfiles, config cross-references, upstream versions where staleness is suspected (nuget MCP, ' +
-    'PyPI, npm), and exact file:line anchors for everything notable. Include a LIBS-COMPLEXITY section: map the relevant libs/ planning corpus in depth — ' +
-    'every package folder with its domains, owners, seams, receipt families, and wire shapes — as facts the shared test infrastructure must anticipate. ' +
-    'FACTS AND LOCATIONS ONLY — no verdicts, no prescriptions, no recommendations. ' +
+    ' estate of this repo (investigate only; your sole write is the dossier file). ' +
+    LANE_CHARGE[lane] +
+    ' FACTS AND LOCATIONS ONLY — no verdicts, no prescriptions, no recommendations. ' +
     'First act: rm -f ' +
     dossierPath(name, lane) +
     '. Write the complete dossier to ' +
     dossierPath(name, lane) +
     ' (mkdir -p the folder), then return ' +
     'the receipt: ok, report=that path, entries=count of dossier rows, headline=mechanical tally, failure="" (or the error). ' +
-    (lane === 'gpt'
-        ? 'Dispatch the reading to codex read-only legs (synchronous, scoped questions) and compose their facts into the dossier yourself. '
-        : '') +
     'SCOPE: ' +
     t.scope;
+
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call; the recon lane itself writes its
+// dossier (workspace-write, that one file) and returns the receipt as its final message — the wrapper relays
+// that receipt, no product write, no relay hop. Lane law rides developer-instructions; the prompt carries only the task.
+const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+          '</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+const codexRecon = (task, o) => {
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const model = o.model || 'gpt-5.6-terra';
+    return [
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly three steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(o.label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox="workspace-write" (the task writes its one dossier file), cwd=' +
+            JSON.stringify(root) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(o.schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text — the ' +
+            'receipt JSON the lane earns by writing its dossier to disk. Parse that content and return it VERBATIM as your ' +
+            'structured output.',
+        '(4) On a second tool error return ok=false, entries=0, report and headline empty, and failure equal to the error ' + 'text VERBATIM.',
+    ].join('\n\n');
+};
+// QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task natively at the
+// role's Claude twin (terra->opus); the caller owns the re-dispatch, the sonnet wrapper never executes work itself. The
+// recon task already writes its own dossier and returns the receipt, so the native lane runs it verbatim.
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(task, {
+        label: o.label,
+        phase: o.phase,
+        model: o.nativeModel || twinOf(o.model),
+        effort: 'high',
+        schema: o.schema,
+        stallMs: o.stallMs || STALL,
+    });
+const reconLane = (t, name, lane, ph) => {
+    const task = reconPrompt(t, name, lane);
+    // The estate sweep spans whole test/tool/config trees plus the libs planning corpus — a wider call budget than a bounded page batch.
+    const o = { label: 'recon-' + lane + ':' + name, phase: ph, model: 'gpt-5.6-terra', schema: DOSSIER_RECEIPT, calls: 120, stallMs: STALL };
+    const dead = () => ({ ok: false, report: dossierPath(name, lane), entries: 0, headline: '', failure: 'lane died' });
+    return (
+        CODEX
+            ? agent(codexRecon(task, o), {
+                  label: 'terra:' + o.label,
+                  phase: ph,
+                  model: 'sonnet',
+                  effort: 'low',
+                  schema: DOSSIER_RECEIPT,
+                  stallMs: CODEX_STALL,
+              }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+            : nativeLane(task, o)
+    )
+        .then((r) => r || dead())
+        .catch(dead);
+};
 
 const passPrompt = (t, name, tier, reconRows) =>
     'You are the ' +
@@ -253,39 +359,34 @@ log('estate tracks: ' + ACTIVE.join(', ') + (WANT_FINAL ? ' + final' : ''));
 
 const results = await pipeline(
     trackRows,
-    (t) =>
-        parallel([
-            () =>
-                agent(reconPrompt(t, t.lang, 'opus'), {
-                    model: 'opus',
-                    effort: 'high',
-                    phase: 'Recon',
-                    label: 'recon-opus:' + t.lang,
-                    schema: DOSSIER_RECEIPT,
-                }),
-            () =>
-                agent(reconPrompt(t, t.lang, 'gpt'), {
-                    model: 'sonnet',
-                    effort: 'low',
-                    phase: 'Recon',
-                    label: 'gpt-5.5:recon-' + t.lang,
-                    schema: DOSSIER_RECEIPT,
-                }),
-        ]),
+    (t) => parallel([() => reconLane(t, t.lang, 'scope', 'Recon'), () => reconLane(t, t.lang, 'libs', 'Recon')]),
     (recon, t) =>
         agent(passPrompt(t, t.lang, 'T1', (recon || []).filter(Boolean)), {
+            model: 'fable',
             effort: 'high',
             phase: 'Estate',
             label: 't1:' + t.lang,
             schema: PASS_RECEIPT,
         }).then((r) => ({ t1: r })),
     (acc, t) =>
-        agent(passPrompt(t, t.lang, 'T2', null), { effort: 'high', phase: 'Estate', label: 't2:' + t.lang, schema: PASS_RECEIPT }).then((r) => ({
+        agent(passPrompt(t, t.lang, 'T2', null), {
+            model: 'fable',
+            effort: 'high',
+            phase: 'Estate',
+            label: 't2:' + t.lang,
+            schema: PASS_RECEIPT,
+        }).then((r) => ({
             ...acc,
             t2: r,
         })),
     (acc, t) =>
-        agent(passPrompt(t, t.lang, 'T3', null), { effort: 'high', phase: 'Estate', label: 't3:' + t.lang, schema: PASS_RECEIPT }).then((r) => ({
+        agent(passPrompt(t, t.lang, 'T3', null), {
+            model: 'fable',
+            effort: 'high',
+            phase: 'Estate',
+            label: 't3:' + t.lang,
+            schema: PASS_RECEIPT,
+        }).then((r) => ({
             ...acc,
             t3: r,
         })),
@@ -296,34 +397,30 @@ let final = null;
 if (WANT_FINAL && ACTIVE.length) {
     phase('Final');
     const f = { lang: 'monorepo', ...FINAL_TRACK };
-    const fRecon = (
-        await parallel([
-            () =>
-                agent(reconPrompt(f, 'monorepo', 'opus'), {
-                    model: 'opus',
-                    effort: 'high',
-                    phase: 'Final',
-                    label: 'recon-opus:final',
-                    schema: DOSSIER_RECEIPT,
-                }),
-            () =>
-                agent(reconPrompt(f, 'monorepo', 'gpt'), {
-                    model: 'sonnet',
-                    effort: 'low',
-                    phase: 'Final',
-                    label: 'gpt-5.5:recon-final',
-                    schema: DOSSIER_RECEIPT,
-                }),
-        ])
-    ).filter(Boolean);
+    const fRecon = (await parallel([() => reconLane(f, 'monorepo', 'scope', 'Final'), () => reconLane(f, 'monorepo', 'libs', 'Final')])).filter(
+        Boolean,
+    );
     const f1 = await agent(passPrompt(f, 'monorepo FINAL', 'T1', fRecon), {
+        model: 'fable',
         effort: 'high',
         phase: 'Final',
         label: 'final:t1',
         schema: PASS_RECEIPT,
     });
-    const f2 = await agent(passPrompt(f, 'monorepo FINAL', 'T2', null), { effort: 'high', phase: 'Final', label: 'final:t2', schema: PASS_RECEIPT });
-    const f3 = await agent(passPrompt(f, 'monorepo FINAL', 'T3', null), { effort: 'high', phase: 'Final', label: 'final:t3', schema: PASS_RECEIPT });
+    const f2 = await agent(passPrompt(f, 'monorepo FINAL', 'T2', null), {
+        model: 'fable',
+        effort: 'high',
+        phase: 'Final',
+        label: 'final:t2',
+        schema: PASS_RECEIPT,
+    });
+    const f3 = await agent(passPrompt(f, 'monorepo FINAL', 'T3', null), {
+        model: 'fable',
+        effort: 'high',
+        phase: 'Final',
+        label: 'final:t3',
+        schema: PASS_RECEIPT,
+    });
     final = { t1: f1, t2: f2, t3: f3 };
 }
 

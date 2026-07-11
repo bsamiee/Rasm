@@ -2,14 +2,17 @@ export const meta = {
     name: 'ideate',
     whenToUse: 'Rebuild a folder IDEAS and TASK pool to world-class when the deferred idea or task pool is stale or thin.',
     description:
-        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler (CAP=10) so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder holding more than 12 planning pages runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run read-only on gpt-5.5 dispatched through sonnet codex wrappers (CODEX flag; false restores native opus); ideate/critique/redteam stay fable writers. Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
+        'Rebuild a folder IDEAS + TASKS card pool to world-class: survey the realized corpus and research the real domain, author the genuinely-deferred idea/task pool, then fix-in-place constructive critique + hostile adversarial redteam. Language-agnostic (cards are markdown governed by the card schema). Authors NO design pages (that is the rebuild-* workflows) and aligns nothing pre-existing for its own sake (that is align-cards) — this is the greenfield/expansion pool generator. Every agent call takes a slot in one agent-level scheduler (CAP=10) so the true in-flight agent count stays at cap while all folder chains run concurrently; within a folder the survey -> ideate -> critique -> redteam chain holds because each stage consumes the prior stage\'s landed cards, and a folder holding more than 12 planning pages runs two page-slice survey agents whose maps merge before the ideate stage. Survey lanes (including the page-slice splits) run read-only on gpt-5.6-terra dispatched through sonnet codex wrappers (CODEX flag; false restores native opus); ideate and redteam stay fable writers, and critique runs as ONE gpt-5.6-sol codex lane per folder (workspace-write; cardlog to disk, receipt on the wire; the redteam reads it from disk as refutation targets and folds its verified files into the folder record). Every stage writes BOTH ends of every Ripple itself — a cross-folder counterpart is authored or repaired directly in the sibling folder\'s card files in the same pass under the current-state law; nothing routes to a later phase. args = optional scope (e.g. "libs/python/geometry"); empty = all of libs.',
     phases: [
         {
             title: 'Survey',
-            detail: 'discover card-owning folders with page counts (sonnet), then per folder: a read-only gpt-5.5 lane (codex wrapper) maps realized capability + current pool + researched domain-completeness gaps + cross-folder seams; a folder above 12 planning pages splits the survey across two page-slice gpt-5.5 lanes merged before ideate',
+            detail: 'discover card-owning folders with page counts (sonnet), then per folder: a read-only gpt-5.6-terra lane (codex wrapper) maps realized capability + current pool + researched domain-completeness gaps + cross-folder seams; a folder above 12 planning pages splits the survey across two page-slice gpt-5.6-terra lanes merged before ideate',
         },
         { title: 'Ideate', detail: 'author/rebuild the IDEAS + TASKS pool grounded in the survey, genuinely-deferred only, both Ripple ends landed' },
-        { title: 'Critique', detail: 'fix-in-place: pull the pool up — density, domain-completeness, anchors, ripples' },
+        {
+            title: 'Critique',
+            detail: 'fix-in-place on gpt-5.6-sol (codex lane, workspace-write): pull the pool up — density, domain-completeness, anchors, ripples; cardlog to disk',
+        },
         { title: 'Redteam', detail: 'fix-in-place hostile reviewer: attack redundancy, mis-carding, dangling ripples, under-ideation' },
     ],
 };
@@ -20,8 +23,10 @@ const CAP = 14;
 const SURVEY_PAGE_CAP = 12;
 const STAGGER_MS = 1500;
 const STALL = 300000;
-const CODEX = true; // survey lanes run on gpt-5.5 via the codex wrapper; false restores native opus lanes
-const CODEX_DIR = '.claude/scratch/ideate'; // wrapper task/schema/report files, one triple per lane
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 1500000; // sol critique holds one long blocking MCP call at the operator-default tier (xhigh, 1200s ceiling); stall detection must outlast it
+const CODEX = true; // survey + critique lanes ride codex wrappers (terra; sol for critique); false restores native lanes
+const CODEX_DIR = '.claude/scratch/ideate'; // per-lane MCP reports
 
 // --- [INPUTS] ----------------------------------------------------------------------------
 
@@ -165,7 +170,8 @@ const LAW = [
         'is a defect: card it. A member a card cites that no .api catalogue or design page verifies is a phantom: correct or delete it. Verified ' +
         'members only.',
     'WRITE-FULLY MANDATE: every card you author/refine/repair you MUST write NOW via Edit/Write directly into the owning IDEAS.md / TASKLOG.md — ' +
-        'this folder or a sibling: any card file your work exposes is yours in the same pass. The structured log is a REPORT of edits ALREADY MADE, ' +
+        'this folder or a sibling: any card file your work exposes is yours in the same pass. The writing is YOURS: never delegate authoring to ' +
+        'another agent — a delegate may only fetch information. The structured log is a REPORT of edits ALREADY MADE, ' +
         'never a to-do list or hedge; leave nothing behind. `files` lists every file you edited; `beyondFolder` lists the sibling-folder card files ' +
         'among them — empty attests every Ripple counterpart already existed, never that the hunt did not run. If the pool is already world-class, ' +
         'return verdict=clean — a clean verdict is EARNED by an attack that finds nothing, never conceded on first read; never invent cards to look busy.',
@@ -216,110 +222,104 @@ const makeSlots = (cap) => {
 const slot = makeSlots(CAP);
 const nameOf = (f) => f.split('/').pop() || f;
 
-// gpt-5.5 dispatch: the sonnet wrapper's ONLY job is dispatch-and-relay — it writes the task + schema to
-// CODEX_DIR, launches codex DETACHED (it outlives any single Bash call), waits for the typed -o report by
-// liveness (never relaunching a live run), and returns a thin RECEIPT — the product stays on disk for the
-// ideate stage. It never does, edits, judges, or relays the work.
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content to the lane
+// report, and returns mechanical orchestration data. Lane law rides developer-instructions (role split — recon law
+// for read-only survey lanes, fix law for the in-place critique lane); the prompt carries only the task; the output
+// contract sits LAST.
 const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
-const codexPrompt = (label, task, schema, writes) => {
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in coverage.unverified instead of ' +
+          're-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited spelling appears ' +
+          'verbatim in the cited file; move anything unconfirmed into coverage.unverified, never assert it.\n</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+const codexPrompt = (label, task, schema, o) => {
     const base = CODEX_DIR + '/' + fileTag(label);
-    const rpt = fileTag(label) + '-report.json'; // unique per lane; pgrep matches the -o path on the codex cmdline
-    const rptPat = '[' + rpt.slice(0, 1) + ']' + rpt.slice(1); // self-excluding pgrep/pkill pattern
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
+    const model = o.model || 'gpt-5.6-terra';
+    const hl = o.hl || { arr: 'entries', group: 'kind' };
     return [
-        'DISPATCH ROLE: gpt-5.5 (codex) performs the TASK below in its own context; you only launch it and return a thin ' +
-            'RECEIPT for its on-disk report. Never perform, edit, judge, soften, summarize, or RELAY the work itself.',
-        '(1) Files FIRST, with the WRITE TOOL — never a shell heredoc and never a relative path (cwd drift and heredoc quoting land files where codex cannot find them, killing every launch on a missing schema file). From the repository root (your starting cwd): mkdir -p ' +
-            CODEX_DIR +
-            "; purge stale lane artifacts (a leftover report would READY instantly with last run's data): rm -f " +
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox=' +
+            (o.writes ? '"workspace-write"' : '"read-only"') +
+            ', cwd=' +
+            JSON.stringify(root) +
+            (o.codexEffort ? ', config={"model_reasoning_effort":"' + o.codexEffort + '"}' : '') +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+            report +
+            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        '(4) Parse the tool result text only to compute result["' +
+            hl.arr +
+            '"].length' +
+            (hl.group ? ' and the ' + hl.group + ' tallies' : '') +
+            '. Return ok=true, report=' +
             base +
-            '-report.json ' +
-            base +
-            '-stderr.log; Write the TASK block below verbatim to ' +
-            base +
-            '-task.md; Write this JSON ' +
-            'Schema exactly to ' +
-            base +
-            '-schema.json — both paths resolved ABSOLUTE under the repository root: ' +
-            JSON.stringify(schema),
-        '(2) Launch codex DETACHED from the repo root — ONE Bash call from the repo root, which FIRST verifies the files: test -s ' +
-            base +
-            '-task.md && test -s ' +
-            base +
-            '-schema.json || echo FILES-MISSING — on FILES-MISSING redo (1), NEVER launch without both. THEN the command below VERBATIM, never ' +
-            'retyped or reflowed (every token matters: dropping </dev/null makes codex block forever on stdin, ' +
-            'zero-CPU, no report): ' +
-            'codex exec -s ' +
-            (writes ? 'workspace-write' : 'read-only') +
-            ' --skip-git-repo-check --ephemeral -c mcp_servers={} ' +
-            '--output-schema ' +
-            base +
-            '-schema.json -o ' +
-            base +
-            '-report.json "Do the task in ' +
-            base +
-            '-task.md ' +
-            'from the repository root. Final message: JSON per the output schema." </dev/null >/dev/null 2>' +
-            base +
-            '-stderr.log &',
-        '(3) WAIT for the answer. codex runs at high effort and is slow (often 5-15 min); an absent report WHILE codex ' +
-            'is still running is NORMAL, never failure — do NOT relaunch a live run. Poll with sequential Bash calls, each ' +
-            'with the Bash timeout parameter 280000: for i in $(seq 1 13); do [ -s ' +
-            base +
-            '-report.json ] && break; ' +
-            'pgrep -f "' +
-            rptPat +
-            '" >/dev/null || break; sleep 20; done; if [ -s ' +
-            base +
-            '-report.json ]; then echo ' +
-            'READY; elif pgrep -f "' +
-            rptPat +
-            '" >/dev/null; then echo RUNNING; else echo GONE; fi. Repeat the poll call ' +
-            'while it prints RUNNING; stop on READY; on GONE go to (4). LIVENESS IS NOT HEALTH: after the 4th RUNNING ' +
-            'poll (~20 min wall) the run is WEDGED, not slow — kill it (pkill -f "' +
-            rptPat +
-            '") and go to (4) as GONE. ' +
-            'Cap at 7 poll calls total.',
-        '(4) READY: do NOT relay the report body through your output — build the MECHANICAL headline with jq (never your own ' +
-            "judgment): entries=$(jq '.entries | length' " +
-            base +
-            '-report.json); kinds=$(jq -r \'[.entries[].kind] | group_by(.) | map("\\(.[0])x\\(length)") | join(",")\' ' +
-            base +
-            '-report.json). ' +
-            'Return the RECEIPT: ok=true, report=' +
-            base +
-            '-report.json, entries=that count, headline="<entries> entries | <kinds>", failure empty. GONE with no report: tail -5 ' +
-            base +
-            '-stderr.log FIRST — that tail IS the crash reason; relaunch the (2) command once (detached, never ' +
-            'foreground) and resume polling; a second GONE returns ok=false, entries=0, report and headline empty, failure=the stderr tail in one line.',
-        'TASK — write verbatim to the task file, then dispatch:',
-        task,
+            '-report.json, entries=that count, headline="<entries> ' +
+            hl.arr +
+            (hl.group ? ' | <' + hl.group + ' tallies>' : '') +
+            '", and failure empty. On a second tool error return ' +
+            'ok=false, entries=0, report and headline empty, and failure equal to the error text VERBATIM.',
     ].join('\n\n');
 };
-
-// Every heavy read/investigate lane routes here: gpt-5.5 wrapper when CODEX, native opus otherwise. The roster row
-// carries `scope` from the ORCHESTRATOR (never the lane's self-report) so a failed lane's unmapped territory is
-// exact even when the lane died before writing anything.
+// Every codex-dispatched lane routes here: terra by default, sol where o.model says so; CODEX=false restores a fully
+// native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME task
+// natively at the role's Claude twin (terra->opus, sol->fable, luna->sonnet) — the caller owns the re-dispatch; the
+// sonnet wrapper never executes work itself. The roster row carries `scope` from the ORCHESTRATOR (never the lane's
+// self-report) so a failed lane's unmapped territory is exact even when the lane died before writing anything.
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(
+        task +
+            '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+            CODEX_DIR +
+            '/' +
+            fileTag(o.label) +
+            '-report.json (Write tool, absolute path under the repo root): ' +
+            JSON.stringify(o.schema) +
+            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+        { label: o.label, phase: o.phase, model: o.nativeModel || twinOf(o.model), effort: 'high', schema: RECEIPT, stallMs: o.stallMs || STALL },
+    );
 const recon = (task, o) =>
     (CODEX
-        ? agent(codexPrompt(o.label, task, o.schema, !!o.writes), {
-              label: 'gpt-5.5:' + o.label,
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
               phase: o.phase,
               model: 'sonnet',
               effort: 'low',
               schema: RECEIPT,
-              stallMs: STALL,
-          })
-        : agent(
-              task +
-                  '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
-                  CODEX_DIR +
-                  '/' +
-                  fileTag(o.label) +
-                  '-report.json (Write tool, absolute path under the repo root): ' +
-                  JSON.stringify(o.schema) +
-                  ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
-              { label: o.label, phase: o.phase, model: 'opus', effort: 'high', schema: RECEIPT, stallMs: STALL },
-          )
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        : nativeLane(task, o)
     ).then((r) => ({
         lane: o.label,
         scope: o.scope || [],
@@ -408,10 +408,18 @@ const critiquePrompt = (folder) =>
             'repaired at BOTH ends NOW per the RIPPLE + CURRENT-STATE laws. EDIT the card files. Return the card-log listing every file you edited, ' +
             'sibling folders included.',
     ].join('\n');
-const redteamPrompt = (folder) =>
+const redteamPrompt = (folder, critRep) =>
     [
         LAW,
         '',
+        (critRep
+            ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique cardlog is ON DISK at ' +
+              critRep +
+              ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, never a ' +
+              "settled record. Your card-log's `files`/`beyondFolder` are the folder's CONSOLIDATED record: union the critique " +
+              "cardlog's rows (each verified on disk) with your own edits; a dropped critique row is a silent loss."
+            : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this pool gets; judge from CURRENT ' +
+              'disk alone.') + '\n',
         'TASK: ADVERSARIAL RED-TEAM + FIX IN PLACE of the cards in ' +
             folder +
             '/IDEAS.md + TASKLOG.md — ' +
@@ -479,18 +487,25 @@ const ideateFolder = async (u) => {
         }),
     );
     if (authored === null) return { folder, logs: {}, ok: false };
+    // Sol critique: a workspace-write codex lane fixing the pool in place; cardlog to disk, receipt
+    // on the wire; the redteam reads it from disk and folds its verified rows into the folder record.
     const crit = await slot(() =>
-        agent(critiquePrompt(folder), {
+        recon(critiquePrompt(folder), {
             label: 'crit:' + nameOf(folder),
             phase: 'Critique',
-            model: 'fable',
             schema: CARDLOG_SCHEMA,
-            effort: 'high',
-            stallMs: STALL,
+            writes: true,
+            fix: true,
+            model: 'gpt-5.6-sol',
+            nativeModel: 'fable',
+            stallMs: SOL_STALL,
+            scope: [folder],
+            hl: { arr: 'files', group: '' },
         }),
     );
+    const critRep = crit && crit.ok ? crit.report : '';
     const rt = await slot(() =>
-        agent(redteamPrompt(folder), {
+        agent(redteamPrompt(folder, critRep), {
             label: 'redteam:' + nameOf(folder),
             phase: 'Redteam',
             model: 'fable',
@@ -499,7 +514,7 @@ const ideateFolder = async (u) => {
             stallMs: STALL,
         }),
     );
-    return { folder, logs: { ideate: authored, crit, redteam: rt }, ok: rt !== null };
+    return { folder, logs: { ideate: authored, redteam: rt }, critReport: critRep, ok: rt !== null };
 };
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -522,11 +537,25 @@ log('Ideate discover under ' + SWEEP + ': ' + FOLDERS.length + ' folders');
 const done = (await Promise.all(FOLDERS.map((u) => ideateFolder(u)))).filter(Boolean);
 const complete = done.filter((r) => r.ok);
 const failed = done.filter((r) => !r.ok).map((r) => r.folder);
-const stages = ['ideate', 'crit', 'redteam'];
-const touched = [...new Set(complete.flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].files) || [])))];
-const beyond = [...new Set(complete.flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].beyondFolder) || [])))];
+// ORPHAN DRAIN: a critique cardlog whose redteam died never folded forward — its card edits persist
+// on disk, but its rows would vanish from the run record; one terminal drain re-verifies and folds them.
+const ORPHANS = done.filter((r) => !r.ok && r.critReport).map((r) => r.critReport);
+const drained = ORPHANS.length
+    ? await agent(
+          'ORPHAN DRAIN: these sol critique cardlogs landed on disk but their redteam died, so their rows never folded into a ' +
+              'folder record. Read each report IN FULL from disk: ' +
+              JSON.stringify(ORPHANS) +
+              '. Re-verify every row against the live card files and return the consolidated union as your cardlog — files, ' +
+              'beyondFolder, and verdict; a dropped row is a silent loss.',
+          { label: 'drain:orphans', phase: 'Redteam', model: 'fable', effort: 'high', schema: CARDLOG_SCHEMA, stallMs: STALL },
+      )
+    : null;
+const stages = ['ideate', 'redteam']; // the critique cardlog lives on disk; the redteam folds its rows into the folder record
+const folded = drained ? [{ folder: 'orphans', logs: { redteam: drained }, ok: true }] : [];
+const touched = [...new Set(complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].files) || [])))];
+const beyond = [...new Set(complete.concat(folded).flatMap((r) => stages.flatMap((k) => (r.logs[k] && r.logs[k].beyondFolder) || [])))];
 const verdicts = {};
-for (const r of done)
+for (const r of done.concat(folded))
     for (const k of stages) {
         const v = r.logs[k] && r.logs[k].verdict;
         if (v) verdicts[v] = (verdicts[v] || 0) + 1;
@@ -549,6 +578,7 @@ return {
     folders: FOLDERS.length,
     complete: complete.map((r) => r.folder),
     failed,
+    orphansDrained: ORPHANS.length,
     filesTouched: touched.length,
     beyondFolder: beyond,
     verdicts,
