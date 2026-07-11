@@ -406,9 +406,10 @@ const FINDINGS_SCHEMA = {
 const FIXER_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'summary'],
+    required: ['files', 'indexApplied', 'resolved', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
+        harvest: HARVEST,
         indexApplied: {
             type: 'array',
             items: {
@@ -1433,7 +1434,9 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             JSON.stringify(backlog) +
             '.\n' +
             "(2b) ORPHANED CRITIQUE FIXLOGS (batches whose redteam never landed, so these on-disk fixlogs' seamsTouched/deferred/" +
-            'indexRows rows were never folded forward — read each IN FULL from disk and drain those rows under the same law): ' +
+            'indexRows/harvest rows were never folded forward — read each IN FULL from disk, drain the seam/deferred/index rows ' +
+            "under the same law, and fold each fixlog's surviving harvest rows into your own `harvest` return, re-verified against " +
+            'current disk and deduped): ' +
             JSON.stringify(orphans) +
             '.\n' +
             '(3) FINDER REPORTS — the finder products are ON DISK as JSON report files; the ROSTER receipts below are navigation, ' +
@@ -1463,7 +1466,8 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
             JSON.stringify(failed) +
             '. Return the final fixlog — `remaining` carries ONLY rows verified still-open on current disk and genuinely blocked, ' +
             'each claim naming its blocker and owner; a row disk already resolved is culled with proof in `rejected`, and an empty ' +
-            '`remaining` attests the drain closed.',
+            '`remaining` attests the drain closed. ' +
+            HARVEST_LAW,
     ]
         .filter(Boolean)
         .join('\n\n');
@@ -1691,6 +1695,7 @@ log(
 // row against live disk (freshness is its duty — no concurrent writers, no collisions), fixes at root,
 // and loops until the set is empty; a round without shrinkage stops the loop with the blocked set final.
 let fixer = null;
+let fixerHarvest = [];
 let residuals = BACKLOG;
 let orphanQueue = ORPHANS;
 let lastOpen = Infinity;
@@ -1701,15 +1706,17 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
             { label: round ? 'fixer:r' + round : 'fixer', phase: 'Close', model: 'fable', effort: 'high', schema: FIXER_SCHEMA, stallMs: STALL },
         ),
     );
-    const open = (fixer && fixer.remaining) || [];
+    if (!fixer) break; // dead round: the fed-in residual and orphan sets survive to the run return, never zeroed by a lost closer
+    fixerHarvest = fixerHarvest.concat(fixer.harvest || []);
+    const open = fixer.remaining || [];
     orphanQueue = [];
     residuals = open;
-    if (!fixer || !open.length || open.length >= lastOpen) break;
+    if (!open.length || open.length >= lastOpen) break;
     lastOpen = open.length;
 }
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against
 // the live doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
-const HARVEST_ROWS = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || []));
+const HARVEST_ROWS = built.flatMap((d) => ((d.fix && d.fix.harvest) || []).concat((d.rt && d.rt.harvest) || [])).concat(fixerHarvest);
 const doctrine = HARVEST_ROWS.length
     ? await slot(() =>
           agent(

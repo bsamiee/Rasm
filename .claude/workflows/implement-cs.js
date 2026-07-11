@@ -365,9 +365,10 @@ const REDTEAM_SCHEMA = {
 const PIN_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['applied', 'seam_rows_applied', 'rejected', 'remaining', 'summary'],
+    required: ['applied', 'seam_rows_applied', 'rejected', 'remaining', 'harvest', 'summary'],
     properties: {
         applied: { type: 'array', items: { type: 'string' } },
+        harvest: HARVEST,
         seam_rows_applied: { type: 'array', items: { type: 'string' } },
         rejected: {
             type: 'array',
@@ -1166,8 +1167,9 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
             CENTRAL +
             '` and for every package `ARCHITECTURE.md` ' +
             '`[02]-[SEAMS]` section, and its LAST agent. ORPHANED CRITIQUE FIXLOGS (folders whose redteam never landed, so these on-disk ' +
-            "fixlogs' `pins` and `seams` rows were never folded forward — read each IN FULL from disk and apply those rows under the same law " +
-            'as the reported rows below): ' +
+            "fixlogs' `pins`, `seams`, and `harvest` rows were never folded forward — read each IN FULL from disk, apply the pin and seam rows " +
+            "under the same law as the reported rows below, and fold each fixlog's surviving harvest rows into your own `harvest` return, " +
+            're-verified against current disk and deduped): ' +
             JSON.stringify(orphans) +
             '. PINS: apply each reported row below exactly once — hand-edit the grouped manifest at the SYMBOL ' +
             'anchor (never a line number), preserving label-group and alphabetical order, deduping semantically identical rows; verify each package + ' +
@@ -1187,7 +1189,8 @@ const pinPrompt = (pins, seams, orphans, backlog, round) =>
             JSON.stringify(seams, null, 1) +
             '\nReturn applied + seam_rows_applied + rejected + summary, and `remaining` carrying ONLY backlog rows verified still-open on current ' +
             'disk and genuinely blocked, each claim naming its blocker and owner; a row disk already resolved is culled with proof in `rejected`, and ' +
-            'an empty `remaining` attests the drain closed.',
+            'an empty `remaining` attests the drain closed. ' +
+            HARVEST_LAW,
     ]
         .filter(Boolean)
         .join('\n');
@@ -1345,6 +1348,7 @@ const BACKLOG = deferred.map((d) => ({ files: [], claim: d.folder + ' [' + d.slu
 // critique fixlogs once (round 0), then drains the pooled deferred backlog against live disk, re-feeding the still-open
 // remainder; a round cap plus a no-shrinkage progress gate bound the loop, and the blocked remainder rides the run return.
 let pinlog = null;
+let pinHarvest = [];
 let residuals = BACKLOG;
 let orphanQueue = ORPHANS;
 let lastOpen = Infinity;
@@ -1359,16 +1363,18 @@ if (pinsReported.length || seamsReported.length || ORPHANS.length || BACKLOG.len
             effort: 'high',
             stallMs: STALL,
         });
-        const open = (pinlog && pinlog.remaining) || [];
+        if (!pinlog) break; // dead round: the fed-in residual and orphan sets survive to the run return, never zeroed by a lost closer
+        pinHarvest = pinHarvest.concat(pinlog.harvest || []);
+        const open = pinlog.remaining || [];
         orphanQueue = [];
         residuals = open;
-        if (!pinlog || !open.length || open.length >= lastOpen) break;
+        if (!open.length || open.length >= lastOpen) break;
         lastOpen = open.length;
     }
 }
 // DOCTRINE LANDER: the run's durable-learning terminal — pooled harvest nominations adjudicated against the live
 // docs/laws surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws. Fires only when non-empty.
-const HARVEST_ROWS = done.flatMap((r) => r.logs.flatMap((l) => l.harvest || []));
+const HARVEST_ROWS = done.flatMap((r) => r.logs.flatMap((l) => l.harvest || [])).concat(pinHarvest);
 let doctrine = null;
 if (HARVEST_ROWS.length) {
     phase('Pins');

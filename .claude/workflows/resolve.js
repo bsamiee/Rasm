@@ -285,9 +285,10 @@ const REVIEW_SCHEMA = {
 const FIXER_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'indexApplied', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'summary'],
+    required: ['files', 'indexApplied', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
+        harvest: HARVEST,
         indexApplied: {
             type: 'array',
             items: {
@@ -1064,7 +1065,9 @@ const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
             JSON.stringify(backlog) +
             '.\n' +
             '(2b) ORPHANED CRITIQUE FIXLOGS (folders whose red-team never landed, so these on-disk fixlogs seamsTouched/deferred/' +
-            'indexRows rows were never folded forward — read each IN FULL from disk and drain those rows under the same law): ' +
+            'indexRows/harvest rows were never folded forward — read each IN FULL from disk, drain the seam/deferred/index rows ' +
+            "under the same law, and fold each fixlog's surviving harvest rows into your own `harvest` return, re-verified against " +
+            'current disk and deduped): ' +
             JSON.stringify(orphans) +
             '.\n' +
             '(3) OWN HUNT: on your own authority, sweep the resolved folders for the resolution-defect classes the chain may have ' +
@@ -1075,7 +1078,8 @@ const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
             'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
             'manifest rows, .api anchors; wire-canonical names stay frozen. Return the final fixlog — `remaining` carries ONLY ' +
             'rows verified still-open on current disk and genuinely blocked, each claim naming its blocker and owner; a row disk ' +
-            'already resolved is culled with proof in `rejected`, and an empty `remaining` attests the drain closed.',
+            'already resolved is culled with proof in `rejected`, and an empty `remaining` attests the drain closed. ' +
+            HARVEST_LAW,
     ]
         .filter(Boolean)
         .join('\n\n');
@@ -1260,6 +1264,7 @@ const RESOLVED_LANGS = [...new Set(RESOLVED.map((f) => langOf(f)).filter(Boolean
 // Terminal DRAIN LOOP: one serial fable closer per round takes the residual set, verifies every row against live
 // disk, fixes at root, loops until empty; a round without shrinkage stops the loop with the blocked set final.
 let fixer = null;
+let fixerHarvest = [];
 let residuals = BACKLOG;
 let orphanQueue = ORPHANS;
 let lastOpen = Infinity;
@@ -1274,15 +1279,18 @@ for (let round = 0; round < DRAIN_ROUNDS; round++) {
             stallMs: STALL,
         }),
     );
-    const open = (fixer && fixer.remaining) || [];
+    if (!fixer) break; // dead round: the fed-in residual and orphan sets survive to the run return, never zeroed by a lost closer
+    fixerHarvest = fixerHarvest.concat(fixer.harvest || []);
+    const open = fixer.remaining || [];
     orphanQueue = [];
     residuals = open;
-    if (!fixer || !open.length || open.length >= lastOpen) break;
+    if (!open.length || open.length >= lastOpen) break;
     lastOpen = open.length;
 }
+const POOLED_HARVEST = HARVEST_ROWS.concat(fixerHarvest);
 // DOCTRINE LANDER: the run durable-learning terminal — pooled harvest nominations adjudicated against the live
 // doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
-const doctrine = HARVEST_ROWS.length
+const doctrine = POOLED_HARVEST.length
     ? await slot(() =>
           agent(
               'TASK: DOCTRINE LANDER — the durable-learning terminal of a research-resolution run. Read `docs/laws/README.md` ' +
@@ -1291,7 +1299,7 @@ const doctrine = HARVEST_ROWS.length
                   'guard; obey them over any restatement. Load the `docgen` skill AND ' +
                   'the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before touching ' +
                   "any diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
-                  JSON.stringify(HARVEST_ROWS) +
+                  JSON.stringify(POOLED_HARVEST) +
                   '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
                   'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
                   'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
@@ -1331,7 +1339,7 @@ return {
         summary: fixer.summary,
     },
     doctrine: doctrine && {
-        nominated: HARVEST_ROWS.length,
+        nominated: POOLED_HARVEST.length,
         landed: (doctrine.landed || []).length,
         refined: (doctrine.refined || []).length,
         rejected: (doctrine.rejected || []).length,

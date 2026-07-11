@@ -797,6 +797,7 @@ const FOLDER_HARVEST = results.flatMap((r) => r.harvest || []);
 // Terminal drain loop: one serial fable writer per round applies the index rows once (round 0), then drains the pooled
 // cross-folder residuals against live disk and loops until the set is empty or a round makes no progress.
 let index = null;
+let indexHarvest = [];
 let residuals = RESIDUALS0;
 if (ROWS.length || residuals.length || FOLDER_HARVEST.length) phase('Index');
 if (ROWS.length || residuals.length) {
@@ -808,17 +809,19 @@ if (ROWS.length || residuals.length) {
         // One bounded re-attempt on the round-0 writer only: a silently dead index writer would lose every reported row.
         let r = await agent(indexPrompt(rows, residuals, ROOT, round), { ...base, label });
         if (!r && round === 0) r = await agent(indexPrompt(rows, residuals, ROOT, round), { ...base, label: label + ':retry' });
-        if (r) index = r;
-        const open = (r && r.remaining) || [];
+        if (!r) break; // dead round: the fed-in residual set survives to the run return, never zeroed by a lost writer
+        index = r;
+        indexHarvest = indexHarvest.concat(r.harvest || []);
+        const open = r.remaining || [];
         residuals = open;
-        if (!r || !open.length || open.length >= lastOpen) break;
+        if (!open.length || open.length >= lastOpen) break;
         lastOpen = open.length;
     }
 }
 
 // Doctrine lander: pooled harvest nominations from every fixer plus the index writer, adjudicated against the live
 // doctrine surfaces; fires only when a nomination exists, refutation-first, land-nothing legal.
-const HARVEST_ROWS = FOLDER_HARVEST.concat((index && index.harvest) || []);
+const HARVEST_ROWS = FOLDER_HARVEST.concat(indexHarvest);
 const doctrine = HARVEST_ROWS.length
     ? await agent(doctrinePrompt(HARVEST_ROWS), {
           label: 'doctrine',
