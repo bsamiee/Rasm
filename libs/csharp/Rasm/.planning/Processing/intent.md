@@ -1,6 +1,6 @@
 # [RASM_VECTORS_INTENT]
 
-THE kernel consumer rail — ONE `VectorIntent` `[Union]` whose case families span every capability band the kernel owns (axis/direction algebra, angles and relations, support proximity, extraction, rays, frames, curve/surface evaluation, cloud metrics and winding, cones, component decomposition, bounce, streamlines, lerp/slerp, plane projection and mirroring, pose interpolation, mesh flatten/remesh/topology/features/descriptors/segmentation, hulls, sampling, registration, optimal transport, and discrete calculus), and ONE `Project<TOut>(Context, Op?)` egress preserved VERBATIM — `Rasm.Rhino` Camera and the settled corpus bind this exact signature, so the entry contract is frozen while everything behind it is re-derived against the new owners. The former 41-factory construction spam is dead: construction is exactly ONE factory per case — the `Cloud`/`Hull`/`Features` overload pairs collapse onto `Option<policy>` parameters whose defaults derive from the policy owners, and the six extraction factories collapse to ONE `Extract(Extraction)` because the extraction request vocabulary is `extract.md`'s public union with its own admitting factories. Every factory internalizes admission (the `Domain/validation.md` vocabulary plus each payload owner's `Admit`), so an existing `VectorIntent` is proof its payload was admitted — the dispatch never re-validates.
+THE kernel consumer rail — ONE `VectorIntent` `[Union]` whose case families span every capability band the kernel owns (axis/direction algebra, angles and relations, support proximity, extraction, rays, frames, curve/surface evaluation, cloud metrics and winding, cones, component decomposition, bounce, streamlines, lerp/slerp, plane projection and mirroring, pose interpolation, mesh flatten/remesh/topology/features/descriptors/segmentation, hulls, sampling, registration, optimal transport, discrete calculus, and architectural view composition), and ONE `Project<TOut>(Context, Op?)` egress preserved VERBATIM — `Rasm.Rhino` Camera and the settled corpus bind this exact signature, so the entry contract is frozen while everything behind it is re-derived against the new owners. The former 41-factory construction spam is dead: construction is exactly ONE factory per case — the `Cloud`/`Hull`/`Features` overload pairs collapse onto `Option<policy>` parameters whose defaults derive from the policy owners, and the six extraction factories collapse to ONE `Extract(Extraction)` because the extraction request vocabulary is `extract.md`'s public union with its own admitting factories. Every factory internalizes admission (the `Domain/validation.md` vocabulary plus each payload owner's `Admit`), so an existing `VectorIntent` is proof its payload was admitted — the dispatch never re-validates.
 
 The dispatch COMPOSES, never re-implements: every arm routes to the owning page's entry and projects the result through the `Numerics/atoms.md` `AtomProjection` rail. The retired file's multi-branch slerp inline is dead by delegation — quaternion rotation lives at `Parametric/projections.md`'s `MotionInterpolation.Rotate`, THE one slerp site whose antiparallel branch serves poses and directions alike; the lerp/projectOnto/mirror arms are each ONE native-transform expression admitted through `Direction.Of` — a single affine or `Transform` application at the value-carrier boundary, never a re-derived algorithm. Mesh-band arms dispatch through the owning kernels (`SegmentKernel.Segment`/`DescribeShape`/`DetectFeatureEdgesDetailed`/`ApplyRemeshDetailed`/`ParameterizeFlattenDetailed` — `Processing/segment.md`; `DecAssembly.Build` — `Meshing/dec.md`), the frozen `MeshKernel.TopologyDetailed` + `TopologyReceipt` projection stands by name, cloud/hull/winding route through `Spatial/cloud.md`'s metric surface and `CloudKernel`, transport through `Spatial/transport.md`'s `CloudTransport.Sinkhorn`, registration through `Processing/register.md`'s `AlignKind.AlignDetailed`, sampling through `sample.md`'s `SampleKind`, extraction through `extract.md`, and streamlines through `flow.md`'s `FlowKernel`. `Op` stays the explicit value key threaded through construction and dispatch — the rail's pipelines are short by design; the long-pipeline `Eff<Env>` carriage is the `Rasm.Analysis` runtime's concern, never a second paradigm here.
 
@@ -11,8 +11,9 @@ The dispatch COMPOSES, never re-implements: every arm routes to the owning page'
 
 ## [02]-[CONSTRUCTION]
 
-- Owner: `VectorIntent` `[Union]` — 33 sealed cases, private root constructor, case constructors `internal` wherever a payload must arrive pre-admitted (support spaces, extraction requests, clouds with metric policies, streamline bundles, mesh queries) and positional-public only where every payload is a raw value the dispatch admits through its owner or an admitted-by-construction carrier (`Axis` · `Direction` · `Axes` · `Angular` · `Ray` · `Frame` · `Cone` · `Components` · `Relation` · `Bounce` · `Lerp` · `Slerp` · `ProjectOnto` · `Mirror` · `Pose` — 15 positional, 18 internal).
-- Cases: `Axis` · `Direction` · `Axes` · `Angular` · `Support` · `Extraction` · `Ray` · `Frame` · `Curve` · `Cloud` · `Winding` · `Cone` · `Components` · `Relation` · `Bounce` · `Streamline` · `Lerp` · `Slerp` · `ProjectOnto` · `Mirror` · `Surface` · `Pose` · `Flatten` · `Hull` · `Sample` · `Align` · `Remesh` · `Transport` · `Topology` · `Features` · `Descriptor` · `DiscreteCalculus` · `Segmentation` — every capability band of the retired file preserved one-for-one; the six former extraction factories are ONE `ExtractionCase` carrying `extract.md`'s union.
+- Owner: `VectorIntent` `[Union]` — 34 sealed cases, private root constructor, case constructors `internal` wherever a payload must arrive pre-admitted (support spaces, extraction requests, clouds with metric policies, streamline bundles, mesh queries) and positional-public only where every payload is a raw value the dispatch admits through its owner or an admitted-by-construction carrier (`Axis` · `Direction` · `Axes` · `Angular` · `Ray` · `Frame` · `Cone` · `Components` · `Relation` · `Bounce` · `Lerp` · `Slerp` · `ProjectOnto` · `Mirror` · `Pose` · `View` — 16 positional, 18 internal).
+- Cases: `Axis` · `Direction` · `Axes` · `Angular` · `Support` · `Extraction` · `Ray` · `Frame` · `Curve` · `Cloud` · `Winding` · `Cone` · `Components` · `Relation` · `Bounce` · `Streamline` · `Lerp` · `Slerp` · `ProjectOnto` · `Mirror` · `Surface` · `Pose` · `Flatten` · `Hull` · `Sample` · `Align` · `Remesh` · `Transport` · `Topology` · `Features` · `Descriptor` · `DiscreteCalculus` · `Segmentation` · `View` — every capability band of the retired file preserved one-for-one; the six former extraction factories are ONE `ExtractionCase` carrying `extract.md`'s union.
+- Owner: `ViewConvention` `[SmartEnum<int>]` — the architectural view-composition rows (`TwoPointElevation` · `ParallelPlan` · `Axonometric` · `TopPerspective` · `SectionPerspective` · `ReflectedCeiling`) whose bounds-relative placement is COLUMN DATA — projection intent (`ViewProjectionIntent` row), elevation radians, azimuth radians, distance factor, lens length — folded through ONE derived `Pose(BoundingBox, Option<Direction>, Context, Op)` body (`DERIVED_LOGIC`): the facing hint or the world south axis fixes the horizontal bearing, elevation and azimuth rotate it, the distance factor scales the subject diagonal into standoff, and `VectorFrame.Of` admits the resulting camera frame. `ViewProjectionIntent` `[SmartEnum<int>]` (`Parallel` · `Perspective` · `TwoPoint` · `ParallelReflected`) is the host-agnostic projection vocabulary a boundary lowers to its own projection calls; `ViewPose` is the typed result — frame, target, subject bounds, projection intent, lens. A host-folder recipe catalog with inline multipliers is the killed form this vocabulary replaces.
 - Entry: exactly one factory per case. Raw scalars admit through `Op.AcceptValidated<UnitInterval|PositiveMagnitude|Dimension>`; geometry admits through the `Admit` vocabulary (`NotNull`/`Plane`/`Cone`/`Finite`) — a `MeshSpace` or `Direction` payload is admitted-by-construction evidence, so the factory gates only its presence; payloads with owners re-admit through those owners (`SampleKind.Admit`, `Termination.Admit`, `FieldIntegrator.AdmitOrFixed`, `AlignmentPolicy.Admit`, `CloudMetricPolicy.AdmitOrDefault`, `CloudHullPolicy.AdmitOrDefault`, `MeshFeaturePolicy.Admit`, `SurfaceSpace.Of` + `Evaluation.SurfaceUv`); a `CloudTransportPolicy` admits at its own `Of` factory and arrives as construction evidence — this rail rejects only the default-struct sentinel. Optional policies enter as `Option<T> = default` resolved against the owner's canonical row — never a sibling overload, never a `bool` knob.
 - Growth: a new kernel capability is one case + one factory + one dispatch arm — the generated `Switch` breaks every dispatch site at compile time; a new modality of an existing capability is a policy row or case field on the OWNING page, reaching this rail with zero new surface.
 - Boundary: the factory surface is the ONLY construction path (private root constructor; no implicit conversions), so no un-admitted intent exists; a factory never buries a solver decision — solver selection is the payload's own vocabulary (`AlignKind`, `SampleKind`, `MeshLaplacian`, `MeshSegmentation`), carried not interpreted; the `Features(space, dihedralRadians)` convenience of the retired file is dead — `MeshFeaturePolicy.Of` is the policy's one constructor and this rail accepts only the constructed policy.
@@ -20,7 +21,7 @@ The dispatch COMPOSES, never re-implements: every arm routes to the owning page'
 ## [03]-[DISPATCH]
 
 - Entry: `public Fin<TOut> Project<TOut>(Context context, Op? key = null)` — FROZEN. The context gate (`MissingContext` on null) precedes the total `Switch`; `TOut` is the output discriminant resolved by each owner's projection rows, so one entry serves `Vector3d`, `Direction`, `Plane`, `VectorFrame`, `double`, `Circle`, `Point3d`, receipts, traces, curves, clouds, matrices, and every typed evidence carrier the owners publish.
-- Auto: arms delegate — direction band to `Direction.Of` and `VectorAngle.Of`/`VectorRelation.Of`/`VectorSpan.Of`/`VectorFrame.Of`/`SignedAxis.Cardinal` (`Numerics/atoms.md`), with lerp/projectOnto/mirror each ONE native affine/`Transform` expression admitted through `Direction.Of`; slerp to `MotionInterpolation.Slerp.Rotate` and pose to `MotionInterpolation.Interpolate` (`Parametric/projections.md` — the antiparallel `IsParallelTo == −1` perpendicular-axis branch lives there, in the ONE slerp owner); curve/surface/cone evaluation to `CurveProjection`/`SurfaceProjection`/`ConeProjection` selectors (`Parametric/projections.md`); support and bounce to `SupportSpace.Closest` + `SupportProjection.Project`/`BouncePolicy.Apply`; extraction to `extraction.Value.Project` (`extract.md`); streamline to `FlowKernel.Trace` (`flow.md`); sample to `SampleKind.Project` (`sample.md`); cloud metrics/winding/hull to `VectorCloudMetric.Project` / the chained `CloudKernel.RingNormalOf` + `CloudKernel.PlanarWindingOf` / `CloudKernel.ComputeHullDetailed` (`Spatial/cloud.md`); transport to `CloudTransport.Sinkhorn<TOut>` (`Spatial/transport.md`); align to `AlignKind.AlignDetailed` (`Processing/register.md`); topology to the frozen `MeshKernel.TopologyDetailed` → `TopologyReceipt.Project` (`Meshing/mesh.md`); flatten/remesh to `SegmentKernel.ParameterizeFlattenDetailed`/`ApplyRemeshDetailed`, features to `SegmentKernel.DetectFeatureEdgesDetailed`, descriptors to `SegmentKernel.DescribeShape`, segmentation to `SegmentKernel.Segment` (`Processing/segment.md`); discrete calculus to `DecAssembly.Build` → `DiscreteCalculus.Project` (`Meshing/dec.md`, the `Rasm.Compute` adjoint seam).
+- Auto: arms delegate — direction band to `Direction.Of` and `VectorAngle.Of`/`VectorRelation.Of`/`VectorSpan.Of`/`VectorFrame.Of`/`SignedAxis.Cardinal` (`Numerics/atoms.md`), with lerp/projectOnto/mirror each ONE native affine/`Transform` expression admitted through `Direction.Of`; slerp to `MotionInterpolation.Slerp.Rotate` and pose to `MotionInterpolation.Interpolate` (`Parametric/projections.md` — the antiparallel `IsParallelTo == −1` perpendicular-axis branch lives there, in the ONE slerp owner); curve/surface/cone evaluation to `CurveProjection`/`SurfaceProjection`/`ConeProjection` selectors (`Parametric/projections.md`); support and bounce to `SupportSpace.Closest` + `SupportProjection.Project`/`BouncePolicy.Apply`; extraction to `extraction.Value.Project` (`extract.md`); streamline to `FlowKernel.Trace` (`flow.md`); sample to `SampleKind.Project` (`sample.md`); cloud metrics/winding/hull to `VectorCloudMetric.Project` / the chained `CloudKernel.RingNormalOf` + `CloudKernel.PlanarWindingOf` / `CloudKernel.ComputeHullDetailed` (`Spatial/cloud.md`); transport to `CloudTransport.Sinkhorn<TOut>` (`Spatial/transport.md`); align to `AlignKind.AlignDetailed` (`Processing/register.md`); topology to the frozen `MeshKernel.TopologyDetailed` → `TopologyReceipt.Project` (`Meshing/mesh.md`); flatten/remesh to `SegmentKernel.ParameterizeFlattenDetailed`/`ApplyRemeshDetailed`, features to `SegmentKernel.DetectFeatureEdgesDetailed`, descriptors to `SegmentKernel.DescribeShape`, segmentation to `SegmentKernel.Segment` (`Processing/segment.md`); discrete calculus to `DecAssembly.Build` → `DiscreteCalculus.Project` (`Meshing/dec.md`, the `Rasm.Compute` adjoint seam); view composition to the page-local `ViewConvention.Pose` derivation, whose `ViewPose` result the `Rasm.Rhino` camera rail lowers into viewport effects.
 - Receipt: none of its own — the rail is pure composition; every arm surfaces the OWNER's typed receipt through the owner's projection rows, so evidence provenance is single-sourced.
 - Packages: `Rasm`/Numerics + `Rasm`/Spatial + `Rasm`/Parametric + `Rasm`/Meshing + `Rasm`/Processing (every owner named above, composed), `Rasm`/Domain (`Op`/`Context`/`Admit`), LanguageExt.Core (`Fin`/`Option`/`Seq`), Thinktecture.Runtime.Extensions (`[Union]` + generated total `Switch`), RhinoCommon (case-field value carriers only).
 - Boundary: the dispatch carries ZERO domain math — an arm that computes instead of composing is the named defect this rebuild deletes (the retired file's inline slerp/lerp/mirror/projectOnto bodies); `Project<TOut>` is total over the `Fin` rail and an unsupported `TOut` is the owner's typed `Unsupported` fault naming both the case and the requested type; the generated `Switch` is the exhaustiveness proof — no `_` arm exists, so a new case cannot silently no-op.
@@ -42,6 +43,52 @@ using Dimension = Rasm.Numerics.Dimension;
 namespace Rasm.Processing;
 
 // --- [TYPES] ----------------------------------------------------------------------------------
+[SmartEnum<int>]
+public sealed partial class ViewProjectionIntent {
+    public static readonly ViewProjectionIntent Parallel = new(key: 0);
+    public static readonly ViewProjectionIntent Perspective = new(key: 1);
+    public static readonly ViewProjectionIntent TwoPoint = new(key: 2);
+    public static readonly ViewProjectionIntent ParallelReflected = new(key: 3);
+}
+
+[SmartEnum<int>]
+public sealed partial class ViewConvention {
+    public static readonly ViewConvention TwoPointElevation = new(key: 0, projection: ViewProjectionIntent.TwoPoint, elevation: 0.0, azimuth: 0.0, distanceFactor: 1.5, lens: 35.0);
+    public static readonly ViewConvention ParallelPlan = new(key: 1, projection: ViewProjectionIntent.Parallel, elevation: Math.PI / 2.0, azimuth: 0.0, distanceFactor: 1.5, lens: 50.0);
+    public static readonly ViewConvention Axonometric = new(key: 2, projection: ViewProjectionIntent.Parallel, elevation: 0.6154797086703873, azimuth: Math.PI / 4.0, distanceFactor: 2.0, lens: 50.0);
+    public static readonly ViewConvention TopPerspective = new(key: 3, projection: ViewProjectionIntent.Perspective, elevation: 1.1, azimuth: Math.PI / 4.0, distanceFactor: 1.75, lens: 35.0);
+    public static readonly ViewConvention SectionPerspective = new(key: 4, projection: ViewProjectionIntent.Perspective, elevation: 0.0, azimuth: 0.0, distanceFactor: 0.75, lens: 24.0);
+    public static readonly ViewConvention ReflectedCeiling = new(key: 5, projection: ViewProjectionIntent.ParallelReflected, elevation: -Math.PI / 2.0, azimuth: 0.0, distanceFactor: 1.5, lens: 50.0);
+
+    public ViewProjectionIntent Projection { get; }
+    public double Elevation { get; }
+    public double Azimuth { get; }
+    public double DistanceFactor { get; }
+    public double Lens { get; }
+
+    public Fin<ViewPose> Pose(BoundingBox subject, Option<Direction> facing, Context context, Op key) {
+        ViewConvention row = this;
+        return from _ in guard(subject.IsValid && subject.Diagonal.Length > EpsilonPolicy.ZeroTolerance, key.InvalidInput()).ToFin()
+               from bearing in facing.Match(
+                   Some: hint => Fin.Succ(new Vector3d(hint.Value.X, hint.Value.Y, 0.0)),
+                   None: () => Fin.Succ(-Vector3d.YAxis))
+               from horizontal in Numerics.Direction.Of(value: bearing.IsTiny() ? -Vector3d.YAxis : bearing, context: context, key: key)
+               from look in Numerics.Direction.Of(
+                   value: (Math.Cos(row.Elevation) * (Transform.Rotation(angleRadians: row.Azimuth, rotationAxis: Vector3d.ZAxis, rotationCenter: Point3d.Origin) * horizontal.Value))
+                        - (Math.Sin(row.Elevation) * Vector3d.ZAxis),
+                   context: context, key: key)
+               from standoff in key.Positive(value: subject.Diagonal.Length * row.DistanceFactor)
+               from frame in VectorFrame.Of(
+                   origin: subject.Center - (look.Value * standoff),
+                   normal: look.Value,
+                   xHint: Math.Abs(row.Elevation) >= Math.PI / 2.0 - EpsilonPolicy.SqrtEpsilon ? Some(horizontal.Value) : Option<Vector3d>.None,
+                   context: context, key: key)
+               select new ViewPose(Frame: frame, Target: subject.Center, Subject: subject, Projection: row.Projection, Lens: row.Lens);
+    }
+}
+
+public readonly record struct ViewPose(VectorFrame Frame, Point3d Target, BoundingBox Subject, ViewProjectionIntent Projection, double Lens);
+
 [Union]
 public abstract partial record VectorIntent {
     public sealed record AxisCase(SignedAxis Value, Option<Plane> Basis) : VectorIntent;
@@ -77,6 +124,7 @@ public abstract partial record VectorIntent {
     public sealed record DescriptorCase : VectorIntent { internal DescriptorCase(MeshSpace space, MeshDescriptor kind, Dimension pairs) { Space = space; Kind = kind; Pairs = pairs; } public MeshSpace Space { get; } public MeshDescriptor Kind { get; } public Dimension Pairs { get; } }
     public sealed record DiscreteCalculusCase : VectorIntent { internal DiscreteCalculusCase(MeshSpace space, MeshLaplacian kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public MeshLaplacian Kind { get; } }
     public sealed record SegmentationCase : VectorIntent { internal SegmentationCase(MeshSpace space, MeshSegmentation kind) { Space = space; Kind = kind; } public MeshSpace Space { get; } public MeshSegmentation Kind { get; } }
+    public sealed record ViewCase(BoundingBox Subject, ViewConvention Convention, Option<Direction> Facing) : VectorIntent;
     private VectorIntent() { }
 
     // --- [CONSTRUCTION]
@@ -241,6 +289,12 @@ public abstract partial record VectorIntent {
                from active in Admit.NotNull(value: kind, key: op)
                select (VectorIntent)new SegmentationCase(space: space, kind: active);
     }
+    public static Fin<VectorIntent> View(BoundingBox subject, ViewConvention convention, Option<Direction> facing = default, Op? key = null) {
+        Op op = key.OrDefault();
+        return from _ in guard(subject.IsValid, op.InvalidInput()).ToFin()
+               from row in Admit.NotNull(value: convention, key: op)
+               select (VectorIntent)new ViewCase(Subject: subject, Convention: row, Facing: facing);
+    }
 
     // --- [DISPATCH]
     public Fin<TOut> Project<TOut>(Context context, Op? key = null) {
@@ -363,6 +417,10 @@ public abstract partial record VectorIntent {
             from calculus in DecAssembly.Build(space: intent.Space, kind: intent.Kind, key: state.Key)
             from output in calculus.Project<TOut>(key: state.Key)
             select output,
-        segmentationCase: static (state, intent) => SegmentKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key));
+        segmentationCase: static (state, intent) => SegmentKernel.Segment<TOut>(space: intent.Space, kind: intent.Kind, key: state.Key),
+        viewCase: static (state, intent) =>
+            from pose in intent.Convention.Pose(subject: intent.Subject, facing: intent.Facing, context: state.Context, key: state.Key)
+            from output in AtomProjection.Self<ViewPose, TOut>(value: pose, key: state.Key, owner: typeof(ViewCase))
+            select output);
 }
 ```

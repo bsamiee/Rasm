@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>GH2 component infrastructure for Rasm: Component&lt;TSelf&gt; contract, Output pipeline, polymorphic Port descriptors, PortKind InputAdder/OutputAdder binding, Bridge IDataAccess extensions, Plugin manifest base.</Description>
+        <Description>Grasshopper2 host boundary for Rasm: component authoring (spec, ports, Garden data transfer, attributes, native object catalog), document graph (lifecycle, connectivity, undo history, solution control), canvas (paint, wires, interaction, layout, motion), editor shell and chrome, Eto native UI construction and runtime, and the platform-gated macOS seam. References the Rasm kernel only.</Description>
         <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
@@ -9,11 +9,16 @@
     </ItemGroup>
 
     <ItemGroup Label="Host Usings">
+        <Using Include="Eto.Drawing" />
+        <Using Include="Eto.Forms" />
         <Using Include="Grasshopper2.Components" />
         <Using Include="Grasshopper2.Data" />
         <Using Include="Grasshopper2.Data.Meta" />
+        <Using Include="Grasshopper2.Doc" />
         <Using Include="Grasshopper2.Parameters" />
         <Using Include="Grasshopper2.Parameters.Standard" />
-        <Using Include="Grasshopper2.Types.Shapes" />
+        <Using Include="Grasshopper2.UI" />
+        <Using Include="Grasshopper2.UI.Canvas" />
+        <Using Include="Grasshopper2.UI.Flex" />
     </ItemGroup>
 </Project>

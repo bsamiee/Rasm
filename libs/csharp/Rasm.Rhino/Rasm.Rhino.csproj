@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>RhinoCommon command, document, and UI interop boundary for Rasm.</Description>
+        <Description>Rhino 9 host boundary for Rasm: document, commands, blocks, viewport, display, exchange, native Eto UI, and Rhino.UI shell.</Description>
         <CspScope>Boundary</CspScope>
     </PropertyGroup>
 
@@ -8,14 +8,22 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
+    <ItemGroup Label="Domain Packages">
+        <PackageReference Include="QuikGraph" />
+    </ItemGroup>
+
     <ItemGroup Label="Host Usings">
         <Using Include="Rasm.Domain" />
+        <Using Include="Eto.Drawing" />
+        <Using Include="Eto.Forms" />
         <Using Include="Rhino" />
         <Using Include="Rhino.Commands" />
         <Using Include="Rhino.Display" />
         <Using Include="Rhino.DocObjects" />
+        <Using Include="Rhino.FileIO" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Input" />
         <Using Include="Rhino.Input.Custom" />
+        <Using Include="Rhino.UI" />
     </ItemGroup>
 </Project>

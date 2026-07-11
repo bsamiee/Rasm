@@ -4,16 +4,16 @@ C#/.NET-primary monorepo with TypeScript and Python lanes. Language doctrine is 
 
 Cross-surface coupling is review law: docs/laws/topology.md maps which surfaces obligate which counterparts — a diff editing a listed SURFACE without its obligated counterparts in the same change is a finding naming the missing counterpart; docs/laws/patterns.md rows bind every branch they name; docs/laws/scars.md laws are standing review duty.
 
-Doctrine-surface diffs (docs/laws, docs/stacks, docs/standards, CLAUDE.md, AGENTS.md, the reviewer configs themselves) are judged against docs/laws/landing.md: hardening an existing clause beats extending a file beats minting one, and each move needs the prior proven insufficient; a new file under docs/stacks is a defect; run provenance, freshness tails, or process narration in a landed row is a defect; a doctrine addition without recurrence evidence or branch-spanning blast radius is spam — flag it, and flag equally the miss where a diff hardens a symptom clause while the neighboring clause it should have collapsed into stands untouched.
+Doctrine-surface diffs (docs/laws, docs/stacks, docs/standards, CLAUDE.md, AGENTS.md, the reviewer configs themselves) are judged against docs/laws/landing.md: hardening an existing clause beats extending a file beats minting one, and each move needs the prior proven insufficient; a new file under docs/stacks is a defect; run provenance, freshness tails, or process narration in a landed row is a defect; a doctrine addition without recurrence evidence or branch-spanning blast radius is spam — flag it, and flag equally the miss where a diff hardens a symptom clause and leaves untouched the neighboring clause that owed the collapse.
 
-## Machine-law boundary
+## [01]-[MACHINE_LAW_BOUNDARY]
 
 Formatters and gates own mechanics — never restate their law as findings; flag only suppressions and bypasses. A true positive from any gate is architecture pressure (fix the shape); a false positive is rule pressure (refine the rule); a suppression (`#pragma`, `[SuppressMessage]`, `noqa`, `type: ignore`, `biome-ignore`, `@ts-expect-error`, a bare `as` cast) is neither and demands the ownership justification in the diff. Two scope facts govern deference:
 
 - The C# custom analyzer catalog is empty — every C# doctrine demand below is live review duty, not machine-enforced.
 - The TypeScript GritQL plugins cover only libs/typescript non-spec sources — the identical defect classes in tools/, workflow scripts, config TS, and every spec file are review duty.
 
-## Universal discipline
+## [02]-[UNIVERSAL_DISCIPLINE]
 
 - Anticipate 10x growth: surfaces absorb new modalities as rows, cases, or dispatch arms — never as new files, flags, or knobs. Two shapes collapse the moment they share an identity regime, an admission path, a payload timing, or a consumer; a sibling survives only on a genuinely distinct discriminant named at the site that keeps it.
 - The proof of a shape is the next feature's diff: one declaration inside the owner, consumers untouched or loudly compile-broken. An owner sized for the current instance — `parse(input)` hardcoding one format instead of a format vocabulary row the parse dispatches on — is the defect.
@@ -29,7 +29,7 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - Comments are rare, 1-2 lines, and state the design law, invariant, or trap the code cannot show — never the what, never paths or session narration; every pass touching a file prunes stale comments in the same pass.
 - Fix-to-root completeness: a change that patches a symptom while its root cause stands, leaves a known defect unfixed because it sits outside the diff's scope, or defers a residual for a later pass is a defect — the root fix belongs in the same change, and a genuinely blocked item is an explicit unreachable naming its owner, never a silent residual.
 
-## C#
+## [03]-[CSHARP]
 
 - Raw material admits once at the boundary: `Optional(x).ToFin(...)` for presence, `Catch`/`Try` lifts for native failures, `Option<T>` for non-failing absence; the interior never re-validates and never sees nulls, sentinels, or provider shapes.
 - Rails are semantic: `Validation<Fault,T>` accumulates over independent operands, `Fin<T>` aborts over dependent steps, `IO<T>` effects. `Fin` where accumulation is owed is a carrier misselection. Receipts use NodaTime.
@@ -38,7 +38,7 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - Universal does not mean host-free: the C# branch is RhinoCommon-aware, kernel included; a host-neutral owner exists only for a genuine non-Rhino consumer contract. Never flag Rhino-rich capture as "should be portable"; never accept a consumerless universal owner.
 - UI-bound host work routes through one dispatch owner; a batch takes one dispatch under one policy bracket; native object access returns `Fin`/`Option`, never leaked nulls; consumers never sequence an owner's internals.
 
-## Python
+## [04]-[PYTHON]
 
 - Lifecycle: raw admits once into a canonical owner, then rail, projection, egress. `Option` for non-failing absence, `Result` for fallibility, exceptions convert at the owning boundary; None-as-failure and sentinel flow are defects.
 - Dispatch totality is review-critical because no compiler backs it. Closed dispatch is a tagged-union case, `StrEnum` member, `frozendict` row, or `match` with `assert_never`; string dispatch and if/elif ladders are open dispatch — never a free `solve(intent)` beside a free `_dispatch`.
@@ -49,7 +49,7 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - Concurrency is AnyIO-structured; cancellation is never railed into `Result`; blocking work lane-routes with explicit capacity; domain packages mint zero CapacityLimiters — capacity is runtime-owned.
 - Numeric routes admit operands once into one operand owner with total projections; structure, tuning, and mode enter as policy values; backend termination codes fold into one typed status vocabulary; naive routes — matrix inversion, determinant gates, raised non-convergence — are defects.
 
-## TypeScript
+## [05]-[TYPESCRIPT]
 
 - Declarations are authored unexported; the file closes at one terminal EXPORTS block that declares the surface, never widens it; no `export` keyword on body declarations; no barrels; modules expose one or two exports with underscore-prefixed interiors.
 - The Schema owner is the single shape authority: static types derive from it, wire twins via transform plus field encodings, variants via pick/omit/extend. A hand interface, alias, or DTO beside a Schema owner is a parallel-shape defect on sight.
@@ -60,7 +60,9 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - `catchTag`/`catchTags` over blanket `catchAll`; discard only as a ruled outcome. TS2589/2590 are architecture pressure on the derivation — repair is value-level; a suppression directive adding ceremony without correctness is itself the defect.
 - Branch topology is wave-ordered acyclic: core, then security, data, runtime, ui; iac imports only core and data; port satisfaction happens at app composition, never via upward imports. C# owns every wire shape — TS decodes verbatim through the interchange codec and owns no geometry or IFC semantics; re-minting a wire shape TS-side is a defect.
 
-## Planning corpus (libs/\*\* and .planning/)
+## [06]-[PLANNING_CORPUS]
+
+These rows bind `libs/**` and `.planning/`.
 
 - The fence is the work product; the measure of a planning item is the diff to a code fence, never the prose around it.
 - An external member appears as settled fence code only when the folder's `.api/` catalogue verifies its spelling; otherwise it is a marked RESEARCH item, never prose and never fence code; a fence contradicting a sibling RESEARCH item fails.
@@ -71,7 +73,7 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - Fence comments obey comment law — rare, 1-2 lines, stating the in-situ invariant the fence cannot show; flag narrative fence comments, never law-bearing ones. This ruling governs where the planning standard's zero-comment line disagrees.
 - A planning task naming source-file creation is out of scope and must be removed; implement means deepening a fence plus manifest, `.api/`, and tooling work. Integration points use `page#CLUSTER` notation; standalone cross-reference ledgers are drift channels.
 
-## Tests
+## [07]-[TESTS]
 
 - A test falsifies production behavior with an independent oracle: grade A independent prediction, B metamorphic or model relation, C durable failure-category rail, D shape-only inspection — D stands alone nowhere. Banned shapes: existence tests, mirror tests (asserting a constructed value's own fields, re-implementing the algorithm as its own oracle, same-body snapshots), speculative-state tests, per-function spam.
 - Every law family registers a refuting witness the law must fail on; a surviving witness, or one trivially outside the domain, exposes a tautology and the registration is itself the failure.
@@ -82,20 +84,20 @@ Formatters and gates own mechanics — never restate their law as findings; flag
 - Every tools/ operator owns a suite under tests/<lang>/tools/<tool>; a rail change without its spec change in the same diff is an incomplete change.
 - A failing law is evidence: investigate the owner before weakening the test. Snapshot mismatches identify producer drift, never reflexive acceptance.
 
-## Tools
+## [08]-[TOOLS]
 
 - A GritQL pattern encodes one doctrine defect with trigger, predicate, and exemption in comments plus paired FIRES/CLEAN exemplar lines carrying near-miss guards; a pattern without the pair, or overlapping a sibling's territory, is a defect.
 - Analyzer rules promote only doctrine-breaking shapes nothing mechanical rejects; rules describe semantic shape, never paths or one-off symbols; the inventory is the code — a prose catalog of rules anywhere is a defect.
 - Assay: the stdout Envelope is the sole result contract; Completed (with defects as completed failed runs) stays distinct from Fault (routing, spawn, lease, timeout); every command routes through the registry; the envelope derives exit codes — hand-authored exit semantics are a bypass; remote env stays allowlisted; retry stays narrow, transport and spawn only.
 - Bridge wire evolution is additive-only with camelCase and skip-unmapped for compat; vocabulary owners — ranked status enums, fact-key prefixes — never scatter as literals; scenario code uses the SDK vocabulary, never load directives, absolute paths, or direct MCP.
 
-## Manifests
+## [09]-[MANIFESTS]
 
 - Central custody: Directory.Packages.props hand-edited, never dotnet-add drift; pyproject.toml with uv; per-package package.json with the committed pnpm lockfile and workspace catalogs. Version movement is forward-only; a downgrade or stale floor without a recorded reason in the diff is a defect.
 - A sanctioned pin carries its mechanism inline — a comment stating exactly what breaks without it. A pin without the mechanism comment is a defect; a pin carrying one is never flagged.
 - A package claimed in a planning README registry but absent from the owning manifest, or present but unregistered, is registry drift; new admissions owe an `.api/<package>.md` catalogue.
 
-## Durable prose
+## [10]-[DURABLE_PROSE]
 
 The review vocabulary is docs/standards/style-guide.md §04; findings cite the defect name and the line:
 
@@ -104,14 +106,14 @@ The review vocabulary is docs/standards/style-guide.md §04; findings cite the d
 - [MECHANISM_LEAK] — index-tier prose carrying spec-tier mechanism; repair is demotion, never deletion.
 - [META_FRAME] — the artifact describing itself, its audience, its siblings, or its process; routing surfaces exempt.
 - [TWIN_TRUTH] — one fact worded in two tiers; one owner per fact, everything else composes or points.
-- [HEDGE] — modal and hedge vocabulary; contract qualifiers (optional, if present, where supported, unless) survive. TODO/FIXME are banned in durable markdown yet sanctioned as source comment markers — never cross-apply.
+- [HEDGE] — modal and hedge vocabulary; contract qualifiers (optional, if present, where supported, unless) survive. `TODO`/`FIXME` are banned in durable markdown yet sanctioned as source comment markers — never cross-apply.
 - [REPORT_FRAME] — provenance, freshness, or verification narration in durable law.
 - [CAPABILITY_GATE] — capability adjudicated against consumer presence in either polarity; consumer count is never a design axis.
 - [LEGACY_COMPAT] — shapes preserved for predecessors; coexisting arms are peer rows selected by a present environment fact.
 - [IMPORTED_POSTURE] — upstream maturity labels, defaults, or fallback posture adopted over the corpus ruling.
-- [VERSION_ANCHOR] — pins, version-conditional bands, dates, newest/latest/currently; genuine wire pins stated once at the codec owner.
+- [VERSION_ANCHOR] — pins, version-conditional bands, dates, `newest`/`latest`/`currently`; genuine wire pins stated once at the codec owner.
 - [SET_IN_STONE] — sealed/frozen chants; a real contract is stated once at its declaration.
-- [WEAK_VERBS] — supports/allows/enables/provides/offers where an owning verb states law.
+- [WEAK_VERBS] — `supports`/`allows`/`enables`/`provides`/`offers` where an owning verb states law.
 - [PROCESS_LEDGER] — ship-status markers, decision tags, wave and gate stamps in durable law.
 - [ASSERTED_IMPOSSIBILITY] — impossibility claims not naming the enforcing structure in-clause.
 - [DELETED_FORM_LITANY] — law stated as an inventory of forbidden alternatives with the positive rule buried; one non-obvious trap survives as one tight positive invariant.
@@ -121,17 +123,17 @@ Structural law riding the same standards: apply the regeneration test — a fact
 
 Skill bundles (.claude/skills/\*\*) additionally carry skill-craft law: first- or second-person frontmatter descriptions — quoted user-utterance trigger phrases are not voice; over-broad or keyword-stuffed trigger descriptions; SKILL.md over 500 lines or carrying reference banks inline; references that only route to other references; deterministic multi-step procedures narrated in prose where a bundled script belongs; instructed network fetches or global installs inside skill bodies, except an owned install surface naming exact source, scope, and verification.
 
-## Comment discipline
+## [11]-[COMMENT_DISCIPLINE]
 
 A comment exists only for the in-situ constraint the code cannot show — the why, the invariant, the trap. One line is the target; a short comment inlines onto its statement; two lines is the usual ceiling, and three-plus survives only when truly irreplaceable. Flag: what-comments restating the adjacent code, narration and process residue, comments coupling to paths, sessions, or sibling docs, and multi-line blocks whose payload compresses to one line. Every pass that touches a file prunes its stale or drifted comments in the same pass — comment hygiene is a standing obligation, not a separate cleanup.
 
-## Review priorities
+## [12]-[REVIEW_PRIORITIES]
 
 1. Doctrine regressions (rails, dispatch, package custody, topology) outrank style and naming.
 2. New public surfaces demand justification against extending an existing owner.
 3. Generated or lock content is never review substrate.
 
-## Load-bearing exceptions
+## [13]-[LOAD_BEARING_EXCEPTIONS]
 
 Code that violates generic best practice on purpose — do not flag:
 
@@ -146,7 +148,7 @@ Code that violates generic best practice on purpose — do not flag:
 - Inline error messages in frozen error constructors are the house shape.
 - Bracketed uppercase section dividers (`# --- [LABEL] ---`, `// --- [TYPES] ---`) are source structure, not commented-out code.
 - Semantic, non-alphabetical `__all__` and `__slots__` order is deliberate.
-- TODO/FIXME as source comment markers are sanctioned; the ban applies only to durable markdown.
+- `TODO`/`FIXME` as source comment markers are sanctioned; the ban applies only to durable markdown.
 - Raising inside `@safe` ROP boundary guards is the admission mechanism, not exception-driven domain flow.
 - Specs importing the private-by-design testkit and magic values in specs are sanctioned.
 - Rhino-rich host capture coexisting with host-neutral semantics is architecture, never duplication.
