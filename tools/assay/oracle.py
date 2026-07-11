@@ -783,8 +783,10 @@ def probe_ilspy(settings: AssaySettings, executor: Executor) -> tuple[str, int]:
             return ("", 1)
         case Tool() as tool:
             done = _invoke(settings, executor, tool, ToolArgs())
-            line = done.stdout.decode(errors="replace").splitlines()[0].strip() if done.stdout else ""
-            return (line, done.returncode)
+            line = next((ln.strip() for ln in done.stdout.decode(errors="replace").splitlines() if ln.strip()), "")
+            # A failed probe reports its real cause (first stderr line) instead of a bare empty version.
+            reason = next((ln.strip() for ln in done.stderr.decode(errors="replace").splitlines() if ln.strip()), "")
+            return (line or (f"unavailable: {reason[:200]}" if reason else ""), done.returncode)
 
 
 def _parse_cisde(text: str) -> tuple[str, ...]:
@@ -811,14 +813,25 @@ def _roster_parser(version: str) -> Callable[[str], tuple[str, ...]]:
 
 
 def _run_decompile(settings: AssaySettings, executor: Executor, fqn: str, assemblies: tuple[Path, ...]) -> Result[Completed, Fault]:
-    # Ref assemblies precede lib assemblies; first non-empty successful decompile wins, else the first attempt.
+    # Ref assemblies precede lib assemblies; the first non-empty successful decompile wins, and a clean run with
+    # empty output stays a Completed soft miss (the caller's roster/search fallback). Every attempt exiting nonzero
+    # is an operational Fault carrying the aggregated stderr — the fqn came from the live roster, so silence here
+    # would mask a broken tool (an absent manifest row, a failed spawn) as a symbol miss and degrade into fuzzy search.
     ordered = sorted(assemblies, key=lambda a: ("/ref/" not in a.as_posix(), a.as_posix().casefold()))
     match _api_row(Language.CSHARP, Mode.LIST):
         case None:
             return Error(Fault(("api", "decompile", fqn), status=RailStatus.FAULTED, message="no ilspycmd catalog row"))
         case Tool() as tool:
             attempts = tuple(_invoke(settings, executor, tool, ToolArgs(fqn=fqn, assembly=str(asm))) for asm in ordered)
-            return Ok(next((d for d in attempts if d.returncode == 0 and d.stdout), attempts[0] if attempts else Completed(("ilspycmd",), 1)))
+            match next((d for d in attempts if d.returncode == 0 and d.stdout), None) or next((d for d in attempts if d.returncode == 0), None):
+                case Completed() as done:
+                    return Ok(done)
+                case None:
+                    detail = (
+                        "\n".join(dict.fromkeys(d.stderr.decode(errors="replace").strip() for d in attempts if d.stderr))
+                        or f"ilspycmd failed on every assembly for '{fqn}'"
+                    )
+                    return Error(Fault(("api", "decompile", fqn), status=RailStatus.FAULTED, message=detail[:1024]))
 
 
 # --- [SURFACE_CACHE]
@@ -842,7 +855,8 @@ def _cache_read(settings: AssaySettings, path: str, *, producer: str, content_fi
 
 
 def _cache_write(settings: AssaySettings, path: str, entry: CacheEntry) -> None:
-    settings.store().write_bytes_path(msgspec.json.encode(entry), path)
+    # transaction=True commits atomically so a concurrent reader never decodes a torn entry into a rebuild loop.
+    settings.store().write_bytes_path(msgspec.json.encode(entry), path, transaction=True)
 
 
 # --- [SURFACE]

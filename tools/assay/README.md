@@ -10,7 +10,7 @@ Normal CLI invocations emit one JSON `Envelope` on stdout; diagnostics ride stde
 - `static` diagnoses by default and mutates only under `--fix`; even then it never rewrites a C# target that does not compile, and its reported diagnostics match `dotnet build`.
 - `api query` reports provable absence: a no-match reflects the current artifact, never a stale cache.
 - The Python mutation lane is a staged gate scored against a kill-floor by `rails/mutation_gate.py`, which also emits a `mutation-testing-report-schema` JSON under `.artifacts/python/mutmut/`; mutmut runs copy-staged with `cwd=.artifacts/python/mutmut/work`, so a root `mutants/` directory is forbidden litter.
-- `dotnet-ef` stays in the local tool manifest for a future Persistence design-time rail only; package health is SDK-first (`dotnet package list`, `dotnet nuget why`), and a `dotnet-outdated` fallback requires an explicit rail before the tool returns to the manifest.
+- Every `.config/dotnet-tools.json` row is owned by a live rail — `ilspycmd` by the api decompile port, `dotnet-stryker` by the C# mutation lane, `dotnet-gcdump` by the bridge unload forensics, `dotnet-ef` by the Persistence design-time rail — and a row leaves the manifest only with its owning rail. Package health is SDK-first (`dotnet package list`, `dotnet nuget why`), and a `dotnet-outdated` fallback requires an explicit rail before the tool returns to the manifest.
 
 ## [02]-[FIRST_COMMAND]
 

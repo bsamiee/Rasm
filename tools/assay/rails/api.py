@@ -78,6 +78,13 @@ _REQUIRED_SOURCE_IDS: frozenset[str] = frozenset(HOST_KEYS) | frozenset(("rhino-
 _PREVIEW_ROWS: int = 12
 _ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")  # stable artifact wire order across runs
 _LATEST_ARTIFACT: str = "latest"
+# Declaration-shaped decompile lines: ilspycmd emits every declaration behind modifiers or a type keyword, so this
+# prefix separates real declarations from body statements that merely mention the needle.
+_DECL_SHAPE: re.Pattern[str] = re.compile(
+    r"^\s*(?:\[[^\]]*\]\s*)*(?:public|private|protected|internal|static|sealed|abstract|partial|virtual|override|readonly"
+    r"|event|const|unsafe|extern|async|new|implicit|explicit|operator|class|struct|interface|enum|delegate|record)\b"
+)
+_ANCHOR_HIDDEN: tuple[str, ...] = ("///", "namespace ", "using ")  # doc/header lines never anchor a declaration window
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -451,19 +458,47 @@ def _member_report(
             assert_never(never)
 
 
+def _member_anchor(lines: tuple[str, ...], needle: str) -> tuple[int, ...]:
+    """Rank declaration anchors for a member/type needle inside decompiled source.
+
+    A declaration anchor requires the needle as the *declared name* — behind a type keyword or ahead of a
+    signature/initializer token — so a parameter or body identifier that merely mentions it never anchors.
+    Tiers: case-sensitive declarations beat case-sensitive mentions beat case-insensitive declarations
+    (absorbing case-drifted queries); bare case-insensitive mentions never anchor, and doc, ``namespace``,
+    and ``using`` lines are invisible.
+
+    Returns:
+        Anchor offsets of the best non-empty tier, or ``()`` when the needle is never declared or mentioned.
+    """
+    escaped = re.escape(needle)
+    name_shape = rf"(?:\b(?:class|struct|interface|enum|delegate|record|event|operator)\s+{escaped}\b)|(?:\b{escaped}\s*[(<{{=;:])"
+    declares, declares_ci = re.compile(name_shape), re.compile(name_shape, re.IGNORECASE)
+    mentions = re.compile(rf"\b{escaped}\b")
+    visible = tuple((off, line) for off, line in enumerate(lines) if not line.lstrip().startswith(_ANCHOR_HIDDEN))
+    tiers = (
+        tuple(off for off, line in visible if declares.search(line) and _DECL_SHAPE.match(line)),
+        tuple(off for off, line in visible if mentions.search(line)),
+        tuple(off for off, line in visible if declares_ci.search(line) and _DECL_SHAPE.match(line)),
+    )
+    return next((tier for tier in tiers if tier), ())
+
+
 def _cs_member(  # decompile rendering uses its locals as independent pipeline stages
     settings: AssaySettings, scope: ArtifactScope, orc: Oracle, surface: Surface, symbol: str, shape: SymbolShape, p: ApiParams
 ) -> Result[Report, Fault]:
     head, _, tail = symbol.rpartition(".")
-    fqn = rank_type(surface.types, symbol) or rank_type(surface.types, head)
+    direct = rank_type(surface.types, symbol)
+    fqn = direct or rank_type(surface.types, head)
     if not fqn:
         return Ok(_decompile_report(settings, scope, orc, surface, shape, "", "", "", "", 0, truncated=False, p=p))
     match orc.member(scope, surface, fqn):
         case Result(tag="ok", ok=done):
             text = done.stdout.decode(errors="replace")
             lines = tuple(line for line in text.splitlines() if not p.grep or p.grep.casefold() in line.casefold())
-            boundary = re.compile(rf"\b{re.escape(tail or symbol.rsplit('.', 1)[-1])}\b", re.IGNORECASE)
-            declared = tuple(off for off, line in enumerate(lines) if boundary.search(line) and not line.lstrip().startswith("///"))
+            declared = _member_anchor(lines, tail or symbol.rsplit(".", 1)[-1])
+            if not declared and not direct and head and done.returncode == 0 and text:
+                # The head-resolved owner never declares the member: ranked candidates answer better than an unrelated window.
+                return Ok(_decompile_report(settings, scope, orc, surface, shape, "", "", "", "", 0, truncated=False, p=p))
             anchor = next(iter(declared), 0)
             window = lines if p.full else lines[anchor : anchor + p.max_lines]
             signature = next((lines[off].strip() for off in declared), next(iter(window), "").strip())

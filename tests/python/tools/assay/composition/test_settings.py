@@ -352,6 +352,16 @@ def test_assay_settings_local_root_raises_for_non_file_protocol() -> None:
         _ = settings.local_root
 
 
+def test_default_root_package_home_fallback(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A marker-less cwd falls back to the package-home workspace walk; a marker-bearing cwd wins outright."""
+    monkeypatch.chdir(tmp_path)
+    fallback = _settings_mod._default_root()
+    assert (fallback / "Workspace.slnx").is_file(), "the fallback must land on the package's own workspace root"
+    assert str(fallback) != str(UPath(tmp_path).resolve())
+    (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")
+    assert str(_settings_mod._default_root()) == str(UPath(tmp_path).resolve())
+
+
 def test_assay_settings_wire_safe_scrubs_surrogates(tmp_path: Path) -> None:
     """_wire_safe replaces lone surrogates in run_id / agent_task_id so the result is UTF-8 encodable."""
     (tmp_path / "Workspace.slnx").write_text("", encoding="utf-8")

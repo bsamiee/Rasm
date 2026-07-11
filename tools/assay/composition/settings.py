@@ -130,6 +130,15 @@ def _anchor(value: str | UPath) -> UPath:
     return next((p for p in (cursor, *cursor.parents) if (p / _MARKER).is_file()), cursor)
 
 
+def _default_root() -> UPath:
+    # The cwd walk wins inside a workspace; a marker miss falls back to the walk from this package's own home, so a
+    # foreign-cwd invocation still lands on the real workspace (tool manifest, props, node_modules) instead of
+    # littering artifact roots under an arbitrary directory. Explicit roots bypass this factory entirely.
+    cwd = _anchor(UPath.cwd())
+    home = UPath(__file__).resolve()
+    return cwd if (cwd / _MARKER).is_file() else next((p for p in home.parents if (p / _MARKER).is_file()), cwd)
+
+
 def _default_cpu_count() -> int:
     # os.process_cpu_count honors cgroup/affinity limits; the governed-concurrency fold reads this via AssaySettings.cpu_count.
     return min(256, max(1, os.process_cpu_count() or 8))
@@ -427,7 +436,7 @@ class AssaySettings(BaseSettings):  # noqa: PLR0904  # AssaySettings is the cent
         env_parse_enums=True,
     )
 
-    root: AnchoredRoot = Field(default_factory=UPath.cwd)
+    root: AnchoredRoot = Field(default_factory=_default_root)
     configuration: Configuration = Configuration.RELEASE
     dotnet_max_cpu: Annotated[int, Field(ge=1, le=64)] = 4
     mutation_max_cpu: Annotated[int, Field(ge=1, le=64)] = 2

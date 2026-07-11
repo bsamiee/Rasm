@@ -670,6 +670,57 @@ def test_cs_surface_all_attempts_fail_faults_rail(assay_root: AssayHarness, monk
     assert "ilspy" in e.message.casefold()
 
 
+def test_cs_decompile_all_attempts_fail_faults_with_cause(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A roster-resolved decompile whose every attempt exits non-zero faults with the tool's stderr, never a silent search."""
+    asm = assay_root.write("RhinoCommon.dll", "MZ")
+    source = oracle_mod.Source(key="rhino-common", kind=SourceKind.ASSEMBLY, assemblies=(asm,))
+    monkeypatch.setattr(oracle_mod, "_resolve_source", lambda _settings, _key: Ok(source))
+
+    def _canned(check: Check, **_kw: object) -> Result[object, Fault]:
+        broken = "-t" in check.tool.command
+        return RailProbe.receipt(
+            ("ilspycmd",),
+            1 if broken else 0,
+            status=RailStatus.FAULTED if broken else RailStatus.OK,
+            stdout=b"" if broken else _ILSPY_TYPES,
+            stderr=b"Cannot find a tool in the manifest file that has a command named 'ilspycmd'." if broken else b"",
+        )
+
+    e = assert_error(_run(query, assay_root, SeamExecutor(run_fn=_canned), key="rhino-common", symbol="Acme.Widget"))
+    assert e.status is RailStatus.FAULTED
+    assert "Cannot find a tool" in e.message
+
+
+def test_cs_member_body_mention_misses_to_candidates(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A parameter or body identifier never anchors a member window; the miss reports ranked candidates instead."""
+    body = (
+        b"namespace Acme\n{\n    public sealed class Widget\n    {\n"
+        b"        public static IThing ReadNode(BinaryReader reader, int depth) { }\n    }\n}\n"
+    )
+    executor = _install_ilspy(assay_root, monkeypatch, decompile=body)
+    r = assert_ok(_run(query, assay_root, executor, key="rhino-common", symbol="Acme.Widget.Reader"))
+    assert isinstance(r.detail, ApiResolution)
+    assert r.status is RailStatus.UNSUPPORTED
+
+
+def test_cs_member_case_drifted_needle_anchors_declaration(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A case-drifted member query anchors the real declaration through the insensitive declaration tier."""
+    detail = _cs_surface(assay_root, monkeypatch, "Acme.Widget.spin")
+    assert "public void Spin(int turns)" in detail.signature
+
+
+def test_probe_ilspy_failure_carries_stderr_reason(assay_root: AssayHarness) -> None:
+    """A failed version probe reports its first stderr line instead of a bare empty version."""
+    executor = SeamExecutor(
+        run_fn=lambda *_a, **_kw: RailProbe.receipt(
+            ("ilspycmd",), 1, status=RailStatus.FAULTED, stderr=b"Cannot find a tool in the manifest file that has a command named 'ilspycmd'.\n"
+        )
+    )
+    version, rc = oracle_mod.probe_ilspy(assay_root.settings, executor)
+    assert rc == 1
+    assert version.startswith("unavailable: Cannot find a tool")
+
+
 def test_cs_surface_cache_hit_skips_reinvocation(assay_root: AssayHarness, monkeypatch: pytest.MonkeyPatch) -> None:
     """A second C# surface query reads the fingerprint cache."""
     first = _cs_surface(assay_root, monkeypatch, "")
