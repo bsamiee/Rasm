@@ -3,7 +3,7 @@ export const meta = {
     whenToUse:
         'The finalization engine — the complement to rebuild: where rebuild improves and extends, finalize corrects and closes. Run it over a package (or folder subset) whose build passes have landed to kill split-brain, unify paradigms, adjudicate phantoms, collapse duplication and indirection in place, smooth logic flow end-to-end, and finish naive surfaces — every folder concurrent under one pool cap, every defect fixed by the run that finds it.',
     description:
-        "Language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages and emits folders in dependency order — the order biases launch, never serializes. All folders run CONCURRENTLY under one pool cap: Context — ONE sonnet agent per folder reads the package README/ARCHITECTURE, its manifest rows, and a real ls of both .api tiers ONCE, writing a grounding dossier file (verbatim extracts with file:line anchors, pointer rows for the tail — facts only, never verdicts) under .claude/scratch/; Census — ONE read-only lane PER PAGE on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores native opus) reads the grounding dossier + its page + its related pages + every relevant .api catalog, spot-verifying dossier anchors on disk instead of re-reading the whole shared context, and writes the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references) as one typed report file under .claude/scratch/, returning a thin receipt; Fix — ONE fable agent per folder, chained only behind its own folder's census, holds the folder census roster (every ok report read IN FULL from disk; a failed lane's page cold-read directly) + the grounding dossier + the doctrine ROOT pages and corrects the folder in place under the fix-it-now law (every defect its work exposes, anywhere in the project, fixed in the same pass) and the current-state law (concurrently landed sibling corrections composed as found, conflicts resolved to the stronger form, never a revert). The package index docs and central manifests are the one single-writer surface: fixers report exact rows, ONE terminal fable writer applies them once. Nothing else follows the fixers; cold-verify is a separate run.",
+        "Language-agnostic FINALIZATION pass over one libs/{csharp,python,typescript} package planning corpus. args = a package root, an array of planning sub-folders, or {targets}; language derives from the root and selects the doctrine root pages, both .api tiers, the manifest, and the member-verification rail. Plan (1 sonnet) enumerates sub-folders + pages and emits folders in dependency order — the order biases launch, never serializes. All folders run CONCURRENTLY under one pool cap: Context — ONE sonnet agent per folder reads the package README/ARCHITECTURE, its manifest rows, and a real ls of both .api tiers ONCE, writing a grounding dossier file (verbatim extracts with file:line anchors, pointer rows for the tail — facts only, never verdicts) under .claude/scratch/; Census — ONE read-only lane PER PAGE on gpt-5.6-terra dispatched through a sonnet codex wrapper (CODEX flag; false restores native opus) reads the grounding dossier + its page + its related pages + every relevant .api catalog, spot-verifying dossier anchors on disk instead of re-reading the whole shared context, and writes the correction census (underutilized capability, hand-rolled reimplementation, phantoms classified forgotten-vs-lie, split-brain, unnecessary differentiation, naive fields, logic-flow breaks, stale references) as one typed report file under .claude/scratch/, returning a thin receipt; Fix — ONE fable agent per folder, chained only behind its own folder's census, holds the folder census roster (every ok report read IN FULL from disk; a failed lane's page cold-read directly) + the grounding dossier + the doctrine ROOT pages and corrects the folder in place under the fix-it-now law (every defect its work exposes, anywhere in the project, fixed in the same pass) and the current-state law (concurrently landed sibling corrections composed as found, conflicts resolved to the stronger form, never a revert). The package index docs and central manifests are the one single-writer surface: fixers report exact rows, ONE terminal fable writer applies them once, then drains pooled cross-folder residuals to a fixpoint, and a terminal doctrine lander adjudicates pooled harvest nominations into docs/laws and the reviewer/planning surfaces. Cold-verify is a separate run.",
     phases: [
         {
             title: 'Plan',
@@ -12,11 +12,11 @@ export const meta = {
         },
         {
             title: 'Finalize',
-            detail: "all folders concurrent under the one pool cap: one sonnet context agent per folder writes the grounding dossier once, one gpt-5.6-terra census lane per page (codex wrapper, read-only) reads it plus its page and related pages and writes its census report to disk, then ONE fable fixer per folder chained only behind its own folder's census — fix-it-now write authority over the whole project, current-state composition of concurrent sibling work",
+            detail: "all folders concurrent under the one pool cap: one sonnet context agent per folder writes the grounding dossier once, one gpt-5.6-terra census lane per page (codex wrapper, read-only) reads it plus its page and related pages and writes its census report to disk, then ONE fable fixer per folder chained only behind its own folder's census — fix-it-now write authority over the whole project, current-state composition of concurrent sibling work; residuals blocked on a live sibling folder plus doctrine nominations ride the fixer receipt",
         },
         {
             title: 'Index',
-            detail: 'one fable writer applies every reported package index-doc and central-manifest row exactly once; skipped when no rows were reported',
+            detail: 'one fable writer applies every reported package index-doc and central-manifest row exactly once, then a bounded drain loop clears pooled cross-folder residuals to a fixpoint and a doctrine lander adjudicates pooled harvest nominations; skipped when nothing was reported',
             model: 'fable',
         },
     ],
@@ -27,6 +27,7 @@ export const meta = {
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 480000;
+const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
 const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
 const SCRATCH = '.claude/scratch/finalize'; // per-folder grounding dossiers: shared-context extracts, facts only
 const CODEX = true; // census lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
@@ -155,11 +156,37 @@ const RECEIPT = {
     },
 };
 
-// Required-but-possibly-empty indexRows is an attestation: no single-writer impact, never an unchecked surface.
+const DEFERRED = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['files', 'claim'],
+        properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } },
+    },
+}; // the counted residual backlog: cross-folder ripples into territory a LIVE sibling folder is mid-correcting
+
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['stacks', 'reviewer', 'constitution', 'planning', 'readme', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
+// Required-but-possibly-empty indexRows/deferred/harvest are attestations: no single-writer impact, no blocked ripple, nothing generalizable.
 const FIX_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'verdict', 'summary', 'indexRows', 'collapsed', 'realized'],
+    required: ['files', 'verdict', 'summary', 'indexRows', 'deferred', 'harvest', 'collapsed', 'realized'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         verdict: { type: 'string', enum: ['fixed', 'clean'] },
@@ -178,13 +205,16 @@ const FIX_SCHEMA = {
                 },
             },
         },
+        deferred: DEFERRED,
+        harvest: HARVEST,
     },
 };
 
+// The Index terminal now applies index rows, drains pooled residuals to a fixpoint, and harvests: `remaining` re-feeds the drain loop.
 const INDEX_SCHEMA = {
     type: 'object',
     additionalProperties: false,
-    required: ['files', 'applied', 'summary'],
+    required: ['files', 'applied', 'remaining', 'harvest', 'summary'],
     properties: {
         files: { type: 'array', items: { type: 'string' } },
         applied: {
@@ -199,6 +229,29 @@ const INDEX_SCHEMA = {
                 },
             },
         },
+        remaining: DEFERRED, // rows verified still-open and genuinely blocked; the drain loop re-feeds them until empty or no progress
+        harvest: HARVEST,
+        summary: { type: 'string' },
+    },
+};
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
         summary: { type: 'string' },
     },
 };
@@ -263,9 +316,21 @@ const LAW = [
 
 const FIX_NOW =
     'FIX-IT-NOW: this run is self-enclosing — a defect your work exposes is YOURS in the same pass, wherever it lives: another ' +
-    "folder's page, a seam counterpart, a consumer site, a `.api` anchor. No residual, no routing, no later phase, no report-instead-of-edit. " +
-    'The ONE exception is the shared single-writer surface — the package README.md/ARCHITECTURE.md and the central manifests: report the exact ' +
-    'row you need in `indexRows`; one terminal writer applies every reported row once.';
+    "folder's page, a seam counterpart, a consumer site, a `.api` anchor. No routing, no later phase, no report-instead-of-edit for anything you can " +
+    'land now. TWO narrow exceptions only: (1) the shared single-writer surface — the package README.md/ARCHITECTURE.md and the central manifests: ' +
+    'report the exact row you need in `indexRows`; one terminal writer applies every reported row once. (2) a ripple into territory a LIVE sibling folder ' +
+    'is mid-correcting: record it in `deferred` as {files, claim} for the terminal drain, never raced — every other defect is landed NOW.';
+
+const LAWS_READ =
+    'LAWS: read `docs/laws/` IN FULL (README + topology + patterns + scars; short registry pages) — a topology row whose [SURFACE] your ' +
+    'corrections touch binds its obligated counterparts into the SAME pass, and every patterns row binds each branch it names.';
+
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this folder — a collapse pattern reusable across folders, a ' +
+    'naivety class no doctrine clause names, a review rule that would have caught a defect BEFORE review, a cross-surface coupling discovered the hard ' +
+    'way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the generalized law, one sentence), anchors (file:line ' +
+    'evidence), existingClause (the exact doctrine or reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A ' +
+    'folder-local fix never nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
 const CURRENT_STATE =
     'CURRENT STATE: sibling folders land corrections concurrently with yours. Before any edit, re-read the CURRENT on-disk ' +
@@ -508,13 +573,15 @@ const fixPrompt = (folder, pages, roster, uncensused, root) =>
         FIX_NOW,
         CURRENT_STATE,
         BOUNDARY,
+        LAWS_READ,
         'TASK: FOLDER FINALIZATION — you are the ONE writer for folder ' +
             folder +
             ' (pages: ' +
             pages.join(', ') +
             '). FIRST read ' +
             L.stackLaw +
-            '. Then read the CURRENT on-disk state of every page of your folder IN FULL, every sibling page they compose or ripple into, the package ' +
+            ', then `docs/laws/` per the LAWS block above. Then read the CURRENT on-disk state of every page of your folder IN FULL, every sibling ' +
+            'page they compose or ripple into, the package ' +
             'README.md/ARCHITECTURE.md at ' +
             root +
             ', and ' +
@@ -542,22 +609,60 @@ const fixPrompt = (folder, pages, roster, uncensused, root) =>
             ' CENSUS ROSTER: ' +
             JSON.stringify(roster) +
             '\nReturn the fix-log: files (every file edited, in and out of the folder), verdict, collapsed (what merged), realized (phantoms made ' +
-            'real), summary, indexRows (the exact single-writer rows; empty attests no index-doc or manifest impact).',
+            'real), summary, indexRows (the exact single-writer rows; empty attests no index-doc or manifest impact), deferred (cross-folder ripples ' +
+            'blocked on a LIVE sibling folder — {files, claim}; empty attests none). ' +
+            HARVEST_LAW,
     ].join('\n\n');
 
-const indexPrompt = (rows, root) =>
+const indexPrompt = (rows, residuals, root, round) =>
     [
+        round
+            ? 'DRAIN ROUND ' +
+              round +
+              ' — every residual row below was verified STILL-OPEN by the prior round; the index rows are already applied. Fix each row at its root ' +
+              'NOW; a row you genuinely cannot land carries its named blocker and owner in `remaining`.'
+            : '',
         LAW,
         BOUNDARY,
-        "TASK: SINGLE-WRITER INDEX CLOSE — you are the run's ONE writer for the package index docs (README.md + ARCHITECTURE.md at " +
+        LAWS_READ,
+        "TASK: SINGLE-WRITER INDEX CLOSE + RESIDUAL DRAIN — you are the run's ONE writer for the package index docs (README.md + ARCHITECTURE.md at " +
             root +
-            ') and the central manifests; the folder fixers reported these rows instead of editing those surfaces. Apply every row to its owning doc ' +
-            "exactly once: dedupe semantically identical rows, keep each doc's section grammar, verify each claim against the finalized pages on " +
-            'CURRENT disk (a row disk disproves is rejected in the summary, never applied); a central-manifest row hand-edits the grouped manifest at ' +
-            'the SYMBOL anchor, never a line number, preserving label-group order. ROWS:\n' +
+            ') and the central manifests, AND the terminal drain for cross-folder residuals the folder fixers could not land against a live sibling.\n' +
+            "(1) INDEX ROWS — apply every row to its owning doc exactly once: dedupe semantically identical rows, keep each doc's section grammar, " +
+            'verify each claim against the finalized pages on CURRENT disk (a row disk disproves is rejected in the summary, never applied); a ' +
+            'central-manifest row hand-edits the grouped manifest at the SYMBOL anchor, never a line number, preserving label-group order. ROWS:\n' +
             JSON.stringify(rows) +
-            '\nReturn files, applied, summary.',
-    ].join('\n\n');
+            '\n(2) RESIDUAL DRAIN — no sibling writer runs now, so every residual is fixable at its root: re-verify each {files, claim} on CURRENT disk, ' +
+            'fix what holds under the finalization law, reject what disk already resolved. RESIDUALS:\n' +
+            JSON.stringify(residuals) +
+            '\nReturn files, applied, remaining (ONLY rows verified still-open on current disk and genuinely blocked, each claim naming its blocker and ' +
+            'owner; empty attests the drain closed), summary. ' +
+            HARVEST_LAW,
+    ]
+        .filter(Boolean)
+        .join('\n\n');
+
+// Doctrine lander: adjudicates pooled harvest nominations against the live doctrine surfaces; a finalization run corrects
+// and closes a landed corpus, so its routing weighs toward planning-corpus law and reviewer rules over stack doctrine.
+const doctrinePrompt = (rows) =>
+    'TASK: DOCTRINE LANDER — the durable-learning terminal of a finalization run. Load the `docgen` skill AND the `skill-writer` skill via the Skill ' +
+    "tool BEFORE any durable edit; load `mermaid-diagramming` before touching any diagram. NOMINATIONS (unverified, biased toward their authors' own " +
+    'work — refute by default): ' +
+    JSON.stringify(rows) +
+    '\nADJUDICATE each row: cold-read its target surface IN FULL, verify its anchors on CURRENT disk, and demand admission evidence — recurrence across ' +
+    'independent folders, or a structural singleton whose blast radius spans folders. Read `docs/laws/README.md` FIRST: its [02]-[ADMISSION] table is the ' +
+    'routing owner. LANDING LAW: harden an existing clause > extend an existing file > mint a new file (a new file only at the stacks or laws altitude, ' +
+    'with proof of absence); LAND NOTHING is a first-class verdict.\n' +
+    'ROUTING (a finalization run corrects and closes a landed corpus, so its lessons weigh toward corpus/planning law and reviewer rules): planning -> ' +
+    'the owning `libs/.planning/` or `libs/<lang>/.planning/` index doc or system page (corpus-law nominations land here first); reviewer -> ' +
+    '`.greptile/rules.md` + `.coderabbit.yaml` (machine-law boundary: a rule a formatter, analyzer, or gate can enforce routes to that gate owner and is ' +
+    'REJECTED here with that reason, never landed as reviewer prose); stacks -> the owning `docs/stacks/<lang>/` page, refactored in place, never ' +
+    'append-beside; constitution -> `CLAUDE.md` or `AGENTS.md` at the reader that ACTS on the fact, cross-referenced never duplicated; laws -> ' +
+    '`docs/laws/` per its admission table; readme -> the named README.\n' +
+    'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose coupling no longer holds, land a ' +
+    'coupling this run proved.\n' +
+    'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs before returning. Return ' +
+    'landed/refined/rejected (each rejection with its reason)/files/summary.';
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -683,18 +788,51 @@ const results = (
                   realized: fix.realized,
                   summary: fix.summary,
                   indexRows: fix.indexRows || [],
+                  deferred: fix.deferred || [],
+                  harvest: fix.harvest || [],
               }
-            : { folder: it.folder, verdict: 'UNFIXED', files: [], indexRows: [], summary: 'fix agent died twice' };
+            : { folder: it.folder, verdict: 'UNFIXED', files: [], indexRows: [], deferred: [], harvest: [], summary: 'fix agent died twice' };
     })
 ).filter(Boolean);
 const ROWS = results.flatMap((r) => r.indexRows);
+const RESIDUALS0 = results.flatMap((r) => r.deferred || []);
+const FOLDER_HARVEST = results.flatMap((r) => r.harvest || []);
 
+// Terminal drain loop: one serial fable writer per round applies the index rows once (round 0), then drains the pooled
+// cross-folder residuals against live disk and loops until the set is empty or a round makes no progress.
 let index = null;
-if (ROWS.length) {
-    phase('Index');
-    const opts = { label: 'index (' + ROWS.length + ' rows)', phase: 'Index', model: 'fable', effort: 'high', schema: INDEX_SCHEMA, stallMs: STALL };
-    index = (await agent(indexPrompt(ROWS, ROOT), opts)) || (await agent(indexPrompt(ROWS, ROOT), { ...opts, label: opts.label + ':retry' }));
+let residuals = RESIDUALS0;
+if (ROWS.length || residuals.length || FOLDER_HARVEST.length) phase('Index');
+if (ROWS.length || residuals.length) {
+    let lastOpen = Infinity;
+    for (let round = 0; round < DRAIN_ROUNDS; round++) {
+        const rows = round ? [] : ROWS;
+        const base = { phase: 'Index', model: 'fable', effort: 'high', schema: INDEX_SCHEMA, stallMs: STALL };
+        const label = round ? 'index:drain:r' + round : 'index (' + ROWS.length + ' rows)';
+        // One bounded re-attempt on the round-0 writer only: a silently dead index writer would lose every reported row.
+        let r = await agent(indexPrompt(rows, residuals, ROOT, round), { ...base, label });
+        if (!r && round === 0) r = await agent(indexPrompt(rows, residuals, ROOT, round), { ...base, label: label + ':retry' });
+        if (r) index = r;
+        const open = (r && r.remaining) || [];
+        residuals = open;
+        if (!r || !open.length || open.length >= lastOpen) break;
+        lastOpen = open.length;
+    }
 }
+
+// Doctrine lander: pooled harvest nominations from every fixer plus the index writer, adjudicated against the live
+// doctrine surfaces; fires only when a nomination exists, refutation-first, land-nothing legal.
+const HARVEST_ROWS = FOLDER_HARVEST.concat((index && index.harvest) || []);
+const doctrine = HARVEST_ROWS.length
+    ? await agent(doctrinePrompt(HARVEST_ROWS), {
+          label: 'doctrine',
+          phase: 'Index',
+          model: 'fable',
+          effort: 'high',
+          schema: DOCTRINE_SCHEMA,
+          stallMs: STALL,
+      })
+    : null;
 log(
     'finalize[' +
         LANG_KEY +
@@ -705,7 +843,11 @@ log(
         ' folder(s) finalized; ' +
         ROWS.length +
         ' index row(s)' +
-        (ROWS.length ? (index ? ' applied' : ' — INDEX WRITER DIED TWICE, rows surfaced in the return') : ''),
+        (ROWS.length ? (index ? ' applied' : ' — INDEX WRITER DIED TWICE, rows surfaced in the return') : '') +
+        '; ' +
+        residuals.length +
+        ' residual(s) unresolved; ' +
+        (doctrine ? (doctrine.landed || []).length + ' doctrine landing(s)' : FOLDER_HARVEST.length ? 'doctrine lander died' : 'no harvest'),
 );
 return {
     targets: TARGETS,
@@ -714,4 +856,13 @@ return {
     folders: results,
     index: index ? { files: index.files, applied: (index.applied || []).length, summary: index.summary } : null,
     rows: index ? [] : ROWS,
+    residuals,
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
+    },
 };

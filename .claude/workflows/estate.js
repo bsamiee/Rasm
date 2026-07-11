@@ -1,8 +1,9 @@
 export const meta = {
     name: 'estate',
     description:
-        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam fable passes - closing with a monorepo final track. The T-passes stay native fable because their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install) a codex sandbox cannot reach.',
-    whenToUse: 'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; passes run on fable.',
+        'Per-language estate tracks - two gpt-5.6-terra recon lanes per track (codex wrappers, split charges: the estate-scope dossier and the libs-complexity dossier, both written to scratch) then initial/critique/redteam fable passes - closing with a monorepo final track. The T-passes stay native fable because their acceptance gates run network-bound toolchains (dotnet restore, uv sync, pnpm install) a codex sandbox cannot reach. Every pass nominates generalizable findings and reports deliberately-left residuals; a terminal doctrine lander pools both across all tracks and adjudicates the nominations into docs/laws, the constitution, the test/tool READMEs, and the reviewer rules, while the pooled residuals ride the run return untouched - estate residuals are deliberate deferrals, not a drain backlog.',
+    whenToUse:
+        'Full estate improvement over tests/tools/root configs per language, then polyglot alignment; passes run on fable, then a terminal doctrine lander lands generalizable findings.',
     phases: [
         {
             title: 'Recon',
@@ -11,6 +12,11 @@ export const meta = {
         },
         { title: 'Estate' },
         { title: 'Final' },
+        {
+            title: 'Doctrine',
+            detail: 'one fable lander pools harvest nominations and deliberately-left residuals across every track pass plus the final track, then adjudicates the nominations against the live doctrine surfaces; residuals ride the return untouched; fires only when a nomination exists',
+            model: 'fable',
+        },
     ],
 };
 
@@ -117,16 +123,54 @@ const DOSSIER_RECEIPT = {
     },
 };
 
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['stacks', 'reviewer', 'constitution', 'planning', 'readme', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
 const PASS_RECEIPT = {
     type: 'object',
     additionalProperties: false,
-    required: ['ok', 'headline', 'filesChanged', 'gates', 'residuals'],
+    required: ['ok', 'headline', 'filesChanged', 'gates', 'residuals', 'harvest'],
     properties: {
         ok: { type: 'boolean' },
         headline: { type: 'string' },
         filesChanged: { type: 'integer' },
         gates: { type: 'string' },
         residuals: { type: 'array', items: { type: 'string' } },
+        harvest: HARVEST,
+    },
+};
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
     },
 };
 
@@ -190,10 +234,21 @@ const TIER_LAW = {
         'objectively denser and more capable than the prior pass left it.',
 };
 
+const LAWS_READ =
+    'LAWS: read docs/laws/ IN FULL (README + topology + patterns + scars; short registry pages) — a topology row whose [SURFACE] your pass touches binds ' +
+    'its obligated counterparts into the SAME pass, and every patterns row binds each branch it names. ';
+
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this pass — a construction law reusable across the estate, a ' +
+    'testkit/infra pattern no doctrine clause names, a review rule that would have caught a defect BEFORE review, a cross-surface coupling discovered the ' +
+    'hard way. Each row: altitude (stacks|reviewer|constitution|planning|readme|laws), lang, claim (the generalized law, one sentence), anchors (file:line ' +
+    'evidence), existingClause (the exact doctrine or reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A ' +
+    'pass-local fix never nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
+
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 const docsOrder = (t) =>
-    t.docs
+    (t.docs
         ? 'CODE DOCTRINE: read ' +
           t.docs +
           '/README.md IN FULL — its numbered routing table orders the corpus. Read IN FULL the first ' +
@@ -202,7 +257,8 @@ const docsOrder = (t) =>
           (t.docsNote ? ' (' + t.docsNote + ')' : '') +
           '; know the remaining pages exist and consult them on demand while ' +
           'editing, never wholesale. '
-        : 'CODE DOCTRINE: each file you touch follows its language doctrine under docs/stacks/<language>/ — consult the owning pages on demand. ';
+        : 'CODE DOCTRINE: each file you touch follows its language doctrine under docs/stacks/<language>/ — consult the owning pages on demand. ') +
+    LAWS_READ;
 
 const dossierPath = (name, lane) => SCRATCH + '/' + name + '-recon-' + lane + '-report.md';
 
@@ -349,7 +405,35 @@ const passPrompt = (t, name, tier, reconRows) =>
     t.scope +
     ' GATES (all green before you return): ' +
     t.gates +
-    ' Return the receipt: ok, headline (what materially changed), filesChanged, gates (verbatim results), residuals (deliberately-left items with reasons).';
+    ' Return the receipt: ok, headline (what materially changed), filesChanged, gates (verbatim results), residuals (deliberately-left items with ' +
+    'reasons), harvest (per the harvest law below). ' +
+    HARVEST_LAW;
+
+// Doctrine lander: adjudicates pooled harvest nominations against the live doctrine surfaces; an estate run owns test/tool/config
+// infrastructure and monorepo alignment, so its routing weighs toward the constitution, the test/tool READMEs, and the reviewer rules.
+const doctrinePrompt = (rows, residuals) =>
+    'TASK: DOCTRINE LANDER — the durable-learning terminal of an estate run over tests/tools/root config across every language plus the monorepo final ' +
+    'track. Load the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before touching ' +
+    "any diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+    JSON.stringify(rows) +
+    '\nPOOLED RESIDUALS (deliberately-left estate items with reasons — CONTEXT only, never a drain queue: a residual recurring across tracks may itself be ' +
+    'a durable law worth nominating, but you never mechanically clear one here): ' +
+    JSON.stringify(residuals) +
+    '\nADJUDICATE each nomination: cold-read its target surface IN FULL, verify its anchors on CURRENT disk, and demand admission evidence — recurrence ' +
+    'across independent tracks, or a structural singleton whose blast radius spans branches. Read `docs/laws/README.md` FIRST: its [02]-[ADMISSION] table ' +
+    'is the routing owner. LANDING LAW: harden an existing clause > extend an existing file > mint a new file (a new file only at the stacks or laws ' +
+    'altitude, with proof of absence); LAND NOTHING is a first-class verdict.\n' +
+    'ROUTING (an estate run owns test/tool/config infrastructure and monorepo alignment, so its lessons weigh toward the constitution, the test/tool ' +
+    'READMEs, and the reviewer rules): constitution -> `CLAUDE.md` or `AGENTS.md` at the reader that ACTS on the fact, cross-referenced never duplicated; ' +
+    'readme -> the OWNING README at the acting surface — `tests/README.md`, `tests/<lang>/README.md`, `tests/contracts/README.md`, ' +
+    '`tools/assay|cs-analyzer|rhino-bridge/README.md`, or the root `README.md` when entry truth drifted; reviewer -> `.greptile/rules.md` + ' +
+    '`.coderabbit.yaml` (machine-law boundary: a rule a formatter, analyzer, or gate can enforce routes to that gate owner and is REJECTED here with that ' +
+    'reason, never landed as reviewer prose); laws -> `docs/laws/` per its admission table; stacks -> the owning `docs/stacks/<lang>/` page, refactored in ' +
+    'place, never append-beside; planning -> the owning `libs/.planning/` or `libs/<lang>/.planning/` index doc.\n' +
+    'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose coupling no longer holds, land a ' +
+    'coupling this run proved.\n' +
+    'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs before returning; yamllint proves ' +
+    '`.coderabbit.yaml` and jq proves the `.greptile` JSON files if you touch them. Return landed/refined/rejected (each rejection with its reason)/files/summary.';
 
 // --- [COMPOSITION] -------------------------------------------------------------------------
 
@@ -424,8 +508,49 @@ if (WANT_FINAL && ACTIVE.length) {
     final = { t1: f1, t2: f2, t3: f3 };
 }
 
+// --- [DOCTRINE]
+// Pool harvest nominations and deliberately-left residuals across every track pass plus the final track. RULING: estate
+// residuals are string-shaped DELIBERATE deferrals with reasons, not a mechanical {files, claim} backlog, and each T-pass
+// already holds full write authority behind network-bound gates a fresh drain pass cannot re-run — so NO drain loop fits;
+// the pooled residuals ride the run return untouched and feed the lander only as recurrence signal.
+const allPasses = results
+    .flatMap((r) => [r && r.t1, r && r.t2, r && r.t3])
+    .concat(final ? [final.t1, final.t2, final.t3] : [])
+    .filter(Boolean);
+const HARVEST_ROWS = allPasses.flatMap((p) => p.harvest || []);
+const RESIDUALS = allPasses.flatMap((p) => p.residuals || []);
+let doctrine = null;
+if (HARVEST_ROWS.length) {
+    phase('Doctrine');
+    doctrine = await agent(doctrinePrompt(HARVEST_ROWS, RESIDUALS), {
+        label: 'doctrine',
+        phase: 'Doctrine',
+        model: 'fable',
+        effort: 'high',
+        schema: DOCTRINE_SCHEMA,
+        stallMs: STALL,
+    });
+}
+log(
+    'estate doctrine: ' +
+        HARVEST_ROWS.length +
+        ' harvest nomination(s), ' +
+        RESIDUALS.length +
+        ' residual(s) pooled' +
+        (doctrine ? '; ' + (doctrine.landed || []).length + ' landing(s)' : HARVEST_ROWS.length ? '; lander died' : ''),
+);
+
 return {
     tracks: Object.fromEntries(trackRows.map((t, i) => [t.lang, results[i]])),
     final,
-    note: 'Agents never commit; the orchestrator commits once after all estate tracks close (pre-final), then after each final pass.',
+    residuals: RESIDUALS,
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
+    },
+    note: 'Agents never commit; the orchestrator commits once after all estate tracks close (pre-final), then after each final pass, then after the doctrine lander.',
 };

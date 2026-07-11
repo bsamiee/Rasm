@@ -1,0 +1,1347 @@
+export const meta = {
+    name: 'resolve',
+    whenToUse:
+        'The standing RESEARCH-row resolution pass for any libs/ planning corpus: pass folder targets (sub-folder / package root, any number, any language mix); it censuses every research row as an epistemic-debt entry, clusters the debts by verification route, verifies each at its route, then bakes confirmed spellings and DELETES resolved rows, sharpens the unresolvable, and closes with a critique/red-team chain, a deferred drain, and one doctrine landing.',
+    description:
+        'RESEARCH-row resolution engine over libs/{csharp,python,typescript} planning corpora. args = a folder target, an array of folder paths, or a targets object; empty = no-op. A research row is a writer epistemic debt — an exact question plus its verification route, recorded instead of a guessed member spelling. Census (terra codex, read-only) reads every page under the targets and extracts each research row (the C# [NN]-[RESEARCH] section entries, the inline RESEARCH re-verify rows, and the version-blocked capability rows) as an anchored {page, anchor, question, route, routeFamily, routeKey, symbols} entry with coverage; one lane per folder, large folders split by page count. Cluster (plain orchestrator code, no agent) groups the entries by verification route family — same host DLL, package, .api catalog, or doc source. Verify runs one lane per cluster, the route deciding the lane: assay-decompile clusters run NATIVE (a read-only codex sandbox cannot run uv/tools.assay, so they are native by construction); .api catalog and doc-file clusters ride terra codex lanes reading the catalogs; external-doc clusters run a native Context7 lane; each writes {question, page, anchor, verdict, evidence, spelling} verdicts to disk. Apply (one fable writer per folder, pipelined) reads the folder verdicts plus the pages, bakes each confirmed spelling into its fence, corrects each refuted assumption at its root, DELETES each resolved research row entirely (no tombstones, no resolved notes), and SHARPENS each unresolvable row in place with a better question and route; docgen loads before durable prose edits, the prose gate returns zero FAILs, and the fixlog carries harvest. A sol critique (codex, fix, fable twin) then a fable red-team fold-forward per the chain law attack a baked spelling not actually verified, a deleted row whose fact never landed in the fence, and a surviving row that verification already answered. Close: a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one doctrine lander over the pooled harvest.',
+    phases: [
+        {
+            title: 'Discover',
+            detail: 'one thin agent expands the folder targets into the owning packages and their full design-page set (read-only)',
+            model: 'sonnet',
+        },
+        {
+            title: 'Census',
+            detail: 'one terra codex lane per folder (large folders split by page count) reads every page and extracts each research row as an anchored epistemic-debt entry with its route family; entries return on the wire for clustering, the full product to disk',
+        },
+        {
+            title: 'Verify',
+            detail: 'plain orchestrator code clusters the entries by verification route family, then one lane per cluster verifies at its route — assay-decompile and external-doc NATIVE, catalog and doc-file terra codex — writing verdicts to disk',
+        },
+        {
+            title: 'Apply',
+            detail: 'per folder pipelined: fable bakes confirmed spellings, corrects refuted assumptions, DELETES resolved rows, sharpens the unresolvable; then a sol critique and a fable red-team fold-forward per the chain law',
+        },
+        {
+            title: 'Close',
+            detail: 'a drain loop over the pooled deferred backlog and orphaned critique fixlogs, then one fable doctrine lander over the pooled harvest',
+        },
+    ],
+};
+
+// --- [CONSTANTS] -------------------------------------------------------------------------
+
+const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
+const STAGGER_MS = 1500;
+const STALL = 300000;
+const DRAIN_ROUNDS = 4; // terminal drain fixpoint cap; the progress gate (no shrinkage -> stop) is the real bound
+const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
+const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at the operator-default tier; stall detection must outlast it
+const CENSUS_PAGES = 10; // pages per census lane; a folder past it splits so each lane returns a bounded entry set on the wire
+const SCRATCH = '.claude/scratch/resolve'; // census products, verdict reports, apply fixlogs, per-folder seam ledgers
+const CODEX = true; // census + catalog/doc verify lanes run on gpt-5.6-terra via the codex wrapper; false restores native lanes
+
+// --- [INPUTS] ----------------------------------------------------------------------------
+
+const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '');
+// Hosts may deliver object args JSON-encoded; decode before shape dispatch.
+const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
+const isObj = !!argsIn && typeof argsIn === 'object' && !Array.isArray(argsIn);
+const rawTargets = Array.isArray(argsIn)
+    ? argsIn
+    : isObj && Array.isArray(argsIn.targets)
+      ? argsIn.targets
+      : isObj && typeof argsIn.targets === 'string'
+        ? [argsIn.targets]
+        : typeof argsIn === 'string' && argsIn.trim()
+          ? [argsIn]
+          : [];
+const langOf = (t) =>
+    t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
+const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
+const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
+
+// --- [MODELS] ----------------------------------------------------------------------------
+
+const COVERAGE = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['requested', 'read', 'skipped', 'unverified'],
+    properties: {
+        requested: { type: 'array', items: { type: 'string' } },
+        read: { type: 'array', items: { type: 'string' } },
+        skipped: { type: 'array', items: { type: 'string' } },
+        unverified: { type: 'array', items: { type: 'string' } },
+    },
+};
+
+const DISCOVER_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['packages', 'pages', 'unresolved'],
+    properties: {
+        packages: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['name', 'root', 'planning', 'api'],
+                properties: {
+                    name: { type: 'string' },
+                    root: { type: 'string' },
+                    planning: { type: 'string' },
+                    api: { type: 'string' },
+                },
+            },
+        },
+        pages: { type: 'array', items: { type: 'string' } },
+        unresolved: { type: 'array', items: { type: 'string' } },
+    },
+};
+
+// One census entry = one research row as epistemic debt: the exact question, its verification route, and the route
+// family/key the orchestrator clusters on. routeFamily picks the verify lane; routeKey is the cluster grouping key.
+const CENSUS_ENTRY = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['page', 'anchor', 'question', 'route', 'routeFamily', 'routeKey', 'symbols'],
+    properties: {
+        page: { type: 'string' },
+        anchor: { type: 'string' }, // the bracketed marker label or the `[NN]-[RESEARCH]` section id plus a short locator
+        question: { type: 'string' }, // the exact unresolved debt: which member/spelling/capability is unverified or must re-verify
+        route: { type: 'string' }, // the verification route as the row states it, verbatim enough to re-derive
+        routeFamily: { type: 'string', enum: ['assay', 'catalog', 'docfile', 'extdoc', 'build'] },
+        routeKey: { type: 'string' }, // <family>:<assembly|catalog|doc|lib|pkg> — the cluster grouping key
+        symbols: { type: 'array', items: { type: 'string' } }, // the member spellings the row names
+    },
+};
+
+const CENSUS_WIRE = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['entries', 'coverage', 'summary'],
+    properties: { entries: { type: 'array', items: CENSUS_ENTRY }, coverage: COVERAGE, summary: { type: 'string' } },
+};
+
+const VERDICT_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['verdicts', 'coverage', 'summary'],
+    properties: {
+        verdicts: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['question', 'page', 'anchor', 'verdict', 'evidence', 'spelling'],
+                properties: {
+                    question: { type: 'string' },
+                    page: { type: 'string' },
+                    anchor: { type: 'string' },
+                    verdict: { type: 'string', enum: ['confirmed', 'refuted', 'unresolvable'] },
+                    evidence: { type: 'string' }, // the route output that decided it — the verbatim member block, command result, or doc fact
+                    spelling: { type: 'string' }, // the confirmed member spelling to bake (empty for refuted/unresolvable)
+                },
+            },
+        },
+        coverage: COVERAGE,
+        summary: { type: 'string' },
+    },
+};
+
+// Thin wire receipt: a verify lane PRODUCT stays on disk at `report`; only status + count + headline travel inline.
+const RECEIPT = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['ok', 'report', 'entries', 'headline', 'failure'],
+    properties: {
+        ok: { type: 'boolean' },
+        report: { type: 'string' },
+        entries: { type: 'integer' },
+        headline: { type: 'string' },
+        failure: { type: 'string' },
+    },
+};
+
+const SEAMS = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['file', 'counterpart', 'bothEnds'],
+        properties: { file: { type: 'string' }, counterpart: { type: 'string' }, bothEnds: { type: 'boolean' } },
+    },
+};
+
+const DELTAS = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['symbol', 'change'],
+        properties: { symbol: { type: 'string' }, change: { type: 'string' } },
+    },
+}; // navigation facts: what moved, as data, zero adjectives
+
+const DEFERRED = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['files', 'claim'],
+        properties: { files: { type: 'array', items: { type: 'string' } }, claim: { type: 'string' } },
+    },
+}; // the counted backlog: second-order + live-folder-scope ripples
+
+const BEYOND = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['catalog', 'member'],
+        properties: { catalog: { type: 'string' }, member: { type: 'string' } },
+    },
+};
+
+const INDEXROWS = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['doc', 'row'],
+        properties: { doc: { type: 'string' }, row: { type: 'string' } },
+    },
+}; // doc = index doc, central manifest, or IDEAS.md; row = the exact row text
+
+const HARVEST = {
+    type: 'array',
+    items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['altitude', 'lang', 'claim', 'anchors', 'existingClause'],
+        properties: {
+            altitude: { type: 'string', enum: ['stacks', 'reviewer', 'constitution', 'planning', 'readme', 'laws'] },
+            lang: { type: 'string' },
+            claim: { type: 'string' },
+            anchors: { type: 'array', items: { type: 'string' } },
+            existingClause: { type: 'string' },
+        },
+    },
+}; // doctrine nominations — generalizable lessons only; the terminal doctrine lander adjudicates every row
+
+// Required-but-empty arrays are attestations: forced seamsTouched/beyondMap/indexRows/deltas/deferred make
+// "read fully / repair both ends / record the backlog" structurally checkable, never wishful prose.
+const FIXLOG_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: [
+        'files',
+        'verdict',
+        'summary',
+        'baked',
+        'deleted',
+        'sharpened',
+        'seamsTouched',
+        'deltas',
+        'deferred',
+        'beyondMap',
+        'indexRows',
+        'harvest',
+    ],
+    properties: {
+        files: { type: 'array', items: { type: 'string' } },
+        verdict: { type: 'string', enum: ['resolved', 'partial', 'clean'] },
+        baked: { type: 'integer' }, // confirmed spellings baked into fences
+        deleted: { type: 'integer' }, // resolved research rows removed entirely
+        sharpened: { type: 'integer' }, // unresolvable rows rewritten in place
+        summary: { type: 'string' },
+        seamsTouched: SEAMS,
+        deltas: DELTAS,
+        deferred: DEFERRED,
+        beyondMap: BEYOND,
+        indexRows: INDEXROWS,
+        harvest: HARVEST,
+    },
+};
+
+const REVIEW_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['files', 'verdict', 'summary', 'seamsTouched', 'deltas', 'deferred', 'beyondMap', 'indexRows', 'harvest'],
+    properties: {
+        files: { type: 'array', items: { type: 'string' } },
+        verdict: { type: 'string', enum: ['fixed', 'clean'] },
+        summary: { type: 'string' },
+        seamsTouched: SEAMS,
+        deltas: DELTAS,
+        deferred: DEFERRED,
+        beyondMap: BEYOND,
+        indexRows: INDEXROWS,
+        harvest: HARVEST,
+    },
+};
+
+// Required-but-possibly-empty `beyond` is an attestation: the fixer's own hunt ran, not only the drained list.
+const FIXER_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['files', 'indexApplied', 'backlogDrained', 'beyond', 'rejected', 'remaining', 'summary'],
+    properties: {
+        files: { type: 'array', items: { type: 'string' } },
+        indexApplied: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['doc', 'action'],
+                properties: { doc: { type: 'string' }, action: { type: 'string' } },
+            },
+        },
+        backlogDrained: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'action'],
+                properties: { claim: { type: 'string' }, action: { type: 'string' } },
+            },
+        },
+        beyond: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['target', 'action'],
+                properties: { target: { type: 'string' }, action: { type: 'string' } },
+            },
+        },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['finding', 'reason'],
+                properties: { finding: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        remaining: DEFERRED, // rows verified still-open and genuinely blocked; the drain loop re-feeds them until empty or no progress
+        summary: { type: 'string' },
+    },
+};
+
+const DOCTRINE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['landed', 'refined', 'rejected', 'files', 'summary'],
+    properties: {
+        landed: { type: 'array', items: { type: 'string' } },
+        refined: { type: 'array', items: { type: 'string' } },
+        rejected: {
+            type: 'array',
+            items: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['claim', 'reason'],
+                properties: { claim: { type: 'string' }, reason: { type: 'string' } },
+            },
+        },
+        files: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+    },
+};
+
+// --- [DOCTRINE] --------------------------------------------------------------------------
+
+// LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached through readFirst at the source, never paraphrased here.
+const LANG = {
+    cs: {
+        key: 'cs',
+        name: 'C#',
+        root: 'libs/csharp',
+        stack: 'docs/stacks/csharp',
+        casing: 'PascalCase',
+        corpus: 'libs/csharp planning corpus (markdown specs of intended C# package designs)',
+        strata:
+            'CLAUDE.md manifest + WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
+            'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
+        stackFloor:
+            'docs/stacks/csharp is the FLOOR, never the ceiling — every fence meets it and pushes past it to the strongest form the doctrine admits.',
+        apiTiers:
+            'the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt rails/effects/schedules/immutable ' +
+            'collections, QuikGraph, Mapperly and siblings) AND the folder catalogs `<package>/.api/*.md`, always layering the universal ' +
+            'Thinktecture/LanguageExt rails onto the domain packages, never the folder set alone.',
+        verify:
+            '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed truth, and ' +
+            'Context7/exa/tavily for the official surface own the fallback)',
+        vocab: '(`[Union]`/`[SmartEnum<TKey>]`/`[ValueObject]`/`Fold`/the rails)',
+        slur: 'naive, surface-level code dressed in the right vocabulary',
+        illusion: 'a `.api`/host member cited but never verified',
+        docBloat: 'XML-doc',
+        deepPkgs: 'LanguageExt/Thinktecture/MathNet/CSparse',
+        modern: 'Latest modern C# 14 on net10',
+        mechanics: '',
+        fileOrg: 'apply the `docs/stacks/csharp` file-organization + section-order law',
+    },
+    py: {
+        key: 'py',
+        name: 'Python',
+        root: 'libs/python',
+        stack: 'docs/stacks/python',
+        casing: 'snake_case',
+        corpus: 'libs/python planning corpus (markdown specs of intended Python module designs)',
+        strata: 'CLAUDE.md manifest law governs.',
+        stackFloor:
+            'docs/stacks/python is the bar and docs/stacks/csharp is the density/ambition FLOOR — match its richness, never import C#-shaped idioms.',
+        apiTiers:
+            'the SHARED/universal branch catalogs `libs/python/.api/*.md` (anyio, expression, msgspec, pydantic, pydantic-settings, beartype, ' +
+            'structlog, stamina, numpy, psutil, opentelemetry-*) AND the folder catalogs `<package>/.api/*.md`, always layering the shared/universal ' +
+            'rails ON TOP OF the folder-specific domain packages, never the folder set alone.',
+        verify:
+            '`uv run --frozen python -m tools.assay api resolve <pkg>` (a gated/uninstalled package, or a blocked/unavailable assay, falls back to ' +
+            'its catalog/official surface)',
+        vocab: '(`@tagged_union`/`frozendict`/`Result`/`Option`/the rails)',
+        slur: 'naive, surface-level, old-style Python dressed in the right vocabulary',
+        illusion: 'a `.api` member cited but never verified',
+        docBloat: 'docstring',
+        deepPkgs: 'the admitted both-tier catalogs (expression/msgspec/pydantic/anyio + the folder domain packages)',
+        modern: 'py3.15-modern only',
+        mechanics: '',
+        fileOrg: 'apply the `docs/stacks/python` file-organization + section-order law',
+    },
+    ts: {
+        key: 'ts',
+        name: 'TypeScript',
+        root: 'libs/typescript',
+        stack: 'docs/stacks/typescript',
+        casing: 'camelCase',
+        corpus: 'libs/typescript planning corpus (markdown specs of intended TypeScript module designs)',
+        strata: 'CLAUDE.md manifest law governs.',
+        stackFloor: 'docs/stacks/typescript composed in full is the bar — author ultra-advanced TS only, discarding naive idioms wholesale.',
+        apiTiers:
+            'the SHARED/universal `libs/typescript/.api/*.md` Effect substrate rails AND the folder catalogs `<folder>/.api/*.md`, cross-checked ' +
+            'against the published types in node_modules, always layering the shared Effect ecosystem end-to-end ON TOP OF the area-specific packages, ' +
+            'never the folder set alone.',
+        verify: 'the published types in node_modules (`uv run python -m tools.assay api` over node_modules declarations where a member is novel)',
+        vocab: '(`Schema.Class`/`TaggedClass` families, tagged unions, `Effect`/`Layer`, value-derived vocabulary tables)',
+        slur: 'naive JavaScript-in-TypeScript dressed in the right vocabulary',
+        illusion: '`any`/unsafe `as`/non-null `!` smuggled under a confident surface; a member cited but unverifiable against node_modules',
+        docBloat: 'TSDoc',
+        deepPkgs:
+            'the Effect ecosystem (`Effect`/`Layer`/`Context`/`Schema`/`Stream` + platform/experimental/cluster/workflow/sql/rpc/ai) + the area packages',
+        modern: 'ultra-advanced modern TS only',
+        mechanics: '',
+        fileOrg: 'apply the `docs/stacks/typescript` file-organization + section-order law',
+    },
+};
+
+// --- [OPERATIONS] ------------------------------------------------------------------------
+
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+// Agent-level slot scheduler: CAP agents in flight across ALL chains, staggered launch, work-conserving
+// backfill the moment a slot frees. The single governor for every agent call.
+const makeSlots = (cap) => {
+    let active = 0;
+    let gate = Promise.resolve();
+    const waiters = [];
+    const stagger = () => {
+        gate = gate.then(() => sleep(STAGGER_MS));
+        return gate;
+    };
+    return async (fn) => {
+        if (active >= cap) await new Promise((res) => waiters.push(res));
+        active++;
+        await stagger();
+        try {
+            return await fn();
+        } finally {
+            active--;
+            const next = waiters.shift();
+            if (next) next();
+        }
+    };
+};
+const slot = makeSlots(CAP);
+
+// Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope content to the lane
+// report, and returns mechanical orchestration data. Lane law rides developer-instructions; the prompt carries
+// only the task; the output contract sits LAST.
+const fileTag = (label) => label.replace(/[^A-Za-z0-9_.-]+/g, '-');
+const laneLaw = (schema, o) =>
+    (o.fix
+        ? '<persistence>\nComplete every named move before yielding; do not stop at analysis or a partial edit. If the chosen ' +
+          'approach resists, pick the next-best one and proceed. Return without an applied edit only if the territory genuinely ' +
+          'admits none.\n</persistence>\n\n<verification>\nAfter editing, re-read each changed file and confirm it is coherent ' +
+          'and nothing it carried was lost. Fix what fails before yielding.\n</verification>'
+        : '<context_gathering>\nTerritory: the exact files and directories the task names. Do not open files outside it, ' +
+          'including skill or instruction files (.claude/, CLAUDE.md, AGENTS.md).\nBudget: at most ' +
+          (o.calls || 60) +
+          ' tool calls total. Read in small batches (a handful of files per command, line-capped); never concatenate the whole ' +
+          'territory into one command - tool output truncates and the data is lost.\nStop as soon as the product is complete. ' +
+          'If something is still uncertain at the budget, proceed and record the residue in the product gap/unverified field ' +
+          'instead of re-reading.\n</context_gathering>\n\n<verification>\nBefore the final message, confirm every cited ' +
+          'spelling appears verbatim in the cited file; anything unconfirmed is recorded as a gap, never asserted.\n' +
+          '</verification>') +
+    '\n\n<output_contract>\nYour final message is a single JSON object with exactly this shape: ' +
+    JSON.stringify(schema) +
+    '\n- JSON only: no prose before or after it, no code fences, no markdown.\n- Every key shown is required.\n' +
+    '- Use null for a value you could not determine and [] for an empty list; never guess.\n</output_contract>';
+const codexPrompt = (label, task, schema, o) => {
+    const base = SCRATCH + '/' + fileTag(label);
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
+    const model = o.model || 'gpt-5.6-terra';
+    return [
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox=' +
+            (o.writes ? '"workspace-write"' : '"read-only"') +
+            ', cwd=' +
+            JSON.stringify(root) +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'error through step (4).',
+        'LANE LAW:\n\n' + laneLaw(schema, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+            report +
+            '. Do not normalize, reformat, summarize, or extract the text before writing it.',
+        '(4) Parse the tool result text only for mechanical orchestration data. Return ok=true, report=' +
+            base +
+            '-report.json, entries=the length of result["' +
+            o.hl.arr +
+            '"], headline="<entries> ' +
+            o.hl.arr +
+            (o.hl.group ? ' | <' + o.hl.group + ' tallies>' : '') +
+            ' | top: <most frequent first file or none>", and failure empty. On a second tool error return ok=false, entries=0, ' +
+            'report and headline empty, and failure equal to the error text VERBATIM.',
+    ].join('\n\n');
+};
+// Every codex-dispatched receipt lane routes here: terra by default, sol where o.model says so; CODEX=false restores
+// a fully native run. QUOTA FALLBACK: a codex receipt whose failure matches usage/quota/limit re-dispatches the SAME
+// task natively at the role Claude twin (terra->opus, sol->fable, luna->sonnet). The roster row carries `scope` from
+// the ORCHESTRATOR so a failed lane unmapped territory is exact even when the lane died before writing anything.
+const twinOf = (m) => (/-sol/.test(m || '') ? 'fable' : /-luna/.test(m || '') ? 'sonnet' : 'opus');
+const nativeLane = (task, o) =>
+    agent(
+        task +
+            '\n\nPRODUCT TO DISK: write your COMPLETE product as one JSON file matching this schema at ' +
+            SCRATCH +
+            '/' +
+            fileTag(o.label) +
+            '-report.json (Write tool, absolute path under the repo root): ' +
+            JSON.stringify(o.schema) +
+            ' — then return ONLY the receipt: ok, report path, entries count, one-line mechanical headline, failure empty.',
+        {
+            label: o.label,
+            phase: o.phase,
+            model: o.nativeModel || twinOf(o.model),
+            effort: 'high',
+            schema: RECEIPT,
+            stallMs: o.stallMs || STALL,
+        },
+    );
+const recon = (task, o) =>
+    (CODEX
+        ? agent(codexPrompt(o.label, task, o.schema, o), {
+              label: (o.model && o.model.indexOf('-sol') >= 0 ? 'sol:' : 'terra:') + o.label,
+              phase: o.phase,
+              model: 'sonnet',
+              effort: 'low',
+              schema: RECEIPT,
+              stallMs: o.stallMs || CODEX_STALL,
+          }).then((r) => (r && !r.ok && /usage|quota|limit/i.test(r.failure || '') ? nativeLane(task, o) : r))
+        : nativeLane(task, o)
+    ).then((r) => ({
+        lane: o.label,
+        scope: o.scope || [],
+        ok: !!(r && r.ok && r.report),
+        report: (r && r.report) || '',
+        entries: (r && r.entries) || 0,
+        headline: (r && r.headline) || '',
+        failure: (r && r.failure) || (r ? '' : 'lane died'),
+    }));
+// Native receipt lane (assay/extdoc verify): normalized into the recon roster shape so a NATIVE cluster and a codex
+// cluster read identically downstream.
+const asLane = (label, scope, p) =>
+    p.then((r) => ({
+        lane: label,
+        scope: scope || [],
+        ok: !!(r && r.ok && r.report),
+        report: (r && r.report) || '',
+        entries: (r && r.entries) || 0,
+        headline: (r && r.headline) || '',
+        failure: (r && r.failure) || (r ? '' : 'lane died'),
+    }));
+
+// Census dispatch: the sonnet wrapper makes one read-only Codex call, writes the product to disk, AND relays the
+// entries themselves on the wire — the orchestrator clusters on them, so a receipt count alone would not do. Bounded
+// per lane by CENSUS_PAGES so the relayed entry set stays small.
+const censusCodexPrompt = (label, task, o) => {
+    const base = SCRATCH + '/' + fileTag(label);
+    const root = '/Users/bardiasamiee/Documents/99.Github/Rasm';
+    const report = root + '/' + base + '-report.json';
+    const model = o.model || 'gpt-5.6-terra';
+    return [
+        'DISPATCH ROLE: ' +
+            model +
+            ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
+            'never perform, edit, judge, soften, summarize, or relay the task yourself.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
+            'resolving, run forge-fleet-emit --kind codex --model ' +
+            model +
+            ' --label ' +
+            JSON.stringify(fileTag(label)) +
+            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
+            model +
+            '", sandbox="read-only", cwd=' +
+            JSON.stringify(root) +
+            ', "developer-instructions" set to the LANE LAW block below VERBATIM, and prompt set to the TASK block below ' +
+            'VERBATIM. If the call errors, retry the identical call ONCE; if the retry errors, skip step (3) and return the ' +
+            'empty product through step (4).',
+        'LANE LAW:\n\n' + laneLaw(CENSUS_WIRE, o),
+        'TASK:\n\n' + task,
+        '(3) The tool result is a JSON envelope {threadId, content} whose content field holds the final-message text. ' +
+            'Write that CONTENT text (the census product JSON, unescaped) — never the envelope — with the Write tool to this absolute path: ' +
+            report +
+            '. Do not normalize, reformat, or summarize it before writing.',
+        '(4) Parse the tool result content JSON and return it VERBATIM as YOUR final message — the object with keys ' +
+            'entries, coverage, summary matching the output schema. On a second tool error return entries [], an empty coverage ' +
+            '(all four arrays []), and summary equal to the error text VERBATIM.',
+    ].join('\n\n');
+};
+const census = (task, o) =>
+    (CODEX
+        ? agent(censusCodexPrompt('terra:' + o.label, task, o), {
+              label: 'terra:' + o.label,
+              phase: 'Census',
+              model: 'sonnet',
+              effort: 'low',
+              schema: CENSUS_WIRE,
+              stallMs: CODEX_STALL,
+          }).then((r) =>
+              r && (!r.entries || !r.entries.length) && /usage|quota|limit/i.test((r && r.summary) || '')
+                  ? agent(
+                        task +
+                            '\n\nPRODUCT TO DISK: also write your COMPLETE product to ' +
+                            SCRATCH +
+                            '/' +
+                            fileTag(o.label) +
+                            '-report.json (Write tool, absolute path under the repo root), then return the SAME object as your final message.',
+                        { label: o.label, phase: 'Census', model: 'opus', effort: 'high', schema: CENSUS_WIRE, stallMs: STALL },
+                    )
+                  : r,
+          )
+        : agent(
+              task +
+                  '\n\nPRODUCT TO DISK: also write your COMPLETE product to ' +
+                  SCRATCH +
+                  '/' +
+                  fileTag(o.label) +
+                  '-report.json (Write tool, absolute path under the repo root), then return the SAME object as your final message.',
+              { label: o.label, phase: 'Census', model: 'opus', effort: 'high', schema: CENSUS_WIRE, stallMs: STALL },
+          )
+    ).then((r) => ({ lane: o.label, entries: (r && r.entries) || [], summary: (r && r.summary) || '' }));
+
+const chunk = (arr, n) => {
+    const o = [];
+    for (let i = 0; i < arr.length; i += n) o.push(arr.slice(i, i + n));
+    return o;
+};
+// Even split: ceil(n/max) slices of near-equal size — no runt tail heavying slice 0 and starving the last.
+const evenChunk = (arr, max) => chunk(arr, Math.ceil(arr.length / (Math.ceil(arr.length / max) || 1)));
+const pkgOf = (p) => p.split('/.planning/')[0]; // package = the folder write-partition key (index docs live at its root)
+const Lof = (pkg) => LANG[langOf(pkg)] || LANG.cs;
+const scratchBase = (folder, i) => SCRATCH + '/' + fileTag(folder.split('/').pop() + ':f' + i);
+// Assay/external-doc clusters run NATIVE; catalog/doc-file clusters ride codex terra reading the repo.
+const NATIVE_FAMILY = { assay: true, build: true, extdoc: true, catalog: false, docfile: false };
+
+// Navigation handoff: FACTS ONLY — files, symbol deltas, seam rows, backlog. Never verdicts, summaries, or adjectives.
+const navOf = (logs) => {
+    const rows = logs.filter(Boolean);
+    return {
+        files: [...new Set(rows.flatMap((r) => r.files || []))],
+        deltas: rows.flatMap((r) => r.deltas || []),
+        seams: rows.flatMap((r) => r.seamsTouched || []),
+        deferred: rows.flatMap((r) => r.deferred || []),
+    };
+};
+
+// --- [SHARED_BLOCKS]
+
+// Every rigor law appears exactly once, here; stages compose subsets. Block order in prompts: stable per-language
+// law first, folder-variable material second, the stage task + output contract LAST.
+const CONTEXT = (L) => 'Rasm monorepo — ' + L.corpus + '. ' + L.strata + ' ' + L.stackFloor;
+
+const STANCE = (L) =>
+    'STANCE — every pass is hostile: author, critique, and red-team alike. The pages under review were authored by ANOTHER ' +
+    'engineer and are under adversarial review; hold every fence and every research row naive, shallow, or illusory until it ' +
+    'survives a real attack; the burden of proof is on the code, never on you. "Mature", "already strong", and a prior clean ' +
+    'verdict are rejected self-assessments — most of this corpus is ' +
+    L.slur +
+    '. A research row is a writer epistemic ' +
+    'debt: a member spelling, capability, or behavior the author GUESSED and flagged instead of verifying, so a row that reads ' +
+    'confident is the PRIME suspect — the guessed spelling may be a phantom (' +
+    L.illusion +
+    '). NO CHURN: an edit ' +
+    'requires a named violated law or a landed verdict and the concrete case that breaks it; a clean verdict earned by an attack ' +
+    'that finds nothing is a first-class result, proven by adding nothing.';
+
+const VERIFY = (L) =>
+    'VERIFY — cite only members confirmed via ' +
+    L.verify +
+    '; a member you cannot verify is a phantom to delete. Mine BOTH .api tiers to operator depth: ' +
+    L.apiTiers +
+    ' An admitted capability the concept admits that no owner exploits is a defect to close.';
+
+const RIPPLE_LAW =
+    'RIPPLE LAW — every fix you identify you make NOW via Edit/Write; the fix-log is a report of edits already made, never a ' +
+    'to-do or a would/should hedge. The writing is YOURS: a delegate may only fetch information. Your ripple authority is ' +
+    'LIBS-WIDE — any file under libs/, any language, corrective AND generative — under four bounds that are evidence, never ' +
+    'radius. (1) EVIDENCE — an out-of-scope edit traces to a resolvable anchor: a seam-ledger row, a consumer anchor, an index ' +
+    'claim, or a wire row in the branch ARCHITECTURE.md [02]-[SEAMS] ledger; an unanchored edit is drift, forbidden. ' +
+    '(2) EXPAND-FORM — a foreign edit made while sibling folders run is ADDITIVE only: add the case, row, field, operation, or ' +
+    'counterpart; renaming, removing, or collapsing a foreign surface is recorded in `deferred` for the terminal fixer, never ' +
+    'raced. Wire-canonical names stay frozen; a foreign-language counterpart is repaired at ITS branch doctrine bar with ' +
+    'surgical anchored edits, never a foreign-interior rebuild. (3) DEPTH — a first-order ripple (your edit broke or opened it ' +
+    'directly) is repaired both ends this pass and recorded in `seamsTouched`; a second-order ripple or a counterpart INSIDE a ' +
+    'concurrent folder scope is recorded in `deferred` as {files, claim} — the fixer drains the backlog this run; nothing is ' +
+    'silently dropped. (4) DECISION/PROPAGATION — the owning-package index docs (ARCHITECTURE.md + README.md at the path before ' +
+    '`/.planning/`), IDEAS.md, and the central manifests take exact rows via `indexRows` for the terminal fixer to apply once; ' +
+    'propagating an already-ruled contract is yours to distribute.';
+
+const CURRENT_STATE =
+    'CURRENT STATE — sibling folders land work concurrently with yours. Before any edit, re-read the CURRENT on-disk state of ' +
+    'your pages AND every sibling page your pages compose or ripple into; landed sibling work is picked up as found. A seam ' +
+    'counterpart a sibling folder landed is COMPOSED, not re-derived; a conflict between your design and a landed sibling ' +
+    'resolves to the stronger form, never a revert.';
+
+const LEDGER = (base, scopes) =>
+    'SEAM LEDGER — cross-folder coordination is typed fact rows on disk, never prose. Your folder ledger is `' +
+    base +
+    '-seams.md`: append one row per cross-file event as you work — `SEAM_CHANGED | <files> | <symbol/wire fact, old -> new>` ' +
+    'when a shared name, signature, or contract you own moves; `RIPPLE_REPAIRED | <files> | <fact>` when you repair a ' +
+    'counterpart, so no sibling redoes it; `SEAM_CONFLICT | <files> | <both values>` when your decision collides with a landed ' +
+    'sibling row (then resolve to the stronger form per CURRENT STATE). Before ANY edit outside your folder pages, `ls` `' +
+    SCRATCH +
+    '/` and read every sibling `*-seams.md` row whose files intersect yours — a RIPPLE_REPAIRED row is work you do NOT redo; a ' +
+    'SEAM_CHANGED row is a contract you compose. Rows are facts with zero adjectives. CONCURRENT FOLDER SCOPES (a counterpart ' +
+    'inside another live folder scope is recorded in `deferred`, never edited): ' +
+    scopes;
+
+const PROSE_COMMENTS = (L) =>
+    'PROSE + COMMENTS — apply docs/standards/style-guide.md, information-structure.md, and formatting.md. The page is a design ' +
+    'spec: lead each section with the controlling contract, one idea per paragraph, close on the consequence; no provenance, ' +
+    'process narration, freshness disclaimers, or hedges. Backtick every symbol, type, field, function, operator, package ID, ' +
+    'path, command, flag, and literal; name the exact member instead of paraphrasing behavior; trimming never reduces technical ' +
+    'density. Code fences comment for the next agent only: keep the canonical section-divider headers; beyond them default to ' +
+    'zero comments, 1-2 lines only for a truly subtle invariant, contract, or boundary; no restating the code, no narration, no ' +
+    L.docBloat +
+    ' bloat.';
+
+const SELF_CHECK =
+    'MANDATORY SELF-VERIFY (second pass, before returning): adversarially re-derive every entry from disk — re-open each cited ' +
+    'anchor and confirm it states what the entry claims, re-verify each member spelling against its route, trace each seam to ' +
+    'both endpoints. An entry that fails re-confirmation is corrected or deleted, never returned; a guess, an assumption, a ' +
+    'skimmed summary, or a vague/hedged entry is a defect. Completeness is part of correctness: after the re-read, hunt once ' +
+    'more for what the first pass missed — an omitted load-bearing fact is as wrong as a false one.';
+
+const HARVEST_LAW =
+    'HARVEST (required key, usually empty): nominate ONLY findings that generalize beyond this folder — a resolution pattern ' +
+    'reusable across folders, a research-debt class no doctrine clause names, a review rule that would have caught a defect ' +
+    'BEFORE review, a cross-surface coupling discovered the hard way. Each row: altitude (stacks|reviewer|constitution|planning|' +
+    'readme|laws), lang, claim (the generalized law, one sentence), anchors (file:line evidence), existingClause (the exact ' +
+    'doctrine or reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A folder-local ' +
+    'fix never nominates; an empty array is the normal verdict — the doctrine lander refutes weak rows, so nominate substance, ' +
+    'never volume.';
+
+const GIT_GROUND =
+    'DELTA GROUNDING — run `git diff --stat` then `git diff -- <your folder pages and their seam files>` to see exactly what ' +
+    'this run changed before judging it; `git status` surfaces new files. The diff is orientation, CURRENT disk is truth — the ' +
+    "repo carries pre-run uncommitted work, so an unfamiliar hunk is verified against disk, never assumed to be this run's.";
+
+const readFirst = (L, pkg) =>
+    [
+        'READ FIRST, IN ORDER, BEFORE ANY EDIT — no fence is judged before this read lands.',
+        '(1) DOCTRINE — enumerate `' +
+            L.stack +
+            '/` with a real `ls` (never memory), then read the README and EVERY root page it routes IN FULL in the README ' +
+            '[01]-[ATLAS] order — top-to-bottom, never a partial, skim, grep-jump, or section-sample; a root page on disk but ' +
+            'absent from the atlas is still mandatory law. The README [02]-[DOCTRINE] laws, the [03]-[COLLAPSE_SCAN] table, ' +
+            'OWNER_CHOOSER (`shapes.md` [01]), RAIL_CHOOSER (`rails-and-effects.md` [01]), and the aspect two-weave are binding ' +
+            'law AT THE SOURCE. This prompt does not restate the doctrine; read it there and conform every fence to it.',
+        L.key === 'cs'
+            ? '(1b) Enumerate `docs/stacks/csharp/domain/` with a real `ls` through its router README, then read every shard the ' +
+              'page concerns touch — chosen from the enumerated set, truthfully, never from memory or skipped; shard conformance ' +
+              'is a hard gate.'
+            : '',
+        '(1c) ANALYZER LAW — read the repo `.editorconfig` rules for your language: every rule at `error` severity is a COMPILE ' +
+            'GATE the fences must satisfy; a doc claim that contradicts an error-level analyzer rule is a FICTION to correct, ' +
+            'never law to compose.',
+        '(1d) LAWS — read `docs/laws/` IN FULL (README + topology + patterns + scars; short registry pages): a topology row whose ' +
+            '[SURFACE] your edits touch binds its obligated counterparts into the SAME pass, and every patterns row binds each ' +
+            'branch it names.',
+        '(2) .API — `ls` BOTH catalog tiers in full — the shared substrate `' +
+            L.root +
+            '/.api/` AND the folder `' +
+            pkg +
+            '/.api/` — then read every catalog relevant to these pages, layering the shared rails (' +
+            L.deepPkgs +
+            ') ON TOP OF the folder domain packages, never the folder set alone.',
+        '(3) SCOPE — read the owning-package charter — ARCHITECTURE.md + README.md + IDEAS.md — as the INTENT authority for what ' +
+            'each page owns and which pages are settled.',
+    ]
+        .filter(Boolean)
+        .join('\n');
+
+const discoverPrompt = () =>
+    [
+        'Rasm monorepo — the libs/{csharp,python,typescript} planning corpora (markdown design specs). Targets may mix ' +
+            'languages; each page owning package is the path before `/.planning/`.',
+        'TASK: thin enumerate (read-only, do NOT edit). TARGETS (repo-relative): ' +
+            JSON.stringify(TARGETS) +
+            '. EXPAND with a real recursive listing per target — run find <target-or-its-.planning-tree> -name *.md — a design ' +
+            'page lives INSIDE the .planning tree, so a package-root ls alone NEVER proves an empty page set. Validate the ' +
+            'expansion against `libs/.planning/planning-targets.md` (a mis-scoped or renamed target is reported in `unresolved`).',
+        'Return `packages` (one entry per distinct owning package: {name, root, planning, api}) and `pages` — every design page ' +
+            'under the targets: a ROOT expands to every page under its planning tree, a SUB-FOLDER to every page under it, a FILE ' +
+            'to itself; union + dedup; exclude IDEAS.md/TASKLOG.md/README.md/ARCHITECTURE.md.',
+    ].join('\n\n');
+
+const censusPrompt = (L, pages) =>
+    [
+        CONTEXT(L),
+        STANCE(L),
+        SELF_CHECK,
+        'TASK: HOSTILE READ-ONLY RESEARCH CENSUS over these ' +
+            pages.length +
+            ' pages (investigate, do NOT edit): ' +
+            JSON.stringify(pages) +
+            '. Read each page IN FULL and extract EVERY research row — a writer epistemic debt: an exact question plus its ' +
+            'verification route, recorded instead of a guessed member spelling. The convention on disk takes THREE forms, all in ' +
+            'scope:\n' +
+            '(A) SECTION ROWS — a numbered `## [NN]-[RESEARCH]` section (usually near the page bottom) whose bullet entries read ' +
+            '`- [MARKER_LABEL]: <claim> grounds against <route> ... <verified members>`. Some entries are already-grounded ' +
+            'provenance ("decompile-verified against `.api/api-geometrygym-ifc` and `assay api query GeometryGymIFC_Core`"), ' +
+            'others carry an OPEN debt (a version-BLOCKED capability, a still-suspect assumption). Extract every entry; the ' +
+            '`anchor` is its bracketed marker label.\n' +
+            '(B) INLINE RE-VERIFY ROWS — a bullet anywhere in a page reading `- RESEARCH: <member/spelling> is census-sighted but ' +
+            'catalog-unverified — <what lands when the decompile/catalogue confirms it>; <the settled fallback> until then`, or ' +
+            'the `... re-verify at decompile` / `... re-verify at the same pass` phrasing. These are the purest debts: an exact ' +
+            'unverified spelling, its route, and the interim fence. The `anchor` is the leading symbol or the `RESEARCH:` marker ' +
+            'plus a short locator.\n' +
+            '(C) CROSS-REFERENCE MARKERS — `(RESEARCH)`, `see [NN]-[RESEARCH]`, `see RESEARCH`, or an inline note inside a fence ' +
+            'comment POINTING at a row. A pointer is NOT itself a debt; record it only as an extra `symbols`/route note on the ' +
+            'entry it points to, never as a standalone entry.\n' +
+            'For EACH real research row return {page, anchor, question, route, routeFamily, routeKey, symbols}. `question` is the ' +
+            'exact debt as fact (which member/spelling/capability is unverified or must re-verify — never the surrounding ' +
+            'design). `route` quotes the verification route the row states, verbatim enough to re-run. `symbols` lists every ' +
+            'member spelling the row names. Classify `routeFamily` and `routeKey` by the route:\n' +
+            '- assay: grounds a member/spelling against a HOST-DLL decompile — "at decompile", "the decompile confirms", ' +
+            '"census-sighted but catalog-unverified", `assay api query <Assembly>`, `tools.assay api resolve <pkg>`. routeKey = ' +
+            '"assay:" + the assembly or package name (e.g. "assay:GeometryGymIFC_Core").\n' +
+            '- catalog: grounds against a REPO `.api/api-*.md` catalog — "the branch/folder catalogue rows its spelling", an ' +
+            '`.api/api-*` path. routeKey = "catalog:" + the catalog basename (e.g. "catalog:api-thinktecture-runtime-extensions").\n' +
+            '- docfile: grounds against a REPO planning doc or seam anchor — `ELEMENT-REBUILD-PLAN.md §N`, a `Rasm.X/...#ANCHOR` ' +
+            'or `csharp:...#ANCHOR` reference. routeKey = "docfile:" + the doc basename or seam file (e.g. ' +
+            '"docfile:ELEMENT-REBUILD-PLAN.md").\n' +
+            '- extdoc: grounds against an UPSTREAM/EXTERNAL reference not yet in a repo catalog — "the extension own reference", ' +
+            'upstream package docs, node_modules types. routeKey = "extdoc:" + the library (e.g. "extdoc:vchord_bm25").\n' +
+            '- build: a version/BUILD-blocked capability — "version-BLOCKED on the current <pkg> build", a capability gated on a ' +
+            'newer release. routeKey = "build:" + the package. A row whose route resolves to nothing usable also lands here as ' +
+            '"build:unresolved" so a native lane can confirm the block.\n' +
+            'A page with no research rows contributes nothing but is listed in `coverage.read`. Cite an anchor only after ' +
+            'confirming the row text on disk; a mis-located or invented entry is a defect.',
+    ].join('\n\n');
+
+const verifyPrompt = (L, cluster) =>
+    [
+        CONTEXT(L),
+        STANCE(L),
+        VERIFY(L),
+        SELF_CHECK,
+        'TASK: HOSTILE ROUTE VERIFICATION of the research debts in cluster `' +
+            cluster.routeKey +
+            '` (family `' +
+            cluster.routeFamily +
+            '`). Each entry names a member spelling, capability, or behavior a writer GUESSED; your job is to DECIDE it at the ' +
+            'route, never to trust the page. ENTRIES: ' +
+            JSON.stringify(cluster.entries) +
+            '.\nRUN THE ROUTE per the family:\n' +
+            '- assay: run `' +
+            L.verify +
+            '` against the named assembly/package and read the real member surface; a spelling absent from the decompile is ' +
+            'REFUTED (a phantom).\n' +
+            '- build: probe the CURRENTLY installed package build (its version and member surface via the same assay/uv route); ' +
+            'a capability the current build still lacks is UNRESOLVABLE (blocked), a capability the current build now ships is ' +
+            'CONFIRMED with the real spelling.\n' +
+            '- catalog: open the named repo `.api/api-*.md` catalog and confirm the member spelling VERBATIM; a catalog that ' +
+            'lacks it but exists routes the entry UNRESOLVABLE (the catalog must grow first), a contradicting spelling REFUTES.\n' +
+            '- docfile: open the named repo doc or seam anchor and confirm the claim/spelling at its coordinate; a doc that ' +
+            'contradicts the row REFUTES, a doc silent on it routes UNRESOLVABLE.\n' +
+            '- extdoc: resolve the library via Context7 (resolve-library-id then query-docs, or a known /org/project id) and ' +
+            'confirm the member against the official surface; unreachable/ambiguous is UNRESOLVABLE.\n' +
+            'For EACH entry return {question, page, anchor, verdict, evidence, spelling}: verdict `confirmed` (the route proves ' +
+            'the exact spelling — put it in `spelling`, the proving member block/command result in `evidence`), `refuted` (the ' +
+            'route proves the guess wrong — `evidence` names the real member or the absence, `spelling` empty or the corrected ' +
+            'form), or `unresolvable` (the route cannot decide now — `evidence` names WHY, `spelling` empty). Never mark ' +
+            'confirmed without the route output in `evidence`; an unrun route is `unresolvable`, never an optimistic confirm.',
+    ].join('\n\n');
+
+const applyPreamble = (L, folder, scopes) => [
+    CONTEXT(L),
+    STANCE(L),
+    VERIFY(L),
+    RIPPLE_LAW,
+    CURRENT_STATE,
+    PROSE_COMMENTS(L),
+    readFirst(L, folder),
+    LEDGER(scratchBase(folder, 0), scopes),
+];
+
+const applyPrompt = (L, folder, entries, verdictReports, scopes) =>
+    applyPreamble(L, folder, scopes)
+        .concat([
+            'TASK: RESOLVE the research debts of this folder IN PLACE: ' +
+                folder +
+                '. Load the `docgen` skill via the Skill tool BEFORE any durable prose edit. Read the folder pages that carry ' +
+                'these entries IN FULL, and read the VERDICT REPORTS on disk IN FULL at these paths (each a JSON ' +
+                '{verdicts:[{question, page, anchor, verdict, evidence, spelling}]}): ' +
+                JSON.stringify(verdictReports) +
+                '. The folder research entries (match each verdict to its row by page+anchor+question): ' +
+                JSON.stringify(entries) +
+                '.\nFOR EACH ROW, act by its verdict:\n' +
+                '- confirmed: BAKE the confirmed `spelling` into the fence at its site — replace the guessed/placeholder member ' +
+                'with the real one, wire it through every fence that assumed it, then DELETE the research row entirely. The fact ' +
+                'now lives in the fence; the row is scaffolding and leaves no trace.\n' +
+                '- refuted: CORRECT the assumption at its ROOT — the fence built on the wrong spelling/behavior is rebuilt on the ' +
+                'real one from `evidence` (a denser owner where the correction opens one), every dependent fence realigned, then ' +
+                'DELETE the research row entirely.\n' +
+                '- unresolvable: SHARPEN the row IN PLACE — rewrite it to the crispest possible question and the most precise ' +
+                'route (the exact member to decompile, the exact catalog to grow, the exact doc to consult), and keep the ' +
+                'settled interim fence explicit. Never leave vague residue; never delete an unresolvable row.\n' +
+                'NO TOMBSTONES: a deleted row leaves no "resolved"/"verified"/"removed" note, no empty `## [NN]-[RESEARCH]` ' +
+                'heading, and no dangling `see [NN]-[RESEARCH]` pointer — a section emptied of every row is removed and its ' +
+                'section numbering closed up; a cross-reference to a deleted row is rewritten to the baked fact or dropped. Every ' +
+                'ripple a bake/correction opens is YOURS per RIPPLE LAW — seam counterparts both ends, index rows via ' +
+                '`indexRows`. ' +
+                L.modern +
+                '; ' +
+                L.fileOrg +
+                '; high-signal all-backticked prose. GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every ' +
+                'touched .md>` and repair to zero FAILs before returning. Return the fix-log — `baked`/`deleted`/`sharpened` ' +
+                'counts exact, `deltas` every moved symbol/wire, `deferred` the backlog rows. ' +
+                HARVEST_LAW,
+        ])
+        .join('\n\n');
+
+const critiquePrompt = (L, folder, entries, verdictReports, scopes, nav) =>
+    applyPreamble(L, folder, scopes)
+        .concat([
+            'NAVIGATION (facts from the apply pass — locations only, no assessments; it changes where you look FIRST, never what ' +
+                'you conclude): ' +
+                JSON.stringify(nav),
+            'VERDICT REPORTS (read IN FULL from disk — the route decisions the apply pass was meant to honor): ' +
+                JSON.stringify(verdictReports) +
+                '. The folder research entries: ' +
+                JSON.stringify(entries),
+            GIT_GROUND,
+            'TASK: HOSTILE RESOLUTION-CONFORMANCE AUDIT; fix EACH defect in place for folder ' +
+                folder +
+                '. FORM YOUR OWN DEFECT LIST FIRST — read each touched page cold from CURRENT disk and check it against the ' +
+                'verdict reports before consulting NAVIGATION. Your mandate is PREDICATE-POSITIVE — verify each resolution ' +
+                'actually held:\n' +
+                '- A `confirmed` verdict whose spelling was baked: the baked member appears verbatim in the fence AND matches the ' +
+                'verdict `evidence`; a spelling baked that the verdict did NOT confirm (or that contradicts the evidence) is a ' +
+                'defect — re-derive it and correct.\n' +
+                '- A deleted row: the fact it carried actually LANDED in a fence; a row deleted whose fact never landed is a ' +
+                'silent capability loss — restore the fact into the fence.\n' +
+                '- A surviving row: verification did NOT already answer it; a row left standing that a verdict already resolved is ' +
+                'stale residue — bake/delete it now.\n' +
+                '- No tombstone survives: no empty RESEARCH heading, no dangling `see [NN]-[RESEARCH]` pointer, no ' +
+                '"resolved"/"verified" note; the `.api`/doctrine conformance of every touched fence holds (' +
+                L.modern +
+                '; ' +
+                L.fileOrg +
+                '). Every miss is repaired at its root now, a cross-file hit yours per RIPPLE LAW. GATE the touched .md through ' +
+                'the docgen prose gate to zero FAILs. Return the fix-log — `deltas` and `deferred` exact. ' +
+                HARVEST_LAW,
+        ])
+        .join('\n\n');
+
+const redteamPrompt = (L, folder, entries, verdictReports, scopes, nav, crit) =>
+    applyPreamble(L, folder, scopes)
+        .concat([
+            'NAVIGATION (locations only, no assessments): ' + JSON.stringify(nav),
+            'VERDICT REPORTS (read IN FULL from disk): ' + JSON.stringify(verdictReports) + '. Folder research entries: ' + JSON.stringify(entries),
+            crit && crit.ok
+                ? 'PRIOR CLAIMS (UNVERIFIED): the sol critique fixlog is ON DISK at ' +
+                  crit.report +
+                  ' — read it IN FULL from disk; its edits and verdicts are refutation targets you judge against CURRENT disk, ' +
+                  'never a settled record. FOLD-FORWARD DUTY: its surviving `seamsTouched`, `deltas`, `deferred`, `beyondMap`, ' +
+                  '`indexRows`, and `harvest` rows are folded into YOUR return (re-verified against current disk, deduped) — your ' +
+                  'fix-log is the folder consolidated record; a dropped critique row is a silent loss.'
+                : 'PRIOR CLAIMS: the critique lane did not land — your cold attack is the only review this folder gets; judge from ' +
+                  'CURRENT disk alone.',
+            GIT_GROUND,
+            'TASK: ADVERSARIAL RED-TEAM of the RESOLUTION; fix EACH defect in place for folder ' +
+                folder +
+                '. Assume the apply and critique missed things and their claims are wrong until disk proves them. FORM YOUR OWN ' +
+                'ATTACK FIRST — cold-read each touched page from CURRENT disk before consulting the claims. Your mandate is ' +
+                'PREDICATE-NEGATIVE — a pre-mortem on the resolution:\n' +
+                '(A) FALSE BAKE — a baked spelling not ACTUALLY proven by its verdict `evidence`: re-run the route in your head ' +
+                'against the evidence; a spelling the evidence does not support is a fresh phantom, reverted to the real member ' +
+                'or re-flagged as a sharpened unresolvable row.\n' +
+                '(B) LOST FACT — a deleted row whose fact did NOT land anywhere in the fence set: the capability the row guarded ' +
+                'is gone; restore it into the owning fence, densely.\n' +
+                '(C) STALE SURVIVOR — a surviving research row that a landed verdict already answered: resolve it now (bake or ' +
+                'delete).\n' +
+                '(D) TOMBSTONE + POINTER — an empty RESEARCH section, a "resolved" note, or a `see [NN]-[RESEARCH]` pointer to a ' +
+                'deleted row: remove it and rewire the reference to the baked fact.\n' +
+                '(E) SHARPEN QUALITY — an unresolvable row left vague: rewrite it to the exact member/catalog/doc and the precise ' +
+                'route, the interim fence explicit.\n' +
+                'Then a FULL COLD RE-REVIEW of every touched fence against the doctrine (' +
+                L.modern +
+                '; ' +
+                L.fileOrg +
+                '; both-tier .api maximization; prose + comment hygiene), judged against CURRENT disk. Every ripple is yours per ' +
+                'RIPPLE LAW; GATE the touched .md through the docgen prose gate to zero FAILs. Return the consolidated fix-log — ' +
+                '`deltas` and `deferred` exact. ' +
+                HARVEST_LAW,
+        ])
+        .join('\n\n');
+
+const fixerPrompt = (langs, rows, backlog, folders, orphans, round) =>
+    [
+        round
+            ? 'DRAIN ROUND ' +
+              round +
+              ' — every backlog row below was verified STILL-OPEN by the prior round; the index rows and orphan fixlogs are ' +
+              'already consumed. Fix each row at its root NOW; a row you genuinely cannot land carries its named blocker and ' +
+              'owner in `remaining`.'
+            : '',
+        'Rasm monorepo — the libs/ planning corpora. Per-language doctrine bars:\n' +
+            langs
+                .map(
+                    (k) =>
+                        '- ' +
+                        LANG[k].name +
+                        ': ' +
+                        LANG[k].stack +
+                        '/ read at source; ' +
+                        LANG[k].modern +
+                        '; verify members via ' +
+                        LANG[k].verify +
+                        '.',
+                )
+                .join('\n'),
+        GIT_GROUND,
+        "TASK: TERMINAL FIX (WRITER — you are the run's LAST agent, nothing follows you; full write authority over the resolved " +
+            'corpus and libs-wide ripple authority with the expand-form bound LIFTED — collapse, rename, and contract are yours ' +
+            "now that no sibling writer runs; and you are the run's SOLE writer for the owning-package index docs, IDEAS.md, and " +
+            'the central manifests). Resolved folders: ' +
+            JSON.stringify(folders) +
+            '.\n' +
+            '(1) INDEX ROWS: apply every reported row below to its owning doc exactly once — dedupe semantically identical rows, ' +
+            'keep each doc section grammar, verify every folder resolved this run is truthfully reflected; a central-manifest row ' +
+            'hand-edits the grouped manifest at the SYMBOL anchor (never a line number); an IDEAS row lands as a fully-specified ' +
+            'card in the named IDEAS.md: ' +
+            JSON.stringify(rows) +
+            '.\n' +
+            '(2) DEFERRED BACKLOG (second-order and cross-folder ripples the apply/red-team writers recorded — drain it: ' +
+            're-verify each {files, claim} on current disk, fix what holds, reject what disk already resolved): ' +
+            JSON.stringify(backlog) +
+            '.\n' +
+            '(2b) ORPHANED CRITIQUE FIXLOGS (folders whose red-team never landed, so these on-disk fixlogs seamsTouched/deferred/' +
+            'indexRows rows were never folded forward — read each IN FULL from disk and drain those rows under the same law): ' +
+            JSON.stringify(orphans) +
+            '.\n' +
+            '(3) OWN HUNT: on your own authority, sweep the resolved folders for the resolution-defect classes the chain may have ' +
+            'missed — a baked spelling not actually verified, a deleted row whose fact never landed in a fence, a surviving row a ' +
+            'verdict already answered, an empty RESEARCH section or dangling `see [NN]-[RESEARCH]` pointer, an unresolvable row ' +
+            'left vague — and fix each at its root; `beyond` enumerates those fixes, and an empty `beyond` attests your hunt found ' +
+            'nothing, never that it did not run.\n' +
+            'Every ripple an edit exposes is YOURS in the same pass — seam counterparts both ends, consumer sites, index docs, ' +
+            'manifest rows, .api anchors; wire-canonical names stay frozen. Return the final fixlog — `remaining` carries ONLY ' +
+            'rows verified still-open on current disk and genuinely blocked, each claim naming its blocker and owner; a row disk ' +
+            'already resolved is culled with proof in `rejected`, and an empty `remaining` attests the drain closed.',
+    ]
+        .filter(Boolean)
+        .join('\n\n');
+
+// --- [COMPOSITION] -----------------------------------------------------------------------
+
+if (REJECTED.length) log('Rejected targets outside libs/{csharp,python,typescript}: ' + REJECTED.join(', '));
+if (!TARGETS.length) {
+    log('No targets — pass a folder path, an array of paths, or {targets}. Empty args is a no-op.');
+    return { targets: [], total: 0 };
+}
+
+phase('Discover');
+const disc = await slot(() =>
+    agent(discoverPrompt(), { label: 'discover', phase: 'Discover', model: 'sonnet', effort: 'low', schema: DISCOVER_SCHEMA, stallMs: STALL }),
+);
+const PAGES = [...new Set(((disc && disc.pages) || []).filter(Boolean))];
+const UNRESOLVED = (disc && disc.unresolved) || [];
+if (UNRESOLVED.length) log('Unresolved targets (mis-scoped or renamed): ' + UNRESOLVED.join(', '));
+if (!PAGES.length) {
+    log('No design pages resolved under the targets');
+    return { targets: TARGETS, total: 0 };
+}
+const FOLDERS = [...new Set(PAGES.map(pkgOf))];
+log('Discover: ' + PAGES.length + ' pages across ' + FOLDERS.length + ' folder(s); CAP=' + CAP + ', CENSUS_PAGES=' + CENSUS_PAGES);
+
+phase('Census');
+// One census lane per folder, large folders split by page count; each lane returns its slice entries on the wire.
+const censusUnits = FOLDERS.flatMap((f) =>
+    evenChunk(
+        PAGES.filter((p) => pkgOf(p) === f),
+        CENSUS_PAGES,
+    ).map((slice, i) => ({ f, i, pages: slice })),
+);
+const censusRes = (
+    await Promise.all(
+        censusUnits.map((u) =>
+            slot(() => census(censusPrompt(Lof(u.f), u.pages), { label: 'census:' + u.f.split('/').pop() + ':s' + u.i })).catch(() => null),
+        ),
+    )
+).filter(Boolean);
+const ENTRIES = censusRes.flatMap((r) => (r && r.entries) || []).filter((e) => e && e.page && e.routeKey);
+log('Census: ' + ENTRIES.length + ' research row(s) across ' + censusRes.length + '/' + censusUnits.length + ' lane(s)');
+if (!ENTRIES.length) {
+    log('No research rows under the targets — nothing to resolve');
+    return { targets: TARGETS, folders: FOLDERS.length, entries: 0 };
+}
+
+phase('Verify');
+// Cluster (plain orchestrator code, no agent): group the census entries by verification route family/key.
+const CLUSTERS = Object.values(
+    ENTRIES.reduce((m, e) => {
+        const k = e.routeKey;
+        (m[k] = m[k] || { routeKey: k, routeFamily: e.routeFamily || 'docfile', entries: [] }).entries.push(e);
+        return m;
+    }, {}),
+);
+log('Verify: ' + CLUSTERS.length + ' cluster(s) by route family');
+// The route decides the lane: assay/build/extdoc run NATIVE because a read-only codex sandbox CANNOT run `uv`/
+// tools.assay (nor a native Context7 lane) — assay clusters are native by construction; catalog/docfile ride codex terra.
+const verified = (
+    await Promise.all(
+        CLUSTERS.map((c) => {
+            const label = 'verify:' + fileTag(c.routeKey);
+            const scope = [...new Set(c.entries.map((e) => e.page))];
+            const L = Lof(pkgOf(c.entries[0].page));
+            const task = verifyPrompt(L, c);
+            const p = NATIVE_FAMILY[c.routeFamily]
+                ? asLane(label, scope, nativeLane(task, { label, phase: 'Verify', schema: VERDICT_SCHEMA, nativeModel: 'opus', stallMs: STALL }))
+                : recon(task, { label, phase: 'Verify', schema: VERDICT_SCHEMA, scope, hl: { arr: 'verdicts', group: 'verdict' } });
+            return slot(() => p.then((r) => (r ? Object.assign(r, { routeKey: c.routeKey, rows: c.entries }) : null))).catch(() => null);
+        }),
+    )
+).filter(Boolean);
+const VERIFIED_OK = verified.filter((v) => v.ok);
+log(
+    'Verify: ' +
+        VERIFIED_OK.reduce((a, v) => a + v.entries, 0) +
+        ' verdict(s) across ' +
+        VERIFIED_OK.length +
+        '/' +
+        verified.length +
+        ' cluster(s)' +
+        (verified.length > VERIFIED_OK.length
+            ? ' — FAILED: ' +
+              verified
+                  .filter((v) => !v.ok)
+                  .map((v) => v.routeKey)
+                  .join(', ')
+            : ''),
+);
+
+phase('Apply');
+// Per folder, pipelined: apply -> critique -> red-team chained behind the folder only, all folders concurrent under the slot cap.
+const applyFolders = [...new Set(ENTRIES.map((e) => pkgOf(e.page)))];
+const SCOPES = JSON.stringify(
+    applyFolders.map((f) => ({ folder: f.split('/').pop(), pages: [...new Set(ENTRIES.filter((e) => pkgOf(e.page) === f).map((e) => e.page))] })),
+);
+const built = (
+    await Promise.all(
+        applyFolders
+            .map(async (folder) => {
+                const L = Lof(folder);
+                const folderEntries = ENTRIES.filter((e) => pkgOf(e.page) === folder);
+                // Verdict reports covering this folder: any landed verify cluster holding an entry whose page is in the folder.
+                const verdictReports = [...new Set(VERIFIED_OK.filter((v) => v.rows.some((e) => pkgOf(e.page) === folder)).map((v) => v.report))];
+                const apply = await slot(() =>
+                    agent(applyPrompt(L, folder, folderEntries, verdictReports, SCOPES), {
+                        label: 'apply:' + folder.split('/').pop(),
+                        phase: 'Apply',
+                        model: 'fable',
+                        effort: 'high',
+                        schema: FIXLOG_SCHEMA,
+                        stallMs: STALL,
+                    }),
+                );
+                if (!apply) return { folder, entries: folderEntries, apply: null, crit: null, rt: null }; // failure isolation: a dead apply skips its reviews
+                const crit = await slot(() =>
+                    recon(critiquePrompt(L, folder, folderEntries, verdictReports, SCOPES, navOf([apply])), {
+                        label: 'crit:' + folder.split('/').pop(),
+                        phase: 'Apply',
+                        schema: REVIEW_SCHEMA,
+                        writes: true,
+                        fix: true,
+                        model: 'gpt-5.6-sol',
+                        nativeModel: 'fable',
+                        stallMs: SOL_STALL,
+                        scope: [...new Set(folderEntries.map((e) => e.page))],
+                        hl: { arr: 'files' },
+                    }),
+                );
+                const critR = crit && crit.ok ? crit : null;
+                const rt = await slot(() =>
+                    agent(redteamPrompt(L, folder, folderEntries, verdictReports, SCOPES, navOf([apply]), critR), {
+                        label: 'rt:' + folder.split('/').pop(),
+                        phase: 'Apply',
+                        model: 'fable',
+                        effort: 'high',
+                        schema: REVIEW_SCHEMA,
+                        stallMs: STALL,
+                    }),
+                );
+                return { folder, entries: folderEntries, apply, crit: critR, rt };
+            })
+            .map((p) => p.catch(() => null)),
+    )
+).filter(Boolean);
+const RESOLVED = built.filter((d) => d.apply).map((d) => d.folder);
+const FAILED = built.filter((d) => !d.apply).map((d) => d.folder);
+// The critique fixlog lives on disk; the red-team folds its rows forward, so aggregation reads apply + rt only. A
+// folder whose red-team died leaves the critique fixlog ORPHANED for the fixer.
+const ROWS = built.flatMap((d) => ((d.apply && d.apply.indexRows) || []).concat((d.rt && d.rt.indexRows) || []));
+const BACKLOG = built.flatMap((d) => ((d.apply && d.apply.deferred) || []).concat((d.rt && d.rt.deferred) || []));
+const ORPHANS = built.filter((d) => d.crit && !d.rt).map((d) => d.crit.report);
+const HARVEST_ROWS = built.flatMap((d) => ((d.apply && d.apply.harvest) || []).concat((d.rt && d.rt.harvest) || []));
+const BAKED = built.reduce((a, d) => a + ((d.apply && d.apply.baked) || 0), 0);
+const DELETED = built.reduce((a, d) => a + ((d.apply && d.apply.deleted) || 0), 0);
+const SHARPENED = built.reduce((a, d) => a + ((d.apply && d.apply.sharpened) || 0), 0);
+log(
+    'Apply: ' +
+        RESOLVED.length +
+        '/' +
+        applyFolders.length +
+        ' folder(s) resolved; ' +
+        BAKED +
+        ' baked, ' +
+        DELETED +
+        ' deleted, ' +
+        SHARPENED +
+        ' sharpened, ' +
+        BACKLOG.length +
+        ' deferred row(s)' +
+        (FAILED.length ? ' — FAILED (reported, run continues): ' + FAILED.join(', ') : ''),
+);
+if (!RESOLVED.length) {
+    log('Nothing resolved — no close to run');
+    return { targets: TARGETS, folders: applyFolders.length, entries: ENTRIES.length, resolved: 0, failed: FAILED };
+}
+
+phase('Close');
+const RESOLVED_LANGS = [...new Set(RESOLVED.map((f) => langOf(f)).filter(Boolean))];
+// Terminal DRAIN LOOP: one serial fable closer per round takes the residual set, verifies every row against live
+// disk, fixes at root, loops until empty; a round without shrinkage stops the loop with the blocked set final.
+let fixer = null;
+let residuals = BACKLOG;
+let orphanQueue = ORPHANS;
+let lastOpen = Infinity;
+for (let round = 0; round < DRAIN_ROUNDS; round++) {
+    fixer = await slot(() =>
+        agent(fixerPrompt(RESOLVED_LANGS, round ? [] : ROWS, residuals, RESOLVED, orphanQueue, round), {
+            label: round ? 'fixer:r' + round : 'fixer',
+            phase: 'Close',
+            model: 'fable',
+            effort: 'high',
+            schema: FIXER_SCHEMA,
+            stallMs: STALL,
+        }),
+    );
+    const open = (fixer && fixer.remaining) || [];
+    orphanQueue = [];
+    residuals = open;
+    if (!fixer || !open.length || open.length >= lastOpen) break;
+    lastOpen = open.length;
+}
+// DOCTRINE LANDER: the run durable-learning terminal — pooled harvest nominations adjudicated against the live
+// doctrine surfaces; refutation-first, land-nothing legal, admission law owned by docs/laws.
+const doctrine = HARVEST_ROWS.length
+    ? await slot(() =>
+          agent(
+              'TASK: DOCTRINE LANDER — the durable-learning terminal of a research-resolution run. Load the `docgen` skill AND ' +
+                  'the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before touching ' +
+                  "any diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
+                  JSON.stringify(HARVEST_ROWS) +
+                  '\nADJUDICATE each row: cold-read its target surface IN FULL, verify its anchors on CURRENT disk, and demand ' +
+                  'admission evidence — recurrence across independent folders, or a structural singleton whose blast radius spans ' +
+                  'folders. Read `docs/laws/README.md` FIRST: its [02]-[ADMISSION] table is the routing owner. LANDING LAW: harden ' +
+                  'an existing clause > extend an existing file > mint a new file (a new file only at the stacks or laws altitude, ' +
+                  'with proof of absence); LAND NOTHING is a first-class verdict.\n' +
+                  'ROUTING: stacks -> the owning `docs/stacks/<lang>/` page, refactored in place, never append-beside; reviewer -> ' +
+                  '`.greptile/rules.md` + `.coderabbit.yaml` (machine-law boundary: a rule a formatter, analyzer, or gate can ' +
+                  'enforce routes to that gate owner and is REJECTED here with that reason, never landed as reviewer prose); ' +
+                  'constitution -> `CLAUDE.md` or `AGENTS.md` at the reader that ACTS on the fact, cross-referenced never ' +
+                  'duplicated; planning -> the owning `libs/.planning/` or `libs/<lang>/.planning/` index doc or system page; laws ' +
+                  '-> `docs/laws/` per its admission table; readme -> the named README.\n' +
+                  'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
+                  'whose coupling no longer holds, land a coupling this run proved.\n' +
+                  'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
+                  'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.',
+              { label: 'doctrine', phase: 'Close', model: 'fable', effort: 'high', schema: DOCTRINE_SCHEMA, stallMs: STALL },
+          ),
+      )
+    : null;
+
+const verdictCounts = {
+    total: VERIFIED_OK.reduce((a, v) => a + v.entries, 0),
+    clusters: VERIFIED_OK.length,
+    failedClusters: verified.filter((v) => !v.ok).map((v) => v.routeKey),
+    lanes: VERIFIED_OK.map((v) => ({ routeKey: v.routeKey, count: v.entries, headline: v.headline })),
+};
+return {
+    targets: TARGETS,
+    languages: RESOLVED_LANGS,
+    folders: applyFolders.length,
+    entries: ENTRIES.length,
+    resolved: RESOLVED.length,
+    failed: FAILED,
+    baked: BAKED,
+    deleted: DELETED,
+    sharpened: SHARPENED,
+    verdictCounts,
+    backlog: BACKLOG.length,
+    residuals,
+    fixer: fixer && {
+        files: (fixer.files || []).length,
+        indexApplied: (fixer.indexApplied || []).length,
+        backlogDrained: (fixer.backlogDrained || []).length,
+        beyond: (fixer.beyond || []).length,
+        rejected: (fixer.rejected || []).length,
+        summary: fixer.summary,
+    },
+    doctrine: doctrine && {
+        nominated: HARVEST_ROWS.length,
+        landed: (doctrine.landed || []).length,
+        refined: (doctrine.refined || []).length,
+        rejected: (doctrine.rejected || []).length,
+        files: doctrine.files || [],
+        summary: doctrine.summary,
+    },
+};

@@ -90,6 +90,7 @@ Use the route-owned standard for the file being edited:
 |  [08]   | HTML artifacts (`.html`)   | `html-studio`            |
 
 - Each `docs/stacks/<language>` directory is the route-owned production standard for its language: source composes every root page of the directory (`ls docs/stacks/<language>` is the page roster). Specialized C# domains route through `docs/stacks/csharp/domain/README.md`; numerical and scientific Python routes through `docs/stacks/python/algorithms.md` plus the root Python doctrine index.
+- `docs/laws/` is the repo-wide maintenance-law corpus — coupling topology, cross-branch pattern rows, and the scar ledger; substantive passes read it at source (it stays small by law), a diff touching a `topology.md` `[SURFACE]` lands its obligated counterparts in the same change, and durable lessons land ONLY through a run's terminal doctrine stage under the `docs/laws/README.md` admission law: harden an existing clause before extending a file before minting one, `docgen` + `skill-writer` loaded for every landing, and landing nothing is a first-class verdict.
 
 [SKILL_CONCERT]: The visualization skills compose; each owns one medium and hands off at the seam.
 

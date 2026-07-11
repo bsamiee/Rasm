@@ -1,6 +1,8 @@
 # Review context — Rasm
 
-C#/.NET-primary monorepo with TypeScript and Python lanes. Language doctrine is codified under docs/stacks/{csharp,typescript,python}; design law under docs/standards/. Review against those documents, not generic community convention. Where a finding and the doctrine disagree, the doctrine wins.
+C#/.NET-primary monorepo with TypeScript and Python lanes. Language doctrine is codified under docs/stacks/{csharp,typescript,python}; design law under docs/standards/; repo-wide maintenance law under docs/laws/ (coupling topology, cross-branch patterns, scars). Review against those documents, not generic community convention. Where a finding and the doctrine disagree, the doctrine wins.
+
+Cross-surface coupling is review law: docs/laws/topology.md maps which surfaces obligate which counterparts — a diff editing a listed SURFACE without its obligated counterparts in the same change is a finding naming the missing counterpart; docs/laws/patterns.md rows bind every branch they name; docs/laws/scars.md laws are standing review duty.
 
 ## Machine-law boundary
 
