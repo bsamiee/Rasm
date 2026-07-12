@@ -35,40 +35,40 @@ leg for a web-published parcel/building dataset.
 - rail: geospatial
 - note: both are static — `GeoParquetReader` projects a `.parquet` (path-based) onto a `DataTable` with the geometry decoded to the chosen `GeometryFormat`; `GeoParquetWriter` writes a `DataTable` (path- or stream-based) naming the geo column(s) and embedding the `geo` metadata.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:------------------ |:-------------- |:--------------------------------------------------------------------- |
-| [01] | `GeoParquetReader` | columnar reader | static `ReadAll`/`ReadColumn(s)` → `DataTable`, plus `ReadFileMetadata`/`ReadGeoMetadata` |
-| [02] | `GeoParquetWriter` | columnar writer | static `Write(path/stream, DataTable, geoColumn(s), batchSize)` |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [RAIL]                                                                                    |
+| :-----: | :----------------- | :-------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `GeoParquetReader` | columnar reader | static `ReadAll`/`ReadColumn(s)` → `DataTable`, plus `ReadFileMetadata`/`ReadGeoMetadata` |
+|  [02]   | `GeoParquetWriter` | columnar writer | static `Write(path/stream, DataTable, geoColumn(s), batchSize)`                           |
 
 [PUBLIC_TYPE_SCOPE]: the `geo` file-metadata model
 - namespace: `GISBlox.IO.GeoParquet.Common`
 - rail: geospatial
 - note: this is the OGC-GeoParquet `geo` key-value metadata the file header carries — the primary geometry column name, and per-column the encoding/CRS/bbox/covering/geometry-types. The reader surfaces it through `ReadGeoMetadata`; the writer derives it from the `DataTable` geo-column tags.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------- |:----------------- |:----------------------------------------------------------------- |
-| [01] | `GeoFileMetadata` | file metadata | `Version` (required), `Primary_column`, `Columns` (`IDictionary<string, GeoColumnMetadata>`) — the `geo` header |
-| [02] | `GeoColumnMetadata` | column metadata | `(columnName, encoding)` ctor; `Encoding`/`Bbox`/`Covering`/`Edges`/`Epoch`/`GeometryTypes`/`Orientation`/`AdditionalProperties` (+ the CRS) |
-| [03] | `BBox` | bounding box | the geo-column extent the metadata records (and the file-level dataset bbox) |
-| [04] | `Covering` | covering geometry | the bbox-covering hint the OGC spec carries for index acceleration |
-| [05] | `Edges` | edge interpolation | `enum` — `planar` vs `spherical` edge interpretation of the geometry |
-| [06] | `GeometryFormat` | geometry encoding | `enum` — WKB vs WKT, the read/write geometry-column payload discriminant |
-| [07] | `ParquetFileMetadata` | parquet metadata | the underlying Parquet schema/row-group metadata (`ReadFileMetadata`) the columnar projection reads |
-| [08] | `GeometryException` | codec failure | thrown on a malformed geo column / metadata; the boundary fault the rail traps onto `Fin<T>` |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      | [RAIL]                                                                                                                                       |
+| :-----: | :-------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `GeoFileMetadata`     | file metadata      | `Version` (required), `Primary_column`, `Columns` (`IDictionary<string, GeoColumnMetadata>`) — the `geo` header                              |
+|  [02]   | `GeoColumnMetadata`   | column metadata    | `(columnName, encoding)` ctor; `Encoding`/`Bbox`/`Covering`/`Edges`/`Epoch`/`GeometryTypes`/`Orientation`/`AdditionalProperties` (+ the CRS) |
+|  [03]   | `BBox`                | bounding box       | the geo-column extent the metadata records (and the file-level dataset bbox)                                                                 |
+|  [04]   | `Covering`            | covering geometry  | the bbox-covering hint the OGC spec carries for index acceleration                                                                           |
+|  [05]   | `Edges`               | edge interpolation | `enum` — `planar` vs `spherical` edge interpretation of the geometry                                                                         |
+|  [06]   | `GeometryFormat`      | geometry encoding  | `enum` — WKB vs WKT, the read/write geometry-column payload discriminant                                                                     |
+|  [07]   | `ParquetFileMetadata` | parquet metadata   | the underlying Parquet schema/row-group metadata (`ReadFileMetadata`) the columnar projection reads                                          |
+|  [08]   | `GeometryException`   | codec failure      | thrown on a malformed geo column / metadata; the boundary fault the rail traps onto `Fin<T>`                                                 |
 
 [PUBLIC_TYPE_SCOPE]: the `DataTable`/`DataColumn` geo-schema extension surface
 - namespace: `GISBlox.IO.GeoParquet.Extensions`
 - rail: geospatial
 - note: the geometry column carries its format and primary-flag as `DataColumn` metadata; these extensions tag a hand-built `DataTable` before a write and inspect the geo schema after a read — the bridge a `GeoFeature`↔`DataTable` projection composes.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------ |:--------------- |:----------------------------------------------- |
-| [01] | `DataTable.AddGeoColumn(string columnName, int ordinalPosition, GeometryFormat format)` | schema build | add a typed geometry column (WKB/WKT) at a position |
-| [02] | `DataColumn.SetGeoFormat(GeometryFormat)` / `GetGeoFormat()` | column tag | mark / read a column's geometry encoding |
-| [03] | `DataColumn.SetAsPrimaryGeoColumn()` / `IsPrimaryGeoColumn()` | primary tag | mark / test the primary geometry column |
-| [04] | `DataTable.GetPrimaryGeoColumn()` / `GetPrimaryGeoColumnName()` | primary lookup | resolve the primary geo column / its name |
-| [05] | `DataTable.GetGeoColumnsByFormat(GeometryFormat)` | column query | every geo column of a given encoding |
-| [06] | `DataTable.AddGeoProcessingMetadata(List<string> geoColumns, string primaryGeoColumn)` / `AddGeoProcessingMetadata(GeoFileMetadata?)` | metadata bind | attach the `geo` file metadata to the table before write |
+| [INDEX] | [SURFACE]                                                                                                                             | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------- |
+|  [01]   | `DataTable.AddGeoColumn(string columnName, int ordinalPosition, GeometryFormat format)`                                               | schema build   | add a typed geometry column (WKB/WKT) at a position      |
+|  [02]   | `DataColumn.SetGeoFormat(GeometryFormat)` / `GetGeoFormat()`                                                                          | column tag     | mark / read a column's geometry encoding                 |
+|  [03]   | `DataColumn.SetAsPrimaryGeoColumn()` / `IsPrimaryGeoColumn()`                                                                         | primary tag    | mark / test the primary geometry column                  |
+|  [04]   | `DataTable.GetPrimaryGeoColumn()` / `GetPrimaryGeoColumnName()`                                                                       | primary lookup | resolve the primary geo column / its name                |
+|  [05]   | `DataTable.GetGeoColumnsByFormat(GeometryFormat)`                                                                                     | column query   | every geo column of a given encoding                     |
+|  [06]   | `DataTable.AddGeoProcessingMetadata(List<string> geoColumns, string primaryGeoColumn)` / `AddGeoProcessingMetadata(GeoFileMetadata?)` | metadata bind  | attach the `geo` file metadata to the table before write |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -77,24 +77,24 @@ leg for a web-published parcel/building dataset.
 - rail: geospatial
 - note: `ReadAll` projects every column; `ReadColumn(s)` projects a subset by index or name — the columnar push-down that reads only the geometry + needed attribute columns of a wide web dataset. `format` selects the geometry-column decode (WKB → `byte[]` cells the `WKBReader` materializes); `batchSize` is the Arrow/Parquet row-group batch.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------------------------------- |:------------------------ |:------------------------------------------- |
-| [01] | `GeoParquetReader.ReadAll(string filePath, GeometryFormat format, int batchSize = 65536)` | → `DataTable` | full-table columnar read |
-| [02] | `GeoParquetReader.ReadColumn(string filePath, int columnIndex, GeometryFormat format, int batchSize = 65536)` / `ReadColumn(string filePath, string columnName, …)` | → `DataTable` | single-column projection (by index or name) |
-| [03] | `GeoParquetReader.ReadColumns(string filePath, ICollection<int> columnIndexes, GeometryFormat format, int batchSize = 65536)` / `ReadColumns(string filePath, ICollection<string> columnNames, …)` | → `DataTable` | multi-column projection push-down |
-| [04] | `GeoParquetReader.ReadGeoMetadata(string filePath)` | → `GeoFileMetadata?` | the `geo` header (primary column, encoding, CRS, bbox) without reading rows |
-| [05] | `GeoParquetReader.ReadFileMetadata(string filePath)` | → `ParquetFileMetadata` | the Parquet schema / row-group metadata |
+| [INDEX] | [SURFACE]                                                                                                                                                                                          | [CALL_SHAPE]            | [RAIL]                                                                      |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `GeoParquetReader.ReadAll(string filePath, GeometryFormat format, int batchSize = 65536)`                                                                                                          | → `DataTable`           | full-table columnar read                                                    |
+|  [02]   | `GeoParquetReader.ReadColumn(string filePath, int columnIndex, GeometryFormat format, int batchSize = 65536)` / `ReadColumn(string filePath, string columnName, …)`                                | → `DataTable`           | single-column projection (by index or name)                                 |
+|  [03]   | `GeoParquetReader.ReadColumns(string filePath, ICollection<int> columnIndexes, GeometryFormat format, int batchSize = 65536)` / `ReadColumns(string filePath, ICollection<string> columnNames, …)` | → `DataTable`           | multi-column projection push-down                                           |
+|  [04]   | `GeoParquetReader.ReadGeoMetadata(string filePath)`                                                                                                                                                | → `GeoFileMetadata?`    | the `geo` header (primary column, encoding, CRS, bbox) without reading rows |
+|  [05]   | `GeoParquetReader.ReadFileMetadata(string filePath)`                                                                                                                                               | → `ParquetFileMetadata` | the Parquet schema / row-group metadata                                     |
 
 [ENTRYPOINT_SCOPE]: write a DataTable to GeoParquet
 - namespace: `GISBlox.IO.GeoParquet`
 - rail: geospatial
 - note: the geo column(s) hold WKB/WKT (tagged via the extension surface); `Write` embeds the OGC `geo` file metadata naming the primary column and per-column encoding/CRS/bbox. The stream overload is the `/vsimem`-equivalent in-memory emit for the object-store transport.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:------------------------------------------- |
-| [01] | `GeoParquetWriter.Write(string filePath, DataTable dataTable, string geoColumn, int batchSize = 65536)` | → `void` | single-geo-column file write |
-| [02] | `GeoParquetWriter.Write(string filePath, DataTable dataTable, List<string> geoColumns, string primaryGeoColumn, int batchSize = 65536)` | → `void` | multi-geo-column write naming the primary column |
-| [03] | `GeoParquetWriter.Write(Stream stream, DataTable dataTable, string geoColumn, int batchSize = 65536)` / `Write(Stream stream, DataTable dataTable, List<string> geoColumns, string primaryGeoColumn, …)` | → `void` | in-memory stream emit (the object-store transport leg) |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                | [CALL_SHAPE] | [RAIL]                                                 |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :----------------------------------------------------- |
+|  [01]   | `GeoParquetWriter.Write(string filePath, DataTable dataTable, string geoColumn, int batchSize = 65536)`                                                                                                  | → `void`     | single-geo-column file write                           |
+|  [02]   | `GeoParquetWriter.Write(string filePath, DataTable dataTable, List<string> geoColumns, string primaryGeoColumn, int batchSize = 65536)`                                                                  | → `void`     | multi-geo-column write naming the primary column       |
+|  [03]   | `GeoParquetWriter.Write(Stream stream, DataTable dataTable, string geoColumn, int batchSize = 65536)` / `Write(Stream stream, DataTable dataTable, List<string> geoColumns, string primaryGeoColumn, …)` | → `void`     | in-memory stream emit (the object-store transport leg) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

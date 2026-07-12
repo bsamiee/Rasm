@@ -54,6 +54,15 @@ The multimodal contract takes both halves: `--add-dir` grants the bounded direct
 
 `--log-file` routes the CLI log to an explicit path; a sandboxed or scratch-rooted environment passes a writable scratch path there instead of relying on the default log location. `AGY_BIN` overrides the binary path (default `agy`), `AGY_MODEL` overrides the pinned model, `AGY_LOG_FILE` sets the default log path, and `AGY_PRINT_TIMEOUT` overrides the default `5m` timeout.
 
+Each `prompt` run returns one JSON receipt:
+
+```json generated
+{"op":"prompt","output":"..."}
+{"op":"prompt","fault":"auth_required","detail":"..."}
+```
+
+Faults are `binary_not_found`, `auth_required`, `quota_exceeded`, or `process_error`. `auth_required` resolves through interactive `agy` in a real TTY with Google OAuth as `b.samiee93@gmail.com`.
+
 ## [05]-[PROMPT_CONTRACT]
 
 - State the task, the relevant context, and the exact output shape in one self-contained prompt; Antigravity sees nothing of the current conversation beyond what the prompt carries.
@@ -98,15 +107,4 @@ A codex session reaches agy only under `-s danger-full-access`: the Seatbelt san
 - [ROUTINE]: Edits, formatting, git operations, package upgrades, and checks the local toolchain owns stay local.
 - [SCOPE]: The wrapper exposes `prompt` and `models` alone; agent selection, background task management, and shell-login subcommands stay outside it.
 
-## [10]-[RECEIPT]
-
-```json generated
-{"op":"prompt","output":"..."}
-{"op":"prompt","fault":"auth_required","detail":"..."}
-```
-
-Faults are `binary_not_found`, `auth_required`, `quota_exceeded`, or `process_error`. `auth_required` resolves through interactive `agy` in a real TTY with Google OAuth as `b.samiee93@gmail.com`.
-
-## [11]-[RAW_CLI]
-
-Interactive `agy` in a real TTY owns ongoing conversations, workspace tool permissions, resume, plugin management, and sandboxed project work; `agy --help` is the flag and subcommand contract. The `gsd-*` personas are interactive-runtime composition only: they hang under plain print mode and emit process narration rather than bounded answers under `--mode plan`, so a bounded one-shot review or judgment call always runs the default agent with a strong prompt, never a gsd persona. GSD's artifact pipeline — mapper, researcher, planner, checker, executor, verifier — composes inside a live Antigravity session where each role consumes only the prior role's artifact.
+Interactive `agy` in a real TTY owns those outside surfaces — ongoing conversations, workspace tool permissions, resume, plugin management, and sandboxed project work; `agy --help` is the flag and subcommand contract. The `gsd-*` personas are interactive-runtime composition only: they hang under plain print mode and emit process narration rather than bounded answers under `--mode plan`, so a bounded one-shot review or judgment call always runs the default agent with a strong prompt, never a gsd persona. GSD's artifact pipeline — mapper, researcher, planner, checker, executor, verifier — composes inside a live Antigravity session where each role consumes only the prior role's artifact.

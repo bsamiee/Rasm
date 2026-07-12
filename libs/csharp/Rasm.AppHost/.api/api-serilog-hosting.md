@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Serilog.Extensions.Hosting`
+
 - package: `Serilog.Extensions.Hosting`
 - assembly: `Serilog.Extensions.Hosting`
 - namespace: `Serilog`
@@ -14,6 +15,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: hosting integration family
+
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]            | [RAIL]                                  |
@@ -26,6 +28,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: host builder registration
+
 - rail: telemetry
 
 Host-builder registration has three overload families: static logger, host-context logger, and service-aware logger.
@@ -37,15 +40,19 @@ Host-builder registration has three overload families: static logger, host-conte
 |  [03]   | `UseSerilog` | service-aware  | `HostBuilderContext` + `IServiceProvider` + config | resolves services during configuration  |
 
 [ENTRYPOINT_SCOPE]: service collection registration
+
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY] | [RAIL]                                         |
-| :-----: | :------------------------------------------------------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `AddSerilog(collection, logger?, dispose?, providers?)`                          | static logger  | registers `ILoggerFactory` backed by `ILogger` |
-|  [02]   | `AddSerilog(collection, Action<LoggerConfiguration>, preserveStatic?, writeTo?)` | config action  | builds logger from configuration delegate      |
-|  [03]   | `AddSerilog(collection, Action<IServiceProvider, LoggerConfiguration>, ...)`     | service-aware  | resolves services during logger configuration  |
+All overloads register an `ILoggerFactory`; the static form binds the supplied `ILogger`, while the delegate forms build the logger during registration.
+
+| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY] |
+| :-----: | :------------------------------------------------------------------------------- | :------------- |
+|  [01]   | `AddSerilog(collection, logger?, dispose?, providers?)`                          | static logger  |
+|  [02]   | `AddSerilog(collection, Action<LoggerConfiguration>, preserveStatic?, writeTo?)` | config action  |
+|  [03]   | `AddSerilog(collection, Action<IServiceProvider, LoggerConfiguration>, ...)`     | service-aware  |
 
 [ENTRYPOINT_SCOPE]: bootstrap and diagnostic context
+
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                                        |
@@ -57,6 +64,7 @@ Host-builder registration has three overload families: static logger, host-conte
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SERILOG_HOSTING_TOPOLOGY]:
+
 - namespaces: `Serilog` (6 types) plus internal `Serilog.Extensions.Hosting` (`ReloadableLogger`, `DiagnosticContext`)
 - bootstrap pattern: call `LoggerConfiguration.CreateBootstrapLogger()` before `Host.CreateDefaultBuilder`; `UseSerilog` with the service-aware overload detects a `ReloadableLogger` at `Log.Logger` and reconfigures/freezes it in-place rather than replacing it
 - `preserveStaticLogger = true`: leaves `Log.Logger` unchanged; `false` (default): replaces `Log.Logger` with the constructed logger
@@ -65,11 +73,13 @@ Host-builder registration has three overload families: static logger, host-conte
 - `dispose = true`: disposes the logger (or calls `Log.CloseAndFlush` for the static logger) when the host disposes the provider
 
 [LOCAL_ADMISSION]:
+
 - Use `CreateBootstrapLogger` for two-stage host initialization: a lightweight bootstrap logger active during host build, replaced by the fully configured logger after services resolve.
 - Inject `IDiagnosticContext` to accumulate request-scoped properties for wide events such as request completion logs.
 - Choose `UseSerilog(builder, configureLogger, ...)` with the `IServiceProvider` overload when the logger configuration needs resolved services (e.g., metrics sinks, sampler config).
 
 [RAIL_LAW]:
+
 - Package: `Serilog.Extensions.Hosting`
 - Owns: Serilog integration into `IHostBuilder` and `IServiceCollection`
 - Accept: `UseSerilog` or `AddSerilog` at composition; `CreateBootstrapLogger` for two-stage init

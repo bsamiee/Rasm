@@ -7,6 +7,7 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Robots`
+
 - package: `Robots` (visose)
 - license: `MIT`
 - assembly: `Robots` (`lib/net8.0/Robots.dll` — SINGLE TFM, the only lib asset; binds forward under `net10.0`)
@@ -19,85 +20,191 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the robot-cell and solve contracts
+
 - rail: fabrication
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [CAPABILITY]                                                  |
-| :-----: | :--------------------- | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `RobotSystem`          | abstract cell root | the loaded robot cell — `Name`, `Controller`, abstract `Manufacturer`, `IO`, `ref Plane BasePlane`, `Mesh DisplayMesh`, `DefaultPose`, `IRemote? Remote`, `int RobotJointCount`. The SOLE public solve entry: `abstract List<KinematicSolution> Kinematics(IReadOnlyList<Target> targets, IReadOnlyList<double[]?>? prevJoints = null)`; plus `abstract double[] PlaneToNumbers(Plane)` / `Plane NumbersToPlane(double[])` (the controller-representation boundary) and `virtual Plane CartesianLerp(Plane a, Plane b, double t, double min, double max)`. Concrete subclasses (`SystemAbb`/`SystemKuka`/`SystemUR`/`SystemStaubli`/`SystemFranka`/`SystemDoosan`/`SystemFanuc`/`SystemIgus`/`SystemJaka`, `CobotSystem`/`IndustrialSystem`) are built by `FileIO`, not constructed directly |
-|  [02]   | `KinematicSolution`    | solve receipt      | the per-waypoint FK/IK result — `double[] Joints` (radians), `Plane[] Planes` (the chain frames + flange + TCP), `IReadOnlyList<string> Errors` (unreachable/limit/singularity diagnostics — the no-exception fault channel), `RobotConfigurations Configuration` (the realized arm posture). The receipt the design folds into a typed `FabricationFault` on non-empty `Errors` |
-|  [03]   | `RobotConfigurations`  | `[Flags]` enum     | the IK branch posture — `None`=0, `Shoulder`=1, `Elbow`=2, `Wrist`=4, `Undefined`=8 (OR-combinable: the lefty/righty x up/down x flip selection a `CartesianTarget` may pin to disambiguate the multi-solution IK). DISTINCT-VALUE flags, not a linear enum |
-|  [04]   | `Manufacturers`        | manufacturer enum  | `ABB`, `KUKA`, `UR`, `Staubli`, `FrankaEmika`, `Doosan`, `Fanuc`, `Igus`, `Jaka`, `All` — the cell vendor (note the symbol is `FrankaEmika`, NOT `Franka`); drives the post-processor dialect |
-|  [05]   | `MechanicalGroup`      | multi-mechanism    | one coordinated group — `RobotArm Robot`, `Mechanism[] Externals`, `Joint[] Joints`, `RobotJointCount`/`ExternalJointCount`. The container for a robot + its track/positioner external axes solved as one chain |
-|  [06]   | `Mechanism` / `RobotArm` | abstract chain   | a kinematic chain — `Manufacturers Manufacturer`, `double Payload`, `ref Plane BasePlane`, `Mesh BaseMesh`/`DisplayMesh`, `Joint[] Joints`, `bool MovesRobot`, `string Model`; `RobotArm : Mechanism` is the 6-axis-arm specialization (the per-vendor `RobotAbb`/`RobotKuka`/`RobotUR`/… concretes) |
-|  [07]   | `Joint`                | abstract axis      | one revolute/prismatic axis — `int Index`/`Number`, `Interval Range` (the joint limit, radians), `double MaxSpeed`, `Plane Plane`, `Mesh Mesh`; `RevoluteJoint`/`PrismaticJoint` are the concretes carrying the DH parameters |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      |
+| :-----: | :-------------------- | :----------------- |
+|  [01]   | `RobotSystem`         | abstract cell root |
+|  [02]   | `KinematicSolution`   | solve receipt      |
+|  [03]   | `RobotConfigurations` | `[Flags]` enum     |
+|  [04]   | `Manufacturers`       | manufacturer enum  |
+|  [05]   | `MechanicalGroup`     | multi-mechanism    |
+|  [06]   | `Mechanism`           | abstract chain     |
+|  [07]   | `RobotArm`            | arm specialization |
+|  [08]   | `Joint`               | abstract axis      |
+
+[RobotSystem]:
+
+- Members: `Name`, `Controller`, abstract `Manufacturer`, `IO`, `ref Plane BasePlane`, `Mesh DisplayMesh`, `DefaultPose`, `IRemote? Remote`, and `int RobotJointCount`
+- Solve: `abstract List<KinematicSolution> Kinematics(IReadOnlyList<Target> targets, IReadOnlyList<double[]?>? prevJoints = null)`
+- Boundaries: `abstract double[] PlaneToNumbers(Plane)`, `Plane NumbersToPlane(double[])`, and `virtual Plane CartesianLerp(Plane a, Plane b, double t, double min, double max)`
+- Construction: `FileIO` builds `SystemAbb`, `SystemKuka`, `SystemUR`, `SystemStaubli`, `SystemFranka`, `SystemDoosan`, `SystemFanuc`, `SystemIgus`, `SystemJaka`, `CobotSystem`, and `IndustrialSystem`; consumers do not construct them directly.
+
+[KinematicSolution]:
+
+- Receipt: `double[] Joints` in radians, `Plane[] Planes` for the chain frames plus flange and TCP, and `RobotConfigurations Configuration` for the realized arm posture
+- Fault channel: `IReadOnlyList<string> Errors` carries unreachable, limit, and singularity diagnostics; the design folds a non-empty collection into `FabricationFault`.
+
+[RobotConfigurations]: `None = 0`, `Shoulder = 1`, `Elbow = 2`, `Wrist = 4`, and `Undefined = 8` are OR-combinable posture flags. A `CartesianTarget` pins this lefty/righty, up/down, and flip selection to disambiguate multi-solution IK.
+
+[Manufacturers]: `ABB`, `KUKA`, `UR`, `Staubli`, `FrankaEmika`, `Doosan`, `Fanuc`, `Igus`, `Jaka`, and `All` select the cell vendor and post-processor dialect. The Franka member is `FrankaEmika`, not `Franka`.
+
+[MechanicalGroup]: `RobotArm Robot`, `Mechanism[] Externals`, `Joint[] Joints`, `RobotJointCount`, and `ExternalJointCount` coordinate a robot with its track or positioner axes as one solved chain.
+
+[Mechanism]: `Manufacturers Manufacturer`, `double Payload`, `ref Plane BasePlane`, `Mesh BaseMesh`, `DisplayMesh`, `Joint[] Joints`, `bool MovesRobot`, and `string Model` define a kinematic chain.
+
+[RobotArm]: `RobotArm : Mechanism` specializes a six-axis arm through the per-vendor `RobotAbb`, `RobotKuka`, `RobotUR`, and corresponding concrete types.
+
+[Joint]: `int Index`, `Number`, `Interval Range`, `double MaxSpeed`, `Plane Plane`, and `Mesh Mesh` define one revolute or prismatic axis. `Range` carries the radian joint limit, and `RevoluteJoint` and `PrismaticJoint` carry the DH parameters.
 
 [PUBLIC_TYPE_SCOPE]: the target value family (the toolpath waypoint vocabulary)
+
 - rail: fabrication
 - note: `Target` is abstract and implements `IToolpath`; a `Program` is built over `IReadOnlyList<IToolpath>`. Every `TargetProperty` (`Tool`/`Frame`/`Speed`/`Zone`) ships a static `Default` and is an immutable `IEquatable` value with an `init`-only construction shape.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [CAPABILITY]                                                  |
-| :-----: | :------------------ | :-------------- | :----------------------------------------------------------- |
-|  [01]   | `Target`            | abstract waypoint (`IToolpath`) | the base waypoint — `init`-only `Tool`/`Frame`/`Speed`/`Zone`/`Command`, `double[] External` (external-axis values), `string[]? ExternalCustom`; `static Target Default`. `IReadOnlyList<Target> Targets` exposes itself as a single-element toolpath |
-|  [02]   | `CartesianTarget`   | Cartesian goal  | a TCP-pose goal — `Plane Plane`, `RobotConfigurations? Configuration` (optional IK-branch pin), `Motions Motion` (`Joint`/`Linear`/`Process`). Triggers INVERSE kinematics; primary ctor `(Plane, RobotConfigurations?, Motions, Tool?, Speed?, Zone?, Command?, Frame?, double[]? external, string[]?)` |
-|  [03]   | `JointTarget`       | joint goal      | a joint-angle goal — `double[] Joints` (radians). Triggers FORWARD kinematics; `static double[] Lerp(a, b, t, min, max)` / `GetAbsoluteJoint(double)` for joint interpolation |
-|  [04]   | `Frame`             | work frame      | `TargetProperty` — `Plane Plane`, `int CoupledMechanism`/`CoupledMechanicalGroup` (conveyor/positioner coupling), `bool IsCoupled`, `bool UseController`, `int? Number`; `static Frame Default` (`WorldXY`) |
-|  [05]   | `Tool`              | TCP definition  | `TargetProperty` — `Plane Tcp`, `double Weight`, `Point3d Centroid`, `Mesh Mesh`, `bool UseController`, `int? Number`; ctor takes calibration planes; `static Tool Default` |
-|  [06]   | `Speed`             | velocity policy | `TargetProperty`/`IEquatable` — `TranslationSpeed` (mm/s), `RotationSpeed` (rad/s), external-axis speeds, `TranslationAccel`/`AxisAccel`, `Time`; primary-ctor record-style; `static Speed Default` |
-|  [07]   | `Zone`              | blend radius    | `TargetProperty`/`IEquatable` — `Distance` (mm blend radius), `Rotation`/`RotationExternal`, `bool IsFlyBy` (`Distance > 0.001`); `static Zone Default` (a stop-point) |
-|  [08]   | `Command`           | inline command  | a controller command emitted at a waypoint (`Robots.Commands.*` — digital/analog IO set, wait, message, custom code); `Group` aggregates init commands for the `Program` |
-|  [09]   | `Motions`           | motion-type enum | `Joint`, `Linear`, `Process` — the interpolation kind a `CartesianTarget` requests (PTP joint-space vs. linear Cartesian vs. process-coupled) |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]     |
+| :-----: | :---------------- | :---------------- |
+|  [01]   | `Target`          | abstract waypoint |
+|  [02]   | `CartesianTarget` | Cartesian goal    |
+|  [03]   | `JointTarget`     | joint goal        |
+|  [04]   | `Frame`           | work frame        |
+|  [05]   | `Tool`            | TCP definition    |
+|  [06]   | `Speed`           | velocity policy   |
+|  [07]   | `Zone`            | blend radius      |
+|  [08]   | `Command`         | inline command    |
+|  [09]   | `Motions`         | motion-type enum  |
+
+[Target]: `Target` implements `IToolpath` through `IReadOnlyList<Target> Targets`, which exposes the instance as a single-element toolpath. Its `init`-only surface carries `Tool`, `Frame`, `Speed`, `Zone`, `Command`, `double[] External`, and `string[]? ExternalCustom`; `static Target Default` supplies the default waypoint.
+
+[CartesianTarget]: `Plane Plane`, optional `RobotConfigurations? Configuration`, and `Motions Motion` define a TCP-pose goal that triggers inverse kinematics. Its primary constructor is `(Plane, RobotConfigurations?, Motions, Tool?, Speed?, Zone?, Command?, Frame?, double[]? external, string[]?)`.
+
+[JointTarget]: `double[] Joints` defines a radian joint goal that triggers forward kinematics. `static double[] Lerp(a, b, t, min, max)` and `GetAbsoluteJoint(double)` own joint interpolation.
+
+[Frame]: `Plane Plane`, `int CoupledMechanism`, `CoupledMechanicalGroup`, `bool IsCoupled`, `bool UseController`, and `int? Number` define conveyor or positioner coupling. `static Frame Default` supplies `WorldXY`.
+
+[Tool]: `Plane Tcp`, `double Weight`, `Point3d Centroid`, `Mesh Mesh`, `bool UseController`, and `int? Number` define the TCP; the constructor takes calibration planes, and `static Tool Default` supplies the default value.
+
+[Speed]: `TranslationSpeed` in millimeters per second, `RotationSpeed` in radians per second, external-axis speeds, `TranslationAccel`, `AxisAccel`, and `Time` form the primary-constructor record value; `static Speed Default` supplies the default policy.
+
+[Zone]: `Distance` carries the millimeter blend radius, `Rotation` and `RotationExternal` carry rotation limits, and `bool IsFlyBy` is true when `Distance > 0.001`; `static Zone Default` supplies a stop point.
+
+[Command]: `Robots.Commands.*` emits digital or analog IO changes, waits, messages, and custom code at a waypoint. `Group` aggregates initialization commands for `Program`.
+
+[Motions]: `Joint`, `Linear`, and `Process` select PTP joint-space, linear Cartesian, or process-coupled interpolation for a `CartesianTarget`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cell loading + the batch solve (the `RobotSystem` factory and kinematics call)
+
 - rail: fabrication
 - note: `FileIO` is the static cell/element factory — it parses the visose XML cell library + the `File3dm`-backed mechanism meshes into a concrete `RobotSystem`. `OnlineLibrary` async-fetches additional cell models. There is no public `RobotSystem` ctor.
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `FileIO.LoadRobotSystem(string name, Plane basePlane, bool loadMeshes = true, IPostProcessor? postProcessor = null)` | cell load | load a named cell from the local/online library into a positioned `RobotSystem` (the primary cell-construction entry); `loadMeshes` toggles the display-mesh load for a headless solve |
-|  [02]   | `FileIO.ParseRobotSystem(string xml, Plane basePlane, IPostProcessor? postProcessor = null)` | cell parse | build a `RobotSystem` directly from an in-memory cell XML — the embedded-cell path with no library lookup |
-|  [03]   | `FileIO.List(ElementType)` / `FileIO.LoadTool(string)` / `FileIO.LoadFrame(string)` | library query | enumerate library elements (`ElementType.RobotSystem`/`Tool`/`Frame`) and load a named tool/frame definition |
-|  [04]   | `RobotSystem.Kinematics(IReadOnlyList<Target> targets, IReadOnlyList<double[]?>? prevJoints = null)` | batch solve | the SOLE public solve — maps each `CartesianTarget` (IK) / `JointTarget` (FK) to a `KinematicSolution`; `prevJoints` seeds the previous-pose continuation that keeps a continuous joint trajectory across waypoints (the redundant-axis / wrist-flip disambiguation) |
-|  [05]   | `RobotSystem.PlaneToNumbers(Plane)` / `NumbersToPlane(double[])`          | frame boundary | convert a Rhino `Plane` to/from the controller's numeric pose representation (quaternion/Euler per dialect) — the seam between Cartesian geometry and the controller wire format |
-|  [06]   | `Mechanism.Kinematics(Target, double[]? prevJoints, Plane? basePlane)` / `MechanicalGroup` accessors | sub-solve | the single-mechanism public solve (under the system solve) — `MechanicalGroup` exposes `Robot`/`Externals`/`Joints` for inspecting the coordinated chain |
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] |
+| :-----: | :--------------------------- | :------------- |
+|  [01]   | `FileIO.LoadRobotSystem`     | cell load      |
+|  [02]   | `FileIO.ParseRobotSystem`    | cell parse     |
+|  [03]   | `FileIO.List`                | library query  |
+|  [04]   | `FileIO.LoadTool`            | library query  |
+|  [05]   | `FileIO.LoadFrame`           | library query  |
+|  [06]   | `RobotSystem.Kinematics`     | batch solve    |
+|  [07]   | `RobotSystem.PlaneToNumbers` | frame boundary |
+|  [08]   | `RobotSystem.NumbersToPlane` | frame boundary |
+|  [09]   | `Mechanism.Kinematics`       | sub-solve      |
+|  [10]   | `MechanicalGroup`            | chain access   |
+
+[FileIO.LoadRobotSystem]: `FileIO.LoadRobotSystem(string name, Plane basePlane, bool loadMeshes = true, IPostProcessor? postProcessor = null)` positions a named local or online library cell. `loadMeshes` disables display-mesh loading for a headless solve.
+
+[FileIO.ParseRobotSystem]: `FileIO.ParseRobotSystem(string xml, Plane basePlane, IPostProcessor? postProcessor = null)` builds an embedded `RobotSystem` from in-memory cell XML without a library lookup.
+
+[FileIO.LIBRARY]: `FileIO.List(ElementType)` enumerates `ElementType.RobotSystem`, `Tool`, and `Frame`; `FileIO.LoadTool(string)` and `FileIO.LoadFrame(string)` load named definitions.
+
+[RobotSystem.Kinematics]: `RobotSystem.Kinematics(IReadOnlyList<Target> targets, IReadOnlyList<double[]?>? prevJoints = null)` is the sole public batch solve. It maps `CartesianTarget` through IK and `JointTarget` through FK to `KinematicSolution`, while `prevJoints` preserves trajectory continuity across redundant-axis and wrist-flip choices.
+
+[RobotSystem.FRAME_BOUNDARY]: `RobotSystem.PlaneToNumbers(Plane)` and `NumbersToPlane(double[])` convert a Rhino `Plane` to and from the controller's quaternion or dialect-specific Euler representation.
+
+[Mechanism.Kinematics]: `Mechanism.Kinematics(Target, double[]? prevJoints, Plane? basePlane)` owns the public single-mechanism solve beneath the system solve. `MechanicalGroup` exposes `Robot`, `Externals`, and `Joints` for coordinated-chain inspection.
 
 [ENTRYPOINT_SCOPE]: program assembly, look-ahead motion planning, collision check, and post emit
+
 - rail: fabrication
 - note: `Program` IS the toolpath compiler — its ctor runs the look-ahead motion planner (`ProgramMotionPlanner`) over the toolpath, solving every waypoint and timing the trajectory. `Code` holds the emitted per-group / per-file string lists; `Save` writes the dialect files.
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `new Program(string name, RobotSystem robotSystem, IReadOnlyList<IToolpath> toolpaths, Group? initCommands = null, IReadOnlyList<int>? multiFileIndices = null, double stepSize = 1.0)` | program build | compile a toolpath into a planned, validated, posted program — solves every waypoint, runs the look-ahead jerk/accel-limited feedrate planner, and folds `Warnings`/`Errors` |
-|  [02]   | `Program.Targets` / `Program.Code` / `Program.Duration` / `Program.Warnings` / `Program.Errors` | program read | `IReadOnlyList<SystemTarget> Targets` (the planned per-waypoint trajectory the look-ahead planner produced — `toSeq(program.Targets).Map(t => t.Joints)` / `t.Planes` is the joint/flange read the receipt folds), `List<List<List<string>>>? Code` (per-mechanical-group, per-file, per-line dialect output — the emitted cut program), the planned cycle `Duration` (s), and the validation diagnostics |
-|  [03]   | `Program.CheckCollisions(IReadOnlyList<int>? first, IReadOnlyList<int>? second, Mesh? environment, int environmentPlane, double linearStep, double angularStep)` | collision | swept self/environment collision check returning a `Collision` (`HasCollision`, `Mesh[] Meshes` the colliding bodies, `SystemTarget CollisionTarget` the offending waypoint) — the cell-level guard beside the Fabrication swept-tool guard |
-|  [04]   | `Program.Save(string folder)` / `Program.CustomCode(List<List<List<string>>>)` | post emit | write the posted dialect files to disk (RAPID/KRL/URScript/VAL3/DRL/… per `Manufacturers`), or substitute hand-authored code; `IProgram.Save` is the interface mirror |
-|  [05]   | `Program.Animate(double time, bool isNormalized = true)` / `CurrentSimulationPose` / `HasSimulation` | simulation | pose the cell at a normalized/absolute time for playback; `MeshPoser` drives the posed mesh output |
-|  [06]   | `SystemTarget` / `ProgramTarget`                                         | planned waypoint | the planned per-waypoint records the planner produced — `SystemTarget.Planes`/`Joints`/`TotalTime`/`DeltaTime`, `ProgramTarget.Kinematics` (the `KinematicSolution`), `WorldPlane`, `IsJointMotion`, `ForcedConfiguration` — the trajectory the design reads for visualization and timing |
+| [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]   |
+| :-----: | :------------------------ | :--------------- |
+|  [01]   | `Program`                 | program build    |
+|  [02]   | `Program.Targets`         | program read     |
+|  [03]   | `Program.Code`            | program read     |
+|  [04]   | `Program.Duration`        | program read     |
+|  [05]   | `Program.Warnings`        | diagnostics      |
+|  [06]   | `Program.Errors`          | diagnostics      |
+|  [07]   | `Program.CheckCollisions` | collision        |
+|  [08]   | `Program.Save`            | post emit        |
+|  [09]   | `Program.CustomCode`      | post replacement |
+|  [10]   | `Program.Animate`         | simulation       |
+|  [11]   | `CurrentSimulationPose`   | simulation       |
+|  [12]   | `HasSimulation`           | simulation       |
+|  [13]   | `SystemTarget`            | planned waypoint |
+|  [14]   | `ProgramTarget`           | planned waypoint |
+
+[Program.BUILD]: `new Program(string name, RobotSystem robotSystem, IReadOnlyList<IToolpath> toolpaths, Group? initCommands = null, IReadOnlyList<int>? multiFileIndices = null, double stepSize = 1.0)` solves every waypoint, runs look-ahead jerk- and acceleration-limited feedrate planning, and folds `Warnings` and `Errors` into the compiled program.
+
+[Program.READ]: `IReadOnlyList<SystemTarget> Targets` carries the planned trajectory; `toSeq(program.Targets).Map(t => t.Joints)` and `t.Planes` expose the receipt's joint and flange data. `List<List<List<string>>>? Code` carries dialect output by mechanical group, file, and line; `Duration` carries the planned cycle seconds, and `Warnings` and `Errors` carry validation diagnostics.
+
+[Program.COLLISION]: `Program.CheckCollisions(IReadOnlyList<int>? first, IReadOnlyList<int>? second, Mesh? environment, int environmentPlane, double linearStep, double angularStep)` returns `Collision`. Its `HasCollision`, `Mesh[] Meshes`, and `SystemTarget CollisionTarget` identify swept self or environment contact beside the Fabrication swept-tool guard.
+
+[Program.POST]: `Program.Save(string folder)` writes the `Manufacturers` dialect files in RAPID, KRL, URScript, VAL3, DRL, and corresponding formats; `IProgram.Save` mirrors the interface. `Program.CustomCode(List<List<List<string>>>)` substitutes hand-authored output.
+
+[Program.SIMULATION]: `Program.Animate(double time, bool isNormalized = true)` poses the cell at normalized or absolute time. `CurrentSimulationPose` exposes the pose, `HasSimulation` reports availability, and `MeshPoser` drives posed meshes.
+
+[Program.WAYPOINTS]: `SystemTarget.Planes`, `Joints`, `TotalTime`, and `DeltaTime` describe the planned waypoint. `ProgramTarget.Kinematics` carries its `KinematicSolution`, while `WorldPlane`, `IsJointMotion`, and `ForcedConfiguration` complete the visualization and timing receipt.
 
 [ENTRYPOINT_SCOPE]: mesh posing, remote upload, and the online cell library
+
 - rail: fabrication
 
-| [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
-| :-----: | :----------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `RhinoMeshPoser.Pose(RobotSystem robot, IReadOnlyList<KinematicSolution> solutions, IReadOnlyList<Target> targets)` | mesh pose | the static `Rhino3dm`-mesh poser — transform the cell display meshes to a solved pose; `new RhinoMeshPoser(robot).Pose(solutions, tools)` is the instance form; `IMeshPoser`/`SimpleTrail` are the abstractions |
-|  [02]   | `IRemote.Upload(IProgram) / Play() / Pause()`                           | remote drive   | the live-controller channel — `RemoteAbb` (RobotWare HTTP/socket), `RemoteUR` (URScript socket + `RemoteURFtp` SFTP), `RemoteFranka` (FTP via `SSH.NET`); `RobotSystem.Remote` exposes the cell's channel. The robot-program SFTP upload is the `SSH.NET` transitive-floor consumer |
-|  [03]   | `OnlineLibrary.UpdateLibraryAsync()` / `DownloadLibraryAsync(LibraryItem)` / `RemoveDownloadedLibrary(LibraryItem)` | library sync | async-fetch and manage the online cell-model library (`IDisposable`; `Libraries` dictionary, `LibraryChanged` event, `LibraryItem.IsOnline`/`IsDownloaded`/`IsUpdateAvailable`) — the path that grows the available `Manufacturers` cell roster at runtime |
-|  [04]   | `IPostProcessor` / `RapidPostProcessor` / `KRLPostProcessor` / `URScriptPostProcessor` / `VAL3PostProcessor` / `FanucPostProcessor` / `IgusPostProcessor` / `JKSPostProcessor` / `DrlPostProcessor` / `FrankxPostProcessor` | post dialect | the per-manufacturer code emitters a `RobotSystem` / `Program` uses (one per `Manufacturers`); a custom `IPostProcessor` overrides the default at `LoadRobotSystem`/`ParseRobotSystem` — the dialect-override seam |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] |
+| :-----: | :-------------------------------------- | :------------- |
+|  [01]   | `RhinoMeshPoser.Pose`                   | mesh pose      |
+|  [02]   | `IRemote.Upload`                        | remote drive   |
+|  [03]   | `IRemote.Play`                          | remote drive   |
+|  [04]   | `IRemote.Pause`                         | remote drive   |
+|  [05]   | `OnlineLibrary.UpdateLibraryAsync`      | library sync   |
+|  [06]   | `OnlineLibrary.DownloadLibraryAsync`    | library sync   |
+|  [07]   | `OnlineLibrary.RemoveDownloadedLibrary` | library sync   |
+|  [08]   | `IPostProcessor`                        | post dialect   |
+
+[RhinoMeshPoser.Pose]: `RhinoMeshPoser.Pose(RobotSystem robot, IReadOnlyList<KinematicSolution> solutions, IReadOnlyList<Target> targets)` transforms `Rhino3dm` cell display meshes to a solved pose. `new RhinoMeshPoser(robot).Pose(solutions, tools)` is the instance form, and `IMeshPoser` and `SimpleTrail` are the abstractions.
+
+[IRemote]: `IRemote.Upload(IProgram)`, `Play()`, and `Pause()` drive the live controller through `RobotSystem.Remote`. `RemoteAbb` uses RobotWare HTTP and sockets, `RemoteUR` uses a URScript socket plus `RemoteURFtp` SFTP, and `RemoteFranka` uses FTP through `SSH.NET`; robot-program SFTP upload is the `SSH.NET` transitive-floor consumer.
+
+[OnlineLibrary]: `UpdateLibraryAsync()`, `DownloadLibraryAsync(LibraryItem)`, and `RemoveDownloadedLibrary(LibraryItem)` manage the online cell-model library and grow the runtime `Manufacturers` roster. The `IDisposable` surface carries the `Libraries` dictionary, `LibraryChanged` event, and `LibraryItem.IsOnline`, `IsDownloaded`, and `IsUpdateAvailable` state.
+
+[IPostProcessor]: `RapidPostProcessor`, `KRLPostProcessor`, `URScriptPostProcessor`, `VAL3PostProcessor`, `FanucPostProcessor`, `IgusPostProcessor`, `JKSPostProcessor`, `DrlPostProcessor`, and `FrankxPostProcessor` emit one dialect per `Manufacturers` value. A custom `IPostProcessor` overrides the default through `LoadRobotSystem` or `ParseRobotSystem`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [KINEMATICS_LAW]:
-- The PUBLIC solve is the batch `RobotSystem.Kinematics(targets, prevJoints) -> List<KinematicSolution>`; the analytic-IK solver classes (`SphericalWristKinematics`/`OffsetWristKinematics`) and the iterative fallback (`NumericalKinematics`), plus the external-axis (`TrackKinematics`/`PositionerKinematics`) and group (`MechanicalGroupKinematics`) solvers, are ALL `internal` — a design page CANNOT name them as types. The solver is selected internally by the concrete `RobotSystem` cell `FileIO` loads from the library; the public lever is the cell choice plus the `RobotConfigurations` branch hint on a `CartesianTarget`, NOT a solver-class instantiation.
-- A `CartesianTarget` runs INVERSE kinematics (TCP `Plane` -> joints), a `JointTarget` runs FORWARD kinematics (joints -> chain `Plane`s); the result `KinematicSolution` carries `Joints` (radians), the full `Planes` chain (links + flange + TCP), the realized `Configuration`, and `Errors`. `prevJoints` seeds previous-pose continuation so a waypoint stream yields a continuous joint trajectory (resolving wrist-flip / redundant-axis multiplicity) — the design threads the prior solution's `Joints` forward.
+
+- The PUBLIC solve is the batch `RobotSystem.Kinematics(targets, prevJoints) -> List<KinematicSolution>`.
+- The analytic `SphericalWristKinematics` and `OffsetWristKinematics`, iterative `NumericalKinematics`, external-axis `TrackKinematics` and `PositionerKinematics`, and group `MechanicalGroupKinematics` solvers are `internal`, so a design page cannot name them as types.
+- The concrete `RobotSystem` cell loaded by `FileIO` selects the solver internally; public selection combines the cell with the `RobotConfigurations` branch hint on `CartesianTarget`.
+- A `CartesianTarget` runs inverse kinematics from TCP `Plane` to joints, while a `JointTarget` runs forward kinematics from joints to chain `Plane` values.
+- `KinematicSolution` carries radian `Joints`, the full link, flange, and TCP `Planes` chain, the realized `Configuration`, and `Errors`.
+- `prevJoints` threads the prior solution's `Joints` forward, preserving a continuous waypoint trajectory across wrist-flip and redundant-axis multiplicity.
 - There is NO typed packing/solve exception: feasibility, joint-limit, singularity, and reach faults populate `KinematicSolution.Errors` plus `Program.Errors`/`Warnings`. The Fabrication rail folds non-empty diagnostics into band-2700 `FabricationFault`; `Program.CheckCollisions` remains cataloged while this cell lane routes swept collision through `Toolpath/guard`.
 - Joint values are RADIANS internally; `MechanicalGroup.DegreeToRadian`/`RadianToDegree` and `RobotSystem.DegreeToRadian` convert at the boundary. The `Interval Range` on each `Joint` is the radian limit the solver validates against.
 
 [GEOMETRY_BOUNDARY_LAW]:
-- Every geometry parameter and result is `Rhino3dm`'s `Rhino.Geometry.*` (`Plane`, `Mesh`, `Point3d`, `Transform`, `Interval`, `File3dm`) — a SEPARATE assembly and namespace from RhinoCommon's `Rhino.Geometry.*`. The two are binary-distinct types; `plan-cs` boundary-maps at the kinematics seam by converting the kernel's canonical pose/frame to a `Rhino3dm` `Plane` on the way in and reading `KinematicSolution.Planes`/`Joints` (plain `Plane[]`/`double[]`) on the way out. A RhinoCommon geometry instance is NEVER passed into a `Robots` parameter, and a `Robots`/`Rhino3dm` geometry instance never escapes the kinematics arm into a sibling signature expecting RhinoCommon.
+
+- Every geometry parameter and result uses `Rhino3dm`'s `Rhino.Geometry.*`: `Plane`, `Mesh`, `Point3d`, `Transform`, `Interval`, and `File3dm`.
+- `Rhino3dm` and RhinoCommon expose binary-distinct `Rhino.Geometry.*` types from separate assemblies and namespaces.
+- `plan-cs` maps the canonical pose or frame to a `Rhino3dm` `Plane` at the kinematics ingress, then reads plain `Plane[]` and `double[]` values from `KinematicSolution.Planes` and `Joints` at egress.
+- A RhinoCommon geometry instance never enters a `Robots` parameter, and a `Robots` or `Rhino3dm` geometry instance never escapes into a sibling signature expecting RhinoCommon.
 - `Rhino3dm` (not `Robots`) is the package shipping the osx-arm64 native `librhino3dm_native.dylib`; `Robots` itself is pure-managed IL. `SSH.NET` + `BouncyCastle.Cryptography` are pulled only by the `IRemote` SFTP upload path (`RemoteUR`/`RemoteFranka`); a headless solve/post that never calls `IRemote.Upload` exercises neither.
 
 [RAIL_LAW]:
+
 - Package: `Robots` (visose; assembly `Robots`; geometry substrate `Rhino3dm`)
 - Owns: host-neutral serial-chain robot kinematics — the `FileIO`-loaded `RobotSystem` cell, the batch `Kinematics(targets, prevJoints) -> List<KinematicSolution>` FK/IK solve over `CartesianTarget`/`JointTarget` waypoints with `RobotConfigurations` branch selection and previous-pose continuation, the look-ahead-planned `Program` (jerk/accel-limited feedrate, `CheckCollisions`, per-`Manufacturers` post emit, `Save`), the `IRemote` upload/play/pause channel, and the `OnlineLibrary` cell roster
 - Accept: the `Kinematics/cell` solve consuming a kernel-canonical pose mapped to a `Rhino3dm` `Plane`/`double[]` joint vector, the result read back from `Program.Targets` / `KinematicSolution.Joints` / `Planes` / `Errors` / `Configuration` and folded to a `FabricationFault` on non-empty `Errors`; the cell-program emit through the matching `IPostProcessor` dialect; the shared `MotionDynamics` law mapped into target speed/blend policy at the Rhino3dm boundary

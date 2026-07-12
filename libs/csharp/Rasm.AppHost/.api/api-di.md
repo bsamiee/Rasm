@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.DependencyInjection`
+
 - package: `Microsoft.Extensions.DependencyInjection`
 - assembly: `Microsoft.Extensions.DependencyInjection`
 - contract_assembly: `Microsoft.Extensions.DependencyInjection.Abstractions`
@@ -15,6 +16,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider implementation
+
 - rail: composition
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]     | [RAIL]               |
@@ -25,6 +27,7 @@
 |  [04]   | `ServiceProviderOptions`                      | validation policy | provider proof       |
 
 [PUBLIC_TYPE_SCOPE]: composition contracts
+
 - rail: composition
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]          | [RAIL]                  |
@@ -50,28 +53,32 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
+
 - rail: composition
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]           | [RAIL]                 |
-| :-----: | :--------------------------- | :----------------------- | :--------------------- |
-|  [01]   | `BuildServiceProvider`       | provider build           | root provider creation |
-|  [02]   | `AddSingleton`               | lifetime registration    | singleton admission    |
-|  [03]   | `AddScoped`                  | lifetime registration    | scoped admission       |
-|  [04]   | `AddTransient`               | lifetime registration    | transient admission    |
-|  [05]   | `AddKeyedSingleton`          | keyed registration       | keyed singleton policy |
-|  [06]   | `AddKeyedScoped`             | keyed registration       | keyed scoped policy    |
-|  [07]   | `AddKeyedTransient`          | keyed registration       | keyed transient policy |
-|  [08]   | `TryAdd`                     | idempotent descriptor    | default registration   |
-|  [09]   | `TryAddEnumerable`           | enumerable descriptor    | ordered extension set  |
-|  [10]   | `TryAddKeyed{Lifetime}`      | idempotent keyed entry   | keyed default policy   |
-|  [11]   | `Replace`                    | descriptor replacement   | explicit override      |
-|  [12]   | `RemoveAll`                  | descriptor removal       | unkeyed contract reset |
-|  [13]   | `RemoveAllKeyed`             | descriptor removal       | keyed contract reset   |
-|  [14]   | `ServiceDescriptor.Describe` | descriptor factory       | typed descriptor shape |
-|  [15]   | `DescribeKeyed`              | keyed descriptor factory | keyed descriptor shape |
-|  [16]   | `ServiceDescriptor.Singleton` | lifetime descriptor factory | static `Singleton(Type, object)`/generic instance+factory overloads (sibling `Scoped`/`Transient`) |
+| [INDEX] | [SURFACE]                     | [CAPABILITY]                 |
+| :-----: | :---------------------------- | :--------------------------- |
+|  [01]   | `BuildServiceProvider`        | root provider creation       |
+|  [02]   | `AddSingleton`                | singleton registration       |
+|  [03]   | `AddScoped`                   | scoped registration          |
+|  [04]   | `AddTransient`                | transient registration       |
+|  [05]   | `AddKeyedSingleton`           | keyed singleton policy       |
+|  [06]   | `AddKeyedScoped`              | keyed scoped policy          |
+|  [07]   | `AddKeyedTransient`           | keyed transient policy       |
+|  [08]   | `TryAdd`                      | idempotent default           |
+|  [09]   | `TryAddEnumerable`            | ordered extension-set add    |
+|  [10]   | `TryAddKeyed{Lifetime}`       | idempotent keyed default     |
+|  [11]   | `Replace`                     | explicit descriptor override |
+|  [12]   | `RemoveAll`                   | unkeyed contract reset       |
+|  [13]   | `RemoveAllKeyed`              | keyed contract reset         |
+|  [14]   | `ServiceDescriptor.Describe`  | typed descriptor factory     |
+|  [15]   | `DescribeKeyed`               | keyed descriptor factory     |
+|  [16]   | `ServiceDescriptor.Singleton` | lifetime descriptor factory  |
+
+[LIFETIME_DESCRIPTOR_OVERLOADS]: `ServiceDescriptor.Singleton` exposes `Singleton(Type, object)` plus generic instance and factory overloads, with parallel `Scoped` and `Transient` factories.
 
 [ENTRYPOINT_SCOPE]: resolution and activation operations
+
 - rail: composition
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]        | [RAIL]                    |
@@ -92,6 +99,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMPOSITION_TOPOLOGY]:
+
 - namespaces: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.DependencyInjection.Extensions`
 - lifetime families: singleton, scoped, transient, keyed
 - descriptor shapes: implementation type, factory, instance
@@ -101,6 +109,7 @@
 - activation law: `ActivatorUtilities` is boundary activation, not hidden service lookup
 
 [KEYED_TOPOLOGY]:
+
 - key input: `object` service key
 - parameter attributes: `FromKeyedServicesAttribute`, `ServiceKeyAttribute`
 - lookup modes: explicit key, inherited key, no inherited key
@@ -108,6 +117,7 @@
 - factory shape: keyed factories receive `IServiceProvider` and the service key
 
 [LOCAL_ADMISSION]:
+
 - AppHost ports are constructor-visible dependencies registered at composition roots.
 - Keyed services model bounded policy variants where the key is part of AppHost policy.
 - Descriptor mutation is allowed only in composition assembly setup.
@@ -115,6 +125,7 @@
 - Runtime code receives dependencies through explicit records and constructors, never provider lookups.
 
 [RAIL_LAW]:
+
 - Package: `Microsoft.Extensions.DependencyInjection`
 - Owns: composition and lifetime scopes
 - Accept: registrations stay at composition roots

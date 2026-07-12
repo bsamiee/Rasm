@@ -1,6 +1,6 @@
 # [RASM_API_JSON_SCHEMA]
 
-`System.Text.Json.Schema` BCL inbox — no package pin, shared-framework surface (`System.Text.Json.dll`, net9+). The substrate schema-export hub: the JSON-schema exporter the `Rasm.AppHost` `Runtime/ports#WIRE_LAW` `SuiteContracts.Schema`, the `Agent/capability#SDK_CODEGEN` argument-schema digest, and the `Sandbox/solver` op self-description bind. The namespace owns exactly three types — the exporter, its options, and the transform context — so a schema derives from the SAME `JsonSerializerOptions` the STJ binder reads, never a hand-mirrored shape. (JSON Patch and its `JsonPatchError` are a different package — `Microsoft.AspNetCore.JsonPatch.SystemTextJson` — owned by `api-jsonpatch.md`, not this inbox.)
+`System.Text.Json.Schema` BCL inbox — no package pin, shared-framework surface (`System.Text.Json.dll`, net9+). The JSON-schema exporter binds `SuiteContracts.Schema`, the SDK argument-schema digest, and solver operation self-description. The exporter, its options, and the transform context derive a schema from the same `JsonSerializerOptions` the STJ binder reads, never a hand-mirrored shape. JSON Patch and `JsonPatchError` remain a distinct package concern.
 
 ## [01]-[SCHEMA_EXPORTER]
 

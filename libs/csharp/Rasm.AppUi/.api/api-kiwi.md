@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Kiwi`
+
 - package: `Kiwi`
 - assembly: `Kiwi`
 - namespace: `Nanoray.Kiwi`
@@ -16,6 +17,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver and constraint owners
+
 - rail: layout
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]         | [RAIL]                            |
@@ -26,6 +28,7 @@
 |  [04]   | `RelationalOperator` | enum                  | equality/inequality selector      |
 
 [PUBLIC_TYPE_SCOPE]: linear expression carriers
+
 - rail: layout
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]          | [RAIL]                          |
@@ -37,6 +40,7 @@
 |  [05]   | `VariableStore`  | sealed class           | default in-memory value store   |
 
 [PUBLIC_TYPE_SCOPE]: operator cases
+
 - rail: layout
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [RAIL]                      |
@@ -46,6 +50,7 @@
 |  [03]   | `RelationalOperator.GreaterThanOrEqual` | enum case     | left bounded below by right |
 
 [PUBLIC_TYPE_SCOPE]: solver failure rails
+
 - rail: layout
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [RAIL]                            |
@@ -61,6 +66,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solver constraint and edit-variable operations
+
 - rail: layout
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]   | [RAIL]                          |
@@ -79,6 +85,7 @@
 |  [12]   | `TrySuggestValue(Variable, double)`          | guarded suggest  | non-throwing suggest            |
 
 [ENTRYPOINT_SCOPE]: solver evaluation
+
 - rail: layout
 
 | [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [RAIL]                                       |
@@ -87,6 +94,7 @@
 |  [02]   | `UpdateVariables()` | flush          | write solved row constants into each `Store` |
 
 [ENTRYPOINT_SCOPE]: constraint construction
+
 - rail: layout
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                            |
@@ -100,25 +108,45 @@
 |  [07]   | `Constraint.Expression` / `Operator` / `Strength` / `Violated`     | property       | constraint inspection             |
 
 [ENTRYPOINT_SCOPE]: expression assembly
+
 - rail: layout
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]      | [RAIL]                                            |
-| :-----: | :------------------------------------------------------------------------ | :------------------ | :------------------------------------------------ |
-|  [01]   | `new Variable(string? name)` / `new Variable(IVariableStore, string?)`     | constructor         | unknown over default or injected `VariableStore`  |
-|  [02]   | `Variable.Value` (get/set) / `Name` (get/set) / `Store` (get)             | property            | read/write solved value, label, storage           |
-|  [03]   | `new Term(Variable, double Coefficient = 1.0)` / `Term.Value`             | record ctor + prop  | single weighted variable, `Variable.Value × Coef` |
-|  [04]   | `new Expression(IReadOnlyCollection<Term>, double constant = 0.0)`         | constructor         | terms plus constant linear form                   |
-|  [05]   | `new Expression(Term, double)` / `new Expression(double)`                  | constructor         | single-term and constant-only forms               |
-|  [06]   | `implicit operator Expression(Variable / Term / double)`                   | implicit conversion | bare `Variable`/`Term`/scalar flows as expression  |
-|  [07]   | `Variable`/`Term`/`Expression` `+ - * /` and unary `-` operators           | operator algebra    | fluent linear-form construction across all carriers |
-|  [08]   | `Expression.Value` / `Terms` (`IReadOnlyList<Term>`) / `Constant` / `IsConstant` | property      | expression inspection                             |
-|  [09]   | `Strength.Required` / `Strong` / `Medium` / `Weak` / `Disabled`           | static field        | named priority constants                          |
-|  [10]   | `Strength.Create(a, b, c, w = 1.0)` / `Clip(value)`                       | static method       | lexicographic strength assembly, `[Disabled,Required]` clamp |
+`Term.Coefficient` defaults to `1.0`, and `Expression.Constant` defaults to `0.0`.
+
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]      | [RAIL]                     |
+| :-----: | :----------------------------------------------------------------- | :------------------ | :------------------------- |
+|  [01]   | `new Variable(string? name)`                                       | constructor         | default in-memory store    |
+|  [02]   | `new Variable(IVariableStore, string?)`                            | constructor         | injected value store       |
+|  [03]   | `Variable.Value`                                                   | property            | solved value access        |
+|  [04]   | `Variable.Name`                                                    | property            | mutable label              |
+|  [05]   | `Variable.Store`                                                   | property            | value-store access         |
+|  [06]   | `new Term(Variable, double Coefficient = 1.0)`                     | record constructor  | weighted variable          |
+|  [07]   | `Term.Value`                                                       | property            | evaluated weighted value   |
+|  [08]   | `new Expression(IReadOnlyCollection<Term>, double constant = 0.0)` | constructor         | terms plus constant        |
+|  [09]   | `new Expression(Term, double)`                                     | constructor         | single-term form           |
+|  [10]   | `new Expression(double)`                                           | constructor         | constant-only form         |
+|  [11]   | `implicit operator Expression(Variable)`                           | implicit conversion | variable to expression     |
+|  [12]   | `implicit operator Expression(Term)`                               | implicit conversion | term to expression         |
+|  [13]   | `implicit operator Expression(double)`                             | implicit conversion | scalar to expression       |
+|  [14]   | `Variable`/`Term`/`Expression` operator overloads                  | operator algebra    | linear-form composition    |
+|  [15]   | `Expression.Value`                                                 | property            | evaluated expression value |
+|  [16]   | `Expression.Terms`                                                 | property            | `IReadOnlyList<Term>`      |
+|  [17]   | `Expression.Constant`                                              | property            | constant term              |
+|  [18]   | `Expression.IsConstant`                                            | property            | constant-form test         |
+|  [19]   | `Strength.Required`                                                | static field        | required priority          |
+|  [20]   | `Strength.Strong`                                                  | static field        | strong priority            |
+|  [21]   | `Strength.Medium`                                                  | static field        | medium priority            |
+|  [22]   | `Strength.Weak`                                                    | static field        | weak priority              |
+|  [23]   | `Strength.Disabled`                                                | static field        | disabled priority          |
+|  [24]   | `Strength.Create(a, b, c, w = 1.0)`                                | static method       | lexicographic assembly     |
+|  [25]   | `Strength.Clip(value)`                                             | static method       | priority-range clamp       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [KIWI_TOPOLOGY]:
-- Linear-form assembly is operator-driven: `Variable * double` yields a `Term`, `Term + double`/`Variable + Variable`/`Term + Variable` yield an `Expression`, and every arithmetic operator (`+`, `-`, `*`, `/`, unary `-`) on `Variable`/`Term`/`Expression` returns one of those three carriers, so a layout expression composes through C# operators rather than builder calls. `Variable`, `Term`, and `double` each carry an `implicit operator Expression`, so a bare `Variable` or scalar passes directly into `Constraint.Equal`/`LessEqual`/`GreaterEqual`/`Make` and `AddEditVariable` without an explicit wrap.
+
+- Linear-form assembly is operator-driven: `Variable * double` yields a `Term`, `Term + double`/`Variable + Variable`/`Term + Variable` yield an `Expression`, and every arithmetic operator (`+`, `-`, `*`, `/`, unary `-`) on `Variable`/`Term`/`Expression` returns one of those three carriers, so layout expressions compose without builder calls.
+- `Variable`, `Term`, and `double` each carry an `implicit operator Expression`, so a bare carrier passes directly into `Constraint.Equal`/`LessEqual`/`GreaterEqual`/`Make` and `AddEditVariable` without an explicit wrap.
 - `Term` is a `readonly record struct (Variable Variable, double Coefficient = 1.0)` whose `Value` is `Variable.Value * Coefficient`; `Expression` is a `readonly struct` whose public `Terms` is `IReadOnlyList<Term>` (backed by an internal `ImmutableArray<Term>`) plus a `double Constant`, with `Value` summing each `Term.Value` and the constant, and `IsConstant` true when no terms remain.
 - `Constraint` binds a reduced `Expression` to a `RelationalOperator` at a clipped `double` strength; the constraint normalizes both sides into `expression <op> 0`, so `Equal`/`LessEqual`/`GreaterEqual`/`Make` all subtract `rhs` from `lhs` before constructing.
 - `Constraint` identity is handle-based: `Equals`, `==`, and `GetHashCode` compare the internal shared `ConstraintData` instance, not structural expression/operator/strength equality, so two separately constructed but value-equivalent constraints are not equal and the clone constructor without a new strength shares the same data handle.
@@ -127,17 +155,21 @@
 - Variable storage is indirected through `IVariableStore`: `Variable.Value` reads and writes `Store.Value`, the default `VariableStore` is a plain in-memory `double` cell, and a custom `IVariableStore` lets a layout node observe solved values without polling.
 
 [LOCAL_ADMISSION]:
+
 - Layout geometry edges (panel left/top/width/height) are `Variable` values; layout rules compose as `Expression` operator algebra and bind through `Constraint.Equal`/`LessEqual`/`GreaterEqual` at the matching `Strength`, never through hand-built tableau rows.
 - Fixed structural rules use `Strength.Required`; competing preferences use `Strong`/`Medium`/`Weak` so the dual-simplex relaxes the lower-priority constraint instead of throwing.
 - Runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue`; the layout pass calls `Solve` once and reads solved positions from each `Variable.Value` (or a custom `IVariableStore` bound to the visual node).
 - Boundary intake of constraint edits uses the `Try*` family (`TryAddConstraint`, `TryRemoveEditVariable`, `TrySuggestValue`); `UnsatisfiableConstraintException` and the duplicate/unknown rails never cross the layout-update boundary as exceptions.
 
 [STACKING]:
-- Live drive from the data rail: a `DynamicData` change-set of layout deltas (drag/resize edits flowing through `SourceCache.Edit`) projects through `Transform` into per-edit `(Variable, double)` pairs, and the subscription calls `Solver.TrySuggestValue` per delta then `Solver.Solve` once per frame — the constraint solve is the sink of the live-data rail, never a parallel mutation path. The same `Connect().Bind(...)` that feeds the visual collection and the `Solve()` pass share one observable so a single edit re-flows both.
+
+- Live drive from the data rail projects `DynamicData` drag and resize deltas from `SourceCache.Edit` through `Transform` into `(Variable, double)` pairs; the subscription calls `Solver.TrySuggestValue` per delta and `Solver.Solve` once per frame.
+- The visual collection and `Solve()` pass share one `Connect().Bind(...)` observable, so each edit re-flows both and the constraint solve remains the live-data rail's sole mutation sink.
 - Custom `IVariableStore` as the observation seam: implement `IVariableStore` over an Avalonia visual node's geometry (or a `ReactiveUI` property) so `UpdateVariables` writes solved row constants straight into the bound property on `Solve`, eliminating the post-solve polling loop; the layout owner reads positions from the node, not from a side dictionary.
 - Strength-priority composition mirrors UI intent ranking: required structural invariants (`Strength.Required`), then theme/preference rules (`Strong`/`Medium`/`Weak`) so the dual-simplex relaxes a soft preference rather than throwing — the `Strength.Create(a,b,c,w)` lexicographic packing lets a screen express a continuum of competing constraints that map onto the same priority order a token/theme rail already defines.
 
 [RAIL_LAW]:
+
 - Package: `Kiwi`
 - Owns: incremental linear-arithmetic constraint solving — `Variable`/`Term`/`Expression` linear-form algebra, `Constraint` binding at named `Strength` priorities, and the `Solver` dual-simplex with edit-variable `SuggestValue` runtime drive.
 - Accept: operator-composed `Expression` constraints bound through `Equal`/`LessEqual`/`GreaterEqual`/`Make`; guarded `Try*` edits at the boundary; solved values read from `IVariableStore`.

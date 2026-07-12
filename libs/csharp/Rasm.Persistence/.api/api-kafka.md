@@ -18,17 +18,17 @@
 [PUBLIC_TYPE_SCOPE]: client and builder family
 - rail: cdc-egress
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [RAIL]                             |
-| :-----: | :------------------------------ | :--------------- | :--------------------------------- |
-|  [01]   | `IProducer<TKey, TValue>`       | producer client  | typed produce and transaction      |
-|  [02]   | `IConsumer<TKey, TValue>`       | consumer client  | typed consume and offset commit    |
-|  [03]   | `ProducerBuilder<TKey, TValue>` | producer builder | config, serializer, handler wiring |
-|  [04]   | `ConsumerBuilder<TKey, TValue>` | consumer builder | config, deserializer, rebalance    |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [RAIL]                                              |
+| :-----: | :------------------------------ | :--------------- | :-------------------------------------------------- |
+|  [01]   | `IProducer<TKey, TValue>`       | producer client  | typed produce and transaction                       |
+|  [02]   | `IConsumer<TKey, TValue>`       | consumer client  | typed consume and offset commit                     |
+|  [03]   | `ProducerBuilder<TKey, TValue>` | producer builder | config, serializer, handler wiring                  |
+|  [04]   | `ConsumerBuilder<TKey, TValue>` | consumer builder | config, deserializer, rebalance                     |
 |  [05]   | `IClient`                       | client root      | `Handle`/`Name`, `AddBrokers`, `SetSaslCredentials` |
-|  [06]   | `Handle`                        | native handle    | librdkafka handle accessor         |
-|  [07]   | `IConsumerGroupMetadata`        | group metadata   | transactional offset commit token  |
-|  [08]   | `PartitionerDelegate`           | partition hook   | per-message partition selection delegate |
-|  [09]   | `LogMessage`                    | log record       | librdkafka facility/level/message  |
+|  [06]   | `Handle`                        | native handle    | librdkafka handle accessor                          |
+|  [07]   | `IConsumerGroupMetadata`        | group metadata   | transactional offset commit token                   |
+|  [08]   | `PartitionerDelegate`           | partition hook   | per-message partition selection delegate            |
+|  [09]   | `LogMessage`                    | log record       | librdkafka facility/level/message                   |
 
 [PUBLIC_TYPE_SCOPE]: message and acknowledgement family
 - rail: cdc-egress
@@ -106,24 +106,24 @@
 [ENTRYPOINT_SCOPE]: producer build and produce
 - rail: cdc-egress
 
-| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :------------------------------------------ | :------------- | :--------------------------------- |
-|  [01]   | `new ProducerBuilder<TKey, TValue>(config)` | ctor           | builds from `ProducerConfig` pairs |
-|  [02]   | `SetKeySerializer(serializer)`              | builder        | sets sync or async key codec       |
-|  [03]   | `SetValueSerializer(serializer)`            | builder        | sets sync or async value codec     |
-|  [04]   | `SetDefaultPartitioner(partitioner)`        | builder        | sets fallback partitioner delegate |
-|  [05]   | `SetPartitioner(topic, partitioner)`        | builder        | sets per-topic partitioner         |
-|  [06]   | `SetErrorHandler(handler)`                  | builder        | wires async error callback         |
-|  [07]   | `SetLogHandler(handler)`                    | builder        | wires librdkafka log callback      |
-|  [08]   | `SetStatisticsHandler(handler)`             | builder        | wires JSON statistics callback     |
-|  [09]   | `SetOAuthBearerTokenRefreshHandler(handler)` | builder       | wires SASL/OAUTHBEARER token refresh (OIDC) |
-|  [10]   | `Build()`                                   | factory call   | yields `IProducer<TKey, TValue>`   |
-|  [11]   | `ProduceAsync(topic, message, ct)`          | async produce  | awaits `DeliveryResult`            |
-|  [12]   | `ProduceAsync(topicPartition, message, ct)` | async produce  | awaits delivery to fixed partition |
-|  [13]   | `Produce(topic, message, deliveryHandler)`  | fire-and-poll  | enqueues with delivery callback    |
-|  [14]   | `Poll(timeout)`                             | drive          | serves delivery report callbacks   |
-|  [15]   | `Flush(timeout)` / `Flush(ct)`              | drain          | blocks until queue is empty        |
-|  [16]   | `SetSaslCredentials(user, pw)` / `AddBrokers(brokers)` (on `IProducer`) | runtime | rotates SASL credentials / adds bootstrap brokers without rebuild |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                                                            |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `new ProducerBuilder<TKey, TValue>(config)`                             | ctor           | builds from `ProducerConfig` pairs                                |
+|  [02]   | `SetKeySerializer(serializer)`                                          | builder        | sets sync or async key codec                                      |
+|  [03]   | `SetValueSerializer(serializer)`                                        | builder        | sets sync or async value codec                                    |
+|  [04]   | `SetDefaultPartitioner(partitioner)`                                    | builder        | sets fallback partitioner delegate                                |
+|  [05]   | `SetPartitioner(topic, partitioner)`                                    | builder        | sets per-topic partitioner                                        |
+|  [06]   | `SetErrorHandler(handler)`                                              | builder        | wires async error callback                                        |
+|  [07]   | `SetLogHandler(handler)`                                                | builder        | wires librdkafka log callback                                     |
+|  [08]   | `SetStatisticsHandler(handler)`                                         | builder        | wires JSON statistics callback                                    |
+|  [09]   | `SetOAuthBearerTokenRefreshHandler(handler)`                            | builder        | wires SASL/OAUTHBEARER token refresh (OIDC)                       |
+|  [10]   | `Build()`                                                               | factory call   | yields `IProducer<TKey, TValue>`                                  |
+|  [11]   | `ProduceAsync(topic, message, ct)`                                      | async produce  | awaits `DeliveryResult`                                           |
+|  [12]   | `ProduceAsync(topicPartition, message, ct)`                             | async produce  | awaits delivery to fixed partition                                |
+|  [13]   | `Produce(topic, message, deliveryHandler)`                              | fire-and-poll  | enqueues with delivery callback                                   |
+|  [14]   | `Poll(timeout)`                                                         | drive          | serves delivery report callbacks                                  |
+|  [15]   | `Flush(timeout)` / `Flush(ct)`                                          | drain          | blocks until queue is empty                                       |
+|  [16]   | `SetSaslCredentials(user, pw)` / `AddBrokers(brokers)` (on `IProducer`) | runtime        | rotates SASL credentials / adds bootstrap brokers without rebuild |
 
 [ENTRYPOINT_SCOPE]: producer transaction
 - rail: cdc-egress
@@ -139,24 +139,24 @@
 [ENTRYPOINT_SCOPE]: consumer build and consume
 - rail: cdc-egress
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                               |
-| :-----: | :---------------------------------------------- | :------------- | :----------------------------------- |
-|  [01]   | `new ConsumerBuilder<TKey, TValue>(config)`     | ctor           | builds from `ConsumerConfig` pairs   |
-|  [02]   | `SetKeyDeserializer(deserializer)`              | builder        | sets key codec                       |
-|  [03]   | `SetValueDeserializer(deserializer)`            | builder        | sets value codec                     |
-|  [04]   | `SetPartitionsAssignedHandler(handler)`         | builder        | wires rebalance assign callback      |
-|  [05]   | `SetPartitionsRevokedHandler(handler)`          | builder        | wires rebalance revoke callback      |
-|  [06]   | `SetPartitionsLostHandler(handler)`             | builder        | wires partition-loss callback        |
-|  [07]   | `SetOffsetsCommittedHandler(handler)`           | builder        | wires commit-result callback         |
-|  [08]   | `Build()`                                       | factory call   | yields `IConsumer<TKey, TValue>`     |
-|  [09]   | `Subscribe(topics)` / `Subscribe(topic)` / `Unsubscribe()` | subscribe | joins or leaves the group subscription |
-|  [10]   | `Assign(...)` / `IncrementalAssign(...)` / `IncrementalUnassign(...)` | assign | manual, incremental add, or incremental remove |
-|  [11]   | `Consume(ct)` / `Consume(timeout)` / `Consume(millisecondsTimeout)` | fetch | returns one `ConsumeResult` (`IsPartitionEOF` flags end-of-partition) |
-|  [12]   | `Seek(topicPartitionOffset)`                    | reposition     | repositions a fetch cursor           |
-|  [13]   | `Pause(partitions)` / `Resume(partitions)`      | flow control   | halts or resumes fetch               |
-|  [14]   | `GetWatermarkOffsets(tp)` / `QueryWatermarkOffsets(tp, t)` | lag probe | cached or broker-queried low/high watermarks for lag |
-|  [15]   | `Assignment` (property)                         | state          | the current `List<TopicPartition>` assignment |
-|  [16]   | `Close()`                                       | leave          | leaves group and commits final state |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [RAIL]                                                                |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------- |
+|  [01]   | `new ConsumerBuilder<TKey, TValue>(config)`                           | ctor           | builds from `ConsumerConfig` pairs                                    |
+|  [02]   | `SetKeyDeserializer(deserializer)`                                    | builder        | sets key codec                                                        |
+|  [03]   | `SetValueDeserializer(deserializer)`                                  | builder        | sets value codec                                                      |
+|  [04]   | `SetPartitionsAssignedHandler(handler)`                               | builder        | wires rebalance assign callback                                       |
+|  [05]   | `SetPartitionsRevokedHandler(handler)`                                | builder        | wires rebalance revoke callback                                       |
+|  [06]   | `SetPartitionsLostHandler(handler)`                                   | builder        | wires partition-loss callback                                         |
+|  [07]   | `SetOffsetsCommittedHandler(handler)`                                 | builder        | wires commit-result callback                                          |
+|  [08]   | `Build()`                                                             | factory call   | yields `IConsumer<TKey, TValue>`                                      |
+|  [09]   | `Subscribe(topics)` / `Subscribe(topic)` / `Unsubscribe()`            | subscribe      | joins or leaves the group subscription                                |
+|  [10]   | `Assign(...)` / `IncrementalAssign(...)` / `IncrementalUnassign(...)` | assign         | manual, incremental add, or incremental remove                        |
+|  [11]   | `Consume(ct)` / `Consume(timeout)` / `Consume(millisecondsTimeout)`   | fetch          | returns one `ConsumeResult` (`IsPartitionEOF` flags end-of-partition) |
+|  [12]   | `Seek(topicPartitionOffset)`                                          | reposition     | repositions a fetch cursor                                            |
+|  [13]   | `Pause(partitions)` / `Resume(partitions)`                            | flow control   | halts or resumes fetch                                                |
+|  [14]   | `GetWatermarkOffsets(tp)` / `QueryWatermarkOffsets(tp, t)`            | lag probe      | cached or broker-queried low/high watermarks for lag                  |
+|  [15]   | `Assignment` (property)                                               | state          | the current `List<TopicPartition>` assignment                         |
+|  [16]   | `Close()`                                                             | leave          | leaves group and commits final state                                  |
 
 [ENTRYPOINT_SCOPE]: consumer offset commit
 - rail: cdc-egress
@@ -175,20 +175,20 @@
 [ENTRYPOINT_SCOPE]: message, header, and codec construction
 - rail: cdc-egress
 
-| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [RAIL]                              |
-| :-----: | :-------------------------------------------------- | :------------- | :---------------------------------- |
-|  [01]   | `new Message<TKey, TValue> { Key, Value }`          | object init    | sets key, value, timestamp, headers |
-|  [02]   | `MessageMetadata.Timestamp` / `.Headers`            | property       | per-message metadata carriers       |
-|  [03]   | `new Headers()` / `Add(key, valueBytes)`            | header build   | appends byte-valued header          |
-|  [04]   | `Headers.TryGetLastBytes(key, out value)`           | header read    | reads latest value for a key        |
-|  [05]   | `new Header(key, valueBytes)`                       | ctor           | constructs one header               |
-|  [06]   | `ISerializer<T>.Serialize(value, context)`          | codec call     | synchronous serialize               |
-|  [07]   | `IAsyncSerializer<T>.SerializeAsync(value, ctx)`    | codec call     | async serialize                     |
-|  [08]   | `Serializers.{Utf8,Null,Int32,Int64,Single,Double,ByteArray}` | static codec | built-in primitive serializers; `Null` writes a Kafka tombstone |
-|  [09]   | `Deserializers.{Utf8,Null,Ignore,Int32,Int64,Single,Double,ByteArray}` | static codec | built-in primitive deserializers; `Ignore` skips the payload |
-|  [10]   | `asyncSerializer.AsSyncOverAsync()`                 | adapter        | mounts an `IAsyncSerializer<T>` on the sync codec slot (`SyncOverAsyncSerializer<T>`) |
-|  [11]   | `new TopicPartitionOffset(tp, offset, epoch?)`      | ctor           | constructs a commit position        |
-|  [12]   | `Offset.Beginning` / `Offset.End` / `Offset.Stored` / `Offset.Unset` | sentinel | named offset starting points        |
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [RAIL]                                                                                |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `new Message<TKey, TValue> { Key, Value }`                             | object init    | sets key, value, timestamp, headers                                                   |
+|  [02]   | `MessageMetadata.Timestamp` / `.Headers`                               | property       | per-message metadata carriers                                                         |
+|  [03]   | `new Headers()` / `Add(key, valueBytes)`                               | header build   | appends byte-valued header                                                            |
+|  [04]   | `Headers.TryGetLastBytes(key, out value)`                              | header read    | reads latest value for a key                                                          |
+|  [05]   | `new Header(key, valueBytes)`                                          | ctor           | constructs one header                                                                 |
+|  [06]   | `ISerializer<T>.Serialize(value, context)`                             | codec call     | synchronous serialize                                                                 |
+|  [07]   | `IAsyncSerializer<T>.SerializeAsync(value, ctx)`                       | codec call     | async serialize                                                                       |
+|  [08]   | `Serializers.{Utf8,Null,Int32,Int64,Single,Double,ByteArray}`          | static codec   | built-in primitive serializers; `Null` writes a Kafka tombstone                       |
+|  [09]   | `Deserializers.{Utf8,Null,Ignore,Int32,Int64,Single,Double,ByteArray}` | static codec   | built-in primitive deserializers; `Ignore` skips the payload                          |
+|  [10]   | `asyncSerializer.AsSyncOverAsync()`                                    | adapter        | mounts an `IAsyncSerializer<T>` on the sync codec slot (`SyncOverAsyncSerializer<T>`) |
+|  [11]   | `new TopicPartitionOffset(tp, offset, epoch?)`                         | ctor           | constructs a commit position                                                          |
+|  [12]   | `Offset.Beginning` / `Offset.End` / `Offset.Stored` / `Offset.Unset`   | sentinel       | named offset starting points                                                          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

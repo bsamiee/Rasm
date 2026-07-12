@@ -18,9 +18,9 @@
 [PUBLIC_TYPE_SCOPE]: wire-codec admission
 - rail: spatial store codec
 
-| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]        | [CAPABILITY]                                  |
-| :-----: | :--------------------------------- | :------------------- | :-------------------------------------------- |
-|  [01]   | `NpgsqlNetTopologySuiteExtensions` | type-mapper extension | registers PostGIS geometry/geography codecs  |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]         | [CAPABILITY]                                |
+| :-----: | :--------------------------------- | :-------------------- | :------------------------------------------ |
+|  [01]   | `NpgsqlNetTopologySuiteExtensions` | type-mapper extension | registers PostGIS geometry/geography codecs |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -29,11 +29,11 @@
 
 Both overload families accept `CoordinateSequenceFactory?`, `PrecisionModel?`, `Ordinates handleOrdinates = Ordinates.None`, and `bool geographyAsDefault = false`.
 
-| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------------------ | :----------------------------------------------- |
-|  [01]   | `UseNetTopologySuite(this INpgsqlTypeMapper mapper, ...)`                 | admits geometry codecs on a mapper               |
+| [INDEX] | [SURFACE]                                                                                  | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `UseNetTopologySuite(this INpgsqlTypeMapper mapper, ...)`                                  | admits geometry codecs on a mapper                  |
 |  [02]   | `UseNetTopologySuite<TMapper>(this TMapper mapper, ...) where TMapper : INpgsqlTypeMapper` | admits geometry codecs while preserving mapper type |
-|  [03]   | `NpgsqlDataSourceBuilder.UseNetTopologySuite(...)`                        | registers codecs on the store profile data source |
+|  [03]   | `NpgsqlDataSourceBuilder.UseNetTopologySuite(...)`                                         | registers codecs on the store profile data source   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

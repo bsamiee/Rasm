@@ -46,117 +46,117 @@ on the consumed contract surface).
 [PUBLIC_TYPE_SCOPE]: codec services and configuration (`SAF.DataAccess.Contracts`)
 - rail: saf-exchange
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:---------------------------------- |:----------------------- |:----------------------------------------------- |
-| [01] | `IExcelImportService` | XLSX → model codec | `ExcelModel Import(Stream[, Version])` |
-| [02] | `IExcelExportService` | model → XLSX codec | `ExcelExportResult Export(Stream, ExcelModel, …)` |
-| [03] | `IExcelValidator` | pre-codec validator | `ValidateForImport`/`ValidateForExport` |
-| [04] | `IExcelObjectConfigurator` | fluent mapping builder | object→worksheet column configuration |
-| [05] | `IExcelObjectConfiguration` | resolved mapping | per-object property/header configuration |
-| [06] | `IExcelEnumToStringMapper` / `IExcelStringToEnumMapper` | enum codec | SAF cell-text ↔ enum mapping |
-| [07] | `IExcelWorksheetReader` / `IExcelWorksheetWriter` | sheet I/O | per-worksheet read/write seam |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]          | [RAIL]                                            |
+| :-----: | :------------------------------------------------------ | :--------------------- | :------------------------------------------------ |
+|  [01]   | `IExcelImportService`                                   | XLSX → model codec     | `ExcelModel Import(Stream[, Version])`            |
+|  [02]   | `IExcelExportService`                                   | model → XLSX codec     | `ExcelExportResult Export(Stream, ExcelModel, …)` |
+|  [03]   | `IExcelValidator`                                       | pre-codec validator    | `ValidateForImport`/`ValidateForExport`           |
+|  [04]   | `IExcelObjectConfigurator`                              | fluent mapping builder | object→worksheet column configuration             |
+|  [05]   | `IExcelObjectConfiguration`                             | resolved mapping       | per-object property/header configuration          |
+|  [06]   | `IExcelEnumToStringMapper` / `IExcelStringToEnumMapper` | enum codec             | SAF cell-text ↔ enum mapping                      |
+|  [07]   | `IExcelWorksheetReader` / `IExcelWorksheetWriter`       | sheet I/O              | per-worksheet read/write seam                     |
 
 [PUBLIC_TYPE_SCOPE]: model root, base contracts, and receipts (`SAF.DataAccess.Models`)
 - rail: saf-exchange
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:----------------------- |:----------------------- |:--------------------------------------------------------- |
-| [01] | `ExcelModel` | model root (`sealed`) | `Objects`, `ValidationErrors`, `SystemOfUnits`, `OriginalVersion` |
-| [02] | `IExcelModuleObject` | wire-row base | `RowNumber`, `ObjectGrouping`, `ObjectName`, `ObjectIdentifier` |
-| [03] | `IExcelObject` | identified object | `: IExcelHasUniqueName, IExcelModuleObject` + `Guid Id` |
-| [04] | `ExcelObjectBase` | object base (`abstract`) | `Name`, `Guid Id`, overridden `ObjectIdentifier` |
-| [05] | `ExcelExportResult` | export receipt (`sealed`) | `IsSuccess`, `ExcelModel Model`, `ValidationResults` |
-| [06] | `ExcelValidationResult` | validation receipt | `Identifier`, `ValidationResults`, `Severity`, `static Format(...)` |
-| [07] | `ExcelModelInformation` / `ExcelProjectInformation` | header rows | model + project metadata objects |
-| [08] | `Interfaces.IExcelHasNodeCoordinates` / `IExcelHasTranslationConstraints<T>` / `IExcelHasRotationConstraints<T>` / `IExcelHasLoadDirectionVector<T>` (+ `…Vectors<T>`) | capability markers | quantity-parameterized object traits (`IExcelHasNodeCoordinates` non-generic); e.g. `ExcelStructuralPointAction: …, IExcelHasLoadDirectionVector<Force>` |
+| [INDEX] | [SYMBOL]                                                                                                                                                               | [TYPE_FAMILY]             | [RAIL]                                                                                                                                                   |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ExcelModel`                                                                                                                                                           | model root (`sealed`)     | `Objects`, `ValidationErrors`, `SystemOfUnits`, `OriginalVersion`                                                                                        |
+|  [02]   | `IExcelModuleObject`                                                                                                                                                   | wire-row base             | `RowNumber`, `ObjectGrouping`, `ObjectName`, `ObjectIdentifier`                                                                                          |
+|  [03]   | `IExcelObject`                                                                                                                                                         | identified object         | `: IExcelHasUniqueName, IExcelModuleObject` + `Guid Id`                                                                                                  |
+|  [04]   | `ExcelObjectBase`                                                                                                                                                      | object base (`abstract`)  | `Name`, `Guid Id`, overridden `ObjectIdentifier`                                                                                                         |
+|  [05]   | `ExcelExportResult`                                                                                                                                                    | export receipt (`sealed`) | `IsSuccess`, `ExcelModel Model`, `ValidationResults`                                                                                                     |
+|  [06]   | `ExcelValidationResult`                                                                                                                                                | validation receipt        | `Identifier`, `ValidationResults`, `Severity`, `static Format(...)`                                                                                      |
+|  [07]   | `ExcelModelInformation` / `ExcelProjectInformation`                                                                                                                    | header rows               | model + project metadata objects                                                                                                                         |
+|  [08]   | `Interfaces.IExcelHasNodeCoordinates` / `IExcelHasTranslationConstraints<T>` / `IExcelHasRotationConstraints<T>` / `IExcelHasLoadDirectionVector<T>` (+ `…Vectors<T>`) | capability markers        | quantity-parameterized object traits (`IExcelHasNodeCoordinates` non-generic); e.g. `ExcelStructuralPointAction: …, IExcelHasLoadDirectionVector<Force>` |
 
 [PUBLIC_TYPE_SCOPE]: structural-element model (`SAF.DataAccess.Models.StructuralElements`)
 - rail: saf-exchange
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:---------------------------------------- |:----------------------- |:--------------------------------------------------------- |
-| [01] | `ExcelStructuralPointConnection` | node (`sealed`) | `Length? X/Y/Z`; ↔ `AnalysisMember.PointConnection` |
-| [02] | `ExcelStructuralCurveMember` | 1D beam/column | `CrossSection`, `ExcelFlexibleEnum<ExcelMember1DType> Type`, `Nodes`, `Segments`, `Length`, eccentricities (`Length`), `Angle`; ↔ `AnalysisMember.Curve` |
-| [03] | `ExcelStructuralSurfaceMember` | 2D slab/wall | `Material`, `ExcelFlexibleEnum<ExcelMember2DType> Type`, `ExcelMemberThickness Thickness`, `Nodes`, `EdgeShapes`; ↔ `AnalysisMember.Surface` |
-| [04] | `ExcelStructuralPointSupport` | nodal support | `ExcelConstraintType? Translation{X,Y,Z}Type` + `ForcePerLength? …Stiffness`, rotational (`RotationalStiffness?`), `BoundaryCondition`; ↔ `Support`/`SupportRestraint` |
-| [05] | `ExcelStructuralEdgeConnection` / `ExcelStructuralSurfaceConnection` / `ExcelStructuralCurveConnection` | line/area boundary | edge/surface support + connection |
-| [06] | `ExcelStructuralSurfaceMemberOpening` / `…Region` | surface sub-feature | opening + sub-region of a 2D member |
-| [07] | `ExcelRelConnectsRigidLink`/`RigidMember`/`RigidCross`/`StructuralMember`/`SurfaceEdge` | connection relations | ↔ `MemberConnection` edges |
-| [08] | `ExcelStructuralStorey` / `ExcelStructuralProxyElement` | level/proxy | storey grouping + opaque proxy element |
+| [INDEX] | [SYMBOL]                                                                                                | [TYPE_FAMILY]        | [RAIL]                                                                                                                                                                 |
+| :-----: | :------------------------------------------------------------------------------------------------------ | :------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ExcelStructuralPointConnection`                                                                        | node (`sealed`)      | `Length? X/Y/Z`; ↔ `AnalysisMember.PointConnection`                                                                                                                    |
+|  [02]   | `ExcelStructuralCurveMember`                                                                            | 1D beam/column       | `CrossSection`, `ExcelFlexibleEnum<ExcelMember1DType> Type`, `Nodes`, `Segments`, `Length`, eccentricities (`Length`), `Angle`; ↔ `AnalysisMember.Curve`               |
+|  [03]   | `ExcelStructuralSurfaceMember`                                                                          | 2D slab/wall         | `Material`, `ExcelFlexibleEnum<ExcelMember2DType> Type`, `ExcelMemberThickness Thickness`, `Nodes`, `EdgeShapes`; ↔ `AnalysisMember.Surface`                           |
+|  [04]   | `ExcelStructuralPointSupport`                                                                           | nodal support        | `ExcelConstraintType? Translation{X,Y,Z}Type` + `ForcePerLength? …Stiffness`, rotational (`RotationalStiffness?`), `BoundaryCondition`; ↔ `Support`/`SupportRestraint` |
+|  [05]   | `ExcelStructuralEdgeConnection` / `ExcelStructuralSurfaceConnection` / `ExcelStructuralCurveConnection` | line/area boundary   | edge/surface support + connection                                                                                                                                      |
+|  [06]   | `ExcelStructuralSurfaceMemberOpening` / `…Region`                                                       | surface sub-feature  | opening + sub-region of a 2D member                                                                                                                                    |
+|  [07]   | `ExcelRelConnectsRigidLink`/`RigidMember`/`RigidCross`/`StructuralMember`/`SurfaceEdge`                 | connection relations | ↔ `MemberConnection` edges                                                                                                                                             |
+|  [08]   | `ExcelStructuralStorey` / `ExcelStructuralProxyElement`                                                 | level/proxy          | storey grouping + opaque proxy element                                                                                                                                 |
 
 [PUBLIC_TYPE_SCOPE]: load model (`SAF.DataAccess.Models.Loads`)
 - rail: saf-exchange
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:---------------------------------------- |:----------------------- |:--------------------------------------------------------- |
-| [01] | `ExcelStructuralLoadCase` | load case | `ExcelActionType? ActionType`, `ExcelLoadCaseType? LoadType`, `LoadGroup`, `Duration`; ↔ `ILoadCase` |
-| [02] | `ExcelStructuralLoadCombination` | load combination | `Category`, `ExcelLoadCaseCombinationStandard? NationalStandard`, `double?[] LoadFactors`/`LoadMultipliers`, `string[] LoadCases`; ↔ `ILoadCombination` |
-| [03] | `ExcelStructuralLoadGroup` | load group | grouping over cases; ↔ `LoadGroup` topology |
-| [04] | `ExcelStructuralPointAction` | point force | `: ExcelStructuralPointLoadBase<Force,…>` + `ExcelLoadDirectionVector<Force>`; ↔ `PointForce` |
-| [05] | `ExcelStructuralPointMoment` | point moment | point moment action; ↔ `PointMoment` |
-| [06] | `ExcelStructuralPointSupportDeformation` | prescribed displacement | nodal imposed deformation; ↔ `PointDisplacement` |
-| [07] | `ExcelStructuralCurveAction` (+ `…Free`/`…Thermal`, `ExcelStructuralCurveMoment`) | line load | `ExcelFlexibleEnum<ExcelActionLoadType> Type`, `ForcePerLength? Value/Value1/Value2`, `ExcelLoadDirectionVector<ForcePerLength>`; ↔ `LineForce` |
-| [08] | `ExcelStructuralSurfaceAction` (+ `Distribution`/`Free`/`Thermal`) | area load | surface pressure action; ↔ `AreaForce` |
+| [INDEX] | [SYMBOL]                                                                          | [TYPE_FAMILY]           | [RAIL]                                                                                                                                                  |
+| :-----: | :-------------------------------------------------------------------------------- | :---------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ExcelStructuralLoadCase`                                                         | load case               | `ExcelActionType? ActionType`, `ExcelLoadCaseType? LoadType`, `LoadGroup`, `Duration`; ↔ `ILoadCase`                                                    |
+|  [02]   | `ExcelStructuralLoadCombination`                                                  | load combination        | `Category`, `ExcelLoadCaseCombinationStandard? NationalStandard`, `double?[] LoadFactors`/`LoadMultipliers`, `string[] LoadCases`; ↔ `ILoadCombination` |
+|  [03]   | `ExcelStructuralLoadGroup`                                                        | load group              | grouping over cases; ↔ `LoadGroup` topology                                                                                                             |
+|  [04]   | `ExcelStructuralPointAction`                                                      | point force             | `: ExcelStructuralPointLoadBase<Force,…>` + `ExcelLoadDirectionVector<Force>`; ↔ `PointForce`                                                           |
+|  [05]   | `ExcelStructuralPointMoment`                                                      | point moment            | point moment action; ↔ `PointMoment`                                                                                                                    |
+|  [06]   | `ExcelStructuralPointSupportDeformation`                                          | prescribed displacement | nodal imposed deformation; ↔ `PointDisplacement`                                                                                                        |
+|  [07]   | `ExcelStructuralCurveAction` (+ `…Free`/`…Thermal`, `ExcelStructuralCurveMoment`) | line load               | `ExcelFlexibleEnum<ExcelActionLoadType> Type`, `ForcePerLength? Value/Value1/Value2`, `ExcelLoadDirectionVector<ForcePerLength>`; ↔ `LineForce`         |
+|  [08]   | `ExcelStructuralSurfaceAction` (+ `Distribution`/`Free`/`Thermal`)                | area load               | surface pressure action; ↔ `AreaForce`                                                                                                                  |
 
 [PUBLIC_TYPE_SCOPE]: libraries, results, and value subtypes
 - rail: saf-exchange
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:---------------------------------- |:----------------------- |:--------------------------------------------------------- |
-| [01] | `Libraries.ExcelStructuralMaterial` | material library row | `ExcelMaterialType? Type`, `Quality`, `Density? UnitMass`, `Pressure? EModulus`/`GModulus`, `PoissonCoefficient`, `CoefficientOfThermalExpansion?` |
-| [02] | `Libraries.ExcelStructuralCrossSection` | section library row | `Material`, `ExcelCrossSectionType?`, `ExcelProfileLibraryId? Shape`, `Length[] Parameters`, `Area?`/`AreaMomentOfInertia?`/`WarpingMomentOfInertia?`/`Volume?` properties, `FormCode`/`DescriptionId` |
-| [03] | `Results.ExcelResultInternalForce1D` / `…2D` | result table | solver internal-force result rows |
-| [04] | `Subtypes.ExcelFlexibleEnum<T>` | open-enum wrapper | `T Value`, `IsOther`, ctor `(T)`/`(string other)`, explicit `→ T`/`T?` |
-| [05] | `Subtypes.ExcelLoadDirectionVector<TQuantity>` | typed direction | quantity-typed load direction vector |
-| [06] | `Subtypes.ExcelMemberThickness` / `ExcelCurveShape`; `Subtypes.CrossSectionShape.ExcelPoint2D` / `ExcelPolygonContour` / `ExcelCompositeShapeDef` | geometry subtypes | thickness, curve segment; 2D point, polygon contour, composite-section def (the `ExcelStructuralCrossSection.Definition` type) |
-| [07] | `Extensions.UnitsNetExtensions` | UnitsNet helpers | `CreateUnit<TUnit>`, `UnitsNetEquals<TUnit>`, `UnitsNetSequenceEquals<TUnit>` |
+| [INDEX] | [SYMBOL]                                                                                                                                          | [TYPE_FAMILY]        | [RAIL]                                                                                                                                                                                                 |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Libraries.ExcelStructuralMaterial`                                                                                                               | material library row | `ExcelMaterialType? Type`, `Quality`, `Density? UnitMass`, `Pressure? EModulus`/`GModulus`, `PoissonCoefficient`, `CoefficientOfThermalExpansion?`                                                     |
+|  [02]   | `Libraries.ExcelStructuralCrossSection`                                                                                                           | section library row  | `Material`, `ExcelCrossSectionType?`, `ExcelProfileLibraryId? Shape`, `Length[] Parameters`, `Area?`/`AreaMomentOfInertia?`/`WarpingMomentOfInertia?`/`Volume?` properties, `FormCode`/`DescriptionId` |
+|  [03]   | `Results.ExcelResultInternalForce1D` / `…2D`                                                                                                      | result table         | solver internal-force result rows                                                                                                                                                                      |
+|  [04]   | `Subtypes.ExcelFlexibleEnum<T>`                                                                                                                   | open-enum wrapper    | `T Value`, `IsOther`, ctor `(T)`/`(string other)`, explicit `→ T`/`T?`                                                                                                                                 |
+|  [05]   | `Subtypes.ExcelLoadDirectionVector<TQuantity>`                                                                                                    | typed direction      | quantity-typed load direction vector                                                                                                                                                                   |
+|  [06]   | `Subtypes.ExcelMemberThickness` / `ExcelCurveShape`; `Subtypes.CrossSectionShape.ExcelPoint2D` / `ExcelPolygonContour` / `ExcelCompositeShapeDef` | geometry subtypes    | thickness, curve segment; 2D point, polygon contour, composite-section def (the `ExcelStructuralCrossSection.Definition` type)                                                                         |
+|  [07]   | `Extensions.UnitsNetExtensions`                                                                                                                   | UnitsNet helpers     | `CreateUnit<TUnit>`, `UnitsNetEquals<TUnit>`, `UnitsNetSequenceEquals<TUnit>`                                                                                                                          |
 
 [PUBLIC_TYPE_SCOPE]: SAF enum vocabulary (`SAF.DataAccess.Models.Enums`) — the boundary axes
 - rail: saf-exchange
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------- |:------------------------ |:--------------------------------------------------------- |
-| [01] | `ExcelSystemOfUnits` | units regime | `Metric` / `Imperial` (`ExcelModel.SystemOfUnits`) |
-| [02] | `ExcelNationalCode` | design-code axis | `EC_DIN_EN`/`EC_NF_EN`/`EC_UNI_EN`/… + `IBC`/`NBR`/`SIA_26x`; ‖ `NationalAnnex` |
-| [03] | `ExcelActionType` | action nature | `Permanent`/`Variable`/`Accidental` (= `ActionClass`) |
-| [04] | `ExcelLoadCaseType` | load-case nature | `SelfWeight`/`Prestress`/`Wind`/`Snow`/`Seismic`/`Temperature`/… |
-| [05] | `ExcelLoadCaseCombinationCategory` | limit-state category | `UltimateLimitState`/`ServiceabilityLimitState`/`AccidentalLimitState`/`AccordingNationalStandard` |
-| [06] | `ExcelLoadCaseCombinationStandard` | combination clause | `EnUlsSetB`/`EnUlsSetC`/`EnAccidental1`/`2`/`EnSeismic`/`EnSlsCharacteristic`/`Frequent`/`QuasiPermanent`/`Ibc*` |
-| [07] | `ExcelMaterialType` | material family | `Concrete`/`Steel`/`Timber`/`Aluminium`/`Masonry`/`Other` |
-| [08] | `ExcelMember1DType` / `ExcelMember2DType` | member role | `Beam`/`Column`/`Rafter`/… (1D), slab/wall/plate (2D) |
-| [09] | `ExcelConstraintType` | support DOF nature | free/rigid/flexible per translational/rotational DOF |
-| [10] | `ExcelValidationMessageSeverity` | validation severity | `Error`/`Warning`/`Info` — the `ExcelValidationResult.Severity` the fault `.ToError()` reads |
-| [11] | `ExcelDuration` | load-duration class | `Long`/`Medium`/`Short`/`Instantaneous` — `ExcelStructuralLoadCase.Duration` (timber) |
-| [12] | `ExcelLoadGroupType` | load-group relation | the `ExcelStructuralLoadGroup` action-relation kind |
-| [13] | `ExcelCoordinateSystem` / `ExcelActionDirection` | load frame + axis | the SAF analogue of `LoadApplication` — the coordinate frame + signed axis an action resolves against |
-| [14] | `ExcelPointForceAction` / `ExcelCurveForceAction` / `ExcelSurfaceForceAction` | force-action discriminant | force-vs-derived-action discriminant per point/curve/surface load family |
+| [INDEX] | [SYMBOL]                                                                      | [TYPE_FAMILY]             | [RAIL]                                                                                                           |
+| :-----: | :---------------------------------------------------------------------------- | :------------------------ | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ExcelSystemOfUnits`                                                          | units regime              | `Metric` / `Imperial` (`ExcelModel.SystemOfUnits`)                                                               |
+|  [02]   | `ExcelNationalCode`                                                           | design-code axis          | `EC_DIN_EN`/`EC_NF_EN`/`EC_UNI_EN`/… + `IBC`/`NBR`/`SIA_26x`; ‖ `NationalAnnex`                                  |
+|  [03]   | `ExcelActionType`                                                             | action nature             | `Permanent`/`Variable`/`Accidental` (= `ActionClass`)                                                            |
+|  [04]   | `ExcelLoadCaseType`                                                           | load-case nature          | `SelfWeight`/`Prestress`/`Wind`/`Snow`/`Seismic`/`Temperature`/…                                                 |
+|  [05]   | `ExcelLoadCaseCombinationCategory`                                            | limit-state category      | `UltimateLimitState`/`ServiceabilityLimitState`/`AccidentalLimitState`/`AccordingNationalStandard`               |
+|  [06]   | `ExcelLoadCaseCombinationStandard`                                            | combination clause        | `EnUlsSetB`/`EnUlsSetC`/`EnAccidental1`/`2`/`EnSeismic`/`EnSlsCharacteristic`/`Frequent`/`QuasiPermanent`/`Ibc*` |
+|  [07]   | `ExcelMaterialType`                                                           | material family           | `Concrete`/`Steel`/`Timber`/`Aluminium`/`Masonry`/`Other`                                                        |
+|  [08]   | `ExcelMember1DType` / `ExcelMember2DType`                                     | member role               | `Beam`/`Column`/`Rafter`/… (1D), slab/wall/plate (2D)                                                            |
+|  [09]   | `ExcelConstraintType`                                                         | support DOF nature        | free/rigid/flexible per translational/rotational DOF                                                             |
+|  [10]   | `ExcelValidationMessageSeverity`                                              | validation severity       | `Error`/`Warning`/`Info` — the `ExcelValidationResult.Severity` the fault `.ToError()` reads                     |
+|  [11]   | `ExcelDuration`                                                               | load-duration class       | `Long`/`Medium`/`Short`/`Instantaneous` — `ExcelStructuralLoadCase.Duration` (timber)                            |
+|  [12]   | `ExcelLoadGroupType`                                                          | load-group relation       | the `ExcelStructuralLoadGroup` action-relation kind                                                              |
+|  [13]   | `ExcelCoordinateSystem` / `ExcelActionDirection`                              | load frame + axis         | the SAF analogue of `LoadApplication` — the coordinate frame + signed axis an action resolves against            |
+|  [14]   | `ExcelPointForceAction` / `ExcelCurveForceAction` / `ExcelSurfaceForceAction` | force-action discriminant | force-vs-derived-action discriminant per point/curve/surface load family                                         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: XLSX codec
 - rail: saf-exchange
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------ |:---------------- |:----------------------------------------------------- |
-| [01] | `IExcelImportService.Import(Stream)` | XLSX read | one `.xlsx` stream → `ExcelModel` (default version) |
-| [02] | `IExcelImportService.Import(Stream, Version targetVersion)` | versioned read | read upgrading/downgrading to a target SAF version |
-| [03] | `IExcelExportService.Export(Stream, ExcelModel)` | XLSX write | model → `.xlsx` stream → `ExcelExportResult` |
-| [04] | `IExcelExportService.Export(Stream, ExcelModel, Version, [Version, ExcelModelValidity])` | versioned write | target/source-version and validity-gated export |
-| [05] | `IExcelValidator.ValidateForImport(ExcelModel, Version, Version)` | import gate | pre-import FluentValidation pass |
-| [06] | `IExcelValidator.ValidateForExport(ExcelModel, Version, Version)` | export gate | pre-export FluentValidation pass |
+| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]  | [RAIL]                                              |
+| :-----: | :--------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------- |
+|  [01]   | `IExcelImportService.Import(Stream)`                                                     | XLSX read       | one `.xlsx` stream → `ExcelModel` (default version) |
+|  [02]   | `IExcelImportService.Import(Stream, Version targetVersion)`                              | versioned read  | read upgrading/downgrading to a target SAF version  |
+|  [03]   | `IExcelExportService.Export(Stream, ExcelModel)`                                         | XLSX write      | model → `.xlsx` stream → `ExcelExportResult`        |
+|  [04]   | `IExcelExportService.Export(Stream, ExcelModel, Version, [Version, ExcelModelValidity])` | versioned write | target/source-version and validity-gated export     |
+|  [05]   | `IExcelValidator.ValidateForImport(ExcelModel, Version, Version)`                        | import gate     | pre-import FluentValidation pass                    |
+|  [06]   | `IExcelValidator.ValidateForExport(ExcelModel, Version, Version)`                        | export gate     | pre-export FluentValidation pass                    |
 
 [ENTRYPOINT_SCOPE]: model construction, receipts, and UnitsNet helpers
 - rail: saf-exchange
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------ |:---------------- |:----------------------------------------------------- |
-| [01] | `new ExcelModel(IReadOnlyCollection<IExcelModuleObject>, IReadOnlyCollection<ExcelValidationResult>, ExcelSystemOfUnits)` | model ctor | assemble a SAF model for export |
-| [02] | `ExcelModel.Objects` | heterogeneous bag | `IReadOnlyList<IExcelModuleObject>`, filtered by concrete type |
-| [03] | `ExcelModel.SystemOfUnits` / `.OriginalVersion` / `.ValidationErrors` | model facts | units regime, source SAF version, decode errors |
-| [04] | `ExcelExportResult.IsSuccess` / `.Model` / `.ValidationResults` | export receipt | export outcome + revalidated model + messages |
-| [05] | `ExcelValidationResult.Format(IReadOnlyList<ExcelValidationResult>)` | message render | flatten validation receipts to a report string |
-| [06] | `UnitsNetExtensions.CreateUnit<TUnit>(this double) where TUnit: IQuantity` | scalar → quantity | lift a SAF cell scalar to a typed `UnitsNet` quantity |
-| [07] | `ExcelFlexibleEnum<T>` ctor `(T)` / `(string other)`, explicit `→ T`/`T?` | open enum | known SAF enum value OR arbitrary "other" cell text |
+| [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY]    | [RAIL]                                                         |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :---------------- | :------------------------------------------------------------- |
+|  [01]   | `new ExcelModel(IReadOnlyCollection<IExcelModuleObject>, IReadOnlyCollection<ExcelValidationResult>, ExcelSystemOfUnits)` | model ctor        | assemble a SAF model for export                                |
+|  [02]   | `ExcelModel.Objects`                                                                                                      | heterogeneous bag | `IReadOnlyList<IExcelModuleObject>`, filtered by concrete type |
+|  [03]   | `ExcelModel.SystemOfUnits` / `.OriginalVersion` / `.ValidationErrors`                                                     | model facts       | units regime, source SAF version, decode errors                |
+|  [04]   | `ExcelExportResult.IsSuccess` / `.Model` / `.ValidationResults`                                                           | export receipt    | export outcome + revalidated model + messages                  |
+|  [05]   | `ExcelValidationResult.Format(IReadOnlyList<ExcelValidationResult>)`                                                      | message render    | flatten validation receipts to a report string                 |
+|  [06]   | `UnitsNetExtensions.CreateUnit<TUnit>(this double) where TUnit: IQuantity`                                                | scalar → quantity | lift a SAF cell scalar to a typed `UnitsNet` quantity          |
+|  [07]   | `ExcelFlexibleEnum<T>` ctor `(T)` / `(string other)`, explicit `→ T`/`T?`                                                 | open enum         | known SAF enum value OR arbitrary "other" cell text            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

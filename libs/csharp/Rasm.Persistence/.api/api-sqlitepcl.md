@@ -26,13 +26,13 @@ per-connection db_config, and serialize/deserialize — reaching them through th
 [PACKAGE_ASSET_SCOPE]: bundle dependency graph — which package carries which surface
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                                                              |
-| :-----: | :-------------------------------- | :------------------ | :----------------------------------------------------------------------- |
-|  [01]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle (no DLL)     | pins config + native, fixes the provider to `e_sqlite3`                  |
-|  [02]   | `SQLitePCLRaw.config.e_sqlite3`   | config dependency   | carries `Batteries`/`Batteries_V2` (assembly `SQLitePCLRaw.batteries_v2`) |
-|  [03]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | `SQLite3Provider_e_sqlite3 : ISQLite3Provider`, the bundled P/Invoke impl |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                  |
+| :-----: | :-------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `SQLitePCLRaw.bundle_e_sqlite3`   | bundle (no DLL)     | pins config + native, fixes the provider to `e_sqlite3`                                       |
+|  [02]   | `SQLitePCLRaw.config.e_sqlite3`   | config dependency   | carries `Batteries`/`Batteries_V2` (assembly `SQLitePCLRaw.batteries_v2`)                     |
+|  [03]   | `SQLitePCLRaw.provider.e_sqlite3` | provider dependency | `SQLite3Provider_e_sqlite3 : ISQLite3Provider`, the bundled P/Invoke impl                     |
 |  [04]   | `SQLitePCLRaw.core`               | core dependency     | the `SQLitePCL.raw` static API and `sqlite3`/`sqlite3_backup`/`sqlite3_snapshot` handle types |
-|  [05]   | `SourceGear.sqlite3`              | native dependency   | SQLite 3.50.4 `e_sqlite3` binaries across 31 RIDs                        |
+|  [05]   | `SourceGear.sqlite3`              | native dependency   | SQLite 3.50.4 `e_sqlite3` binaries across 31 RIDs                                             |
 
 [RID_ABI]: native asset placement
 - the bundle ships `e_sqlite3` for 31 RIDs (every desktop/mobile/wasm RID): `osx-arm64`, `osx-x64`, `win-x64`/`x86`/`arm64`, `linux-x64`/`arm64`/`musl-*`/`riscv64`/`s390x`/`ppc64le`, `android-*`, `ios*`, `maccatalyst-*`, `browser-wasm`
@@ -44,12 +44,12 @@ per-connection db_config, and serialize/deserialize — reaching them through th
 [ENTRYPOINT_SCOPE]: provider initialization
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]     | [CAPABILITY]                                                       |
-| :-----: | :--------------------------------- | :--------------- | :----------------------------------------------------------------- |
-|  [01]   | `Batteries_V2.Init()`              | static void      | `raw.SetProvider(new SQLite3Provider_e_sqlite3())` — the low-level arm |
-|  [02]   | `Batteries.Init()`                 | static void      | thin facade forwarding to `Batteries_V2.Init()`                   |
-|  [03]   | `raw.SetProvider(ISQLite3Provider)`| static void      | binds the provider explicitly; init must precede any `sqlite3_*` call |
-|  [04]   | `raw.GetNativeLibraryName()`       | static string    | resolved native library basename                                   |
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]  | [CAPABILITY]                                                           |
+| :-----: | :---------------------------------- | :------------ | :--------------------------------------------------------------------- |
+|  [01]   | `Batteries_V2.Init()`               | static void   | `raw.SetProvider(new SQLite3Provider_e_sqlite3())` — the low-level arm |
+|  [02]   | `Batteries.Init()`                  | static void   | thin facade forwarding to `Batteries_V2.Init()`                        |
+|  [03]   | `raw.SetProvider(ISQLite3Provider)` | static void   | binds the provider explicitly; init must precede any `sqlite3_*` call  |
+|  [04]   | `raw.GetNativeLibraryName()`        | static string | resolved native library basename                                       |
 
 Initialization is explicit and idempotent through the store-profile open path; it never hides in
 unrelated startup code. `Microsoft.Data.Sqlite` invokes the same provider init internally, so the
@@ -109,39 +109,39 @@ int sqlite3_load_extension(sqlite3 db, utf8z file, utf8z proc, out utf8z errmsg)
 [RAW_CONSTANTS]: decompile-verified `SQLitePCL.raw` integer constants (the load-bearing subset of the `SQLitePCLRaw.core` `SQLITE_*` set)
 - rail: store-provider
 
-| [INDEX] | [CONSTANT]                              | [VALUE] | [CAPABILITY]                |
-| :-----: | :-------------------------------------- | ------: | :-------------------------- |
-|  [01]   | `SQLITE_DBCONFIG_DEFENSIVE`             |    1010 | defensive-mode hardening    |
-|  [02]   | `SQLITE_DBCONFIG_DQS_DML`               |    1013 | double-quoted DML rejection |
-|  [03]   | `SQLITE_DBCONFIG_DQS_DDL`               |    1014 | double-quoted DDL rejection |
-|  [04]   | `SQLITE_DBCONFIG_ENABLE_TRIGGER`        |    1003 | trigger enablement          |
-|  [05]   | `SQLITE_DBCONFIG_ENABLE_VIEW`           |    1015 | view enablement             |
-|  [06]   | `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` |    1005 | db_config extension arming  |
-|  [07]   | `SQLITE_OK`                             |       0 | status code                 |
-|  [08]   | `SQLITE_DONE`                           |     101 | status code                 |
-|  [09]   | `SQLITE_BUSY`                           |       5 | retry status code           |
-|  [10]   | `SQLITE_CORRUPT`                        |      11 | corruption status code      |
-|  [11]   | `SQLITE_NOTADB`                         |      26 | not-a-database status code  |
-|  [12]   | `SQLITE_CHECKPOINT_PASSIVE`             |       0 | checkpoint mode             |
-|  [13]   | `SQLITE_CHECKPOINT_FULL`                |       1 | checkpoint mode             |
-|  [14]   | `SQLITE_CHECKPOINT_RESTART`             |       2 | checkpoint mode             |
-|  [15]   | `SQLITE_CHECKPOINT_TRUNCATE`            |       3 | checkpoint mode             |
-|  [16]   | `SQLITE_ERROR`                          |       1 | generic error status        |
-|  [17]   | `SQLITE_LOCKED`                         |       6 | database-lock status (retry)|
-|  [18]   | `SQLITE_READONLY`                       |       8 | read-only status            |
-|  [19]   | `SQLITE_IOERR`                          |      10 | disk-I/O error status       |
-|  [20]   | `SQLITE_FULL`                           |      13 | database-full status        |
+| [INDEX] | [CONSTANT]                              | [VALUE] | [CAPABILITY]                                                           |
+| :-----: | :-------------------------------------- | ------: | :--------------------------------------------------------------------- |
+|  [01]   | `SQLITE_DBCONFIG_DEFENSIVE`             |    1010 | defensive-mode hardening                                               |
+|  [02]   | `SQLITE_DBCONFIG_DQS_DML`               |    1013 | double-quoted DML rejection                                            |
+|  [03]   | `SQLITE_DBCONFIG_DQS_DDL`               |    1014 | double-quoted DDL rejection                                            |
+|  [04]   | `SQLITE_DBCONFIG_ENABLE_TRIGGER`        |    1003 | trigger enablement                                                     |
+|  [05]   | `SQLITE_DBCONFIG_ENABLE_VIEW`           |    1015 | view enablement                                                        |
+|  [06]   | `SQLITE_DBCONFIG_ENABLE_LOAD_EXTENSION` |    1005 | db_config extension arming                                             |
+|  [07]   | `SQLITE_OK`                             |       0 | status code                                                            |
+|  [08]   | `SQLITE_DONE`                           |     101 | status code                                                            |
+|  [09]   | `SQLITE_BUSY`                           |       5 | retry status code                                                      |
+|  [10]   | `SQLITE_CORRUPT`                        |      11 | corruption status code                                                 |
+|  [11]   | `SQLITE_NOTADB`                         |      26 | not-a-database status code                                             |
+|  [12]   | `SQLITE_CHECKPOINT_PASSIVE`             |       0 | checkpoint mode                                                        |
+|  [13]   | `SQLITE_CHECKPOINT_FULL`                |       1 | checkpoint mode                                                        |
+|  [14]   | `SQLITE_CHECKPOINT_RESTART`             |       2 | checkpoint mode                                                        |
+|  [15]   | `SQLITE_CHECKPOINT_TRUNCATE`            |       3 | checkpoint mode                                                        |
+|  [16]   | `SQLITE_ERROR`                          |       1 | generic error status                                                   |
+|  [17]   | `SQLITE_LOCKED`                         |       6 | database-lock status (retry)                                           |
+|  [18]   | `SQLITE_READONLY`                       |       8 | read-only status                                                       |
+|  [19]   | `SQLITE_IOERR`                          |      10 | disk-I/O error status                                                  |
+|  [20]   | `SQLITE_FULL`                           |      13 | database-full status                                                   |
 |  [21]   | `SQLITE_DESERIALIZE_FREEONCLOSE`        |       1 | deserialize: engine frees the buffer on close (and on a rejected load) |
-|  [22]   | `SQLITE_DESERIALIZE_RESIZEABLE`         |       2 | deserialize: allow the in-memory image to regrow |
-|  [23]   | `SQLITE_LIMIT_LENGTH`                   |       0 | `sqlite3_limit` id — max string/blob length |
-|  [24]   | `SQLITE_LIMIT_SQL_LENGTH`               |       1 | `sqlite3_limit` id — max SQL text length |
-|  [25]   | `SQLITE_LIMIT_COLUMN`                   |       2 | `sqlite3_limit` id — max columns |
-|  [26]   | `SQLITE_LIMIT_EXPR_DEPTH`               |       3 | `sqlite3_limit` id — max expression-tree depth |
-|  [27]   | `SQLITE_LIMIT_COMPOUND_SELECT`          |       4 | `sqlite3_limit` id — max compound-SELECT terms |
-|  [28]   | `SQLITE_LIMIT_VDBE_OP`                  |       5 | `sqlite3_limit` id — max VDBE opcodes per statement |
-|  [29]   | `SQLITE_LIMIT_ATTACHED`                 |       7 | `sqlite3_limit` id — max attached databases |
-|  [30]   | `SQLITE_LIMIT_VARIABLE_NUMBER`          |       9 | `sqlite3_limit` id — max bound parameters |
-|  [31]   | `SQLITE_LIMIT_TRIGGER_DEPTH`            |      10 | `sqlite3_limit` id — max trigger recursion depth |
+|  [22]   | `SQLITE_DESERIALIZE_RESIZEABLE`         |       2 | deserialize: allow the in-memory image to regrow                       |
+|  [23]   | `SQLITE_LIMIT_LENGTH`                   |       0 | `sqlite3_limit` id — max string/blob length                            |
+|  [24]   | `SQLITE_LIMIT_SQL_LENGTH`               |       1 | `sqlite3_limit` id — max SQL text length                               |
+|  [25]   | `SQLITE_LIMIT_COLUMN`                   |       2 | `sqlite3_limit` id — max columns                                       |
+|  [26]   | `SQLITE_LIMIT_EXPR_DEPTH`               |       3 | `sqlite3_limit` id — max expression-tree depth                         |
+|  [27]   | `SQLITE_LIMIT_COMPOUND_SELECT`          |       4 | `sqlite3_limit` id — max compound-SELECT terms                         |
+|  [28]   | `SQLITE_LIMIT_VDBE_OP`                  |       5 | `sqlite3_limit` id — max VDBE opcodes per statement                    |
+|  [29]   | `SQLITE_LIMIT_ATTACHED`                 |       7 | `sqlite3_limit` id — max attached databases                            |
+|  [30]   | `SQLITE_LIMIT_VARIABLE_NUMBER`          |       9 | `sqlite3_limit` id — max bound parameters                              |
+|  [31]   | `SQLITE_LIMIT_TRIGGER_DEPTH`            |      10 | `sqlite3_limit` id — max trigger recursion depth                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

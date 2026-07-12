@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_OPTIONS]
 
-`Microsoft.Extensions.Options` supplies named options, configure and post-configure
-pipelines, factories, caches, monitors, change tokens, validation hooks, and startup
-policy validation.
+`Microsoft.Extensions.Options` supplies named options, configure and post-configure pipelines, factories, caches, monitors, change tokens, validation hooks, and startup policy validation.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Options`
+
 - package: `Microsoft.Extensions.Options`
 - assembly: `Microsoft.Extensions.Options`
 - namespace: `Microsoft.Extensions.Options`
@@ -16,6 +15,7 @@ policy validation.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: options family
+
 - rail: options
 
 | [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]       | [RAIL]                 |
@@ -34,6 +34,7 @@ policy validation.
 |  [12]   | `OptionsBuilder<TOptions>`            | options builder     | fluent policy pipeline |
 
 [PUBLIC_TYPE_SCOPE]: implementation and validation family
+
 - rail: options
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]          | [RAIL]                |
@@ -57,6 +58,7 @@ policy validation.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: options operations
+
 - rail: options
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]           | [RAIL]                  |
@@ -83,6 +85,7 @@ policy validation.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OPTIONS_TOPOLOGY]:
+
 - namespaces: `Microsoft.Extensions.Options`, `Microsoft.Extensions.DependencyInjection`
 - access modes: singleton options, scoped snapshot, monitor with named lookup
 - construction pipeline: configure, post-configure, validate, cache
@@ -93,6 +96,7 @@ policy validation.
 - generator assets: options source-generation analyzer assets
 
 [LOCAL_ADMISSION]:
+
 - Policy values enter AppHost through named options where variants are bounded.
 - Startup validation is mandatory for runtime-critical policy records.
 - Cache invalidation becomes a typed runtime transition.
@@ -100,6 +104,7 @@ policy validation.
 - Options monitor changes become explicit state transitions, not mutable ambient settings.
 
 [RAIL_LAW]:
+
 - Package: `Microsoft.Extensions.Options`
 - Owns: runtime policy values
 - Accept: options are validated inputs

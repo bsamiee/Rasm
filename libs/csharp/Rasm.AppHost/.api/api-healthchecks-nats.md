@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.Nats`
+
 - package: `AspNetCore.HealthChecks.Nats`
 - license: `Apache-2.0`
 - assembly: `HealthChecks.Nats`
@@ -18,52 +19,67 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: probe family
+
 - rail: health
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]        | [RAIL]                                                        |
-| :-----: | :----------------- | :------------------- | :----------------------------------------------------------- |
-|  [01]   | `NatsHealthCheck`  | `IHealthCheck` probe | NATS connection reachability over an injected `INatsConnection` |
+[NATS_HEALTH_CHECK]:
+
+- Symbol: `NatsHealthCheck`
+- Type family: `IHealthCheck` probe
+- Rail: health
+- Reachability: NATS connection through an injected `INatsConnection`
 
 The probe carries NO options type, NO probe-message factory, and NO result-detail dictionary — the connection health IS the reachability signal (contrast the Kafka probe's `KafkaHealthCheckOptions`/`MessageBuilder`). The registration extension `NatsHealthCheckBuilderExtensions` is the only other public type.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operation (`NatsHealthCheckBuilderExtensions`, default name `"nats"`)
+
 - rail: health
 
-| [INDEX] | [SURFACE]                                                                                                                                                     | [ENTRY_FAMILY]      | [RAIL]                                                       |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------------- |
-|  [01]   | `AddNats(this IHealthChecksBuilder, Func<IServiceProvider, INatsConnection>? clientFactory = null, string? name = "nats", HealthStatus? failureStatus = null, IEnumerable<string>? tags = null, TimeSpan? timeout = null)` | connection admission | null factory resolves `NatsConnection`/`INatsConnection` from DI — shares the pooled connection |
+[ADD_NATS]:
+
+- Surface: `AddNats(this IHealthChecksBuilder, Func<IServiceProvider, INatsConnection>? clientFactory = null, string? name = "nats", HealthStatus? failureStatus = null, IEnumerable<string>? tags = null, TimeSpan? timeout = null)`
+- Entry family: connection admission
+- Resolution: A null factory resolves `NatsConnection` or `INatsConnection` from DI and shares the pooled connection.
 
 [ENTRYPOINT_SCOPE]: probe operation
+
 - rail: health
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                                                              |
-| :-----: | :--------------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `NatsHealthCheck.CheckHealthAsync(HealthCheckContext, CancellationToken)` | probe          | `((INatsClient)connection).ConnectAsync()`; success is `Healthy()`, any exception is `Unhealthy()` |
+[CHECK_HEALTH_ASYNC]:
+
+- Surface: `NatsHealthCheck.CheckHealthAsync(HealthCheckContext, CancellationToken)`
+- Entry family: probe
+- Connect: `((INatsClient)connection).ConnectAsync()`
+- Result: Success returns `Healthy()`, and any exception returns `Unhealthy()`.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [NATS_TOPOLOGY]:
+
 - one type: `NatsHealthCheck(INatsConnection connection) : IHealthCheck` (sealed, primary-constructor injected); the public surface is `NatsHealthCheck` plus the single `AddNats` extension. No options overload set, no sync mirror, no JetStream/consumer assertion.
 - probe mechanics: `CheckHealthAsync` calls the private `TryConnectAsync(connection)` which `await`s `((INatsClient)natsConnection).ConnectAsync().ConfigureAwait(false)` and returns `HealthCheckResult.Healthy()`; ANY caught `Exception` returns `HealthCheckResult.Unhealthy()` with no message or exception payload. `ConnectAsync` is idempotent on an already-open `NatsConnection`, so the probe is a cheap liveness ping, not a reconnect.
 - connection resolution: `AddNats` registers a `HealthCheckRegistration(name ?? "nats", sp => Factory(clientFactory, sp), failureStatus, tags, timeout)`; the factory invokes `clientFactory?.Invoke(sp)`, else resolves `sp.GetService<NatsConnection>()` and falls back to `sp.GetRequiredService<INatsConnection>()` — the concrete `NatsConnection` is preferred so the probe shares the app's pooled connection and its `NatsOpts` (URL, TLS, auth, ping cadence).
 - registration policy: `failureStatus` null defaults to `HealthStatus.Unhealthy`; `tags`/`timeout` flow straight into the `HealthCheckRegistration`; the default check name is the literal `"nats"`.
 
 [LOCAL_ADMISSION]:
+
 - The probe is one `HealthContributorRow.Peer` row tagged `Remote`, never a parallel registration surface — its `Probe` adapts `NatsHealthCheck.CheckHealthAsync` to `Func<CancellationToken, ValueTask<HealthCheckResult>>` and registers through `HealthSurface.Register`, sharing `DeadlineClass.HealthProbe` and the cadence-as-`Delay`/`Period` policy with every other contributor.
 - The `INatsConnection` the probe binds is the SAME pooled `NatsConnection` the durable-drain/broker rail composes (exactly as the npgsql row binds the shared `NpgsqlDataSource`); the probe re-uses the admitted connection and its `NatsOpts`, never inventing a second connection vocabulary, so a broker outage degrades the drain path and the probe in lockstep.
 - A connect failure is a typed `HealthCheckResult` with `FailureStatus` (the probe returns `Unhealthy()` on any exception), folded by the `HealthReport.Snapshot` projection into a `HealthSnapshot.Entry` — never a thrown exception crossing the fold. The probe's message-less result is enriched at the row (name/tag) since the package attaches no detail.
 
 [STACK]:
-- health fold: `HealthContributorRow.Peer(name: "nats", tag: HealthContributorRow.Remote, cadence, probe: ct => new ValueTask<HealthCheckResult>(natsCheck.CheckHealthAsync(ctx, ct)))` is the canonical row; `Observability/health#HEALTH_FOLD` `HealthSurface.Register(...)` admits it and `HealthReport.Snapshot` projects its result.
+
+- health fold: `HealthContributorRow.Peer(name: "nats", tag: HealthContributorRow.Remote, cadence, probe: ct => new ValueTask<HealthCheckResult>(natsCheck.CheckHealthAsync(ctx, ct)))` is the canonical row; `HealthSurface.Register(...)` admits it, and `HealthReport.Snapshot` projects its result.
 - roster tracking: this is the `[V6]` NATS anchor row — the `Broker` contributor set is seed DATA that TRACKS the Persistence `[V3]` egress sink roster, so the NATS spine sink lands one probe row here by construction; a sink admitted Persistence-side lands as one more `Remote`-tagged row, never a re-cut `DriverProbe` enum.
-- degradation rail: a `Remote`-tagged unhealthy entry drives `Observability/health#DEGRADATION_RAIL` `Rule(HealthContributorRow.Remote, HealthStatus.Unhealthy, DegradationLevel.ReducedRemote)` — a faulted NATS broker degrades the host to `ReducedRemote` with the existing escalation-immediate/recovery-hysteresis semantics, no probe-local branching.
+- degradation rail: a `Remote`-tagged unhealthy entry drives `Rule(HealthContributorRow.Remote, HealthStatus.Unhealthy, DegradationLevel.ReducedRemote)`; a faulted NATS broker degrades the host to `ReducedRemote` with the existing escalation-immediate and recovery-hysteresis semantics and no probe-local branching.
 - connection reuse: the `NatsConnection` is the one the app registers for the CloudEvents/durable-drain publish path; the probe's `ConnectAsync` exercises the real pooled connection, so a broker partition surfaces as a degraded `nats` row rather than only failing production publishes silently.
-- wire-health projection: the contributor result flows into `Wire/companion#WIRE_HEALTH` `HealthServiceImpl.SetStatus` through the tag-predicate mapping (`ServingStatus.Serving` on healthy/degraded, `NotServing` on unhealthy), so broker readiness reaches the standard gRPC health service without a second status path.
+- wire-health projection: the contributor result flows into `HealthServiceImpl.SetStatus` through the tag-predicate mapping (`ServingStatus.Serving` on healthy or degraded, `NotServing` on unhealthy), so broker readiness reaches the standard gRPC health service without a second status path.
 - resilience boundary: the probe deadline is `DeadlineClass.HealthProbe`, distinct from the `Polly.Core` outbound publish pipeline (`Wire/outbound`); the health probe never shares the publish retry budget.
 
 [RAIL_LAW]:
+
 - Package: `AspNetCore.HealthChecks.Nats`
 - Owns: NATS broker reachability as one `remote`-tagged contributor probe over the shared `INatsConnection`
 - Accept: the pooled `NatsConnection` resolved from DI (or a factory), and a bounded probe cadence

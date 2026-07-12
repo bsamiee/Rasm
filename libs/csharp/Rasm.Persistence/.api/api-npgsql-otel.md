@@ -24,10 +24,10 @@ two subscriptions onto the provider builders.
 [TELEMETRY_TYPES]: provider builder extensions (namespace `Npgsql`)
 - rail: telemetry
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]                                   |
-| :-----: | :-------------------------------- | :--------------- | :--------------------------------------------- |
-|  [01]   | `TracerProviderBuilderExtensions` | tracer extension | subscribes the Npgsql `ActivitySource` (spans) |
-|  [02]   | `MeterProviderBuilderExtensions`  | meter extension  | subscribes the Npgsql metrics reporter (meters)|
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]                                    |
+| :-----: | :-------------------------------- | :--------------- | :---------------------------------------------- |
+|  [01]   | `TracerProviderBuilderExtensions` | tracer extension | subscribes the Npgsql `ActivitySource` (spans)  |
+|  [02]   | `MeterProviderBuilderExtensions`  | meter extension  | subscribes the Npgsql metrics reporter (meters) |
 
 Extension signatures (verified against the package XML/IL):
 - `TracerProviderBuilderExtensions.AddNpgsql(TracerProviderBuilder builder) : TracerProviderBuilder` — subscribes the Npgsql activity source to enable OpenTelemetry tracing.

@@ -199,55 +199,55 @@ profile policy expressed as SQL.
 - rail: store-provider
 - surface-root: SQL run through `DuckDBCommand.ExecuteNonQuery`
 
-| [INDEX] | [SQL]                                              | [CAPABILITY]                                                        |
-| :-----: | :------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `INSTALL <name>;`                                  | download + cache the extension binary from the default repository  |
-|  [02]   | `LOAD <name>;`                                     | bind the installed extension into the current connection's process |
-|  [03]   | `INSTALL <name> FROM core;` / `FROM community;` / `FROM core_nightly;` | pin the source repository (default `core`)      |
-|  [04]   | `INSTALL <name> FROM '⟨repo_url⟩';`                | install from a custom repository URL (gzip + plain probed)         |
-|  [05]   | `FORCE INSTALL <name>;` / `FORCE INSTALL <name> FROM core_nightly;` | re-download, overwrite the cached binary, switch repository |
-|  [06]   | `UPDATE EXTENSIONS;` / `UPDATE EXTENSIONS (<name>, …);` | refresh installed extensions to the newest compatible build    |
-|  [07]   | `SET custom_extension_repository = '⟨url⟩';`       | redirect the default `INSTALL` repository for the session          |
-|  [08]   | `SET extension_directory = '⟨path⟩';`              | relocate the install cache (per-profile, off the home directory)   |
-|  [09]   | `SET autoinstall_known_extensions = true;` / `SET autoload_known_extensions = true;` | auto-`INSTALL`/`LOAD` a known extension on first reference (e.g. `read_parquet`, `ST_Read`) — default-on in the bundled build |
-|  [10]   | `SELECT * FROM duckdb_extensions();`               | metadata table: `extension_name`, `loaded`, `installed`, `install_path`, `description`, `aliases`, `extension_version`, `installed_from` |
+| [INDEX] | [SQL]                                                                                | [CAPABILITY]                                                                                                                             |
+| :-----: | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `INSTALL <name>;`                                                                    | download + cache the extension binary from the default repository                                                                        |
+|  [02]   | `LOAD <name>;`                                                                       | bind the installed extension into the current connection's process                                                                       |
+|  [03]   | `INSTALL <name> FROM core;` / `FROM community;` / `FROM core_nightly;`               | pin the source repository (default `core`)                                                                                               |
+|  [04]   | `INSTALL <name> FROM '⟨repo_url⟩';`                                                  | install from a custom repository URL (gzip + plain probed)                                                                               |
+|  [05]   | `FORCE INSTALL <name>;` / `FORCE INSTALL <name> FROM core_nightly;`                  | re-download, overwrite the cached binary, switch repository                                                                              |
+|  [06]   | `UPDATE EXTENSIONS;` / `UPDATE EXTENSIONS (<name>, …);`                              | refresh installed extensions to the newest compatible build                                                                              |
+|  [07]   | `SET custom_extension_repository = '⟨url⟩';`                                         | redirect the default `INSTALL` repository for the session                                                                                |
+|  [08]   | `SET extension_directory = '⟨path⟩';`                                                | relocate the install cache (per-profile, off the home directory)                                                                         |
+|  [09]   | `SET autoinstall_known_extensions = true;` / `SET autoload_known_extensions = true;` | auto-`INSTALL`/`LOAD` a known extension on first reference (e.g. `read_parquet`, `ST_Read`) — default-on in the bundled build            |
+|  [10]   | `SELECT * FROM duckdb_extensions();`                                                 | metadata table: `extension_name`, `loaded`, `installed`, `install_path`, `description`, `aliases`, `extension_version`, `installed_from` |
 
 [EXTENSION_ROSTER]: core + community extensions admitted by the Rasm analytical lanes
 - rail: store-provider
 
-| [INDEX] | [EXTENSION]        | [ALIAS]            | [CAPABILITY_KEY_SQL]                                                        | [RASM_LANE]                          |
-| :-----: | :----------------- | :----------------- | :--------------------------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `spatial`          | —                  | `ST_*` geometry algebra, `ST_Read` (GDAL-backed shapefile/GeoJSON/FlatGeobuf), `ST_GeomFromWKB`/`ST_AsWKB`, GeoParquet read/write | geometry columnar; meets NTS/GDAL at WKB |
-|  [02]   | `httpfs`           | `http`/`https`/`s3` | read/write over HTTP(S) + S3 (`read_parquet('s3://…')`, `COPY … TO 's3://…'`) | remote/object-store extract           |
-|  [03]   | `parquet`          | —                  | built-in: `read_parquet`, `COPY … TO '…' (FORMAT parquet)`, Hive partition pruning | Parquet projection lane (BIM frames)  |
-|  [04]   | `json`             | —                  | built-in: `read_json_auto`, `->`/`->>` path ops, `json_*` functions          | semi-structured payload lane          |
-|  [05]   | `iceberg`          | —                  | `iceberg_scan('⟨table⟩')`, `ATTACH '⟨catalog⟩' (TYPE iceberg)` — Apache Iceberg tables | lakehouse read projection          |
-|  [06]   | `delta`            | —                  | `delta_scan('⟨path⟩')` — Delta Lake tables (complements `api-deltalake`)      | lakehouse read projection             |
-|  [07]   | `postgres`         | `postgres_scanner` | `ATTACH '⟨conn⟩' AS pg (TYPE postgres)`, `postgres_scan('⟨conn⟩','schema','table')` | live PG join lane (Marten/Npgsql DB) |
-|  [08]   | `sqlite`           | `sqlite_scanner`   | `ATTACH '⟨file.db⟩' (TYPE sqlite)` — SQLite tables                            | embedded-store join lane              |
-|  [09]   | `mysql`            | `mysql_scanner`    | `ATTACH '⟨conn⟩' (TYPE mysql)` — MySQL tables                                 | external-store join lane              |
-|  [10]   | `vss`              | —                  | `CREATE INDEX … USING HNSW`, `array_distance`/`array_cosine_similarity` ANN   | columnar ANN (PG `pgvector` is default per plan L2) |
-|  [11]   | `fts`              | —                  | `PRAGMA create_fts_index(…)`, `match_bm25` — BM25 full-text search            | columnar full-text lane               |
-|  [12]   | `excel`            | —                  | `read_xlsx`/`COPY … TO '…' (FORMAT xlsx)` (complements `api-miniexcel`/`api-mpxj`) | spreadsheet ingest/extract       |
-|  [13]   | `avro`             | —                  | `read_avro('⟨file⟩')` — Apache Avro decode                                    | event-payload ingest lane             |
-|  [14]   | `aws`              | —                  | `CREATE SECRET (TYPE s3, PROVIDER credential_chain, …)` credential resolution | S3 credential rail (with `httpfs`)    |
-|  [15]   | `azure`            | —                  | `CREATE SECRET (TYPE azure, …)`, `az://`/`abfss://` paths                     | Azure blob credential rail            |
-|  [16]   | `inet`             | —                  | `INET` type + CIDR/host operators                                            | network-typed columns                 |
-|  [17]   | `icu`              | —                  | time-zone + collation support (built-in)                                     | temporal/locale correctness           |
-|  [18]   | `ducklake`         | —                  | `ATTACH '⟨catalog⟩' (TYPE ducklake)` — DuckLake SQL lakehouse catalog        | catalog-managed lakehouse lane        |
-|  [19]   | `substrait`        | `community`        | `get_substrait('⟨sql⟩')`/`get_substrait_json` → binary/JSON Substrait plan; `from_substrait(⟨blob⟩)`/`from_substrait_json` execute a foreign plan (COMMUNITY repo: `INSTALL substrait FROM community`) | cross-engine plan interchange (`Query/columnar`) |
+| [INDEX] | [EXTENSION] | [ALIAS]             | [CAPABILITY_KEY_SQL]                                                                                                                                                                                   | [RASM_LANE]                                         |
+| :-----: | :---------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------- |
+|  [01]   | `spatial`   | —                   | `ST_*` geometry algebra, `ST_Read` (GDAL-backed shapefile/GeoJSON/FlatGeobuf), `ST_GeomFromWKB`/`ST_AsWKB`, GeoParquet read/write                                                                      | geometry columnar; meets NTS/GDAL at WKB            |
+|  [02]   | `httpfs`    | `http`/`https`/`s3` | read/write over HTTP(S) + S3 (`read_parquet('s3://…')`, `COPY … TO 's3://…'`)                                                                                                                          | remote/object-store extract                         |
+|  [03]   | `parquet`   | —                   | built-in: `read_parquet`, `COPY … TO '…' (FORMAT parquet)`, Hive partition pruning                                                                                                                     | Parquet projection lane (BIM frames)                |
+|  [04]   | `json`      | —                   | built-in: `read_json_auto`, `->`/`->>` path ops, `json_*` functions                                                                                                                                    | semi-structured payload lane                        |
+|  [05]   | `iceberg`   | —                   | `iceberg_scan('⟨table⟩')`, `ATTACH '⟨catalog⟩' (TYPE iceberg)` — Apache Iceberg tables                                                                                                                 | lakehouse read projection                           |
+|  [06]   | `delta`     | —                   | `delta_scan('⟨path⟩')` — Delta Lake tables (complements `api-deltalake`)                                                                                                                               | lakehouse read projection                           |
+|  [07]   | `postgres`  | `postgres_scanner`  | `ATTACH '⟨conn⟩' AS pg (TYPE postgres)`, `postgres_scan('⟨conn⟩','schema','table')`                                                                                                                    | live PG join lane (Marten/Npgsql DB)                |
+|  [08]   | `sqlite`    | `sqlite_scanner`    | `ATTACH '⟨file.db⟩' (TYPE sqlite)` — SQLite tables                                                                                                                                                     | embedded-store join lane                            |
+|  [09]   | `mysql`     | `mysql_scanner`     | `ATTACH '⟨conn⟩' (TYPE mysql)` — MySQL tables                                                                                                                                                          | external-store join lane                            |
+|  [10]   | `vss`       | —                   | `CREATE INDEX … USING HNSW`, `array_distance`/`array_cosine_similarity` ANN                                                                                                                            | columnar ANN (PG `pgvector` is default per plan L2) |
+|  [11]   | `fts`       | —                   | `PRAGMA create_fts_index(…)`, `match_bm25` — BM25 full-text search                                                                                                                                     | columnar full-text lane                             |
+|  [12]   | `excel`     | —                   | `read_xlsx`/`COPY … TO '…' (FORMAT xlsx)` (complements `api-miniexcel`/`api-mpxj`)                                                                                                                     | spreadsheet ingest/extract                          |
+|  [13]   | `avro`      | —                   | `read_avro('⟨file⟩')` — Apache Avro decode                                                                                                                                                             | event-payload ingest lane                           |
+|  [14]   | `aws`       | —                   | `CREATE SECRET (TYPE s3, PROVIDER credential_chain, …)` credential resolution                                                                                                                          | S3 credential rail (with `httpfs`)                  |
+|  [15]   | `azure`     | —                   | `CREATE SECRET (TYPE azure, …)`, `az://`/`abfss://` paths                                                                                                                                              | Azure blob credential rail                          |
+|  [16]   | `inet`      | —                   | `INET` type + CIDR/host operators                                                                                                                                                                      | network-typed columns                               |
+|  [17]   | `icu`       | —                   | time-zone + collation support (built-in)                                                                                                                                                               | temporal/locale correctness                         |
+|  [18]   | `ducklake`  | —                   | `ATTACH '⟨catalog⟩' (TYPE ducklake)` — DuckLake SQL lakehouse catalog                                                                                                                                  | catalog-managed lakehouse lane                      |
+|  [19]   | `substrait` | `community`         | `get_substrait('⟨sql⟩')`/`get_substrait_json` → binary/JSON Substrait plan; `from_substrait(⟨blob⟩)`/`from_substrait_json` execute a foreign plan (COMMUNITY repo: `INSTALL substrait FROM community`) | cross-engine plan interchange (`Query/columnar`)    |
 
 [SECRET_AND_ATTACH]:
 - rail: store-provider
 
-| [INDEX] | [SQL]                                                                         | [CAPABILITY]                                                  |
-| :-----: | :-------------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `CREATE OR REPLACE SECRET ⟨name⟩ (TYPE s3, PROVIDER config, KEY_ID '…', SECRET '…', REGION '…');` | explicit S3 credential secret           |
-|  [02]   | `CREATE OR REPLACE SECRET ⟨name⟩ (TYPE s3, PROVIDER credential_chain, CHAIN 'env;sso;', PROFILE '…', REGION '…');` | chained/role S3 credentials |
-|  [03]   | `CREATE OR REPLACE SECRET ⟨name⟩ IN postgres_⟨db⟩ (TYPE s3, …);`            | persist a secret into an attached store (survives reconnect)  |
-|  [04]   | `ATTACH '⟨conn⟩' AS ⟨alias⟩ (TYPE postgres, READ_ONLY);` then `SELECT … FROM ⟨alias⟩.schema.table` | cross-engine join against live PG     |
-|  [05]   | `COPY (SELECT … FROM postgres_scan('⟨conn⟩','public','⟨t⟩')) TO '⟨file⟩.parquet' (FORMAT parquet);` | PG → Parquet extract                |
-|  [06]   | `SELECT extension_name, loaded, installed FROM duckdb_extensions() WHERE installed;` | profile receipt of the loaded extension set |
+| [INDEX] | [SQL]                                                                                                              | [CAPABILITY]                                                 |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `CREATE OR REPLACE SECRET ⟨name⟩ (TYPE s3, PROVIDER config, KEY_ID '…', SECRET '…', REGION '…');`                  | explicit S3 credential secret                                |
+|  [02]   | `CREATE OR REPLACE SECRET ⟨name⟩ (TYPE s3, PROVIDER credential_chain, CHAIN 'env;sso;', PROFILE '…', REGION '…');` | chained/role S3 credentials                                  |
+|  [03]   | `CREATE OR REPLACE SECRET ⟨name⟩ IN postgres_⟨db⟩ (TYPE s3, …);`                                                   | persist a secret into an attached store (survives reconnect) |
+|  [04]   | `ATTACH '⟨conn⟩' AS ⟨alias⟩ (TYPE postgres, READ_ONLY);` then `SELECT … FROM ⟨alias⟩.schema.table`                 | cross-engine join against live PG                            |
+|  [05]   | `COPY (SELECT … FROM postgres_scan('⟨conn⟩','public','⟨t⟩')) TO '⟨file⟩.parquet' (FORMAT parquet);`                | PG → Parquet extract                                         |
+|  [06]   | `SELECT extension_name, loaded, installed FROM duckdb_extensions() WHERE installed;`                               | profile receipt of the loaded extension set                  |
 
 [LOAD_PROTOCOL]:
 - An analytical store profile declares its required extension set once; profile bootstrap runs the ordered `INSTALL <ext>; LOAD <ext>;` pairs through `DuckDBConnection.CreateCommand().ExecuteNonQuery()` immediately after `Open`, before any analytical query. The loaded set lands as a `Query/columnar` profile receipt, queried back via `duckdb_extensions()`.

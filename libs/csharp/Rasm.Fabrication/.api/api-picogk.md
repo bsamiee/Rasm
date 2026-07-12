@@ -7,6 +7,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PicoGK`
+
 - package: `PicoGK`
 - license: `Apache-2.0` (LEAP71; nuspec `<license type="expression">Apache-2.0</license>`)
 - assembly: `PicoGK`
@@ -21,139 +22,220 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the implicit (SDF) contract — the field-function entry
+
 - rail: fabrication
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      | [CAPABILITY]                                                                                  |
-| :-----: | :-------------------- | :----------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `IImplicit`           | SDF contract       | the single member `float fSignedDistance(in Vector3 vec)` — the signed-distance field a consumer implements to define a gyroid/TPMS/cellular/arbitrary implicit solid; negative inside, positive outside |
-|  [02]   | `IBoundedImplicit`    | bounded SDF        | `: IImplicit` + `BBox3 oBounds { get; }` — a self-bounding implicit (the `Voxels(IBoundedImplicit)` ctor reads its own extent; the unbounded `IImplicit` needs an explicit `BBox3`) |
-|  [03]   | `ITraverseScalarField`/`ITraverseVectorField` | traversal visitor | the active-voxel visitor callbacks `ScalarField.TraverseActive`/`VectorField.TraverseActive` invoke per populated voxel |
+`IImplicit` defines `float fSignedDistance(in Vector3 vec)` for arbitrary implicit solids; negative values lie inside and positive values lie outside. `IBoundedImplicit : IImplicit` adds `BBox3 oBounds { get; }`, so `Voxels(IBoundedImplicit)` reads its extent while an unbounded `IImplicit` requires an explicit `BBox3`. `ScalarField.TraverseActive` and `VectorField.TraverseActive` invoke their traversal contracts once per populated voxel.
+
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]  | [CAPABILITY]          |
+| :-----: | :--------------------- | :------------- | :-------------------- |
+|  [01]   | `IImplicit`            | SDF contract   | signed-distance field |
+|  [02]   | `IBoundedImplicit`     | bounded SDF    | self-bounding field   |
+|  [03]   | `ITraverseScalarField` | scalar visitor | active-voxel callback |
+|  [04]   | `ITraverseVectorField` | vector visitor | active-voxel callback |
 
 [PUBLIC_TYPE_SCOPE]: the field owners — voxels and sampled fields
+
 - rail: fabrication
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [CAPABILITY]                                                                                  |
-| :-----: | :------------------ | :----------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Voxels`            | SDF/voxel field (`IDisposable`) | THE core owner — a narrow-band signed-distance voxel grid: SDF Boolean, distance morphology, slice rasterization, mesh extraction, ray-cast, property/bbox query (see entrypoints); `IFieldWithMetadata` so it carries `FieldMetadata` |
-|  [02]   | `ScalarField`       | scalar field (`IImplicit`, `IDisposable`) | a sparse sampled scalar field; itself an `IImplicit` (`fSignedDistance` reads the sampled value), built from `Voxels`; `SetValue`/`bGetValue`/`RemoveValue` per `Vector3`, `TraverseActive`, `GetVoxelSlice` to an `ImageGrayScale` |
-|  [03]   | `VectorField`       | vector field (`IDisposable`) | a sparse sampled `Vector3` field (e.g. a thermal-gradient or fibre-orientation field driving anisotropic infill); `SetValue`/`bGetValue`/`RemoveValue`, `TraverseActive` |
-|  [04]   | `FieldMetadata`     | field metadata (`IDisposable`) | a typed key->value bag (`EType` String/Float/Vector) on any field — `SetValue`/`bGetValueAt` over `string`/`float`/`Vector3`; the per-field provenance/parameter carrier round-tripped through VDB |
-|  [05]   | `IFieldWithMetadata`| metadata contract  | `FieldMetadata oMetaData()` — implemented by `Voxels`/`ScalarField`/`VectorField` |
+`Voxels` owns the narrow-band signed-distance grid, including SDF Boolean, distance morphology, slice rasterization, mesh extraction, ray-cast, property, and bounding-box queries. `ScalarField` is an `IImplicit` sampled field built from `Voxels`; `fSignedDistance` reads its sampled value, `SetValue`/`bGetValue`/`RemoveValue` address `Vector3` positions, `TraverseActive` visits populated voxels, and `GetVoxelSlice` writes `ImageGrayScale`. `VectorField` carries sparse sampled `Vector3` values for drivers such as thermal gradients or fibre orientation through `SetValue`, `bGetValue`, `RemoveValue`, and `TraverseActive`. `FieldMetadata` stores `EType` String/Float/Vector values through `SetValue` and `bGetValueAt` overloads for `string`, `float`, and `Vector3`, and VDB preserves this provenance and parameter carrier. `IFieldWithMetadata` exposes `FieldMetadata oMetaData()` on `Voxels`, `ScalarField`, and `VectorField`.
+
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]                             | [CAPABILITY]          |
+| :-----: | :------------------- | :---------------------------------------- | :-------------------- |
+|  [01]   | `Voxels`             | SDF field (`IDisposable`)                 | voxel geometry owner  |
+|  [02]   | `ScalarField`        | scalar field (`IImplicit`, `IDisposable`) | sampled scalar values |
+|  [03]   | `VectorField`        | vector field (`IDisposable`)              | sampled vector values |
+|  [04]   | `FieldMetadata`      | metadata (`IDisposable`)                  | typed field values    |
+|  [05]   | `IFieldWithMetadata` | metadata contract                         | metadata access       |
 
 [PUBLIC_TYPE_SCOPE]: scaffolds, meshes, lines — the geometry carriers
+
 - rail: fabrication
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [CAPABILITY]                                                                                  |
-| :-----: | :------------------ | :----------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Lattice`           | beam/sphere scaffold (`IDisposable`) | a CSG of capsules/spheres: `AddBeam(vecA, fRadA, vecB, fRadB, bRoundCap)` / `AddSphere(vecCenter, fRadius)` — rasterized to a solid by `Voxels(Lattice)` or `RenderLattice`; the conformal-support / strut-lattice builder |
-|  [02]   | `Mesh`              | triangle mesh (`IDisposable`) | the extraction target and STL bridge: `nAddVertex`/`AddVertices`/`nAddTriangle`/`AddQuad`, `vecVertexAt`/`oTriangleAt`/`GetTriangle`, `nVertexCount`/`nTriangleCount`, `mshCreateTransformed(Matrix4x4)` / `mshCreateMirrored`, `Append`, `oBoundingBox`, `mshFromStlFile(path, EStlUnit, fPostScale, ...)`; built from `Voxels` via ctor `Mesh(in Voxels)` or `Voxels.mshAsMesh()` |
-|  [03]   | `PolyLine`          | colored polyline (`IDisposable`) | `nAddVertex`/`Add(IEnumerable<Vector3>)`, `vecVertexAt`/`nVertexCount`, `AddArrow`/`AddCross`, `oBoundingBox` — a viewer/debug polyline with a `ColorFloat` |
-|  [04]   | `Coord` / `Triangle`| voxel/index structs| `Coord(int x,y,z)` (a voxel index) and `Triangle(int a,b,c)` (a mesh face by vertex index) — the value carriers (NOTE: PicoGK's `Triangle` is index-based, distinct from the kernel `Triangle.NET` mesher) |
+`Lattice.AddBeam(vecA, fRadA, vecB, fRadB, bRoundCap)` and `AddSphere(vecCenter, fRadius)` build capsule-and-sphere CSG that `Voxels(Lattice)` or `RenderLattice` rasterizes for conformal support scaffolds and strut lattices. `Mesh` is the extraction target and STL bridge: `nAddVertex`/`AddVertices`/`nAddTriangle`/`AddQuad` construct it; `vecVertexAt`/`oTriangleAt`/`GetTriangle` and `nVertexCount`/`nTriangleCount` expose indexed geometry; `mshCreateTransformed(Matrix4x4)`, `mshCreateMirrored`, `Append`, `oBoundingBox`, and `mshFromStlFile(path, EStlUnit, fPostScale, ...)` transform, combine, bound, and import it. `Mesh(in Voxels)` and `Voxels.mshAsMesh()` construct a mesh from a field. `PolyLine` owns `nAddVertex`/`Add(IEnumerable<Vector3>)`, `vecVertexAt`/`nVertexCount`, `AddArrow`/`AddCross`, and `oBoundingBox` for colored viewer geometry carried by `ColorFloat`. `Coord(int x,y,z)` carries a voxel index, while `Triangle(int a,b,c)` carries a mesh face by vertex index and remains distinct from the kernel `Triangle.NET` mesher.
+
+| [INDEX] | [SYMBOL]   | [TYPE_FAMILY]                 | [CAPABILITY]        |
+| :-----: | :--------- | :---------------------------- | :------------------ |
+|  [01]   | `Lattice`  | scaffold (`IDisposable`)      | beam-and-sphere CSG |
+|  [02]   | `Mesh`     | triangle mesh (`IDisposable`) | extraction target   |
+|  [03]   | `PolyLine` | colored line (`IDisposable`)  | viewer geometry     |
+|  [04]   | `Coord`    | voxel index                   | grid coordinate     |
+|  [05]   | `Triangle` | face index                    | mesh triangle       |
 
 [PUBLIC_TYPE_SCOPE]: VDB I/O, slice vectorization, CLI emission — the AM file/layer surface
+
 - rail: fabrication
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [CAPABILITY]                                                                                  |
-| :-----: | :------------------ | :----------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `OpenVdbFile`       | VDB container (`IDisposable`) | the multi-field `.vdb` round-trip: `nAdd(Voxels/ScalarField/VectorField, name)`, `voxGet`/`oGetScalarField`/`oGetVectorField` by index or name, `nFieldCount`/`strFieldName`/`eFieldType`/`xField`, `SaveToFile`; `bIsPicoGKCompatible`/`fPicoGKVoxelSizeMM` + static `libCreateCompatibleLibraryFor(path)` to open a foreign VDB at its native voxel size |
-|  [02]   | `PolySliceStack`    | vector slice stack | the output of `Voxels.oVectorize(fLayerHeight)`: `nCount`/`oSliceAt(n)`/`oBBox`, `AddSlices`, `AddToViewer` — the layered vector-contour program for resin/powder posting |
-|  [03]   | `PolySlice`         | one vector layer    | one Z layer of closed `PolyContour`s: `fZPos`, `AddContour`/`Close`/`bIsEmpty`, `SaveToSvgFile(path, bSolid)`, static `oFromSdf(Image, fZPos, vecOffset, fScale)` |
-|  [04]   | `PolyContour`       | 2D contour          | a closed 2D loop: `oVertices()`/`vecVertex(n)`/`nCount`, `EWinding` detection (`eDetectWinding`/`DetectWinding`/`eWinding`), `AsSvgPolyline`/`AsSvgPath`, `oBBox` |
-|  [05]   | `CliIo`             | `.cli` reader/writer| `WriteSlicesToCliFile(PolySliceStack, path, EFormat, strDate, fUnitsInMM, IProgress)` + `oSlicesFromCliFile(path)` returning a `Result` (slices + bbox + header) — the Common Layer Interface slice-program I/O for SLA/DLP machines |
-|  [06]   | `Vdb2Cli`           | VDB->CLI bridge     | static `Convert(strVdbFilePath, fCliLayerHeight, strCliFilePath, strVoxelFieldName, IProgress)` — one-call VDB-field to `.cli` slice program |
-|  [07]   | `TgaIo`             | TGA image I/O       | the slice-image raster file format |
+`OpenVdbFile` round-trips multiple `Voxels`, `ScalarField`, and `VectorField` values through `nAdd`, `voxGet`, `oGetScalarField`, and `oGetVectorField`; `nFieldCount`, `strFieldName`, `eFieldType`, `xField`, and `SaveToFile` expose and persist them. `bIsPicoGKCompatible`, `fPicoGKVoxelSizeMM`, and `libCreateCompatibleLibraryFor(path)` open foreign VDB data at its native voxel size. `Voxels.oVectorize(fLayerHeight)` returns `PolySliceStack`, whose `nCount`, `oSliceAt`, `oBBox`, `AddSlices`, and `AddToViewer` operations carry the layered resin or powder contour program. Each `PolySlice` owns one Z layer of closed `PolyContour` loops through `fZPos`, `AddContour`, `Close`, `bIsEmpty`, `SaveToSvgFile(path, bSolid)`, and `oFromSdf(Image, fZPos, vecOffset, fScale)`. Each `PolyContour` owns `oVertices`, `vecVertex`, `nCount`, `eDetectWinding`/`DetectWinding`/`eWinding`, `AsSvgPolyline`/`AsSvgPath`, and `oBBox`. `CliIo` writes and reads Common Layer Interface programs through `WriteSlicesToCliFile(PolySliceStack, path, EFormat, strDate, fUnitsInMM, IProgress)` and `oSlicesFromCliFile(path)`, whose `Result` carries slices, bounds, and header. `Vdb2Cli.Convert(strVdbFilePath, fCliLayerHeight, strCliFilePath, strVoxelFieldName, IProgress)` bridges a VDB field directly to `.cli`.
+
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]                 | [CAPABILITY]         |
+| :-----: | :--------------- | :---------------------------- | :------------------- |
+|  [01]   | `OpenVdbFile`    | VDB container (`IDisposable`) | multi-field VDB I/O  |
+|  [02]   | `PolySliceStack` | vector slice stack            | layered contours     |
+|  [03]   | `PolySlice`      | vector layer                  | closed contour layer |
+|  [04]   | `PolyContour`    | 2D contour                    | closed loop          |
+|  [05]   | `CliIo`          | `.cli` I/O                    | slice-program I/O    |
+|  [06]   | `Vdb2Cli`        | VDB-to-CLI bridge             | direct conversion    |
+|  [07]   | `TgaIo`          | image I/O                     | TGA slice raster     |
 
 [PUBLIC_TYPE_SCOPE]: runtime, geometry primitives, faults
+
 - rail: fabrication
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]      | [CAPABILITY]                                                                |
-| :-----: | :-------------------------------- | :----------------- | :------------------------------------------------------------------------- |
-|  [01]   | `Library`                         | runtime (`IDisposable`) | the native-core lifecycle bound to ONE `fVoxelSizeMM`: every field/mesh allocation belongs to a `Library`; `Library.GlobalInstance(fVoxelSizeMM, logPath, viewerTitle, env)` sets the ambient instance the parameterless ctors use, `Library.oLibrary()` reads it; exposes the `n*MemUsage()`/`n*Allocated()` native-resource census and `vecVoxelsToMm` coordinate conversion |
-|  [02]   | `Config`                          | native binding     | `const string strPicoGKLib = "picogk.26.2"` — the P/Invoke library id |
-|  [03]   | `Viewer`                          | OpenGL viewer (`IDisposable`) | the interactive 3D viewer (camera/arcball, key/mouse callbacks, sidebar, animation) — for the sidecar visual debug surface, NOT a headless-posting dependency |
-|  [04]   | `BBox3` / `BBox2`                 | bounds struct      | `BBox3`: `vecMin`/`vecMax`, `vecSize`/`vecCenter`, `Include`/`Grow`/`bContains`/`bIsEmpty`, `oFitInto(bounds, out fScale, out vecOffset)` — the implicit-rasterization extent and the fit transform |
-|  [05]   | `ColorFloat` / `ColorRgba32` / `ColorHSV` / `ColorHLS` / `Image*` | color/image | the slice-raster color and image-buffer family (`ImageGrayScale` is the slice target) |
-|  [06]   | `PicoGKAllocException` / `PicoGKLibraryMismatchException` | fault | native allocation failure / native-library version mismatch — the two typed native faults |
+`Library` owns the native-core lifecycle at one `fVoxelSizeMM`; every field and mesh allocation belongs to that library, `Library.GlobalInstance(fVoxelSizeMM, logPath, viewerTitle, env)` sets the ambient instance, and `Library.oLibrary()` reads it. Its `n*MemUsage()` and `n*Allocated()` members report native resources, and `vecVoxelsToMm` converts coordinates. `Config.strPicoGKLib = "picogk.26.2"` names the P/Invoke library. `Viewer` carries the interactive OpenGL camera, arcball, key and mouse callbacks, sidebar, and animation for sidecar visual debugging outside headless posting. `BBox3` owns `vecMin`/`vecMax`, `vecSize`/`vecCenter`, `Include`/`Grow`/`bContains`/`bIsEmpty`, and `oFitInto(bounds, out fScale, out vecOffset)`. The color family and `Image*` carry slice-raster color and image buffers, with `ImageGrayScale` as the slice target. `PicoGKAllocException` reports native allocation failure, while `PicoGKLibraryMismatchException` reports a native-library version mismatch.
+
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]                 | [CAPABILITY]         |
+| :-----: | :------------------------------- | :---------------------------- | :------------------- |
+|  [01]   | `Library`                        | runtime (`IDisposable`)       | native lifecycle     |
+|  [02]   | `Config`                         | native binding                | P/Invoke library id  |
+|  [03]   | `Viewer`                         | OpenGL viewer (`IDisposable`) | interactive debug UI |
+|  [04]   | `BBox3`                          | bounds struct                 | 3D field extent      |
+|  [05]   | `BBox2`                          | bounds struct                 | 2D field extent      |
+|  [06]   | `ColorFloat`                     | color                         | floating-point color |
+|  [07]   | `ColorRgba32`                    | color                         | packed RGBA color    |
+|  [08]   | `ColorHSV`                       | color                         | HSV color            |
+|  [09]   | `ColorHLS`                       | color                         | HLS color            |
+|  [10]   | `Image*`                         | image buffer                  | slice raster         |
+|  [11]   | `PicoGKAllocException`           | fault                         | allocation failure   |
+|  [12]   | `PicoGKLibraryMismatchException` | fault                         | version mismatch     |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: implicit -> voxels rasterization
+
 - rail: fabrication
 - note: an unbounded `IImplicit` needs an explicit `BBox3`; an `IBoundedImplicit` carries its own. The voxel resolution is the `Library` `fVoxelSizeMM` — finer voxels = sharper SDF surface at higher native memory.
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                                                 |
-| :-----: | :-------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `new Voxels(in IImplicit xImplicit, in BBox3 oBounds)`          | SDF raster     | rasterize an unbounded implicit (gyroid/TPMS/cellular) within a box          |
-|  [02]   | `new Voxels(in IBoundedImplicit xImplicit)`                     | SDF raster     | rasterize a self-bounding implicit                                           |
-|  [03]   | `Voxels.RenderImplicit(in IImplicit, in BBox3)` / `IntersectImplicit(in IImplicit)` | SDF compose | add / intersect an implicit into an existing voxel field (`voxIntersectImplicit` returns a copy) |
-|  [04]   | `new Voxels(in Lattice lat)` / `Voxels.RenderLattice(in Lattice)` | lattice raster | rasterize a beam/sphere lattice scaffold                                     |
-|  [05]   | `new Voxels(in Mesh msh)` / `Voxels.RenderMesh(in Mesh)`        | mesh raster    | voxelize a triangle mesh into an SDF field                                   |
-|  [06]   | `Voxels.voxSphere` / `voxLatticeBeam` / `voxMeshShell(msh, fRadius)` | factory   | static one-call primitives (a `(Library, ...)` overload pair: ambient vs explicit library) |
+`Voxels.RenderImplicit(in IImplicit, in BBox3)` adds an implicit to an existing field, while `IntersectImplicit(in IImplicit)` intersects it and `voxIntersectImplicit` returns the copy form. `Voxels.voxSphere`, `voxLatticeBeam`, and `voxMeshShell(msh, fRadius)` each expose ambient-library and explicit-`Library` overloads.
+
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]         |
+| :-----: | :----------------------------------------------------- | :------------- | :------------------- |
+|  [01]   | `new Voxels(in IImplicit xImplicit, in BBox3 oBounds)` | SDF raster     | boxed implicit       |
+|  [02]   | `new Voxels(in IBoundedImplicit xImplicit)`            | SDF raster     | bounded implicit     |
+|  [03]   | `Voxels.RenderImplicit`                                | SDF compose    | field addition       |
+|  [04]   | `IntersectImplicit`                                    | SDF compose    | field intersection   |
+|  [05]   | `voxIntersectImplicit`                                 | SDF compose    | copied intersection  |
+|  [06]   | `new Voxels(in Lattice lat)`                           | lattice raster | scaffold field       |
+|  [07]   | `Voxels.RenderLattice`                                 | lattice raster | scaffold composition |
+|  [08]   | `new Voxels(in Mesh msh)`                              | mesh raster    | mesh field           |
+|  [09]   | `Voxels.RenderMesh`                                    | mesh raster    | mesh composition     |
+|  [10]   | `Voxels.voxSphere`                                     | factory        | sphere field         |
+|  [11]   | `voxLatticeBeam`                                       | factory        | beam field           |
+|  [12]   | `voxMeshShell`                                         | factory        | mesh-shell field     |
 
 [ENTRYPOINT_SCOPE]: SDF Boolean and distance morphology — `Voxels`
+
 - rail: fabrication
 - note: each operation has a MUTATING form (`BoolAdd`, `Offset`, ...) and a COPY form (`voxBoolAdd`, `voxOffset`, ...) returning a new `Voxels`; operators `+`/`-`/`&` are the copy Boolean. Distances are in MM (converted through the `Library` voxel size).
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                                                 |
-| :-----: | :-------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `BoolAdd`/`BoolSubtract`/`BoolIntersect(in Voxels)` (+ `voxBool*` copies, `+`/`-`/`&` operators) | SDF Boolean | the three 3D SDF Boolean ops; `BoolAddAll`/`BoolSubtractAll(IEnumerable<Voxels>)` + static `voxCombine`/`voxCombineAll` for batch union |
-|  [02]   | `Offset(float fDistMM)` / `voxOffset`                          | distance offset | uniform SDF dilation/erosion (negative shrinks)                              |
-|  [03]   | `DoubleOffset(fDist1MM, fDist2MM)` / `TripleOffset(fDistMM)`    | morphology     | open/close-style two- and three-stage offsets (de-feature / gap-bridge)      |
-|  [04]   | `OverOffset(fFirstOffsetMM, fFinalSurfaceDistInMM)`            | morphology     | offset-out-then-back for controlled surface conditioning                     |
-|  [05]   | `Shell(fOffset)` / `Shell(fNegMM, fPosMM, fSmoothInnerMM)`     | shelling       | hollow-shell the solid to a wall thickness — the lightweighting primitive    |
-|  [06]   | `Fillet(fRoundingMM)` / `Smoothen(fDistMM)`                    | smoothing      | distance-field fillet / mean-curvature smoothing of the surface              |
-|  [07]   | `Trim(BBox3)` / `ProjectZSlice(fStartZMM, fEndZMM)`           | crop/project   | crop to a box / project a Z-band down into a 2D-extruded slab                 |
+`BoolAdd`, `BoolSubtract`, and `BoolIntersect` consume `in Voxels`; `BoolAddAll` and `BoolSubtractAll(IEnumerable<Voxels>)` apply batch Boolean operations, while static `voxCombine` and `voxCombineAll` return batch unions. `Offset(float fDistMM)` performs uniform SDF dilation or erosion, and a negative distance shrinks the field. `DoubleOffset(fDist1MM, fDist2MM)` and `TripleOffset(fDistMM)` perform open-or-close conditioning across two or three stages. `OverOffset(fFirstOffsetMM, fFinalSurfaceDistInMM)` offsets outward and returns to a controlled surface distance. `Shell` accepts either `fOffset` or `(fNegMM, fPosMM, fSmoothInnerMM)` for asymmetric walls and inner smoothing. `Fillet(fRoundingMM)` rounds the distance field, `Smoothen(fDistMM)` applies mean-curvature smoothing, `Trim(BBox3)` crops the field, and `ProjectZSlice(fStartZMM, fEndZMM)` projects a Z band into a 2D-extruded slab.
+
+| [INDEX] | [SURFACE]          | [ENTRY_FAMILY] | [CAPABILITY]          |
+| :-----: | :----------------- | :------------- | :-------------------- |
+|  [01]   | `BoolAdd`          | SDF Boolean    | in-place union        |
+|  [02]   | `voxBoolAdd`       | SDF Boolean    | copied union          |
+|  [03]   | `operator +`       | SDF Boolean    | copied union          |
+|  [04]   | `BoolSubtract`     | SDF Boolean    | in-place subtraction  |
+|  [05]   | `voxBoolSubtract`  | SDF Boolean    | copied subtraction    |
+|  [06]   | `operator -`       | SDF Boolean    | copied subtraction    |
+|  [07]   | `BoolIntersect`    | SDF Boolean    | in-place intersection |
+|  [08]   | `voxBoolIntersect` | SDF Boolean    | copied intersection   |
+|  [09]   | `operator &`       | SDF Boolean    | copied intersection   |
+|  [10]   | `BoolAddAll`       | SDF Boolean    | batch union           |
+|  [11]   | `BoolSubtractAll`  | SDF Boolean    | batch subtraction     |
+|  [12]   | `voxCombine`       | SDF Boolean    | copied combination    |
+|  [13]   | `voxCombineAll`    | SDF Boolean    | copied batch union    |
+|  [14]   | `Offset`           | distance       | signed field offset   |
+|  [15]   | `voxOffset`        | distance       | copied field offset   |
+|  [16]   | `DoubleOffset`     | morphology     | two-stage offset      |
+|  [17]   | `TripleOffset`     | morphology     | three-stage offset    |
+|  [18]   | `OverOffset`       | morphology     | surface conditioning  |
+|  [19]   | `Shell`            | shelling       | wall construction     |
+|  [20]   | `Fillet`           | smoothing      | distance-field fillet |
+|  [21]   | `Smoothen`         | smoothing      | curvature smoothing   |
+|  [22]   | `Trim`             | crop           | bounding-box crop     |
+|  [23]   | `ProjectZSlice`    | project        | Z-band projection     |
 
 [ENTRYPOINT_SCOPE]: mesh extraction, ray-cast, properties — `Voxels`
+
 - rail: fabrication
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                                                 |
-| :-----: | :-------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `Voxels.mshAsMesh()` / `new Mesh(in Voxels)`                   | extraction     | dual-contour the SDF to a watertight triangle `Mesh` — the wire back to the kernel `MeshSpace` vocabulary |
-|  [02]   | `CalculateProperties(out float fVolumeCubicMM, out BBox3)` / `oCalculateBoundingBox()` | metrics | the solid volume + bbox (AM mass/cost estimate) |
-|  [03]   | `bIsInside(Vector3)` / `bRayCastToSurface(vecSearch, vecDir, out vecSurfacePoint)` / `vecRayCastToSurface` | query | point-membership and SDF ray-cast to the surface |
-|  [04]   | `bIsEmpty()` / `bIsEqual(in Voxels)` / `nMemUsage()` / `voxDuplicate()` | state    | emptiness, structural equality, native footprint, deep copy                  |
+`Voxels.mshAsMesh()` and `new Mesh(in Voxels)` dual-contour an SDF into a watertight triangle `Mesh` for the kernel `MeshSpace` vocabulary. `CalculateProperties(out float fVolumeCubicMM, out BBox3)` returns solid volume and bounds for AM mass or cost estimates, and `oCalculateBoundingBox()` returns the bounds alone. `bIsInside(Vector3)` tests membership. `bRayCastToSurface(vecSearch, vecDir, out vecSurfacePoint)` and `vecRayCastToSurface` locate the SDF surface. `bIsEmpty()`, `bIsEqual(in Voxels)`, `nMemUsage()`, and `voxDuplicate()` expose emptiness, structural equality, native memory, and deep copying.
+
+| [INDEX] | [SURFACE]               | [ENTRY_FAMILY] | [CAPABILITY]        |
+| :-----: | :---------------------- | :------------- | :------------------ |
+|  [01]   | `Voxels.mshAsMesh`      | extraction     | watertight mesh     |
+|  [02]   | `new Mesh(in Voxels)`   | extraction     | watertight mesh     |
+|  [03]   | `CalculateProperties`   | metrics        | solid metrics       |
+|  [04]   | `oCalculateBoundingBox` | metrics        | field bounds        |
+|  [05]   | `bIsInside`             | query          | point membership    |
+|  [06]   | `bRayCastToSurface`     | query          | ray-hit status      |
+|  [07]   | `vecRayCastToSurface`   | query          | ray-hit point       |
+|  [08]   | `bIsEmpty`              | state          | emptiness           |
+|  [09]   | `bIsEqual`              | state          | structural equality |
+|  [10]   | `nMemUsage`             | state          | native footprint    |
+|  [11]   | `voxDuplicate`          | state          | deep copy           |
 
 [ENTRYPOINT_SCOPE]: AM layer stack — grayscale slices and vector `.cli` program
+
 - rail: fabrication
 - note: TWO output paths from a finished `Voxels` solid: (a) GRAYSCALE slice images for SLA/DLP/MSLA mask exposure (`GetVoxelSlice` -> `ImageGrayScale`); (b) VECTOR contour slices for `.cli`/SVG (`oVectorize` -> `PolySliceStack` -> `CliIo`). This is the resin/powder posting path the planar-only FFF `Section` owner never reaches.
 
-| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                                 |
-| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `imgAllocateSlice(out int nSliceCount, ESliceAxis eAxis = Z)` / `nSliceCount()`                    | slice alloc    | allocate the grayscale slice buffer + report the layer count                 |
-|  [02]   | `GetVoxelSlice(in int nSlice, ref ImageGrayScale img, ESliceMode = SignedDistance, ESliceAxis = Z)` | grayscale slice | rasterize one layer to a grayscale mask (the SLA/DLP exposure image)         |
-|  [03]   | `GetInterpolatedVoxelSlice(in float fZSlice, ref ImageGrayScale img, ESliceMode = SignedDistance)` | grayscale slice | a sub-voxel-Z interpolated layer (arbitrary layer height, not voxel-grid-aligned) |
-|  [04]   | `oVectorize(float fLayerHeight = 0f, bool bUseAbsXYOrigin = false, IProgress?)`                    | vectorize      | extract the closed-contour `PolySliceStack` over the whole solid at a layer height |
-|  [05]   | `CliIo.WriteSlicesToCliFile(PolySliceStack, path, EFormat, strDate, fUnitsInMM, IProgress?)`        | CLI emit       | write the vector slice stack as a `.cli` program (`EFormat.FirstLayerWithContent`/`UseEmptyFirstLayer`) |
-|  [06]   | `Vdb2Cli.Convert(vdbPath, fCliLayerHeight, cliPath, voxelFieldName, IProgress?)`                    | VDB->CLI       | one-call VDB-field-to-`.cli` posting                                         |
-|  [07]   | `PolySlice.SaveToSvgFile(path, bSolid)` / `PolyContour.AsSvgPath(out str)`                          | SVG emit       | per-layer SVG export (pen-plot / mask-preview)                               |
+`imgAllocateSlice(out int nSliceCount, ESliceAxis eAxis = Z)` allocates the grayscale buffer, and `nSliceCount()` reports the layer count. `GetVoxelSlice(in int nSlice, ref ImageGrayScale img, ESliceMode = SignedDistance, ESliceAxis = Z)` rasterizes a voxel-grid layer for SLA or DLP exposure. `GetInterpolatedVoxelSlice(in float fZSlice, ref ImageGrayScale img, ESliceMode = SignedDistance)` rasterizes an arbitrary sub-voxel Z layer. `oVectorize(float fLayerHeight = 0f, bool bUseAbsXYOrigin = false, IProgress?)` extracts the solid-wide closed-contour stack. `CliIo.WriteSlicesToCliFile(PolySliceStack, path, EFormat, strDate, fUnitsInMM, IProgress?)` admits `EFormat.FirstLayerWithContent` and `UseEmptyFirstLayer`. `Vdb2Cli.Convert(vdbPath, fCliLayerHeight, cliPath, voxelFieldName, IProgress?)` posts a VDB field directly to `.cli`. `PolySlice.SaveToSvgFile(path, bSolid)` emits a complete layer, while `PolyContour.AsSvgPath(out str)` emits one contour path for pen plotting or mask preview.
+
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [CAPABILITY]         |
+| :-----: | :--------------------------- | :------------- | :------------------- |
+|  [01]   | `imgAllocateSlice`           | slice alloc    | grayscale buffer     |
+|  [02]   | `nSliceCount`                | slice alloc    | layer count          |
+|  [03]   | `GetVoxelSlice`              | grayscale      | voxel-grid mask      |
+|  [04]   | `GetInterpolatedVoxelSlice`  | grayscale      | interpolated mask    |
+|  [05]   | `oVectorize`                 | vectorize      | closed-contour stack |
+|  [06]   | `CliIo.WriteSlicesToCliFile` | CLI emit       | vector slice program |
+|  [07]   | `Vdb2Cli.Convert`            | VDB-to-CLI     | direct posting       |
+|  [08]   | `PolySlice.SaveToSvgFile`    | SVG emit       | layer SVG            |
+|  [09]   | `PolyContour.AsSvgPath`      | SVG emit       | contour path         |
 
 [ENTRYPOINT_SCOPE]: VDB field I/O and the runtime library
+
 - rail: fabrication
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                                                 |
-| :-----: | :-------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `new Library(float fVoxelSizeMM)` / `Library.GlobalInstance(fVoxelSizeMM, ...)` | runtime init | bind the native core to a voxel resolution; `GlobalInstance` sets the ambient library the parameterless field ctors resolve via `Library.oLibrary()` |
-|  [02]   | `new OpenVdbFile(path)` / `nAdd(field, name)` / `voxGet`/`oGetScalarField`/`oGetVectorField` / `SaveToFile(path)` | VDB I/O | multi-field VDB read/write |
-|  [03]   | `OpenVdbFile.libCreateCompatibleLibraryFor(vdbPath)` + `bIsPicoGKCompatible`/`fPicoGKVoxelSizeMM` | VDB compat | open a foreign VDB at ITS native voxel size (cross-tool interop) |
-|  [04]   | `Voxels.voxFromVdbFile(path)`                                  | VDB load       | the one-call field load from a `.vdb`                                        |
-|  [05]   | `FieldMetadata.SetValue`/`bGetValueAt` (`string`/`float`/`Vector3`) | metadata  | per-field provenance/parameter key-values round-tripped through VDB          |
+`new Library(float fVoxelSizeMM)` binds the native core to one voxel resolution, while `Library.GlobalInstance(fVoxelSizeMM, ...)` sets the ambient library that parameterless field constructors resolve through `Library.oLibrary()`. `OpenVdbFile` reads and writes multiple named fields through `nAdd(field, name)`, `voxGet`, `oGetScalarField`, `oGetVectorField`, and `SaveToFile(path)`. `OpenVdbFile.libCreateCompatibleLibraryFor(vdbPath)`, `bIsPicoGKCompatible`, and `fPicoGKVoxelSizeMM` preserve a foreign VDB's native voxel size. `Voxels.voxFromVdbFile(path)` loads one field directly. `FieldMetadata.SetValue` and `bGetValueAt` carry `string`, `float`, and `Vector3` values through VDB.
+
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY] | [CAPABILITY]        |
+| :-----: | :------------------------------------------ | :------------- | :------------------ |
+|  [01]   | `new Library(float fVoxelSizeMM)`           | runtime init   | explicit library    |
+|  [02]   | `Library.GlobalInstance`                    | runtime init   | ambient library     |
+|  [03]   | `new OpenVdbFile(path)`                     | VDB I/O        | VDB container       |
+|  [04]   | `nAdd`                                      | VDB I/O        | named field append  |
+|  [05]   | `voxGet`                                    | VDB I/O        | voxel field read    |
+|  [06]   | `oGetScalarField`                           | VDB I/O        | scalar field read   |
+|  [07]   | `oGetVectorField`                           | VDB I/O        | vector field read   |
+|  [08]   | `SaveToFile`                                | VDB I/O        | VDB write           |
+|  [09]   | `OpenVdbFile.libCreateCompatibleLibraryFor` | VDB compat     | native-size library |
+|  [10]   | `bIsPicoGKCompatible`                       | VDB compat     | compatibility flag  |
+|  [11]   | `fPicoGKVoxelSizeMM`                        | VDB compat     | native voxel size   |
+|  [12]   | `Voxels.voxFromVdbFile`                     | VDB load       | direct field load   |
+|  [13]   | `FieldMetadata.SetValue`                    | metadata       | typed value write   |
+|  [14]   | `bGetValueAt`                               | metadata       | typed value read    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RUNTIME_TOPOLOGY]:
+
 - ALC FIREBREAK: `PicoGK` is `net9.0`-only with a RID-bearing native core (`picogk.26.2.dylib` + boost/TBB/icu/zstd on osx-arm64) — it CANNOT load inside a net48 in-Rhino plugin ALC. The Fabrication AM rail runs it in the sidecar / `Rasm.AppHost` host process, marshalling results (extracted `Mesh`, slice programs) back across the wire. Never reference `PicoGK` from a type that must load in the RhinoCommon plugin domain.
 - LIBRARY LIFECYCLE: every `Voxels`/`ScalarField`/`VectorField`/`Mesh`/`Lattice`/`OpenVdbFile` is owned by a `Library` bound to ONE `fVoxelSizeMM` (the global voxel resolution). Set it once via `Library.GlobalInstance(fVoxelSizeMM, ...)` (which the parameterless ctors resolve through `Library.oLibrary()`), or pass an explicit `Library` to the `(Library, ...)` ctor/factory overloads. Changing voxel size means a new `Library`. Mixing fields from two libraries of different voxel sizes is invalid.
 - DISPOSAL: every field/mesh/lattice/file/library handle is `IDisposable` over a NATIVE object — wrap in `using` or a resource rail; an undisposed handle leaks native memory the GC cannot reclaim. The `Library.n*MemUsage()`/`n*Allocated()` census is the native-resource receipt for verifying clean teardown. Allocation failure throws `PicoGKAllocException`; a native-version mismatch throws `PicoGKLibraryMismatchException`.
 - MUTATE-VS-COPY: the `Voxels` operations come in pairs — the verb form (`BoolAdd`, `Offset`, `Shell`) mutates in place and returns `void`; the `vox`-prefixed form (`voxBoolAdd`, `voxOffset`, `voxShell`) returns a fresh `Voxels`. Choose the mutating form inside an owned pipeline (avoids per-step native allocation) and the copy form when the input must survive. All distances are MM.
 
 [STACKING_LAW]:
+
 - IMPLICIT INFILL the planar quartet cannot express: a consumer's gyroid/TPMS/cellular `IImplicit.fSignedDistance` -> `Voxels(IImplicit, BBox3)`, intersected (`BoolIntersect`/`IntersectImplicit`) with the part shell, is the conformal-infill primitive the rectilinear/honeycomb FFF infill owner has no expression for. A `VectorField` can drive anisotropic/graded infill (the field is the orientation/density driver sampled by the implicit).
 - CONFORMAL SUPPORT: `Lattice.AddBeam`/`AddSphere` -> `Voxels(Lattice)` is the overhang-conditioned strut-scaffold builder; `BoolSubtract` the part to get the support-minus-part solid.
 - THE WIRE MEETS AT `Mesh`: `Voxels.mshAsMesh()` extracts a watertight mesh that crosses to the kernel `MeshSpace` vocabulary for downstream slicing, posting, or display; line-sourced section chains route to the owned biarc fold (`Posting/program`) and the kernel mesh vocabulary, never a package mesh owner. PicoGK does NOT own the planar mesh-section (the kernel `Meshing/slice` slice-stack owns it) — it extracts the mesh and hands off.
 - THE AM POSTING PATH stays HERE, disjoint from `Clipper2`/`CavalierContours`: the resin/powder grayscale (`GetVoxelSlice`) and vector (`oVectorize` -> `CliIo`/`Vdb2Cli` `.cli`) layer stack is the SLA/DLP/MSLA posting the planar-only FFF `Section`/`Clipper2` 2D-perimeter path never reaches. The `Clipper2` 2D Boolean/offset substrate and the `CavalierContours` arc-native offsetting are UNTOUCHED — they own planar FFF toolpaths; PicoGK owns the voxel/SDF/layer-stack AM lane.
 
 [RAIL_LAW]:
+
 - Package: `PicoGK` (assembly `PicoGK`, native core `picogk.26.2`)
 - Owns: the implicit/SDF/voxel AM kernel — `IImplicit` field rasterization to `Voxels`, 3D SDF Boolean + distance morphology (offset/double-offset/over-offset/shell/fillet/smoothen), `Lattice` scaffold rasterization, dual-contour `Mesh` extraction, SDF ray-cast + volume/bbox metrics, the grayscale (`GetVoxelSlice`) and vector (`oVectorize`/`CliIo`/`Vdb2Cli` `.cli`) SLA/DLP/MSLA layer stack, `ScalarField`/`VectorField` sampled fields with `FieldMetadata`, and `OpenVdbFile` round-trip — all in the sidecar/host process over a native core
 - Accept: the additive-manufacturing implicit/voxel concern — TPMS/gyroid/cellular conformal infill, overhang lattices, true-3D shelling/filleting/over-offset, and the resin/powder grayscale-plus-vector layer-stack posting; results handed back as an extracted `Mesh` or a slice program

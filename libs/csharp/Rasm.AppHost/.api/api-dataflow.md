@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Threading.Tasks.Dataflow`
+
 - package: `System.Threading.Tasks.Dataflow`
 - assembly: `System.Threading.Tasks.Dataflow`
 - namespace: `System.Threading.Tasks.Dataflow`
@@ -14,6 +15,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: block family
+
 - rail: work-queue
 
 | [INDEX] | [SYMBOL]                             | [PACKAGE_ROLE]     | [CAPABILITY]          |
@@ -32,18 +34,27 @@
 |  [12]   | `IReceivableSourceBlock<T>`          | receive contract   | supports pull receive |
 
 [PUBLIC_TYPE_SCOPE]: block-options family
+
 - rail: work-queue
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                        |
-| :-----: | :------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | `DataflowBlockOptions`          | base block options | `BoundedCapacity` (`const Unbounded = -1`), `CancellationToken`, `EnsureOrdered`, `TaskScheduler`, `MaxMessagesPerTask`, `NameFormat` |
-|  [02]   | `ExecutionDataflowBlockOptions` | execution options  | `: DataflowBlockOptions` + `MaxDegreeOfParallelism`, `SingleProducerConstrained` (action / transform blocks) |
-|  [03]   | `GroupingDataflowBlockOptions`  | grouping options   | `: DataflowBlockOptions` + `Greedy`, `MaxNumberOfGroups` (batch / join / batched-join blocks)        |
-|  [04]   | `DataflowLinkOptions`           | link options       | `PropagateCompletion`, `MaxMessages`, `Append` — passed to `LinkTo`                                  |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     |
+| :-----: | :------------------------------ | :----------------- |
+|  [01]   | `DataflowBlockOptions`          | base block options |
+|  [02]   | `ExecutionDataflowBlockOptions` | execution options  |
+|  [03]   | `GroupingDataflowBlockOptions`  | grouping options   |
+|  [04]   | `DataflowLinkOptions`           | link options       |
+
+[OPTION_DETAILS]:
+
+- `DataflowBlockOptions`: `BoundedCapacity` with `Unbounded = -1`, `CancellationToken`, `EnsureOrdered`, `TaskScheduler`, `MaxMessagesPerTask`, and `NameFormat`.
+- `ExecutionDataflowBlockOptions`: inherits `DataflowBlockOptions` and adds `MaxDegreeOfParallelism` plus `SingleProducerConstrained` for action and transform blocks.
+- `GroupingDataflowBlockOptions`: inherits `DataflowBlockOptions` and adds `Greedy` plus `MaxNumberOfGroups` for batch, join, and batched-join blocks.
+- `DataflowLinkOptions`: supplies `PropagateCompletion`, `MaxMessages`, and `Append` to `LinkTo`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: block operations
+
 - rail: work-queue
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]      | [CAPABILITY]              |
@@ -64,6 +75,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BLOCK_TOPOLOGY]:
+
 - namespaces: `System.Threading.Tasks.Dataflow`
 - producer contracts: `ITargetBlock<T>`, `ISourceBlock<T>`, `IPropagatorBlock<TInput,TOutput>`
 - block families: buffer, action, transform, broadcast, batch, join, write-once
@@ -72,6 +84,7 @@
 - lifecycle: accept, complete, fault, propagate completion, await completion task
 
 [MESSAGE_TOPOLOGY]:
+
 - message identity: `DataflowMessageHeader`
 - offer result: `DataflowMessageStatus`
 - reservation rail: reserve, consume, release
@@ -79,12 +92,14 @@
 - null target: `NullTarget<T>` absorbs messages explicitly
 
 [LOCAL_ADMISSION]:
+
 - Runtime background work enters bounded blocks with explicit backpressure.
 - Drain waits on `Completion` and faults the AppHost receipt rail on block failure.
 - Dataflow blocks stay internal implementation material; AppHost public ports expose runtime intent and receipts.
 - Grouping blocks are admitted only when batch or join semantics are part of the runtime receipt.
 
 [RAIL_LAW]:
+
 - Package: `System.Threading.Tasks.Dataflow`
 - Owns: bounded queues and drainable blocks
 - Accept: runtime work enters dataflow blocks

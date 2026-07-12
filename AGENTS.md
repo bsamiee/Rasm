@@ -5,7 +5,7 @@
 ## [01]-[LOAD_ORDER]
 
 [REQUIRED]:
-- Read and follow `CLAUDE.md` before this file.
+
 - List all files in `docs/stacks/csharp` + `docs/stacks/python` + `docs/stacks/typescript`, including sub-folders — an awareness pass of the standards inventory, not a reading pass.
 - Read ALL of `docs/stacks/csharp/README.md` + `docs/stacks/python/README.md` + `docs/stacks/typescript/README.md` as foundational grounding. When working on files (code or code fences in a `.md`) in a language, read the FULL root of `docs/stacks/<language>/` and follow every standard there; `docs/stacks/csharp/domain/` is conditional — read only when relevant.
 - Use `loc <path>` for true LOC and complexity score — the heavy-file signal that scopes attention and delegation.
@@ -57,3 +57,8 @@
 - Durable docs, prompts, standards, skills, examples, and reusable templates are agent-facing declarative law, not reports, walkthroughs, origin logs, or checklist tails. ALL documentation and prose, comments included, exist purely for agents, never humans; every line earns its keep by being useful to agents working the file — otherwise remove it.
 - Keep generated documentation, prompts, skills, standards, examples, templates, and reusable guidance project-agnostic by default. Do not mention Rasm, repository-specific paths, local commands, local package names, project functions, concrete source files, or project-only docs unless the target file explicitly exists to describe this repository's own usage, routing, or implementation. Generic examples use the neutral names, placeholder alphabet, and code-safe shapes the form standards define; concrete repository names, paths, functions, commands, versions, dates, IDs, or package facts appear only when the document's job is to describe that exact source-backed repository surface.
 - Future-facing standards, plans, and target designs do not inherit current drift; remove stale paths, stale commands, compatibility prose, old-baseline caveats, partial-adoption apologies, and invented routes instead of preserving them.
+
+## [06]-[REVIEW_GUIDELINES]
+
+- Report only demonstrated P0 or P1 correctness, security, data-loss, concurrency, or contract defects introduced by the diff; omit summaries, praise, style-only comments, speculative risks, and findings already present on the pull request.
+- Anchor each finding to the smallest changed range and state the triggering execution path, violated invariant, and concrete consequence.

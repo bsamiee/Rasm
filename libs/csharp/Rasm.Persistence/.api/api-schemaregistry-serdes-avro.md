@@ -19,62 +19,62 @@
 [PUBLIC_TYPE_SCOPE]: serde family
 - rail: cdc-egress (Avro)
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [RAIL]                                          |
-| :-----: | :------------------------ | :--------------- | :---------------------------------------------- |
-|  [01]   | `AvroSerializer<T>`       | async serializer | `IAsyncSerializer<T>`; registers + frames the id |
-|  [02]   | `AvroDeserializer<T>`     | async deserializer | `IAsyncDeserializer<T>`; resolves id + decodes |
-|  [03]   | `AvroSerializerConfig`    | serializer config | register/normalize/buffer/subject/id-strategy   |
-|  [04]   | `AvroDeserializerConfig`  | deserializer config | latest-version + id-strategy                  |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                                           |
+| :-----: | :----------------------- | :------------------ | :----------------------------------------------- |
+|  [01]   | `AvroSerializer<T>`      | async serializer    | `IAsyncSerializer<T>`; registers + frames the id |
+|  [02]   | `AvroDeserializer<T>`    | async deserializer  | `IAsyncDeserializer<T>`; resolves id + decodes   |
+|  [03]   | `AvroSerializerConfig`   | serializer config   | register/normalize/buffer/subject/id-strategy    |
+|  [04]   | `AvroDeserializerConfig` | deserializer config | latest-version + id-strategy                     |
 
 [PUBLIC_TYPE_SCOPE]: composed contract family (re-stated from siblings)
 - rail: cdc-egress (Avro)
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]   | [ORIGIN]                                        |
-| :-----: | :------------------------------ | :-------------- | :---------------------------------------------- |
-|  [01]   | `IAsyncSerializer<T>`           | codec slot      | `Confluent.Kafka` — the `SetValueSerializer` target |
-|  [02]   | `IAsyncDeserializer<T>`         | codec slot      | `Confluent.Kafka` — the `SetValueDeserializer` target |
-|  [03]   | `SerializationContext`          | codec context   | `Confluent.Kafka` — component (`Key`/`Value`), topic, headers |
-|  [04]   | `ISchemaRegistryClient`         | registry client | `Confluent.SchemaRegistry` — the shared registry leg |
-|  [05]   | `RuleRegistry`                  | rule registry   | `Confluent.SchemaRegistry` — CSFLE/migration executors |
-|  [06]   | `Avro.Generic.GenericRecord`    | dynamic record  | `Apache.Avro` — schema-driven `T`, no codegen   |
-|  [07]   | `Avro.Specific.ISpecificRecord` | generated record | `Apache.Avro` — `avrogen` POCO `T`             |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [ORIGIN]                                                      |
+| :-----: | :------------------------------ | :--------------- | :------------------------------------------------------------ |
+|  [01]   | `IAsyncSerializer<T>`           | codec slot       | `Confluent.Kafka` — the `SetValueSerializer` target           |
+|  [02]   | `IAsyncDeserializer<T>`         | codec slot       | `Confluent.Kafka` — the `SetValueDeserializer` target         |
+|  [03]   | `SerializationContext`          | codec context    | `Confluent.Kafka` — component (`Key`/`Value`), topic, headers |
+|  [04]   | `ISchemaRegistryClient`         | registry client  | `Confluent.SchemaRegistry` — the shared registry leg          |
+|  [05]   | `RuleRegistry`                  | rule registry    | `Confluent.SchemaRegistry` — CSFLE/migration executors        |
+|  [06]   | `Avro.Generic.GenericRecord`    | dynamic record   | `Apache.Avro` — schema-driven `T`, no codegen                 |
+|  [07]   | `Avro.Specific.ISpecificRecord` | generated record | `Apache.Avro` — `avrogen` POCO `T`                            |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction
 - rail: cdc-egress (Avro)
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `new AvroSerializer<T>(client, config?, ruleRegistry?)`    | ctor           | binds registry + config + optional rule set     |
-|  [02]   | `new AvroDeserializer<T>(client, config?, ruleRegistry?)`  | ctor           | binds registry + config + optional rule set     |
-|  [03]   | `new AvroSerializer<T>(client)` / `new AvroDeserializer<T>(client)` | ctor   | registry-only, default config                   |
-|  [04]   | `AvroSerializer<T>.DefaultInitialBufferSize` (`= 1024`)    | const          | initial serialize buffer in bytes               |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------ |
+|  [01]   | `new AvroSerializer<T>(client, config?, ruleRegistry?)`             | ctor           | binds registry + config + optional rule set |
+|  [02]   | `new AvroDeserializer<T>(client, config?, ruleRegistry?)`           | ctor           | binds registry + config + optional rule set |
+|  [03]   | `new AvroSerializer<T>(client)` / `new AvroDeserializer<T>(client)` | ctor           | registry-only, default config               |
+|  [04]   | `AvroSerializer<T>.DefaultInitialBufferSize` (`= 1024`)             | const          | initial serialize buffer in bytes           |
 
 [ENTRYPOINT_SCOPE]: codec invocation (Confluent.Kafka slot)
 - rail: cdc-egress (Avro)
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `SerializeAsync(value, context)` -> `Task<byte[]>`         | encode         | registers/resolves the schema, frames the id, writes Avro binary |
-|  [02]   | `DeserializeAsync(data, isNull, context)` -> `Task<T>`     | decode         | reads the id, fetches the writer schema, decodes against the reader schema |
-|  [03]   | `producerBuilder.SetValueSerializer(avroSerializer)`       | wiring         | mounts the serde on the `Confluent.Kafka` value slot |
-|  [04]   | `consumerBuilder.SetValueDeserializer(avroDeserializer)`   | wiring         | mounts the serde on the consumer value slot     |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                                     |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------------------------- |
+|  [01]   | `SerializeAsync(value, context)` -> `Task<byte[]>`       | encode         | registers/resolves the schema, frames the id, writes Avro binary           |
+|  [02]   | `DeserializeAsync(data, isNull, context)` -> `Task<T>`   | decode         | reads the id, fetches the writer schema, decodes against the reader schema |
+|  [03]   | `producerBuilder.SetValueSerializer(avroSerializer)`     | wiring         | mounts the serde on the `Confluent.Kafka` value slot                       |
+|  [04]   | `consumerBuilder.SetValueDeserializer(avroDeserializer)` | wiring         | mounts the serde on the consumer value slot                                |
 
 [ENTRYPOINT_SCOPE]: config tunables (`AvroSerializerConfig` / `AvroDeserializerConfig`)
 - rail: cdc-egress (Avro)
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :----------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `AutoRegisterSchemas` (`bool?`)            | serializer     | auto-register on first use (production: `false`) |
-|  [02]   | `NormalizeSchemas` (`bool?`)               | serializer     | canonical-form normalization before register/lookup |
-|  [03]   | `UseLatestVersion` (`bool?`)               | both           | pin the latest registered version as writer/reader |
-|  [04]   | `UseSchemaId` (`int?`)                      | serializer     | force a specific registered schema id           |
-|  [05]   | `BufferBytes` (`int?`)                      | serializer     | initial serialize buffer override               |
-|  [06]   | `SubjectNameStrategy` (`SubjectNameStrategy?`) | both        | `Topic`/`Record`/`TopicRecord` subject derivation |
-|  [07]   | `SchemaIdStrategy` (`SchemaIdSerializerStrategy?`) | serializer | `Prefix` (magic byte) vs. `Header` id framing  |
-|  [08]   | `SchemaIdStrategy` (`SchemaIdDeserializerStrategy?`) | deserializer | `Prefix` vs. `Dual` id reading                |
-|  [09]   | `UseLatestWithMetadata` (`IDictionary<string,string>`) | both    | pin the version whose registry `Metadata` matches |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                              |
+| :-----: | :----------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `AutoRegisterSchemas` (`bool?`)                        | serializer     | auto-register on first use (production: `false`)    |
+|  [02]   | `NormalizeSchemas` (`bool?`)                           | serializer     | canonical-form normalization before register/lookup |
+|  [03]   | `UseLatestVersion` (`bool?`)                           | both           | pin the latest registered version as writer/reader  |
+|  [04]   | `UseSchemaId` (`int?`)                                 | serializer     | force a specific registered schema id               |
+|  [05]   | `BufferBytes` (`int?`)                                 | serializer     | initial serialize buffer override                   |
+|  [06]   | `SubjectNameStrategy` (`SubjectNameStrategy?`)         | both           | `Topic`/`Record`/`TopicRecord` subject derivation   |
+|  [07]   | `SchemaIdStrategy` (`SchemaIdSerializerStrategy?`)     | serializer     | `Prefix` (magic byte) vs. `Header` id framing       |
+|  [08]   | `SchemaIdStrategy` (`SchemaIdDeserializerStrategy?`)   | deserializer   | `Prefix` vs. `Dual` id reading                      |
+|  [09]   | `UseLatestWithMetadata` (`IDictionary<string,string>`) | both           | pin the version whose registry `Metadata` matches   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -30,35 +30,35 @@ arithmetic.
 - namespace: `subtree`
 - rail: interchange
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:-------------------------- |:---------- |:---------------------------------------------------------------------------------------------------------------------------------- |
-| [01] | `Tile` | interchange | quadtree authoring node; ctor `(int z, int x, int y)` / `(int z, int x, int y, bool available)` where `Z` is the subdivision level the Morton author folds on (`GetChildren` emits `Z+1`, `Parent` climbs `Z-1`) and `X`/`Y` the in-level cell; settable `Available`, `ContentUri`, `GeometricError`, `ZMin?`/`ZMax?`, `BoundingBox`, nested `Children`; `Lod` is an auxiliary property the quadtree `MortonIndex`/`SubtreeCreator` author never reads (the level is `Z`) |
-| [02] | `Tile3D` | interchange | octree authoring node: ctor `(int level, int x, int y, int z)` where `Level` is the subdivision level and `Z` a true third spatial axis (`Parent` halves `X`/`Y`/`Z`), `X`/`Y` the in-level cell; settable `Available`; `Parent()` / `HasChild(Tile3D)` / `Equals` / `GetHashCode` topology |
-| [03] | `ImplicitSubdivisionScheme` | interchange | `Quadtree`, `Octree` — the discriminant every `Availability`/`Level`/`LevelOffset` helper takes (defaults to `Quadtree`) |
+| [INDEX] | [SYMBOL]                    | [RAIL]      | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| :-----: | :-------------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Tile`                      | interchange | quadtree authoring node; ctor `(int z, int x, int y)` / `(int z, int x, int y, bool available)` where `Z` is the subdivision level the Morton author folds on (`GetChildren` emits `Z+1`, `Parent` climbs `Z-1`) and `X`/`Y` the in-level cell; settable `Available`, `ContentUri`, `GeometricError`, `ZMin?`/`ZMax?`, `BoundingBox`, nested `Children`; `Lod` is an auxiliary property the quadtree `MortonIndex`/`SubtreeCreator` author never reads (the level is `Z`) |
+|  [02]   | `Tile3D`                    | interchange | octree authoring node: ctor `(int level, int x, int y, int z)` where `Level` is the subdivision level and `Z` a true third spatial axis (`Parent` halves `X`/`Y`/`Z`), `X`/`Y` the in-level cell; settable `Available`; `Parent()` / `HasChild(Tile3D)` / `Equals` / `GetHashCode` topology                                                                                                                                                                               |
+|  [03]   | `ImplicitSubdivisionScheme` | interchange | `Quadtree`, `Octree` — the discriminant every `Availability`/`Level`/`LevelOffset` helper takes (defaults to `Quadtree`)                                                                                                                                                                                                                                                                                                                                                  |
 
 [PUBLIC_TYPE_SCOPE]: subtree binary record graph
 - package: `subtree`
 - namespace: `subtree`
 - rail: interchange
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:--------------- |:---------- |:----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [01] | `Subtree` | interchange | `record`: `TileAvailability`/`ContentAvailability` (`BitArray` + `*Constant` int), `ChildSubtreeAvailability`, `SubtreeBinary` bytes, `SubtreeJson`, `SubtreeHeader` |
-| [02] | `SubtreeHeader` | interchange | the 24-byte binary header (magic/version/json-byte-length/binary-byte-length) |
-| [03] | `SubtreeJson` | interchange | the JSON-chunk model (buffers/bufferViews + availability descriptors) emitted alongside the binary chunk |
-| [04] | `Buffer` / `Bufferview` | interchange | `record` buffer + buffer-view descriptors inside `SubtreeJson` |
-| [05] | `Tileavailability` / `Contentavailability` / `Childsubtreeavailability` | interchange | the three availability descriptor records (bitstream byte-offset or constant) |
+| [INDEX] | [SYMBOL]                                                                | [RAIL]      | [CAPABILITY]                                                                                                                                                         |
+| :-----: | :---------------------------------------------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Subtree`                                                               | interchange | `record`: `TileAvailability`/`ContentAvailability` (`BitArray` + `*Constant` int), `ChildSubtreeAvailability`, `SubtreeBinary` bytes, `SubtreeJson`, `SubtreeHeader` |
+|  [02]   | `SubtreeHeader`                                                         | interchange | the 24-byte binary header (magic/version/json-byte-length/binary-byte-length)                                                                                        |
+|  [03]   | `SubtreeJson`                                                           | interchange | the JSON-chunk model (buffers/bufferViews + availability descriptors) emitted alongside the binary chunk                                                             |
+|  [04]   | `Buffer` / `Bufferview`                                                 | interchange | `record` buffer + buffer-view descriptors inside `SubtreeJson`                                                                                                       |
+|  [05]   | `Tileavailability` / `Contentavailability` / `Childsubtreeavailability` | interchange | the three availability descriptor records (bitstream byte-offset or constant)                                                                                        |
 
 [PUBLIC_TYPE_SCOPE]: bit-array and availability-level model
 - package: `subtree`
 - namespace: `subtree`
 - rail: interchange
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:---------------------------------------- |:---------- |:----------------------------------------------------------------------------------------- |
-| [01] | `BitArray2D` / `BitArray3D` | interchange | per-level dense availability grids (quadtree 2D / octree 3D) |
-| [02] | `AvailabilityLevel` / `AvailabilityLevel3D` | interchange | one subdivision level's availability row |
-| [03] | `AvailabilityLevels` / `AvailabilityLevels3D` | interchange | `List<AvailabilityLevel[3D]>` — the full level stack of a subtree |
+| [INDEX] | [SYMBOL]                                      | [RAIL]      | [CAPABILITY]                                                      |
+| :-----: | :-------------------------------------------- | :---------- | :---------------------------------------------------------------- |
+|  [01]   | `BitArray2D` / `BitArray3D`                   | interchange | per-level dense availability grids (quadtree 2D / octree 3D)      |
+|  [02]   | `AvailabilityLevel` / `AvailabilityLevel3D`   | interchange | one subdivision level's availability row                          |
+|  [03]   | `AvailabilityLevels` / `AvailabilityLevels3D` | interchange | `List<AvailabilityLevel[3D]>` — the full level stack of a subtree |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -71,34 +71,34 @@ arithmetic.
 authoring entrypoints; both fold a flat tile list into one or many `.subtree`
 binary buffers, handling multi-subtree subdivision.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:------------------------------------- |:-------------------------------------------------------- |:---------------------------------------------------------------- |
-| [01] | `SubtreeCreator.GenerateSubtreefile` | `(List<Tile> tiles)` → `byte[]` | authors one `.subtree` binary from a quadtree tile list |
-| [02] | `SubtreeCreator.GenerateSubtreefiles` | `(List<Tile> tiles)` → `Dictionary<Tile, byte[]>` | multi-subtree authoring: one binary per root tile that overflows |
-| [03] | `SubtreeCreator.GetSubtreeTiles` | `(List<Tile> tiles, Tile tile)` → `List<Tile>` | the tiles belonging to one subtree rooted at `tile` |
-| [04] | `SubtreeCreator.GetRelativeTile` | `(Tile from, Tile to)` → `Tile` | re-bases a tile coordinate into a subtree-local frame |
-| [05] | `SubtreeCreator3D.GenerateSubtreefile` | `(List<Tile3D> tiles)` → `byte[]` | authors one octree `.subtree` binary |
-| [06] | `SubtreeCreator3D.GenerateSubtreefiles` | `(List<Tile3D> tiles)` → `Dictionary<Tile3D, byte[]>` | multi-subtree octree authoring |
+| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                          | [CAPABILITY]                                                     |
+| :-----: | :-------------------------------------- | :---------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `SubtreeCreator.GenerateSubtreefile`    | `(List<Tile> tiles)` → `byte[]`                       | authors one `.subtree` binary from a quadtree tile list          |
+|  [02]   | `SubtreeCreator.GenerateSubtreefiles`   | `(List<Tile> tiles)` → `Dictionary<Tile, byte[]>`     | multi-subtree authoring: one binary per root tile that overflows |
+|  [03]   | `SubtreeCreator.GetSubtreeTiles`        | `(List<Tile> tiles, Tile tile)` → `List<Tile>`        | the tiles belonging to one subtree rooted at `tile`              |
+|  [04]   | `SubtreeCreator.GetRelativeTile`        | `(Tile from, Tile to)` → `Tile`                       | re-bases a tile coordinate into a subtree-local frame            |
+|  [05]   | `SubtreeCreator3D.GenerateSubtreefile`  | `(List<Tile3D> tiles)` → `byte[]`                     | authors one octree `.subtree` binary                             |
+|  [06]   | `SubtreeCreator3D.GenerateSubtreefiles` | `(List<Tile3D> tiles)` → `Dictionary<Tile3D, byte[]>` | multi-subtree octree authoring                                   |
 
 [ENTRYPOINT_SCOPE]: read, serialize, and Morton arithmetic
 - package: `subtree`
 - namespace: `subtree`
 - rail: interchange
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:--------------------------------- |:---------------------------------------------------------------------------- |:-------------------------------------------------------- |
-| [01] | `SubtreeReader.ReadSubtree` | `(Stream stream)` or `(BinaryReader reader)` → `Subtree` | decodes a `.subtree` binary back into the record graph |
-| [02] | `SubtreeWriter.ToBytes` | `(Subtree subtree)` → `byte[]` | serializes a `Subtree` record to the binary container |
-| [03] | `SubtreeWriter.ToBytes` | `(string tileAvailability, string? contentAvailability, string? subtreeAvailability)` → `byte[]` | authors a binary from raw availability bit-strings |
-| [04] | `SubtreeWriter.ToSubtreeBinary` | `(Subtree subtree)` → `(byte[] bytes, SubtreeJson subtreeJson)` | binary + the parsed JSON header in one call |
-| [05] | `MortonOrder.Encode3D` / `Encode2D` | `(ulong x, ulong y, ulong z)` / `(uint x, uint y)` → morton index | z-order curve encode for octree/quadtree availability index |
-| [06] | `MortonOrder.Decode3D` / `Decode2D` | `(uint mortonIndex)` → `(uint x, uint y[, uint z])` | inverse z-order decode |
-| [07] | `MortonIndex.GetMortonIndices[3D]` | `(List<Tile[3D]>)` → `(string tileAvailability, string contentAvailability)` | builds the availability bit-strings from a tile list |
-| [08] | `MortonIndex.GetMortonIndexAsBytes[3D]` | `(List<Tile[3D]>)` → `(byte[] tileAvailability, byte[] contentAvailability)` | the packed-byte availability buffers |
-| [09] | `Availability.GetLevelAvailability` | `(string availability, int Level, ImplicitSubdivisionScheme)` → `string` | slices one subdivision level out of a bitstream |
-| [10] | `Level.GetLevel` / `LevelOffset.GetLevelOffset` | `(int, ImplicitSubdivisionScheme)` → `int` | bitstream-length↔level and level→bit-offset arithmetic |
-| [11] | `BitstreamReader.Read` | `(byte[] subtreeBinary, int offset, int length)` → `BitArray` | reads a bitstream slice out of the binary buffer |
-| [12] | `BufferPadding.AddPadding` / `AddBinaryPadding` | `(byte[] bytes, int offset = 0)` → `byte[]` | 8-byte boundary padding the 3D-Tiles binary layout requires |
+| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]                                                                                     | [CAPABILITY]                                                |
+| :-----: | :---------------------------------------------- | :----------------------------------------------------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `SubtreeReader.ReadSubtree`                     | `(Stream stream)` or `(BinaryReader reader)` → `Subtree`                                         | decodes a `.subtree` binary back into the record graph      |
+|  [02]   | `SubtreeWriter.ToBytes`                         | `(Subtree subtree)` → `byte[]`                                                                   | serializes a `Subtree` record to the binary container       |
+|  [03]   | `SubtreeWriter.ToBytes`                         | `(string tileAvailability, string? contentAvailability, string? subtreeAvailability)` → `byte[]` | authors a binary from raw availability bit-strings          |
+|  [04]   | `SubtreeWriter.ToSubtreeBinary`                 | `(Subtree subtree)` → `(byte[] bytes, SubtreeJson subtreeJson)`                                  | binary + the parsed JSON header in one call                 |
+|  [05]   | `MortonOrder.Encode3D` / `Encode2D`             | `(ulong x, ulong y, ulong z)` / `(uint x, uint y)` → morton index                                | z-order curve encode for octree/quadtree availability index |
+|  [06]   | `MortonOrder.Decode3D` / `Decode2D`             | `(uint mortonIndex)` → `(uint x, uint y[, uint z])`                                              | inverse z-order decode                                      |
+|  [07]   | `MortonIndex.GetMortonIndices[3D]`              | `(List<Tile[3D]>)` → `(string tileAvailability, string contentAvailability)`                     | builds the availability bit-strings from a tile list        |
+|  [08]   | `MortonIndex.GetMortonIndexAsBytes[3D]`         | `(List<Tile[3D]>)` → `(byte[] tileAvailability, byte[] contentAvailability)`                     | the packed-byte availability buffers                        |
+|  [09]   | `Availability.GetLevelAvailability`             | `(string availability, int Level, ImplicitSubdivisionScheme)` → `string`                         | slices one subdivision level out of a bitstream             |
+|  [10]   | `Level.GetLevel` / `LevelOffset.GetLevelOffset` | `(int, ImplicitSubdivisionScheme)` → `int`                                                       | bitstream-length↔level and level→bit-offset arithmetic      |
+|  [11]   | `BitstreamReader.Read`                          | `(byte[] subtreeBinary, int offset, int length)` → `BitArray`                                    | reads a bitstream slice out of the binary buffer            |
+|  [12]   | `BufferPadding.AddPadding` / `AddBinaryPadding` | `(byte[] bytes, int offset = 0)` → `byte[]`                                                      | 8-byte boundary padding the 3D-Tiles binary layout requires |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

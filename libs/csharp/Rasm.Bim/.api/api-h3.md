@@ -19,19 +19,19 @@
 [CELL_TYPES]: the H3 cell index and its decoded bit layout
 - rail: geospatial-index
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------ |:----------------- |:--------------------------------------------------------------------------- |
-| [01] | `H3Index: IComparable<H3Index>` | cell index | the 64-bit cell id; `sealed class` wrapping a `ulong`, `IComparable` for keyset order |
-| [02] | `H3Index.Invalid` | sentinel | `new H3Index(0uL)` — the absent-cell value projecting to `Option<H3Index>` at the boundary |
-| [03] | `H3.Model.Mode` | enum | `Unknown`(0)/`Cell`(1)/`UniEdge`(2)/`Vertex`(4) index-mode discriminant on the high bits (`H3_MODE_OFFSET` 59) |
-| [04] | `H3.Model.Direction` | enum | the IJK hex direction (`Center`/`K`/`J`/`JK`/`I`/`IK`/`IJ`/`Invalid`) for child/neighbour traversal |
-| [05] | `H3.Model.LatLng` | value | radian lat/lng pair (`H3.Model.GeoCoord: LatLng` is the alias) |
-| [06] | `H3.Model.CoordIJ` | value | local IJ coordinate for grid-distance / line algebra |
-| [07] | `H3.Model.BaseCell` | value | one of the 122 base cells; `H3Index.BaseCell`/`BaseCellNumber` decode it |
-| [08] | `H3.Constants` | constants | resolution caps, `EARTH_RADIUS_KM`, hexagon geometry literals |
-| [09] | `H3.H3IndexJsonConverter: JsonConverter<H3Index>` | STJ converter | System.Text.Json hex-string round-trip for an `H3Index` site-context column |
-| [10] | `H3.Algorithms.RingCell(H3Index index, int distance)` | readonly struct | a k-ring member carrying its grid distance from origin |
-| [11] | `H3.Algorithms.VertexTestMode` | enum | `Center`/`Any`/`All` polyfill cell-acceptance predicate (`Fill` defaults `Center`) |
+| [INDEX] | [SYMBOL]                                              | [TYPE_FAMILY]   | [CAPABILITY]                                                                                                   |
+| :-----: | :---------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `H3Index: IComparable<H3Index>`                       | cell index      | the 64-bit cell id; `sealed class` wrapping a `ulong`, `IComparable` for keyset order                          |
+|  [02]   | `H3Index.Invalid`                                     | sentinel        | `new H3Index(0uL)` — the absent-cell value projecting to `Option<H3Index>` at the boundary                     |
+|  [03]   | `H3.Model.Mode`                                       | enum            | `Unknown`(0)/`Cell`(1)/`UniEdge`(2)/`Vertex`(4) index-mode discriminant on the high bits (`H3_MODE_OFFSET` 59) |
+|  [04]   | `H3.Model.Direction`                                  | enum            | the IJK hex direction (`Center`/`K`/`J`/`JK`/`I`/`IK`/`IJ`/`Invalid`) for child/neighbour traversal            |
+|  [05]   | `H3.Model.LatLng`                                     | value           | radian lat/lng pair (`H3.Model.GeoCoord: LatLng` is the alias)                                                 |
+|  [06]   | `H3.Model.CoordIJ`                                    | value           | local IJ coordinate for grid-distance / line algebra                                                           |
+|  [07]   | `H3.Model.BaseCell`                                   | value           | one of the 122 base cells; `H3Index.BaseCell`/`BaseCellNumber` decode it                                       |
+|  [08]   | `H3.Constants`                                        | constants       | resolution caps, `EARTH_RADIUS_KM`, hexagon geometry literals                                                  |
+|  [09]   | `H3.H3IndexJsonConverter: JsonConverter<H3Index>`     | STJ converter   | System.Text.Json hex-string round-trip for an `H3Index` site-context column                                    |
+|  [10]   | `H3.Algorithms.RingCell(H3Index index, int distance)` | readonly struct | a k-ring member carrying its grid distance from origin                                                         |
+|  [11]   | `H3.Algorithms.VertexTestMode`                        | enum            | `Center`/`Any`/`All` polyfill cell-acceptance predicate (`Fill` defaults `Center`)                             |
 
 `H3Index` decode properties (read-only projections of the ulong): `Resolution` (int 0-15), `Mode` (`Mode`), `BaseCell`/`BaseCellNumber`, `Direction`, `IsValidCell` (`IsValid` aliases it), `IsPentagon`, `LeadingNonZeroDirection`, `MaximumFaceCount`, `ReservedBits`/`HighBit`. The class is mutable (`RotateClockwise`/`SetDirectionForResolution` mutate in place) — treat a stored `H3Index` as the immutable ulong (`(ulong)index` / `index.ToString` hex) and never share a live instance across a fold. Two implicit conversions bridge `H3Index`↔`ulong` (`implicit operator ulong(H3Index)` / `implicit operator H3Index(ulong)`) plus `==`/`!=` overloads against a bare `ulong`, so the cell flows as a `ulong` key with zero cast ceremony — `new H3Index(id)` rehydrates a stored cell, `(ulong)index` is the durable form.
 
@@ -40,89 +40,89 @@
 [CONSTRUCTION]: lat/lng or geometry to cell, cell to geometry
 - rail: geospatial-index
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------------ |:------------- |:------------------------------------------------------ |
-| [01] | `H3Index.FromLatLng(LatLng latLng, int resolution)` | static factory | radian lat/lng → cell at resolution (v4 `latLngToCell`) |
-| [02] | `H3Index.FromPoint(Point point, int resolution)` | static factory | NTS `Point` (SRID 4326) → cell — the `GeoFeature` geometry bridge |
-| [03] | `H3Index.FromGeoCoord(GeoCoord latLng, int resolution)` | static factory | alias of `FromLatLng` |
-| [04] | `H3Index.Create(int resolution, int baseCell, Direction dir)` | static factory | constructs from explicit base-cell + direction |
-| [05] | `H3Index.ToLatLng()` / `ToGeoCoord()` | instance | cell → centroid radian lat/lng |
-| [06] | `H3Index.ToPoint(GeometryFactory? factory = null)` | instance | cell → NTS centroid `Point` (defaults `Utils.DefaultGeometryFactory`, SRID 4326) |
-| [07] | `Coordinate.ToH3Index(int resolution, …)` (`H3GeometryExtensions`) | extension | NTS `Coordinate` → cell |
-| [08] | `H3Index.ToCoordinate(…)` (`H3GeometryExtensions`) | extension | cell → NTS `Coordinate` |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                                     |
+| :-----: | :----------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `H3Index.FromLatLng(LatLng latLng, int resolution)`                | static factory | radian lat/lng → cell at resolution (v4 `latLngToCell`)                          |
+|  [02]   | `H3Index.FromPoint(Point point, int resolution)`                   | static factory | NTS `Point` (SRID 4326) → cell — the `GeoFeature` geometry bridge                |
+|  [03]   | `H3Index.FromGeoCoord(GeoCoord latLng, int resolution)`            | static factory | alias of `FromLatLng`                                                            |
+|  [04]   | `H3Index.Create(int resolution, int baseCell, Direction dir)`      | static factory | constructs from explicit base-cell + direction                                   |
+|  [05]   | `H3Index.ToLatLng()` / `ToGeoCoord()`                              | instance       | cell → centroid radian lat/lng                                                   |
+|  [06]   | `H3Index.ToPoint(GeometryFactory? factory = null)`                 | instance       | cell → NTS centroid `Point` (defaults `Utils.DefaultGeometryFactory`, SRID 4326) |
+|  [07]   | `Coordinate.ToH3Index(int resolution, …)` (`H3GeometryExtensions`) | extension      | NTS `Coordinate` → cell                                                          |
+|  [08]   | `H3Index.ToCoordinate(…)` (`H3GeometryExtensions`)                 | extension      | cell → NTS `Coordinate`                                                          |
 
 [HIERARCHY]: parent / child / neighbour traversal — `H3HierarchyExtensions`
 - rail: geospatial-index
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:--------------------------------------------------------- |:------------- |:------------------------------------------------- |
-| [01] | `GetParentForResolution(this H3Index, int parentRes)` | hierarchy up | coarser-resolution ancestor cell |
-| [02] | `GetChildCenterForResolution(this H3Index, int childRes)` | hierarchy down | center child at finer resolution |
-| [03] | `GetChildrenForResolution(this H3Index, int childRes)` | hierarchy down | `IEnumerable<H3Index>` of all finer children |
-| [04] | `GetDirectChild(this H3Index, Direction)` | hierarchy down | one immediate child by direction |
-| [05] | `Contains(this H3Index parent, H3Index child)` / `ContainedBy` | containment | hierarchical containment predicate (range-query prefilter) |
-| [06] | `GetNeighbours(this H3Index)` / `GetDirectNeighbour(…)` | adjacency | same-resolution neighbour cells / one by direction |
-| [07] | `IsNeighbour(this H3Index, H3Index)` / `DirectionForNeighbour(…)` | adjacency | adjacency predicate / the connecting `Direction` |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `GetParentForResolution(this H3Index, int parentRes)`             | hierarchy up   | coarser-resolution ancestor cell                           |
+|  [02]   | `GetChildCenterForResolution(this H3Index, int childRes)`         | hierarchy down | center child at finer resolution                           |
+|  [03]   | `GetChildrenForResolution(this H3Index, int childRes)`            | hierarchy down | `IEnumerable<H3Index>` of all finer children               |
+|  [04]   | `GetDirectChild(this H3Index, Direction)`                         | hierarchy down | one immediate child by direction                           |
+|  [05]   | `Contains(this H3Index parent, H3Index child)` / `ContainedBy`    | containment    | hierarchical containment predicate (range-query prefilter) |
+|  [06]   | `GetNeighbours(this H3Index)` / `GetDirectNeighbour(…)`           | adjacency      | same-resolution neighbour cells / one by direction         |
+|  [07]   | `IsNeighbour(this H3Index, H3Index)` / `DirectionForNeighbour(…)` | adjacency      | adjacency predicate / the connecting `Direction`           |
 
 [DISK_AND_PATH]: k-ring disk, grid distance, line — `H3.Algorithms.Rings` / `Lines`
 - rail: geospatial-index
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------- |:------------- |:----------------------------------------------------------- |
-| [01] | `GridRing(this H3Index, int k)` (= `GetHexRing`) | disk | the hollow ring at distance k (v4 `gridRingUnsafe`; there is no plain `GridDisk` — the filled disk is `GridDiskDistances`) |
-| [02] | `GridDiskDistances(this H3Index, int k)` (= `GetKRing`) | disk | filled disk → `IEnumerable<RingCell>` carrying each cell's distance (v4 `gridDiskDistances`) |
-| [03] | `GridDiskDistancesSafe`/`Unsafe` (= `GetKRingSlow`/`Fast`) | disk | pentagon-safe vs. fast-path filled disk (Unsafe throws on pentagon) |
-| [04] | `GridDistance(this H3Index, H3Index)` (= `DistanceTo`) | metric | integer grid distance between two same-resolution cells |
-| [05] | `GridPathCells(this H3Index, H3Index)` (= `LineTo`) | path | `IEnumerable<H3Index>` straight-line cell path |
-| [06] | `CellToLocalIj(this H3Index origin, H3Index)` (`H3LocalIJExtensions`, = `ToLocalIJ`) | local coords | cell → `CoordIJ` in origin's local frame |
-| [07] | `LocalIjToCell(this H3Index origin, CoordIJ)` (= `FromLocalIJ`) | local coords | `CoordIJ` → cell in origin's local frame |
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                               |
+| :-----: | :----------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `GridRing(this H3Index, int k)` (= `GetHexRing`)                                     | disk           | the hollow ring at distance k (v4 `gridRingUnsafe`; there is no plain `GridDisk` — the filled disk is `GridDiskDistances`) |
+|  [02]   | `GridDiskDistances(this H3Index, int k)` (= `GetKRing`)                              | disk           | filled disk → `IEnumerable<RingCell>` carrying each cell's distance (v4 `gridDiskDistances`)                               |
+|  [03]   | `GridDiskDistancesSafe`/`Unsafe` (= `GetKRingSlow`/`Fast`)                           | disk           | pentagon-safe vs. fast-path filled disk (Unsafe throws on pentagon)                                                        |
+|  [04]   | `GridDistance(this H3Index, H3Index)` (= `DistanceTo`)                               | metric         | integer grid distance between two same-resolution cells                                                                    |
+|  [05]   | `GridPathCells(this H3Index, H3Index)` (= `LineTo`)                                  | path           | `IEnumerable<H3Index>` straight-line cell path                                                                             |
+|  [06]   | `CellToLocalIj(this H3Index origin, H3Index)` (`H3LocalIJExtensions`, = `ToLocalIJ`) | local coords   | cell → `CoordIJ` in origin's local frame                                                                                   |
+|  [07]   | `LocalIjToCell(this H3Index origin, CoordIJ)` (= `FromLocalIJ`)                      | local coords   | `CoordIJ` → cell in origin's local frame                                                                                   |
 
 [REGION_AND_SET]: polyfill, cell boundary, compaction — `H3.Algorithms.Polyfill` / `H3GeometryExtensions` / `H3SetExtensions`
 - rail: geospatial-index
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:--------------------------------------------------------------------- |:------------- |:----------------------------------------------------------------- |
-| [01] | `Geometry.Fill(this Geometry, int res, VertexTestMode = Center)` | polyfill | NTS polygon → covering `IEnumerable<H3Index>` (v4 `polygonToCells`) — a site footprint to its cell cover |
-| [02] | `LineString.Fill(this LineString, int res)` | polyfill | NTS polyline → traversed cells |
-| [03] | `Geometry.IsTransMeridian(this Geometry)` | polyfill guard | antimeridian-crossing detection before fill |
-| [04] | `H3Index.GetCellBoundary(this H3Index, GeometryFactory? = null)` | boundary | cell → NTS `Polygon` hex boundary |
-| [05] | `IEnumerable<H3Index>.GetCellBoundaries(this …, GeometryFactory? = null)` | boundary | cell set → NTS `MultiPolygon` (one GeoJSON feature collection) |
-| [06] | `IEnumerable<H3Index>.CompactCells(this …)` (= `Compact`) | set | minimal mixed-resolution covering set (storage-dense region key) |
-| [07] | `IEnumerable<H3Index>.UncompactCells(this …, int res)` (= `UncompactToResolution`) | set | expand a compacted set back to uniform resolution |
-| [08] | `IEnumerable<H3Index>.AreOfSameResolution(this …)` | set guard | uniform-resolution precondition for set algebra |
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                                                             |
+| :-----: | :--------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Geometry.Fill(this Geometry, int res, VertexTestMode = Center)`                   | polyfill       | NTS polygon → covering `IEnumerable<H3Index>` (v4 `polygonToCells`) — a site footprint to its cell cover |
+|  [02]   | `LineString.Fill(this LineString, int res)`                                        | polyfill       | NTS polyline → traversed cells                                                                           |
+|  [03]   | `Geometry.IsTransMeridian(this Geometry)`                                          | polyfill guard | antimeridian-crossing detection before fill                                                              |
+|  [04]   | `H3Index.GetCellBoundary(this H3Index, GeometryFactory? = null)`                   | boundary       | cell → NTS `Polygon` hex boundary                                                                        |
+|  [05]   | `IEnumerable<H3Index>.GetCellBoundaries(this …, GeometryFactory? = null)`          | boundary       | cell set → NTS `MultiPolygon` (one GeoJSON feature collection)                                           |
+|  [06]   | `IEnumerable<H3Index>.CompactCells(this …)` (= `Compact`)                          | set            | minimal mixed-resolution covering set (storage-dense region key)                                         |
+|  [07]   | `IEnumerable<H3Index>.UncompactCells(this …, int res)` (= `UncompactToResolution`) | set            | expand a compacted set back to uniform resolution                                                        |
+|  [08]   | `IEnumerable<H3Index>.AreOfSameResolution(this …)`                                 | set guard      | uniform-resolution precondition for set algebra                                                          |
 
 [EDGE]: directed-edge index algebra — `H3DirectedEdgeExtensions`
 - rail: geospatial-index
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `ToDirectedEdge(this H3Index origin, H3Index dest)` (= `GetUnidirectionalEdge`) | edge | the directed-edge index between two adjacent cells |
-| [02] | `OriginToDirectedEdges(this H3Index origin)` (= `GetUnidirectionalEdges`) | edge | the (up to six) directed edges leaving a cell |
-| [03] | `DirectedEdgeToCells(this H3Index edge)` (= `GetIndexesFromUnidirectionalEdge`) | edge | `(origin, destination)` tuple from an edge index |
-| [04] | `GetDirectedEdgeOrigin` / `GetDirectedEdgeDestination(this H3Index edge)` | edge | one endpoint cell of a directed edge |
-| [05] | `IsValidDirectedEdge(this H3Index edge)` (= `IsUnidirectionalEdgeValid`) | edge guard | directed-edge validity test |
-| [06] | `EdgeLengthMeters/Kilometers/Radians(this H3Index edge)` (`GetExactEdgeLengthInRadians` exact) | metric | great-circle edge length in the chosen unit |
-| [07] | `GetDirectedEdgeBoundaryVertices(this H3Index edge)` (= `GetUnidirectionalEdgeBoundaryVertices`) | boundary | the edge's `IEnumerable<LatLng>` boundary |
+| [INDEX] | [SURFACE]                                                                                        | [ENTRY_FAMILY] | [CAPABILITY]                                       |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `ToDirectedEdge(this H3Index origin, H3Index dest)` (= `GetUnidirectionalEdge`)                  | edge           | the directed-edge index between two adjacent cells |
+|  [02]   | `OriginToDirectedEdges(this H3Index origin)` (= `GetUnidirectionalEdges`)                        | edge           | the (up to six) directed edges leaving a cell      |
+|  [03]   | `DirectedEdgeToCells(this H3Index edge)` (= `GetIndexesFromUnidirectionalEdge`)                  | edge           | `(origin, destination)` tuple from an edge index   |
+|  [04]   | `GetDirectedEdgeOrigin` / `GetDirectedEdgeDestination(this H3Index edge)`                        | edge           | one endpoint cell of a directed edge               |
+|  [05]   | `IsValidDirectedEdge(this H3Index edge)` (= `IsUnidirectionalEdgeValid`)                         | edge guard     | directed-edge validity test                        |
+|  [06]   | `EdgeLengthMeters/Kilometers/Radians(this H3Index edge)` (`GetExactEdgeLengthInRadians` exact)   | metric         | great-circle edge length in the chosen unit        |
+|  [07]   | `GetDirectedEdgeBoundaryVertices(this H3Index edge)` (= `GetUnidirectionalEdgeBoundaryVertices`) | boundary       | the edge's `IEnumerable<LatLng>` boundary          |
 
 [AREA_AND_METRIC]: cell metrics — `H3GeometryExtensions`
 - rail: geospatial-index
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `CellAreaInMSquared/KmSquared/RadiansSquared(this H3Index)` | metric | exact spherical cell area in the chosen unit |
-| [02] | `GetRadiusInKm(this H3Index)` / `GetFaces(this H3Index)` | metric | cell circumradius / icosahedron faces a cell touches |
-| [03] | `GetCellBoundaryVertices(this H3Index)` | boundary | raw `IEnumerable<LatLng>` boundary (`GetCellBoundary` wraps it into an NTS `Polygon`) |
+| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CAPABILITY]                                                                          |
+| :-----: | :---------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `CellAreaInMSquared/KmSquared/RadiansSquared(this H3Index)` | metric         | exact spherical cell area in the chosen unit                                          |
+|  [02]   | `GetRadiusInKm(this H3Index)` / `GetFaces(this H3Index)`    | metric         | cell circumradius / icosahedron faces a cell touches                                  |
+|  [03]   | `GetCellBoundaryVertices(this H3Index)`                     | boundary       | raw `IEnumerable<LatLng>` boundary (`GetCellBoundary` wraps it into an NTS `Polygon`) |
 
 [VERTEX]: topological vertex-mode cells — `H3VertexExtensions`
 - rail: geospatial-index
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `CellToVertex(this H3Index cell, int vertexNum)` (= `GetVertexIndex`) | vertex | the `Mode.Vertex` index of one of a cell's topological vertices (0..5) |
-| [02] | `CellToVertexes(this H3Index cell)` (= `GetVertexIndicies`) | vertex | `IEnumerable<H3Index>` of all vertex-mode indices of a cell |
-| [03] | `VertexToLatLng(this H3Index vertex)` (= `VertexToGeoCoord`) | vertex | a vertex-mode index → its `LatLng` coordinate (the shared corner where cells meet) |
-| [04] | `IsValidVertex(this H3Index vertex)` | vertex guard | vertex-mode validity test |
-| [05] | `GetVertexNumberForDirection` / `GetDirectionForVertexNumber(this H3Index, …)` | vertex | the vertex-number ↔ `Direction` mapping for a cell |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [CAPABILITY]                                                                       |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `CellToVertex(this H3Index cell, int vertexNum)` (= `GetVertexIndex`)          | vertex         | the `Mode.Vertex` index of one of a cell's topological vertices (0..5)             |
+|  [02]   | `CellToVertexes(this H3Index cell)` (= `GetVertexIndicies`)                    | vertex         | `IEnumerable<H3Index>` of all vertex-mode indices of a cell                        |
+|  [03]   | `VertexToLatLng(this H3Index vertex)` (= `VertexToGeoCoord`)                   | vertex         | a vertex-mode index → its `LatLng` coordinate (the shared corner where cells meet) |
+|  [04]   | `IsValidVertex(this H3Index vertex)`                                           | vertex guard   | vertex-mode validity test                                                          |
+|  [05]   | `GetVertexNumberForDirection` / `GetDirectionForVertexNumber(this H3Index, …)` | vertex         | the vertex-number ↔ `Direction` mapping for a cell                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

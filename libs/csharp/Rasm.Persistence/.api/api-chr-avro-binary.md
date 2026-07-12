@@ -18,22 +18,22 @@
 [CODEC_FACADE_TYPES]: builder facades and compiled delegates
 - rail: avro-codec
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]        | [CAPABILITY]                                       |
-| :-----: | :----------------------------- | :-------------------- | :------------------------------------------------- |
-|  [01]   | `BinarySerializerBuilder`      | serializer facade     | `Schema` → `BinarySerializer<T>` (compiled)        |
-|  [02]   | `BinaryDeserializerBuilder`    | deserializer facade   | `Schema` → `BinaryDeserializer<T>` (compiled)      |
-|  [03]   | `IBinarySerializerBuilder`     | facade contract       | `BuildDelegateExpression<T>(schema)` seam          |
-|  [04]   | `IBinaryDeserializerBuilder`   | facade contract       | `BuildDelegateExpression<T>(schema)` seam          |
-|  [05]   | `BinarySerializer<T>`          | compiled delegate     | `delegate void (T value, BinaryWriter writer)`     |
-|  [06]   | `BinaryDeserializer<T>`        | compiled delegate     | `delegate T (ref BinaryReader reader)`             |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                                   |
+| :-----: | :--------------------------- | :------------------ | :--------------------------------------------- |
+|  [01]   | `BinarySerializerBuilder`    | serializer facade   | `Schema` → `BinarySerializer<T>` (compiled)    |
+|  [02]   | `BinaryDeserializerBuilder`  | deserializer facade | `Schema` → `BinaryDeserializer<T>` (compiled)  |
+|  [03]   | `IBinarySerializerBuilder`   | facade contract     | `BuildDelegateExpression<T>(schema)` seam      |
+|  [04]   | `IBinaryDeserializerBuilder` | facade contract     | `BuildDelegateExpression<T>(schema)` seam      |
+|  [05]   | `BinarySerializer<T>`        | compiled delegate   | `delegate void (T value, BinaryWriter writer)` |
+|  [06]   | `BinaryDeserializer<T>`      | compiled delegate   | `delegate T (ref BinaryReader reader)`         |
 
 [CODEC_PRIMITIVE_TYPES]: the wire reader and writer
 - rail: avro-codec
 
-| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE] | [CAPABILITY]                                              |
-| :-----: | :-------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `BinaryReader`  | wire decoder   | `ref struct` over `ReadOnlySpan<byte>` — zero-copy decode |
-|  [02]   | `BinaryWriter`  | wire encoder   | `sealed class : IDisposable` over a `Stream`             |
+| [INDEX] | [SYMBOL]       | [PACKAGE_ROLE] | [CAPABILITY]                                              |
+| :-----: | :------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `BinaryReader` | wire decoder   | `ref struct` over `ReadOnlySpan<byte>` — zero-copy decode |
+|  [02]   | `BinaryWriter` | wire encoder   | `sealed class : IDisposable` over a `Stream`              |
 
 `BinaryReader` (`ref struct`, stack-only, single-pass): `readonly long Index { get; }` (cursor); `ReadBoolean()`, `ReadInteger()` → `long` (zig-zag varint), `ReadSingle()`/`ReadDouble()`, `ReadString()`, `ReadBytes()` → `byte[]`, `ReadBytesSpan()` → `ReadOnlySpan<byte>` (zero-copy), `ReadFixed(int)` → `byte[]`, `ReadFixedSpan(int)` → `ReadOnlySpan<byte>`.
 `BinaryWriter` (`Stream`-backed): `WriteBoolean(bool)`, `WriteInteger(int)`/`WriteInteger(long)` (zig-zag varint), `WriteSingle(float)`/`WriteDouble(double)`, `WriteString(string)`, `WriteBytes(byte[])`/`WriteBytes(ReadOnlySpan<byte>)`, `WriteFixed(byte[])`/`WriteFixed(ReadOnlySpan<byte>)`, `Dispose()`.
@@ -41,13 +41,13 @@
 [CODEC_CONTEXT_TYPES]: build context and case framework
 - rail: avro-codec
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]                                       |
-| :-----: | :-------------------------------- | :--------------- | :------------------------------------------------- |
-|  [01]   | `BinarySerializerBuilderContext`  | build context    | per-build expression cache (recursive schemas)     |
-|  [02]   | `BinaryDeserializerBuilderContext` | build context   | per-build expression cache                          |
-|  [03]   | `BinarySerializerBuilderCaseResult` | case result    | matched write-expression or unmatched signal        |
-|  [04]   | `BinaryDeserializerBuilderCaseResult` | case result  | matched read-expression or unmatched signal         |
-|  [05]   | `IBinarySerializerBuilderCase` / `IBinaryDeserializerBuilderCase` | case contract | one schema-shape → binary read/write rule |
+| [INDEX] | [SYMBOL]                                                          | [PACKAGE_ROLE] | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `BinarySerializerBuilderContext`                                  | build context  | per-build expression cache (recursive schemas) |
+|  [02]   | `BinaryDeserializerBuilderContext`                                | build context  | per-build expression cache                     |
+|  [03]   | `BinarySerializerBuilderCaseResult`                               | case result    | matched write-expression or unmatched signal   |
+|  [04]   | `BinaryDeserializerBuilderCaseResult`                             | case result    | matched read-expression or unmatched signal    |
+|  [05]   | `IBinarySerializerBuilderCase` / `IBinaryDeserializerBuilderCase` | case contract  | one schema-shape → binary read/write rule      |
 
 Per-schema-shape codec cases (each `: <Shape>SerializerBuilderCase, IBinarySerializerBuilderCase` / the deserializer mirror), the 19 cases the facade composes by default: `Array`, `Boolean`, `Bytes`, `Date`, `Decimal`, `Double`, `Duration`, `Enum`, `Fixed`, `Float`, `Int`, `Long`, `Map`, `Null`, `Record`, `String`, `Time`, `Timestamp`, `Union`. Each derives from the matching abstract case in `Chr.Avro.Serialization` (`api-chr-avro`) and supplies the leaf binary read/write expression.
 
@@ -56,26 +56,26 @@ Per-schema-shape codec cases (each `: <Shape>SerializerBuilderCase, IBinarySeria
 [ENTRYPOINT_SCOPE]: codec compilation
 - rail: avro-codec
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE] | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------------------- | :----------- | :------------------------------------------------- |
-|  [01]   | `new BinarySerializerBuilder()`                                            | ctor         | builds the default 19-case serializer set          |
-|  [02]   | `new BinarySerializerBuilder(IEnumerable<Func<IBinarySerializerBuilder, IBinarySerializerBuilderCase>>)` | ctor | builds from a custom case list |
-|  [03]   | `BinarySerializerBuilder.BuildDelegate<T>(Schema, BinarySerializerBuilderContext?)` → `BinarySerializer<T>` | build call | compiles a write delegate (`.Compile()`) |
-|  [04]   | `BinarySerializerBuilder.BuildDelegateExpression<T>(Schema, ...)` → `Expression<BinarySerializer<T>>` | build call | the un-compiled expression tree (inline into a larger pipeline) |
-|  [05]   | `new BinaryDeserializerBuilder()`                                          | ctor         | builds the default 19-case deserializer set        |
-|  [06]   | `BinaryDeserializerBuilder.BuildDelegate<T>(Schema, BinaryDeserializerBuilderContext?)` → `BinaryDeserializer<T>` | build call | compiles a read delegate |
-|  [07]   | `BinaryDeserializerBuilder.BuildDelegateExpression<T>(Schema, ...)` → `Expression<BinaryDeserializer<T>>` | build call | the un-compiled read expression tree |
+| [INDEX] | [SURFACE]                                                                                                         | [CALL_SHAPE] | [CAPABILITY]                                                    |
+| :-----: | :---------------------------------------------------------------------------------------------------------------- | :----------- | :-------------------------------------------------------------- |
+|  [01]   | `new BinarySerializerBuilder()`                                                                                   | ctor         | builds the default 19-case serializer set                       |
+|  [02]   | `new BinarySerializerBuilder(IEnumerable<Func<IBinarySerializerBuilder, IBinarySerializerBuilderCase>>)`          | ctor         | builds from a custom case list                                  |
+|  [03]   | `BinarySerializerBuilder.BuildDelegate<T>(Schema, BinarySerializerBuilderContext?)` → `BinarySerializer<T>`       | build call   | compiles a write delegate (`.Compile()`)                        |
+|  [04]   | `BinarySerializerBuilder.BuildDelegateExpression<T>(Schema, ...)` → `Expression<BinarySerializer<T>>`             | build call   | the un-compiled expression tree (inline into a larger pipeline) |
+|  [05]   | `new BinaryDeserializerBuilder()`                                                                                 | ctor         | builds the default 19-case deserializer set                     |
+|  [06]   | `BinaryDeserializerBuilder.BuildDelegate<T>(Schema, BinaryDeserializerBuilderContext?)` → `BinaryDeserializer<T>` | build call   | compiles a read delegate                                        |
+|  [07]   | `BinaryDeserializerBuilder.BuildDelegateExpression<T>(Schema, ...)` → `Expression<BinaryDeserializer<T>>`         | build call   | the un-compiled read expression tree                            |
 
 [ENTRYPOINT_SCOPE]: wire read and write
 - rail: avro-codec
 
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE] | [CAPABILITY]                                       |
-| :-----: | :---------------------------------------------- | :----------- | :------------------------------------------------- |
-|  [01]   | `serializer(value, new BinaryWriter(stream))`   | delegate call | invokes the compiled write delegate against a stream |
-|  [02]   | `var reader = new BinaryReader(span); var v = deserializer(ref reader)` | delegate call | zero-copy read from a span |
-|  [03]   | `reader.Index`                                  | cursor        | bytes consumed (multi-item framing offset)         |
-|  [04]   | `BinaryReader.ReadBytesSpan()` / `ReadFixedSpan(int)` | zero-copy read | element bytes without an allocating copy      |
-|  [05]   | `BinaryWriter.Dispose()`                        | drain         | flushes and releases the stream-backed writer      |
+| [INDEX] | [SURFACE]                                                               | [CALL_SHAPE]   | [CAPABILITY]                                         |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `serializer(value, new BinaryWriter(stream))`                           | delegate call  | invokes the compiled write delegate against a stream |
+|  [02]   | `var reader = new BinaryReader(span); var v = deserializer(ref reader)` | delegate call  | zero-copy read from a span                           |
+|  [03]   | `reader.Index`                                                          | cursor         | bytes consumed (multi-item framing offset)           |
+|  [04]   | `BinaryReader.ReadBytesSpan()` / `ReadFixedSpan(int)`                   | zero-copy read | element bytes without an allocating copy             |
+|  [05]   | `BinaryWriter.Dispose()`                                                | drain          | flushes and releases the stream-backed writer        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

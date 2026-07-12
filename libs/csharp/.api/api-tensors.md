@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Numerics.Tensors`
+
 - package: `System.Numerics.Tensors`
 - assembly: `System.Numerics.Tensors`
 - license: MIT (.NET runtime library)
@@ -16,208 +17,303 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: tensor shapes
+
 - rail: tensor
 
-| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE]  | [CAPABILITY]           |
-| :-----: | :--------------------------------------------- | :-------------- | :--------------------- |
-|  [01]   | `Tensor`                                       | algebra root    | owns factories and ops |
-|  [02]   | `Tensor<T>`                                    | tensor owner    | owns tensor data       |
-|  [03]   | `ITensor` / `ITensor<TSelf,T>`                 | tensor contract | defines mutable tensor |
-|  [04]   | `IReadOnlyTensor` / `IReadOnlyTensor<TSelf,T>` | tensor contract | defines read tensor    |
-|  [05]   | `TensorSpan<T>`                                | span view       | addresses tensor data  |
-|  [06]   | `ReadOnlyTensorSpan<T>`                        | span view       | reads tensor data      |
-|  [07]   | `TensorDimensionSpan<T>`                       | dimension view  | addresses dimensions   |
-|  [08]   | `ReadOnlyTensorDimensionSpan<T>`               | dimension view  | reads dimensions       |
+| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]  | [CAPABILITY]           |
+| :-----: | :------------------------------- | :-------------- | :--------------------- |
+|  [01]   | `Tensor`                         | algebra root    | owns tensor algebra    |
+|  [02]   | `Tensor<T>`                      | tensor owner    | owns tensor data       |
+|  [03]   | `ITensor`                        | tensor contract | defines mutable tensor |
+|  [04]   | `ITensor<TSelf,T>`               | tensor contract | types mutable tensor   |
+|  [05]   | `IReadOnlyTensor`                | tensor contract | defines read tensor    |
+|  [06]   | `IReadOnlyTensor<TSelf,T>`       | tensor contract | types read tensor      |
+|  [07]   | `TensorSpan<T>`                  | span view       | addresses tensor data  |
+|  [08]   | `ReadOnlyTensorSpan<T>`          | span view       | reads tensor data      |
+|  [09]   | `TensorDimensionSpan<T>`         | dimension view  | addresses dimensions   |
+|  [10]   | `ReadOnlyTensorDimensionSpan<T>` | dimension view  | reads dimensions       |
 
 [PUBLIC_TYPE_SCOPE]: indexing and marshalling
+
 - rail: tensor
 
-| [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]                                                                                                                          |
-| :-----: | :----------------- | :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `NIndex`           | `System.Buffers`                 | native-sized dimension index; `FromStart`/`FromEnd`/`Start`/`End`/`GetOffset`, `Index` interop                                        |
-|  [02]   | `NRange`           | `System.Buffers`                 | native-sized dimension slice; `StartAt`/`EndAt`/`All`/`GetOffsetAndLength`, `Range` interop                                           |
-|  [03]   | `TensorShape`      | `System.Numerics.Tensors`        | carries rank, lengths, strides, `IsDense`/`HasAnyDenseDimensions`/`FlattenedLength` — the strided layout descriptor every view shares |
-|  [04]   | `TensorFlags`      | `System.Numerics.Tensors`        | `[Flags]` layout state (`None`/`IsDense`/`IsPinned`) the shape carries                                                                |
-|  [05]   | `TensorMarshal`    | `System.Runtime.InteropServices` | bridges raw tensor refs; the unsafe `ref`-to-`TensorSpan` boundary                                                                    |
-|  [06]   | `TensorPrimitives` | `System.Numerics.Tensors`        | executes SIMD-vectorized elementwise/reduction/predicate ops over spans                                                               |
+| [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]              |
+| :-----: | :----------------- | :------------------------------- | :------------------------ |
+|  [01]   | `NIndex`           | `System.Buffers`                 | indexes native dimensions |
+|  [02]   | `NRange`           | `System.Buffers`                 | slices native dimensions  |
+|  [03]   | `TensorShape`      | `System.Numerics.Tensors`        | describes strided layout  |
+|  [04]   | `TensorFlags`      | `System.Numerics.Tensors`        | marks tensor layout       |
+|  [05]   | `TensorMarshal`    | `System.Runtime.InteropServices` | bridges raw references    |
+|  [06]   | `TensorPrimitives` | `System.Numerics.Tensors`        | runs SIMD span operators  |
+
+[PUBLIC_MEMBER_SCOPE]: native indexing and layout
+
+- rail: tensor
+
+| [INDEX] | [OWNER]       | [SURFACE]               | [CAPABILITY]              |
+| :-----: | :------------ | :---------------------- | :------------------------ |
+|  [01]   | `NIndex`      | `FromStart`             | creates start index       |
+|  [02]   | `NIndex`      | `FromEnd`               | creates end index         |
+|  [03]   | `NIndex`      | `Start`                 | addresses first element   |
+|  [04]   | `NIndex`      | `End`                   | addresses terminal bound  |
+|  [05]   | `NIndex`      | `GetOffset`             | resolves dimension offset |
+|  [06]   | `NIndex`      | `Index` conversion      | bridges BCL indexing      |
+|  [07]   | `NRange`      | `StartAt`               | creates open-ended range  |
+|  [08]   | `NRange`      | `EndAt`                 | creates prefix range      |
+|  [09]   | `NRange`      | `All`                   | spans full dimension      |
+|  [10]   | `NRange`      | `GetOffsetAndLength`    | resolves range bounds     |
+|  [11]   | `NRange`      | `Range` conversion      | bridges BCL ranges        |
+|  [12]   | `TensorShape` | `Rank`                  | reads dimension count     |
+|  [13]   | `TensorShape` | `Lengths`               | reads dimension lengths   |
+|  [14]   | `TensorShape` | `Strides`               | reads dimension strides   |
+|  [15]   | `TensorShape` | `IsDense`               | tests dense layout        |
+|  [16]   | `TensorShape` | `HasAnyDenseDimensions` | tests partial density     |
+|  [17]   | `TensorShape` | `FlattenedLength`       | reads flattened length    |
+|  [18]   | `TensorFlags` | `None`                  | marks no layout state     |
+|  [19]   | `TensorFlags` | `IsDense`               | marks dense layout        |
+|  [20]   | `TensorFlags` | `IsPinned`              | marks pinned layout       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: tensor construction and shape
+
 - rail: tensor
 
-| [INDEX] | [SURFACE]                         | [CALL_SHAPE]     | [CAPABILITY]             |
-| :-----: | :-------------------------------- | :--------------- | :----------------------- |
-|  [01]   | `Tensor.Create`                   | factory call     | wraps array as tensor    |
-|  [02]   | `CreateFromShape`                 | factory call     | allocates shaped tensor  |
-|  [03]   | `CreateFromShapeUninitialized`    | factory call     | allocates raw tensor     |
-|  [04]   | `FillGaussianNormalDistribution`  | fill call        | fills random values      |
-|  [05]   | `FillUniformDistribution`         | fill call        | fills random values      |
-|  [06]   | `AsTensorSpan`                    | projection call  | projects span view       |
-|  [07]   | `AsReadOnlyTensorSpan`            | projection call  | projects read view       |
-|  [08]   | `Reshape`                         | shape call       | changes dimensions       |
-|  [09]   | `Squeeze` / `Unsqueeze`           | shape call       | edits unit dimensions    |
-|  [10]   | `PermuteDimensions` / `Transpose` | shape call       | reorders dimensions      |
-|  [11]   | `Broadcast` / `BroadcastTo`       | shape call       | expands dimensions       |
-|  [12]   | `Concatenate` / `Stack` / `Split` | composition call | joins and splits tensors |
-|  [13]   | `SetSlice` / `FilteredUpdate`     | update call      | writes tensor regions    |
-|  [14]   | `Tensor<T>.Slice`                 | tensor call      | slices tensor data       |
-|  [15]   | `Tensor<T>.GetDimensionSpan`      | tensor call      | addresses dimension      |
-|  [16]   | `Tensor<T>.FlattenTo`             | tensor call      | flattens to span         |
-|  [17]   | `Tensor<T>.ToDenseTensor`         | tensor call      | densifies strided data   |
-|  [18]   | `Tensor<T>.GetPinnableReference`  | tensor call      | exposes pinned ref       |
+| [INDEX] | [SURFACE]                        | [KIND]        | [CAPABILITY]             |
+| :-----: | :------------------------------- | :------------ | :----------------------- |
+|  [01]   | `Tensor.Create`                  | factory       | wraps array as tensor    |
+|  [02]   | `CreateFromShape`                | factory       | allocates shaped tensor  |
+|  [03]   | `CreateFromShapeUninitialized`   | factory       | allocates raw tensor     |
+|  [04]   | `FillGaussianNormalDistribution` | fill          | fills Gaussian values    |
+|  [05]   | `FillUniformDistribution`        | fill          | fills uniform values     |
+|  [06]   | `AsTensorSpan`                   | projection    | projects mutable view    |
+|  [07]   | `AsReadOnlyTensorSpan`           | projection    | projects read view       |
+|  [08]   | `Reshape`                        | shape         | changes dimensions       |
+|  [09]   | `Squeeze`                        | shape         | removes unit dimensions  |
+|  [10]   | `Unsqueeze`                      | shape         | inserts unit dimension   |
+|  [11]   | `PermuteDimensions`              | shape         | reorders dimensions      |
+|  [12]   | `Transpose`                      | shape         | swaps dimensions         |
+|  [13]   | `Broadcast`                      | shape         | expands into tensor      |
+|  [14]   | `BroadcastTo`                    | shape         | expands into destination |
+|  [15]   | `Concatenate`                    | composition   | joins tensors            |
+|  [16]   | `Stack`                          | composition   | stacks tensors           |
+|  [17]   | `Split`                          | composition   | partitions tensor        |
+|  [18]   | `SetSlice`                       | update        | writes tensor slice      |
+|  [19]   | `FilteredUpdate`                 | update        | writes filtered values   |
+|  [20]   | `Tensor<T>.Slice`                | tensor member | slices tensor data       |
+|  [21]   | `Tensor<T>.GetDimensionSpan`     | tensor member | addresses dimension      |
+|  [22]   | `Tensor<T>.FlattenTo`            | tensor member | flattens to span         |
+|  [23]   | `Tensor<T>.ToDenseTensor`        | tensor member | densifies strided data   |
+|  [24]   | `Tensor<T>.GetPinnableReference` | tensor member | exposes pinned ref       |
 
 [ENTRYPOINT_SCOPE]: shape-edit and remap operations
+
 - rail: tensor
 
-| [INDEX] | [SURFACE]                      | [CALL_SHAPE] | [CAPABILITY]                                                     |
-| :-----: | :----------------------------- | :----------- | :--------------------------------------------------------------- |
-|  [01]   | `SqueezeDimension`             | shape call   | removes one unit dimension                                       |
-|  [02]   | `StackAlongDimension`          | shape call   | stacks along a chosen axis                                       |
-|  [03]   | `ConcatenateOnDimension`       | shape call   | joins along a chosen axis                                        |
-|  [04]   | `Reverse` / `ReverseDimension` | remap call   | reverses element order globally or along one axis                |
-|  [05]   | `Resize` / `ResizeTo`          | remap call   | resizes to a new shape; `ResizeTo` writes into a destination     |
-|  [06]   | `TryBroadcastTo`               | shape call   | non-throwing broadcast that fails the `bool` on a shape mismatch |
+| [INDEX] | [SURFACE]                | [KIND] | [CAPABILITY]                |
+| :-----: | :----------------------- | :----- | :-------------------------- |
+|  [01]   | `SqueezeDimension`       | shape  | removes one unit dimension  |
+|  [02]   | `StackAlongDimension`    | shape  | stacks on chosen axis       |
+|  [03]   | `ConcatenateOnDimension` | shape  | joins on chosen axis        |
+|  [04]   | `Reverse`                | remap  | reverses element order      |
+|  [05]   | `ReverseDimension`       | remap  | reverses one dimension      |
+|  [06]   | `Resize`                 | remap  | allocates resized tensor    |
+|  [07]   | `ResizeTo`               | remap  | writes resized destination  |
+|  [08]   | `TryBroadcastTo`         | shape  | broadcasts into destination |
 
-[ENTRYPOINT_SCOPE]: tensor-level comparison and equality (mask + aggregate)
+`TryBroadcastTo` returns `false` when the destination shape is not broadcast-compatible.
+
+[ENTRYPOINT_SCOPE]: tensor-level comparison and equality
+
 - rail: tensor
+- relational families return `Tensor<bool>` masks or write `TensorSpan<bool>` destinations and own `All` and `Any` aggregate companions
 
-| [INDEX] | [SURFACE]                                           | [CALL_SHAPE]        | [CAPABILITY]                                                                                                   |
-| :-----: | :-------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Equals` / `EqualsAll` / `EqualsAny`                | comparison call     | elementwise `Tensor<bool>` mask plus the all/any aggregate fold                                                |
-|  [02]   | `GreaterThan` / `GreaterThanAll` / `GreaterThanAny` | comparison call     | strict-greater mask + aggregate; `GreaterThanOrEqual` family mirrors it                                        |
-|  [03]   | `LessThan` / `LessThanAll` / `LessThanAny`          | comparison call     | strict-less mask + aggregate; `LessThanOrEqual` family mirrors it                                              |
-|  [04]   | `SequenceEqual`                                     | comparison call     | whole-tensor structural equality the reconciliation lane reads                                                 |
-|  [05]   | `RadiansToDegrees`                                  | transcendental call | the tensor-level inverse of `DegreesToRadians` (the `TensorPrimitives` form documents `DegreesToRadians` only) |
+| [INDEX] | [SURFACE]            | [FORM]      | [CAPABILITY]              |
+| :-----: | :------------------- | :---------- | :------------------------ |
+|  [01]   | `Equals`             | mask family | compares equality         |
+|  [02]   | `GreaterThan`        | mask family | compares strict greater   |
+|  [03]   | `GreaterThanOrEqual` | mask family | compares greater or equal |
+|  [04]   | `LessThan`           | mask family | compares strict less      |
+|  [05]   | `LessThanOrEqual`    | mask family | compares less or equal    |
+|  [06]   | `SequenceEqual`      | aggregate   | tests structural equality |
 
 [ENTRYPOINT_SCOPE]: arithmetic and fused primitive operations
+
 - rail: tensor
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]     | [CAPABILITY]            |
-| :-----: | :--------------------- | :--------------- | :---------------------- |
-|  [01]   | `TensorPrimitives.Add` | primitive call   | computes elementwise op |
-|  [02]   | `Subtract`             | primitive call   | computes elementwise op |
-|  [03]   | `Multiply`             | primitive call   | computes elementwise op |
-|  [04]   | `Divide`               | primitive call   | computes elementwise op |
-|  [05]   | `MultiplyAdd`          | primitive call   | computes fused op       |
-|  [06]   | `FusedMultiplyAdd`     | primitive call   | computes fused op       |
-|  [07]   | `Dot`                  | reduction call   | computes inner product  |
-|  [08]   | `CosineSimilarity`     | reduction call   | computes similarity     |
-|  [09]   | `Sum`                  | aggregation call | reduces values          |
+| [INDEX] | [SURFACE]              | [KIND]      | [CAPABILITY]            |
+| :-----: | :--------------------- | :---------- | :---------------------- |
+|  [01]   | `TensorPrimitives.Add` | primitive   | computes elementwise op |
+|  [02]   | `Subtract`             | primitive   | computes elementwise op |
+|  [03]   | `Multiply`             | primitive   | computes elementwise op |
+|  [04]   | `Divide`               | primitive   | computes elementwise op |
+|  [05]   | `MultiplyAdd`          | primitive   | computes fused op       |
+|  [06]   | `FusedMultiplyAdd`     | primitive   | computes fused op       |
+|  [07]   | `Dot`                  | reduction   | computes inner product  |
+|  [08]   | `CosineSimilarity`     | reduction   | computes similarity     |
+|  [09]   | `Sum`                  | aggregation | reduces values          |
 
 [ENTRYPOINT_SCOPE]: aggregation, activation, transcendental, and conversion primitives
+
 - rail: tensor
 
-| [INDEX] | [SURFACE]             | [CALL_SHAPE]        | [CAPABILITY]            |
-| :-----: | :-------------------- | :------------------ | :---------------------- |
-|  [01]   | `Product`             | aggregation call    | reduces values          |
-|  [02]   | `Max`                 | aggregation call    | reduces values          |
-|  [03]   | `Min`                 | aggregation call    | reduces values          |
-|  [04]   | `IndexOfMax`          | search call         | finds extrema index     |
-|  [05]   | `SoftMax` / `Sigmoid` | activation call     | computes activation     |
-|  [06]   | `Cos`                 | transcendental call | computes trig op        |
-|  [07]   | `Exp`                 | transcendental call | computes exponential op |
-|  [08]   | `Log`                 | transcendental call | computes logarithm op   |
-|  [09]   | `ConvertChecked`      | conversion call     | converts values         |
-|  [10]   | `ConvertSaturating`   | conversion call     | converts values         |
+| [INDEX] | [SURFACE]           | [KIND]         | [CAPABILITY]            |
+| :-----: | :------------------ | :------------- | :---------------------- |
+|  [01]   | `Product`           | aggregation    | reduces values          |
+|  [02]   | `Max`               | aggregation    | reduces values          |
+|  [03]   | `Min`               | aggregation    | reduces values          |
+|  [04]   | `IndexOfMax`        | search         | finds extrema index     |
+|  [05]   | `SoftMax`           | activation     | normalizes exponentials |
+|  [06]   | `Sigmoid`           | activation     | computes logistic map   |
+|  [07]   | `Cos`               | transcendental | computes trig op        |
+|  [08]   | `Exp`               | transcendental | computes exponential op |
+|  [09]   | `Log`               | transcendental | computes logarithm op   |
+|  [10]   | `ConvertChecked`    | conversion     | converts values         |
+|  [11]   | `ConvertSaturating` | conversion     | converts values         |
 
 [ENTRYPOINT_SCOPE]: elementwise, rounding, and transcendental primitives
+
 - rail: tensor
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]        | [CAPABILITY]               |
-| :-----: | :----------------- | :------------------ | :------------------------- |
-|  [01]   | `Negate`           | primitive call      | computes elementwise op    |
-|  [02]   | `Abs`              | primitive call      | computes elementwise op    |
-|  [03]   | `CopySign`         | primitive call      | transfers sign elementwise |
-|  [04]   | `AddMultiply`      | primitive call      | computes fused op          |
-|  [05]   | `Clamp`            | primitive call      | bounds values elementwise  |
-|  [06]   | `Round`            | rounding call       | rounds values              |
-|  [07]   | `Floor`            | rounding call       | rounds values down         |
-|  [08]   | `Ceiling`          | rounding call       | rounds values up           |
-|  [09]   | `Sin`              | transcendental call | computes trig op           |
-|  [10]   | `Tanh`             | transcendental call | computes hyperbolic op     |
-|  [11]   | `Sqrt`             | transcendental call | computes square root       |
-|  [12]   | `Cbrt`             | transcendental call | computes cube root         |
-|  [13]   | `DegreesToRadians` | transcendental call | converts angle units       |
-|  [14]   | `Pow`              | transcendental call | computes power op          |
-|  [15]   | `Atan2`            | transcendental call | computes arctangent op     |
+| [INDEX] | [SURFACE]          | [KIND]         | [CAPABILITY]               |
+| :-----: | :----------------- | :------------- | :------------------------- |
+|  [01]   | `Negate`           | primitive      | computes elementwise op    |
+|  [02]   | `Abs`              | primitive      | computes elementwise op    |
+|  [03]   | `CopySign`         | primitive      | transfers sign elementwise |
+|  [04]   | `AddMultiply`      | primitive      | computes fused op          |
+|  [05]   | `Clamp`            | primitive      | bounds values elementwise  |
+|  [06]   | `Round`            | rounding       | rounds values              |
+|  [07]   | `Floor`            | rounding       | rounds values down         |
+|  [08]   | `Ceiling`          | rounding       | rounds values up           |
+|  [09]   | `Sin`              | transcendental | computes trig op           |
+|  [10]   | `Tanh`             | transcendental | computes hyperbolic op     |
+|  [11]   | `Sqrt`             | transcendental | computes square root       |
+|  [12]   | `Cbrt`             | transcendental | computes cube root         |
+|  [13]   | `DegreesToRadians` | transcendental | converts angle units       |
+|  [14]   | `RadiansToDegrees` | transcendental | converts angle units       |
+|  [15]   | `Pow`              | transcendental | computes power op          |
+|  [16]   | `Atan2`            | transcendental | computes arctangent op     |
 
 [ENTRYPOINT_SCOPE]: reduction, similarity, bitwise, and conversion primitives
+
 - rail: tensor
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                 |
-| :-----: | :--------------------- | :-------------- | :--------------------------- |
-|  [01]   | `Norm`                 | reduction call  | computes Euclidean norm      |
-|  [02]   | `MaxMagnitude`         | reduction call  | reduces by absolute extremum |
-|  [03]   | `Average`              | statistics call | computes mean                |
-|  [04]   | `StdDev`               | statistics call | computes standard deviation  |
-|  [05]   | `Distance`             | similarity call | computes Euclidean distance  |
-|  [06]   | `HammingDistance`      | similarity call | counts differing elements    |
-|  [07]   | `BitwiseAnd`           | bitwise call    | computes bitwise op          |
-|  [08]   | `ShiftLeft`            | bitwise call    | shifts integer values        |
-|  [09]   | `ShiftRightArithmetic` | bitwise call    | shifts with sign extension   |
-|  [10]   | `ConvertTruncating`    | conversion call | converts values              |
+| [INDEX] | [SURFACE]              | [KIND]     | [CAPABILITY]                 |
+| :-----: | :--------------------- | :--------- | :--------------------------- |
+|  [01]   | `Norm`                 | reduction  | computes Euclidean norm      |
+|  [02]   | `MaxMagnitude`         | reduction  | reduces by absolute extremum |
+|  [03]   | `Average`              | statistics | computes mean                |
+|  [04]   | `StdDev`               | statistics | computes standard deviation  |
+|  [05]   | `Distance`             | similarity | computes Euclidean distance  |
+|  [06]   | `HammingDistance`      | similarity | counts differing elements    |
+|  [07]   | `BitwiseAnd`           | bitwise    | computes bitwise op          |
+|  [08]   | `ShiftLeft`            | bitwise    | shifts integer values        |
+|  [09]   | `ShiftRightArithmetic` | bitwise    | shifts with sign extension   |
+|  [10]   | `ConvertTruncating`    | conversion | converts values              |
 
 [ENTRYPOINT_SCOPE]: interpolation, reciprocal, hypot, and half-conversion primitives
-- rail: tensor
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]        | [CAPABILITY]                                                              |
-| :-----: | :----------------- | :------------------ | :------------------------------------------------------------------------ |
-|  [01]   | `Lerp`             | interpolation call  | `(x, y, amount, dst)` linear interpolation; `amount` span or scalar       |
-|  [02]   | `Hypot`            | reduction call      | `(x, y, dst)` overflow-safe Euclidean magnitude per element               |
-|  [03]   | `Reciprocal`       | primitive call      | `(x, dst)` element reciprocal; `ReciprocalEstimate` is the fast variant   |
-|  [04]   | `ReciprocalSqrt`   | primitive call      | `(x, dst)` reciprocal square root; `ReciprocalSqrtEstimate` fast variant  |
-|  [05]   | `RootN`            | transcendental call | `(x, int n, dst)` element nth root                                        |
-|  [06]   | `ScaleB`           | transcendental call | `(x, int n, dst)` scales by `2^n`                                         |
-|  [07]   | `SinCos`           | transcendental call | `(x, sinDst, cosDst)` fused sine and cosine                               |
-|  [08]   | `Ieee754Remainder` | transcendental call | `(x, y, dst)` IEEE-754 remainder                                          |
-|  [09]   | `ConvertToHalf`    | conversion call     | `(ReadOnlySpan<float>, Span<Half>)` narrows to `Half`                     |
-|  [10]   | `ConvertToSingle`  | conversion call     | `(ReadOnlySpan<Half>, Span<float>)` widens from `Half`                    |
-|  [11]   | `ConvertToInteger` | conversion call     | `(TFrom, TTo)` float-to-integer; `ConvertToIntegerNative` saturating form |
-|  [12]   | `Truncate`         | rounding call       | `(x, dst)` truncates toward zero                                          |
+- rail: tensor
+- `Lerp` accepts span or scalar `amount` operands and writes into the caller destination
+
+| [INDEX] | [SURFACE]                | [KIND]         | [CAPABILITY]                     |
+| :-----: | :----------------------- | :------------- | :------------------------------- |
+|  [01]   | `Lerp`                   | interpolation  | interpolates elements            |
+|  [02]   | `Hypot`                  | primitive      | computes overflow-safe magnitude |
+|  [03]   | `Reciprocal`             | primitive      | computes reciprocal              |
+|  [04]   | `ReciprocalEstimate`     | primitive      | estimates reciprocal             |
+|  [05]   | `ReciprocalSqrt`         | primitive      | computes reciprocal root         |
+|  [06]   | `ReciprocalSqrtEstimate` | primitive      | estimates reciprocal root        |
+|  [07]   | `RootN`                  | transcendental | computes nth roots               |
+|  [08]   | `ScaleB`                 | transcendental | scales by binary exponent        |
+|  [09]   | `SinCos`                 | transcendental | writes paired trig outputs       |
+|  [10]   | `Ieee754Remainder`       | transcendental | computes IEEE remainder          |
+|  [11]   | `ConvertToHalf`          | conversion     | narrows singles to halves        |
+|  [12]   | `ConvertToSingle`        | conversion     | widens halves to singles         |
+|  [13]   | `ConvertToInteger`       | conversion     | saturates integer overflow       |
+|  [14]   | `ConvertToIntegerNative` | conversion     | uses platform overflow behavior  |
+|  [15]   | `Truncate`               | rounding       | truncates toward zero            |
 
 [ENTRYPOINT_SCOPE]: bitwise, population, and rotation primitives
+
 - rail: tensor
+- `BitwiseOr` and `Xor` accept span or scalar right operands; `PopCount` writes per-element counts or reduces to `long`
 
-| [INDEX] | [SURFACE]           | [CALL_SHAPE] | [CAPABILITY]                                                          |
-| :-----: | :------------------ | :----------- | :-------------------------------------------------------------------- |
-|  [01]   | `PopCount`          | bitwise call | `(x, dst)` per-element set-bit count; `long PopCount(x)` total reduce |
-|  [02]   | `LeadingZeroCount`  | bitwise call | `(x, dst)` leading-zero count per element                             |
-|  [03]   | `TrailingZeroCount` | bitwise call | `(x, dst)` trailing-zero count per element                            |
-|  [04]   | `BitwiseOr`         | bitwise call | `(x, y, dst)` element bitwise OR; `y` span or scalar                  |
-|  [05]   | `Xor`               | bitwise call | `(x, y, dst)` element bitwise XOR                                     |
-|  [06]   | `OnesComplement`    | bitwise call | `(x, dst)` element ones complement                                    |
-|  [07]   | `ShiftRightLogical` | bitwise call | `(x, int shiftAmount, dst)` logical right shift                       |
-|  [08]   | `RotateLeft`        | bitwise call | `(x, int rotateAmount, dst)`; `RotateRight` mirrors it                |
+| [INDEX] | [SURFACE]           | [KIND]  | [CAPABILITY]             |
+| :-----: | :------------------ | :------ | :----------------------- |
+|  [01]   | `PopCount`          | bitwise | counts set bits          |
+|  [02]   | `LeadingZeroCount`  | bitwise | counts leading zeros     |
+|  [03]   | `TrailingZeroCount` | bitwise | counts trailing zeros    |
+|  [04]   | `BitwiseOr`         | bitwise | computes bitwise or      |
+|  [05]   | `Xor`               | bitwise | computes bitwise xor     |
+|  [06]   | `OnesComplement`    | bitwise | complements element bits |
+|  [07]   | `ShiftRightLogical` | bitwise | shifts without sign      |
+|  [08]   | `RotateLeft`        | bitwise | rotates bits left        |
+|  [09]   | `RotateRight`       | bitwise | rotates bits right       |
 
-[ENTRYPOINT_SCOPE]: reduction, sign, and predicate-mask primitives
+[ENTRYPOINT_SCOPE]: reduction, search, sign, and similarity primitives
+
 - rail: tensor
+- `MinNumber` and `MaxNumber` bind `INumber<T>`; each reduces one span or maps a span/scalar right operand into a destination
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]    | [CAPABILITY]                                                                                                                                                                                                                                        |
-| :-----: | :--------------------- | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SumOfSquares`         | reduction call  | `T SumOfSquares(x)` reduces the sum of squared elements                                                                                                                                                                                             |
-|  [02]   | `SumOfMagnitudes`      | reduction call  | `T SumOfMagnitudes(x)` reduces the sum of absolute values                                                                                                                                                                                           |
-|  [03]   | `ProductOfSums`        | reduction call  | `T ProductOfSums(x, y)` reduces the product of pairwise sums                                                                                                                                                                                        |
-|  [04]   | `ProductOfDifferences` | reduction call  | `T ProductOfDifferences(x, y)` reduces the product of pairwise diffs                                                                                                                                                                                |
-|  [05]   | `IndexOfMaxMagnitude`  | search call     | `int` index of the absolute extremum; `IndexOfMin` / `IndexOfMinMagnitude` mirror it                                                                                                                                                                |
-|  [06]   | `Sign`                 | primitive call  | `(x, Span<int> dst)` element sign as `-1`/`0`/`1`                                                                                                                                                                                                   |
-|  [07]   | `HammingBitDistance`   | similarity call | `long` count of differing bits across the integral pair                                                                                                                                                                                             |
-|  [08]   | `IsNaN` / `IsFinite`   | predicate call  | `(x, Span<bool> dst)` per-element mask; the full family is `IsNaN`/`IsFinite`/`IsInfinity`/`IsNormal`/`IsSubnormal`/`IsZero`/`IsPositive`/`IsNegative`/`IsInteger`/`IsEvenInteger`/`IsOddInteger`/`IsPow2`, each with `*All`/`*Any` aggregate forms |
-|  [09]   | `MinNumber`            | reduction call  | `T MinNumber<T>(ReadOnlySpan<T>) where T: INumber<T>` NaN-skipping minimum                                                                                                                                                                          |
-|  [10]   | `MaxNumber`            | reduction call  | `T MaxNumber<T>(ReadOnlySpan<T>) where T: INumber<T>` NaN-skipping maximum                                                                                                                                                                          |
+| [INDEX] | [SURFACE]                      | [KIND]      | [CAPABILITY]                    |
+| :-----: | :----------------------------- | :---------- | :------------------------------ |
+|  [01]   | `SumOfSquares`                 | reduction   | sums squared elements           |
+|  [02]   | `SumOfMagnitudes`              | reduction   | sums absolute values            |
+|  [03]   | `ProductOfSums`                | reduction   | multiplies pairwise sums        |
+|  [04]   | `ProductOfDifferences`         | reduction   | multiplies pairwise differences |
+|  [05]   | `IndexOfMaxMagnitude`          | search      | finds maximum magnitude         |
+|  [06]   | `IndexOfMin`                   | search      | finds minimum value             |
+|  [07]   | `IndexOfMinMagnitude`          | search      | finds minimum magnitude         |
+|  [08]   | `Sign`                         | projection  | writes element signs            |
+|  [09]   | `HammingBitDistance`           | similarity  | counts differing bits           |
+|  [10]   | `MinNumber(x)`                 | reduction   | finds NaN-skipping minimum      |
+|  [11]   | `MinNumber(x, y, destination)` | elementwise | maps NaN-skipping minimum       |
+|  [12]   | `MaxNumber(x)`                 | reduction   | finds NaN-skipping maximum      |
+|  [13]   | `MaxNumber(x, y, destination)` | elementwise | maps NaN-skipping maximum       |
+
+`Sign` writes `-1`, `0`, or `1` to a `Span<int>` destination. `HammingBitDistance` returns the `long` bit-difference count across integral spans.
+
+[ENTRYPOINT_SCOPE]: predicate-mask primitives
+
+- rail: tensor
+- every predicate writes a `Span<bool>` mask and owns `All` and `Any` aggregate companions
+
+| [INDEX] | [SURFACE]            | [DOMAIN]           |
+| :-----: | :------------------- | :----------------- |
+|  [01]   | `IsCanonical`        | `INumberBase<T>`   |
+|  [02]   | `IsComplexNumber`    | `INumberBase<T>`   |
+|  [03]   | `IsEvenInteger`      | `INumberBase<T>`   |
+|  [04]   | `IsFinite`           | `INumberBase<T>`   |
+|  [05]   | `IsImaginaryNumber`  | `INumberBase<T>`   |
+|  [06]   | `IsInfinity`         | `INumberBase<T>`   |
+|  [07]   | `IsInteger`          | `INumberBase<T>`   |
+|  [08]   | `IsNaN`              | `INumberBase<T>`   |
+|  [09]   | `IsNegative`         | `INumberBase<T>`   |
+|  [10]   | `IsNegativeInfinity` | `INumberBase<T>`   |
+|  [11]   | `IsNormal`           | `INumberBase<T>`   |
+|  [12]   | `IsOddInteger`       | `INumberBase<T>`   |
+|  [13]   | `IsPositive`         | `INumberBase<T>`   |
+|  [14]   | `IsPositiveInfinity` | `INumberBase<T>`   |
+|  [15]   | `IsPow2`             | `IBinaryNumber<T>` |
+|  [16]   | `IsRealNumber`       | `INumberBase<T>`   |
+|  [17]   | `IsSubnormal`        | `INumberBase<T>`   |
+|  [18]   | `IsZero`             | `INumberBase<T>`   |
 
 [ENTRYPOINT_SCOPE]: marshalling operations
+
 - rail: tensor
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE] | [CAPABILITY]          |
-| :-----: | :--------------------------------------- | :----------- | :-------------------- |
-|  [01]   | `TensorMarshal.CreateTensorSpan`         | factory call | wraps raw memory      |
-|  [02]   | `TensorMarshal.CreateReadOnlyTensorSpan` | factory call | wraps raw read memory |
-|  [03]   | `TensorMarshal.GetReference`             | ref call     | exposes span data ref |
+| [INDEX] | [SURFACE]                                | [KIND]  | [CAPABILITY]          |
+| :-----: | :--------------------------------------- | :------ | :-------------------- |
+|  [01]   | `TensorMarshal.CreateTensorSpan`         | factory | wraps raw memory      |
+|  [02]   | `TensorMarshal.CreateReadOnlyTensorSpan` | factory | wraps raw read memory |
+|  [03]   | `TensorMarshal.GetReference`             | ref     | exposes span data ref |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TENSOR_SHAPES]:
+
 - namespace: `System.Numerics.Tensors`
 - tensor root: `Tensor<T>` with `Tensor` as the static factory and operation surface
 - span root: tensor spans and dimension spans
@@ -225,6 +321,7 @@
 - marshal root: `TensorMarshal` in `System.Runtime.InteropServices`
 
 [NUMERIC_PRIMITIVES]:
+
 - operation root: `TensorPrimitives`
 - operation families: arithmetic, fused, interpolation, reciprocal, reduction, aggregation, extrema, sign, activation, conversion, trigonometric, exponential, logarithmic, bitwise, population-count, rotation, predicate-mask
 - generic-math constraints: operators are generic over `T` bound by `INumberBase`, `IFloatingPointIeee754`, `IRootFunctions`, `IBinaryInteger`, `IBitwiseOperators`, or `IShiftOperators` as the family requires; integer-only families reject floating element types at the constraint
@@ -234,22 +331,26 @@
 - benchmark rule: primitive selection requires measured BenchmarkDotNet receipts for hot paths — the vectorized-vs-scalar speedup is proven per lane, never assumed
 
 [ABSENT_OPERATORS]:
+
 - `TensorPrimitives` exposes no `Normalize` operator; vector normalization composes from `Norm` (or `SumOfSquares` + `Sqrt`) followed by `Divide` against the reduced magnitude
 - a normalization owner row that names a single `TensorPrimitives.Normalize` call is unresolvable and stays SPIKE until expressed as the `Norm`/`Divide` composition
 
 [LOCAL_ADMISSION]:
+
 - Compute tensor lanes use package tensor shapes and primitives as first-class execution material.
 - Tensor operations stay rail-owned and cannot become loose numeric helpers.
 - Shape, rank, stride, slicing, and conversion rules are explicit execution policy.
 - Model and vector rails can consume tensor spans without redefining tensor ownership.
 
 [INTEGRATION_STACKING]:
-- Span-feed, not re-pack: the geometry kernel's struct-of-arrays coordinate buffers (`float[]`/`double[]` already laid out by the BVH `NodeStore`, the mesh vertex store, the predicate `Expansion` arrays) feed `TensorPrimitives` operators DIRECTLY as `ReadOnlySpan<T>` — and `TensorMarshal.CreateTensorSpan(ref data, dataLength, lengths, strides, pinned)` wraps a pinned raw buffer as a `TensorSpan<T>` view without a copy. A second tensor-shaped re-pack of a buffer the kernel already owns is the rejected double-layout.
-- Fused single rail: a vectorized stage chains by aliasing the destination — `Subtract(x, y, tmp)` then `Multiply(tmp, tmp, tmp)` then `Sum(tmp)` is one allocation-free squared-distance reduction; `MultiplyAdd`/`FusedMultiplyAdd`/`AddMultiply`/`Lerp`/`Hypot` collapse a two-step arithmetic into one fused vectorized pass, and the `Tensor`-level mirror (`Tensor.Add`/`Tensor.CosineSimilarity`/`Tensor.Norm`) runs the same operator over a strided owner when the lane is rank-aware.
-- Receipt-gated: the hot vectorized lane carries a BenchmarkDotNet receipt proving the speedup; the receipt is the typed evidence, not a comment — a tensor primitive enters the hot path only with its measured win.
-- Not the exact-predicate path: `TensorPrimitives` is IEEE-754 floating SIMD — fast bulk arithmetic, NEVER the substrate of an exact geometric predicate. A robustness decision (`Orient3D`/`Orient2D` straddle sign, an `Expansion` ordering key) is the `Numerics/predicates` exact-arithmetic floor's concern, and routing a crossing/containment sign through a vectorized float reduction is the named non-robustness defect. Tensors accelerate the bulk numeric transform; the predicate floor owns the exact decision.
+
+- Span feed: Existing coordinate buffers feed `TensorPrimitives` as `ReadOnlySpan<T>`, and `TensorMarshal.CreateTensorSpan` projects pinned raw buffers without copying. The buffer owner retains the only layout.
+- Fused rail: Destination aliasing chains vectorized stages in one buffer; fused primitives collapse multi-step arithmetic into one pass, and tensor-level mirrors carry the same operations over strided owners.
+- Receipt: A BenchmarkDotNet receipt admits a tensor primitive to a hot path only after measuring its win.
+- Predicate boundary: `TensorPrimitives` owns floating SIMD transforms, while exact geometric decisions stay on the exact-arithmetic predicate floor. Crossing and containment signs never route through floating reductions.
 
 [RAIL_LAW]:
+
 - Package: `System.Numerics.Tensors`
 - Owns: tensors, tensor spans, dimension spans, native-sized indexing, marshalling, and SIMD numeric primitives
 - Accept: measured tensor execution composing the kernel's existing span buffers through one fused vectorized rail

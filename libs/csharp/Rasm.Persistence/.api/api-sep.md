@@ -37,17 +37,17 @@ classifier — `Outer` strips surrounding whitespace, `AfterUnescape` trims post
 `All` = both. `SepCreateToString` is the
 `(SepReaderHeader?, int colCount) -> SepToString` pool-factory delegate.
 
-| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]    | [CAPABILITY]                                      |
-| :-----: | :------------------- | :---------------- | :------------------------------------------------ |
-|  [01]   | `Sep`                | separator root    | `readonly record struct`; selects separator       |
-|  [02]   | `SepSpec`            | culture spec      | `readonly record struct`; binds `Sep` + culture   |
-|  [03]   | `SepDefaults`        | default anchors   | static default separator/culture policy           |
-|  [04]   | `SepReaderOptions`   | reader options    | `readonly record struct`; parse policy bag        |
-|  [05]   | `SepWriterOptions`   | writer options    | `readonly record struct`; emit policy bag         |
-|  [06]   | `SepTrim`            | trim classifier   | `[Flags] enum byte` `None`/`Outer`/`AfterUnescape`/`All` |
-|  [07]   | `SepColNotSetOption` | unset classifier  | `enum byte` `Throw`/`Empty`/`Skip` (writer only)  |
-|  [08]   | `SepToString`        | string-pool root  | abstract pool; `Direct` + the 4 pool factories `PoolPerCol(maxLength, capacity)` / `PoolPerColThreadSafe` / `PoolPerColThreadSafeFixedCapacity(maxLength, capacity)` / `Pool` (decompile-verified member names) |
-|  [09]   | `SepCreateToString`  | pool delegate     | `(header,colCount) -> SepToString` factory         |
+| [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                                                                                                                                    |
+| :-----: | :------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Sep`                | separator root   | `readonly record struct`; selects separator                                                                                                                                                                     |
+|  [02]   | `SepSpec`            | culture spec     | `readonly record struct`; binds `Sep` + culture                                                                                                                                                                 |
+|  [03]   | `SepDefaults`        | default anchors  | static default separator/culture policy                                                                                                                                                                         |
+|  [04]   | `SepReaderOptions`   | reader options   | `readonly record struct`; parse policy bag                                                                                                                                                                      |
+|  [05]   | `SepWriterOptions`   | writer options   | `readonly record struct`; emit policy bag                                                                                                                                                                       |
+|  [06]   | `SepTrim`            | trim classifier  | `[Flags] enum byte` `None`/`Outer`/`AfterUnescape`/`All`                                                                                                                                                        |
+|  [07]   | `SepColNotSetOption` | unset classifier | `enum byte` `Throw`/`Empty`/`Skip` (writer only)                                                                                                                                                                |
+|  [08]   | `SepToString`        | string-pool root | abstract pool; `Direct` + the 4 pool factories `PoolPerCol(maxLength, capacity)` / `PoolPerColThreadSafe` / `PoolPerColThreadSafeFixedCapacity(maxLength, capacity)` / `Pool` (decompile-verified member names) |
+|  [09]   | `SepCreateToString`  | pool delegate    | `(header,colCount) -> SepToString` factory                                                                                                                                                                      |
 
 [READER_TYPES]: read surfaces
 - rail: interchange-codec
@@ -55,32 +55,32 @@ classifier — `Outer` strips surrounding whitespace, `AfterUnescape` trims post
 `SepReader` is the synchronous enumerator (`IEnumerable<Row>`/`IEnumerator<Row>`) AND the
 async-enumerable source (`IAsyncEnumerable<Row>`); rows/cols are `ref struct` projections.
 
-| [INDEX] | [SYMBOL]                              | [PACKAGE_ROLE]   | [CAPABILITY]                                           |
-| :-----: | :------------------------------------ | :--------------- | :---------------------------------------------------- |
-|  [01]   | `SepReader`                           | reader root      | sync + async row enumeration over one buffer          |
-|  [02]   | `SepReader.Row`                       | row ref struct   | `ColCount` live width; column indexer; `Span`/`Join`/`Select` |
-|  [03]   | `SepReader.Col`                       | col ref struct   | `Span`/`Parse<T>`/`TryParse<T>`                        |
-|  [04]   | `SepReader.Cols`                      | cols ref struct  | column-set `Parse`/`Select`/`Join` projections        |
-|  [05]   | `SepReader.RowFunc<T>`                | projection delegate | `(Row) -> T where T : allows ref struct`           |
-|  [06]   | `SepReader.RowTryFunc<T>`             | try-projection delegate | `(Row, out T) -> bool`; skips on false        |
-|  [07]   | `SepReader.ColFunc<T>`                | col-projection delegate | `(Col) -> T where T : allows ref struct`      |
-|  [08]   | `SepReader.AsyncEnumerator`           | async surface    | `IAsyncEnumerator<Row>`/`IAsyncDisposable`            |
-|  [09]   | `SepReaderHeader`                     | header surface   | name/span index resolution + prefix window            |
-|  [10]   | `SepReaderExtensions`                 | reader factory   | option builders, `From*`/`From*Async`, `Enumerate*`   |
+| [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]          | [CAPABILITY]                                                  |
+| :-----: | :-------------------------- | :---------------------- | :------------------------------------------------------------ |
+|  [01]   | `SepReader`                 | reader root             | sync + async row enumeration over one buffer                  |
+|  [02]   | `SepReader.Row`             | row ref struct          | `ColCount` live width; column indexer; `Span`/`Join`/`Select` |
+|  [03]   | `SepReader.Col`             | col ref struct          | `Span`/`Parse<T>`/`TryParse<T>`                               |
+|  [04]   | `SepReader.Cols`            | cols ref struct         | column-set `Parse`/`Select`/`Join` projections                |
+|  [05]   | `SepReader.RowFunc<T>`      | projection delegate     | `(Row) -> T where T : allows ref struct`                      |
+|  [06]   | `SepReader.RowTryFunc<T>`   | try-projection delegate | `(Row, out T) -> bool`; skips on false                        |
+|  [07]   | `SepReader.ColFunc<T>`      | col-projection delegate | `(Col) -> T where T : allows ref struct`                      |
+|  [08]   | `SepReader.AsyncEnumerator` | async surface           | `IAsyncEnumerator<Row>`/`IAsyncDisposable`                    |
+|  [09]   | `SepReaderHeader`           | header surface          | name/span index resolution + prefix window                    |
+|  [10]   | `SepReaderExtensions`       | reader factory          | option builders, `From*`/`From*Async`, `Enumerate*`           |
 
 [WRITER_TYPES]: write surfaces
 - rail: interchange-codec
 
-| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]   | [CAPABILITY]                                          |
-| :-----: | :---------------------------------------- | :--------------- | :--------------------------------------------------- |
-|  [01]   | `SepWriter`                               | writer root      | `IDisposable`/`IAsyncDisposable` row emitter         |
-|  [02]   | `SepWriter.Row`                           | row ref struct   | `IDisposable`/`IAsyncDisposable`; commits on dispose  |
-|  [03]   | `SepWriter.Col`                           | col ref struct   | `Set`/`Format`; interpolated-string handler          |
-|  [04]   | `SepWriter.Col.FormatInterpolatedStringHandler` | format handler | `[InterpolatedStringHandler]` zero-alloc col write |
-|  [05]   | `SepWriter.Cols`                          | cols ref struct  | column-set `Set`                                     |
-|  [06]   | `SepWriterHeader`                         | header surface   | owns written header                                  |
-|  [07]   | `SepWriterExtensions`                     | writer factory   | option builders, `To*`, `Strict`                     |
-|  [08]   | `SepReaderWriterExtensions`               | copy bridge      | `NewRow(readerRow)` + `CopyTo` reader->writer         |
+| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]  | [CAPABILITY]                                         |
+| :-----: | :---------------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `SepWriter`                                     | writer root     | `IDisposable`/`IAsyncDisposable` row emitter         |
+|  [02]   | `SepWriter.Row`                                 | row ref struct  | `IDisposable`/`IAsyncDisposable`; commits on dispose |
+|  [03]   | `SepWriter.Col`                                 | col ref struct  | `Set`/`Format`; interpolated-string handler          |
+|  [04]   | `SepWriter.Col.FormatInterpolatedStringHandler` | format handler  | `[InterpolatedStringHandler]` zero-alloc col write   |
+|  [05]   | `SepWriter.Cols`                                | cols ref struct | column-set `Set`                                     |
+|  [06]   | `SepWriterHeader`                               | header surface  | owns written header                                  |
+|  [07]   | `SepWriterExtensions`                           | writer factory  | option builders, `To*`, `Strict`                     |
+|  [08]   | `SepReaderWriterExtensions`                     | copy bridge     | `NewRow(readerRow)` + `CopyTo` reader->writer        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -92,16 +92,16 @@ composes with the repo's options-builder discipline; the bare form plus `with` i
 fallback. `Sep.Auto` returns a `Sep?` of `null`, which `Reader(this Sep?)` reads as
 "auto-detect separator from the first row".
 
-| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]        | [CAPABILITY]                                       |
-| :-----: | :--------------------------------------------- | :------------------ | :------------------------------------------------- |
-|  [01]   | `Sep.New(char)` / `new Sep(char)`              | factory             | builds an explicit separator                       |
-|  [02]   | `Sep.Default`                                  | static property     | `SepDefaults.Separator` (`;`)                      |
-|  [03]   | `Sep.Auto`                                     | static property     | `Sep?` = `null`; routes to auto-detect             |
-|  [04]   | `Sep.Reader()` / `sep.Reader()`                | options factory     | starts `SepReaderOptions`                          |
-|  [05]   | `Sep.Reader(Func<…>)` / `sep.Reader(Func<…>)`  | options factory     | starts + configures reader options in one call     |
-|  [06]   | `spec.Reader(…)`                               | options factory     | reader options from a `SepSpec` (culture-bound)    |
-|  [07]   | `Strict`                                        | options extension   | `in SepReaderOptions`/`in SepWriterOptions`; hardens col-count + quoting |
-|  [08]   | `Sep.Writer()` / `sep.Writer(Func<…>)`         | options factory     | starts + configures writer options                 |
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]      | [CAPABILITY]                                                             |
+| :-----: | :-------------------------------------------- | :---------------- | :----------------------------------------------------------------------- |
+|  [01]   | `Sep.New(char)` / `new Sep(char)`             | factory           | builds an explicit separator                                             |
+|  [02]   | `Sep.Default`                                 | static property   | `SepDefaults.Separator` (`;`)                                            |
+|  [03]   | `Sep.Auto`                                    | static property   | `Sep?` = `null`; routes to auto-detect                                   |
+|  [04]   | `Sep.Reader()` / `sep.Reader()`               | options factory   | starts `SepReaderOptions`                                                |
+|  [05]   | `Sep.Reader(Func<…>)` / `sep.Reader(Func<…>)` | options factory   | starts + configures reader options in one call                           |
+|  [06]   | `spec.Reader(…)`                              | options factory   | reader options from a `SepSpec` (culture-bound)                          |
+|  [07]   | `Strict`                                      | options extension | `in SepReaderOptions`/`in SepWriterOptions`; hardens col-count + quoting |
+|  [08]   | `Sep.Writer()` / `sep.Writer(Func<…>)`        | options factory   | starts + configures writer options                                       |
 
 [ENTRYPOINT_SCOPE]: reader options surface (`readonly record struct SepReaderOptions`)
 - rail: interchange-codec
@@ -109,20 +109,20 @@ fallback. `Sep.Auto` returns a `Sep?` of `null`, which `Reader(this Sep?)` reads
 The full parse-policy bag — the catalog-level reader is configured entirely through these
 `init` members, not a thin culture/trim subset.
 
-| [INDEX] | [MEMBER]                          | [TYPE]                  | [NOTES]                                             |
-| :-----: | :-------------------------------- | :---------------------- | :------------------------------------------------- |
-|  [01]   | `Sep`                             | `Sep?`                  | `null` = auto-detect separator                     |
-|  [02]   | `CultureInfo`                     | `CultureInfo?`          | parse/format culture; `null` = invariant fast path |
-|  [03]   | `HasHeader`                       | `bool`                  | default true; header drives name indexing          |
-|  [04]   | `ColNameComparer`                 | `IEqualityComparer<string>` | header name lookup comparer                    |
-|  [05]   | `Trim`                            | `SepTrim`               | `None`/`Outer`/`AfterUnescape`/`All` (`[Flags]`)   |
-|  [06]   | `Unescape`                        | `bool`                  | unescape quoted columns in place                   |
-|  [07]   | `DisableFastFloat`                | `bool`                  | opt out of the vectorized float parser             |
-|  [08]   | `DisableColCountCheck`            | `bool`                  | allow ragged rows                                  |
-|  [09]   | `DisableQuotesParsing`            | `bool`                  | treat quotes as literal characters                 |
-|  [10]   | `InitialBufferLength`             | `int`                   | initial read buffer sizing                         |
-|  [11]   | `CreateToString`                  | `SepCreateToString`     | per-column string-pool factory (see pool table)    |
-|  [12]   | `AsyncContinueOnCapturedContext`  | `bool`                  | async `From*Async` continuation context            |
+| [INDEX] | [MEMBER]                         | [TYPE]                      | [NOTES]                                            |
+| :-----: | :------------------------------- | :-------------------------- | :------------------------------------------------- |
+|  [01]   | `Sep`                            | `Sep?`                      | `null` = auto-detect separator                     |
+|  [02]   | `CultureInfo`                    | `CultureInfo?`              | parse/format culture; `null` = invariant fast path |
+|  [03]   | `HasHeader`                      | `bool`                      | default true; header drives name indexing          |
+|  [04]   | `ColNameComparer`                | `IEqualityComparer<string>` | header name lookup comparer                        |
+|  [05]   | `Trim`                           | `SepTrim`                   | `None`/`Outer`/`AfterUnescape`/`All` (`[Flags]`)   |
+|  [06]   | `Unescape`                       | `bool`                      | unescape quoted columns in place                   |
+|  [07]   | `DisableFastFloat`               | `bool`                      | opt out of the vectorized float parser             |
+|  [08]   | `DisableColCountCheck`           | `bool`                      | allow ragged rows                                  |
+|  [09]   | `DisableQuotesParsing`           | `bool`                      | treat quotes as literal characters                 |
+|  [10]   | `InitialBufferLength`            | `int`                       | initial read buffer sizing                         |
+|  [11]   | `CreateToString`                 | `SepCreateToString`         | per-column string-pool factory (see pool table)    |
+|  [12]   | `AsyncContinueOnCapturedContext` | `bool`                      | async `From*Async` continuation context            |
 
 [ENTRYPOINT_SCOPE]: reader sources — sync + async mirror
 - rail: interchange-codec
@@ -131,14 +131,14 @@ Every source has a sync `From*` and an async `From*Async`/`ValueTask<SepReader>`
 the `name + factory` overloads admit a named stream/reader for diagnostics, with a
 `leaveOpen` variant. `From*` are `in SepReaderOptions` extensions.
 
-| [INDEX] | [SURFACE]                                              | [RETURNS]               | [CAPABILITY]                                  |
-| :-----: | :----------------------------------------------------- | :---------------------- | :-------------------------------------------- |
-|  [01]   | `FromText(string)`                                     | `SepReader`             | string source                                 |
-|  [02]   | `FromFile(string)`                                     | `SepReader`             | file source                                   |
-|  [03]   | `From(byte[])` / `From(Stream[, leaveOpen])`           | `SepReader`             | buffer / stream source                        |
-|  [04]   | `From(TextReader[, leaveOpen])`                        | `SepReader`             | reader source                                 |
-|  [05]   | `From(name, Func<string,Stream>[, leaveOpen])`         | `SepReader`             | named-stream source                           |
-|  [06]   | `FromTextAsync` / `FromFileAsync` / `FromAsync(…)`     | `ValueTask<SepReader>`  | async mirror of [01]-[05]                      |
+| [INDEX] | [SURFACE]                                          | [RETURNS]              | [CAPABILITY]              |
+| :-----: | :------------------------------------------------- | :--------------------- | :------------------------ |
+|  [01]   | `FromText(string)`                                 | `SepReader`            | string source             |
+|  [02]   | `FromFile(string)`                                 | `SepReader`            | file source               |
+|  [03]   | `From(byte[])` / `From(Stream[, leaveOpen])`       | `SepReader`            | buffer / stream source    |
+|  [04]   | `From(TextReader[, leaveOpen])`                    | `SepReader`            | reader source             |
+|  [05]   | `From(name, Func<string,Stream>[, leaveOpen])`     | `SepReader`            | named-stream source       |
+|  [06]   | `FromTextAsync` / `FromFileAsync` / `FromAsync(…)` | `ValueTask<SepReader>` | async mirror of [01]-[05] |
 
 [ENTRYPOINT_SCOPE]: row / column access (ref-struct, scope-bound)
 - rail: interchange-codec
@@ -147,23 +147,23 @@ the `name + factory` overloads admit a named stream/reader for diagnostics, with
 returns `T?`. `Cols.Parse<T>(Span<T>)` parses a whole column set into a caller buffer
 (zero alloc), and `Cols.Select<T>(ColFunc<T>)` projects each column through a delegate.
 
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]    | [CAPABILITY]                                       |
-| :-----: | :---------------------------------------------- | :-------------- | :------------------------------------------------- |
-|  [01]   | `MoveNext` / `MoveNextAsync`                     | reader call     | advances row (sync / `ValueTask<bool>`)            |
-|  [02]   | `Current`                                        | reader property | current `Row` ref struct                           |
-|  [03]   | `Row[name]` / `Row[index]` / `Row[range]`        | row indexer     | selects `Col`/`Cols`                               |
-|  [04]   | `Row.ColCount` / `Row.Span` / `Row.Join(sep)` / `Row.Select<T>` | row projection | live column count (`int`) / whole-row span / joined span / delegate project |
-|  [05]   | `Col.Span`                                       | col property    | `ReadOnlySpan<char>` column chars                  |
-|  [06]   | `Col.Parse<T>()`                                 | col call        | `where T : ISpanParsable<T>`                       |
-|  [07]   | `Col.TryParse<T>()`                              | col call        | `where T : struct, ISpanParsable<T>` -> `T?`        |
-|  [08]   | `Cols.Parse<T>()` / `Cols.Parse<T>(Span<T>)`     | cols call       | parse set -> `Span<T>` or into caller buffer       |
-|  [09]   | `Cols.TryParse<T>()` / `Cols.TryParse<T>(Span<T?>)` | cols call    | nullable struct set parse (`T : struct`)           |
-|  [10]   | `Cols.Select<T>(ColFunc<T>)`                     | cols call       | delegate-project each column -> `Span<T>`          |
-|  [11]   | `Header.IndexOf(string)` / `IndexOf(ReadOnlySpan<char>)` | header call | resolve column index (string / span)            |
-|  [12]   | `Header.TryIndexOf(…, out int)`                  | header call     | non-throwing index resolution                      |
-|  [13]   | `Header.IndicesOf(IReadOnlyList<string>` / `params` / `Span<string>, Span<int>)` | header call | resolve many; the `Span<int>` form writes into a caller buffer |
-|  [14]   | `Header.NamesStartingWith(prefix[, StringComparison])` | header call | prefixed column-name window (default `Ordinal`) |
-|  [15]   | `Header.ColNames` / `Header.IsEmpty` / `Header.Empty` | header members | name roster / emptiness / sentinel              |
+| [INDEX] | [SURFACE]                                                                        | [CALL_SHAPE]    | [CAPABILITY]                                                                |
+| :-----: | :------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `MoveNext` / `MoveNextAsync`                                                     | reader call     | advances row (sync / `ValueTask<bool>`)                                     |
+|  [02]   | `Current`                                                                        | reader property | current `Row` ref struct                                                    |
+|  [03]   | `Row[name]` / `Row[index]` / `Row[range]`                                        | row indexer     | selects `Col`/`Cols`                                                        |
+|  [04]   | `Row.ColCount` / `Row.Span` / `Row.Join(sep)` / `Row.Select<T>`                  | row projection  | live column count (`int`) / whole-row span / joined span / delegate project |
+|  [05]   | `Col.Span`                                                                       | col property    | `ReadOnlySpan<char>` column chars                                           |
+|  [06]   | `Col.Parse<T>()`                                                                 | col call        | `where T : ISpanParsable<T>`                                                |
+|  [07]   | `Col.TryParse<T>()`                                                              | col call        | `where T : struct, ISpanParsable<T>` -> `T?`                                |
+|  [08]   | `Cols.Parse<T>()` / `Cols.Parse<T>(Span<T>)`                                     | cols call       | parse set -> `Span<T>` or into caller buffer                                |
+|  [09]   | `Cols.TryParse<T>()` / `Cols.TryParse<T>(Span<T?>)`                              | cols call       | nullable struct set parse (`T : struct`)                                    |
+|  [10]   | `Cols.Select<T>(ColFunc<T>)`                                                     | cols call       | delegate-project each column -> `Span<T>`                                   |
+|  [11]   | `Header.IndexOf(string)` / `IndexOf(ReadOnlySpan<char>)`                         | header call     | resolve column index (string / span)                                        |
+|  [12]   | `Header.TryIndexOf(…, out int)`                                                  | header call     | non-throwing index resolution                                               |
+|  [13]   | `Header.IndicesOf(IReadOnlyList<string>` / `params` / `Span<string>, Span<int>)` | header call     | resolve many; the `Span<int>` form writes into a caller buffer              |
+|  [14]   | `Header.NamesStartingWith(prefix[, StringComparison])`                           | header call     | prefixed column-name window (default `Ordinal`)                             |
+|  [15]   | `Header.ColNames` / `Header.IsEmpty` / `Header.Empty`                            | header members  | name roster / emptiness / sentinel                                          |
 
 [ENTRYPOINT_SCOPE]: row enumeration projections — sync, async, parallel
 - rail: interchange-codec
@@ -173,12 +173,12 @@ overload; `ParallelEnumerate` adds a `degreeOfParallelism` overload. These are t
 canonical seam into `Query/lane` — `Enumerate` yields `IEnumerable<T>` of materialized
 records out of ref-struct rows.
 
-| [INDEX] | [SURFACE]                                        | [RETURNS]                 | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------- | :------------------------ | :---------------------------------------- |
-|  [01]   | `Enumerate(RowFunc<T>)` / `Enumerate(RowTryFunc<T>)` | `IEnumerable<T>`       | project / project-or-skip rows            |
-|  [02]   | `EnumerateAsync(RowFunc<T>)` / `(RowTryFunc<T>)`  | `IAsyncEnumerable<T>`     | async mirror                              |
-|  [03]   | `ParallelEnumerate(RowFunc<T>)` / `(RowTryFunc<T>)` | `IEnumerable<T>`        | parallel project; preserves row order     |
-|  [04]   | `ParallelEnumerate(RowFunc<T>, int degreeOfParallelism)` | `IEnumerable<T>`  | parallel project, bounded fan             |
+| [INDEX] | [SURFACE]                                                | [RETURNS]             | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------- | :-------------------- | :------------------------------------ |
+|  [01]   | `Enumerate(RowFunc<T>)` / `Enumerate(RowTryFunc<T>)`     | `IEnumerable<T>`      | project / project-or-skip rows        |
+|  [02]   | `EnumerateAsync(RowFunc<T>)` / `(RowTryFunc<T>)`         | `IAsyncEnumerable<T>` | async mirror                          |
+|  [03]   | `ParallelEnumerate(RowFunc<T>)` / `(RowTryFunc<T>)`      | `IEnumerable<T>`      | parallel project; preserves row order |
+|  [04]   | `ParallelEnumerate(RowFunc<T>, int degreeOfParallelism)` | `IEnumerable<T>`      | parallel project, bounded fan         |
 
 [ENTRYPOINT_SCOPE]: writer options + sinks + column writes
 - rail: interchange-codec
@@ -188,16 +188,16 @@ records out of ref-struct rows.
 accepts a span or an interpolated string via `FormatInterpolatedStringHandler`;
 `Col.Format` writes an `ISpanFormattable` with a format/culture.
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]      | [CAPABILITY]                                    |
-| :-----: | :----------------------------------------------- | :---------------- | :---------------------------------------------- |
-|  [01]   | `Sep.Writer()` / `sep.Writer(Func<…>)`           | options factory   | starts writer options                           |
-|  [02]   | `ToText()` / `ToText(int capacity)`              | options extension | string sink (capacity-presized)                 |
-|  [03]   | `ToFile(string)`                                 | options extension | file sink                                       |
-|  [04]   | `To(Stream[, leaveOpen])` / `To(TextWriter[, leaveOpen])` / `To(StringBuilder)` / `To(name, factory[, leaveOpen])` | options extension | stream / writer / builder / named sink |
-|  [05]   | `writer.NewRow()`                                | writer call       | starts a writer row (commit on dispose)         |
-|  [06]   | `Col.Set(span)` / `Col.Set($"…")`                | col call          | sets span or interpolated value                 |
-|  [07]   | `Col.Format(value[, format, provider])`          | col call          | formats `ISpanFormattable`                      |
-|  [08]   | `writer.Flush()`                                 | writer call       | flushes pending rows to the sink                |
+| [INDEX] | [SURFACE]                                                                                                          | [CALL_SHAPE]      | [CAPABILITY]                            |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :---------------- | :-------------------------------------- |
+|  [01]   | `Sep.Writer()` / `sep.Writer(Func<…>)`                                                                             | options factory   | starts writer options                   |
+|  [02]   | `ToText()` / `ToText(int capacity)`                                                                                | options extension | string sink (capacity-presized)         |
+|  [03]   | `ToFile(string)`                                                                                                   | options extension | file sink                               |
+|  [04]   | `To(Stream[, leaveOpen])` / `To(TextWriter[, leaveOpen])` / `To(StringBuilder)` / `To(name, factory[, leaveOpen])` | options extension | stream / writer / builder / named sink  |
+|  [05]   | `writer.NewRow()`                                                                                                  | writer call       | starts a writer row (commit on dispose) |
+|  [06]   | `Col.Set(span)` / `Col.Set($"…")`                                                                                  | col call          | sets span or interpolated value         |
+|  [07]   | `Col.Format(value[, format, provider])`                                                                            | col call          | formats `ISpanFormattable`              |
+|  [08]   | `writer.Flush()`                                                                                                   | writer call       | flushes pending rows to the sink        |
 
 [ENTRYPOINT_SCOPE]: reader->writer copy bridge
 - rail: interchange-codec
@@ -206,11 +206,11 @@ The transform-passthrough seam: open a reader and a writer, then per row either 
 whole row (`NewRow(readerRow)` / `CopyTo`) or selectively re-emit columns — the basis for
 redaction-pass and column-projection egress without materializing strings.
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]      | [CAPABILITY]                                    |
-| :-----: | :----------------------------------------------- | :---------------- | :---------------------------------------------- |
-|  [01]   | `writer.NewRow(SepReader.Row)`                   | copy extension    | new writer row seeded from a reader row         |
-|  [02]   | `writer.NewRow(SepReader.Row, CancellationToken)`| copy extension    | cancellable seeded row                          |
-|  [03]   | `readerRow.CopyTo(writerRow)`                    | copy extension    | copies reader row columns into a writer row     |
+| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]   | [CAPABILITY]                                |
+| :-----: | :------------------------------------------------ | :------------- | :------------------------------------------ |
+|  [01]   | `writer.NewRow(SepReader.Row)`                    | copy extension | new writer row seeded from a reader row     |
+|  [02]   | `writer.NewRow(SepReader.Row, CancellationToken)` | copy extension | cancellable seeded row                      |
+|  [03]   | `readerRow.CopyTo(writerRow)`                     | copy extension | copies reader row columns into a writer row |
 
 [ENTRYPOINT_SCOPE]: string-pool factories (`SepToString`)
 - rail: interchange-codec
@@ -220,13 +220,13 @@ catalog/identity columns with low cardinality this collapses string allocation t
 lookup; the thread-safe variants are required when rows are consumed under
 `ParallelEnumerate`.
 
-| [INDEX] | [SURFACE]                                              | [THREAD_SAFE] | [CAPABILITY]                                  |
-| :-----: | :----------------------------------------------------- | :-----------: | :-------------------------------------------- |
-|  [01]   | `SepToString.Direct`                                   | n/a           | no pooling; new string per column read        |
-|  [02]   | `SepToString.PoolPerCol(maxLen, initCap, maxCap)`      | no            | per-column pool                               |
-|  [03]   | `SepToString.PoolPerColThreadSafe(maxLen, initCap, maxCap)` | yes      | per-column pool for parallel consumers        |
-|  [04]   | `SepToString.PoolPerColThreadSafeFixedCapacity(maxLen, capacity)` | yes  | fixed-capacity per-column pool                |
-|  [05]   | `SepToString.OnePool(maxLen, initCap, maxCap)`         | no            | single shared pool across all columns         |
+| [INDEX] | [SURFACE]                                                         | [THREAD_SAFE] | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------- | :-----------: | :------------------------------------- |
+|  [01]   | `SepToString.Direct`                                              |      n/a      | no pooling; new string per column read |
+|  [02]   | `SepToString.PoolPerCol(maxLen, initCap, maxCap)`                 |      no       | per-column pool                        |
+|  [03]   | `SepToString.PoolPerColThreadSafe(maxLen, initCap, maxCap)`       |      yes      | per-column pool for parallel consumers |
+|  [04]   | `SepToString.PoolPerColThreadSafeFixedCapacity(maxLen, capacity)` |      yes      | fixed-capacity per-column pool         |
+|  [05]   | `SepToString.OnePool(maxLen, initCap, maxCap)`                    |      no       | single shared pool across all columns  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

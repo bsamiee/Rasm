@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_POLLY_RATELIMITING]
 
-`Polly.RateLimiting` supplies rate-limiter strategy options, rejected execution
-values, rate-limiter callbacks, and builder extensions for concurrency and rate
-limiting inside resilience pipelines.
+`Polly.RateLimiting` supplies rate-limiter strategy options, rejected execution values, callbacks, and builder extensions for resilience-pipeline admission.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Polly.RateLimiting`
+
 - package: `Polly.RateLimiting`
 - assembly: `Polly.RateLimiting`
 - namespace: `Polly`
@@ -18,6 +17,7 @@ limiting inside resilience pipelines.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: rate-limit family
+
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]       | [RAIL]                |
@@ -30,22 +30,66 @@ limiting inside resilience pipelines.
 |  [06]   | `ConcurrencyLimiterOptions`                      | option value        | permit/queue policy   |
 
 [PUBLIC_TYPE_SCOPE]: companion limiter primitives — `System.Threading.RateLimiting`
+
 - rail: resilience
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]      | [RAIL]                                                                                  |
-| :-----: | :-------------------------------- | :----------------- | :------------------------------------------------------------------------------------- |
-|  [01]   | `RateLimiter`                     | limiter base       | abstract `IAsyncDisposable`/`IDisposable`; the lease producer a `RateLimiterStrategyOptions.RateLimiter` delegate returns |
-|  [02]   | `RateLimitLease`                  | lease value        | abstract `IDisposable` — `IsAcquired`, `TryGetMetadata`, `MetadataName.RetryAfter` back-pressure hint |
-|  [03]   | `ReplenishingRateLimiter`         | replenishing base  | `RateLimiter` subclass auto-refilling on a period — the sliding-window/token-bucket base |
-|  [04]   | `SlidingWindowRateLimiter`        | limiter            | `sealed : ReplenishingRateLimiter` — segmented fixed-window admission (the webhook segment cap) |
-|  [05]   | `TokenBucketRateLimiter`          | limiter            | `sealed : ReplenishingRateLimiter` — token-bucket admission (the redial-paced peer hop) |
-|  [06]   | `SlidingWindowRateLimiterOptions` | option value       | settable `Window`/`SegmentsPerWindow`/`PermitLimit`/`QueueLimit`/`QueueProcessingOrder`/`AutoReplenishment` (default `true`) |
-|  [07]   | `TokenBucketRateLimiterOptions`   | option value       | settable `ReplenishmentPeriod`/`TokensPerPeriod`/`TokenLimit`/`QueueLimit`/`QueueProcessingOrder`/`AutoReplenishment` (default `true`) |
-|  [08]   | `QueueProcessingOrder`            | enum               | `OldestFirst`/`NewestFirst` — pipeline-head limiter queue fairness order               |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]     | [ROLE]                     |
+| :-----: | :-------------------------------- | :---------------- | :------------------------- |
+|  [01]   | `RateLimiter`                     | limiter base      | lease producer             |
+|  [02]   | `RateLimitLease`                  | lease value       | acquisition result         |
+|  [03]   | `ReplenishingRateLimiter`         | replenishing base | periodic refill            |
+|  [04]   | `SlidingWindowRateLimiter`        | limiter           | segmented-window admission |
+|  [05]   | `TokenBucketRateLimiter`          | limiter           | token-bucket admission     |
+|  [06]   | `SlidingWindowRateLimiterOptions` | option value      | sliding-window policy      |
+|  [07]   | `TokenBucketRateLimiterOptions`   | option value      | token-bucket policy        |
+|  [08]   | `QueueProcessingOrder`            | enum              | queue fairness             |
+
+[RateLimiter]:
+
+- Contract: abstract `IAsyncDisposable` and `IDisposable`
+- Producer: returned by the `RateLimiterStrategyOptions.RateLimiter` delegate
+
+[RateLimitLease]:
+
+- Contract: abstract `IDisposable`
+- Surface: `IsAcquired`, `TryGetMetadata`, and `MetadataName.RetryAfter`
+- Role: back-pressure hint carrier
+
+[ReplenishingRateLimiter]:
+
+- Inheritance: `RateLimiter`
+- Behavior: automatic periodic refill
+- Specializations: sliding-window and token-bucket limiters
+
+[SlidingWindowRateLimiter]:
+
+- Declaration: `sealed : ReplenishingRateLimiter`
+- Admission: segmented fixed-window webhook cap
+
+[TokenBucketRateLimiter]:
+
+- Declaration: `sealed : ReplenishingRateLimiter`
+- Admission: token-bucket redial-paced peer hop
+
+[SlidingWindowRateLimiterOptions]:
+
+- Settable members: `Window`, `SegmentsPerWindow`, `PermitLimit`, `QueueLimit`, `QueueProcessingOrder`, and `AutoReplenishment`
+- Default: `AutoReplenishment = true`
+
+[TokenBucketRateLimiterOptions]:
+
+- Settable members: `ReplenishmentPeriod`, `TokensPerPeriod`, `TokenLimit`, `QueueLimit`, `QueueProcessingOrder`, and `AutoReplenishment`
+- Default: `AutoReplenishment = true`
+
+[QueueProcessingOrder]:
+
+- Values: `OldestFirst` and `NewestFirst`
+- Role: pipeline-head limiter queue fairness
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: limiter operations
+
 - rail: resilience
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]    | [RAIL]                         |
@@ -60,34 +104,70 @@ limiting inside resilience pipelines.
 |  [08]   | `RetryAfter`                               | exception value   | retry-after projection         |
 
 [ENTRYPOINT_SCOPE]: companion limiter construction and acquisition — `System.Threading.RateLimiting`
+
 - rail: resilience
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [RAIL]                                                            |
-| :-----: | :--------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------- |
-|  [01]   | `new SlidingWindowRateLimiter(SlidingWindowRateLimiterOptions options)`      | ctor           | constructs the segmented-window limiter                          |
-|  [02]   | `new TokenBucketRateLimiter(TokenBucketRateLimiterOptions options)`          | ctor           | constructs the token-bucket limiter                             |
-|  [03]   | `RateLimiter.AcquireAsync(int permitCount = 1, CancellationToken = default)` | acquire call   | returns `ValueTask<RateLimitLease>` — the strategy `RateLimiter` delegate body |
-|  [04]   | `RateLimiter.AttemptAcquire(int permitCount = 1)`                            | acquire call   | synchronous fast-path lease, returns `RateLimitLease`           |
-|  [05]   | `RateLimitLease.IsAcquired`                                                  | property       | whether the lease granted its permits                          |
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [ROLE]                        |
+| :-----: | :--------------------------- | :------------- | :---------------------------- |
+|  [01]   | `SlidingWindowRateLimiter`   | ctor           | segmented-window construction |
+|  [02]   | `TokenBucketRateLimiter`     | ctor           | token-bucket construction     |
+|  [03]   | `RateLimiter.AcquireAsync`   | acquire call   | asynchronous lease            |
+|  [04]   | `RateLimiter.AttemptAcquire` | acquire call   | synchronous fast path         |
+|  [05]   | `RateLimitLease.IsAcquired`  | property       | permit verdict                |
+
+[SlidingWindowRateLimiter]:
+
+- Signature: `new SlidingWindowRateLimiter(SlidingWindowRateLimiterOptions options)`
+
+[TokenBucketRateLimiter]:
+
+- Signature: `new TokenBucketRateLimiter(TokenBucketRateLimiterOptions options)`
+
+[RateLimiter.AcquireAsync]:
+
+- Signature: `RateLimiter.AcquireAsync(int permitCount = 1, CancellationToken = default)`
+- Result: `ValueTask<RateLimitLease>`
+- Role: strategy `RateLimiter` delegate body
+
+[RateLimiter.AttemptAcquire]:
+
+- Signature: `RateLimiter.AttemptAcquire(int permitCount = 1)`
+- Result: synchronous `RateLimitLease`
+
+[RateLimitLease.IsAcquired]:
+
+- Result: whether the lease granted its permits
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RATE_LIMIT_TOPOLOGY]:
+
 - namespaces: `Polly.RateLimiting`, `System.Threading.RateLimiting`
 - builder surface: concurrency limiter and rate limiter strategy admission
 - strategy surface: delegate-based limiter, default concurrency limiter options, rejection callback
 - execution surface: rejected executions surface as `RateLimiterRejectedException`
 - retry-after surface: rejected exceptions may carry a retry-after duration
-- default-options surface: `RateLimiterStrategyOptions.DefaultRateLimiterOptions` is typed `System.Threading.RateLimiting.ConcurrencyLimiterOptions`, a `sealed class` carrying settable `int PermitLimit`, `int QueueLimit`, and `QueueProcessingOrder QueueProcessingOrder` members and a parameterless constructor; the pipeline-head limiter binds `PermitLimit`/`QueueLimit` from policy values
-- companion limiter selection: when the admission shape is non-default the `RateLimiterStrategyOptions.RateLimiter` delegate returns a `System.Threading.RateLimiting` limiter — a `SlidingWindowRateLimiter` over `SlidingWindowRateLimiterOptions` or a `TokenBucketRateLimiter` over `TokenBucketRateLimiterOptions` (both `ReplenishingRateLimiter`, `AutoReplenishment = true`) — acquired through `RateLimiter.AcquireAsync(permitCount, ct)`; `QueueProcessingOrder.OldestFirst` is the fairness order on every replenishing shape, and `RateLimiterRejectedException.RetryAfter` (read off the rejection `RateLimitLease` metadata) feeds the retry `DelayGenerator`
+- default-options type: `RateLimiterStrategyOptions.DefaultRateLimiterOptions` is a `System.Threading.RateLimiting.ConcurrencyLimiterOptions` value
+- concurrency option declaration: `ConcurrencyLimiterOptions` is a sealed class with a parameterless constructor
+- concurrency option members: settable `int PermitLimit`, `int QueueLimit`, and `QueueProcessingOrder QueueProcessingOrder`
+- pipeline-head policy: `PermitLimit` and `QueueLimit` bind from policy values
+- custom admission: `RateLimiterStrategyOptions.RateLimiter` returns a `System.Threading.RateLimiting` limiter for non-default admission shapes
+- sliding-window admission: `SlidingWindowRateLimiter` binds `SlidingWindowRateLimiterOptions`
+- token-bucket admission: `TokenBucketRateLimiter` binds `TokenBucketRateLimiterOptions`
+- replenishing admission: both limiter shapes derive from `ReplenishingRateLimiter` and carry `AutoReplenishment = true`
+- lease acquisition: `RateLimiter.AcquireAsync(permitCount, ct)` acquires the limiter
+- fairness: `QueueProcessingOrder.OldestFirst` governs every replenishing limiter queue
+- retry delay: `RateLimiterRejectedException.RetryAfter` reads the rejection `RateLimitLease` metadata and feeds the retry `DelayGenerator`
 
 [LOCAL_ADMISSION]:
+
 - Rate limiting is a boundary policy in the resilience pipeline.
 - Queue limit and permit limit are explicit policy values, never ambient defaults.
 - Rejection callbacks observe and project rejection; they do not perform side-effect retries.
 - Rate limiter leases are owned by the strategy surface.
 
 [RAIL_LAW]:
+
 - Package: `Polly.RateLimiting`
 - Owns: Polly rate-limiter strategy integration
 - Accept: explicit concurrency and rate-limit policy

@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_CRONOS]
 
-`Cronos` supplies cron expression parsing, five and six field formats, hash-based
-jitter, and DST-correct next/previous occurrence calculation over UTC instants and
-explicit time zones for AppHost schedule rails.
+`Cronos` supplies cron expression parsing, five- and six-field formats, hash-based jitter, and DST-correct next/previous occurrence calculation over UTC instants and explicit time zones for AppHost schedule rails.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Cronos`
+
 - package: `Cronos`
 - assembly: `Cronos`
 - namespace: `Cronos`
@@ -16,6 +15,7 @@ explicit time zones for AppHost schedule rails.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cron expression family
+
 - rail: schedule
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]  | [RAIL]                 |
@@ -26,6 +26,7 @@ explicit time zones for AppHost schedule rails.
 |  [04]   | `MissingSeedException` | jitter failure | `H` without seed       |
 
 [PUBLIC_TYPE_SCOPE]: format cases
+
 - rail: schedule
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                     |
@@ -36,6 +37,7 @@ explicit time zones for AppHost schedule rails.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: parse and template construction
+
 - rail: schedule
 
 | [INDEX] | [SURFACE]                         | [ENTRY_FAMILY]   | [RAIL]                       |
@@ -54,6 +56,7 @@ explicit time zones for AppHost schedule rails.
 |  [12]   | `@yearly`..`@every_second` macros | macro expression | named schedule intake        |
 
 [ENTRYPOINT_SCOPE]: occurrence operations
+
 - rail: schedule
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]     | [RAIL]                      |
@@ -75,6 +78,7 @@ explicit time zones for AppHost schedule rails.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SCHEDULE_TOPOLOGY]:
+
 - namespace: `Cronos` only; four public types
 - standard fields: minute, hour, day of month, month, day of week
 - `IncludeSeconds`: prepends a mandatory second field for six-field expressions
@@ -89,12 +93,14 @@ explicit time zones for AppHost schedule rails.
 - UTC fast path: `TimeZoneInfo.Utc` bypasses zone mapping entirely
 
 [LOCAL_ADMISSION]:
+
 - Schedules persist as expression text; `CronExpression` values rebuild via `Parse` at composition.
 - Occurrence math consumes UTC instants and emits UTC instants; zone projection stays inside the occurrence call.
 - Hash jitter carries an explicit deterministic seed per schedule identity.
 - Boundary intake uses `TryParse`; `CronFormatException` never crosses the configuration boundary.
 
 [RAIL_LAW]:
+
 - Package: `Cronos`
 - Owns: cron expression parsing and occurrence calculation
 - Accept: UTC instants and explicit time zones

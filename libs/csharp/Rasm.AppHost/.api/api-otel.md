@@ -1,11 +1,11 @@
 # [RASM_APPHOST_API_OTEL]
 
-`OpenTelemetry` supplies trace, metric, log, resource, processor, exporter, reader,
-sampling, context, and propagation surfaces for telemetry projection.
+`OpenTelemetry` supplies trace, metric, log, resource, processor, exporter, reader, sampling, context, and propagation surfaces for telemetry projection.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry`
+
 - package: `OpenTelemetry`
 - assembly: `OpenTelemetry`
 - api_assembly: `OpenTelemetry.Api`
@@ -16,6 +16,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider and resource family
+
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [RAIL]                |
@@ -32,6 +33,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [10]   | `BaseProvider`          | provider base     | provider lifetime     |
 
 [PUBLIC_TYPE_SCOPE]: processor exporter and reader family
+
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]      | [RAIL]                 |
@@ -50,6 +52,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [12]   | `MetricReaderOptions`            | reader options     | reader policy          |
 
 [PUBLIC_TYPE_SCOPE]: signal model family
+
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                   |
@@ -72,6 +75,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [16]   | `LogRecordAttributeList`     | log attributes  | log attribute payload    |
 
 [PUBLIC_TYPE_SCOPE]: context and propagation family
+
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [RAIL]                  |
@@ -89,27 +93,33 @@ sampling, context, and propagation surfaces for telemetry projection.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider builder operations
+
 - rail: telemetry
 
-| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY]        | [RAIL]                  |
-| :-----: | :-------------------------------- | :-------------------- | :---------------------- |
-|  [01]   | `Sdk.CreateTracerProviderBuilder` | SDK factory           | trace builder creation  |
-|  [02]   | `Sdk.CreateMeterProviderBuilder`  | SDK factory           | metric builder creation |
-|  [03]   | `Sdk.CreateLoggerProviderBuilder` | SDK factory           | log builder creation    |
-|  [04]   | `AddSource`                       | trace source setup    | trace source admission  |
-|  [05]   | `AddLegacySource`                 | trace source setup    | legacy source admission |
-|  [06]   | `AddMeter`                        | meter setup           | meter admission         |
-|  [07]   | `AddInstrumentation<T>`           | instrumentation setup | instrumentation hook    |
-|  [08]   | `SetResourceBuilder`              | resource setup        | resource replacement    |
-|  [09]   | `ConfigureResource`               | resource setup        | resource augmentation   |
-|  [10]   | `AddProcessor`                    | processor setup       | processor admission     |
-|  [11]   | `AddReader`                       | reader setup          | metric reader admission |
-|  [12]   | `AddView`                         | metric view setup     | stream shaping          |
-|  [13]   | `SetExemplarFilter`               | metric exemplar setup | exemplar policy         |
-|  [14]   | `SetSampler`                      | trace sampler setup   | sets the `Sampler` on `TracerProviderBuilder` (also `SetSampler<T>()` and the `Func<IServiceProvider, Sampler>` factory overload) |
-|  [15]   | `Build`                           | provider factory      | provider construction   |
+Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
+
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY]        | [RAIL]                  |
+| :-----: | :-------------------------------------------- | :-------------------- | :---------------------- |
+|  [01]   | `Sdk.CreateTracerProviderBuilder`             | SDK factory           | trace builder creation  |
+|  [02]   | `Sdk.CreateMeterProviderBuilder`              | SDK factory           | metric builder creation |
+|  [03]   | `Sdk.CreateLoggerProviderBuilder`             | SDK factory           | log builder creation    |
+|  [04]   | `AddSource`                                   | trace source setup    | trace source admission  |
+|  [05]   | `AddLegacySource`                             | trace source setup    | legacy source admission |
+|  [06]   | `AddMeter`                                    | meter setup           | meter admission         |
+|  [07]   | `AddInstrumentation<T>`                       | instrumentation setup | instrumentation hook    |
+|  [08]   | `SetResourceBuilder`                          | resource setup        | resource replacement    |
+|  [09]   | `ConfigureResource`                           | resource setup        | resource augmentation   |
+|  [10]   | `AddProcessor`                                | processor setup       | processor admission     |
+|  [11]   | `AddReader`                                   | reader setup          | metric reader admission |
+|  [12]   | `AddView`                                     | metric view setup     | stream shaping          |
+|  [13]   | `SetExemplarFilter`                           | metric exemplar setup | exemplar policy         |
+|  [14]   | `SetSampler`                                  | trace sampler setup   | sampler instance        |
+|  [15]   | `SetSampler<T>()`                             | trace sampler setup   | generic sampler         |
+|  [16]   | `SetSampler(Func<IServiceProvider, Sampler>)` | trace sampler setup   | sampler factory         |
+|  [17]   | `Build`                                       | provider factory      | provider construction   |
 
 [ENTRYPOINT_SCOPE]: signal operations
+
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]    | [RAIL]                  |
@@ -128,6 +138,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [12]   | `MetricReader.ForceFlush`    | metric drain      | reader flush            |
 
 [ENTRYPOINT_SCOPE]: processor exporter and propagation operations
+
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]     | [RAIL]              |
@@ -142,11 +153,17 @@ sampling, context, and propagation surfaces for telemetry projection.
 |  [08]   | `Propagators.DefaultTextMapPropagator` | default propagator | process propagation |
 |  [09]   | `Baggage.SetBaggage`                   | baggage mutation   | baggage write       |
 |  [10]   | `RuntimeContext.RegisterSlot`          | context setup      | typed context slot  |
-|  [11]   | `Baggage.Current`                      | baggage ambient    | get/set the ambient `Baggage` (with `GetBaggage`); seats inbound baggage after `Extract` |
+|  [11]   | `Baggage.Current`                      | baggage ambient    | ambient get/set     |
+|  [12]   | `GetBaggage`                           | baggage access     | ambient lookup      |
+
+[BAGGAGE_ADMISSION]:
+
+- sequence: `Baggage.Current` receives inbound baggage after `Extract`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_TOPOLOGY]:
+
 - namespaces: `OpenTelemetry`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`, `OpenTelemetry.Resources`
 - context namespaces: `OpenTelemetry.Context`, `OpenTelemetry.Context.Propagation`
 - signal rails: traces, metrics, logs
@@ -159,6 +176,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 - sampling rail: `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler(Sampler root[, remote/local sampled/notSampled])`, `TraceIdRatioBasedSampler(double probability)`, set through `SetSampler` on the tracer-provider builder
 
 [LOCAL_ADMISSION]:
+
 - Runtime code emits signals through provider builders and processor chains.
 - Force-flush and shutdown are drain actions tied to unload receipts.
 - Resource identity is required before provider construction.
@@ -166,6 +184,7 @@ sampling, context, and propagation surfaces for telemetry projection.
 - Projection failures never mutate runtime state directly.
 
 [RAIL_LAW]:
+
 - Package: `OpenTelemetry`
 - Owns: trace and metric provider construction
 - Accept: signals project through providers

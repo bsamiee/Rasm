@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_SERILOG]
 
-`Serilog` supplies structured event construction, enrichment, sinks, audit sinks,
-filters, batching, levels, message templates, property values, failure listeners,
-formatters, and log context for projection.
+`Serilog` supplies structured event construction, enrichment, sinks, audit sinks, filters, batching, levels, message templates, property values, failure listeners, formatters, and log context for projection.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Serilog`
+
 - package: `Serilog`
 - assembly: `Serilog`
 - namespace: `Serilog`
@@ -16,6 +15,7 @@ formatters, and log context for projection.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logger configuration family
+
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]          | [RAIL]                  |
@@ -34,6 +34,7 @@ formatters, and log context for projection.
 |  [12]   | `BatchingOptions`                  | batch policy           | batched sink behavior   |
 
 [PUBLIC_TYPE_SCOPE]: event value and extension family
+
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]        | [RAIL]                  |
@@ -60,6 +61,7 @@ formatters, and log context for projection.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: logging operations
+
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                   |
@@ -80,9 +82,12 @@ formatters, and log context for projection.
 |  [14]   | `Destructure.With`           | destructuring policy | payload shaping          |
 |  [15]   | `Destructure.ToMaximumDepth` | destructuring limit  | depth bound              |
 |  [16]   | `CreateLogger`               | logger factory       | logger construction      |
-|  [17]   | `Fallible`                   | sink failure wrap    | `Fallible(Action<LoggerSinkConfiguration> configureSink, ILoggingFailureListener failureListener)` wraps a sink chain in a `FailureListenerSink` so the listener observes every reported failure |
+|  [17]   | `Fallible`                   | sink failure wrap    | failure observation      |
+
+[FALLIBLE]: `Fallible(Action<LoggerSinkConfiguration> configureSink, ILoggingFailureListener failureListener)` wraps a sink chain in a `FailureListenerSink`, so the listener observes every reported failure.
 
 [ENTRYPOINT_SCOPE]: event context and formatting operations
+
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]     | [RAIL]                    |
@@ -109,6 +114,7 @@ formatters, and log context for projection.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SERILOG_TOPOLOGY]:
+
 - namespaces: `Serilog`, `Serilog.Core`, `Serilog.Events`, `Serilog.Context`, `Serilog.Configuration`
 - event model: message template, properties, level, timestamp, exception
 - trace model: event trace id and span id fields
@@ -120,6 +126,7 @@ formatters, and log context for projection.
 - formatter rail: text formatter, display formatter, JSON formatter, JSON value formatter
 
 [LOCAL_ADMISSION]:
+
 - Serilog projects signal facts to structured logs.
 - Destructuring policy must preserve redaction and bounded payload shape.
 - Sink failures emit diagnostics and do not mutate runtime state.
@@ -127,6 +134,7 @@ formatters, and log context for projection.
 - Sink configuration belongs to bootstrap composition and never to lower runtime logic.
 
 [RAIL_LAW]:
+
 - Package: `Serilog`
 - Owns: structured log projection
 - Accept: Serilog projects telemetry outward

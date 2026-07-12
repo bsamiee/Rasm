@@ -64,14 +64,14 @@ The package depends on `Microsoft.ML.OnnxRuntime`; the central pin resolves it t
 - rail: model
 - note: `OnnxRuntimeGenAIChatClient` and `OnnxRuntimeGenAIChatClientOptions` are the only M.E.AI types defined IN the GenAI facade; `IChatClient`/`ChatResponse`/`ChatResponseUpdate`/`ChatMessage`/`ChatOptions` are owned by `Microsoft.Extensions.AI.Abstractions` (`api-extensions-ai`).
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                                                    |
-| :-----: | :-------------------------------- | :------------------ | :------------------------------------------------------------- |
-|  [01]   | `OnnxRuntimeGenAIChatClient`      | `IChatClient` impl  | `sealed`; streaming chat over the GenAI handle chain, owns its `Model`/`Config` lifetime |
-|  [02]   | `OnnxRuntimeGenAIChatClientOptions` | client policy     | `sealed`; `StopSequences`, `PromptFormatter`, `EnableCaching`  |
-|  [03]   | `IChatClient`                     | M.E.AI contract     | response and streaming-response surface (abstractions package) |
-|  [04]   | `ChatResponse`                    | M.E.AI response     | non-streaming response carrier (abstractions package)          |
-|  [05]   | `ChatResponseUpdate`              | M.E.AI update       | streaming incremental update carrier (abstractions package)    |
-|  [06]   | `ChatMessage` / `ChatOptions`     | M.E.AI message/opts | role-tagged message + per-call options (abstractions package)  |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]      | [CAPABILITY]                                                                             |
+| :-----: | :---------------------------------- | :------------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | `OnnxRuntimeGenAIChatClient`        | `IChatClient` impl  | `sealed`; streaming chat over the GenAI handle chain, owns its `Model`/`Config` lifetime |
+|  [02]   | `OnnxRuntimeGenAIChatClientOptions` | client policy       | `sealed`; `StopSequences`, `PromptFormatter`, `EnableCaching`                            |
+|  [03]   | `IChatClient`                       | M.E.AI contract     | response and streaming-response surface (abstractions package)                           |
+|  [04]   | `ChatResponse`                      | M.E.AI response     | non-streaming response carrier (abstractions package)                                    |
+|  [05]   | `ChatResponseUpdate`                | M.E.AI update       | streaming incremental update carrier (abstractions package)                              |
+|  [06]   | `ChatMessage` / `ChatOptions`       | M.E.AI message/opts | role-tagged message + per-call options (abstractions package)                            |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -245,34 +245,34 @@ The package depends on `Microsoft.ML.OnnxRuntime`; the central pin resolves it t
 - rail: model
 - note: `Utils` is a static process-global control surface; the GPU device id selects the CUDA/DML device before model load and the log toggles drive the native ORT logger.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                      | [CAPABILITY]                                  |
-| :-----: | :------------------------------ | :------------------------------------------------ | :-------------------------------------------- |
-|  [01]   | `Utils.SetCurrentGpuDeviceId`   | `static void SetCurrentGpuDeviceId(int device_id)` | selects the active GPU device for model load  |
-|  [02]   | `Utils.GetCurrentGpuDeviceId`   | `static int GetCurrentGpuDeviceId()`              | reads the active GPU device id                |
-|  [03]   | `Utils.SetLogBool`              | `static void SetLogBool(string name, bool value)` | toggles a native ORT log flag                 |
-|  [04]   | `Utils.SetLogString`            | `static void SetLogString(string name, string value)` | sets a native ORT log string option           |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]                                          | [CAPABILITY]                                 |
+| :-----: | :---------------------------- | :---------------------------------------------------- | :------------------------------------------- |
+|  [01]   | `Utils.SetCurrentGpuDeviceId` | `static void SetCurrentGpuDeviceId(int device_id)`    | selects the active GPU device for model load |
+|  [02]   | `Utils.GetCurrentGpuDeviceId` | `static int GetCurrentGpuDeviceId()`                  | reads the active GPU device id               |
+|  [03]   | `Utils.SetLogBool`            | `static void SetLogBool(string name, bool value)`     | toggles a native ORT log flag                |
+|  [04]   | `Utils.SetLogString`          | `static void SetLogString(string name, string value)` | sets a native ORT log string option          |
 
 [ENTRYPOINT_SCOPE]: M.E.AI chat client
 - rail: model
 - note: the ctor admits three handle forms with an `owns*` lifetime flag; the `string`/`Config` forms build the `Model` internally. The streaming/response/`GetService` surface comes from `IChatClient` in `api-extensions-ai`.
 
-| [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                                                                       | [CAPABILITY]                                            |
-| :-----: | :-------------------------------------- | :------------------------------------------------------------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | `new OnnxRuntimeGenAIChatClient(string)` | `OnnxRuntimeGenAIChatClient(string modelPath, OnnxRuntimeGenAIChatClientOptions? options = null)` | builds the `Model` from a path and owns it             |
-|  [02]   | `new OnnxRuntimeGenAIChatClient(Model)`  | `OnnxRuntimeGenAIChatClient(Model model, bool ownsModel = true, OnnxRuntimeGenAIChatClientOptions? options = null)` | wraps an existing `Model`; `ownsModel` gates disposal  |
-|  [03]   | `new OnnxRuntimeGenAIChatClient(Config)` | `OnnxRuntimeGenAIChatClient(Config config, bool ownsConfig = true, OnnxRuntimeGenAIChatClientOptions? options = null)` | builds the `Model` from a `Config` (provider-tuned)    |
-|  [04]   | `IChatClient.GetResponseAsync`          | `Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)` | non-streaming response                                 |
-|  [05]   | `IChatClient.GetStreamingResponseAsync` | `IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)` | streaming response                                     |
+| [INDEX] | [SURFACE]                                | [CALL_SHAPE]                                                                                                                                 | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `new OnnxRuntimeGenAIChatClient(string)` | `OnnxRuntimeGenAIChatClient(string modelPath, OnnxRuntimeGenAIChatClientOptions? options = null)`                                            | builds the `Model` from a path and owns it            |
+|  [02]   | `new OnnxRuntimeGenAIChatClient(Model)`  | `OnnxRuntimeGenAIChatClient(Model model, bool ownsModel = true, OnnxRuntimeGenAIChatClientOptions? options = null)`                          | wraps an existing `Model`; `ownsModel` gates disposal |
+|  [03]   | `new OnnxRuntimeGenAIChatClient(Config)` | `OnnxRuntimeGenAIChatClient(Config config, bool ownsConfig = true, OnnxRuntimeGenAIChatClientOptions? options = null)`                       | builds the `Model` from a `Config` (provider-tuned)   |
+|  [04]   | `IChatClient.GetResponseAsync`           | `Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)`                            | non-streaming response                                |
+|  [05]   | `IChatClient.GetStreamingResponseAsync`  | `IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage>, ChatOptions? = null, CancellationToken = default)` | streaming response                                    |
 
 [ENTRYPOINT_SCOPE]: `OnnxRuntimeGenAIChatClientOptions`
 - rail: model
 - note: the client-policy bag; `PromptFormatter` overrides the default chat-template assembly and `StopSequences`/`EnableCaching` tune the M.E.AI streaming loop.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                | [CAPABILITY]                                  |
-| :-----: | :------------------------------ | :-------------------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `StopSequences`                 | `IList<string>? StopSequences { get; set; }`                                | halts generation on any listed sequence       |
-|  [02]   | `PromptFormatter`               | `Func<IEnumerable<ChatMessage>, ChatOptions?, string>? PromptFormatter { get; set; }` | replaces the default chat-template assembly   |
-|  [03]   | `EnableCaching`                 | `bool EnableCaching { get; set; }`                                          | reuses generator state across turns           |
+| [INDEX] | [SURFACE]         | [CALL_SHAPE]                                                                          | [CAPABILITY]                                |
+| :-----: | :---------------- | :------------------------------------------------------------------------------------ | :------------------------------------------ |
+|  [01]   | `StopSequences`   | `IList<string>? StopSequences { get; set; }`                                          | halts generation on any listed sequence     |
+|  [02]   | `PromptFormatter` | `Func<IEnumerable<ChatMessage>, ChatOptions?, string>? PromptFormatter { get; set; }` | replaces the default chat-template assembly |
+|  [03]   | `EnableCaching`   | `bool EnableCaching { get; set; }`                                                    | reuses generator state across turns         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -33,10 +33,10 @@ table may carry multiple diskann indexes over distinct vector columns. The ops-c
 each carry the `Key` (ops-class) and the `Operator`, and the EF query path reuses the catalogued
 `api-pgvector-ef.md` distance `DbFunctions` so the same operator drives both index build and query.
 
-| [INDEX] | [OPS_CLASS]         | [OPERATOR] | [DISTANCE]          | [PGVECTOR_FN]     | [DISKANNOPS]            |
-| :-----: | :------------------ | :--------- | :------------------ | :---------------- | :--------------------- |
-|  [01]   | `vector_cosine_ops` | `<=>`      | cosine              | `CosineDistance`  | `DiskAnnOps.Cosine`    |
-|  [02]   | `vector_l2_ops`     | `<->`      | L2 / euclidean      | `L2Distance`      | `DiskAnnOps.L2`        |
+| [INDEX] | [OPS_CLASS]         | [OPERATOR] | [DISTANCE]          | [PGVECTOR_FN]     | [DISKANNOPS]              |
+| :-----: | :------------------ | :--------- | :------------------ | :---------------- | :------------------------ |
+|  [01]   | `vector_cosine_ops` | `<=>`      | cosine              | `CosineDistance`  | `DiskAnnOps.Cosine`       |
+|  [02]   | `vector_l2_ops`     | `<->`      | L2 / euclidean      | `L2Distance`      | `DiskAnnOps.L2`           |
 |  [03]   | `vector_ip_ops`     | `<#>`      | negative inner-prod | `MaxInnerProduct` | `DiskAnnOps.InnerProduct` |
 
 `CREATE INDEX <name> ON <table> USING diskann (<column> <ops_class>) WITH (<build-options>)` is the
@@ -53,14 +53,14 @@ The `WITH (...)` storage parameters the `Store/provisioning#SERVER_EXTENSIONS` `
 `MaxAlpha:1.2` / `NumDimensions:0` / `NumBitsPerDimension:0`). `DiskAnnLayout` is a `[SmartEnum]`
 (`MemoryOptimized`/`Plain`). Sentinel values resolve at build time from the column dimensionality.
 
-| [INDEX] | [WITH_KEY]               | [DISKANNOPTIONS_FIELD] | [TYPE]  | [DEFAULT]          | [SEMANTICS]                                                      |
-| :-----: | :----------------------- | :--------------------- | :------ | :----------------- | :--------------------------------------------------------------- |
-|  [01]   | `storage_layout`         | `StorageLayout` (`DiskAnnLayout`) | text | `memory_optimized` | `memory_optimized` enables SBQ; `plain` stores full vectors |
-|  [02]   | `num_neighbors`          | `NumNeighbors`         | integer | `50`               | graph degree; `-1` derives degree from dimensionality            |
-|  [03]   | `search_list_size`       | `SearchListSize`       | integer | `100`              | build-time candidate-list breadth                                |
-|  [04]   | `max_alpha`              | `MaxAlpha`             | double  | `1.2`              | graph density / pruning aggression                               |
-|  [05]   | `num_dimensions`         | `NumDimensions`        | integer | `0`                | dimensions to index; `0` indexes all                             |
-|  [06]   | `num_bits_per_dimension` | `NumBitsPerDimension`  | integer | `0`                | SBQ bits/dim; `0` auto-selects (2 below 900 dims, 1 at or above) |
+| [INDEX] | [WITH_KEY]               | [DISKANNOPTIONS_FIELD]            | [TYPE]  | [DEFAULT]          | [SEMANTICS]                                                      |
+| :-----: | :----------------------- | :-------------------------------- | :------ | :----------------- | :--------------------------------------------------------------- |
+|  [01]   | `storage_layout`         | `StorageLayout` (`DiskAnnLayout`) | text    | `memory_optimized` | `memory_optimized` enables SBQ; `plain` stores full vectors      |
+|  [02]   | `num_neighbors`          | `NumNeighbors`                    | integer | `50`               | graph degree; `-1` derives degree from dimensionality            |
+|  [03]   | `search_list_size`       | `SearchListSize`                  | integer | `100`              | build-time candidate-list breadth                                |
+|  [04]   | `max_alpha`              | `MaxAlpha`                        | double  | `1.2`              | graph density / pruning aggression                               |
+|  [05]   | `num_dimensions`         | `NumDimensions`                   | integer | `0`                | dimensions to index; `0` indexes all                             |
+|  [06]   | `num_bits_per_dimension` | `NumBitsPerDimension`             | integer | `0`                | SBQ bits/dim; `0` auto-selects (2 below 900 dims, 1 at or above) |
 
 ## [04]-[QUERY_GUC]
 

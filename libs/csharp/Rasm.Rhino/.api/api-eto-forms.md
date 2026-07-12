@@ -1,15 +1,11 @@
 # [RASM_RHINO_API_ETO_FORMS]
 
-`Eto.Forms` is the native cross-platform widget toolkit the Rhino process embeds — one `Eto.dll` drives the whole
-native UI, and this catalog owns its full construction surface: the control roster, the cell/item/grid families, the
-four distinct layout containers, the window/dialog/menu/toolbar/command hierarchy, and the
-`IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` data-binding rail with `DataContext` propagation.
-Every widget resolves a backend handler through the ambient platform, so a generator-shaped UI layer owns each control,
-layout region, dialog, menu entry, and binding as a row rather than a hand-wired call site.
+`Eto.Forms` is the native cross-platform widget toolkit the Rhino process embeds — one `Eto.dll` drives the whole native UI, and this catalog owns its full construction surface: the control roster, the cell/item/grid families, the four distinct layout containers, the window/dialog/menu/toolbar/command hierarchy, and the `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` data-binding rail with `DataContext` propagation. Every widget resolves a backend handler through the ambient platform, so a generator-shaped UI layer owns each control, layout region, dialog, menu entry, and binding as a row rather than a hand-wired call site.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto.Forms`
+
 - package: `Eto.Forms` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission)
 - license: BSD-3-Clause
 - assembly: `Eto.dll` (Rhino `RhCore` framework)
@@ -20,6 +16,7 @@ layout region, dialog, menu entry, and binding as a row rather than a hand-wired
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: value and text input controls
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -40,6 +37,7 @@ layout region, dialog, menu entry, and binding as a row rather than a hand-wired
 |  [13]   | `FilePicker`     | value input | inline file/folder path selector                     |
 
 [PUBLIC_TYPE_SCOPE]: choice, command, and media controls
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -59,6 +57,7 @@ layout region, dialog, menu entry, and binding as a row rather than a hand-wired
 |  [12]   | `ProgressBar`     | indicator | determinate/indeterminate progress track    |
 
 [PUBLIC_TYPE_SCOPE]: container and host controls
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -77,11 +76,11 @@ layout region, dialog, menu entry, and binding as a row rather than a hand-wired
 |  [11]   | `NativeControlHost` | container | host-native control embedding (`api-eto-platform.md`)                   |
 
 [PUBLIC_TYPE_SCOPE]: grid, tree, and cell families
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-`GridView` binds a flat `DataStore`; `TreeGridView` binds an `ITreeGridStore<ITreeGridItem>` hierarchy; `TreeView`
-binds `ITreeItem`. A `GridColumn` carries one `Cell`, and the cell kind selects the in-cell editor.
+`GridView` binds a flat `DataStore`; `TreeGridView` binds an `ITreeGridStore<ITreeGridItem>` hierarchy; `TreeView` binds `ITreeItem`. A `GridColumn` carries one `Cell`, and the cell kind selects the in-cell editor.
 
 | [INDEX] | [SYMBOL]        | [KIND]    | [CAPABILITY]                                                |
 | :-----: | :-------------- | :-------- | :---------------------------------------------------------- |
@@ -102,12 +101,11 @@ binds `ITreeItem`. A `GridColumn` carries one `Cell`, and the cell kind selects 
 |  [15]   | `CustomCell`    | cell      | control-hosting cell over an arbitrary child                |
 
 [PUBLIC_TYPE_SCOPE]: control base and event surface
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-`Control` is the common base carrying the invalidation and native-attachment members and the event families every
-widget inherits: `Load`/`Shown` lifecycle, `GotFocus`/`LostFocus` focus, `MouseDown`/`MouseMove` mouse, `KeyDown` key,
-and `DragEnter`/`DragDrop` drag-drop.
+`Control` is the common base carrying the invalidation and native-attachment members and the event families every widget inherits: `Load`/`Shown` lifecycle, `GotFocus`/`LostFocus` focus, `MouseDown`/`MouseMove` mouse, `KeyDown` key, and `DragEnter`/`DragDrop` drag-drop.
 
 | [INDEX] | [SYMBOL]                             | [KIND] | [CAPABILITY]                                                      |
 | :-----: | :----------------------------------- | :----- | :---------------------------------------------------------------- |
@@ -126,11 +124,11 @@ Control.DoDragDrop(DataObject data, DragEffects allowedEffects, Image image, Poi
 ```
 
 [PUBLIC_TYPE_SCOPE]: layout containers
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-The four layouts are distinct strategies, not overloads: `DynamicLayout` is a region-stack builder, `TableLayout` a
-scaling grid, `StackLayout` a linear run, `PixelLayout` absolute placement.
+The four layouts are distinct strategies, not overloads: `DynamicLayout` is a region-stack builder, `TableLayout` a scaling grid, `StackLayout` a linear run, `PixelLayout` absolute placement.
 
 | [INDEX] | [SYMBOL]          | [KIND]      | [CAPABILITY]                                               |
 | :-----: | :---------------- | :---------- | :--------------------------------------------------------- |
@@ -145,6 +143,7 @@ scaling grid, `StackLayout` a linear run, `PixelLayout` absolute placement.
 |  [09]   | `Padding`         | value       | four-edge inset value                                      |
 
 [PUBLIC_TYPE_SCOPE]: windows, dialogs, and file/colour/font choosers
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -167,11 +166,11 @@ scaling grid, `StackLayout` a linear run, `PixelLayout` absolute placement.
 |  [15]   | `FontDialog`         | dialog | native font chooser                                                   |
 
 [PUBLIC_TYPE_SCOPE]: menus, toolbars, and commands
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-A `Command` is the shared invocation with enablement and shortcut, projected identically into a menu item and a tool
-item, so one command row drives both chrome surfaces.
+A `Command` is the shared invocation with enablement and shortcut, projected identically into a menu item and a tool item, so one command row drives both chrome surfaces.
 
 | [INDEX] | [SYMBOL]            | [KIND]    | [CAPABILITY]                                                 |
 | :-----: | :------------------ | :-------- | :----------------------------------------------------------- |
@@ -192,12 +191,11 @@ item, so one command row drives both chrome surfaces.
 |  [15]   | `RadioCommand`      | command   | radio-grouped command                                        |
 
 [PUBLIC_TYPE_SCOPE]: data binding
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-Binding is a first-class surface: `IndirectBinding<T>` reads/writes a value against an arbitrary data item and chains
-through `Convert`/`Child`/`AfterDelay`; `BindableBinding<T,TValue>` binds a control property to a `DataContext`;
-`DualBinding<T>` is the two-way link with a `DualBindingMode` policy.
+Binding is a first-class surface: `IndirectBinding<T>` reads/writes a value against an arbitrary data item and chains through `Convert`/`Child`/`AfterDelay`; `BindableBinding<T,TValue>` binds a control property to a `DataContext`; `DualBinding<T>` is the two-way link with a `DualBindingMode` policy.
 
 | [INDEX] | [SYMBOL]                    | [KIND]    | [CAPABILITY]                                                    |
 | :-----: | :-------------------------- | :-------- | :-------------------------------------------------------------- |
@@ -213,6 +211,7 @@ through `Convert`/`Child`/`AfterDelay`; `BindableBinding<T,TValue>` binds a cont
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DynamicLayout region building
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -231,6 +230,7 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 ```
 
 [ENTRYPOINT_SCOPE]: TableLayout and PixelLayout placement
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -246,6 +246,7 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 |  [08]   | `PixelLayout.Move(Control control, int x, int y)`                                        | repositions a placed control             |
 
 [ENTRYPOINT_SCOPE]: modal dialog result
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -256,11 +257,11 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 |  [03]   | `Dialog<T>.Close(T result)`               | instance call             | closes and sets the returned result         |
 
 [ENTRYPOINT_SCOPE]: binding construction and transform
+
 - namespace: `Eto.Forms`
 - rail: native-ui
 
-`Bind`/`BindDataContext` open a binding against a fixed source or the `DataContext`; the `IndirectBinding<T>` chain
-transforms it before it reaches the control. Verified fluent-entry signatures:
+`Bind`/`BindDataContext` open a binding against a fixed source or the `DataContext`; the `IndirectBinding<T>` chain transforms it before it reaches the control. Verified fluent-entry signatures:
 
 ```csharp signature
 BindableExtensions.Bind<TWidget, TSource, TValue>(TWidget control, Expression<Func<TWidget, TValue>> controlProperty, TSource source, Expression<Func<TSource, TValue>> sourceProperty, DualBindingMode mode = DualBindingMode.TwoWay)
@@ -276,9 +277,7 @@ BindableBinding<T, TValue>.BindDataContext(IndirectBinding<TValue> dataContextBi
 |  [04]   | `IndirectBinding<T>.Child<TNewValue>(Expression<Func<T,TNewValue>> property)`                 | descends into a bound-value member |
 |  [05]   | `IndirectBinding<T>.AfterDelay(TimeSpan delay, bool reset = false)`                           | debounces write propagation        |
 
-The delegate factories, the write-path `Convert` pair, the exception funnel, and the direct-channel value seam. In every
-`Convert`/`Delegate` setter the first lambda argument is the source-side VALUE (or data item for the two-generic
-`Delegate`), never the binding instance:
+The delegate factories, the write-path `Convert` pair, the exception funnel, and the direct-channel value seam. In every `Convert`/`Delegate` setter the first lambda argument is the source-side VALUE (or data item for the two-generic `Delegate`), never the binding instance:
 
 ```csharp signature
 Binding.Delegate<TValue>(Func<TValue> getValue, Action<TValue> setValue = null, Action<EventHandler<EventArgs>> addChangeEvent = null, Action<EventHandler<EventArgs>> removeChangeEvent = null)
@@ -296,12 +295,12 @@ DualBinding<T>.Update(BindingUpdateMode mode = BindingUpdateMode.Destination)
 BindableWidget.UpdateBindings(BindingUpdateMode mode = BindingUpdateMode.Source)
 ```
 
-`CatchException` lives on `DirectBinding<T>`/`IndirectBinding<T>` and returns that binding shape — `BindableBinding`
-carries no such member, so the funnel attaches to the source side of a dual link, never to the control selector.
+`CatchException` lives on `DirectBinding<T>`/`IndirectBinding<T>` and returns that binding shape — `BindableBinding` carries no such member, so the funnel attaches to the source side of a dual link, never to the control selector.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FORMS_TOPOLOGY]:
+
 - Every widget derives from `Control` and resolves a backend handler through the ambient platform; the same construction code produces a native control on each host, and host divergence lives in the handler, never in the construction row.
 - The four layouts are orthogonal placement strategies: `DynamicLayout` opens nested regions and scales flags per region, `TableLayout` scales grid cells, `StackLayout` runs children on one axis with alignment, `PixelLayout` places absolutely. A screen composes them, never merges them.
 - `GridView`/`TreeGridView`/`TreeView` separate the bound store from the `GridColumn`+`Cell` presentation; the cell kind selects the in-cell editor, and one column definition drives every row.
@@ -309,16 +308,19 @@ carries no such member, so the funnel attaches to the source side of a dual link
 - One `Command` projects into both a menu item and a tool item, so a command row drives the menu bar, the context menu, and the toolbar from a single enablement and shortcut definition.
 
 [STACKING]:
+
 - `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed control-kind, cell-kind, layout-strategy, and dialog-outcome vocabularies a generator-shaped UI layer folds to rows, and a `[Union]` owns the discriminated screen-element tree; the generated `Switch`/`Map` drives construction dispatch instead of a hand-written control-type ladder.
 - `LanguageExt.Core`(`../../.api/api-languageext.md`): `Fin<A>` rails `ShowModal`/`ShowModalAsync` outcomes and file-dialog results (cancellation is a `Fail`, not a null sentinel); `Option<A>` carries the nullable `bool?` scale flags and optional selection; `Eff<A>` wraps `DoDragDrop` and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over.
 - `Wacton.Unicolour`(`../../.api/api-unicolour.md`): the canonical colour value behind `ColorPicker` and `ColorDialog`; an `Eto.Drawing.Color` maps to and from `Unicolour` at the view edge (`api-eto-drawing.md`) so theme ramps and perceptual selection stay in the perceptual model.
 - `api-eto-platform.md`: `NativeControlHost`, `Control.AttachNative`/`DetachNative`, and `TriggerStyleChanged` cross into the platform-handler and theme-transition seam.
 
 [LOCAL_ADMISSION]:
+
 - Eto is admitted from the Rhino-loaded `Eto.dll`; Rasm.Rhino references that instance so its widgets share the host application, dispatcher, and platform handler. A second Eto copy is never pulled through NuGet.
 - A screen is built once from generated element rows against these construction, layout, and binding surfaces; `Eto.Forms.*` types stay behind the Rasm.Rhino UI owner, and downstream code composes screen definitions rather than raw widget calls.
 
 [RAIL_LAW]:
+
 - Package: `Eto.Forms`
 - Owns: the native widget roster, the cell/item/grid families, the four layout containers, the window/dialog/menu/toolbar/command hierarchy, and the `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` data-binding surface.
 - Accept: native UI construction, layout composition, modal/modeless presentation, menu and command chrome, and control-to-model binding through `DataContext`.

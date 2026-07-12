@@ -30,19 +30,19 @@ retains the direct sparse-solver catalog.
 
 `Fourier` transforms in place over `Complex[]`/`Complex32[]` (the signal lane marshals the real `Tensor<float>` into `Complex[]` once); `FourierOptions.Default` is symmetric `1/√n` scaling, `NoScaling` is the FFT-then-IFFT round-trip, `AsymmetricScaling`/`Matlab` matches MATLAB. `Window` factories return a `double[]` taper of the requested width; only `Hann`/`Hamming`/`Cosine`/`Lanczos` carry a `*Periodic` twin (symmetric for filter design, periodic for FFT framing) — every other taper, `Bartlett` and `BartlettHann` included, ships one form only.
 
-| [INDEX] | [SURFACE]                                                                    | [CALL_SHAPE]      | [CAPABILITY]                                      |
-| :-----: | :--------------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
-|  [01]   | `Fourier.Forward(Complex[], FourierOptions)`                                 | static `void`     | in-place forward DFT, scaling-governed            |
-|  [02]   | `Fourier.Inverse(Complex[], FourierOptions)`                                 | static `void`     | in-place inverse DFT, scaling-governed            |
-|  [03]   | `Fourier.ForwardReal(double[], int, FourierOptions)`                         | static `void`     | real-packed forward (half-spectrum `rfft`)        |
-|  [04]   | `Fourier.InverseReal(double[], int, FourierOptions)`                         | static `void`     | real-packed inverse                               |
-|  [05]   | `Fourier.Forward2D` / `Inverse2D` / `ForwardMultiDim` / `InverseMultiDim`    | static `void`     | 2-D / N-D forward + inverse transform             |
-|  [06]   | `Fourier.FrequencyScale(int length, double sampleRate)`                      | static `double[]` | the FFT-bin frequency axis                        |
-|  [07]   | `Window.Hann` / `HannPeriodic`                                               | static `double[]` | Hann symmetric / FFT-periodic taper               |
-|  [08]   | `Window.Hamming` / `HammingPeriodic`                                         | static `double[]` | Hamming symmetric / FFT-periodic taper            |
-|  [09]   | `Window.Cosine` / `CosinePeriodic` ; `Window.Lanczos` / `LanczosPeriodic`    | static `double[]` | Cosine / Lanczos symmetric + FFT-periodic taper   |
-|  [10]   | `Window.Blackman` / `BlackmanHarris` / `BlackmanNuttall`                     | static `double[]` | Blackman family taper (no periodic split)         |
-|  [11]   | `Window.Dirichlet`                                                           | static `double[]` | rectangular all-ones taper (use over hand-rolled) |
+| [INDEX] | [SURFACE]                                                                                     | [CALL_SHAPE]      | [CAPABILITY]                                      |
+| :-----: | :-------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
+|  [01]   | `Fourier.Forward(Complex[], FourierOptions)`                                                  | static `void`     | in-place forward DFT, scaling-governed            |
+|  [02]   | `Fourier.Inverse(Complex[], FourierOptions)`                                                  | static `void`     | in-place inverse DFT, scaling-governed            |
+|  [03]   | `Fourier.ForwardReal(double[], int, FourierOptions)`                                          | static `void`     | real-packed forward (half-spectrum `rfft`)        |
+|  [04]   | `Fourier.InverseReal(double[], int, FourierOptions)`                                          | static `void`     | real-packed inverse                               |
+|  [05]   | `Fourier.Forward2D` / `Inverse2D` / `ForwardMultiDim` / `InverseMultiDim`                     | static `void`     | 2-D / N-D forward + inverse transform             |
+|  [06]   | `Fourier.FrequencyScale(int length, double sampleRate)`                                       | static `double[]` | the FFT-bin frequency axis                        |
+|  [07]   | `Window.Hann` / `HannPeriodic`                                                                | static `double[]` | Hann symmetric / FFT-periodic taper               |
+|  [08]   | `Window.Hamming` / `HammingPeriodic`                                                          | static `double[]` | Hamming symmetric / FFT-periodic taper            |
+|  [09]   | `Window.Cosine` / `CosinePeriodic` ; `Window.Lanczos` / `LanczosPeriodic`                     | static `double[]` | Cosine / Lanczos symmetric + FFT-periodic taper   |
+|  [10]   | `Window.Blackman` / `BlackmanHarris` / `BlackmanNuttall`                                      | static `double[]` | Blackman family taper (no periodic split)         |
+|  [11]   | `Window.Dirichlet`                                                                            | static `double[]` | rectangular all-ones taper (use over hand-rolled) |
 |  [12]   | `Window.Bartlett` / `BartlettHann` / `Tukey` / `FlatTop` / `Gauss` / `Nuttall` / `Triangular` | static `double[]` | the remaining single-form taper family            |
 
 [ENTRYPOINT_SCOPE]: probability distributions + descriptive statistics

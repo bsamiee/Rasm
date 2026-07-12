@@ -40,95 +40,95 @@ the SAF `ExcelStructuralLoadCombination` wire whose `ExcelLoadCaseCombinationSta
 [PUBLIC_TYPE_SCOPE]: case contract family (`VividOrange.ICases`)
 - rail: load-case
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:------------------ |:----------------------- |:--------------------------------------------------------------- |
-| [01] | `ICase` | named case base | `: ITaxonomySerializable` + `string Name` |
-| [02] | `ILoadCase` | applied load case | `: ICase` + `Nickname`, `IList<ILoad> Loads`, `IsHorizontal`, `ActionClass` |
-| [03] | `IPermanentCase` | permanent (`G`) case | `: ILoadCase` (marker — `γG`-governed) |
-| [04] | `IVariableCase` | variable (`Q`) case | `: ILoadCase` + `Ratio CombinationFactor`/`FrequentFactor`/`QuasiPermanentFactor` (`ψ0`/`ψ1`/`ψ2`) |
-| [05] | `IDesignSituation` | partial-factor policy | `DesignSituationClass Class` + `γ`-factor reads (`double`/`double?`) + `ReductionFactor` |
-| [06] | `ActionClass` | action-nature enum | `Permanent` / `Variable` / `Accidental` |
-| [07] | `DesignSituationClass` | `[Flags]` situation enum | `Persistent`=1 / `Transient`=2 / `PersistentAndTransient`=3 / `Accidental`=4 / `Seismic`=8 |
-| [08] | `ImposedLoadCategory` | EN imposed-load category | `CategoryA`…`CategoryH` |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]            | [RAIL]                                                                                             |
+| :-----: | :--------------------- | :----------------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `ICase`                | named case base          | `: ITaxonomySerializable` + `string Name`                                                          |
+|  [02]   | `ILoadCase`            | applied load case        | `: ICase` + `Nickname`, `IList<ILoad> Loads`, `IsHorizontal`, `ActionClass`                        |
+|  [03]   | `IPermanentCase`       | permanent (`G`) case     | `: ILoadCase` (marker — `γG`-governed)                                                             |
+|  [04]   | `IVariableCase`        | variable (`Q`) case      | `: ILoadCase` + `Ratio CombinationFactor`/`FrequentFactor`/`QuasiPermanentFactor` (`ψ0`/`ψ1`/`ψ2`) |
+|  [05]   | `IDesignSituation`     | partial-factor policy    | `DesignSituationClass Class` + `γ`-factor reads (`double`/`double?`) + `ReductionFactor`           |
+|  [06]   | `ActionClass`          | action-nature enum       | `Permanent` / `Variable` / `Accidental`                                                            |
+|  [07]   | `DesignSituationClass` | `[Flags]` situation enum | `Persistent`=1 / `Transient`=2 / `PersistentAndTransient`=3 / `Accidental`=4 / `Seismic`=8         |
+|  [08]   | `ImposedLoadCategory`  | EN imposed-load category | `CategoryA`…`CategoryH`                                                                            |
 
 [PUBLIC_TYPE_SCOPE]: combination contract family (`VividOrange.ICases`)
 - rail: load-case
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------ |:------------------------ |:------------------------------------------------------------- |
-| [01] | `ILoadCombination` | combination base | `: ICase` + `Definition`, `PermanentCases`, `PermanentCaseIsFavourable`, `LeadingVariableCases`, `GetFactoredLoads()` |
-| [02] | `IUltimateLimitState` | ULS base | `: ILoadCombination` + `IDesignSituation DesignSituation` |
-| [03] | `IServiceabilityLimitState` | SLS base | `: ILoadCombination` + `AccompanyingVariableCases` |
-| [04] | `IMemberDesignCombination` | STR/GEO Set B | `: IUltimateLimitState` + `Main`/`OtherAccompanyingVariableCases` |
-| [05] | `IGeotechnicalMemberDesignCombination` | STR/GEO Set C | `: IUltimateLimitState` + `AccompanyingVariableCases` |
-| [06] | `IAccidentalCombination` | accidental ULS | `: IUltimateLimitState` + `UseFrequentCombinationFactorForMainAccompanying` + accompanying cases |
-| [07] | `ISeismicCombination` | seismic ULS | `: IUltimateLimitState` (EN) |
-| [08] | `IEquilibriumCombination` | EQU Set A | `: IUltimateLimitState` (static equilibrium) |
-| [09] | `ICharacteristicCombination` | SLS characteristic | `: IServiceabilityLimitState` (EN) |
-| [10] | `IFrequentCombination` | SLS frequent | `: IServiceabilityLimitState` (EN) |
-| [11] | `IQuasiPermanentCombination` | SLS quasi-permanent | `: IServiceabilityLimitState` (EN) |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]       | [RAIL]                                                                                                                |
+| :-----: | :------------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ILoadCombination`                     | combination base    | `: ICase` + `Definition`, `PermanentCases`, `PermanentCaseIsFavourable`, `LeadingVariableCases`, `GetFactoredLoads()` |
+|  [02]   | `IUltimateLimitState`                  | ULS base            | `: ILoadCombination` + `IDesignSituation DesignSituation`                                                             |
+|  [03]   | `IServiceabilityLimitState`            | SLS base            | `: ILoadCombination` + `AccompanyingVariableCases`                                                                    |
+|  [04]   | `IMemberDesignCombination`             | STR/GEO Set B       | `: IUltimateLimitState` + `Main`/`OtherAccompanyingVariableCases`                                                     |
+|  [05]   | `IGeotechnicalMemberDesignCombination` | STR/GEO Set C       | `: IUltimateLimitState` + `AccompanyingVariableCases`                                                                 |
+|  [06]   | `IAccidentalCombination`               | accidental ULS      | `: IUltimateLimitState` + `UseFrequentCombinationFactorForMainAccompanying` + accompanying cases                      |
+|  [07]   | `ISeismicCombination`                  | seismic ULS         | `: IUltimateLimitState` (EN)                                                                                          |
+|  [08]   | `IEquilibriumCombination`              | EQU Set A           | `: IUltimateLimitState` (static equilibrium)                                                                          |
+|  [09]   | `ICharacteristicCombination`           | SLS characteristic  | `: IServiceabilityLimitState` (EN)                                                                                    |
+|  [10]   | `IFrequentCombination`                 | SLS frequent        | `: IServiceabilityLimitState` (EN)                                                                                    |
+|  [11]   | `IQuasiPermanentCombination`           | SLS quasi-permanent | `: IServiceabilityLimitState` (EN)                                                                                    |
 
 [PUBLIC_TYPE_SCOPE]: EN 1990 Annex A1 code-table family (`VividOrange.ICases`)
 - rail: load-case
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:------------------------------ |:------------------------ |:------------------------------------------------------------- |
-| [01] | `EN.ITableA1_1` | `ψ`-factor table | `TableA1_1Properties GetProperties(NationalAnnex)` |
-| [02] | `EN.ITableA1_1Imposed` | imposed `ψ`-factor table | `GetProperties(ImposedLoadCategory, NationalAnnex)` |
-| [03] | `EN.ITableA1_1Snow` | snow `ψ`-factor table | altitude/region-keyed `ψ` lookup |
-| [04] | `EN.TableA1_1Properties` | `ψ`-factor struct | `Ratio Phi_0`/`Phi_1`/`Phi_2` (`ψ0`/`ψ1`/`ψ2`) |
-| [05] | `EN.ITableA1_2` | `γ`-factor table | `TableA1_2Properties GetProperties(NationalAnnex)` |
-| [06] | `EN.TableA1_2Properties` | `γ`-factor struct | `Ratio Gamma_Gsup`/`Gamma_Ginf`/`Gamma_Q1`/`Gamma_Qi`/`Xi` |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]            | [RAIL]                                                     |
+| :-----: | :----------------------- | :----------------------- | :--------------------------------------------------------- |
+|  [01]   | `EN.ITableA1_1`          | `ψ`-factor table         | `TableA1_1Properties GetProperties(NationalAnnex)`         |
+|  [02]   | `EN.ITableA1_1Imposed`   | imposed `ψ`-factor table | `GetProperties(ImposedLoadCategory, NationalAnnex)`        |
+|  [03]   | `EN.ITableA1_1Snow`      | snow `ψ`-factor table    | altitude/region-keyed `ψ` lookup                           |
+|  [04]   | `EN.TableA1_1Properties` | `ψ`-factor struct        | `Ratio Phi_0`/`Phi_1`/`Phi_2` (`ψ0`/`ψ1`/`ψ2`)             |
+|  [05]   | `EN.ITableA1_2`          | `γ`-factor table         | `TableA1_2Properties GetProperties(NationalAnnex)`         |
+|  [06]   | `EN.TableA1_2Properties` | `γ`-factor struct        | `Ratio Gamma_Gsup`/`Gamma_Ginf`/`Gamma_Q1`/`Gamma_Qi`/`Xi` |
 
 [PUBLIC_TYPE_SCOPE]: concrete case + design-situation family (`VividOrange.Cases`)
 - rail: load-case
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:------------------ |:----------------------- |:--------------------------------------------------------- |
-| [01] | `PermanentCase` | permanent case impl | `ActionClass.Permanent`; defaults `Nickname="G"`, `Name="Dead Load"` |
-| [02] | `VariableCase` | variable case impl | `ActionClass.Variable`; `ψ0`/`ψ1`/`ψ2` reads; `IsFavourable` |
-| [03] | `DesignSituation` | partial-factor policy impl | `γ`-factor settable rows (defaults) incl. `PrestressPartialFactor` |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]              | [RAIL]                                                               |
+| :-----: | :---------------- | :------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `PermanentCase`   | permanent case impl        | `ActionClass.Permanent`; defaults `Nickname="G"`, `Name="Dead Load"` |
+|  [02]   | `VariableCase`    | variable case impl         | `ActionClass.Variable`; `ψ0`/`ψ1`/`ψ2` reads; `IsFavourable`         |
+|  [03]   | `DesignSituation` | partial-factor policy impl | `γ`-factor settable rows (defaults) incl. `PrestressPartialFactor`   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: EN load-case construction (`ENLoadCaseFactory`, static)
 - rail: load-case
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------------------------- |:--------------- |:--------------------------------------------------------- |
-| [01] | `CreateImposed(IList<ILoad>, ImposedLoadCategory, NationalAnnex)` | imposed case | `VariableCase` carrying its `ILoad` actions, pre-loaded with category `ψ` factors |
-| [02] | _(no loadless `CreateImposed`)_ | imposed case | Imposed has ONLY the loaded overload — unlike Snow/Thermal/Wind there is no `(ImposedLoadCategory, NationalAnnex)` form |
-| [03] | `CreateSnow(NationalAnnex, bool altitudeAbove1000m)` | snow case | `VariableCase` with altitude-keyed snow `ψ` factors |
-| [04] | `CreateThermal(NationalAnnex)` | thermal case | `VariableCase` with thermal `ψ` factors |
-| [05] | `CreateWind(NationalAnnex)` | wind case | `VariableCase` with wind `ψ` factors |
-| [06] | `Create{Snow,Thermal,Wind}(IList<ILoad>, NationalAnnex, …)` | loaded variants | each action factory has an `IList<ILoad>` overload |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY]  | [RAIL]                                                                                                                  |
+| :-----: | :---------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `CreateImposed(IList<ILoad>, ImposedLoadCategory, NationalAnnex)` | imposed case    | `VariableCase` carrying its `ILoad` actions, pre-loaded with category `ψ` factors                                       |
+|  [02]   | _(no loadless `CreateImposed`)_                                   | imposed case    | Imposed has ONLY the loaded overload — unlike Snow/Thermal/Wind there is no `(ImposedLoadCategory, NationalAnnex)` form |
+|  [03]   | `CreateSnow(NationalAnnex, bool altitudeAbove1000m)`              | snow case       | `VariableCase` with altitude-keyed snow `ψ` factors                                                                     |
+|  [04]   | `CreateThermal(NationalAnnex)`                                    | thermal case    | `VariableCase` with thermal `ψ` factors                                                                                 |
+|  [05]   | `CreateWind(NationalAnnex)`                                       | wind case       | `VariableCase` with wind `ψ` factors                                                                                    |
+|  [06]   | `Create{Snow,Thermal,Wind}(IList<ILoad>, NationalAnnex, …)`       | loaded variants | each action factory has an `IList<ILoad>` overload                                                                      |
 
 [ENTRYPOINT_SCOPE]: EN combination synthesis (`ENCombinationFactory`, static)
 - rail: load-case
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------------------------ |:------------------ |:----------------------------------------------- |
-| [01] | `CreateCharacteristic(IList<ILoadCase>, prefix="LC", firstCaseId=1)` | SLS characteristic | `IList<ICharacteristicCombination>` (EN) |
-| [02] | `CreateFrequent(IList<ILoadCase>, …)` | SLS frequent | `IList<IFrequentCombination>` (EN) |
-| [03] | `CreateQuasiPermanent(IList<ILoadCase>, …)` | SLS quasi-permanent | `IList<IQuasiPermanentCombination>` (EN) |
-| [04] | `CreateEquSetA(IList<ILoadCase>[, NationalAnnex, …])` | EQU Set A | `IList<IEquilibriumCombination>` (static equilibrium) |
-| [05] | `CreateStrGeoSetB(IList<ILoadCase>[, NationalAnnex, bool use6_10aAnd6_10b, …])` | STR/GEO Set B | `IList<IMemberDesignCombination>` (EN or 6.10a/b) |
-| [06] | `CreateStrGeoSetC(IList<ILoadCase>[, NationalAnnex, …])` | STR/GEO Set C | `IList<IGeotechnicalMemberDesignCombination>` |
-| [07] | `CreateAccidental(IVariableCase, double partialFactor, IList<ILoadCase>, NationalAnnex, bool useFrequent…, …)` | accidental ULS | `IList<IAccidentalCombination>` (EN) |
-| [08] | `CreateSeismic(IList<IVariableCase>, Ratio partialFactor, IList<ILoadCase>, NationalAnnex, …)` | seismic ULS | `IList<ISeismicCombination>` (EN) |
+| [INDEX] | [SURFACE]                                                                                                      | [ENTRY_FAMILY]      | [RAIL]                                                |
+| :-----: | :------------------------------------------------------------------------------------------------------------- | :------------------ | :---------------------------------------------------- |
+|  [01]   | `CreateCharacteristic(IList<ILoadCase>, prefix="LC", firstCaseId=1)`                                           | SLS characteristic  | `IList<ICharacteristicCombination>` (EN)              |
+|  [02]   | `CreateFrequent(IList<ILoadCase>, …)`                                                                          | SLS frequent        | `IList<IFrequentCombination>` (EN)                    |
+|  [03]   | `CreateQuasiPermanent(IList<ILoadCase>, …)`                                                                    | SLS quasi-permanent | `IList<IQuasiPermanentCombination>` (EN)              |
+|  [04]   | `CreateEquSetA(IList<ILoadCase>[, NationalAnnex, …])`                                                          | EQU Set A           | `IList<IEquilibriumCombination>` (static equilibrium) |
+|  [05]   | `CreateStrGeoSetB(IList<ILoadCase>[, NationalAnnex, bool use6_10aAnd6_10b, …])`                                | STR/GEO Set B       | `IList<IMemberDesignCombination>` (EN or 6.10a/b)     |
+|  [06]   | `CreateStrGeoSetC(IList<ILoadCase>[, NationalAnnex, …])`                                                       | STR/GEO Set C       | `IList<IGeotechnicalMemberDesignCombination>`         |
+|  [07]   | `CreateAccidental(IVariableCase, double partialFactor, IList<ILoadCase>, NationalAnnex, bool useFrequent…, …)` | accidental ULS      | `IList<IAccidentalCombination>` (EN)                  |
+|  [08]   | `CreateSeismic(IList<IVariableCase>, Ratio partialFactor, IList<ILoadCase>, NationalAnnex, …)`                 | seismic ULS         | `IList<ISeismicCombination>` (EN)                     |
 
 [ENTRYPOINT_SCOPE]: load-factoring algebra (`Combinations.Utility`, static; EN-table reads)
 - rail: load-case
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:---------------------------------------------------------------------------------- |:---------------- |:----------------------------------------------------- |
-| [01] | `FactorLoads<T>(Ratio partialFactor, IList<T>) where T: ILoadCase` | uniform factor | every case's `ILoad` set scaled by one `γ` |
-| [02] | `FactorLoads<T>(IDesignSituation, IList<T>, IList<bool> isFavourable) where T: ILoadCase` | situation factor | per-case favourable/unfavourable `γ` from the design situation |
-| [03] | `GetLoads<T>(IList<T>) where T: ILoadCase` | load gather | flatten the case set's `ILoad` rows |
-| [04] | `FactorAccompanyingVariableLoads<T>(Ratio, IList<T>, Func<T,Ratio>) where T: IVariableCase` | `ψ`-weighted accompanying | accompanying-action `ψ·γ` factoring by selector |
-| [05] | `SelectAccompanyingVariableLoads<T>(IList<T>, Func<T,Ratio>) where T: IVariableCase` | `ψ` selection | accompanying-action `ψ` selection by selector |
-| [06] | `ILoadCombination.GetFactoredLoads()` | factored output | the fully factored `IList<ILoad>` the solver evaluates |
-| [07] | `EN.ITableA1_1/.ITableA1_2.GetProperties(NationalAnnex)` | factor lookup | the `ψ`/`γ` `Ratio` factor set for a national annex |
+| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]            | [RAIL]                                                         |
+| :-----: | :------------------------------------------------------------------------------------------ | :------------------------ | :------------------------------------------------------------- |
+|  [01]   | `FactorLoads<T>(Ratio partialFactor, IList<T>) where T: ILoadCase`                          | uniform factor            | every case's `ILoad` set scaled by one `γ`                     |
+|  [02]   | `FactorLoads<T>(IDesignSituation, IList<T>, IList<bool> isFavourable) where T: ILoadCase`   | situation factor          | per-case favourable/unfavourable `γ` from the design situation |
+|  [03]   | `GetLoads<T>(IList<T>) where T: ILoadCase`                                                  | load gather               | flatten the case set's `ILoad` rows                            |
+|  [04]   | `FactorAccompanyingVariableLoads<T>(Ratio, IList<T>, Func<T,Ratio>) where T: IVariableCase` | `ψ`-weighted accompanying | accompanying-action `ψ·γ` factoring by selector                |
+|  [05]   | `SelectAccompanyingVariableLoads<T>(IList<T>, Func<T,Ratio>) where T: IVariableCase`        | `ψ` selection             | accompanying-action `ψ` selection by selector                  |
+|  [06]   | `ILoadCombination.GetFactoredLoads()`                                                       | factored output           | the fully factored `IList<ILoad>` the solver evaluates         |
+|  [07]   | `EN.ITableA1_1/.ITableA1_2.GetProperties(NationalAnnex)`                                    | factor lookup             | the `ψ`/`γ` `Ratio` factor set for a national annex            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

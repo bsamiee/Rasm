@@ -59,45 +59,45 @@ The whole surface is `unsafe`-pointer native methods generated from `webgpu.h`; 
 [PUBLIC_TYPE_SCOPE]: descriptor and enum value carriers
 - rail: compute
 
-| [INDEX] | [SYMBOL]                       | [KIND]     | [RAIL]                                                         |
-| :-----: | :----------------------------- | :--------- | :------------------------------------------------------------- |
-|  [01]   | `BufferDescriptor`             | descriptor | buffer alloc (`Usage`, `Size`, `MappedAtCreation`)             |
-|  [02]   | `ShaderModuleDescriptor`       | descriptor | shader module create (`NextInChain` source chain)             |
-|  [03]   | `ShaderModuleWGSLDescriptor`   | descriptor | WGSL source chain (`SType.ShaderModuleWgslDescriptor`)        |
-|  [04]   | `ShaderModuleSPIRVDescriptor`  | descriptor | SPIR-V source chain (`Code`, `CodeSize`)                       |
-|  [05]   | `BindGroupLayoutDescriptor`    | descriptor | layout entries (`Entries`, `EntryCount`)                       |
-|  [06]   | `BindGroupLayoutEntry`         | descriptor | one binding slot (`Binding`, `Visibility`, `Buffer`)          |
-|  [07]   | `BufferBindingLayout`          | descriptor | binding kind (`Type`, `HasDynamicOffset`, `MinBindingSize`)   |
-|  [08]   | `BindGroupDescriptor`          | descriptor | bound entries (`Layout`, `Entries`)                           |
-|  [09]   | `BindGroupEntry`               | descriptor | one bound resource (`Binding`, `Buffer`, `Offset`, `Size`)    |
-|  [10]   | `PipelineLayoutDescriptor`     | descriptor | layout set (`BindGroupLayouts`)                               |
-|  [11]   | `ComputePipelineDescriptor`    | descriptor | compute pipeline (`Layout`, `Compute` stage)                  |
-|  [12]   | `ProgrammableStageDescriptor`  | descriptor | `Module`, `EntryPoint`, `ConstantCount`, `Constants`         |
-|  [13]   | `ConstantEntry`                | descriptor | one WGSL `override` constant (`Key`, `Value` double)         |
-|  [14]   | `QuerySetDescriptor`           | descriptor | query-set alloc (`Type`, `Count`)                             |
-|  [15]   | `ComputePassDescriptor`        | descriptor | pass begin (`Label`, `TimestampWrites`)                       |
-|  [16]   | `ComputePassTimestampWrites`   | descriptor | `QuerySet`, `BeginningOfPassWriteIndex`, `EndOfPassWriteIndex` |
-|  [17]   | `SupportedLimits` / `Limits`   | struct     | `DeviceGetLimits` out-struct; `maxComputeWorkgroupSize*` etc. |
-|  [18]   | `BufferUsage`                  | enum       | storage/uniform/copy/map/indirect/queryresolve                |
-|  [19]   | `MapMode`                      | enum       | readback/upload map direction                                 |
-|  [20]   | `ShaderStage`                  | enum       | `Compute` visibility flag                                     |
-|  [21]   | `BufferBindingType`            | enum       | `Uniform`/`Storage`/`ReadOnlyStorage` binding kind            |
-|  [22]   | `BufferMapState`               | enum       | unmapped/pending/mapped poll                                  |
-|  [23]   | `QueryType`                    | enum       | timestamp/occlusion query kind                                |
+| [INDEX] | [SYMBOL]                      | [KIND]     | [RAIL]                                                         |
+| :-----: | :---------------------------- | :--------- | :------------------------------------------------------------- |
+|  [01]   | `BufferDescriptor`            | descriptor | buffer alloc (`Usage`, `Size`, `MappedAtCreation`)             |
+|  [02]   | `ShaderModuleDescriptor`      | descriptor | shader module create (`NextInChain` source chain)              |
+|  [03]   | `ShaderModuleWGSLDescriptor`  | descriptor | WGSL source chain (`SType.ShaderModuleWgslDescriptor`)         |
+|  [04]   | `ShaderModuleSPIRVDescriptor` | descriptor | SPIR-V source chain (`Code`, `CodeSize`)                       |
+|  [05]   | `BindGroupLayoutDescriptor`   | descriptor | layout entries (`Entries`, `EntryCount`)                       |
+|  [06]   | `BindGroupLayoutEntry`        | descriptor | one binding slot (`Binding`, `Visibility`, `Buffer`)           |
+|  [07]   | `BufferBindingLayout`         | descriptor | binding kind (`Type`, `HasDynamicOffset`, `MinBindingSize`)    |
+|  [08]   | `BindGroupDescriptor`         | descriptor | bound entries (`Layout`, `Entries`)                            |
+|  [09]   | `BindGroupEntry`              | descriptor | one bound resource (`Binding`, `Buffer`, `Offset`, `Size`)     |
+|  [10]   | `PipelineLayoutDescriptor`    | descriptor | layout set (`BindGroupLayouts`)                                |
+|  [11]   | `ComputePipelineDescriptor`   | descriptor | compute pipeline (`Layout`, `Compute` stage)                   |
+|  [12]   | `ProgrammableStageDescriptor` | descriptor | `Module`, `EntryPoint`, `ConstantCount`, `Constants`           |
+|  [13]   | `ConstantEntry`               | descriptor | one WGSL `override` constant (`Key`, `Value` double)           |
+|  [14]   | `QuerySetDescriptor`          | descriptor | query-set alloc (`Type`, `Count`)                              |
+|  [15]   | `ComputePassDescriptor`       | descriptor | pass begin (`Label`, `TimestampWrites`)                        |
+|  [16]   | `ComputePassTimestampWrites`  | descriptor | `QuerySet`, `BeginningOfPassWriteIndex`, `EndOfPassWriteIndex` |
+|  [17]   | `SupportedLimits` / `Limits`  | struct     | `DeviceGetLimits` out-struct; `maxComputeWorkgroupSize*` etc.  |
+|  [18]   | `BufferUsage`                 | enum       | storage/uniform/copy/map/indirect/queryresolve                 |
+|  [19]   | `MapMode`                     | enum       | readback/upload map direction                                  |
+|  [20]   | `ShaderStage`                 | enum       | `Compute` visibility flag                                      |
+|  [21]   | `BufferBindingType`           | enum       | `Uniform`/`Storage`/`ReadOnlyStorage` binding kind             |
+|  [22]   | `BufferMapState`              | enum       | unmapped/pending/mapped poll                                   |
+|  [23]   | `QueryType`                   | enum       | timestamp/occlusion query kind                                 |
 
 [PUBLIC_TYPE_SCOPE]: wgpu-native extension owners (`Silk.NET.WebGPU.Extensions.WGPU`)
 - rail: compute
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                                                            |
-| :-----: | :--------------------------- | :-------------- | :--------------------------------------------------------------- |
-|  [01]   | `Wgpu`                       | static API root | `GetApi()` function table for the wgpu-native extension calls    |
-|  [02]   | `WrappedSubmissionIndex`     | struct          | `Queue` + submission `ulong` index pairing for `DevicePoll` wait |
-|  [03]   | `QuerySetDescriptorExtras`   | descriptor      | `PipelineStatistics` query-set chain (`SType` extras)            |
-|  [04]   | `PipelineStatisticName`      | enum            | vertex/clipper/primitive/fragment/compute-invocation statistic   |
+| :-----: | :--------------------------- | :-------------- | :---------------------------------------------------------------- |
+|  [01]   | `Wgpu`                       | static API root | `GetApi()` function table for the wgpu-native extension calls     |
+|  [02]   | `WrappedSubmissionIndex`     | struct          | `Queue` + submission `ulong` index pairing for `DevicePoll` wait  |
+|  [03]   | `QuerySetDescriptorExtras`   | descriptor      | `PipelineStatistics` query-set chain (`SType` extras)             |
+|  [04]   | `PipelineStatisticName`      | enum            | vertex/clipper/primitive/fragment/compute-invocation statistic    |
 |  [05]   | `NativeFeature`              | enum            | `PushConstants`/`PipelineStatisticsQuery`/multi-draw feature bits |
-|  [06]   | `NativeLimits`               | struct          | wgpu-native limit extras (`MaxPushConstantSize`)                 |
-|  [07]   | `InstanceBackend`            | enum            | Vulkan/Metal/DX12/GL backend selection for `InstanceExtras`      |
-|  [08]   | `ShaderModuleGLSLDescriptor` | descriptor      | GLSL compute source chain (wgpu-native only)                     |
+|  [06]   | `NativeLimits`               | struct          | wgpu-native limit extras (`MaxPushConstantSize`)                  |
+|  [07]   | `InstanceBackend`            | enum            | Vulkan/Metal/DX12/GL backend selection for `InstanceExtras`       |
+|  [08]   | `ShaderModuleGLSLDescriptor` | descriptor      | GLSL compute source chain (wgpu-native only)                      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -118,18 +118,18 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 [ENTRYPOINT_SCOPE]: compute resource and pipeline creation
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                              | [SURFACE_ROOT] | [RAIL]                  |
-| :-----: | :-------------------------------------------------------------------- | :------------- | :---------------------- |
-|  [01]   | `DeviceCreateBuffer(Device*, BufferDescriptor*)`                       | `WebGPU`       | storage/staging alloc   |
-|  [02]   | `DeviceCreateShaderModule(Device*, ShaderModuleDescriptor*)`           | `WebGPU`       | compute shader compile  |
-|  [03]   | `DeviceCreateBindGroupLayout(Device*, BindGroupLayoutDescriptor*)`     | `WebGPU`       | binding layout          |
-|  [04]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`                 | `WebGPU`       | bound resource group    |
-|  [05]   | `DeviceCreatePipelineLayout(Device*, PipelineLayoutDescriptor*)`       | `WebGPU`       | pipeline layout         |
-|  [06]   | `DeviceCreateComputePipeline(Device*, ComputePipelineDescriptor*)`     | `WebGPU`       | compute pipeline        |
-|  [07]   | `DeviceCreateComputePipelineAsync(Device*, ..., callback, userdata)`   | `WebGPU`       | async pipeline compile  |
-|  [08]   | `ComputePipelineGetBindGroupLayout(ComputePipeline*, uint groupIndex)` | `WebGPU`       | auto-derive layout      |
-|  [09]   | `DeviceCreateCommandEncoder(Device*, CommandEncoderDescriptor*)`       | `WebGPU`       | encoder create          |
-|  [10]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                   | `WebGPU`       | timestamp query-set     |
+| [INDEX] | [SURFACE]                                                              | [SURFACE_ROOT] | [RAIL]                 |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :--------------------- |
+|  [01]   | `DeviceCreateBuffer(Device*, BufferDescriptor*)`                       | `WebGPU`       | storage/staging alloc  |
+|  [02]   | `DeviceCreateShaderModule(Device*, ShaderModuleDescriptor*)`           | `WebGPU`       | compute shader compile |
+|  [03]   | `DeviceCreateBindGroupLayout(Device*, BindGroupLayoutDescriptor*)`     | `WebGPU`       | binding layout         |
+|  [04]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`                 | `WebGPU`       | bound resource group   |
+|  [05]   | `DeviceCreatePipelineLayout(Device*, PipelineLayoutDescriptor*)`       | `WebGPU`       | pipeline layout        |
+|  [06]   | `DeviceCreateComputePipeline(Device*, ComputePipelineDescriptor*)`     | `WebGPU`       | compute pipeline       |
+|  [07]   | `DeviceCreateComputePipelineAsync(Device*, ..., callback, userdata)`   | `WebGPU`       | async pipeline compile |
+|  [08]   | `ComputePipelineGetBindGroupLayout(ComputePipeline*, uint groupIndex)` | `WebGPU`       | auto-derive layout     |
+|  [09]   | `DeviceCreateCommandEncoder(Device*, CommandEncoderDescriptor*)`       | `WebGPU`       | encoder create         |
+|  [10]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                   | `WebGPU`       | timestamp query-set    |
 
 [ENTRYPOINT_SCOPE]: compute pass recording and submission
 - rail: compute
@@ -164,24 +164,24 @@ All entrypoints are `unsafe` instance methods on the `WebGPU.GetApi()` function-
 [ENTRYPOINT_SCOPE]: pass observability and debug grouping
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                                        | [SURFACE_ROOT] | [RAIL]                  |
-| :-----: | :------------------------------------------------------------------------------- | :------------- | :---------------------- |
-|  [01]   | `ComputePassEncoderSetLabel(ComputePassEncoder*, byte* label)`                    | `WebGPU`       | pass label for capture  |
-|  [02]   | `ComputePassEncoderInsertDebugMarker(ComputePassEncoder*, byte* markerLabel)`     | `WebGPU`       | inline debug marker     |
-|  [03]   | `ComputePassEncoderPushDebugGroup(ComputePassEncoder*, byte* groupLabel)`         | `WebGPU`       | open debug group        |
-|  [04]   | `ComputePassEncoderPopDebugGroup(ComputePassEncoder*)`                            | `WebGPU`       | close debug group       |
-|  [05]   | `ComputePipelineSetLabel(ComputePipeline*, byte* label)`                          | `WebGPU`       | pipeline label          |
+| [INDEX] | [SURFACE]                                                                     | [SURFACE_ROOT] | [RAIL]                 |
+| :-----: | :---------------------------------------------------------------------------- | :------------- | :--------------------- |
+|  [01]   | `ComputePassEncoderSetLabel(ComputePassEncoder*, byte* label)`                | `WebGPU`       | pass label for capture |
+|  [02]   | `ComputePassEncoderInsertDebugMarker(ComputePassEncoder*, byte* markerLabel)` | `WebGPU`       | inline debug marker    |
+|  [03]   | `ComputePassEncoderPushDebugGroup(ComputePassEncoder*, byte* groupLabel)`     | `WebGPU`       | open debug group       |
+|  [04]   | `ComputePassEncoderPopDebugGroup(ComputePassEncoder*)`                        | `WebGPU`       | close debug group      |
+|  [05]   | `ComputePipelineSetLabel(ComputePipeline*, byte* label)`                      | `WebGPU`       | pipeline label         |
 
 [ENTRYPOINT_SCOPE]: wgpu-native extension calls (`Wgpu.GetApi()`)
 - rail: compute
 
-| [INDEX] | [SURFACE]                                                                                   | [SURFACE_ROOT] | [RAIL]                       |
-| :-----: | :------------------------------------------------------------------------------------------ | :------------- | :--------------------------- |
-|  [01]   | `DevicePoll(Device*, Bool32 wait, WrappedSubmissionIndex* index)`                            | `Wgpu`         | non-blocking device-tick     |
-|  [02]   | `QueueSubmitForIndex(Queue*, nuint count, CommandBuffer** commands)` → `ulong`               | `Wgpu`         | submit + return wait index   |
-|  [03]   | `ComputePassEncoderBeginPipelineStatisticsQuery(ComputePassEncoder*, QuerySet*, queryIndex)` | `Wgpu`         | begin pipeline-statistics    |
-|  [04]   | `ComputePassEncoderEndPipelineStatisticsQuery(ComputePassEncoder*)`                          | `Wgpu`         | end pipeline-statistics      |
-|  [05]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter** out)`      | `Wgpu`         | synchronous adapter list     |
+| [INDEX] | [SURFACE]                                                                                    | [SURFACE_ROOT] | [RAIL]                     |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------- | :------------------------- |
+|  [01]   | `DevicePoll(Device*, Bool32 wait, WrappedSubmissionIndex* index)`                            | `Wgpu`         | non-blocking device-tick   |
+|  [02]   | `QueueSubmitForIndex(Queue*, nuint count, CommandBuffer** commands)` → `ulong`               | `Wgpu`         | submit + return wait index |
+|  [03]   | `ComputePassEncoderBeginPipelineStatisticsQuery(ComputePassEncoder*, QuerySet*, queryIndex)` | `Wgpu`         | begin pipeline-statistics  |
+|  [04]   | `ComputePassEncoderEndPipelineStatisticsQuery(ComputePassEncoder*)`                          | `Wgpu`         | end pipeline-statistics    |
+|  [05]   | `InstanceEnumerateAdapters(Instance*, InstanceEnumerateAdapterOptions*, Adapter** out)`      | `Wgpu`         | synchronous adapter list   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

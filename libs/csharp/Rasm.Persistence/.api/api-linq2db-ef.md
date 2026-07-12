@@ -33,21 +33,21 @@ construction, options read, and `UseLinqToDB` admission; `EFForEFExtensions` car
 lifted queryable; `LinqToDBOptionsExtension` is the EF `IDbContextOptionsExtension` the
 bridge installs (distinct from the `LinqToDBContextOptionsBuilder` fluent surface).
 
-| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]        | [CAPABILITY]                                  |
-| :-----: | :--------------------------------- | :-------------------- | :-------------------------------------------- |
-|  [01]   | `LinqToDBForEFTools`               | static bridge root    | bulk copy, table lift, mapping/metadata extract |
-|  [02]   | `LinqToDBForEFExtensions`          | static extension      | query lift, connection/context build, `UseLinqToDB` |
-|  [03]   | `EFForEFExtensions`                | static extension      | `*AsyncEF` operators (force EF engine)         |
-|  [04]   | `LinqToDBContextOptionsBuilder`    | fluent options        | `AddInterceptor`/`AddMappingSchema`/`AddCustomOptions` |
-|  [05]   | `LinqToDBOptionsExtension`         | EF options extension  | `IDbContextOptionsExtension` the bridge installs |
-|  [06]   | `ILinqToDBForEFTools`              | bridge contract       | abstracts bridge policy                        |
-|  [07]   | `LinqToDBForEFToolsImplDefault`    | bridge default        | implements bridge policy (`CreateMetadataReader`) |
-|  [08]   | `LinqToDBExtensionsAdapter`        | operator adapter      | `IExtensionsAdapter`; adapts async operators   |
-|  [09]   | `EFCoreMetadataReader`             | metadata reader       | projects EF `IModel` metadata to LINQ To DB    |
-|  [10]   | `LinqToDBForEFToolsDataConnection` | data connection       | `DataConnection` enlisting EF interceptors     |
-|  [11]   | `LinqToDBForEFToolsDataContext`    | data context          | `DataContext` enlisting EF query interceptors  |
-|  [12]   | `LinqToDBForEFQueryProvider<T>`    | async query provider  | `IAsyncQueryProvider`/`IQueryProviderAsync`/`IAsyncEnumerable<T>` |
-|  [13]   | `LinqToDBForEFToolsException`      | bridge error          | carries bridge failure                         |
+| [INDEX] | [SYMBOL]                           | [PACKAGE_ROLE]       | [CAPABILITY]                                                      |
+| :-----: | :--------------------------------- | :------------------- | :---------------------------------------------------------------- |
+|  [01]   | `LinqToDBForEFTools`               | static bridge root   | bulk copy, table lift, mapping/metadata extract                   |
+|  [02]   | `LinqToDBForEFExtensions`          | static extension     | query lift, connection/context build, `UseLinqToDB`               |
+|  [03]   | `EFForEFExtensions`                | static extension     | `*AsyncEF` operators (force EF engine)                            |
+|  [04]   | `LinqToDBContextOptionsBuilder`    | fluent options       | `AddInterceptor`/`AddMappingSchema`/`AddCustomOptions`            |
+|  [05]   | `LinqToDBOptionsExtension`         | EF options extension | `IDbContextOptionsExtension` the bridge installs                  |
+|  [06]   | `ILinqToDBForEFTools`              | bridge contract      | abstracts bridge policy                                           |
+|  [07]   | `LinqToDBForEFToolsImplDefault`    | bridge default       | implements bridge policy (`CreateMetadataReader`)                 |
+|  [08]   | `LinqToDBExtensionsAdapter`        | operator adapter     | `IExtensionsAdapter`; adapts async operators                      |
+|  [09]   | `EFCoreMetadataReader`             | metadata reader      | projects EF `IModel` metadata to LINQ To DB                       |
+|  [10]   | `LinqToDBForEFToolsDataConnection` | data connection      | `DataConnection` enlisting EF interceptors                        |
+|  [11]   | `LinqToDBForEFToolsDataContext`    | data context         | `DataContext` enlisting EF query interceptors                     |
+|  [12]   | `LinqToDBForEFQueryProvider<T>`    | async query provider | `IAsyncQueryProvider`/`IQueryProviderAsync`/`IAsyncEnumerable<T>` |
+|  [13]   | `LinqToDBForEFToolsException`      | bridge error         | carries bridge failure                                            |
 
 [INFO_TYPES]: provider resolution surfaces
 - rail: store-provider
@@ -68,13 +68,13 @@ async form mirrors both `IEnumerable<T>` and `IAsyncEnumerable<T>` sources, retu
 `Task<BulkCopyRowsCopied>`. The option shapes are CORE-linq2db members riding the bridge transitively — `BulkCopyOptions` (with `BulkCopyType`/`KeepIdentity`/`MaxBatchSize` slots) and the `BulkCopyType` enum (`Default`/`RowByRow`/`MultipleRows`/`ProviderSpecific` — `ProviderSpecific` lowers to PG binary COPY; verified against the restored linq2db assembly). `BulkCopyRowsCopied` is the typed receipt (rows copied + the
 options that produced it).
 
-| [INDEX] | [SURFACE]                                                       | [RETURNS]                  | [CAPABILITY]                          |
-| :-----: | :------------------------------------------------------------- | :------------------------- | :------------------------------------ |
-|  [01]   | `BulkCopy<T>(context, BulkCopyOptions, IEnumerable<T>)`         | `BulkCopyRowsCopied`       | bulk insert with explicit options     |
-|  [02]   | `BulkCopy<T>(context, int maxBatchSize, IEnumerable<T>)`        | `BulkCopyRowsCopied`       | bulk insert with batch-size shorthand |
-|  [03]   | `BulkCopy<T>(context, IEnumerable<T>)`                          | `BulkCopyRowsCopied`       | bulk insert with default options      |
-|  [04]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IEnumerable<T>, ct)` | `Task<BulkCopyRowsCopied>` | async over `IEnumerable<T>`  |
-|  [05]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IAsyncEnumerable<T>, ct)` | `Task<BulkCopyRowsCopied>` | async over `IAsyncEnumerable<T>` |
+| [INDEX] | [SURFACE]                                                                       | [RETURNS]                  | [CAPABILITY]                          |
+| :-----: | :------------------------------------------------------------------------------ | :------------------------- | :------------------------------------ |
+|  [01]   | `BulkCopy<T>(context, BulkCopyOptions, IEnumerable<T>)`                         | `BulkCopyRowsCopied`       | bulk insert with explicit options     |
+|  [02]   | `BulkCopy<T>(context, int maxBatchSize, IEnumerable<T>)`                        | `BulkCopyRowsCopied`       | bulk insert with batch-size shorthand |
+|  [03]   | `BulkCopy<T>(context, IEnumerable<T>)`                                          | `BulkCopyRowsCopied`       | bulk insert with default options      |
+|  [04]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IEnumerable<T>, ct)`      | `Task<BulkCopyRowsCopied>` | async over `IEnumerable<T>`           |
+|  [05]   | `BulkCopyAsync<T>(context, BulkCopyOptions / int / —, IAsyncEnumerable<T>, ct)` | `Task<BulkCopyRowsCopied>` | async over `IAsyncEnumerable<T>`      |
 
 [ENTRYPOINT_SCOPE]: query lift, value-insert, mapping/metadata extraction
 - rail: store-provider
@@ -85,14 +85,14 @@ starts a LINQ To DB value-insert against a lifted table. `GetMappingSchema`/
 `GetMetadataReader` extract the EF model's mapping for reuse by the `Element/identity` converter and
 identity rails.
 
-| [INDEX] | [SURFACE]                                                  | [RETURNS]            | [CAPABILITY]                              |
-| :-----: | :--------------------------------------------------------- | :------------------- | :---------------------------------------- |
-|  [01]   | `ToLinqToDB<T>(IQueryable<T>)` / `ToLinqToDB<T>(query, IDataContext)` | `IQueryable<T>` | hand EF query to LINQ To DB translator |
-|  [02]   | `ToLinqToDBTable<T>(DbSet<T>)` / `(DbSet<T>, IDataContext)` | `ITable<T>`          | project `DbSet` to LINQ To DB table       |
-|  [03]   | `GetTable<T>(context)`                                      | `ITable<T>`          | open a LINQ To DB table from the context  |
-|  [04]   | `Into<T>(context, ITable<T>)` `where T : notnull`          | `IValueInsertable<T>`| start a LINQ To DB value-insert           |
-|  [05]   | `GetMetadataReader(IModel?, IInfrastructure<IServiceProvider>?)` | `IMetadataReader?` | EF model -> LINQ To DB metadata reader  |
-|  [06]   | `GetMappingSchema(IModel, accessor, DataOptions?)`         | `MappingSchema`      | EF model -> LINQ To DB mapping schema     |
+| [INDEX] | [SURFACE]                                                             | [RETURNS]             | [CAPABILITY]                             |
+| :-----: | :-------------------------------------------------------------------- | :-------------------- | :--------------------------------------- |
+|  [01]   | `ToLinqToDB<T>(IQueryable<T>)` / `ToLinqToDB<T>(query, IDataContext)` | `IQueryable<T>`       | hand EF query to LINQ To DB translator   |
+|  [02]   | `ToLinqToDBTable<T>(DbSet<T>)` / `(DbSet<T>, IDataContext)`           | `ITable<T>`           | project `DbSet` to LINQ To DB table      |
+|  [03]   | `GetTable<T>(context)`                                                | `ITable<T>`           | open a LINQ To DB table from the context |
+|  [04]   | `Into<T>(context, ITable<T>)` `where T : notnull`                     | `IValueInsertable<T>` | start a LINQ To DB value-insert          |
+|  [05]   | `GetMetadataReader(IModel?, IInfrastructure<IServiceProvider>?)`      | `IMetadataReader?`    | EF model -> LINQ To DB metadata reader   |
+|  [06]   | `GetMappingSchema(IModel, accessor, DataOptions?)`                    | `MappingSchema`       | EF model -> LINQ To DB mapping schema    |
 
 [ENTRYPOINT_SCOPE]: connection / context construction
 - rail: store-provider
@@ -102,13 +102,13 @@ enlisting an `IDbContextTransaction`); the detached form does not bind the EF ch
 tracker; `CreateLinqToDBContext` opens an `IDataContext`. `GetLinqToDBOptions` reads the
 bridge `DataOptions` off the context.
 
-| [INDEX] | [SURFACE]                                                    | [RETURNS]        | [CAPABILITY]                            |
-| :-----: | :----------------------------------------------------------- | :--------------- | :-------------------------------------- |
+| [INDEX] | [SURFACE]                                                       | [RETURNS]        | [CAPABILITY]                               |
+| :-----: | :-------------------------------------------------------------- | :--------------- | :----------------------------------------- |
 |  [01]   | `CreateLinqToDBConnection(DbContext[, IDbContextTransaction?])` | `DataConnection` | bridged connection, optional EF txn enlist |
-|  [02]   | `CreateLinqToDBConnection(DbContextOptions)`                 | `DataConnection` | bridged connection from options         |
-|  [03]   | `CreateLinqToDBConnectionDetached(DbContext)`               | `DataConnection` | detached connection (no change tracker) |
-|  [04]   | `CreateLinqToDBContext(DbContext[, IDbContextTransaction?])` | `IDataContext`   | bridged data context, optional txn enlist |
-|  [05]   | `GetLinqToDBOptions(DbContext)` / `(IDbContextOptions)`      | `DataOptions?`   | read bridge options off the context     |
+|  [02]   | `CreateLinqToDBConnection(DbContextOptions)`                    | `DataConnection` | bridged connection from options            |
+|  [03]   | `CreateLinqToDBConnectionDetached(DbContext)`                   | `DataConnection` | detached connection (no change tracker)    |
+|  [04]   | `CreateLinqToDBContext(DbContext[, IDbContextTransaction?])`    | `IDataContext`   | bridged data context, optional txn enlist  |
+|  [05]   | `GetLinqToDBOptions(DbContext)` / `(IDbContextOptions)`         | `DataOptions?`   | read bridge options off the context        |
 
 [ENTRYPOINT_SCOPE]: async operators — dual engine mirror
 - rail: store-provider
@@ -118,14 +118,14 @@ The EF mirror includes predicate overloads, `ToDictionaryAsyncEF` (3 arities),
 `ForEachAsyncEF`, `FirstOrDefaultAsyncEF`, and `SingleAsyncEF` — the full EF async operator
 set, not a subset.
 
-| [INDEX] | [SURFACE]                                                  | [ENGINE]   | [CAPABILITY]                          |
-| :-----: | :--------------------------------------------------------- | :--------- | :------------------------------------ |
-|  [01]   | `ToListAsyncLinqToDB` / `ToArrayAsyncLinqToDB`             | LINQ To DB | materialize via LINQ To DB            |
+| [INDEX] | [SURFACE]                                                        | [ENGINE]   | [CAPABILITY]                     |
+| :-----: | :--------------------------------------------------------------- | :--------- | :------------------------------- |
+|  [01]   | `ToListAsyncLinqToDB` / `ToArrayAsyncLinqToDB`                   | LINQ To DB | materialize via LINQ To DB       |
 |  [02]   | `FirstAsyncLinqToDB` / `CountAsyncLinqToDB` / `SumAsyncLinqToDB` | LINQ To DB | first / count / aggregate        |
-|  [03]   | `ToListAsyncEF` / `ToArrayAsyncEF`                         | EF         | materialize via EF                    |
-|  [04]   | `ToDictionaryAsyncEF` (×3: keySel / +elemSel / +comparer) | EF         | dictionary materialize via EF         |
-|  [05]   | `FirstAsyncEF` / `FirstOrDefaultAsyncEF` (+predicate)     | EF         | first / first-or-default via EF       |
-|  [06]   | `SingleAsyncEF` / `CountAsyncEF` / `ForEachAsyncEF`        | EF         | single / count / for-each via EF      |
+|  [03]   | `ToListAsyncEF` / `ToArrayAsyncEF`                               | EF         | materialize via EF               |
+|  [04]   | `ToDictionaryAsyncEF` (×3: keySel / +elemSel / +comparer)        | EF         | dictionary materialize via EF    |
+|  [05]   | `FirstAsyncEF` / `FirstOrDefaultAsyncEF` (+predicate)            | EF         | first / first-or-default via EF  |
+|  [06]   | `SingleAsyncEF` / `CountAsyncEF` / `ForEachAsyncEF`              | EF         | single / count / for-each via EF |
 
 [ENTRYPOINT_SCOPE]: bridge admission and options
 - rail: store-provider
@@ -136,14 +136,14 @@ custom `DataOptions`). `Initialize`/`ClearCaches` activate and reset the bridge'
 caches; `EnableChangeTracker` (static `bool`) gates whether lifted reads feed the EF change
 tracker.
 
-| [INDEX] | [SURFACE]                                                     | [CALL_SHAPE]        | [CAPABILITY]                          |
-| :-----: | :----------------------------------------------------------- | :------------------ | :------------------------------------ |
-|  [01]   | `UseLinqToDB<TContext>(builder, Action<LinqToDBContextOptionsBuilder>?)` `where TContext : DbContextOptionsBuilder` | builder extension | admit bridge + configure options |
-|  [02]   | `LinqToDBContextOptionsBuilder.AddInterceptor(IInterceptor)` | fluent call         | admit a LINQ To DB interceptor        |
-|  [03]   | `LinqToDBContextOptionsBuilder.AddMappingSchema(MappingSchema)` | fluent call      | admit a mapping schema                |
-|  [04]   | `LinqToDBContextOptionsBuilder.AddCustomOptions(Func<DataOptions,DataOptions>)` | fluent call | rewrite the `DataOptions`         |
-|  [05]   | `LinqToDBForEFTools.Initialize()` / `ClearCaches()`          | static call         | activate bridge / reset caches        |
-|  [06]   | `LinqToDBForEFTools.EnableChangeTracker`                     | static property     | gate change-tracker feed (`bool`)     |
+| [INDEX] | [SURFACE]                                                                                                           | [CALL_SHAPE]      | [CAPABILITY]                      |
+| :-----: | :------------------------------------------------------------------------------------------------------------------ | :---------------- | :-------------------------------- |
+|  [01]   | `UseLinqToDB<TContext>(builder, Action<LinqToDBContextOptionsBuilder>?)` `where TContext : DbContextOptionsBuilder` | builder extension | admit bridge + configure options  |
+|  [02]   | `LinqToDBContextOptionsBuilder.AddInterceptor(IInterceptor)`                                                        | fluent call       | admit a LINQ To DB interceptor    |
+|  [03]   | `LinqToDBContextOptionsBuilder.AddMappingSchema(MappingSchema)`                                                     | fluent call       | admit a mapping schema            |
+|  [04]   | `LinqToDBContextOptionsBuilder.AddCustomOptions(Func<DataOptions,DataOptions>)`                                     | fluent call       | rewrite the `DataOptions`         |
+|  [05]   | `LinqToDBForEFTools.Initialize()` / `ClearCaches()`                                                                 | static call       | activate bridge / reset caches    |
+|  [06]   | `LinqToDBForEFTools.EnableChangeTracker`                                                                            | static property   | gate change-tracker feed (`bool`) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

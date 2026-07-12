@@ -167,15 +167,7 @@ All code follows these governing principles:
 - Required for executable examples: run `--self-test` when present.
 - Reject completion when strict mode, readonly discipline, ShellCheck compliance, or example self-tests are not satisfied.
 
-## [07]-[SKILL_EVAL_PROMPTS]
-
-- Explicit invocation: "Using coding-bash, refactor this .sh CLI into dispatch-table Bash 5.3 style with self-tests."
-- Implicit invocation: "Review this deployment script for ShellCheck, strict mode, cleanup, and streaming-loop issues."
-- Noisy context: "Ignore CI chatter and only audit the Bash entrypoint."
-- Negative control: "Only write PostgreSQL DDL." Expected: do not load Bash references unless shell code appears.
-- Compliance checks: output loads only relevant references, avoids command thrash, avoids helper files, preserves marked shell-reality exceptions, and runs `bash -n`, ShellCheck, and `--self-test` when applicable.
-
-## [08]-[FIRST_CLASS_TOOLS]
+## [07]-[FIRST_CLASS_TOOLS]
 
 | [INDEX] | [TOOL]       | [VER]    | [PROVIDES]                                 |
 | :-----: | :----------- | :------- | :----------------------------------------- |

@@ -22,53 +22,53 @@ The in-sidecar assembly composes the cloud-run transport for the Compute route; 
 [PUBLIC_TYPE_SCOPE]: `PollinationSDK.Client` infrastructure
 - rail: cloud-run
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [CAPABILITY]                                                                        |
-| :-----: | :---------------------- | :-------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `Configuration`         | config/auth     | `Default` static, `BasePath`, `AccessToken => TokenRepo?.GetToken()`, `DefaultHeader`, `AddApiKey`, `AddDefaultHeader`, `CreateApiClient` |
-|  [02]   | `GlobalConfiguration : Configuration` | config | the ambient `Instance` a parameterless `*Api` ctor binds                            |
-|  [03]   | `ApiClient`             | transport       | `: IReadableConfiguration` consumer — the RestSharp-backed request executor         |
-|  [04]   | `TokenRepo`             | auth            | holds + refreshes the Pollination access token (`GetToken()`)                       |
-|  [05]   | `ApiResponse<T>`        | response        | `Data`/`StatusCode`/`Headers` — the `WithHttpInfoAsync` return carrier              |
-|  [06]   | `ApiException : Exception` | fault         | `ErrorCode`/`ErrorContent` — thrown by the model-returning `*Async` overloads        |
-|  [07]   | `IApiAccessor`          | contract        | the `*Api` marker (`Configuration`, `ExceptionFactory`)                             |
-|  [08]   | `AnyOfJsonConverter` / `OpenAPIDateConverter` | Newtonsoft converter | the union + date codecs the SDK's `LBT.Newtonsoft.Json` serializer mounts |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]        | [CAPABILITY]                                                                                                                              |
+| :-----: | :-------------------------------------------- | :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Configuration`                               | config/auth          | `Default` static, `BasePath`, `AccessToken => TokenRepo?.GetToken()`, `DefaultHeader`, `AddApiKey`, `AddDefaultHeader`, `CreateApiClient` |
+|  [02]   | `GlobalConfiguration : Configuration`         | config               | the ambient `Instance` a parameterless `*Api` ctor binds                                                                                  |
+|  [03]   | `ApiClient`                                   | transport            | `: IReadableConfiguration` consumer — the RestSharp-backed request executor                                                               |
+|  [04]   | `TokenRepo`                                   | auth                 | holds + refreshes the Pollination access token (`GetToken()`)                                                                             |
+|  [05]   | `ApiResponse<T>`                              | response             | `Data`/`StatusCode`/`Headers` — the `WithHttpInfoAsync` return carrier                                                                    |
+|  [06]   | `ApiException : Exception`                    | fault                | `ErrorCode`/`ErrorContent` — thrown by the model-returning `*Async` overloads                                                             |
+|  [07]   | `IApiAccessor`                                | contract             | the `*Api` marker (`Configuration`, `ExceptionFactory`)                                                                                   |
+|  [08]   | `AnyOfJsonConverter` / `OpenAPIDateConverter` | Newtonsoft converter | the union + date codecs the SDK's `LBT.Newtonsoft.Json` serializer mounts                                                                 |
 
 [PUBLIC_TYPE_SCOPE]: `PollinationSDK.Api` REST clients (each paired `*Async` + `*WithHttpInfoAsync`)
 - rail: cloud-run
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY] | [CAPABILITY]                                                                          |
-| :-----: | :-------------- | :------------ | :----------------------------------------------------------------------------------- |
-|  [01]   | `JobsApi`       | REST client   | `CreateJob`/`GetJob`/`ListJobs`/`CancelJob`/`DeleteJob`/`DownloadJobArtifact` over a project |
-|  [02]   | `RunsApi`       | REST client   | `GetRun`/`GetAllRunSteps`/`GetRunOutput`/`GetRunStepLogs`/`DownloadRunArtifact`/`CancelRun` |
-|  [03]   | `ProjectsApi`   | REST client   | `CreateProject`/`GetProject`/`ListProjects`/recipe-filter + access-permission admin   |
-|  [04]   | `ArtifactsApi`  | REST client   | `CreateArtifact` (-> `S3UploadRequest`) / `DownloadArtifact` / `ListArtifacts` / `DeleteArtifact` |
-|  [05]   | `RecipesApi` / `RegistriesApi` / `PluginsApi` | REST client | recipe/registry/plugin catalog transport (the run definition supply side) |
-|  [06]   | `AccountsApi` / `OrgsApi` / `TeamsApi` / `UsersApi` / `UserApi` / `APITokensApi` | REST client | identity/ownership/token legs |
-|  [07]   | `SubscriptionsApi` / `SubscriptionPlansApi` / `LicensesApi` / `ApplicationsApi` | REST client | billing/license/application legs |
+| [INDEX] | [SYMBOL]                                                                         | [TYPE_FAMILY] | [CAPABILITY]                                                                                      |
+| :-----: | :------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `JobsApi`                                                                        | REST client   | `CreateJob`/`GetJob`/`ListJobs`/`CancelJob`/`DeleteJob`/`DownloadJobArtifact` over a project      |
+|  [02]   | `RunsApi`                                                                        | REST client   | `GetRun`/`GetAllRunSteps`/`GetRunOutput`/`GetRunStepLogs`/`DownloadRunArtifact`/`CancelRun`       |
+|  [03]   | `ProjectsApi`                                                                    | REST client   | `CreateProject`/`GetProject`/`ListProjects`/recipe-filter + access-permission admin               |
+|  [04]   | `ArtifactsApi`                                                                   | REST client   | `CreateArtifact` (-> `S3UploadRequest`) / `DownloadArtifact` / `ListArtifacts` / `DeleteArtifact` |
+|  [05]   | `RecipesApi` / `RegistriesApi` / `PluginsApi`                                    | REST client   | recipe/registry/plugin catalog transport (the run definition supply side)                         |
+|  [06]   | `AccountsApi` / `OrgsApi` / `TeamsApi` / `UsersApi` / `UserApi` / `APITokensApi` | REST client   | identity/ownership/token legs                                                                     |
+|  [07]   | `SubscriptionsApi` / `SubscriptionPlansApi` / `LicensesApi` / `ApplicationsApi`  | REST client   | billing/license/application legs                                                                  |
 
 [PUBLIC_TYPE_SCOPE]: `PollinationSDK.Wrapper` high-level orchestration
 - rail: cloud-run
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]     | [CAPABILITY]                                                                      |
-| :-----: | :-------------------- | :---------------- | :------------------------------------------------------------------------------- |
-|  [01]   | `JobInfo`             | job descriptor    | `new JobInfo(Job)` / `new JobInfo(RecipeInterface)`; `Job`/`ProjectSlug`/`RecipeOwner`/`LocalRunFolder`; `ToJson`/`FromJson`; `RunJobAsync`/`UploadJobAssetsAsync` |
-|  [02]   | `JobRunner`           | job runner        | `new JobRunner(JobInfo)`; `RunOnCloudAsync`; static `UploadJobAssetsAsync`/`CheckLocalJobStatus`/`GetJobErrors`/`CheckRecipeInProject` |
-|  [03]   | `ScheduledJobInfo`    | submitted job     | the cloud-scheduled job handle; `WatchJobStatusAsync` (poll to completion) / `DeleteAsync` |
-|  [04]   | `RunInfo`             | run handle        | `new RunInfo(Project, runID\|Run)` / `(JobInfo\|ScheduledJobInfo)` / `(localRunFolder)`; `Run`; `DownloadRunAssetsAsync` |
-|  [05]   | `AssetBase` / `RunAssetBase` / `RunInputAsset` / `RunOutputAsset` / `CloudReferenceAsset` | asset | the run input/output asset family the download/upload threads |
-|  [06]   | `JobResultPackage`    | result            | the packaged job result the wrapper assembles                                     |
-|  [07]   | `LocalDatabase` / `LocalRunArguments` / `InputArgumentValidator` | local cache | the `Microsoft.Data.Sqlite` job/asset cache + local-run argument validation |
+| [INDEX] | [SYMBOL]                                                                                  | [TYPE_FAMILY]  | [CAPABILITY]                                                                                                                                                       |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `JobInfo`                                                                                 | job descriptor | `new JobInfo(Job)` / `new JobInfo(RecipeInterface)`; `Job`/`ProjectSlug`/`RecipeOwner`/`LocalRunFolder`; `ToJson`/`FromJson`; `RunJobAsync`/`UploadJobAssetsAsync` |
+|  [02]   | `JobRunner`                                                                               | job runner     | `new JobRunner(JobInfo)`; `RunOnCloudAsync`; static `UploadJobAssetsAsync`/`CheckLocalJobStatus`/`GetJobErrors`/`CheckRecipeInProject`                             |
+|  [03]   | `ScheduledJobInfo`                                                                        | submitted job  | the cloud-scheduled job handle; `WatchJobStatusAsync` (poll to completion) / `DeleteAsync`                                                                         |
+|  [04]   | `RunInfo`                                                                                 | run handle     | `new RunInfo(Project, runID\|Run)` / `(JobInfo\|ScheduledJobInfo)` / `(localRunFolder)`; `Run`; `DownloadRunAssetsAsync`                                           |
+|  [05]   | `AssetBase` / `RunAssetBase` / `RunInputAsset` / `RunOutputAsset` / `CloudReferenceAsset` | asset          | the run input/output asset family the download/upload threads                                                                                                      |
+|  [06]   | `JobResultPackage`                                                                        | result         | the packaged job result the wrapper assembles                                                                                                                      |
+|  [07]   | `LocalDatabase` / `LocalRunArguments` / `InputArgumentValidator`                          | local cache    | the `Microsoft.Data.Sqlite` job/asset cache + local-run argument validation                                                                                        |
 
 [PUBLIC_TYPE_SCOPE]: `PollinationSDK` model DTOs (transport payloads)
 - rail: cloud-run
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]                                                          |
-| :-----: | :---------------------- | :------------ | :------------------------------------------------------------------ |
-|  [01]   | `Job` / `CloudJob` / `CloudJobList` / `CreatedContent` | DTO | the job submission body, the cloud job state, the list page, the create receipt |
-|  [02]   | `Run` / `StepStatus` / `JobStatusEnum` / `RunStatusEnum` | DTO | run state, per-step status, the job/run status discriminants |
-|  [03]   | `Project` / `ProjectCreate` / `ProjectRecipeFilter` / `ProjectAccessPolicyList` | DTO | project transport + recipe-filter + access policy |
-|  [04]   | `S3UploadRequest` / `KeyRequest` / `FileMeta` / `FileMetaList` | DTO | the presigned-S3 artifact upload request, the key request, artifact metadata |
-|  [05]   | `RecipeInterface` / `Inputs`/`Outputs` family (`.Interface.Io.*`) | DTO | the recipe interface model `JobInfo` is built from |
+| [INDEX] | [SYMBOL]                                                                        | [TYPE_FAMILY] | [CAPABILITY]                                                                    |
+| :-----: | :------------------------------------------------------------------------------ | :------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `Job` / `CloudJob` / `CloudJobList` / `CreatedContent`                          | DTO           | the job submission body, the cloud job state, the list page, the create receipt |
+|  [02]   | `Run` / `StepStatus` / `JobStatusEnum` / `RunStatusEnum`                        | DTO           | run state, per-step status, the job/run status discriminants                    |
+|  [03]   | `Project` / `ProjectCreate` / `ProjectRecipeFilter` / `ProjectAccessPolicyList` | DTO           | project transport + recipe-filter + access policy                               |
+|  [04]   | `S3UploadRequest` / `KeyRequest` / `FileMeta` / `FileMetaList`                  | DTO           | the presigned-S3 artifact upload request, the key request, artifact metadata    |
+|  [05]   | `RecipeInterface` / `Inputs`/`Outputs` family (`.Interface.Io.*`)               | DTO           | the recipe interface model `JobInfo` is built from                              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -76,40 +76,40 @@ The in-sidecar assembly composes the cloud-run transport for the Compute route; 
 - rail: cloud-run
 - composition law: the access token is acquired by the app root and handed over (token lifecycle is NOT a Persistence fence member); a `*Api` binds the ambient `GlobalConfiguration.Instance` or an explicit `Configuration`.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                       | [CAPABILITY]                                  |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------- | :------------------------------------------- |
-|  [01]   | `Configuration.Default`                | `static Configuration Default`                                    | the ambient config the parameterless `*Api` binds |
-|  [02]   | `config.AccessToken`                   | `virtual string AccessToken => TokenRepo?.GetToken()`            | the bearer token the request executor sends    |
-|  [03]   | `config.AddDefaultHeader`              | `void AddDefaultHeader(string key, string value)`               | inject `Authorization`/`x-pollination-token`   |
-|  [04]   | `new JobsApi(config)`                  | `JobsApi(Configuration configuration = null)` / `JobsApi(string basePath)` / `JobsApi()` | a REST client bound to a config (or the global) |
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                                                             | [CAPABILITY]                                      |
+| :-----: | :------------------------ | :--------------------------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `Configuration.Default`   | `static Configuration Default`                                                           | the ambient config the parameterless `*Api` binds |
+|  [02]   | `config.AccessToken`      | `virtual string AccessToken => TokenRepo?.GetToken()`                                    | the bearer token the request executor sends       |
+|  [03]   | `config.AddDefaultHeader` | `void AddDefaultHeader(string key, string value)`                                        | inject `Authorization`/`x-pollination-token`      |
+|  [04]   | `new JobsApi(config)`     | `JobsApi(Configuration configuration = null)` / `JobsApi(string basePath)` / `JobsApi()` | a REST client bound to a config (or the global)   |
 
 [ENTRYPOINT_SCOPE]: high-level cloud transport — `Wrapper`
 - rail: cloud-run
 - composition law: `JobInfo` wraps a `Job` + project slug + local folder; `RunJobAsync` uploads assets then submits, returning a `ScheduledJobInfo`; the run handle pulls assets back, which the `Version/provenance` owner lands content-keyed.
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                                                                              | [CAPABILITY]                                  |
-| :-----: | :----------------------------------------- | :------------------------------------------------------------------------------------------------------ | :------------------------------------------- |
-|  [01]   | `new JobInfo(job)`                         | `JobInfo(Job job)` / `JobInfo(RecipeInterface recipe)`                                                    | the job descriptor                            |
-|  [02]   | `jobInfo.RunJobAsync`                      | `Task<ScheduledJobInfo> RunJobAsync(Action<string> progressReporting = null, CancellationToken = default)` | upload assets + submit in one (the convenience) |
-|  [03]   | `jobInfo.UploadJobAssetsAsync`             | `Task<Job> UploadJobAssetsAsync(Action<string> progressReporting = null, CancellationToken = default)`    | upload input artifacts before submit          |
-|  [04]   | `new JobRunner(jobInfo).RunOnCloudAsync`   | `Task<CloudJob> RunOnCloudAsync(Project project, Action<string> progressReporting, CancellationToken token)` | submit a job to a project on the cloud      |
-|  [05]   | `scheduled.WatchJobStatusAsync`            | `Task<string> WatchJobStatusAsync(Action<string> progressAction = null, CancellationToken cancelToken = default)` | poll the scheduled job to a terminal status |
-|  [06]   | `scheduled.DeleteAsync`                    | `Task<bool> DeleteAsync()`                                                                                | delete the scheduled job                      |
-|  [07]   | `new RunInfo(project, runId).DownloadRunAssetsAsync` | `Task<List<RunAssetBase>> DownloadRunAssetsAsync(List<RunAssetBase> runAssets, string saveAsDir = null, Action<string> reportingAction = null, bool useCached = false, CancellationToken cancelToken = default)` | pull result assets (optionally cached) |
+| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]                                                                                                                                                                                                     | [CAPABILITY]                                    |
+| :-----: | :--------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `new JobInfo(job)`                                   | `JobInfo(Job job)` / `JobInfo(RecipeInterface recipe)`                                                                                                                                                           | the job descriptor                              |
+|  [02]   | `jobInfo.RunJobAsync`                                | `Task<ScheduledJobInfo> RunJobAsync(Action<string> progressReporting = null, CancellationToken = default)`                                                                                                       | upload assets + submit in one (the convenience) |
+|  [03]   | `jobInfo.UploadJobAssetsAsync`                       | `Task<Job> UploadJobAssetsAsync(Action<string> progressReporting = null, CancellationToken = default)`                                                                                                           | upload input artifacts before submit            |
+|  [04]   | `new JobRunner(jobInfo).RunOnCloudAsync`             | `Task<CloudJob> RunOnCloudAsync(Project project, Action<string> progressReporting, CancellationToken token)`                                                                                                     | submit a job to a project on the cloud          |
+|  [05]   | `scheduled.WatchJobStatusAsync`                      | `Task<string> WatchJobStatusAsync(Action<string> progressAction = null, CancellationToken cancelToken = default)`                                                                                                | poll the scheduled job to a terminal status     |
+|  [06]   | `scheduled.DeleteAsync`                              | `Task<bool> DeleteAsync()`                                                                                                                                                                                       | delete the scheduled job                        |
+|  [07]   | `new RunInfo(project, runId).DownloadRunAssetsAsync` | `Task<List<RunAssetBase>> DownloadRunAssetsAsync(List<RunAssetBase> runAssets, string saveAsDir = null, Action<string> reportingAction = null, bool useCached = false, CancellationToken cancelToken = default)` | pull result assets (optionally cached)          |
 
 [ENTRYPOINT_SCOPE]: low-level REST — `JobsApi` / `RunsApi` / `ProjectsApi` / `ArtifactsApi`
 - rail: cloud-run
 - composition law: every operation has a model-returning `*Async` (throws `ApiException`) and a `*WithHttpInfoAsync` returning `ApiResponse<T>` (status + headers); all take `(string owner, string name, …, CancellationToken)`.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                                              | [CAPABILITY]                                |
-| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------------ | :----------------------------------------- |
-|  [01]   | `JobsApi.CreateJobAsync`           | `Task<CreatedContent> CreateJobAsync(string owner, string name, Job job, string authorization = null, string xPollinationToken = null, CancellationToken = default)` | submit a job to a project          |
-|  [02]   | `JobsApi.GetJobAsync` / `ListJobsAsync` | `Task<CloudJob> GetJobAsync(string owner, string name, string jobId, …)` / `Task<CloudJobList> ListJobsAsync(string owner, string name, List<string> ids = null, JobStatusEnum? status = null, DateTime? createdAfter = null, …, int? page = null, int? perPage = null, …)` | poll / page jobs |
-|  [03]   | `RunsApi.GetRunAsync` / `GetRunOutputAsync` | `Task<Run> GetRunAsync(string owner, string name, string runId, …)` / `Task<object> GetRunOutputAsync(string owner, string name, string runId, string outputName, …)` | run state / named output |
-|  [04]   | `RunsApi.DownloadRunArtifactAsync` | `Task<object> DownloadRunArtifactAsync(string owner, string name, string runId, string path = null, …)`  | fetch a run artifact by path                |
-|  [05]   | `ProjectsApi.GetProjectAsync` / `CreateProjectAsync` | `Task<Project> GetProjectAsync(string owner, string name, …)` / `Task<CreatedContent> CreateProjectAsync(string owner, ProjectCreate projectCreate, …)` | project transport |
-|  [06]   | `ArtifactsApi.CreateArtifactAsync` | `Task<S3UploadRequest> CreateArtifactAsync(string owner, string name, KeyRequest keyRequest, …)`         | request a presigned S3 upload (the object-store seam) |
-|  [07]   | `ArtifactsApi.DownloadArtifactAsync` / `ListArtifactsAsync` | `Task<object> DownloadArtifactAsync(string owner, string name, string path = null, …)` / `Task<FileMetaList> ListArtifactsAsync(string owner, string name, List<string> path = null, …)` | fetch / list artifacts |
+| [INDEX] | [SURFACE]                                                   | [CALL_SHAPE]                                                                                                                                                                                                                                                                | [CAPABILITY]                                          |
+| :-----: | :---------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | `JobsApi.CreateJobAsync`                                    | `Task<CreatedContent> CreateJobAsync(string owner, string name, Job job, string authorization = null, string xPollinationToken = null, CancellationToken = default)`                                                                                                        | submit a job to a project                             |
+|  [02]   | `JobsApi.GetJobAsync` / `ListJobsAsync`                     | `Task<CloudJob> GetJobAsync(string owner, string name, string jobId, …)` / `Task<CloudJobList> ListJobsAsync(string owner, string name, List<string> ids = null, JobStatusEnum? status = null, DateTime? createdAfter = null, …, int? page = null, int? perPage = null, …)` | poll / page jobs                                      |
+|  [03]   | `RunsApi.GetRunAsync` / `GetRunOutputAsync`                 | `Task<Run> GetRunAsync(string owner, string name, string runId, …)` / `Task<object> GetRunOutputAsync(string owner, string name, string runId, string outputName, …)`                                                                                                       | run state / named output                              |
+|  [04]   | `RunsApi.DownloadRunArtifactAsync`                          | `Task<object> DownloadRunArtifactAsync(string owner, string name, string runId, string path = null, …)`                                                                                                                                                                     | fetch a run artifact by path                          |
+|  [05]   | `ProjectsApi.GetProjectAsync` / `CreateProjectAsync`        | `Task<Project> GetProjectAsync(string owner, string name, …)` / `Task<CreatedContent> CreateProjectAsync(string owner, ProjectCreate projectCreate, …)`                                                                                                                     | project transport                                     |
+|  [06]   | `ArtifactsApi.CreateArtifactAsync`                          | `Task<S3UploadRequest> CreateArtifactAsync(string owner, string name, KeyRequest keyRequest, …)`                                                                                                                                                                            | request a presigned S3 upload (the object-store seam) |
+|  [07]   | `ArtifactsApi.DownloadArtifactAsync` / `ListArtifactsAsync` | `Task<object> DownloadArtifactAsync(string owner, string name, string path = null, …)` / `Task<FileMetaList> ListArtifactsAsync(string owner, string name, List<string> path = null, …)`                                                                                    | fetch / list artifacts                                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,11 +1,11 @@
 # [RASM_API_GRPC_TOOLS]
 
-`Grpc.Tools` supplies build-time protocol generation, MSBuild targets, `.proto`
-item metadata, compiler binaries, import protos, and generated client seams.
+`Grpc.Tools` supplies build-time protocol generation, MSBuild targets, `.proto` item metadata, compiler binaries, import protos, and generated client seams.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Tools`
+
 - package: `Grpc.Tools`
 - assembly: build assets
 - namespace: MSBuild/protoc assets
@@ -15,6 +15,7 @@ item metadata, compiler binaries, import protos, and generated client seams.
 ## [02]-[PUBLIC_TYPES]
 
 [PACKAGE_ASSET_SCOPE]: MSBuild assets
+
 - rail: remote-contracts
 
 | [INDEX] | [SYMBOL]                                                      | [PACKAGE_ROLE] | [CAPABILITY]                                       |
@@ -30,6 +31,7 @@ item metadata, compiler binaries, import protos, and generated client seams.
 |  [09]   | `build/_protobuf/Protobuf.CSharp.xml`                         | IDE schema     | VS property-page schema (`Access`, `ProtoCompile`) |
 
 [PACKAGE_ASSET_SCOPE]: compiler and import assets
+
 - rail: remote-contracts
 
 Compiler binaries ship per-RID under `tools/<rid>/`: `linux_x64`, `linux_arm64`, `linux_x86`, `macosx_x64`, `windows_x64`, `windows_x86`. There is NO `macosx_arm64` asset — Apple-silicon hosts run the `macosx_x64` `protoc`/`grpc_csharp_plugin` under Rosetta 2. The well-known protos live under `build/native/include/google/protobuf/` (resolved by `Protobuf_StandardImportsPath`).
@@ -53,6 +55,7 @@ Compiler binaries ship per-RID under `tools/<rid>/`: `linux_x64`, `linux_arm64`,
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: project inputs
+
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]                   | [CALL_SHAPE]  | [CAPABILITY]                                             |
@@ -71,26 +74,29 @@ Compiler binaries ship per-RID under `tools/<rid>/`: `linux_x64`, `linux_arm64`,
 |  [12]   | `ProtoCompile`              | item metadata | `True`/`False` — compiles or import-only                 |
 
 [ENTRYPOINT_SCOPE]: `Protobuf` item metadata verified rows
+
 - source: `Grpc.Tools` — `build/_protobuf/Google.Protobuf.Tools.targets` + `build/_grpc/_Grpc.Tools.targets` `Protobuf_Compile` transform (the authoritative metadata; the `*.CSharp.xml` files are VS IDE property-page schemas only)
 - rail: remote-contracts
 - consumer: `remote-lane#CALL_SPINE`
+- `ProtoPath` concatenates `AdditionalImportDirs`, `Protobuf_StandardImportsPath`, and `ProtoRoot`; `Access` and `GrpcServices` lower into their respective option fields.
 
-| [INDEX] | [MEMBER]                    | [SIGNATURE]                                                                                                                                     |
-| :-----: | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `GrpcServices`              | enum: `Both` (default), `Client`, `Server`, `None`                                                                                              |
-|  [02]   | `Access`                    | enum: `Public` (default), `Internal` — sugar that appends `internal_access` to `OutputOptions`/`GrpcOutputOptions`                              |
-|  [03]   | `ProtoCompile`              | bool: `true` (default) — compile vs import-only                                                                                                 |
-|  [04]   | `ProtoRoot`                 | string — import root path; defaults to item relative dir                                                                                        |
-|  [05]   | `AdditionalImportDirs`      | string — semicolon-separated extra import dirs; the protoc `ProtoPath` is `AdditionalImportDirs` + `Protobuf_StandardImportsPath` + `ProtoRoot` |
-|  [06]   | `OutputDir`                 | string — message-code output directory                                                                                                          |
-|  [07]   | `GrpcOutputDir`             | string — gRPC-stub output directory; falls back to `OutputDir` when empty                                                                       |
-|  [08]   | `CompileOutputs`            | bool: `True` (default) — adds generated files to compilation                                                                                    |
-|  [09]   | `AdditionalProtocArguments` | string — extra arguments passed verbatim to `protoc`                                                                                            |
-|  [10]   | `OutputOptions`             | string — raw protoc message-codegen options (`GrpcServices=None` appends `no_server`/`no_client`)                                               |
-|  [11]   | `GrpcOutputOptions`         | string — raw `grpc_csharp_plugin` options                                                                                                       |
-|  [12]   | `Generator`                 | string — design-time build generator hook; defaults to `MSBuild:Compile` (the `$(Protobuf_Generator)` property is `CSharp`)                     |
+| [INDEX] | [MEMBER]                    | [TYPE] | [DEFAULT]         | [EFFECT]                |
+| :-----: | :-------------------------- | :----- | :---------------- | :---------------------- |
+|  [01]   | `GrpcServices`              | enum   | `Both`            | selects generated stubs |
+|  [02]   | `Access`                    | enum   | `Public`          | selects type access     |
+|  [03]   | `ProtoCompile`              | bool   | `true`            | selects compilation     |
+|  [04]   | `ProtoRoot`                 | string | item directory    | roots imports           |
+|  [05]   | `AdditionalImportDirs`      | string | `—`               | adds import roots       |
+|  [06]   | `OutputDir`                 | string | `—`               | routes message output   |
+|  [07]   | `GrpcOutputDir`             | string | `OutputDir`       | routes stub output      |
+|  [08]   | `CompileOutputs`            | bool   | `True`            | includes generated code |
+|  [09]   | `AdditionalProtocArguments` | string | `—`               | passes protoc arguments |
+|  [10]   | `OutputOptions`             | string | `—`               | passes message options  |
+|  [11]   | `GrpcOutputOptions`         | string | `—`               | passes plugin options   |
+|  [12]   | `Generator`                 | string | `MSBuild:Compile` | invokes C# generation   |
 
 [ENTRYPOINT_SCOPE]: generated outputs
+
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]                    | [CALL_SHAPE]   | [CAPABILITY]            |
@@ -105,35 +111,41 @@ Compiler binaries ship per-RID under `tools/<rid>/`: `linux_x64`, `linux_arm64`,
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GENERATOR_ADMISSION]:
+
 - package role: build-only protocol generation
 - dependency role: private tool asset
 - runtime rule: generated code is admitted, generator package is not a runtime surface
 - source rule: `.proto` files are boundary contracts and require owner-local folder placement
 
 [ITEM_METADATA]:
+
 - `GrpcServices=Client` is the Compute-admitted value; `Server` and `Both` are server-hosting values rejected by `[LOCAL_ADMISSION]`
 - `Access=Internal` is preferred for Compute-internal generated types; `Public` only when the contract crosses package boundaries
 - `Access`/`GrpcServices` are sugar the `Protobuf_Compile` transform lowers into the protoc/plugin option strings: `Access=Internal` appends `internal_access`, `GrpcServices=None` appends `no_server`+`no_client`. The lowered options compose with the user-facing `OutputOptions` (message codegen) and `GrpcOutputOptions` (gRPC stubs) escape-hatch metadata — both are real `Protobuf` item metadata, so a raw protoc flag the named metadata does not cover is reachable without a custom target.
 - `OutputDir` and `GrpcOutputDir` are distinct sinks (message code vs gRPC stubs); `GrpcOutputDir` defaults to `OutputDir`.
 
 [REMOTE_CONTRACT_OUTPUT]:
+
 - message output: generated `IMessage<T>` contracts
 - client output: generated client stubs over `Grpc.Net.Client`
 - descriptor output: generated static descriptors for contract inspection
 - stream output: generated unary, client-stream, server-stream, and duplex calls
 
 [STACK_INTEGRATION]:
+
 - Single wire rail: `Grpc.Tools` emits the `IMessage<T>`/client-stub seam that the rest of the wire stack composes against — generated clients invoke over `Grpc.Net.Client`'s `GrpcChannel`, generated messages parse zero-alloc through `Google.Protobuf`'s `IBufferMessage`/`CodedInputStream` over a `RecyclableMemoryStream`, `Timestamp`/`Duration` round-trip through `NodaTime.Serialization.Protobuf`, and `FieldMask` (from `field_mask.proto`) drives the partial-update APPLY leg.
 - Build-once, compile-twice: the same `.proto` files compile `GrpcServices=Client` here and `GrpcServices=Server` at the AppHost root; the AppHost emits the descriptor set (via `descriptor.proto` self-description) that feeds the contract-evolution checksum gate and the browser connect-es codegen.
 - `Access=Internal` keeps generated types package-private so the `WireDocument` parity owner — not the raw stub — is the public seam; `Access=Public` only where the contract literally crosses a package boundary.
 
 [LOCAL_ADMISSION]:
+
 - Compute remote contract source uses `Protobuf` MSBuild items.
 - Generator outputs must land in the remote-contract rail before implementation source uses them.
 - Generated clients are adapters and cannot own Compute execution policy.
 - Tool assets remain `PrivateAssets=all`.
 
 [RAIL_LAW]:
+
 - Package: `Grpc.Tools`
 - Owns: protocol generation
 - Accept: generated remote contracts

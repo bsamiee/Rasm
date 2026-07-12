@@ -28,27 +28,27 @@ tokenizer/detokenizer custom-op model crosses the managed boundary.
 [PACKAGE_ASSET_SCOPE]: native runtime assets
 - rail: model
 
-| [INDEX] | [SYMBOL]                                                  | [PACKAGE_ROLE]      | [CAPABILITY]          |
-| :-----: | :-------------------------------------------------------- | :------------------ | :-------------------- |
-|  [01]   | `runtimes/osx.10.14-arm64/native/libortextensions.dylib` | native asset        | loads extension ops (macOS arm64) |
-|  [02]   | `runtimes/osx.10.14-x64/native/libortextensions.dylib`   | native asset        | loads extension ops (macOS x64) |
-|  [03]   | `runtimes/linux-arm64/native/libortextensions.so`        | native asset        | loads extension ops (linux arm64) |
-|  [04]   | `runtimes/linux-x64/native/libortextensions.so`          | native asset        | loads extension ops (linux x64) |
-|  [05]   | `runtimes/win-arm64/native/ortextensions.dll`            | native asset        | loads extension ops (win arm64) |
-|  [06]   | `runtimes/win-x64/native/ortextensions.dll`              | native asset        | loads extension ops (win x64) |
-|  [07]   | `runtimes/win-x86/native/ortextensions.dll`              | native asset        | loads extension ops (win x86) |
-|  [08]   | `runtimes/android/native/onnxruntime-extensions.aar`     | native asset        | loads Android ops     |
-|  [09]   | `runtimes/ios/native/onnxruntime_extensions.xcframework.zip` | native asset     | loads Apple ops       |
+| [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE] | [CAPABILITY]                      |
+| :-----: | :----------------------------------------------------------- | :------------- | :-------------------------------- |
+|  [01]   | `runtimes/osx.10.14-arm64/native/libortextensions.dylib`     | native asset   | loads extension ops (macOS arm64) |
+|  [02]   | `runtimes/osx.10.14-x64/native/libortextensions.dylib`       | native asset   | loads extension ops (macOS x64)   |
+|  [03]   | `runtimes/linux-arm64/native/libortextensions.so`            | native asset   | loads extension ops (linux arm64) |
+|  [04]   | `runtimes/linux-x64/native/libortextensions.so`              | native asset   | loads extension ops (linux x64)   |
+|  [05]   | `runtimes/win-arm64/native/ortextensions.dll`                | native asset   | loads extension ops (win arm64)   |
+|  [06]   | `runtimes/win-x64/native/ortextensions.dll`                  | native asset   | loads extension ops (win x64)     |
+|  [07]   | `runtimes/win-x86/native/ortextensions.dll`                  | native asset   | loads extension ops (win x86)     |
+|  [08]   | `runtimes/android/native/onnxruntime-extensions.aar`         | native asset   | loads Android ops                 |
+|  [09]   | `runtimes/ios/native/onnxruntime_extensions.xcframework.zip` | native asset   | loads Apple ops                   |
 
 [PACKAGE_ASSET_SCOPE]: build assets
 - rail: model
 - note: there is no plain `build/native/` props/targets — the targets are per-TFM under `build/<tfm>/` and `buildTransitive/<tfm>/`
 
-| [INDEX] | [SYMBOL]                                                         | [PACKAGE_ROLE] | [CAPABILITY]         |
-| :-----: | :--------------------------------------------------------------- | :------------- | :------------------- |
-|  [01]   | `build/netstandard2.0/Microsoft.ML.OnnxRuntime.Extensions.props` / `.targets` | MSBuild import | declares + copies native assets for the `netstandard2.0`-bound consumer (the `net10.0` selection) |
-|  [02]   | `buildTransitive/netstandard2.0/...targets`                     | MSBuild import | flows native assets transitively through a referencing project |
-|  [03]   | `build/{net6.0-android31.0,net6.0-ios15.4,net6.0-macos12.3,monoandroid11.0,xamarinios10}/...targets` | MSBuild import | mobile/legacy TFM target variants |
+| [INDEX] | [SYMBOL]                                                                                             | [PACKAGE_ROLE] | [CAPABILITY]                                                                                      |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `build/netstandard2.0/Microsoft.ML.OnnxRuntime.Extensions.props` / `.targets`                        | MSBuild import | declares + copies native assets for the `netstandard2.0`-bound consumer (the `net10.0` selection) |
+|  [02]   | `buildTransitive/netstandard2.0/...targets`                                                          | MSBuild import | flows native assets transitively through a referencing project                                    |
+|  [03]   | `build/{net6.0-android31.0,net6.0-ios15.4,net6.0-macos12.3,monoandroid11.0,xamarinios10}/...targets` | MSBuild import | mobile/legacy TFM target variants                                                                 |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -67,19 +67,19 @@ tokenizer/detokenizer custom-op model crosses the managed boundary.
 [ENTRYPOINT_SCOPE]: string-tensor boundary (the round-trip a tokenizer/detokenizer op model needs; `OrtValue` members in `Microsoft.ML.OnnxRuntime`)
 - rail: model (consumed by `Model/extension#EXTENSION_OPS` `StringSlots`/`Egress` and `Model/inference#INFERENCE_MODES` `RunInput.Strings`)
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]   | [CAPABILITY]                              |
-| :-----: | :------------------------------------- | :------------- | :---------------------------------------- |
+| [INDEX] | [SURFACE]                                                                          | [CALL_SHAPE]    | [CAPABILITY]                                                                                                                                                                                                                                                                                           |
+| :-----: | :--------------------------------------------------------------------------------- | :-------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `OrtValue.CreateFromStringTensor(Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>)` | ingress factory | binds a `Microsoft.ML.OnnxRuntime.Tensors.Tensor<string>` token input — the ONNX-owned tensor type the factory requires, NOT the `System.Numerics.Tensors.Tensor<T>` the numeric `Carrier<T>` bridge rides (the two `Tensor<...>` spellings are distinct types); the `RunInput.Strings` admission case |
-|  [02]   | `OrtValue.CreateTensorWithEmptyStrings(OrtAllocator, long[])` | egress factory | allocates the empty string-output slots a tokenizer/detokenizer op fills |
-|  [03]   | `OrtValue.GetStringElement(int)` / `GetStringTensorAsArray()` | egress read | reads decoded string elements out (element-wise or bulk) |
+|  [02]   | `OrtValue.CreateTensorWithEmptyStrings(OrtAllocator, long[])`                      | egress factory  | allocates the empty string-output slots a tokenizer/detokenizer op fills                                                                                                                                                                                                                               |
+|  [03]   | `OrtValue.GetStringElement(int)` / `GetStringTensorAsArray()`                      | egress read     | reads decoded string elements out (element-wise or bulk)                                                                                                                                                                                                                                               |
 
 [ENTRYPOINT_SCOPE]: decompile-verified registration facts
 - rail: model (session-options registration; consumed by `Model/extension#EXTENSION_OPS`)
 
-| [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                                |
-| :-----: | :--------------------------------------------- | :----------------------------------------------------------------------------------------- |
+| [INDEX] | [MEMBER]                                       | [SIGNATURE]                                                                                                                                                                                                                                                                                                                   |
+| :-----: | :--------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `SessionOptions.RegisterOrtExtensions`         | `void RegisterOrtExtensions()` — defined on `SessionOptions` in `Microsoft.ML.OnnxRuntime`; calls `OrtExtensionsNativeMethods.RegisterCustomOps(handle, ref OrtApiBase)`, catches the native `DllNotFoundException`, and re-throws `OnnxRuntimeException(ErrorCode.NoSuchFile, ...)` when the `ortextensions` asset is absent |
-|  [02]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | `internal static extern nint RegisterCustomOps(nint sessionOptions, ref OrtApiBase)` `[DllImport("ortextensions")]` — invoked by `RegisterOrtExtensions()`; not a public API surface |
+|  [02]   | `OrtExtensionsNativeMethods.RegisterCustomOps` | `internal static extern nint RegisterCustomOps(nint sessionOptions, ref OrtApiBase)` `[DllImport("ortextensions")]` — invoked by `RegisterOrtExtensions()`; not a public API surface                                                                                                                                          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

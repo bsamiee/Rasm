@@ -38,26 +38,26 @@ backs it is internal to `VividOrange.Standards`).
 [PUBLIC_TYPE_SCOPE]: national-context family
 - rail: national-context
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:-------------------------- |:------------------------ |:--------------------------------------------------------- |
-| [01] | `ICountry` | nation contract | `: ITaxonomySerializable` + `string Name`, `string CountryCode` |
-| [02] | `Country` | ISO 3166-1 nation enum | 249 members (`Afghanistan`…`Zimbabwe`) |
-| [03] | `SingletonCountryBase<T>` | CRTP singleton base | `abstract … where T: SingletonCountryBase<T>` + `static T Default` (lazy) |
-| [04] | `Germany`/`France`/`…` | per-nation singleton | `sealed: SingletonCountryBase<T>, ICountry` — `Name`, `CountryCode` (`"DE"`…) |
-| [05] | `Utility` | enum→singleton resolver | `static ICountry GetCountry(Country)` |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]           | [RAIL]                                                                        |
+| :-----: | :------------------------ | :---------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `ICountry`                | nation contract         | `: ITaxonomySerializable` + `string Name`, `string CountryCode`               |
+|  [02]   | `Country`                 | ISO 3166-1 nation enum  | 249 members (`Afghanistan`…`Zimbabwe`)                                        |
+|  [03]   | `SingletonCountryBase<T>` | CRTP singleton base     | `abstract … where T: SingletonCountryBase<T>` + `static T Default` (lazy)     |
+|  [04]   | `Germany`/`France`/`…`    | per-nation singleton    | `sealed: SingletonCountryBase<T>, ICountry` — `Name`, `CountryCode` (`"DE"`…) |
+|  [05]   | `Utility`                 | enum→singleton resolver | `static ICountry GetCountry(Country)`                                         |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: nation resolution and read
 - rail: national-context
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------- |:------------------ |:----------------------------------------------------- |
-| [01] | `Utility.GetCountry(Country)` | enum→instance | resolve a `Country` enum member to its `ICountry` singleton |
-| [02] | `Germany.Default` (`SingletonCountryBase<T>.Default`) | typed singleton | the lazily constructed per-nation instance |
-| [03] | `new Germany()` (and family) | direct construct | a per-nation singleton class instance |
-| [04] | `ICountry.Name` | display read | the nation display name |
-| [05] | `ICountry.CountryCode` | ISO code read | the ISO 3166-1 alpha-2 code (`"DE"`, `"FR"`, `"US"`) |
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]   | [RAIL]                                                      |
+| :-----: | :---------------------------------------------------- | :--------------- | :---------------------------------------------------------- |
+|  [01]   | `Utility.GetCountry(Country)`                         | enum→instance    | resolve a `Country` enum member to its `ICountry` singleton |
+|  [02]   | `Germany.Default` (`SingletonCountryBase<T>.Default`) | typed singleton  | the lazily constructed per-nation instance                  |
+|  [03]   | `new Germany()` (and family)                          | direct construct | a per-nation singleton class instance                       |
+|  [04]   | `ICountry.Name`                                       | display read     | the nation display name                                     |
+|  [05]   | `ICountry.CountryCode`                                | ISO code read    | the ISO 3166-1 alpha-2 code (`"DE"`, `"FR"`, `"US"`)        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

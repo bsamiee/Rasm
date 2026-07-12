@@ -24,41 +24,41 @@ key column's `nvarchar(n)` is policy data, not a per-column annotation.
 [PUBLIC_TYPE_SCOPE]: builder extension family (namespace `Thinktecture`)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]         | [CAPABILITY]                                                        |
-| :-----: | :--------------------------------------- | :-------------------- | :----------------------------------------------------------------- |
-|  [01]   | `DbContextOptionsBuilderExtensions`      | options builder ext   | `UseThinktectureValueConverters` — convention plugin, context-wide |
-|  [02]   | `ModelBuilderExtensions`                 | model builder ext     | `AddThinktectureValueConverters` — bulk per-model registration     |
-|  [03]   | `EntityTypeBuilderExtensions`            | entity builder ext    | per-entity, owned-navigation, and complex-property registration    |
-|  [04]   | `PropertyBuilderExtensions`              | property builder ext  | `HasThinktectureValueConverter` on one scalar property             |
-|  [05]   | `ComplexTypePropertyBuilderExtensions`   | complex property ext  | `HasThinktectureValueConverter` on a complex-type member           |
-|  [06]   | `PrimitiveCollectionBuilderExtensions`   | collection element ext | `HasThinktectureValueConverter` on a primitive-collection element  |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]          | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------- | :--------------------- | :----------------------------------------------------------------- |
+|  [01]   | `DbContextOptionsBuilderExtensions`    | options builder ext    | `UseThinktectureValueConverters` — convention plugin, context-wide |
+|  [02]   | `ModelBuilderExtensions`               | model builder ext      | `AddThinktectureValueConverters` — bulk per-model registration     |
+|  [03]   | `EntityTypeBuilderExtensions`          | entity builder ext     | per-entity, owned-navigation, and complex-property registration    |
+|  [04]   | `PropertyBuilderExtensions`            | property builder ext   | `HasThinktectureValueConverter` on one scalar property             |
+|  [05]   | `ComplexTypePropertyBuilderExtensions` | complex property ext   | `HasThinktectureValueConverter` on a complex-type member           |
+|  [06]   | `PrimitiveCollectionBuilderExtensions` | collection element ext | `HasThinktectureValueConverter` on a primitive-collection element  |
 
 [PUBLIC_TYPE_SCOPE]: conversion policy and factory (namespaces `Thinktecture.EntityFrameworkCore*`)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]        | [CAPABILITY]                                                       |
-| :-----: | :-------------------------------- | :------------------- | :---------------------------------------------------------------- |
-|  [01]   | `Configuration`                   | conversion policy    | `Default`/`NoMaxLength`; `SmartEnums`, `KeyedValueObjects`, `UseConstructorForRead` |
-|  [02]   | `SmartEnumConfiguration`          | smart-enum policy    | `Default`/`NoMaxLength`; carries `ISmartEnumMaxLengthStrategy`     |
-|  [03]   | `KeyedValueObjectConfiguration`   | value-object policy  | `NoMaxLength`; carries `IKeyedValueObjectMaxLengthStrategy`        |
-|  [04]   | `ISmartEnumMaxLengthStrategy`     | strategy contract    | `GetMaxLength(type, keyType, items) -> MaxLengthChange`            |
-|  [05]   | `IKeyedValueObjectMaxLengthStrategy` | strategy contract | `GetMaxLength(type, keyType) -> MaxLengthChange`                  |
-|  [06]   | `ThinktectureValueConverterFactory` | converter factory  | `Create<T, TKey>(useConstructorForRead) -> ValueConverter<T, TKey>` |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]       | [CAPABILITY]                                                                        |
+| :-----: | :----------------------------------- | :------------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `Configuration`                      | conversion policy   | `Default`/`NoMaxLength`; `SmartEnums`, `KeyedValueObjects`, `UseConstructorForRead` |
+|  [02]   | `SmartEnumConfiguration`             | smart-enum policy   | `Default`/`NoMaxLength`; carries `ISmartEnumMaxLengthStrategy`                      |
+|  [03]   | `KeyedValueObjectConfiguration`      | value-object policy | `NoMaxLength`; carries `IKeyedValueObjectMaxLengthStrategy`                         |
+|  [04]   | `ISmartEnumMaxLengthStrategy`        | strategy contract   | `GetMaxLength(type, keyType, items) -> MaxLengthChange`                             |
+|  [05]   | `IKeyedValueObjectMaxLengthStrategy` | strategy contract   | `GetMaxLength(type, keyType) -> MaxLengthChange`                                    |
+|  [06]   | `ThinktectureValueConverterFactory`  | converter factory   | `Create<T, TKey>(useConstructorForRead) -> ValueConverter<T, TKey>`                 |
 
 [PUBLIC_TYPE_SCOPE]: max-length strategy implementations (namespace `Thinktecture.EntityFrameworkCore`)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]      | [CAPABILITY]                                                  |
-| :-----: | :--------------------------------------- | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `FixedSmartEnumMaxLengthStrategy`        | smart-enum strategy | `(maxLength, overwriteExisting)` — pins a fixed column width |
-|  [02]   | `DefaultSmartEnumMaxLengthStrategy`      | smart-enum strategy | computes width from the widest string-keyed item             |
-|  [03]   | `CustomSmartEnumMaxLengthStrategy`       | smart-enum strategy | delegates width to a caller `Func<…, MaxLengthChange>`        |
-|  [04]   | `NoOpSmartEnumMaxLengthStrategy`         | smart-enum strategy | leaves the column unbounded                                  |
-|  [05]   | `FixedKeyedValueObjectMaxLengthStrategy` | value-object strategy | pins a fixed keyed-value-object column width               |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]         | [CAPABILITY]                                                    |
+| :-----: | :---------------------------------------- | :-------------------- | :-------------------------------------------------------------- |
+|  [01]   | `FixedSmartEnumMaxLengthStrategy`         | smart-enum strategy   | `(maxLength, overwriteExisting)` — pins a fixed column width    |
+|  [02]   | `DefaultSmartEnumMaxLengthStrategy`       | smart-enum strategy   | computes width from the widest string-keyed item                |
+|  [03]   | `CustomSmartEnumMaxLengthStrategy`        | smart-enum strategy   | delegates width to a caller `Func<…, MaxLengthChange>`          |
+|  [04]   | `NoOpSmartEnumMaxLengthStrategy`          | smart-enum strategy   | leaves the column unbounded                                     |
+|  [05]   | `FixedKeyedValueObjectMaxLengthStrategy`  | value-object strategy | pins a fixed keyed-value-object column width                    |
 |  [06]   | `CustomKeyedValueObjectMaxLengthStrategy` | value-object strategy | delegates width to a caller `Func<Type, Type, MaxLengthChange>` |
-|  [07]   | `NoOpKeyedValueObjectMaxLengthStrategy`  | value-object strategy | leaves the keyed-value-object column unbounded              |
-|  [08]   | `MaxLengthCache`                         | strategy cache     | memoizes the per-type computed `MaxLengthChange`             |
-|  [09]   | `MaxLengthChange`                        | strategy result    | `readonly struct`; `None`, `IsSet` — the computed width delta |
+|  [07]   | `NoOpKeyedValueObjectMaxLengthStrategy`   | value-object strategy | leaves the keyed-value-object column unbounded                  |
+|  [08]   | `MaxLengthCache`                          | strategy cache        | memoizes the per-type computed `MaxLengthChange`                |
+|  [09]   | `MaxLengthChange`                         | strategy result       | `readonly struct`; `None`, `IsSet` — the computed width delta   |
 
 The convention plugin (`ThinktectureConventionsPlugin`, `ThinktectureConventionSetPlugin`), its options carrier (`ThinktectureDbContextOptionsExtension`), and the reflection probes (`PropertyInfoExtensions`, `TypeExtensions`) are `internal` and reachable only through the public extension methods above.
 
@@ -67,32 +67,32 @@ The convention plugin (`ThinktectureConventionsPlugin`, `ThinktectureConventionS
 [ENTRYPOINT_SCOPE]: context-wide convention (`DbContextOptionsBuilder`)
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY]   | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------- |
-|  [01]   | `UseThinktectureValueConverters()`                                                 | convention       | installs the plugin with `Configuration.Default`     |
-|  [02]   | `UseThinktectureValueConverters(Configuration configuration)`                      | convention       | installs the plugin with an explicit `Configuration` |
-|  [03]   | `UseThinktectureValueConverters(bool useThinktectureConverters, bool useConstructorForRead, Action<IConventionProperty>? configure)` | convention | inline flags + per-property convention callback   |
-|  [04]   | `UseThinktectureValueConverters<T>(…)` (3 overloads mirroring [01]-[03])            | typed convention | generic `DbContextOptionsBuilder<T>` overloads       |
+| [INDEX] | [SURFACE]                                                                                                                            | [ENTRY_FAMILY]   | [CAPABILITY]                                         |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------- |
+|  [01]   | `UseThinktectureValueConverters()`                                                                                                   | convention       | installs the plugin with `Configuration.Default`     |
+|  [02]   | `UseThinktectureValueConverters(Configuration configuration)`                                                                        | convention       | installs the plugin with an explicit `Configuration` |
+|  [03]   | `UseThinktectureValueConverters(bool useThinktectureConverters, bool useConstructorForRead, Action<IConventionProperty>? configure)` | convention       | inline flags + per-property convention callback      |
+|  [04]   | `UseThinktectureValueConverters<T>(…)` (3 overloads mirroring [01]-[03])                                                             | typed convention | generic `DbContextOptionsBuilder<T>` overloads       |
 
 [ENTRYPOINT_SCOPE]: model/entity/owned/complex bulk registration
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY]     | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------------------------------------------------ | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `ModelBuilder.AddThinktectureValueConverters([Configuration \| useConstructorForRead, configure])` | model register | adds converters to every property of every entity type |
-|  [02]   | `EntityTypeBuilder(<T>).AddThinktectureValueConverters([Configuration \| useConstructorForRead, addConvertersForOwnedTypes, configure])` | entity register | per-entity, optionally cascading into owned types |
-|  [03]   | `OwnedNavigationBuilder(<TEntity, TRelatedEntity>).AddThinktectureValueConverters(…)` | owned nav register | adds converters for owned-navigation properties         |
-|  [04]   | `ComplexPropertyBuilder(<TComplex>).AddThinktectureValueConverters(…)`           | complex register   | adds converters for the members of a complex property        |
+| [INDEX] | [SURFACE]                                                                                                                                | [ENTRY_FAMILY]     | [CAPABILITY]                                           |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :----------------------------------------------------- |
+|  [01]   | `ModelBuilder.AddThinktectureValueConverters([Configuration \| useConstructorForRead, configure])`                                       | model register     | adds converters to every property of every entity type |
+|  [02]   | `EntityTypeBuilder(<T>).AddThinktectureValueConverters([Configuration \| useConstructorForRead, addConvertersForOwnedTypes, configure])` | entity register    | per-entity, optionally cascading into owned types      |
+|  [03]   | `OwnedNavigationBuilder(<TEntity, TRelatedEntity>).AddThinktectureValueConverters(…)`                                                    | owned nav register | adds converters for owned-navigation properties        |
+|  [04]   | `ComplexPropertyBuilder(<TComplex>).AddThinktectureValueConverters(…)`                                                                   | complex register   | adds converters for the members of a complex property  |
 
 [ENTRYPOINT_SCOPE]: per-property registration and direct factory
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]     | [CAPABILITY]                                              |
-| :-----: | :------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------- |
-|  [01]   | `PropertyBuilder<T>.HasThinktectureValueConverter([useConstructorForRead \| Configuration])` | property register | converter on one scalar property              |
-|  [02]   | `ComplexTypePropertyBuilder<T>.HasThinktectureValueConverter(…)`           | complex register   | converter on one complex-type member                     |
-|  [03]   | `PrimitiveCollectionBuilder<T>.HasThinktectureValueConverter(…)`           | collection register | converter on one primitive-collection element           |
-|  [04]   | `ThinktectureValueConverterFactory.Create<T, TKey>(bool useConstructorForRead = true)` | factory call | builds a `ValueConverter<T, TKey>` directly when EF cannot resolve it |
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY]      | [CAPABILITY]                                                          |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------------ | :-------------------------------------------------------------------- |
+|  [01]   | `PropertyBuilder<T>.HasThinktectureValueConverter([useConstructorForRead \| Configuration])` | property register   | converter on one scalar property                                      |
+|  [02]   | `ComplexTypePropertyBuilder<T>.HasThinktectureValueConverter(…)`                             | complex register    | converter on one complex-type member                                  |
+|  [03]   | `PrimitiveCollectionBuilder<T>.HasThinktectureValueConverter(…)`                             | collection register | converter on one primitive-collection element                         |
+|  [04]   | `ThinktectureValueConverterFactory.Create<T, TKey>(bool useConstructorForRead = true)`       | factory call        | builds a `ValueConverter<T, TKey>` directly when EF cannot resolve it |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

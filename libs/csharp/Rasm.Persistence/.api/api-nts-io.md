@@ -134,14 +134,14 @@ binary and text IO in `NetTopologySuite.IO`.
 [ENTRYPOINT_SCOPE]: GeoPackage blob codec
 - rail: spatial-values
 
-| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]       | [CAPABILITY]                                      |
-| :-----: | :----------------------------------------------- | :----------------- | :------------------------------------------------ |
-|  [01]   | `GeoPackageGeoReader.Read`                       | byte[] or `Stream` | decodes a GeoPackage blob to `Geometry`           |
-|  [02]   | `GeoPackageGeoWriter.Write`                      | byte[] or `Stream` | encodes a `Geometry` to a GeoPackage blob         |
-|  [03]   | `GeoPackageGeoReader.{HandleOrdinates,HandleSRID,RepairRings}` | reader policy | caps ordinates, stamps header SRID, repairs rings |
-|  [04]   | `GeoPackageGeoWriter.HandleOrdinates`            | writer policy      | caps written ordinates within `AllowedOrdinates`  |
-|  [05]   | `GeoPackageBinaryHeader.Read`                    | static decoder     | parses the GPB header from `BinaryReader`         |
-|  [06]   | `GeoPackageBinaryHeader.Write`                   | static encoder     | serializes the GPB header to `BinaryWriter`       |
+| [INDEX] | [SURFACE]                                                      | [CALL_SHAPE]       | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------------- | :----------------- | :------------------------------------------------ |
+|  [01]   | `GeoPackageGeoReader.Read`                                     | byte[] or `Stream` | decodes a GeoPackage blob to `Geometry`           |
+|  [02]   | `GeoPackageGeoWriter.Write`                                    | byte[] or `Stream` | encodes a `Geometry` to a GeoPackage blob         |
+|  [03]   | `GeoPackageGeoReader.{HandleOrdinates,HandleSRID,RepairRings}` | reader policy      | caps ordinates, stamps header SRID, repairs rings |
+|  [04]   | `GeoPackageGeoWriter.HandleOrdinates`                          | writer policy      | caps written ordinates within `AllowedOrdinates`  |
+|  [05]   | `GeoPackageBinaryHeader.Read`                                  | static decoder     | parses the GPB header from `BinaryReader`         |
+|  [06]   | `GeoPackageBinaryHeader.Write`                                 | static encoder     | serializes the GPB header to `BinaryWriter`       |
 
 [ENTRYPOINT_SCOPE]: WKB binary codec
 - rail: spatial-values

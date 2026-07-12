@@ -38,50 +38,50 @@ the same `ToUnit(UnitSystem.SI)` path, and it is QUANTITY-ISOMORPHIC to the SAF 
 [PUBLIC_TYPE_SCOPE]: load contract family (`VividOrange.ILoads`)
 - rail: structural-load
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------- |:------------------------- |:------------------------------------------------------- |
-| [01] | `ILoad` | base load contract | `ITaxonomySerializable` + `Label` + `Factor(Ratio)` |
-| [02] | `IPointForce2d` | planar point force | `Force X`, `Force Z` |
-| [03] | `IPointForce` | spatial point force | `: IPointForce2d` + `Force Y` |
-| [04] | `IPointMoment2d` | planar point moment | `Torque Yy`, `Torque Zz` |
-| [05] | `IPointMoment` | spatial point moment | `: IPointMoment2d` + `Torque Xx` |
-| [06] | `IPointDisplacement2d` | planar prescribed disp. | `Length X`, `Length Z` |
-| [07] | `IPointDisplacement` | spatial prescribed disp. | `: IPointDisplacement2d` + `Length Y` |
-| [08] | `ILineForce2d` | planar line force | `ForcePerLength X`, `ForcePerLength Z`, `LoadApplication` |
-| [09] | `ILineForce` | spatial line force | `: ILineForce2d` + `ForcePerLength Y` |
-| [10] | `IAreaForce` | surface pressure | `Pressure X/Y/Z` + `LoadApplication Application` |
-| [11] | `IColumnLoad` | column head/base action | `Force Force` + `IPointMoment2d TopMoment`/`BottomMoment` |
-| [12] | `IGravity2d` | planar gravity multiplier | `Ratio X`, `Ratio Z` |
-| [13] | `IGravity` | spatial gravity multiplier | `: IGravity2d` + `Ratio Y` |
-| [14] | `LoadApplication` | projection-frame enum | `Local` / `Global` / `Projected` |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]              | [RAIL]                                                    |
+| :-----: | :--------------------- | :------------------------- | :-------------------------------------------------------- |
+|  [01]   | `ILoad`                | base load contract         | `ITaxonomySerializable` + `Label` + `Factor(Ratio)`       |
+|  [02]   | `IPointForce2d`        | planar point force         | `Force X`, `Force Z`                                      |
+|  [03]   | `IPointForce`          | spatial point force        | `: IPointForce2d` + `Force Y`                             |
+|  [04]   | `IPointMoment2d`       | planar point moment        | `Torque Yy`, `Torque Zz`                                  |
+|  [05]   | `IPointMoment`         | spatial point moment       | `: IPointMoment2d` + `Torque Xx`                          |
+|  [06]   | `IPointDisplacement2d` | planar prescribed disp.    | `Length X`, `Length Z`                                    |
+|  [07]   | `IPointDisplacement`   | spatial prescribed disp.   | `: IPointDisplacement2d` + `Length Y`                     |
+|  [08]   | `ILineForce2d`         | planar line force          | `ForcePerLength X`, `ForcePerLength Z`, `LoadApplication` |
+|  [09]   | `ILineForce`           | spatial line force         | `: ILineForce2d` + `ForcePerLength Y`                     |
+|  [10]   | `IAreaForce`           | surface pressure           | `Pressure X/Y/Z` + `LoadApplication Application`          |
+|  [11]   | `IColumnLoad`          | column head/base action    | `Force Force` + `IPointMoment2d TopMoment`/`BottomMoment` |
+|  [12]   | `IGravity2d`           | planar gravity multiplier  | `Ratio X`, `Ratio Z`                                      |
+|  [13]   | `IGravity`             | spatial gravity multiplier | `: IGravity2d` + `Ratio Y`                                |
+|  [14]   | `LoadApplication`      | projection-frame enum      | `Local` / `Global` / `Projected`                          |
 
 [PUBLIC_TYPE_SCOPE]: concrete load family (`VividOrange.Loads`)
 - rail: structural-load
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------- |:----------------------- |:----------------------------------------------- |
-| [01] | `PointForce2d`/`PointForce` | point force | `Force` components; `implicit operator` from `Force` |
-| [02] | `PointMoment2d`/`PointMoment` | point moment | `Torque` components |
-| [03] | `PointDisplacement2d`/`PointDisplacement` | prescribed disp. | `Length` components |
-| [04] | `LineForce2d`/`LineForce` | line force | `ForcePerLength` components + `Application` |
-| [05] | `AreaForce` | surface pressure | `Pressure` components + `Application` |
-| [06] | `ColumnLoad` | column action | `Force` axial + top/bottom `IPointMoment2d` |
-| [07] | `Gravity2d`/`Gravity` | gravity field | `Ratio` g-multiplier components |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]    | [RAIL]                                               |
+| :-----: | :---------------------------------------- | :--------------- | :--------------------------------------------------- |
+|  [01]   | `PointForce2d`/`PointForce`               | point force      | `Force` components; `implicit operator` from `Force` |
+|  [02]   | `PointMoment2d`/`PointMoment`             | point moment     | `Torque` components                                  |
+|  [03]   | `PointDisplacement2d`/`PointDisplacement` | prescribed disp. | `Length` components                                  |
+|  [04]   | `LineForce2d`/`LineForce`                 | line force       | `ForcePerLength` components + `Application`          |
+|  [05]   | `AreaForce`                               | surface pressure | `Pressure` components + `Application`                |
+|  [06]   | `ColumnLoad`                              | column action    | `Force` axial + top/bottom `IPointMoment2d`          |
+|  [07]   | `Gravity2d`/`Gravity`                     | gravity field    | `Ratio` g-multiplier components                      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: typed construction and scaling
 - rail: structural-load
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:---------------------------------------------- |:------------------ |:----------------------------------------------------- |
-| [01] | `new PointForce(Force x, Force y, Force z)` | quantity ctor | spatial point force from typed `Force` components |
-| [02] | `new LineForce(...)` / `new AreaForce(...)` | quantity ctor | line/area action from `ForcePerLength`/`Pressure` |
-| [03] | `new Gravity(Ratio z)` / `new Gravity()` | quantity ctor | gravity field as a `Ratio` g-multiplier |
-| [04] | `implicit operator PointForce(Force f)` | scalar lift | a bare `Force` lifts to a Z-axis `PointForce` |
-| [05] | `ILoad.Factor(Ratio factor)` | scaling combinator | returns a new `ILoad` with every component × `factor.DecimalFractions`, preserving `Label` |
-| [06] | `ILoad.Label { get; }` | identity read | the human-facing load label carried across `Factor` |
-| [07] | `PointForce.X`/`.Y`/`.Z` (and family component reads) | component read | typed `UnitsNet` quantity per axis |
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]     | [RAIL]                                                                                     |
+| :-----: | :---------------------------------------------------- | :----------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `new PointForce(Force x, Force y, Force z)`           | quantity ctor      | spatial point force from typed `Force` components                                          |
+|  [02]   | `new LineForce(...)` / `new AreaForce(...)`           | quantity ctor      | line/area action from `ForcePerLength`/`Pressure`                                          |
+|  [03]   | `new Gravity(Ratio z)` / `new Gravity()`              | quantity ctor      | gravity field as a `Ratio` g-multiplier                                                    |
+|  [04]   | `implicit operator PointForce(Force f)`               | scalar lift        | a bare `Force` lifts to a Z-axis `PointForce`                                              |
+|  [05]   | `ILoad.Factor(Ratio factor)`                          | scaling combinator | returns a new `ILoad` with every component × `factor.DecimalFractions`, preserving `Label` |
+|  [06]   | `ILoad.Label { get; }`                                | identity read      | the human-facing load label carried across `Factor`                                        |
+|  [07]   | `PointForce.X`/`.Y`/`.Z` (and family component reads) | component read     | typed `UnitsNet` quantity per axis                                                         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

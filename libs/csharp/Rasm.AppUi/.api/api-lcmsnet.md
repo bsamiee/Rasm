@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lcmsNET`
+
 - package: `lcmsNET`
 - license: MIT (expression)
 - assembly: `lcmsNET`
@@ -18,102 +19,254 @@
 
 [PROFILE_TYPES]: ICC profile handle + colorimetric primitives — rail: color
 
-| [INDEX] | [SYMBOL]                                            | [KIND]                                                                       |
-| :-----: | :-------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `Profile`                                           | the ICC profile handle (`CmsHandle<Profile>`, `IDisposable`) — factory-created, tag-addressable, saveable |
-|  [02]   | `Context`                                           | thread/plugin scope — `Create`/`Duplicate`, plugin registration, `AlarmCodes`/`AdaptationState` on the owning `Cms` hub |
-|  [03]   | `CIEXYZ` / `CIExyY` / `CIELab` / `CIExyYTRIPLE`     | tristimulus / chromaticity / Lab / RGB-primaries colorimetric structs (`Colorimetric.cs`) |
-|  [04]   | `ToneCurve`                                         | 1D transfer function — gamma/parametric/table build, evaluate, invert, join  |
-|  [05]   | `Pipeline` / `Stage`                                | the multi-stage LUT/CLUT pipeline and its stages (matrix / CLUT / tone-curve / identity) |
-|  [06]   | `MultiLocalizedUnicode`                             | multi-localized text tag payload (`mluc`) for profile descriptions           |
-|  [07]   | `NamedColorList`                                    | spot/named-color tag payload                                                 |
+Factories create the disposable `Profile` handle; it opens, saves, and addresses ICC tags. `Context.Create` and `Context.Duplicate` mint thread and plugin scopes, while `Cms.AlarmCodes` and `Cms.AdaptationState` govern the active context. `ToneCurve` builds gamma, parametric, and table transfer functions that evaluate, invert, and join. `Stage` admits matrix, CLUT, tone-curve, and identity operations into a `Pipeline`.
+
+| [INDEX] | [SYMBOL]                | [KIND]                   |
+| :-----: | :---------------------- | :----------------------- |
+|  [01]   | `Profile`               | ICC profile handle       |
+|  [02]   | `Context`               | thread/plugin scope      |
+|  [03]   | `CIEXYZ`                | tristimulus values       |
+|  [04]   | `CIExyY`                | chromaticity values      |
+|  [05]   | `CIELab`                | Lab values               |
+|  [06]   | `CIExyYTRIPLE`          | RGB primaries            |
+|  [07]   | `ToneCurve`             | one-dimensional transfer |
+|  [08]   | `Pipeline`              | LUT/CLUT pipeline        |
+|  [09]   | `Stage`                 | pipeline operation       |
+|  [10]   | `MultiLocalizedUnicode` | `mluc` text payload      |
+|  [11]   | `NamedColorList`        | named-color payload      |
 
 [TRANSFORM_TYPES]: compiled color-conversion pipeline — rail: color
 
-| [INDEX] | [SYMBOL]                                            | [KIND]                                                                       |
-| :-----: | :-------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `Transform`                                         | the compiled transform (`CmsHandle<Transform>`, `IDisposable`) — one `Create` fold, `DoTransform` execution, `InputFormat`/`OutputFormat`/`Flags` |
-|  [02]   | `FreeUserData`                                      | user-data release delegate for `SetUserData`                                 |
+`Transform` is the disposable `CmsHandle<Transform>` owner. Its `Create` overloads compile pipelines, `DoTransform` executes them, and `InputFormat`, `OutputFormat`, and `Flags` expose their policy.
+
+| [INDEX] | [SYMBOL]       | [KIND]                     |
+| :-----: | :------------- | :------------------------- |
+|  [01]   | `Transform`    | compiled color transform   |
+|  [02]   | `FreeUserData` | `SetUserData` release hook |
 
 [ENUM_VOCABULARY]: bounded color-management vocabularies — rail: color
 
-| [INDEX] | [SYMBOL]                                            | [KIND]                                                                       |
-| :-----: | :-------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `Intent`                                            | rendering intent — `Perceptual`/`RelativeColorimetric`/`Saturation`/`AbsoluteColorimetric` PLUS K-preservation `PreserveKOnly{Perceptual,RelativeColorimetric,Saturation}` and `PreserveKPlane{Perceptual,RelativeColorimetric,Saturation}` |
-|  [02]   | `CmsFlags`                                          | transform policy flags — `BlackPointCompensation`, `SoftProofing`, `GamutCheck`, `NoCache`, `NoOptimize`, `NullTransform`, `HighResPreCalc`/`LowResPreCalc`, `NoWhiteOnWhiteFixUp`, `KeepSequence`, `ForceCLut`, `CLut{Pre,Post}Linearization`, `EightBitsDeviceLink`, `GuessDeviceClass`, `NoNegatives`, `NoDefaultResourceDef` |
-|  [03]   | `PixelType`                                         | logical channel model — `Gray`/`RGB`/`CMY`/`CMYK`/`YCbCr`/`XYZ`/`Lab`/`Yxy`/`HSV`/`HLS`/`MCH1`..`MCH15`/`LabV2`/`Any` |
-|  [04]   | `ColorSpaceSignature`                               | ICC color-space signature — `XYZData`/`LabData`/`RgbData`/`GrayData`/`CmykData`/… |
-|  [05]   | `ProfileClassSignature`                             | profile device class — `Input`/`Display`/`Output`/`Link`/`Abstract`/`ColorSpace`/`NamedColor` |
-|  [06]   | `TagSignature`                                      | ICC tag identity (80+ members — `AToB0`/`BToA0`/`Gamut`/`BlueColorant`/`BlueTRC`/`Copyright`/…) |
-|  [07]   | `InfoType` / `UsedDirection` / `PostScriptResourceType` | profile-info selector / intent-direction selector / PostScript resource kind |
+| [INDEX] | [SYMBOL]                 | [KIND]                |
+| :-----: | :----------------------- | :-------------------- |
+|  [01]   | `Intent`                 | rendering intent      |
+|  [02]   | `CmsFlags`               | transform policy      |
+|  [03]   | `PixelType`              | logical channel model |
+|  [04]   | `ColorSpaceSignature`    | ICC color space       |
+|  [05]   | `ProfileClassSignature`  | profile device class  |
+|  [06]   | `TagSignature`           | ICC tag identity      |
+|  [07]   | `InfoType`               | profile-info selector |
+|  [08]   | `UsedDirection`          | intent direction      |
+|  [09]   | `PostScriptResourceType` | PostScript resource   |
+
+[INTENT_MEMBERS]:
+
+- Standard: `Perceptual`, `RelativeColorimetric`, `Saturation`, `AbsoluteColorimetric`
+- K-only preservation: `PreserveKOnlyPerceptual`, `PreserveKOnlyRelativeColorimetric`, `PreserveKOnlySaturation`
+- K-plane preservation: `PreserveKPlanePerceptual`, `PreserveKPlaneRelativeColorimetric`, `PreserveKPlaneSaturation`
+
+[CMS_FLAG_MEMBERS]:
+
+- Conversion: `BlackPointCompensation`, `SoftProofing`, `GamutCheck`, `NullTransform`, `NoNegatives`, `NoWhiteOnWhiteFixUp`
+- Compilation: `NoCache`, `NoOptimize`, `HighResPreCalc`, `LowResPreCalc`, `ForceCLut`, `CLutPreLinearization`, `CLutPostLinearization`
+- Device link: `KeepSequence`, `EightBitsDeviceLink`, `GuessDeviceClass`, `NoDefaultResourceDef`
+
+[PIXEL_TYPE_MEMBERS]: `Gray`, `RGB`, `CMY`, `CMYK`, `YCbCr`, `XYZ`, `Lab`, `Yxy`, `HSV`, `HLS`, `MCH1` through `MCH15`, `LabV2`, `Any`
+
+[SIGNATURE_MEMBERS]:
+
+- `ColorSpaceSignature`: `XYZData`, `LabData`, `RgbData`, `GrayData`, `CmykData`, and the remaining ICC color-space signatures
+- `ProfileClassSignature`: `Input`, `Display`, `Output`, `Link`, `Abstract`, `ColorSpace`, `NamedColor`
+- `TagSignature`: the ICC tag vocabulary, including `AToB0`, `BToA0`, `Gamut`, `BlueColorant`, `BlueTRC`, and `Copyright`
 
 [TAG_PAYLOAD_TYPES]: strongly-typed ICC tag payloads + measurement helpers — rail: color
 
-| [INDEX] | [SYMBOL]                                            | [KIND]                                                                       |
-| :-----: | :-------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `ICCData` / `UcrBg` / `VideoCardGamma` / `Screening` / `ColorantOrder` | raw-data / under-color-removal+black-generation / VCGT / halftone-screening / colorant-order tag payloads |
-|  [02]   | `ProfileSequenceDescriptor` / `ProfileSequenceItem` | device-link provenance chain                                                 |
-|  [03]   | `GamutBoundaryDescriptor`                           | gamut-boundary (GBD) computation handle                                      |
-|  [04]   | `Dict` / `DictEntry`                                | metadata dictionary tag (`meta`)                                             |
-|  [05]   | `IT8`                                               | IT8.7/CGATS measurement-table reader/writer                                  |
-|  [06]   | `DeltaE` / `CAM02`                                  | ΔE color-difference metrics and the CIECAM02 appearance model                |
-|  [07]   | `IOHandler`                                         | abstract I/O sink for in-memory / stream profile read and write             |
-|  [08]   | `LcmsNETException`                                  | typed failure rail over lcms2 error codes                                    |
+| [INDEX] | [SYMBOL]                    | [KIND]                    |
+| :-----: | :-------------------------- | :------------------------ |
+|  [01]   | `ICCData`                   | raw-data tag              |
+|  [02]   | `UcrBg`                     | UCR/BG tag                |
+|  [03]   | `VideoCardGamma`            | VCGT tag                  |
+|  [04]   | `Screening`                 | halftone-screening tag    |
+|  [05]   | `ColorantOrder`             | colorant-order tag        |
+|  [06]   | `ProfileSequenceDescriptor` | device-link provenance    |
+|  [07]   | `ProfileSequenceItem`       | provenance entry          |
+|  [08]   | `GamutBoundaryDescriptor`   | gamut-boundary handle     |
+|  [09]   | `Dict`                      | `meta` dictionary         |
+|  [10]   | `DictEntry`                 | metadata entry            |
+|  [11]   | `IT8`                       | IT8.7/CGATS table         |
+|  [12]   | `DeltaE`                    | color-difference metrics  |
+|  [13]   | `CAM02`                     | CIECAM02 appearance model |
+|  [14]   | `IOHandler`                 | profile I/O sink          |
+|  [15]   | `LcmsNETException`          | typed lcms2 failure       |
+
+`UcrBg` carries under-color removal and black generation. `IT8` reads and writes measurement tables, while `IOHandler` binds in-memory and stream profile I/O.
 
 ## [03]-[ENTRYPOINTS]
 
 [PROFILE_LIFECYCLE]: create / open / save / introspect on `Profile`
+
 - rail: color
 - Profiles are the transform operands: the input device profile, the output (print) profile, and the proofing (target-device) profile are each a `Profile`, opened from disk/memory or synthesized from primitives.
 
-| [INDEX] | [SURFACE]                                                                 | [SURFACE_ROOT] | [RAIL] |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :----- |
-|  [01]   | `Open(string filepath, string access)` / `Open(byte[] memory)` / `Open(Context, IOHandler, bool writeable)` | `Profile` | open an existing ICC profile (file / memory / handler) |
-|  [02]   | `Create_sRGB(Context?)` / `CreateRGB(in CIExyY, in CIExyYTRIPLE, ToneCurve[])` / `CreateGray(in CIExyY, ToneCurve)` / `CreateXYZ` / `CreateLab2`/`CreateLab4(in CIExyY)` / `Create_OkLab` | `Profile` | synthesize a working-space profile |
-|  [03]   | `CreateInkLimitingDeviceLink(ColorSpaceSignature, double limit)` / `CreateLinearizationDeviceLink(ColorSpaceSignature, ToneCurve[])` / `CreateDeviceLink(Transform, double version, CmsFlags)` / `CreateDeviceLinkFromCubeFile(string)` | `Profile` | build a device-link (ink-limit / linearization / baked-transform / .cube) |
-|  [04]   | `CreateBCHSWabstract(int nLutPoints, double bright, double contrast, double hue, double saturation, int tempSrc, int tempDest)` / `CreateNull` / `CreatePlaceholder` | `Profile` | abstract adjustment / null / empty-placeholder profile |
-|  [05]   | `Save(string filepath)` / `Save(byte[] memory, out uint bytesNeeded)` / `Save(IOHandler)` | `Profile` | persist the profile (file / memory / handler) |
-|  [06]   | `ReadTag(TagSignature)` / `ReadTag<T>` / `WriteTag<T>(TagSignature, in T)` / `WriteTag(TagSignature, ICCData/UcrBg/VideoCardGamma)` / `HasTag` / `LinkTag` / `TagLinkedTo` / `GetTag(uint n)` / `TagCount` | `Profile` | tag read/write/link/enumerate |
-|  [07]   | `ColorSpace` / `PCS` / `DeviceClass` / `Version` / `EncodedICCVersion` / `HeaderRenderingIntent` / `HeaderFlags` / `HeaderManufacturer` / `HeaderModel` / `HeaderProfileID` | `Profile` | header/space accessors |
-|  [08]   | `IsIntentSupported(Intent, UsedDirection)` / `IsCLUT(Intent, UsedDirection)` / `IsMatrixShaper` / `DetectBlackPoint(out CIEXYZ, Intent, CmsFlags)` / `DetectDestinationBlackPoint(out CIEXYZ, Intent, CmsFlags)` / `TotalAreaCoverage` / `DetectRGBGamma(double)` / `ComputeMD5` | `Profile` | capability probe + black-point / TAC / gamma detection |
-|  [09]   | `GetProfileInfo(InfoType, lang, country)` / `GetProfileInfoASCII(...)` / `GetPostScriptColorSpaceArray(...)` / `GetPostScriptColorRenderingDictionary(...)` | `Profile` | localized description + PostScript CSA/CRD emission |
+Every lifecycle group is rooted on `Profile` and rides the color rail.
+
+| [INDEX] | [GROUP]         | [PURPOSE]             |
+| :-----: | :-------------- | :-------------------- |
+|  [01]   | open            | profile ingress       |
+|  [02]   | working space   | profile synthesis     |
+|  [03]   | device link     | conversion baking     |
+|  [04]   | special profile | adjustment/null shell |
+|  [05]   | save            | profile egress        |
+|  [06]   | tags            | tag lifecycle         |
+|  [07]   | header          | profile metadata      |
+|  [08]   | analysis        | profile diagnostics   |
+|  [09]   | description     | descriptive emission  |
+
+[OPEN]:
+
+- File: `Open(string filepath, string access)`
+- Memory: `Open(byte[] memory)`
+- Handler: `Open(Context, IOHandler, bool writeable)`
+
+[WORKING_SPACE]:
+
+- Built-ins: `Create_sRGB(Context?)`, `CreateXYZ`, `CreateLab2`, `CreateLab4(in CIExyY)`, `Create_OkLab`
+- RGB: `CreateRGB(in CIExyY, in CIExyYTRIPLE, ToneCurve[])`
+- Gray: `CreateGray(in CIExyY, ToneCurve)`
+
+[DEVICE_LINK]:
+
+- Ink limit: `CreateInkLimitingDeviceLink(ColorSpaceSignature, double limit)`
+- Linearization: `CreateLinearizationDeviceLink(ColorSpaceSignature, ToneCurve[])`
+- Transform: `CreateDeviceLink(Transform, double version, CmsFlags)`
+- Cube: `CreateDeviceLinkFromCubeFile(string)`
+
+[SPECIAL_PROFILE]:
+
+- Adjustment: `CreateBCHSWabstract(int nLutPoints, double bright, double contrast, double hue, double saturation, int tempSrc, int tempDest)`
+- Shells: `CreateNull`, `CreatePlaceholder`
+
+[SAVE]:
+
+- File: `Save(string filepath)`
+- Memory: `Save(byte[] memory, out uint bytesNeeded)`
+- Handler: `Save(IOHandler)`
+
+[TAGS]:
+
+- Read: `ReadTag(TagSignature)`, `ReadTag<T>`
+- Write: `WriteTag<T>(TagSignature, in T)`, `WriteTag(TagSignature, ICCData/UcrBg/VideoCardGamma)`
+- Link: `HasTag`, `LinkTag`, `TagLinkedTo`
+- Enumerate: `GetTag(uint n)`, `TagCount`
+
+[HEADER]:
+
+- Space: `ColorSpace`, `PCS`, `DeviceClass`
+- Version: `Version`, `EncodedICCVersion`
+- Metadata: `HeaderRenderingIntent`, `HeaderFlags`, `HeaderManufacturer`, `HeaderModel`, `HeaderProfileID`
+
+[ANALYSIS]:
+
+- Capability: `IsIntentSupported(Intent, UsedDirection)`, `IsCLUT(Intent, UsedDirection)`, `IsMatrixShaper`
+- Black point: `DetectBlackPoint(out CIEXYZ, Intent, CmsFlags)`, `DetectDestinationBlackPoint(out CIEXYZ, Intent, CmsFlags)`
+- Device: `TotalAreaCoverage`, `DetectRGBGamma(double)`, `ComputeMD5`
+
+[DESCRIPTION]:
+
+- Profile: `GetProfileInfo(InfoType, lang, country)`, `GetProfileInfoASCII(...)`
+- PostScript: `GetPostScriptColorSpaceArray(...)`, `GetPostScriptColorRenderingDictionary(...)`
 
 [TRANSFORM_BUILD_EXECUTE]: one polymorphic `Create` fold + buffer execution on `Transform`
+
 - rail: color
 - `Create` is ONE name discriminating on argument shape: a two-profile device conversion, a three-profile SOFT-PROOFING build (proofing profile + separate `proofingIntent`), an N-profile multiprofile chain, or the fully-parameterized extended build (per-link BPC, per-link intents, per-link adaptation states, and an inserted gamut profile). K-preservation is selected by passing a `PreserveK*` `Intent`; gamut warning by `CmsFlags.GamutCheck` with the alarm color set on the `Context`.
 
-| [INDEX] | [SURFACE]                                                                 | [SURFACE_ROOT] | [RAIL] |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :----- |
-|  [01]   | `Create(Profile input, uint inputFormat, Profile output, uint outputFormat, Intent, CmsFlags)` (+ `Context` overload) | `Transform` | device-to-device conversion (e.g. `TYPE_RGBA_8` → `TYPE_CMYK_8`) |
-|  [02]   | `Create(Profile input, uint inputFormat, Profile output, uint outputFormat, Profile proofing, Intent, Intent proofingIntent, CmsFlags)` (+ `Context` overload) | `Transform` | soft-proofing transform (`CmsFlags.SoftProofing`\|`GamutCheck`) |
-|  [03]   | `Create(Profile[] profiles, uint inputFormat, uint outputFormat, Intent, CmsFlags)` (+ `Context` overload) | `Transform` | multiprofile chain (working → link → device) |
-|  [04]   | `Create(Context, Profile[] profiles, bool[] bpc, Intent[] intents, double[] adaptationStates, Profile gamut, int gamutPCSPosition, uint inputFormat, uint outputFormat, CmsFlags)` | `Transform` | extended per-link build with inserted gamut check |
-|  [05]   | `DoTransform(byte[] in, byte[] out, int pixelCount)` / `DoTransform(ReadOnlySpan<byte> in, Span<byte> out, int pixelCount)` | `Transform` | convert a packed pixel buffer |
-|  [06]   | `DoTransform(in, out, int pixelsPerLine, int lineCount, int bytesPerLineIn, int bytesPerLineOut, int bytesPerPlaneIn, int bytesPerPlaneOut)` (byte[] + span forms) | `Transform` | strided/planar per-line conversion for a full raster |
-|  [07]   | `ChangeBuffersFormat(uint inputFormat, uint outputFormat)` / `InputFormat` / `OutputFormat` / `Flags` / `NamedColorList` / `SetUserData(IntPtr, FreeUserData)` | `Transform` | in-place format re-bind + introspection |
+Every build and execution group is rooted on `Transform` and rides the color rail.
+
+| [INDEX] | [GROUP]       | [PURPOSE]          |
+| :-----: | :------------ | :----------------- |
+|  [01]   | device        | profile conversion |
+|  [02]   | proofing      | gamut preview      |
+|  [03]   | multiprofile  | profile chain      |
+|  [04]   | extended      | per-link policy    |
+|  [05]   | packed        | packed-buffer run  |
+|  [06]   | raster        | strided raster run |
+|  [07]   | configuration | runtime inspection |
+
+[DEVICE_CREATE]:
+
+- Surface: `Create(Profile input, uint inputFormat, Profile output, uint outputFormat, Intent, CmsFlags)`
+- Variant: the `Context` overload applies the same device conversion, such as `TYPE_RGBA_8` to `TYPE_CMYK_8`.
+
+[PROOFING_CREATE]:
+
+- Surface: `Create(Profile input, uint inputFormat, Profile output, uint outputFormat, Profile proofing, Intent, Intent proofingIntent, CmsFlags)`
+- Variant: the `Context` overload binds `CmsFlags.SoftProofing | CmsFlags.GamutCheck`.
+
+[MULTIPROFILE_CREATE]:
+
+- Surface: `Create(Profile[] profiles, uint inputFormat, uint outputFormat, Intent, CmsFlags)`
+- Variant: the `Context` overload compiles a working-to-link-to-device chain.
+
+[EXTENDED_CREATE]:
+
+- Surface: `Create(Context, Profile[] profiles, bool[] bpc, Intent[] intents, double[] adaptationStates, Profile gamut, int gamutPCSPosition, uint inputFormat, uint outputFormat, CmsFlags)`
+- Policy: per-link BPC, intent, adaptation state, and an inserted gamut check
+
+[PACKED_EXECUTION]:
+
+- Array: `DoTransform(byte[] in, byte[] out, int pixelCount)`
+- Span: `DoTransform(ReadOnlySpan<byte> in, Span<byte> out, int pixelCount)`
+
+[RASTER_EXECUTION]:
+
+- Surface: `DoTransform(in, out, int pixelsPerLine, int lineCount, int bytesPerLineIn, int bytesPerLineOut, int bytesPerPlaneIn, int bytesPerPlaneOut)`
+- Carriers: byte arrays and spans
+
+[TRANSFORM_CONFIGURATION]:
+
+- Rebind: `ChangeBuffersFormat(uint inputFormat, uint outputFormat)`
+- Inspect: `InputFormat`, `OutputFormat`, `Flags`, `NamedColorList`
+- User data: `SetUserData(IntPtr, FreeUserData)`
 
 [CMS_HUB]: static format vocabulary + colorimetric helpers on `Cms`
+
 - rail: color
 - The `uint` pixel formats `DoTransform`/`Create` consume are the `Cms.TYPE_*` constants: channel order, bytes-per-channel, and planar/float flags packed into one word.
 
-| [INDEX] | [SURFACE]                                                                 | [SURFACE_ROOT] | [RAIL] |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :----- |
-|  [01]   | `TYPE_RGBA_8` / `TYPE_RGB_8` / `TYPE_BGR_8` / `TYPE_ABGR_8`                | `Cms`          | 8-bit screen/interleaved formats (encode ingress) |
-|  [02]   | `TYPE_CMYK_8` / `TYPE_CMYK_16` / `TYPE_CMYK_DBL`                           | `Cms`          | device-CMYK print formats (transform egress) |
-|  [03]   | `TYPE_GRAY_8` / `TYPE_GRAY_16` / `TYPE_GRAY_HALF_FLT` / `TYPE_Lab_8` / `TYPE_Lab_16` / `TYPE_XYZ_16` / `TYPE_XYZ_FLT` / `TYPE_RGB_DBL` | `Cms` | gray / Lab / XYZ / high-precision formats |
-|  [04]   | `ToColorSpaceSignature(PixelType)` / `ToPixelType(ColorSpaceSignature)` / `ChannelsOf(ColorSpaceSignature)` | `Cms` | space/channel derivation |
-|  [05]   | `WhitePointFromTemp(out CIExyY, double tempK)` / `TempFromWhitePoint(out double, in CIExyY)` | `Cms` | correlated-color-temperature ↔ chromaticity |
-|  [06]   | `AlarmCodes` / `AdaptationState` / `SupportedIntents` / `EncodedCMMVersion` / `SetErrorHandler(ErrorHandler)` | `Cms` | gamut-alarm color, adaptation policy, intent enumeration, CMM version, error routing |
+Every hub group is rooted on `Cms` and rides the color rail.
+
+| [INDEX] | [GROUP]     | [PURPOSE]           |
+| :-----: | :---------- | :------------------ |
+|  [01]   | screen      | interleaved ingress |
+|  [02]   | print       | CMYK egress         |
+|  [03]   | precision   | analytic formats    |
+|  [04]   | space       | channel derivation  |
+|  [05]   | temperature | white-point mapping |
+|  [06]   | policy      | context governance  |
+
+[SCREEN_FORMATS]: `TYPE_RGBA_8`, `TYPE_RGB_8`, `TYPE_BGR_8`, `TYPE_ABGR_8`
+
+[PRINT_FORMATS]: `TYPE_CMYK_8`, `TYPE_CMYK_16`, `TYPE_CMYK_DBL`
+
+[PRECISION_FORMATS]: `TYPE_GRAY_8`, `TYPE_GRAY_16`, `TYPE_GRAY_HALF_FLT`, `TYPE_Lab_8`, `TYPE_Lab_16`, `TYPE_XYZ_16`, `TYPE_XYZ_FLT`, `TYPE_RGB_DBL`
+
+[SPACE_DERIVATION]: `ToColorSpaceSignature(PixelType)`, `ToPixelType(ColorSpaceSignature)`, `ChannelsOf(ColorSpaceSignature)`
+
+[WHITE_POINT_MAPPING]: `WhitePointFromTemp(out CIExyY, double tempK)`, `TempFromWhitePoint(out double, in CIExyY)`
+
+[CONTEXT_POLICY]: `AlarmCodes`, `AdaptationState`, `SupportedIntents`, `EncodedCMMVersion`, `SetErrorHandler(ErrorHandler)`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COLOR_LAW]:
+
 - Package: `lcmsNET`
 - Owns: ICC-managed device color for the print/export deliverable — profile lifecycle (`Profile.Open`/`Create*`/`Save`/tag read-write), the compiled `Transform` (the one polymorphic `Create` fold + `DoTransform`), the `Intent` vocabulary (including K-preservation `PreserveKOnly*`/`PreserveKPlane*`), `CmsFlags` policy (`SoftProofing`/`GamutCheck`/`BlackPointCompensation`), device-link generation (ink-limiting / linearization / baked-transform / .cube), and the `Cms` pixel-format vocabulary + colorimetric helpers.
 - Accept: the drafting/export color-fidelity path converts a rendered `TYPE_RGBA_8` raster to a device-`TYPE_CMYK_8`/`_16` buffer through a `Transform.Create(input, output, Intent, CmsFlags)` keyed to the target output profile; K-only/K-plane black generation is selected by a `PreserveK*` `Intent`; on-screen print preview is a three-profile soft-proofing `Transform` (`SoftProofing`|`GamutCheck`, alarm color on the `Context`); a fixed device pairing bakes to a `Profile.CreateDeviceLink`; total-ink limits apply through `CreateInkLimitingDeviceLink`; sheet TAC is verified through `Profile.TotalAreaCoverage`.
 - Reject: hand-rolling ICC matrix/CLUT math or a bespoke CMYK separation where `Transform` compiles the managed pipeline; a `Get`/`GetProofing`/`GetMultiprofile` transform-factory family where `Transform.Create` discriminates by argument shape; treating `Wacton.Unicolour` OKLCH (screen-perceptual) as an ICC device-color substitute — `Unicolour` owns UI token color, `lcmsNET` owns profiled print color; leaking an undisposed `Profile`/`Transform`/`Context` handle where the `CmsHandle<T> : IDisposable` teardown frees the native object.
 
 [STACKING]:
+
 - Stacks with `api-pdfsharp.md`: the color-managed `TYPE_CMYK_*` buffer is the pixel source drawn through `XGraphics`/`XImage` into the vector-PDF deliverable, and `PdfDocumentOptions.ColorMode` carries the CMYK intent PDFsharp's own model does not compute; `lcmsNET` is the color authority, PDFsharp the page authority.
 - Stacks with `api-drafting-export.md`: the DXF/OOXML export codecs stay color-agnostic; the ICC transform is applied to raster/print content before hand-off, never re-implemented inside an export codec.
 - Complements `api-avalonia-color.md` / `Wacton.Unicolour`: OKLCH owns the screen `ControlIntent`/`Theme/tokens` pipeline; `lcmsNET` owns the profiled device-color egress. The two never overlap — screen-perceptual versus ICC-device is the seam.

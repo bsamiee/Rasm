@@ -21,95 +21,95 @@
 [PUBLIC_TYPE_SCOPE]: reader facades, configuration, and the notification/progress rail
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------ |:----------------- |:--------------------------------------------------------------------------------- |
-| [01] | `CadReaderFactory` | static dispatch | extension-routed `CreateReader`/`GetFileFormat` — the one format-dispatch facade |
-| [02] | `CadFileFormat` | enum | `DWG` / `DXF` / `Unknown` — the routed format discriminant |
-| [03] | `DxfReader` | static reader | DXF (ASCII + binary) read; `IsBinary` ascii/binary sniff; `IDisposable` instance |
-| [04] | `DwgReader` | static reader | DWG (AC1012–AC1032) read; `ReadPreview`/`ReadSummaryInfo`/`ReadHeader` |
-| [05] | `ICadReader` | reader contract | `OnNotification`/`OnProgress` events + `Read()`/`ReadHeader()`, `IDisposable` |
-| [06] | `CadReaderConfiguration` | base config | `Failsafe`/`KeepUnknownEntities`/`KeepUnknownNonGraphicalObjects` degrade knobs |
-| [07] | `DwgReaderConfiguration` | DWG config | adds `CrcCheck`, `ReadSummaryInfo` (default true) |
-| [08] | `DxfReaderConfiguration` | DXF config | adds `ClearCache` (default true), `CreateDefaults` |
-| [09] | `NotificationEventHandler` | delegate | the boundary subscribes for `NotificationEventArgs` (`Message` + `NotificationType` + `Exception` — the recovered defect detail under `Failsafe`) |
-| [10] | `NotificationType` | enum | `NotImplemented`/`None`/`NotSupported`/`Warning`/`Error` severity |
-| [11] | `ProgressEventHandler` | delegate | `ProgressEventArgs` read-progress stream (optional) |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]                                                                                                                                      |
+| :-----: | :------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `CadReaderFactory`         | static dispatch | extension-routed `CreateReader`/`GetFileFormat` — the one format-dispatch facade                                                                  |
+|  [02]   | `CadFileFormat`            | enum            | `DWG` / `DXF` / `Unknown` — the routed format discriminant                                                                                        |
+|  [03]   | `DxfReader`                | static reader   | DXF (ASCII + binary) read; `IsBinary` ascii/binary sniff; `IDisposable` instance                                                                  |
+|  [04]   | `DwgReader`                | static reader   | DWG (AC1012–AC1032) read; `ReadPreview`/`ReadSummaryInfo`/`ReadHeader`                                                                            |
+|  [05]   | `ICadReader`               | reader contract | `OnNotification`/`OnProgress` events + `Read()`/`ReadHeader()`, `IDisposable`                                                                     |
+|  [06]   | `CadReaderConfiguration`   | base config     | `Failsafe`/`KeepUnknownEntities`/`KeepUnknownNonGraphicalObjects` degrade knobs                                                                   |
+|  [07]   | `DwgReaderConfiguration`   | DWG config      | adds `CrcCheck`, `ReadSummaryInfo` (default true)                                                                                                 |
+|  [08]   | `DxfReaderConfiguration`   | DXF config      | adds `ClearCache` (default true), `CreateDefaults`                                                                                                |
+|  [09]   | `NotificationEventHandler` | delegate        | the boundary subscribes for `NotificationEventArgs` (`Message` + `NotificationType` + `Exception` — the recovered defect detail under `Failsafe`) |
+|  [10]   | `NotificationType`         | enum            | `NotImplemented`/`None`/`NotSupported`/`Warning`/`Error` severity                                                                                 |
+|  [11]   | `ProgressEventHandler`     | delegate        | `ProgressEventArgs` read-progress stream (optional)                                                                                               |
 
 [PUBLIC_TYPE_SCOPE]: document root and tables — the `CadDocument` model
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------ |:------------ |:---------------------------------------------------------------------------- |
-| [01] | `CadDocument` | model root | the read drawing — `Entities`, `ModelSpace`/`PaperSpace`, `BlockRecords`, `Header`, `SummaryInfo`, `Layers` |
-| [02] | `BlockRecord` | block table | a named entity container — `Entities` is the nested-block geometry an `Insert` references |
-| [03] | `CadHeader` | header | drawing units/version metadata behind `CadDocument.Header` |
-| [04] | `CadSummaryInfo` | summary | title/author metadata (DWG read gated by `DwgReaderConfiguration.ReadSummaryInfo`) |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]                                                                                                |
+| :-----: | :--------------- | :------------ | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `CadDocument`    | model root    | the read drawing — `Entities`, `ModelSpace`/`PaperSpace`, `BlockRecords`, `Header`, `SummaryInfo`, `Layers` |
+|  [02]   | `BlockRecord`    | block table   | a named entity container — `Entities` is the nested-block geometry an `Insert` references                   |
+|  [03]   | `CadHeader`      | header        | drawing units/version metadata behind `CadDocument.Header`                                                  |
+|  [04]   | `CadSummaryInfo` | summary       | title/author metadata (DWG read gated by `DwgReaderConfiguration.ReadSummaryInfo`)                          |
 
 [PUBLIC_TYPE_SCOPE]: mesh-bearing entity types — the Bim triangle-soup surface
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------ |:----------------- |:---------------------------------------------------------------------------- |
-| [01] | `Mesh` | SubDMesh | `AcDbSubDMesh` — `Vertices` `List<XYZ>` + `Faces` `List<int[]>` (0-based n-gon) + `Edges`; `SubdivisionLevel` |
-| [02] | `Mesh.Edge` | per-edge struct | `Start`/`End` 0-based vertex index plus optional `Crease` (`double?`) |
-| [03] | `Face3D` | 3D face | `3DFACE` triangle/quad — `FirstCorner`..`FourthCorner` (`XYZ` WCS) + `Flags` (`InvisibleEdgeFlags`) |
-| [04] | `PolyfaceMesh` | polyface mesh | `Polyline<VertexFaceMesh>` — `Vertices` `SeqendCollection<VertexFaceMesh>`, `Faces` `CadObjectCollection<VertexFaceRecord>` |
-| [05] | `VertexFaceMesh` | polyface vertex | a `Vertex` carrying the `Location` `XYZ` of one polyface corner |
-| [06] | `VertexFaceRecord` | polyface face | 1-based signed `Index1`..`Index4` (`short`; negative = hidden edge, 0 = unused) |
-| [07] | `PolygonMesh` | M×N surface mesh | `Polyline<PolygonMeshVertex>` row/column surface mesh — `MVertexCount`×`NVertexCount` grid, `M`/`NSmoothSurfaceDensity` |
-| [08] | `Insert` | block reference | placed/arrayed nested-block reference — flattened via `Explode`/`GetTransform` |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY]    | [CAPABILITY]                                                                                                                |
+| :-----: | :----------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Mesh`             | SubDMesh         | `AcDbSubDMesh` — `Vertices` `List<XYZ>` + `Faces` `List<int[]>` (0-based n-gon) + `Edges`; `SubdivisionLevel`               |
+|  [02]   | `Mesh.Edge`        | per-edge struct  | `Start`/`End` 0-based vertex index plus optional `Crease` (`double?`)                                                       |
+|  [03]   | `Face3D`           | 3D face          | `3DFACE` triangle/quad — `FirstCorner`..`FourthCorner` (`XYZ` WCS) + `Flags` (`InvisibleEdgeFlags`)                         |
+|  [04]   | `PolyfaceMesh`     | polyface mesh    | `Polyline<VertexFaceMesh>` — `Vertices` `SeqendCollection<VertexFaceMesh>`, `Faces` `CadObjectCollection<VertexFaceRecord>` |
+|  [05]   | `VertexFaceMesh`   | polyface vertex  | a `Vertex` carrying the `Location` `XYZ` of one polyface corner                                                             |
+|  [06]   | `VertexFaceRecord` | polyface face    | 1-based signed `Index1`..`Index4` (`short`; negative = hidden edge, 0 = unused)                                             |
+|  [07]   | `PolygonMesh`      | M×N surface mesh | `Polyline<PolygonMeshVertex>` row/column surface mesh — `MVertexCount`×`NVertexCount` grid, `M`/`NSmoothSurfaceDensity`     |
+|  [08]   | `Insert`           | block reference  | placed/arrayed nested-block reference — flattened via `Explode`/`GetTransform`                                              |
 
 [PUBLIC_TYPE_SCOPE]: entity base and CSMath value/transform algebra
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:---------------- |:-------------- |:---------------------------------------------------------------------------- |
-| [01] | `Entity` | entity base | every entity: `Layer`/`Color`/`LineWeight`/`Transparency`/`Material`/`IsInvisible` + `ApplyTransform(Transform)` + `ApplyTranslation`/`ApplyRotation(axis,θ)`/`ApplyScaling(scale[,origin])` (package-owned bakes) + `GetBoundingBox()` |
-| [02] | `XYZ` | 3D vector | `X`/`Y`/`Z` doubles, indexer, `AxisX`/`AxisY`/`AxisZ`/`Zero`, `+`/`-`/`*`/`/` ops, `Cross`/`FindNormal`/`GetAngle` |
-| [03] | `XY` | 2D point | `X`/`Y` doubles; explicit cast to/from `XYZ` |
-| [04] | `Transform` | TRS transform | `Matrix` (`Matrix4`), `Translation`/`Scale`/`EulerRotation`, `ApplyTransform(XYZ)`, `TryDecompose` |
-| [05] | `Matrix4` | 4×4 matrix | the affine matrix `Transform.Matrix`/`Insert.GetTransform` composes |
-| [06] | `BoundingBox` | AABB | `Entity.GetBoundingBox()` extent for soup-bounds accumulation |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                                                                                                                            |
+| :-----: | :------------ | :------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Entity`      | entity base   | every entity: `Layer`/`Color`/`LineWeight`/`Transparency`/`Material`/`IsInvisible` + `ApplyTransform(Transform)` + `ApplyTranslation`/`ApplyRotation(axis,θ)`/`ApplyScaling(scale[,origin])` (package-owned bakes) + `GetBoundingBox()` |
+|  [02]   | `XYZ`         | 3D vector     | `X`/`Y`/`Z` doubles, indexer, `AxisX`/`AxisY`/`AxisZ`/`Zero`, `+`/`-`/`*`/`/` ops, `Cross`/`FindNormal`/`GetAngle`                                                                                                                      |
+|  [03]   | `XY`          | 2D point      | `X`/`Y` doubles; explicit cast to/from `XYZ`                                                                                                                                                                                            |
+|  [04]   | `Transform`   | TRS transform | `Matrix` (`Matrix4`), `Translation`/`Scale`/`EulerRotation`, `ApplyTransform(XYZ)`, `TryDecompose`                                                                                                                                      |
+|  [05]   | `Matrix4`     | 4×4 matrix    | the affine matrix `Transform.Matrix`/`Insert.GetTransform` composes                                                                                                                                                                     |
+|  [06]   | `BoundingBox` | AABB          | `Entity.GetBoundingBox()` extent for soup-bounds accumulation                                                                                                                                                                           |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: format dispatch and file/stream read — `CadReaderFactory` / `DxfReader` / `DwgReader`
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:--------------------------------------------------------------------------------- |:--------------- |:----------------------------------------------------------------- |
-| [01] | `CadReaderFactory.CreateReader(string filename, NotificationEventHandler = null)` | format dispatch | extension-routed `ICadReader` (DWG→`DwgReader`, DXF→`DxfReader`) |
-| [02] | `CadReaderFactory.GetFileFormat(string filename)` | format probe | `CadFileFormat.{DWG,DXF,Unknown}` from the extension |
-| [03] | `DxfReader.IsBinary(Stream stream, bool resetPos = false)` | binary sniff | static ascii-vs-binary DXF detection (also `IsBinary(string)`) |
-| [04] | `DxfReader.Read(Stream stream, NotificationEventHandler = null)` | static read | read a DXF stream (binary auto-detected) into a `CadDocument` |
-| [05] | `DxfReader.Read(string filename, DxfReaderConfiguration, NotificationEventHandler = null)` | static read | read a DXF file under a tuned config |
-| [06] | `DwgReader.Read(Stream stream, NotificationEventHandler = null)` | static read | read a DWG stream into a `CadDocument` — the no-config stream overload (defaults a fresh `DwgReaderConfiguration`); the form the `BimIo.AcadGeometry` arm calls on a `MemoryStream` |
-| [07] | `DwgReader.Read(Stream stream, DwgReaderConfiguration, NotificationEventHandler = null)` | static read | read a DWG stream under a tuned config (stream+config overload) |
-| [08] | `DwgReader.Read(string filename, NotificationEventHandler = null)` | static read | read a DWG file by path into a `CadDocument` |
-| [09] | `DwgReader.ReadSummaryInfo()` / `ReadPreview()` / `ReadHeader()` | partial read | summary/preview/header without a full entity parse (instance) |
-| [10] | `DxfReader.ReadEntities()` / `ReadTables()` | partial read | section-scoped DXF read — `List<Entity>` ENTITIES-only or TABLES-only, skipping the header/objects parse (instance) |
+| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY]  | [CAPABILITY]                                                                                                                                                                        |
+| :-----: | :----------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `CadReaderFactory.CreateReader(string filename, NotificationEventHandler = null)`          | format dispatch | extension-routed `ICadReader` (DWG→`DwgReader`, DXF→`DxfReader`)                                                                                                                    |
+|  [02]   | `CadReaderFactory.GetFileFormat(string filename)`                                          | format probe    | `CadFileFormat.{DWG,DXF,Unknown}` from the extension                                                                                                                                |
+|  [03]   | `DxfReader.IsBinary(Stream stream, bool resetPos = false)`                                 | binary sniff    | static ascii-vs-binary DXF detection (also `IsBinary(string)`)                                                                                                                      |
+|  [04]   | `DxfReader.Read(Stream stream, NotificationEventHandler = null)`                           | static read     | read a DXF stream (binary auto-detected) into a `CadDocument`                                                                                                                       |
+|  [05]   | `DxfReader.Read(string filename, DxfReaderConfiguration, NotificationEventHandler = null)` | static read     | read a DXF file under a tuned config                                                                                                                                                |
+|  [06]   | `DwgReader.Read(Stream stream, NotificationEventHandler = null)`                           | static read     | read a DWG stream into a `CadDocument` — the no-config stream overload (defaults a fresh `DwgReaderConfiguration`); the form the `BimIo.AcadGeometry` arm calls on a `MemoryStream` |
+|  [07]   | `DwgReader.Read(Stream stream, DwgReaderConfiguration, NotificationEventHandler = null)`   | static read     | read a DWG stream under a tuned config (stream+config overload)                                                                                                                     |
+|  [08]   | `DwgReader.Read(string filename, NotificationEventHandler = null)`                         | static read     | read a DWG file by path into a `CadDocument`                                                                                                                                        |
+|  [09]   | `DwgReader.ReadSummaryInfo()` / `ReadPreview()` / `ReadHeader()`                           | partial read    | summary/preview/header without a full entity parse (instance)                                                                                                                       |
+|  [10]   | `DxfReader.ReadEntities()` / `ReadTables()`                                                | partial read    | section-scoped DXF read — `List<Entity>` ENTITIES-only or TABLES-only, skipping the header/objects parse (instance)                                                                 |
 
 [ENTRYPOINT_SCOPE]: document traversal — `CadDocument` → mesh-bearing entities
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:---------------------------------------------- |:-------------------------- |:--------------------------------------------------------------------- |
-| [01] | `CadDocument.Entities` (= `ModelSpace.Entities`) | `CadObjectCollection<Entity>` | the top-level model-space entity set |
-| [02] | `CadDocument.BlockRecords` / `BlockRecord.Entities` | block table | the nested-block geometry an `Insert.Block` references |
-| [03] | `Mesh.Vertices` / `Mesh.Faces` | `List<XYZ>` / `List<int[]>` | the SubDMesh vertex list and 0-based n-gon face index list (fan-triangulated) |
-| [04] | `Face3D.FirstCorner`..`FourthCorner` | `XYZ` (WCS) | the 3DFACE corners (fourth == third signals a triangle) |
-| [05] | `PolyfaceMesh.Vertices` / `PolyfaceMesh.Faces` | `VertexFaceMesh` / `VertexFaceRecord` | the polyface vertex pool + 1-based signed-index face records |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]                        | [CAPABILITY]                                                                  |
+| :-----: | :-------------------------------------------------- | :------------------------------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `CadDocument.Entities` (= `ModelSpace.Entities`)    | `CadObjectCollection<Entity>`         | the top-level model-space entity set                                          |
+|  [02]   | `CadDocument.BlockRecords` / `BlockRecord.Entities` | block table                           | the nested-block geometry an `Insert.Block` references                        |
+|  [03]   | `Mesh.Vertices` / `Mesh.Faces`                      | `List<XYZ>` / `List<int[]>`           | the SubDMesh vertex list and 0-based n-gon face index list (fan-triangulated) |
+|  [04]   | `Face3D.FirstCorner`..`FourthCorner`                | `XYZ` (WCS)                           | the 3DFACE corners (fourth == third signals a triangle)                       |
+|  [05]   | `PolyfaceMesh.Vertices` / `PolyfaceMesh.Faces`      | `VertexFaceMesh` / `VertexFaceRecord` | the polyface vertex pool + 1-based signed-index face records                  |
 
 [ENTRYPOINT_SCOPE]: block-reference flattening — `Insert` placement, the canonical no-hand-roll path
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-|:-----: |:---------------------------------------------- |:-------------- |:--------------------------------------------------------------------- |
-| [01] | `Insert.Explode()` | `IEnumerable<Entity>` | the resolved block expanded into placed entities already in WCS |
-| [02] | `Insert.GetTransform()` | `Transform` | the full placement transform (`Matrix4`) the soup applies via `Entity.ApplyTransform` |
-| [03] | `Insert.Block` / `Insert.InsertPoint` | `BlockRecord` / `XYZ` | the referenced block record and WCS origin |
-| [04] | `Insert.XScale`/`YScale`/`ZScale` / `Rotation` / `Normal` | placement | per-axis scale, rotation, and OCS normal `GetTransform` composes |
-| [05] | `Insert.ColumnCount`/`RowCount`/`ColumnSpacing`/`RowSpacing` / `IsMultiple` | MInsert grid | the array (`MINSERT`) replication; `IsMultiple` discriminates a grid placement |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY]        | [CAPABILITY]                                                                          |
+| :-----: | :-------------------------------------------------------------------------- | :-------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `Insert.Explode()`                                                          | `IEnumerable<Entity>` | the resolved block expanded into placed entities already in WCS                       |
+|  [02]   | `Insert.GetTransform()`                                                     | `Transform`           | the full placement transform (`Matrix4`) the soup applies via `Entity.ApplyTransform` |
+|  [03]   | `Insert.Block` / `Insert.InsertPoint`                                       | `BlockRecord` / `XYZ` | the referenced block record and WCS origin                                            |
+|  [04]   | `Insert.XScale`/`YScale`/`ZScale` / `Rotation` / `Normal`                   | placement             | per-axis scale, rotation, and OCS normal `GetTransform` composes                      |
+|  [05]   | `Insert.ColumnCount`/`RowCount`/`ColumnSpacing`/`RowSpacing` / `IsMultiple` | MInsert grid          | the array (`MINSERT`) replication; `IsMultiple` discriminates a grid placement        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

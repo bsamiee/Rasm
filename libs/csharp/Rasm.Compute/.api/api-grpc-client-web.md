@@ -19,10 +19,10 @@ paths.
 [PUBLIC_TYPE_SCOPE]: transport translation contracts
 - rail: remote-client
 
-| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]                  | [CAPABILITY]                |
-| :-----: | :--------------- | :------------------------------ | :-------------------------- |
-|  [01]   | `GrpcWebHandler` | `DelegatingHandler` subclass    | translates gRPC to gRPC-Web |
-|  [02]   | `GrpcWebMode`    | mode selector                   | selects wire content type   |
+| [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]               | [CAPABILITY]                |
+| :-----: | :--------------- | :--------------------------- | :-------------------------- |
+|  [01]   | `GrpcWebHandler` | `DelegatingHandler` subclass | translates gRPC to gRPC-Web |
+|  [02]   | `GrpcWebMode`    | mode selector                | selects wire content type   |
 
 `GrpcWebHandler` is a `DelegatingHandler`: it MUST wrap an inner `HttpMessageHandler` (the channel transport), so the gRPC-Web translation composes *on top of* a `SocketsHttpHandler` rather than replacing it — this is the stacking seam with `Grpc.Net.Client`'s `GrpcChannelOptions.HttpHandler`.
 

@@ -1,18 +1,11 @@
 # [RASM_API_HASHING]
 
-`System.IO.Hashing` supplies non-cryptographic hashing over the abstract
-`NonCryptographicHashAlgorithm` accumulator base — XxHash3/64/32/128
-and CRC-32/64 — for snapshot identity, cache keys, receipt fingerprints, benchmark
-indexes, and support-bundle correlation. Every concrete algorithm exposes three
-discriminated call shapes: a static one-shot (`Hash`/`HashToUIntNN`/`TryHash`), an
-allocation-free incremental loop (`Append` + `GetCurrentHashAsUIntNN`/`TryGetHashAndReset`),
-and the `Append(Stream)`/`AppendAsync(Stream)` sink that drains a payload in flight through
-an internal write-only bridge. The base is NOT a `Stream`; there is no public `Write`/`WriteAsync`
-member. ABI: net10.0 BCL inbox-shaped NuGet, MIT, no native dependency.
+`System.IO.Hashing` supplies XxHash and CRC non-cryptographic algorithms over the `NonCryptographicHashAlgorithm` accumulator for snapshot identity, cache keys, receipt fingerprints, benchmark indexes, and support-bundle correlation. Each algorithm owns static one-shot, incremental append/finalize, and stream-drain call shapes; the accumulator is not a `Stream` and exposes no public write member.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.IO.Hashing`
+
 - package: `System.IO.Hashing`
 - assembly: `System.IO.Hashing`
 - namespace: `System.IO.Hashing`
@@ -23,21 +16,23 @@ member. ABI: net10.0 BCL inbox-shaped NuGet, MIT, no native dependency.
 ## [02]-[PUBLIC_TYPES]
 
 [HASH_TYPES]: hashing surfaces
+
 - rail: snapshot-identity
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                      |
-| :-----: | :------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `NonCryptographicHashAlgorithm` | accumulator base   | abstract incremental lifecycle; `Append`/`AppendAsync` ingest; `Try*`/span reads (NOT a `Stream`) |
-|  [02]   | `XxHash3`                       | hash algorithm     | 64-bit; default fast root; seeded ctor + `GetCurrentHashAsUInt64`                                 |
-|  [03]   | `XxHash64`                      | hash algorithm     | 64-bit; `long` seed; `GetCurrentHashAsUInt64`                                                     |
-|  [04]   | `XxHash32`                      | hash algorithm     | 32-bit; `int` seed; `GetCurrentHashAsUInt32`                                                      |
-|  [05]   | `XxHash128`                     | hash algorithm     | 128-bit; `Low64`/`High64` fields; `GetCurrentHashAsUInt128`                                       |
-|  [06]   | `Crc32`                         | checksum algorithm | 32-bit checksum; `GetCurrentHashAsUInt32`                                                         |
-|  [07]   | `Crc64`                         | checksum algorithm | 64-bit checksum; `GetCurrentHashAsUInt64`                                                         |
+| [INDEX] | [SYMBOL]                        | [KIND]             | [WIDTH] | [CAPABILITY]               |
+| :-----: | :------------------------------ | :----------------- | ------: | :------------------------- |
+|  [01]   | `NonCryptographicHashAlgorithm` | accumulator base   |     `—` | owns incremental lifecycle |
+|  [02]   | `XxHash3`                       | hash algorithm     |    `64` | owns fast seeded hashing   |
+|  [03]   | `XxHash64`                      | hash algorithm     |    `64` | owns seeded hashing        |
+|  [04]   | `XxHash32`                      | hash algorithm     |    `32` | owns seeded hashing        |
+|  [05]   | `XxHash128`                     | hash algorithm     |   `128` | owns content hashing       |
+|  [06]   | `Crc32`                         | checksum algorithm |    `32` | owns frame checksums       |
+|  [07]   | `Crc64`                         | checksum algorithm |    `64` | owns wide checksums        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: static one-shot
+
 - rail: snapshot-identity
 
 Width-typed statics live on the concrete algorithm, never on the base; each algorithm exposes only its own width. `XxHash3` exposes `HashToUInt64` (no `HashToUInt32`); `XxHash128` exposes `HashToUInt128`; CRCs expose no 128-bit form. The `seed` overload is `int` on `XxHash32`, `long` elsewhere; CRCs are unseeded.
@@ -53,6 +48,7 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 |  [07]   | `Hash(ReadOnlySpan<byte>, Span<byte>, seed = 0)`                | static `int`     | digest into caller buffer; returns bytes written |
 
 [ENTRYPOINT_SCOPE]: incremental lifecycle (`NonCryptographicHashAlgorithm`)
+
 - rail: snapshot-identity
 
 `Append` accepts span, `byte[]`, or `Stream`; the no-alloc value read is the per-type `GetCurrentHashAsUIntNN`, not a base-level `HashToUIntNN`. `Clone()` (concrete) snapshots running state to fork an independent continuation.
@@ -72,6 +68,7 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IDENTITY_PROFILE]:
+
 - namespace: `System.IO.Hashing`
 - base root: `NonCryptographicHashAlgorithm` is an abstract accumulator (NOT a `Stream`, no public `Write`/`WriteAsync`) — a large payload drains in via `Append(Stream)`/`AppendAsync(Stream)`, which internally copy through a private write-only bridge, so no bytes stage
 - call-shape discriminant: ONE algorithm owns three modes — static one-shot for a buffer in hand, incremental `Append`+`GetCurrentHashAsUIntNN` for a chunked or streamed payload, and `AppendAsync(Stream)` for an async source; selection is the input shape, never a parallel algorithm
@@ -79,17 +76,22 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 - snapshot root: `Clone()` forks a running accumulation so a shared prefix is hashed once and continued into divergent suffixes (per-variant snapshot identity over a common header)
 
 [STACK]:
-- The content-identity rail composes `XxHash128.HashToUInt128` at SEED ZERO as the federation's one `ContentHash.Of(ReadOnlySpan<byte>) → UInt128` entry (`Rasm.Domain.ContentHash`); every consumer — the kernel geometry hashes, the `Rasm.Element` seam `NodeId`/`ContentAddress`, the Persistence snapshot spine, the Python/TypeScript wire peers — composes this ONE entry (one algorithm, one seed, no second hasher), and the `UInt128` flows into the content-key value objects with no intermediate byte allocation; `XxHash3.HashToUInt64` is at most a fast-root example for process-local non-identity fingerprints, NEVER the `ContentHash` seed
+
+- Content identity: `ContentHash.Of(ReadOnlySpan<byte>)` applies `XxHash128.HashToUInt128` with seed zero as the single cross-runtime content digest.
+- Projection: The resulting `UInt128` flows directly into content-key values without an intermediate byte allocation.
+- Boundary: `XxHash3.HashToUInt64` remains a process-local non-identity fingerprint and never substitutes for `ContentHash`.
 - An incremental digest over a structured value stacks under a `Span`/buffer-writer pipeline: serialize each field into a pooled buffer, `Append` the span, finalize with `GetHashAndReset` — the hash never owns a result store, the caller's buffer is the only allocation
 - A no-throw fingerprint stacks onto a LanguageExt `Fin`/`Option` rail through `TryGetHashAndReset(buffer, out written)`: the `bool` maps to `Fin.Succ`/`Fin.Fail` (or `Option`) at the boundary, so a destination-too-short is a typed failure row, never an exception in the receipt path
 - A hashed `Stream` payload (snapshot blob, support bundle) stacks the algorithm as the sink of `hash.AppendAsync(payloadStream, ct)`, threading the same `CancellationToken` the surrounding anyio/Task scope carries
 
 [LOCAL_ADMISSION]:
+
 - Hashing creates non-cryptographic identity, cache, and correlation values only; redaction, security, and tamper evidence use separate declared rails
 - Hash algorithm, output width, seed, and input domain are receipt facts; a snapshot identity cannot hide codec, compression, schema, or retention policy
 - The instance value read is `GetCurrentHashAsUIntNN`; `HashToUIntNN` is the static one-shot — a per-call-site mix of the two over the same algorithm is the named defect (one accumulation owns one finalize)
 
 [RAIL_LAW]:
+
 - Package: `System.IO.Hashing`
 - Owns: non-cryptographic snapshot identity, cache/receipt fingerprints, stream-fed digests
 - Accept: span/array/stream payloads, seeded variants, no-alloc `Try*`/`GetCurrentHashAsUIntNN` reads, `Clone` continuation

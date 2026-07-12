@@ -18,12 +18,12 @@
 - rail: cloud-run
 - composition law: `Analysis/energy`'s `EnergyRoute.Cloud` arm builds a `JobInfo` from the recipe + `ElementGraph`-derived OSM/IDF inputs, submits through `RunJobAsync`, watches to a terminal status, and pulls the result assets whose `SqlFile` (eplusout.sql) folds through the SAME extraction the subprocess route uses; the durable half (artifact bytes, lineage, result index) lands Persistence-side.
 
-| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                                              | [CAPABILITY]                                 |
-| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------------ | :------------------------------------------- |
-|  [01]   | `new JobInfo(job)`                 | `JobInfo(Job)` / `JobInfo(RecipeInterface)`                                                              | the job descriptor the energy runner builds  |
-|  [02]   | `jobInfo.RunJobAsync`              | `Task<ScheduledJobInfo> RunJobAsync(Action<string> progress = null, CancellationToken = default)`        | upload inputs + submit in one                |
-|  [03]   | `scheduled.WatchJobStatusAsync`    | `Task<string> WatchJobStatusAsync(Action<string> progress = null, CancellationToken = default)`          | poll to a terminal run status                |
-|  [04]   | `new RunInfo(project, runId).DownloadRunAssetsAsync` | `Task<List<RunAssetBase>> DownloadRunAssetsAsync(List<RunAssetBase>, string saveAsDir = null, …)` | pull result assets (the `SqlFile` carrier)   |
+| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]                                                                                      | [CAPABILITY]                                |
+| :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :------------------------------------------ |
+|  [01]   | `new JobInfo(job)`                                   | `JobInfo(Job)` / `JobInfo(RecipeInterface)`                                                       | the job descriptor the energy runner builds |
+|  [02]   | `jobInfo.RunJobAsync`                                | `Task<ScheduledJobInfo> RunJobAsync(Action<string> progress = null, CancellationToken = default)` | upload inputs + submit in one               |
+|  [03]   | `scheduled.WatchJobStatusAsync`                      | `Task<string> WatchJobStatusAsync(Action<string> progress = null, CancellationToken = default)`   | poll to a terminal run status               |
+|  [04]   | `new RunInfo(project, runId).DownloadRunAssetsAsync` | `Task<List<RunAssetBase>> DownloadRunAssetsAsync(List<RunAssetBase>, string saveAsDir = null, …)` | pull result assets (the `SqlFile` carrier)  |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

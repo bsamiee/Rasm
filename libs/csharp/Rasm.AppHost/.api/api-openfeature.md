@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenFeature`
+
 - package: `OpenFeature`
 - assembly: `OpenFeature`
 - namespace: `OpenFeature`
@@ -18,6 +19,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: evaluation api and client family
+
 - rail: features
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                      |
@@ -30,6 +32,7 @@
 |  [06]   | `ClientMetadata`        | metadata        | client name and version     |
 
 [PUBLIC_TYPE_SCOPE]: targeting context family
+
 - rail: features
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [RAIL]                          |
@@ -42,19 +45,23 @@
 |  [06]   | `ImmutableMetadata`        | metadata        | typed flag metadata bag         |
 
 [PUBLIC_TYPE_SCOPE]: provider and result family
+
 - rail: features
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [RAIL]                       |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [CAPABILITY]                 |
 | :-----: | :------------------------- | :---------------- | :--------------------------- |
 |  [01]   | `FeatureProvider`          | provider base     | abstract resolution contract |
 |  [02]   | `InMemoryProvider`         | provider          | config-backed evaluation     |
 |  [03]   | `Flag<T>`                  | flag definition   | variant map plus evaluator   |
-|  [04]  | `Flag`                     | flag interface    | non-generic base (`bool Disabled`) `Flag<T>` implements; the `InMemoryProvider` flag-map value type |
+|  [04]   | `Flag`                     | flag interface    | non-generic flag base        |
 |  [05]   | `ResolutionDetails<T>`     | provider result   | resolved value and reason    |
 |  [06]   | `FlagEvaluationDetails<T>` | client result     | client-facing detail carrier |
 |  [07]   | `Metadata`                 | provider metadata | provider name                |
 
+[FLAG_BASE]: `Flag` exposes `bool Disabled`, is implemented by `Flag<T>`, and is the value type of the `InMemoryProvider` flag map.
+
 [PUBLIC_TYPE_SCOPE]: outcome vocabulary family
+
 - rail: features
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]    | [RAIL]                       |
@@ -68,6 +75,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: api registration and client acquisition
+
 - rail: features
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]     | [RAIL]                     |
@@ -82,6 +90,7 @@
 |  [08]   | `ShutdownAsync()`                           | lifecycle          | provider teardown          |
 
 [ENTRYPOINT_SCOPE]: flag evaluation operations
+
 - rail: features
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]    | [RAIL]                        |
@@ -96,21 +105,25 @@
 |  [08]   | `Track(name, ctx, details)`                     | tracking          | experimentation event emit    |
 
 [ENTRYPOINT_SCOPE]: context and provider construction
+
 - rail: features
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]    | [RAIL]                        |
-| :-----: | :---------------------------------------------- | :---------------- | :---------------------------- |
-|  [01]   | `EvaluationContext.Builder()`                   | builder factory   | context construction start    |
-|  [02]   | `EvaluationContextBuilder.SetTargetingKey(key)` | builder mutation  | sticky bucketing key          |
-|  [03]   | `EvaluationContextBuilder.Set(key, value)`      | builder mutation  | targeting attribute admission |
-|  [04]   | `EvaluationContextBuilder.Build()`              | builder finalize  | immutable context             |
-|  [05]   | `new InMemoryProvider(flags)`                   | provider ctor     | config-backed flag set        |
-|  [06]   | `InMemoryProvider.UpdateFlagsAsync(flags)`      | provider mutation | live flag-set reconfigure     |
-|  [07]   | `new Flag<T>(variants, default, evaluator?, metadata?, disabled?)` | flag ctor | `disabled:` is the provider's ONLY off-gate — the `Evaluate` branch reads the ctor param, never flag metadata |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY]    | [CAPABILITY]              |
+| :-----: | :----------------------------------------------------------------- | :---------------- | :------------------------ |
+|  [01]   | `EvaluationContext.Builder()`                                      | builder factory   | context construction      |
+|  [02]   | `EvaluationContextBuilder.SetTargetingKey(key)`                    | builder mutation  | sticky bucketing key      |
+|  [03]   | `EvaluationContextBuilder.Set(key, value)`                         | builder mutation  | targeting attribute       |
+|  [04]   | `EvaluationContextBuilder.Build()`                                 | builder finalize  | immutable context         |
+|  [05]   | `new InMemoryProvider(flags)`                                      | provider ctor     | config-backed flag set    |
+|  [06]   | `InMemoryProvider.UpdateFlagsAsync(flags)`                         | provider mutation | live flag reconfiguration |
+|  [07]   | `new Flag<T>(variants, default, evaluator?, metadata?, disabled?)` | flag ctor         | flag construction         |
+
+[FLAG_DISABLE_GATE]: The `disabled` constructor argument is the provider's sole off-gate; the `Evaluate` branch reads this argument rather than flag metadata.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FEATURES_TOPOLOGY]:
+
 - namespaces: evaluation api, model, constant vocabulary, in-memory provider, error
 - evaluation root: `Api` is a process singleton reached through `Api.Instance`; it holds the default provider, domain-scoped providers, the global `EvaluationContext`, hooks, and the transaction-context propagator
 - provider registration: `SetProviderAsync` runs provider `InitializeAsync` before the returned task completes; awaiting it is how readiness is observed
@@ -125,6 +138,7 @@
 - failure discipline: provider failures surface as `ErrorType` plus `Reason.Error` on the result, not as thrown exceptions across the client boundary
 
 [LOCAL_ADMISSION]:
+
 - The features rail registers exactly one `InMemoryProvider` per domain through `SetProviderAsync` at AppHost composition, sourced from configuration-defined `Flag<T>` rows.
 - Sticky bucketing lives in the `Flag<T>` context evaluator: the `Func<EvaluationContext, string>` reads the `EvaluationContext` targeting key and attributes and returns the variant name, never re-implemented in calling code.
 - Callers evaluate through `Get<Type>DetailsAsync` and consume the typed `FlagEvaluationDetails<T>` carrier, reading `Reason` and `Variant` for experimentation decisions instead of re-deriving them.
@@ -132,6 +146,7 @@
 - `ErrorType` and `Reason` values map to canonical features-rail receipts at the boundary; raw `FeatureProviderException` instances never cross into domain logic.
 
 [RAIL_LAW]:
+
 - Package: `OpenFeature`
 - Owns: feature-flag and experimentation evaluation with sticky bucketing and variants
 - Accept: config-backed `InMemoryProvider`, `Flag<T>` variant maps, and explicit `EvaluationContext` targeting

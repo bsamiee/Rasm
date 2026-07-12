@@ -21,68 +21,68 @@
 
 `QdrantClient` is the high-level async façade and the canonical surface; its ctors fan a `(string host, int port=6334, bool https=false, string? apiKey, TimeSpan grpcTimeout, ILoggerFactory?, IDictionary<string,string>? headers)` shape, a `(Uri address, …)` shape, and a `(QdrantGrpcClient grpcClient, …)` shape that wraps a pre-built channel (the DI-friendly seam where `Grpc.Net.ClientFactory` owns the channel lifecycle). `IQdrantClient` is the interface for substitution. `QdrantGrpcClient` exposes the raw generated service clients (`Collections`, `Points`, `Snapshots`, `Qdrant`) for protocol calls the façade does not surface.
 
-| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]    | [RAIL]                                  |
-| :-----: | :------------------ | :--------------- | :-------------------------------------- |
-|  [01]   | `QdrantClient`      | async façade     | typed collection/point/snapshot ops     |
-|  [02]   | `IQdrantClient`     | façade contract  | substitution/abstraction surface        |
-|  [03]   | `QdrantGrpcClient`  | gRPC root        | raw generated service clients + channel |
-|  [04]   | `ClientConfiguration` | channel config | gRPC channel + retry/auth options       |
-|  [05]   | `QdrantException`   | failure          | typed Qdrant gRPC failure wrapper        |
-|  [06]   | `CertificateValidation` | TLS policy   | server certificate validation hook       |
-|  [07]   | `RequestHeaders`    | header scope     | per-request gRPC metadata scope          |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                  |
+| :-----: | :---------------------- | :-------------- | :-------------------------------------- |
+|  [01]   | `QdrantClient`          | async façade    | typed collection/point/snapshot ops     |
+|  [02]   | `IQdrantClient`         | façade contract | substitution/abstraction surface        |
+|  [03]   | `QdrantGrpcClient`      | gRPC root       | raw generated service clients + channel |
+|  [04]   | `ClientConfiguration`   | channel config  | gRPC channel + retry/auth options       |
+|  [05]   | `QdrantException`       | failure         | typed Qdrant gRPC failure wrapper       |
+|  [06]   | `CertificateValidation` | TLS policy      | server certificate validation hook      |
+|  [07]   | `RequestHeaders`        | header scope    | per-request gRPC metadata scope         |
 
 [PUBLIC_TYPE_SCOPE]: collection and vector configuration model (`Qdrant.Client.Grpc`)
 - rail: vector-store-scaleout
 
 `VectorParams` configures a single named vector space (size + `Distance`); `VectorParamsMap` configures multiple named vectors per point; `SparseVectorConfig` configures sparse (term-weight) vectors; `MultiVectorConfig` configures multivector / late-interaction (ColBERT-style) spaces. `QuantizationConfig` selects `ScalarQuantization`, `ProductQuantization`, or `BinaryQuantization` for memory-compressed ANN. `HnswConfigDiff`/`OptimizersConfigDiff`/`WalConfigDiff` tune the index graph, background optimizers, and write-ahead log.
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [RAIL]                                  |
-| :-----: | :----------------------- | :-------------- | :-------------------------------------- |
-|  [01]   | `VectorParams`           | vector config   | size + `Distance` for one named space   |
-|  [02]   | `VectorParamsMap`        | vector config   | multiple named vector spaces            |
-|  [03]   | `SparseVectorConfig`     | sparse config   | sparse term-weight vector space         |
-|  [04]   | `MultiVectorConfig`      | multivector config | late-interaction (ColBERT) space     |
-|  [05]   | `QuantizationConfig`     | quantization    | scalar/product/binary selector          |
-|  [06]   | `ScalarQuantization` / `ProductQuantization` / `BinaryQuantization` | quantization | memory-compressed ANN variants |
-|  [07]   | `HnswConfigDiff`         | index tuner     | M / ef_construct / on-disk HNSW graph   |
-|  [08]   | `OptimizersConfigDiff`   | optimizer tuner | segment/indexing/flush thresholds       |
-|  [09]   | `Distance`               | metric enum     | `Cosine`/`Euclid`/`Dot`/`Manhattan`     |
-|  [10]   | `CollectionInfo`         | collection state | status, vector count, config snapshot   |
+| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]      | [RAIL]                                |
+| :-----: | :------------------------------------------------------------------ | :----------------- | :------------------------------------ |
+|  [01]   | `VectorParams`                                                      | vector config      | size + `Distance` for one named space |
+|  [02]   | `VectorParamsMap`                                                   | vector config      | multiple named vector spaces          |
+|  [03]   | `SparseVectorConfig`                                                | sparse config      | sparse term-weight vector space       |
+|  [04]   | `MultiVectorConfig`                                                 | multivector config | late-interaction (ColBERT) space      |
+|  [05]   | `QuantizationConfig`                                                | quantization       | scalar/product/binary selector        |
+|  [06]   | `ScalarQuantization` / `ProductQuantization` / `BinaryQuantization` | quantization       | memory-compressed ANN variants        |
+|  [07]   | `HnswConfigDiff`                                                    | index tuner        | M / ef_construct / on-disk HNSW graph |
+|  [08]   | `OptimizersConfigDiff`                                              | optimizer tuner    | segment/indexing/flush thresholds     |
+|  [09]   | `Distance`                                                          | metric enum        | `Cosine`/`Euclid`/`Dot`/`Manhattan`   |
+|  [10]   | `CollectionInfo`                                                    | collection state   | status, vector count, config snapshot |
 
 [PUBLIC_TYPE_SCOPE]: point, payload, and filter model (`Qdrant.Client.Grpc`)
 - rail: vector-store-scaleout
 
 `PointStruct` is one upsertable point (`PointId` + `Vectors` + payload `Value` map); `Vectors`/`Vector`/`NamedVectors`/`SparseVector` carry the dense/named/sparse vector payloads; `Document` carries raw text/image for server-side inference (Qdrant computes the embedding). `Filter` composes `Condition`s (`must`/`should`/`must_not`) over payload fields for server-side push-down; `PayloadIncludeSelector`/`WithPayloadSelector`/`WithVectorsSelector` shape the returned payload/vectors. `PayloadSchemaType`/`FieldType`/`TokenizerType` drive payload-index creation (keyword/integer/float/geo/text/datetime/uuid).
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [RAIL]                                  |
-| :-----: | :------------------------ | :-------------- | :-------------------------------------- |
-|  [01]   | `PointStruct`             | point           | id + vectors + payload to upsert        |
-|  [02]   | `PointId`                 | point id        | numeric or UUID point identity          |
-|  [03]   | `Vectors` / `Vector` / `NamedVectors` | vector payload | dense/named dense vector data |
-|  [04]   | `SparseVector`            | sparse payload  | (indices, values) sparse vector         |
-|  [05]   | `Document`                | inference input | text/image for server-side embedding    |
-|  [06]   | `Filter`                  | query filter    | must/should/must_not condition tree     |
-|  [07]   | `Condition`               | filter leaf     | field match/range/geo/has-id condition  |
-|  [08]   | `WithPayloadSelector` / `PayloadIncludeSelector` | payload selector | include/exclude returned payload |
-|  [09]   | `PayloadSchemaType` / `FieldType` / `TokenizerType` | index type | payload-index field kind + text tokenizer |
-|  [10]   | `ScoredPoint` / `UpdateResult` / `UpdateStatus` | result | scored hit / write ack + status |
+| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]    | [RAIL]                                    |
+| :-----: | :-------------------------------------------------- | :--------------- | :---------------------------------------- |
+|  [01]   | `PointStruct`                                       | point            | id + vectors + payload to upsert          |
+|  [02]   | `PointId`                                           | point id         | numeric or UUID point identity            |
+|  [03]   | `Vectors` / `Vector` / `NamedVectors`               | vector payload   | dense/named dense vector data             |
+|  [04]   | `SparseVector`                                      | sparse payload   | (indices, values) sparse vector           |
+|  [05]   | `Document`                                          | inference input  | text/image for server-side embedding      |
+|  [06]   | `Filter`                                            | query filter     | must/should/must_not condition tree       |
+|  [07]   | `Condition`                                         | filter leaf      | field match/range/geo/has-id condition    |
+|  [08]   | `WithPayloadSelector` / `PayloadIncludeSelector`    | payload selector | include/exclude returned payload          |
+|  [09]   | `PayloadSchemaType` / `FieldType` / `TokenizerType` | index type       | payload-index field kind + text tokenizer |
+|  [10]   | `ScoredPoint` / `UpdateResult` / `UpdateStatus`     | result           | scored hit / write ack + status           |
 
 [PUBLIC_TYPE_SCOPE]: universal query and retrieval model (`Qdrant.Client.Grpc`)
 - rail: vector-store-scaleout
 
 `Query` is the universal retrieval discriminant (nearest, recommend, discover, context, order-by, fusion, formula, sample); `PrefetchQuery` carries a nested prefetch stage so a single `QueryAsync` runs a multi-stage hybrid pipeline (e.g. sparse prefetch → dense rerank). `Fusion` selects `Rrf`/`Dbsf` reciprocal/distribution-based fusion across prefetches; `Formula` is the score-boosting expression for payload-weighted reranking. `RecommendStrategy` selects the recommend scoring; `OrderBy` drives payload-ordered scroll.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                  |
-| :-----: | :---------------------- | :-------------- | :-------------------------------------- |
-|  [01]   | `Query`                 | query discriminant | nearest/recommend/discover/fusion/formula |
-|  [02]   | `PrefetchQuery`         | prefetch stage  | nested multi-stage hybrid prefetch      |
-|  [03]   | `Fusion`                | fusion enum     | `Rrf` / `Dbsf` cross-prefetch fusion    |
-|  [04]   | `Formula`               | score expression | payload-weighted score boosting/reranking |
-|  [05]   | `RecommendStrategy`     | recommend enum  | average-vector vs. best-score strategy  |
-|  [06]   | `OrderBy`               | scroll order    | payload-field ordered scroll            |
-|  [07]   | `SearchParams`          | search tuning   | hnsw_ef / exact / quantization params   |
-|  [08]   | `ReadConsistency` / `WriteOrdering` | consistency | read-quorum / write-ordering selector |
-|  [09]   | `ShardKey`              | shard partition | multitenant shard-key partitioning      |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]      | [RAIL]                                    |
+| :-----: | :---------------------------------- | :----------------- | :---------------------------------------- |
+|  [01]   | `Query`                             | query discriminant | nearest/recommend/discover/fusion/formula |
+|  [02]   | `PrefetchQuery`                     | prefetch stage     | nested multi-stage hybrid prefetch        |
+|  [03]   | `Fusion`                            | fusion enum        | `Rrf` / `Dbsf` cross-prefetch fusion      |
+|  [04]   | `Formula`                           | score expression   | payload-weighted score boosting/reranking |
+|  [05]   | `RecommendStrategy`                 | recommend enum     | average-vector vs. best-score strategy    |
+|  [06]   | `OrderBy`                           | scroll order       | payload-field ordered scroll              |
+|  [07]   | `SearchParams`                      | search tuning      | hnsw_ef / exact / quantization params     |
+|  [08]   | `ReadConsistency` / `WriteOrdering` | consistency        | read-quorum / write-ordering selector     |
+|  [09]   | `ShardKey`                          | shard partition    | multitenant shard-key partitioning        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -91,62 +91,62 @@
 
 `CreateCollectionAsync` fans `VectorParams` (single space) and `VectorParamsMap` (named spaces), each with an optional metadata `Dictionary<string,Value>` overload, and carries the full config: `shardNumber`/`replicationFactor`/`writeConsistencyFactor`, `onDiskPayload`, `HnswConfigDiff`, `OptimizersConfigDiff`, `WalConfigDiff`, `QuantizationConfig`, `SparseVectorConfig`, `ShardingMethod`, `StrictModeConfig`, `initFromCollection`, `timeout`.
 
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]   | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `CreateCollectionAsync(name, VectorParams, …)`     | async create   | creates a single-vector collection        |
-|  [02]   | `CreateCollectionAsync(name, VectorParamsMap, …)`  | async create   | creates a named-vector collection          |
-|  [03]   | `RecreateCollectionAsync(name, …)`                 | async create   | drops then recreates a collection          |
-|  [04]   | `UpdateCollectionAsync(name, …)`                   | async update   | mutates HNSW/optimizer/quantization config |
-|  [05]   | `CollectionExistsAsync(name)` / `DeleteCollectionAsync(name)` | async lifecycle | existence probe / drop          |
-|  [06]   | `GetCollectionInfoAsync(name)` / `ListCollectionsAsync()` | async read | collection state / roster           |
-|  [07]   | `CreatePayloadIndexAsync(name, field, schemaType, …)` | async index | builds a payload field index            |
-|  [08]   | `CreateShardKeyAsync(name, shardKey, …)` / `ListShardKeysAsync(name)` | async shard | multitenant shard partition mgmt |
-|  [09]   | `CreateAliasAsync` / `UpdateAliasesAsync` / `ListAliasesAsync` | async alias | atomic collection alias swap      |
-|  [10]   | `GetCollectionClusterSetupInfoAsync` / `UpdateCollectionClusterSetupAsync` | async cluster | shard placement / replica mgmt |
+| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]    | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------------------- | :-------------- | :----------------------------------------- |
+|  [01]   | `CreateCollectionAsync(name, VectorParams, …)`                             | async create    | creates a single-vector collection         |
+|  [02]   | `CreateCollectionAsync(name, VectorParamsMap, …)`                          | async create    | creates a named-vector collection          |
+|  [03]   | `RecreateCollectionAsync(name, …)`                                         | async create    | drops then recreates a collection          |
+|  [04]   | `UpdateCollectionAsync(name, …)`                                           | async update    | mutates HNSW/optimizer/quantization config |
+|  [05]   | `CollectionExistsAsync(name)` / `DeleteCollectionAsync(name)`              | async lifecycle | existence probe / drop                     |
+|  [06]   | `GetCollectionInfoAsync(name)` / `ListCollectionsAsync()`                  | async read      | collection state / roster                  |
+|  [07]   | `CreatePayloadIndexAsync(name, field, schemaType, …)`                      | async index     | builds a payload field index               |
+|  [08]   | `CreateShardKeyAsync(name, shardKey, …)` / `ListShardKeysAsync(name)`      | async shard     | multitenant shard partition mgmt           |
+|  [09]   | `CreateAliasAsync` / `UpdateAliasesAsync` / `ListAliasesAsync`             | async alias     | atomic collection alias swap               |
+|  [10]   | `GetCollectionClusterSetupInfoAsync` / `UpdateCollectionClusterSetupAsync` | async cluster   | shard placement / replica mgmt             |
 
 [ENTRYPOINT_SCOPE]: point write
 - rail: vector-store-scaleout
 
 `UpsertAsync(name, IReadOnlyList<PointStruct>, …)` is the canonical write; an overload takes an `updateFilter` for conditional upsert, and every write carries `wait` (block until indexed), `WriteOrderingType? ordering`, and `ShardKeySelector? shardKeySelector`. All writes return `UpdateResult` with `UpdateStatus`.
 
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]   | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `UpsertAsync(name, points, wait, ordering, shardKeySelector)` | async write | inserts/replaces points          |
-|  [02]   | `UpsertAsync(name, points, updateFilter, …)`       | async write    | conditional upsert under a filter         |
-|  [03]   | `UpdateVectorsAsync` / `DeleteVectorsAsync`        | async write    | mutates/removes named vectors only        |
-|  [04]   | `SetPayloadAsync` / `OverwritePayloadAsync` / `ClearPayloadAsync` | async write | merge/replace/clear payload     |
-|  [05]   | `DeletePayloadAsync` / `DeletePayloadIndexAsync`   | async write    | removes payload keys / a field index      |
-|  [06]   | `DeleteAsync(name, PointsSelector, …)`             | async write    | deletes points by id list or filter       |
-|  [07]   | `UpdateBatchAsync(name, operations, …)`            | async write    | one atomic multi-operation batch          |
+| [INDEX] | [SURFACE]                                                         | [CALL_SHAPE] | [CAPABILITY]                         |
+| :-----: | :---------------------------------------------------------------- | :----------- | :----------------------------------- |
+|  [01]   | `UpsertAsync(name, points, wait, ordering, shardKeySelector)`     | async write  | inserts/replaces points              |
+|  [02]   | `UpsertAsync(name, points, updateFilter, …)`                      | async write  | conditional upsert under a filter    |
+|  [03]   | `UpdateVectorsAsync` / `DeleteVectorsAsync`                       | async write  | mutates/removes named vectors only   |
+|  [04]   | `SetPayloadAsync` / `OverwritePayloadAsync` / `ClearPayloadAsync` | async write  | merge/replace/clear payload          |
+|  [05]   | `DeletePayloadAsync` / `DeletePayloadIndexAsync`                  | async write  | removes payload keys / a field index |
+|  [06]   | `DeleteAsync(name, PointsSelector, …)`                            | async write  | deletes points by id list or filter  |
+|  [07]   | `UpdateBatchAsync(name, operations, …)`                           | async write  | one atomic multi-operation batch     |
 
 [ENTRYPOINT_SCOPE]: retrieval
 - rail: vector-store-scaleout
 
 `QueryAsync` is the universal retrieval entry: `(name, Query?, IReadOnlyList<PrefetchQuery>?, usingVector, Filter?, scoreThreshold, SearchParams?, limit, offset, payloadSelector, vectorsSelector, ReadConsistency?, ShardKeySelector?, lookupFrom, timeout)`. The legacy `SearchAsync`/`RecommendAsync`/`DiscoverAsync` remain; `*GroupsAsync` group results by a payload field; `*BatchAsync` runs many queries in one request; `SearchMatrixOffsetsAsync`/`SearchMatrixPairsAsync` compute the pairwise similarity matrix; `FacetAsync` aggregates payload-value counts.
 
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]   | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `QueryAsync(name, query, prefetch, …)`             | async query    | universal hybrid/fusion/formula retrieval |
-|  [02]   | `QueryBatchAsync` / `QueryGroupsAsync`             | async query    | batched / payload-grouped universal query |
-|  [03]   | `SearchAsync(name, ReadOnlyMemory<float>, filter, searchParams, limit, …)` | async search | dense ANN search with filter |
-|  [04]   | `SearchBatchAsync` / `SearchGroupsAsync`           | async search   | batched / grouped dense search            |
-|  [05]   | `RecommendAsync` / `RecommendBatchAsync` / `RecommendGroupsAsync` | async recommend | positive/negative example search |
-|  [06]   | `DiscoverAsync` / `DiscoverBatchAsync`             | async discover | context-pair guided discovery search      |
-|  [07]   | `RetrieveAsync(name, PointId \| Guid \| ulong \| IReadOnlyList<PointId>, withPayload, withVectors, …)` | async read | fetches points by id |
-|  [08]   | `ScrollAsync(name, filter, limit, orderBy, …)`     | async scroll   | paged payload-filtered enumeration        |
-|  [09]   | `CountAsync(name, filter, exact)`                  | async count    | filtered point count                      |
-|  [10]   | `FacetAsync(name, key, filter, …)`                 | async facet    | payload-value aggregation                 |
-|  [11]   | `SearchMatrixPairsAsync` / `SearchMatrixOffsetsAsync` | async matrix | pairwise similarity matrix             |
+| [INDEX] | [SURFACE]                                                                                              | [CALL_SHAPE]    | [CAPABILITY]                              |
+| :-----: | :----------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------- |
+|  [01]   | `QueryAsync(name, query, prefetch, …)`                                                                 | async query     | universal hybrid/fusion/formula retrieval |
+|  [02]   | `QueryBatchAsync` / `QueryGroupsAsync`                                                                 | async query     | batched / payload-grouped universal query |
+|  [03]   | `SearchAsync(name, ReadOnlyMemory<float>, filter, searchParams, limit, …)`                             | async search    | dense ANN search with filter              |
+|  [04]   | `SearchBatchAsync` / `SearchGroupsAsync`                                                               | async search    | batched / grouped dense search            |
+|  [05]   | `RecommendAsync` / `RecommendBatchAsync` / `RecommendGroupsAsync`                                      | async recommend | positive/negative example search          |
+|  [06]   | `DiscoverAsync` / `DiscoverBatchAsync`                                                                 | async discover  | context-pair guided discovery search      |
+|  [07]   | `RetrieveAsync(name, PointId \| Guid \| ulong \| IReadOnlyList<PointId>, withPayload, withVectors, …)` | async read      | fetches points by id                      |
+|  [08]   | `ScrollAsync(name, filter, limit, orderBy, …)`                                                         | async scroll    | paged payload-filtered enumeration        |
+|  [09]   | `CountAsync(name, filter, exact)`                                                                      | async count     | filtered point count                      |
+|  [10]   | `FacetAsync(name, key, filter, …)`                                                                     | async facet     | payload-value aggregation                 |
+|  [11]   | `SearchMatrixPairsAsync` / `SearchMatrixOffsetsAsync`                                                  | async matrix    | pairwise similarity matrix                |
 
 [ENTRYPOINT_SCOPE]: snapshot and health
 - rail: vector-store-scaleout
 
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]   | [CAPABILITY]                              |
-| :-----: | :------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `CreateSnapshotAsync(name)` / `ListSnapshotsAsync(name)` | async snapshot | per-collection snapshot create/list |
-|  [02]   | `DeleteSnapshotAsync(name, snapshotName)`          | async snapshot | drops a collection snapshot               |
-|  [03]   | `CreateFullSnapshotAsync()` / `ListFullSnapshotsAsync()` / `DeleteFullSnapshotAsync(name)` | async snapshot | whole-storage snapshot |
-|  [04]   | `HealthAsync()`                                    | async probe    | server liveness + version                 |
+| [INDEX] | [SURFACE]                                                                                  | [CALL_SHAPE]   | [CAPABILITY]                        |
+| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :---------------------------------- |
+|  [01]   | `CreateSnapshotAsync(name)` / `ListSnapshotsAsync(name)`                                   | async snapshot | per-collection snapshot create/list |
+|  [02]   | `DeleteSnapshotAsync(name, snapshotName)`                                                  | async snapshot | drops a collection snapshot         |
+|  [03]   | `CreateFullSnapshotAsync()` / `ListFullSnapshotsAsync()` / `DeleteFullSnapshotAsync(name)` | async snapshot | whole-storage snapshot              |
+|  [04]   | `HealthAsync()`                                                                            | async probe    | server liveness + version           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

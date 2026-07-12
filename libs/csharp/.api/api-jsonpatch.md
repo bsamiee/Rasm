@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
+
 - package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - assembly: `Microsoft.AspNetCore.JsonPatch.SystemTextJson` (`lib/net10.0`, single-target)
 - namespaces: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`, `.Operations`, `.Adapters`, `.Exceptions`
@@ -14,6 +15,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document and error family
+
 - rail: boundary
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY]     | [RAIL]                                                                            |
@@ -26,6 +28,7 @@
 Both `JsonPatchDocument` and `JsonPatchDocument<T>` implement `IEndpointParameterMetadataProvider`, so each is a first-class minimal-API request-body parameter registering `application/json-patch+json` accepts-metadata.
 
 [PUBLIC_TYPE_SCOPE]: operation family
+
 - rail: boundary
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]  | [RAIL]                                                                                 |
@@ -36,6 +39,7 @@ Both `JsonPatchDocument` and `JsonPatchDocument<T>` implement `IEndpointParamete
 |  [04]   | `Operations.OperationType` | operation enum | Add/Remove/Replace/Move/Copy/Test/Invalid                                              |
 
 [PUBLIC_TYPE_SCOPE]: adapter family
+
 - rail: boundary
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]     | [RAIL]                                                                          |
@@ -49,6 +53,7 @@ The default adapter (`ObjectAdapter`/`AdapterFactory` dispatching list/dictionar
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document construction
+
 - rail: boundary
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                          |
@@ -57,6 +62,7 @@ The default adapter (`ObjectAdapter`/`AdapterFactory` dispatching list/dictionar
 |  [02]   | `JsonPatchDocument(List<Operation>, JsonSerializerOptions)` | explicit ctor  | pre-built operation list        |
 
 [ENTRYPOINT_SCOPE]: document mutation operations
+
 - rail: boundary
 
 | [INDEX] | [SURFACE]              | [ENTRY_FAMILY]   | [RAIL]             |
@@ -69,17 +75,20 @@ The default adapter (`ObjectAdapter`/`AdapterFactory` dispatching list/dictionar
 |  [06]   | `Test(path, value)`    | RFC 6902 test    | equality assertion |
 
 [ENTRYPOINT_SCOPE]: typed lambda-path construction (`JsonPatchDocument<T>`)
+
 - rail: boundary
 - The typed overloads bind the patch to the record's shape through `Expression` member paths, so a renamed property breaks the build rather than producing a silent no-op `path`; the untyped string-path form is for wire-decoded inbound patches only.
+- Scalar paths use `Expression<Func<T, P>>`; list paths use `Expression<Func<T, IList<P>>>` plus optional source and destination positions.
 
-| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY]   | [RAIL]                                              |
-| :-----: | :---------------------------------------------------------------------------- | :--------------- | :-------------------------------------------------- |
-|  [01]   | `Add<P>(Expression<Func<T,P>> path, P value)`                                 | typed scalar op  | compile-checked member path                         |
-|  [02]   | `Add<P>(Expression<Func<T,IList<P>>> path, P value [, int position])`         | typed list op    | append (`-` sentinel) or insert at index            |
-|  [03]   | `Remove<P>` / `Replace<P>` / `Test<P>` (scalar + `IList<P>` + `int position`) | typed op         | scalar/list/positional clear, replace, assert       |
-|  [04]   | `Move<P>` / `Copy<P>` (scalar↔scalar, list↔scalar, scalar↔list, list↔list)    | typed relocation | every endpoint-arity of `positionFrom`/`positionTo` |
+| [INDEX] | [SURFACE]                              | [PATH]             | [CAPABILITY]                |
+| :-----: | :------------------------------------- | :----------------- | :-------------------------- |
+|  [01]   | `Add<P>`                               | scalar             | appends a member value      |
+|  [02]   | `Add<P>`                               | list plus position | appends or inserts a value  |
+|  [03]   | `Remove<P>` / `Replace<P>` / `Test<P>` | scalar or list     | mutates or asserts a value  |
+|  [04]   | `Move<P>` / `Copy<P>`                  | source and target  | relocates across path kinds |
 
 [ENTRYPOINT_SCOPE]: application operations
+
 - rail: boundary
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]     | [RAIL]                        |
@@ -92,6 +101,7 @@ The default adapter (`ObjectAdapter`/`AdapterFactory` dispatching list/dictionar
 |  [06]   | `Operation.Apply(objectToApplyTo, adapter)`         | single operation   | dispatches by `OperationType` |
 
 [ENTRYPOINT_SCOPE]: adapter contract operations
+
 - rail: boundary
 
 | [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY] | [RAIL]                     |
@@ -104,6 +114,7 @@ The default adapter (`ObjectAdapter`/`AdapterFactory` dispatching list/dictionar
 |  [06]   | `IObjectAdapterWithTest.Test(operation, target)` | assertion      | test operation dispatch    |
 
 [ENTRYPOINT_SCOPE]: `JsonPatchError` members
+
 - rail: boundary
 
 The value handed to the `ApplyTo(obj, logErrorAction)` callback; read its fields to project a failed operation into the boundary failure rail instead of catching `JsonPatchException`.
@@ -117,21 +128,24 @@ The value handed to the `ApplyTo(obj, logErrorAction)` callback; read its fields
 ## [04]-[IMPLEMENTATION_LAW]
 
 [JSONPATCH_TOPOLOGY]:
+
 - public namespaces: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`, `.Operations`, `.Adapters`, `.Exceptions` (the `.Converters` types are `internal`, reached only through the document `[JsonConverter]` attributes)
 - document model: `List<Operation>` plus a settable per-instance `JsonSerializerOptions` (defaults to `JsonSerializerOptions.Default`); operations carry `op`, `path`, `from`, `value`
 - serializer: `JsonPatchDocument` and `JsonPatchDocument<T>` carry internal `[JsonConverter]` factory attributes — STJ (de)serialization is built-in, no manual converter registration; media type `application/json-patch+json`
 - `OperationType` cases: `Add`, `Remove`, `Replace`, `Move`, `Copy`, `Test`, `Invalid` (an unrecognized `op` string lands `Invalid`, the discriminant a defensive apply rejects)
 - apply model: break-on-first-error — the first op that throws `JsonPatchException` folds into a `JsonPatchError` (via the `logErrorAction` or the internal default reporter) and the loop breaks; atomic all-or-nothing apply is a caller obligation (apply to a clone, swap on full success)
 - endpoint metadata: `JsonPatchDocument` and `JsonPatchDocument<T>` implement `IEndpointParameterMetadataProvider`, registering `AcceptsMetadata` for `application/json-patch+json`
-- `Test` requires `IObjectAdapterWithTest`; the internal default adapter implements it, so default `ApplyTo` supports `Test`
+- `Test` requires `IObjectAdapterWithTest`; the internal default adapter implements it, so default `ApplyTo` executes `Test`
 
 [LOCAL_ADMISSION]:
+
 - Boundary intake deserializes from `application/json-patch+json` into `JsonPatchDocument`; typed consumers resolve `JsonPatchDocument<T>` from the converter factory.
 - `ApplyTo` with a `logErrorAction` delegate is the safe form; bare `ApplyTo` throws `JsonPatchException` at the first invalid operation.
 - A non-POCO target (`JsonNode`/`JsonObject`) injects a consumer `IObjectAdapterWithTest` through the `ApplyTo(obj, adapter, logErrorAction)` overload; the built-in list/dictionary/`JsonObject`/POCO adapters are internal, reached only through the parameterless `ApplyTo`.
 - `JsonPatchDocument<TModel>` is the canonical authoring shape so patch paths track member names through `Expression`, leaving string-path `JsonPatchDocument` for wire-decoded inbound patches.
 
 [RAIL_LAW]:
+
 - Package: `Microsoft.AspNetCore.JsonPatch.SystemTextJson`
 - Owns: RFC 6902 JSON Patch document construction, STJ serialization, and break-on-first-error application
 - Accept: `JsonPatchDocument<T>` typed `Expression` paths, `IObjectAdapter`/`IObjectAdapterWithTest` for non-POCO targets, the `Action<JsonPatchError>` collector

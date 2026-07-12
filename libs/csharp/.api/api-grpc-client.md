@@ -1,12 +1,11 @@
 # [RASM_API_GRPC_CLIENT]
 
-`Grpc.Net.Client` supplies gRPC channels, HTTP-backed call invocation, service
-configuration, retry, hedging, resolver, and load-balancer surfaces for remote
-execution clients.
+`Grpc.Net.Client` supplies gRPC channels, HTTP-backed call invocation, service configuration, retry, hedging, resolver, and load-balancer surfaces for remote execution clients.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Client`
+
 - package: `Grpc.Net.Client`
 - assembly: `Grpc.Net.Client`
 - namespace: `Grpc.Net.Client`
@@ -16,6 +15,7 @@ execution clients.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: channel and call contracts
+
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]  | [CAPABILITY]            |
@@ -31,6 +31,7 @@ execution clients.
 |  [09]   | `RetryThrottlingPolicy` | retry policy    | throttles retries       |
 
 [PUBLIC_TYPE_SCOPE]: resolver and balancer contracts
+
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]     | [CAPABILITY]             |
@@ -49,17 +50,18 @@ execution clients.
 |  [12]   | `PickResult`            | picker result      | carries selection result |
 
 [PUBLIC_TYPE_SCOPE]: transitive `Grpc.Core.Api` call contracts
+
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                        |
 | :-----: | :------------------------- | :------------------ | :---------------------------------- |
 |  [01]   | `Interceptor`              | interceptor base    | client call override family         |
-|  [02]   | `ClientInterceptorContext` | call context struct | method, host, and options payload   |
+|  [02]   | `ClientInterceptorContext` | call context struct | carries call context                |
 |  [03]   | `CallInvoker`              | invocation root     | composes interceptors               |
 |  [04]   | `CallInvokerExtensions`    | invoker extensions  | `Intercept` factory overloads       |
 |  [05]   | `InterceptingCallInvoker`  | interceptor invoker | wraps invoker with one interceptor  |
-|  [06]   | `CallOptions`              | call policy struct  | headers, deadline, and cancellation |
-|  [07]   | `Metadata`                 | header collection   | metadata entries and binary values  |
+|  [06]   | `CallOptions`              | call policy struct  | carries call policy                 |
+|  [07]   | `Metadata`                 | header collection   | stores metadata entries             |
 |  [08]   | `RpcException`             | call failure        | status plus trailers                |
 |  [09]   | `Status`                   | status struct       | code plus detail                    |
 |  [10]   | `StatusCode`               | status enum         | call-failure taxonomy               |
@@ -67,27 +69,29 @@ execution clients.
 |  [12]   | `ChannelCredentials`       | channel trust       | transport credential selection      |
 |  [13]   | `ConnectivityState`        | state enum          | channel connectivity taxonomy       |
 |  [14]   | `AsyncAuthInterceptor`     | auth delegate       | async metadata injection delegate   |
-|  [15]   | `AuthInterceptorContext`   | auth call context   | service URL, method, cancellation   |
+|  [15]   | `AuthInterceptorContext`   | auth call context   | carries authentication context      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: channel operations
+
 - rail: remote-client
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]    | [CAPABILITY]                   |
-| :-----: | :------------------------------------- | :-------------- | :----------------------------- |
-|  [01]   | `GrpcChannel.ForAddress`               | factory call    | creates channel (string/`Uri`) |
-|  [02]   | `GrpcChannel.ConnectAsync`             | warm-up call    | eagerly connects to `Ready`    |
-|  [03]   | `GrpcChannel.CreateCallInvoker`        | factory call    | creates call invoker           |
-|  [04]   | `GrpcChannel.Dispose`                  | lifetime call   | closes channel                 |
-|  [05]   | `ServiceConfig`                        | option property | applies service policy         |
-|  [06]   | `Credentials`                          | option property | applies channel security       |
-|  [07]   | `HttpHandler`                          | option property | selects HTTP transport         |
-|  [08]   | `MaxReceiveMessageSize`                | option property | bounds response payloads       |
-|  [09]   | `MaxSendMessageSize`                   | option property | bounds request payloads        |
-|  [10]   | `ThrowOperationCanceledOnCancellation` | option property | controls cancellation          |
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]    | [CAPABILITY]                |
+| :-----: | :------------------------------------- | :-------------- | :-------------------------- |
+|  [01]   | `GrpcChannel.ForAddress`               | factory call    | creates channel             |
+|  [02]   | `GrpcChannel.ConnectAsync`             | warm-up call    | eagerly connects to `Ready` |
+|  [03]   | `GrpcChannel.CreateCallInvoker`        | factory call    | creates call invoker        |
+|  [04]   | `GrpcChannel.Dispose`                  | lifetime call   | closes channel              |
+|  [05]   | `ServiceConfig`                        | option property | applies service policy      |
+|  [06]   | `Credentials`                          | option property | applies channel security    |
+|  [07]   | `HttpHandler`                          | option property | selects HTTP transport      |
+|  [08]   | `MaxReceiveMessageSize`                | option property | bounds response payloads    |
+|  [09]   | `MaxSendMessageSize`                   | option property | bounds request payloads     |
+|  [10]   | `ThrowOperationCanceledOnCancellation` | option property | controls cancellation       |
 
 [ENTRYPOINT_SCOPE]: channel-state and compression operations
+
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                                 | [CALL_SHAPE]    | [CAPABILITY]                                          |
@@ -95,42 +99,49 @@ execution clients.
 |  [01]   | `GrpcChannel.State`                       | state property  | reports `ConnectivityState`                           |
 |  [02]   | `GrpcChannel.WaitForStateChangedAsync`    | state call      | awaits departure from an observed `ConnectivityState` |
 |  [03]   | `GrpcChannelOptions.CompressionProviders` | option property | registers `ICompressionProvider` rows                 |
-|  [04]   | `GrpcChannelOptions.HttpVersion`          | option property | pins the channel HTTP version                         |
+|  [04]   | `GrpcChannelOptions.HttpVersion`          | option property | selects channel HTTP version                          |
 |  [05]   | `grpc-internal-encoding-request`          | metadata key    | selects per-call request compression                  |
 
-[ENTRYPOINT_SCOPE]: `GrpcChannel` member members
+[ENTRYPOINT_SCOPE]: `GrpcChannel` members
+
 - source: `Grpc.Net.Client` (`lib/net10.0`) — `Grpc.Net.Client.GrpcChannel` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                               | [SIGNATURE]                                                                                                         |
-| :-----: | :------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `GrpcChannel.ForAddress`               | `static GrpcChannel ForAddress(string address)`                                                                     |
-|  [02]   | `GrpcChannel.ForAddress`               | `static GrpcChannel ForAddress(string address, GrpcChannelOptions channelOptions)`                                  |
-|  [03]   | `GrpcChannel.ForAddress`               | `static GrpcChannel ForAddress(Uri address)`                                                                        |
-|  [04]   | `GrpcChannel.ForAddress`               | `static GrpcChannel ForAddress(Uri address, GrpcChannelOptions channelOptions)`                                     |
-|  [05]   | `GrpcChannel.ConnectAsync`             | `Task ConnectAsync(CancellationToken cancellationToken = default)` — warms to `Ready`                               |
-|  [06]   | `GrpcChannel.State`                    | `ConnectivityState State { get; }`                                                                                  |
-|  [07]   | `GrpcChannel.WaitForStateChangedAsync` | `Task WaitForStateChangedAsync(ConnectivityState lastObservedState, CancellationToken cancellationToken = default)` |
-|  [08]   | `GrpcChannel.CreateCallInvoker`        | `override CallInvoker CreateCallInvoker()`                                                                          |
-|  [09]   | `GrpcChannel.Dispose`                  | `void Dispose()` (`sealed class GrpcChannel: ChannelBase, IDisposable`)                                             |
+`GrpcChannel` is a sealed `ChannelBase` and `IDisposable`. The `ForAddress` overloads are static, `State` is get-only, `CreateCallInvoker` overrides the base member, and both asynchronous members append `CancellationToken cancellationToken = default` to the parameters shown below. `ConnectAsync` warms the channel to `Ready`.
+
+| [INDEX] | [MEMBER]                               | [RESULT]            | [PARAMETERS]                                        |
+| :-----: | :------------------------------------- | :------------------ | :-------------------------------------------------- |
+|  [01]   | `GrpcChannel.ForAddress`               | `GrpcChannel`       | `string address`                                    |
+|  [02]   | `GrpcChannel.ForAddress`               | `GrpcChannel`       | `string address, GrpcChannelOptions channelOptions` |
+|  [03]   | `GrpcChannel.ForAddress`               | `GrpcChannel`       | `Uri address`                                       |
+|  [04]   | `GrpcChannel.ForAddress`               | `GrpcChannel`       | `Uri address, GrpcChannelOptions channelOptions`    |
+|  [05]   | `GrpcChannel.ConnectAsync`             | `Task`              | —                                                   |
+|  [06]   | `GrpcChannel.State`                    | `ConnectivityState` | —                                                   |
+|  [07]   | `GrpcChannel.WaitForStateChangedAsync` | `Task`              | `ConnectivityState lastObservedState`               |
+|  [08]   | `GrpcChannel.CreateCallInvoker`        | `CallInvoker`       | —                                                   |
+|  [09]   | `GrpcChannel.Dispose`                  | `void`              | —                                                   |
 
 `ConnectAsync`, `State`, and `WaitForStateChangedAsync` are unavailable when the channel wraps a caller-supplied `GrpcChannelOptions.HttpClient`; they require the handler-owned (`HttpHandler` / default) transport. Channel-internal defaults the remote-lane policy mirrors: `MaxReceiveMessageSize` 4 MiB (`4194304`), `MaxRetryAttempts` 5, `MaxRetryBufferSize` 16 MiB, `MaxRetryBufferPerCallSize` 1 MiB, `InitialReconnectBackoff` 1 s, `MaxReconnectBackoff` 120 s.
 
 [ENTRYPOINT_SCOPE]: interceptor override signatures
+
 - source: `Grpc.Core.Api` — `Grpc.Core.Interceptors.Interceptor` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                   | [SIGNATURE]                                                                                                                                                                                                                                    |
-| :-----: | :------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `BlockingUnaryCall`        | `virtual TResponse BlockingUnaryCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, BlockingUnaryCallContinuation<TReq,TResp> continuation) where TReq: class where TResp: class`                                     |
-|  [02]   | `AsyncUnaryCall`           | `virtual AsyncUnaryCall<TResp> AsyncUnaryCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, AsyncUnaryCallContinuation<TReq,TResp> continuation) where TReq: class where TResp: class`                               |
-|  [03]   | `AsyncServerStreamingCall` | `virtual AsyncServerStreamingCall<TResp> AsyncServerStreamingCall<TReq,TResp>(TReq request, ClientInterceptorContext<TReq,TResp> context, AsyncServerStreamingCallContinuation<TReq,TResp> continuation) where TReq: class where TResp: class` |
-|  [04]   | `AsyncClientStreamingCall` | `virtual AsyncClientStreamingCall<TReq,TResp> AsyncClientStreamingCall<TReq,TResp>(ClientInterceptorContext<TReq,TResp> context, AsyncClientStreamingCallContinuation<TReq,TResp> continuation) where TReq: class where TResp: class`          |
-|  [05]   | `AsyncDuplexStreamingCall` | `virtual AsyncDuplexStreamingCall<TReq,TResp> AsyncDuplexStreamingCall<TReq,TResp>(ClientInterceptorContext<TReq,TResp> context, AsyncDuplexStreamingCallContinuation<TReq,TResp> continuation) where TReq: class where TResp: class`          |
+Every override is `virtual`, generic on `<TRequest,TResponse>`, and constrains both type parameters to `class`. Each receives `ClientInterceptorContext<TRequest,TResponse> context` and the continuation delegate formed by suffixing its member name with `Continuation<TRequest,TResponse>` after the request where present.
+
+| [INDEX] | [MEMBER]                   | [REQUEST]          | [RESULT]                                       |
+| :-----: | :------------------------- | :----------------- | :--------------------------------------------- |
+|  [01]   | `BlockingUnaryCall`        | `TRequest request` | `TResponse`                                    |
+|  [02]   | `AsyncUnaryCall`           | `TRequest request` | `AsyncUnaryCall<TResponse>`                    |
+|  [03]   | `AsyncServerStreamingCall` | `TRequest request` | `AsyncServerStreamingCall<TResponse>`          |
+|  [04]   | `AsyncClientStreamingCall` | —                  | `AsyncClientStreamingCall<TRequest,TResponse>` |
+|  [05]   | `AsyncDuplexStreamingCall` | —                  | `AsyncDuplexStreamingCall<TRequest,TResponse>` |
 
 [ENTRYPOINT_SCOPE]: `ClientInterceptorContext` struct members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.Interceptors.ClientInterceptorContext<TRequest,TResponse>` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -143,47 +154,58 @@ execution clients.
 |  [04]   | `ctor`    | `ClientInterceptorContext(Method<TRequest,TResponse> method, string? host, CallOptions options)` |
 
 [ENTRYPOINT_SCOPE]: `CallOptions` struct members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.CallOptions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                | [SIGNATURE]                                                                                                                            |
-| :-----: | :---------------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Headers`               | `Metadata? Headers { get; }`                                                                                                           |
-|  [02]   | `Deadline`              | `DateTime? Deadline { get; }`                                                                                                          |
-|  [03]   | `CancellationToken`     | `CancellationToken CancellationToken { get; }`                                                                                         |
-|  [04]   | `Credentials`           | `CallCredentials? Credentials { get; }`                                                                                                |
-|  [05]   | `WithHeaders`           | `CallOptions WithHeaders(Metadata headers)`                                                                                            |
-|  [06]   | `WithDeadline`          | `CallOptions WithDeadline(DateTime deadline)`                                                                                          |
-|  [07]   | `WithCancellationToken` | `CallOptions WithCancellationToken(CancellationToken cancellationToken)`                                                               |
-|  [08]   | `WithCredentials`       | `CallOptions WithCredentials(CallCredentials credentials)`                                                                             |
-|  [09]   | `WithWaitForReady`      | `CallOptions WithWaitForReady(bool waitForReady = true)` — block until `Ready` vs fail-fast on a transient-failure channel             |
-|  [10]   | `WithWriteOptions`      | `CallOptions WithWriteOptions(WriteOptions writeOptions)` — per-call default `WriteFlags`                                              |
-|  [11]   | `WithPropagationToken`  | `CallOptions WithPropagationToken(ContextPropagationToken propagationToken)` — inherit deadline/cancellation from a parent server call |
+The first four members are get-only properties; every `With*` member returns `CallOptions`. `WithWaitForReady` selects queued startup, `WithWriteOptions` sets the per-call `WriteFlags`, and `WithPropagationToken` inherits a parent server call's deadline and cancellation.
+
+| [INDEX] | [MEMBER]                | [RESULT]            | [PARAMETERS]                               |
+| :-----: | :---------------------- | :------------------ | :----------------------------------------- |
+|  [01]   | `Headers`               | `Metadata?`         | —                                          |
+|  [02]   | `Deadline`              | `DateTime?`         | —                                          |
+|  [03]   | `CancellationToken`     | `CancellationToken` | —                                          |
+|  [04]   | `Credentials`           | `CallCredentials?`  | —                                          |
+|  [05]   | `WithHeaders`           | `CallOptions`       | `Metadata headers`                         |
+|  [06]   | `WithDeadline`          | `CallOptions`       | `DateTime deadline`                        |
+|  [07]   | `WithCancellationToken` | `CallOptions`       | `CancellationToken cancellationToken`      |
+|  [08]   | `WithCredentials`       | `CallOptions`       | `CallCredentials credentials`              |
+|  [09]   | `WithWaitForReady`      | `CallOptions`       | `bool waitForReady = true`                 |
+|  [10]   | `WithWriteOptions`      | `CallOptions`       | `WriteOptions writeOptions`                |
+|  [11]   | `WithPropagationToken`  | `CallOptions`       | `ContextPropagationToken propagationToken` |
 
 `CallSpine.Options` threads `WithDeadline`/`WithCancellationToken` (+ a once-per-call `WithHeaders` re-stamp) on every shape; `WithWaitForReady` is the wait-vs-fail-fast knob (off on the Compute hot path, where the channel is pre-warmed via `ConnectAsync` and a transient failure must surface as a typed fault rather than block inside the budget).
 
 [ENTRYPOINT_SCOPE]: `Grpc.Core.Metadata` header-collection members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.Metadata` / nested `Grpc.Core.Metadata.Entry` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-`Metadata: IList<Metadata.Entry>` is the mutable header/trailer collection `CallOptions.Headers`/`WithHeaders` thread and `RpcException.Trailers` returns. The `CallSpine` auth interceptor mints headers by `metadata.Add("authorization", "Bearer …")`, and the per-call header `Merge` folds a stamped set onto `Metadata.Empty` via `Add(Entry)` over the enumerated entries. Keys are lowercased; a `-bin` key suffix marks a binary entry whose value rides `ValueBytes` rather than `Value`.
+`Metadata : IList<Metadata.Entry>` is the mutable header and trailer collection threaded through `CallOptions.Headers`, `WithHeaders`, and `RpcException.Trailers`. `Metadata.Empty` is the read-only empty seed; keyed reads return the last match, while `GetAll` returns every match. `CallSpine` adds `metadata.Add("authorization", "Bearer …")`, and `Merge` folds stamped entries over `Metadata.Empty` with `Add(Metadata.Entry)`. Keys are lowercased, and the `-bin` suffix selects `ValueBytes` instead of `Value`.
 
-| [INDEX] | [MEMBER]                                      | [SIGNATURE]                                                                                                                                 |
-| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Metadata.ctor`                               | `Metadata()` — empty mutable collection                                                                                                     |
-|  [02]   | `Metadata.Empty`                              | `static readonly Metadata Empty` — the frozen read-only no-entry singleton (the `Merge` fold seed)                                          |
-|  [03]   | `Metadata.Add`                                | `void Add(string key, string value)` — ASCII entry (the auth-interceptor `authorization` stamp)                                             |
-|  [04]   | `Metadata.Add`                                | `void Add(string key, byte[] valueBytes)` — binary entry (key requires the `-bin` suffix)                                                   |
-|  [05]   | `Metadata.Add`                                | `void Add(Metadata.Entry entry)` — append an existing entry (the `Merge` fold body over `IList<Entry>`)                                     |
-|  [06]   | `Metadata.Get` / `GetValue` / `GetValueBytes` | `Entry? Get(string key)` · `string? GetValue(string key)` · `byte[]? GetValueBytes(string key)` — last-entry read by key (null when absent) |
-|  [07]   | `Metadata.GetAll`                             | `IEnumerable<Entry> GetAll(string key)` — every entry matching a key                                                                        |
-|  [08]   | `Metadata.Entry.ctor`                         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)` — the ASCII / binary entry                                       |
-|  [09]   | `Metadata.Entry` reads                        | `string Key { get; }` · `string Value { get; }` · `byte[] ValueBytes { get; }` · `bool IsBinary { get; }`                                   |
-|  [10]   | `Metadata.BinaryHeaderSuffix`                 | `const string BinaryHeaderSuffix = "-bin"` — the binary-entry key suffix                                                                    |
+| [INDEX] | [MEMBER]                      | [SIGNATURE]                                |
+| :-----: | :---------------------------- | :----------------------------------------- |
+|  [01]   | `Metadata.ctor`               | `Metadata()`                               |
+|  [02]   | `Metadata.Empty`              | `static readonly Metadata Empty`           |
+|  [03]   | `Metadata.Add`                | `void Add(string key, string value)`       |
+|  [04]   | `Metadata.Add`                | `void Add(string key, byte[] valueBytes)`  |
+|  [05]   | `Metadata.Add`                | `void Add(Metadata.Entry entry)`           |
+|  [06]   | `Metadata.Get`                | `Entry? Get(string key)`                   |
+|  [07]   | `Metadata.GetValue`           | `string? GetValue(string key)`             |
+|  [08]   | `Metadata.GetValueBytes`      | `byte[]? GetValueBytes(string key)`        |
+|  [09]   | `Metadata.GetAll`             | `IEnumerable<Entry> GetAll(string key)`    |
+|  [10]   | `Metadata.Entry.ctor`         | `Entry(string key, string value)`          |
+|  [11]   | `Metadata.Entry.ctor`         | `Entry(string key, byte[] valueBytes)`     |
+|  [12]   | `Metadata.Entry.Key`          | `string Key { get; }`                      |
+|  [13]   | `Metadata.Entry.Value`        | `string Value { get; }`                    |
+|  [14]   | `Metadata.Entry.ValueBytes`   | `byte[] ValueBytes { get; }`               |
+|  [15]   | `Metadata.Entry.IsBinary`     | `bool IsBinary { get; }`                   |
+|  [16]   | `Metadata.BinaryHeaderSuffix` | `const string BinaryHeaderSuffix = "-bin"` |
 
 [ENTRYPOINT_SCOPE]: `RpcException` members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.RpcException` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -199,6 +221,7 @@ execution clients.
 |  [07]   | `ctor`       | `RpcException(Status status, Metadata trailers, string message)` |
 
 [ENTRYPOINT_SCOPE]: `StatusCode` enum members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.StatusCode` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -224,19 +247,23 @@ execution clients.
 |  [17]   | `Unauthenticated`    | `Unauthenticated = 16`   |
 
 [ENTRYPOINT_SCOPE]: credential composition members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.CallCredentials` / `Grpc.Core.ChannelCredentials` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                          | [SIGNATURE]                                                                                                |
-| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CallCredentials.Compose`         | `static CallCredentials Compose(params CallCredentials[] credentials)`                                     |
-|  [02]   | `CallCredentials.FromInterceptor` | `static CallCredentials FromInterceptor(AsyncAuthInterceptor interceptor)`                                 |
-|  [03]   | `ChannelCredentials.Create`       | `static ChannelCredentials Create(ChannelCredentials channelCredentials, CallCredentials callCredentials)` |
-|  [04]   | `ChannelCredentials.Insecure`     | `static ChannelCredentials Insecure { get; }`                                                              |
-|  [05]   | `ChannelCredentials.SecureSsl`    | `static ChannelCredentials SecureSsl { get; }`                                                             |
+Every credential member is static; `Insecure` and `SecureSsl` are get-only properties.
+
+| [INDEX] | [MEMBER]                          | [SIGNATURE]                                                                                         |
+| :-----: | :-------------------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `CallCredentials.Compose`         | `CallCredentials Compose(params CallCredentials[] credentials)`                                     |
+|  [02]   | `CallCredentials.FromInterceptor` | `CallCredentials FromInterceptor(AsyncAuthInterceptor interceptor)`                                 |
+|  [03]   | `ChannelCredentials.Create`       | `ChannelCredentials Create(ChannelCredentials channelCredentials, CallCredentials callCredentials)` |
+|  [04]   | `ChannelCredentials.Insecure`     | `ChannelCredentials Insecure { get; }`                                                              |
+|  [05]   | `ChannelCredentials.SecureSsl`    | `ChannelCredentials SecureSsl { get; }`                                                             |
 
 [ENTRYPOINT_SCOPE]: `CallInvokerExtensions` intercept factory members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.Interceptors.CallInvokerExtensions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -249,37 +276,46 @@ execution clients.
 |  [04]   | `InterceptingCallInvoker.ctor`    | `InterceptingCallInvoker(CallInvoker invoker, Interceptor interceptor)`                        |
 
 [ENTRYPOINT_SCOPE]: `AsyncAuthInterceptor` delegate and `AuthInterceptorContext` members
+
 - source: `Grpc.Core.Api` — `Grpc.Core.AsyncAuthInterceptor` / `Grpc.Core.AuthInterceptorContext` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                                   | [SIGNATURE]                                                                                         |
-| :-----: | :----------------------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `AsyncAuthInterceptor`                     | `delegate Task AsyncAuthInterceptor(AuthInterceptorContext context, Metadata metadata)`             |
-|  [02]   | `AuthInterceptorContext.ctor`              | `AuthInterceptorContext(string serviceUrl, string methodName)`                                      |
-|  [03]   | `AuthInterceptorContext.ctor`              | `AuthInterceptorContext(string serviceUrl, string methodName, CancellationToken cancellationToken)` |
-|  [04]   | `AuthInterceptorContext.ServiceUrl`        | `string ServiceUrl { get; }`                                                                        |
-|  [05]   | `AuthInterceptorContext.MethodName`        | `string MethodName { get; }`                                                                        |
-|  [06]   | `AuthInterceptorContext.CancellationToken` | `CancellationToken CancellationToken { get; }`                                                      |
+The context rows name `AuthInterceptorContext` members; its properties are get-only.
+
+| [INDEX] | [MEMBER]               | [SIGNATURE]                                                                                         |
+| :-----: | :--------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `AsyncAuthInterceptor` | `delegate Task AsyncAuthInterceptor(AuthInterceptorContext context, Metadata metadata)`             |
+|  [02]   | `ctor`                 | `AuthInterceptorContext(string serviceUrl, string methodName)`                                      |
+|  [03]   | `ctor`                 | `AuthInterceptorContext(string serviceUrl, string methodName, CancellationToken cancellationToken)` |
+|  [04]   | `ServiceUrl`           | `string ServiceUrl { get; }`                                                                        |
+|  [05]   | `MethodName`           | `string MethodName { get; }`                                                                        |
+|  [06]   | `CancellationToken`    | `CancellationToken CancellationToken { get; }`                                                      |
 
 [ENTRYPOINT_SCOPE]: `SocketsHttpHandler` keepalive members (BCL — passed as `GrpcChannelOptions.HttpHandler`)
+
 - source: BCL `System.Net.Http` net10.0 — `System.Net.Http.SocketsHttpHandler` member surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                                            | [SIGNATURE]                                                           |
-| :-----: | :-------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `SocketsHttpHandler.KeepAlivePingDelay`             | `TimeSpan KeepAlivePingDelay { get; set; }`                           |
-|  [02]   | `SocketsHttpHandler.KeepAlivePingTimeout`           | `TimeSpan KeepAlivePingTimeout { get; set; }`                         |
-|  [03]   | `SocketsHttpHandler.KeepAlivePingPolicy`            | `HttpKeepAlivePingPolicy KeepAlivePingPolicy { get; set; }`           |
-|  [04]   | `SocketsHttpHandler.EnableMultipleHttp2Connections` | `bool EnableMultipleHttp2Connections { get; set; }`                   |
-|  [05]   | `HttpKeepAlivePingPolicy.WithActiveRequests`        | `WithActiveRequests = 0` — ping only when active requests are pending |
-|  [06]   | `HttpKeepAlivePingPolicy.Always`                    | `Always = 1` — ping even on idle connections                          |
+`HttpKeepAlivePingPolicy.WithActiveRequests` pings while requests are pending, while `HttpKeepAlivePingPolicy.Always` also pings idle connections.
+
+| [INDEX] | [MEMBER]                                            | [SIGNATURE]                                                 |
+| :-----: | :-------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `SocketsHttpHandler.KeepAlivePingDelay`             | `TimeSpan KeepAlivePingDelay { get; set; }`                 |
+|  [02]   | `SocketsHttpHandler.KeepAlivePingTimeout`           | `TimeSpan KeepAlivePingTimeout { get; set; }`               |
+|  [03]   | `SocketsHttpHandler.KeepAlivePingPolicy`            | `HttpKeepAlivePingPolicy KeepAlivePingPolicy { get; set; }` |
+|  [04]   | `SocketsHttpHandler.EnableMultipleHttp2Connections` | `bool EnableMultipleHttp2Connections { get; set; }`         |
+|  [05]   | `HttpKeepAlivePingPolicy.WithActiveRequests`        | `WithActiveRequests = 0`                                    |
+|  [06]   | `HttpKeepAlivePingPolicy.Always`                    | `Always = 1`                                                |
 
 [ENTRYPOINT_SCOPE]: compression provider types
+
 - source: `Grpc.Net.Common` — `Grpc.Net.Compression` namespace surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
+
+`GzipCompressionProvider.EncodingName` returns `"gzip"`, while `DeflateCompressionProvider.EncodingName` returns `"deflate"`.
 
 | [INDEX] | [MEMBER]                                         | [SIGNATURE]                                                                         |
 | :-----: | :----------------------------------------------- | :---------------------------------------------------------------------------------- |
@@ -287,11 +323,12 @@ execution clients.
 |  [02]   | `ICompressionProvider.CreateCompressionStream`   | `Stream CreateCompressionStream(Stream stream, CompressionLevel? compressionLevel)` |
 |  [03]   | `ICompressionProvider.CreateDecompressionStream` | `Stream CreateDecompressionStream(Stream stream)`                                   |
 |  [04]   | `GzipCompressionProvider.ctor`                   | `GzipCompressionProvider(CompressionLevel defaultCompressionLevel)`                 |
-|  [05]   | `GzipCompressionProvider.EncodingName`           | `string EncodingName { get; }` returns `"gzip"`                                     |
+|  [05]   | `GzipCompressionProvider.EncodingName`           | `string EncodingName { get; }`                                                      |
 |  [06]   | `DeflateCompressionProvider.ctor`                | `DeflateCompressionProvider(CompressionLevel defaultCompressionLevel)`              |
-|  [07]   | `DeflateCompressionProvider.EncodingName`        | `string EncodingName { get; }` returns `"deflate"`                                  |
+|  [07]   | `DeflateCompressionProvider.EncodingName`        | `string EncodingName { get; }`                                                      |
 
 [ENTRYPOINT_SCOPE]: `GrpcChannelOptions` core properties
+
 - source: `Grpc.Net.Client` — `GrpcChannelOptions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -318,73 +355,99 @@ execution clients.
 |  [18]   | `LoggerFactory`                           | `ILoggerFactory? LoggerFactory { get; set; }`                     |
 
 [ENTRYPOINT_SCOPE]: `GrpcChannelOptions` reconnect properties
+
 - source: `Grpc.Net.Client` — `GrpcChannelOptions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-| [INDEX] | [MEMBER]                  | [SIGNATURE]                                                    |
-| :-----: | :------------------------ | :------------------------------------------------------------- |
-|  [01]   | `MaxReconnectBackoff`     | `TimeSpan? MaxReconnectBackoff { get; set; }` — default 120 s  |
-|  [02]   | `InitialReconnectBackoff` | `TimeSpan InitialReconnectBackoff { get; set; }` — default 1 s |
+`InitialReconnectBackoff` defaults to 1 s, and `MaxReconnectBackoff` defaults to 120 s.
+
+| [INDEX] | [MEMBER]                  | [SIGNATURE]                                      |
+| :-----: | :------------------------ | :----------------------------------------------- |
+|  [01]   | `MaxReconnectBackoff`     | `TimeSpan? MaxReconnectBackoff { get; set; }`    |
+|  [02]   | `InitialReconnectBackoff` | `TimeSpan InitialReconnectBackoff { get; set; }` |
 
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Client.Configuration` service-config algebra
+
 - source: `Grpc.Net.Client` (`lib/net10.0`) — `Grpc.Net.Client.Configuration.*` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
 
-All config types are `sealed class: ConfigObject` (a JSON-shaped `IDictionary<string,object>` carrier) with a public parameterless ctor; properties read/write the inner map. The whole tree is data, not generated-client surface, and seeds `GrpcChannelOptions.ServiceConfig`.
+Every configuration type is a sealed class deriving from `ConfigObject`, a JSON-shaped `IDictionary<string,object>` carrier with a public parameterless constructor and properties backed by the inner map. The data tree seeds `GrpcChannelOptions.ServiceConfig` and remains separate from generated-client surfaces. `MethodName.Default` has null `Service` and `Method` values and matches every method; each `MethodConfig` selects retry or hedging, never both.
 
-| [INDEX] | [MEMBER]                               | [SIGNATURE]                                                                                                         |
-| :-----: | :------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `ServiceConfig.MethodConfigs`          | `IList<MethodConfig> MethodConfigs { get; }`                                                                        |
-|  [02]   | `ServiceConfig.LoadBalancingConfigs`   | `IList<LoadBalancingConfig> LoadBalancingConfigs { get; }`                                                          |
-|  [03]   | `ServiceConfig.RetryThrottling`        | `RetryThrottlingPolicy? RetryThrottling { get; set; }`                                                              |
-|  [04]   | `MethodConfig.Names`                   | `IList<MethodName> Names { get; }` — `MethodName.Default` (`MethodName.Service`/`Method` null) matches every method |
-|  [05]   | `MethodConfig.RetryPolicy`             | `RetryPolicy? RetryPolicy { get; set; }`                                                                            |
-|  [06]   | `MethodConfig.HedgingPolicy`           | `HedgingPolicy? HedgingPolicy { get; set; }` — retry and hedging are mutually exclusive per method                  |
-|  [07]   | `RetryPolicy.MaxAttempts`              | `int? MaxAttempts { get; set; }`                                                                                    |
-|  [08]   | `RetryPolicy.InitialBackoff`           | `TimeSpan? InitialBackoff { get; set; }`                                                                            |
-|  [09]   | `RetryPolicy.MaxBackoff`               | `TimeSpan? MaxBackoff { get; set; }`                                                                                |
-|  [10]   | `RetryPolicy.BackoffMultiplier`        | `double? BackoffMultiplier { get; set; }`                                                                           |
-|  [11]   | `RetryPolicy.RetryableStatusCodes`     | `IList<StatusCode> RetryableStatusCodes { get; }`                                                                   |
-|  [12]   | `HedgingPolicy.MaxAttempts`            | `int? MaxAttempts { get; set; }`                                                                                    |
-|  [13]   | `HedgingPolicy.HedgingDelay`           | `TimeSpan? HedgingDelay { get; set; }`                                                                              |
-|  [14]   | `HedgingPolicy.NonFatalStatusCodes`    | `IList<StatusCode> NonFatalStatusCodes { get; }`                                                                    |
-|  [15]   | `RetryThrottlingPolicy.MaxTokens`      | `int? MaxTokens { get; set; }`                                                                                      |
-|  [16]   | `RetryThrottlingPolicy.TokenRatio`     | `double? TokenRatio { get; set; }`                                                                                  |
-|  [17]   | `LoadBalancingConfig.PolicyName`       | `string PolicyName { get; }`; consts `PickFirstPolicyName = "pick_first"`, `RoundRobinPolicyName = "round_robin"`   |
-|  [18]   | `PickFirstConfig` / `RoundRobinConfig` | `sealed class …: LoadBalancingConfig` — the two built-in `LoadBalancingConfigs` rows                                |
+| [INDEX] | [MEMBER]                                   | [SIGNATURE]                                                |
+| :-----: | :----------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `ServiceConfig.MethodConfigs`              | `IList<MethodConfig> MethodConfigs { get; }`               |
+|  [02]   | `ServiceConfig.LoadBalancingConfigs`       | `IList<LoadBalancingConfig> LoadBalancingConfigs { get; }` |
+|  [03]   | `ServiceConfig.RetryThrottling`            | `RetryThrottlingPolicy? RetryThrottling { get; set; }`     |
+|  [04]   | `MethodConfig.Names`                       | `IList<MethodName> Names { get; }`                         |
+|  [05]   | `MethodConfig.RetryPolicy`                 | `RetryPolicy? RetryPolicy { get; set; }`                   |
+|  [06]   | `MethodConfig.HedgingPolicy`               | `HedgingPolicy? HedgingPolicy { get; set; }`               |
+|  [07]   | `RetryPolicy.MaxAttempts`                  | `int? MaxAttempts { get; set; }`                           |
+|  [08]   | `RetryPolicy.InitialBackoff`               | `TimeSpan? InitialBackoff { get; set; }`                   |
+|  [09]   | `RetryPolicy.MaxBackoff`                   | `TimeSpan? MaxBackoff { get; set; }`                       |
+|  [10]   | `RetryPolicy.BackoffMultiplier`            | `double? BackoffMultiplier { get; set; }`                  |
+|  [11]   | `RetryPolicy.RetryableStatusCodes`         | `IList<StatusCode> RetryableStatusCodes { get; }`          |
+|  [12]   | `HedgingPolicy.MaxAttempts`                | `int? MaxAttempts { get; set; }`                           |
+|  [13]   | `HedgingPolicy.HedgingDelay`               | `TimeSpan? HedgingDelay { get; set; }`                     |
+|  [14]   | `HedgingPolicy.NonFatalStatusCodes`        | `IList<StatusCode> NonFatalStatusCodes { get; }`           |
+|  [15]   | `RetryThrottlingPolicy.MaxTokens`          | `int? MaxTokens { get; set; }`                             |
+|  [16]   | `RetryThrottlingPolicy.TokenRatio`         | `double? TokenRatio { get; set; }`                         |
+|  [17]   | `LoadBalancingConfig.PolicyName`           | `string PolicyName { get; }`                               |
+|  [18]   | `LoadBalancingConfig.PickFirstPolicyName`  | `const string PickFirstPolicyName = "pick_first"`          |
+|  [19]   | `LoadBalancingConfig.RoundRobinPolicyName` | `const string RoundRobinPolicyName = "round_robin"`        |
+|  [20]   | `PickFirstConfig`                          | `sealed class PickFirstConfig : LoadBalancingConfig`       |
+|  [21]   | `RoundRobinConfig`                         | `sealed class RoundRobinConfig : LoadBalancingConfig`      |
 
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Client.Balancer` resolver and balancer extension surface
+
 - source: `Grpc.Net.Client` (`lib/net10.0`) — `Grpc.Net.Client.Balancer.*` surface
 - rail: remote-client#BALANCER (advanced — see admission)
 - consumer: `remote-lane#CALL_SPINE`
 
-This is the custom name-resolution / client-side load-balancing extension surface. The Compute remote-lane to a known AppHost endpoint deliberately bypasses it: it dials one warm `GrpcChannel` per endpoint, sets `DisableResolverServiceConfig = true`, and never sets `ServiceConfig` (the AppHost keyed pipeline owns hop retry). `StaticResolverFactory` is the only row a fixed-endpoint client does realistically inject (DNS-free static address set); the custom `LoadBalancer`/`SubchannelPicker` path is full-surface completeness, not a Compute hot path.
+The custom resolution and client-side balancing surface centers on abstract `ResolverFactory`, `Resolver`, `LoadBalancerFactory`, `LoadBalancer`, and `SubchannelPicker` contracts. Factory `Name` and `Create`, `Resolver.Start`, both `LoadBalancer` members, and `SubchannelPicker.Pick` are abstract; `Resolver.Refresh` is virtual. Factory `Name` and `PickResult.Type` are get-only properties. `DnsResolverFactory.Name` returns `"dns"`, while `StaticResolverFactory.Name` returns `"static"`. `Resolver` and `LoadBalancer` are disposable; `Subchannel` is sealed and disposable. The `ResolverResult` and `PickResult` factories are static. `ResolverResult.ForResult` always accepts `IReadOnlyList<BalancerAddress> addresses`; its configured overload adds `ServiceConfig? serviceConfig` and `Status? serviceConfigStatus`. Resolver results carry `Status`, `Addresses`, `ServiceConfig`, `ServiceConfigStatus`, and `Attributes`; balancer addresses carry an `Attributes` bag. `PickResult.ForDrop` suppresses retry, while `ForQueue` re-queues selection before `Ready`.
 
-| [INDEX] | [MEMBER]                       | [SIGNATURE]                                                                                                                                                             |
-| :-----: | :----------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ResolverFactory`              | `abstract class` — `abstract string Name { get; }`, `abstract Resolver Create(ResolverOptions options)`                                                                 |
-|  [02]   | `DnsResolverFactory.ctor`      | `DnsResolverFactory(TimeSpan refreshInterval)` — `Name => "dns"`                                                                                                        |
-|  [03]   | `StaticResolverFactory.ctor`   | `StaticResolverFactory(Func<Uri, IEnumerable<BalancerAddress>> addressesCallback)` — `Name => "static"`                                                                 |
-|  [04]   | `Resolver.Start`               | `abstract void Start(Action<ResolverResult> listener)` (`abstract class Resolver: IDisposable`)                                                                         |
-|  [05]   | `Resolver.Refresh`             | `virtual void Refresh()`                                                                                                                                                |
-|  [06]   | `ResolverResult.ForResult`     | `static ResolverResult ForResult(IReadOnlyList<BalancerAddress> addresses[, ServiceConfig?, Status?])`                                                                  |
-|  [07]   | `ResolverResult.ForFailure`    | `static ResolverResult ForFailure(Status status)` — carries `Status`/`Addresses`/`ServiceConfig`                                                                        |
-|  [08]   | `BalancerAddress.ctor`         | `BalancerAddress(string host, int port)` / `BalancerAddress(DnsEndPoint endPoint)` — `Attributes` bag                                                                   |
-|  [09]   | `LoadBalancerFactory`          | `abstract class` — `abstract string Name { get; }`, `abstract LoadBalancer Create(LoadBalancerOptions options)`                                                         |
-|  [10]   | `LoadBalancer`                 | `abstract class: IDisposable` — `abstract void UpdateChannelState(ChannelState)`, `abstract void RequestConnection()`                                                   |
-|  [11]   | `Subchannel.RequestConnection` | `void RequestConnection()` (`sealed class Subchannel: IDisposable`)                                                                                                     |
-|  [12]   | `Subchannel.OnStateChanged`    | `IDisposable OnStateChanged(Action<SubchannelState> callback)`; `void UpdateAddresses(IReadOnlyList<BalancerAddress>)`; `IReadOnlyList<BalancerAddress> GetAddresses()` |
-|  [13]   | `SubchannelPicker.Pick`        | `abstract PickResult Pick(PickContext context)` (`abstract class SubchannelPicker`)                                                                                     |
-|  [14]   | `PickResult.ForSubchannel`     | `static PickResult ForSubchannel(Subchannel subchannel, ISubchannelCallTracker? tracker = null)`                                                                        |
-|  [15]   | `PickResult.ForFailure`        | `static PickResult ForFailure(Status status)`                                                                                                                           |
-|  [16]   | `PickResult.ForDrop`           | `static PickResult ForDrop(Status status)` — drops the call without retry                                                                                               |
-|  [17]   | `PickResult.ForQueue`          | `static PickResult ForQueue()` — re-queues the pick (channel before `Ready`); `PickResultType Type { get; }`                                                            |
+Every static `ResolverResult` factory returns `ResolverResult`.
+
+| [INDEX] | [MEMBER]     | [PARAMETERS]                                                                                          |
+| :-----: | :----------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `ForResult`  | `IReadOnlyList<BalancerAddress> addresses`                                                            |
+|  [02]   | `ForResult`  | `IReadOnlyList<BalancerAddress> addresses, ServiceConfig? serviceConfig, Status? serviceConfigStatus` |
+|  [03]   | `ForFailure` | `Status status`                                                                                       |
+
+The Compute remote lane bypasses this surface for known AppHost endpoints: one warm `GrpcChannel` owns each endpoint, `DisableResolverServiceConfig = true`, and `ServiceConfig` remains unset because the AppHost keyed pipeline owns hop retry. A fixed-endpoint client admits `StaticResolverFactory` only for a DNS-free address set; custom `LoadBalancer` and `SubchannelPicker` implementations remain outside the hot path.
+
+| [INDEX] | [MEMBER]                          | [RESULT]                         | [PARAMETERS]                                                    |
+| :-----: | :-------------------------------- | :------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | `ResolverFactory.Name`            | `string`                         | —                                                               |
+|  [02]   | `ResolverFactory.Create`          | `Resolver`                       | `ResolverOptions options`                                       |
+|  [03]   | `DnsResolverFactory.ctor`         | `DnsResolverFactory`             | `TimeSpan refreshInterval`                                      |
+|  [04]   | `DnsResolverFactory.Name`         | `string`                         | —                                                               |
+|  [05]   | `StaticResolverFactory.ctor`      | `StaticResolverFactory`          | `Func<Uri, IEnumerable<BalancerAddress>> addressesCallback`     |
+|  [06]   | `StaticResolverFactory.Name`      | `string`                         | —                                                               |
+|  [07]   | `Resolver.Start`                  | `void`                           | `Action<ResolverResult> listener`                               |
+|  [08]   | `Resolver.Refresh`                | `void`                           | —                                                               |
+|  [09]   | `BalancerAddress.ctor`            | `BalancerAddress`                | `string host, int port`                                         |
+|  [10]   | `BalancerAddress.ctor`            | `BalancerAddress`                | `DnsEndPoint endPoint`                                          |
+|  [11]   | `LoadBalancerFactory.Name`        | `string`                         | —                                                               |
+|  [12]   | `LoadBalancerFactory.Create`      | `LoadBalancer`                   | `LoadBalancerOptions options`                                   |
+|  [13]   | `LoadBalancer.UpdateChannelState` | `void`                           | `ChannelState state`                                            |
+|  [14]   | `LoadBalancer.RequestConnection`  | `void`                           | —                                                               |
+|  [15]   | `Subchannel.RequestConnection`    | `void`                           | —                                                               |
+|  [16]   | `Subchannel.OnStateChanged`       | `IDisposable`                    | `Action<SubchannelState> callback`                              |
+|  [17]   | `Subchannel.UpdateAddresses`      | `void`                           | `IReadOnlyList<BalancerAddress> addresses`                      |
+|  [18]   | `Subchannel.GetAddresses`         | `IReadOnlyList<BalancerAddress>` | —                                                               |
+|  [19]   | `SubchannelPicker.Pick`           | `PickResult`                     | `PickContext context`                                           |
+|  [20]   | `PickResult.ForSubchannel`        | `PickResult`                     | `Subchannel subchannel, ISubchannelCallTracker? tracker = null` |
+|  [21]   | `PickResult.ForFailure`           | `PickResult`                     | `Status status`                                                 |
+|  [22]   | `PickResult.ForDrop`              | `PickResult`                     | `Status status`                                                 |
+|  [23]   | `PickResult.ForQueue`             | `PickResult`                     | —                                                               |
+|  [24]   | `PickResult.Type`                 | `PickResultType`                 | —                                                               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CHANNEL_POLICY]:
+
 - namespace: `Grpc.Net.Client`
 - channel root: `GrpcChannel`
 - policy root: `GrpcChannelOptions`
@@ -392,6 +455,7 @@ This is the custom name-resolution / client-side load-balancing extension surfac
 - payload bounds: send and receive message sizes are part of remote execution policy
 
 [INTERCEPTOR_SURFACE]:
+
 - namespace: `Grpc.Core.Interceptors`
 - base class: `abstract class Interceptor` in `Grpc.Core.Api`
 - client overrides: `BlockingUnaryCall`, `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, `AsyncDuplexStreamingCall` — each virtual with a matching continuation delegate type
@@ -401,11 +465,13 @@ This is the custom name-resolution / client-side load-balancing extension surfac
 - server overrides: `UnaryServerHandler`, `ClientStreamingServerHandler`, `ServerStreamingServerHandler`, `DuplexStreamingServerHandler` — out of scope for the Compute client rail
 
 [KEEPALIVE_POLICY]:
+
 - keepalive is owned by `SocketsHttpHandler` (BCL) when passed as `GrpcChannelOptions.HttpHandler`
 - properties: `SocketsHttpHandler.KeepAlivePingDelay`, `KeepAlivePingTimeout`, `KeepAlivePingPolicy` (`HttpKeepAlivePingPolicy.WithActiveRequests` / `Always`), `EnableMultipleHttp2Connections`
 - reconnect backoff: `GrpcChannelOptions.InitialReconnectBackoff` (default 1 s) and `MaxReconnectBackoff` (default 120 s) control exponential backoff between connection attempts
 
 [COMPRESSION_SURFACE]:
+
 - namespace: `Grpc.Net.Compression` (in `Grpc.Net.Common`)
 - interface: `ICompressionProvider` with `EncodingName`, `CreateCompressionStream`, `CreateDecompressionStream`
 - built-in providers: `GzipCompressionProvider(CompressionLevel)` → encoding `"gzip"`; `DeflateCompressionProvider(CompressionLevel)` → encoding `"deflate"` (wraps `ZLibStream`)
@@ -413,6 +479,7 @@ This is the custom name-resolution / client-side load-balancing extension surfac
 - per-call selection: `grpc-internal-encoding-request` metadata key
 
 [REMOTE_RESILIENCE]:
+
 - namespace: `Grpc.Net.Client.Configuration`; all rows are `ConfigObject` data, seeded onto `GrpcChannelOptions.ServiceConfig`, never generated-client surface.
 - retry: `RetryPolicy` carries `MaxAttempts`, `InitialBackoff`, `MaxBackoff`, `BackoffMultiplier`, and the `RetryableStatusCodes` (`IList<StatusCode>`) — bounded by the channel-level `MaxRetryAttempts`/`MaxRetryBufferSize`/`MaxRetryBufferPerCallSize` caps.
 - hedging: `HedgingPolicy` carries `MaxAttempts`, `HedgingDelay`, and `NonFatalStatusCodes`; a `MethodConfig` carries retry OR hedging, never both.
@@ -421,17 +488,20 @@ This is the custom name-resolution / client-side load-balancing extension surfac
 - Compute stance: this whole config tree is the second-retry-owner surface the remote-lane rejects — `DisableResolverServiceConfig = true` and an unset `ServiceConfig` keep the no-retry posture; the AppHost keyed pipeline owns the hop retry and a detected second owner emits Conflict evidence rather than stacking.
 
 [STACK_INTEGRATION]:
+
 - Single channel rail: one `GrpcChannel.ForAddress(Uri, GrpcChannelOptions)` per `ComputeEndpoint`, warmed with `ConnectAsync` before the first deadline-bearing call, observed by a `State` + `WaitForStateChangedAsync` connectivity fold. The options carry `Credentials` (`ChannelCredentials.Create`/`SecureSsl` projected from the credential axis), `CompressionProviders` (the registered `ICompressionProvider` rows), `MaxSend`/`MaxReceiveMessageSize`, `HttpHandler` (a `GrpcWebHandler`-wrapped or bare `SocketsHttpHandler` whose keepalive/pooling members are threaded from one channel-policy owner), and `HttpVersion`/`HttpVersionPolicy`.
 - Single call rail: one `Interceptor` (`CallSpine`) overriding all five client shapes stamps correlation, traceparent, the deadline budget, and the per-call credential/compression edges; `CallOptions.WithDeadline`/`WithCancellationToken`/`WithHeaders`/`WithCredentials` thread per call; `CallCredentials.FromInterceptor(AsyncAuthInterceptor)` (composed via `Compose`) mints per-call identity; the per-call `grpc-internal-encoding-request` key selects compression by value against the channel-side registration.
 - Single fault rail: a thrown `RpcException` (`Status`/`StatusCode`/`Trailers`) classifies at one fold onto the typed `WireFault` union — the seventeen-code `StatusCode` taxonomy keys by numeric value (non-sequential), and the server-side `google.rpc.Status` detail unpacks back onto the same rail. Server-streaming responses enumerate through `IAsyncStreamReader<T>.ReadAllAsync` (the `Grpc.Net.Common` extension).
 
 [LOCAL_ADMISSION]:
+
 - Compute remote calls enter through client-side channels only.
 - Server-side gRPC packages remain outside the Compute package graph.
 - The `Grpc.Net.Client.Balancer` resolver/balancer surface and the `ServiceConfig` retry/hedging/load-balancing tree are full-surface but admission-gated OUT of the Compute hot path: `DisableResolverServiceConfig = true`, `ServiceConfig` unset, node affinity rides endpoint-identity rows rather than a load-balancing policy.
 - Generated clients are typed edge adapters over Compute request and receipt algebra.
 
 [RAIL_LAW]:
+
 - Package: `Grpc.Net.Client`
 - Owns: client channels, call invocation, client policy
 - Accept: measured remote execution calls

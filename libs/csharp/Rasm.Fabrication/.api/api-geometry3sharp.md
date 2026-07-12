@@ -1,10 +1,11 @@
 # [RASM_FABRICATION_API_GEOMETRY3SHARP]
 
-`geometry3Sharp` is admitted only for the line-sourced biarc fitting seam in `Posting/program#CUT_PROGRAM`. `g3.BiArcFit2` converts kernel mesh-section chord runs into two `G1`-continuous `Arc2d` or `Segment2d` spans for `G2`/`G3` emission; arc-native kerf, lead, and adaptive work stay on `Geometry2D/arcs` through CavalierContours. The admission excludes mesh, distance-grid, remeshing, and Boolean surfaces, and the `geometry4Sharp` fork is a duplicate surface rather than a second dependency.
+The fabrication rail admits `geometry3Sharp` only for line-sourced biarc fitting. `g3.BiArcFit2` converts kernel mesh-section chord runs into two `G1`-continuous `Arc2d` or `Segment2d` spans for `G2`/`G3` emission; arc-native kerf, lead, and adaptive work stay on `Geometry2D/arcs` through CavalierContours. The admission excludes mesh, distance-grid, remeshing, and Boolean surfaces, and the `geometry4Sharp` fork is a duplicate surface rather than a second dependency.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `geometry3Sharp`
+
 - Package: `geometry3Sharp`
 - License: `Boost-1.0`
 - Assembly: `geometry3Sharp`

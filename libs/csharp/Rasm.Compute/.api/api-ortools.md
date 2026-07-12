@@ -73,13 +73,13 @@
 - rail: solver#GRAPH
 - note: `Google.OrTools.Graph` — the specialized min-cut/max-flow/assignment engines (bound-assembly-verified in `lib/net8.0`); each is `IDisposable` over a native graph and takes `int` node/arc indices with `long` capacities/costs. The `Analysis/circulation` exit-capacity solver, outranking a managed Edmonds-Karp minted for the same concern.
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]      | [RAIL]                              |
-| :-----: | :--------------------- | :----------------- | :---------------------------------- |
-|  [01]   | `MaxFlow`              | max-flow engine    | push-relabel max-flow / min-cut     |
-|  [02]   | `MaxFlow.Status`       | status enum        | `OPTIMAL`/`POSSIBLE_OVERFLOW`/`BAD_INPUT`/`BAD_RESULT` |
-|  [03]   | `MinCostFlow`          | min-cost-flow engine | `: MinCostFlowBase` — min-cost flow / max-flow-at-min-cost |
-|  [04]   | `MinCostFlowBase`      | flow base          | shared node/arc accessors + `Status` enum |
-|  [05]   | `LinearSumAssignment`  | assignment engine  | optimal bipartite min-cost assignment |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]        | [RAIL]                                                     |
+| :-----: | :-------------------- | :------------------- | :--------------------------------------------------------- |
+|  [01]   | `MaxFlow`             | max-flow engine      | push-relabel max-flow / min-cut                            |
+|  [02]   | `MaxFlow.Status`      | status enum          | `OPTIMAL`/`POSSIBLE_OVERFLOW`/`BAD_INPUT`/`BAD_RESULT`     |
+|  [03]   | `MinCostFlow`         | min-cost-flow engine | `: MinCostFlowBase` — min-cost flow / max-flow-at-min-cost |
+|  [04]   | `MinCostFlowBase`     | flow base            | shared node/arc accessors + `Status` enum                  |
+|  [05]   | `LinearSumAssignment` | assignment engine    | optimal bipartite min-cost assignment                      |
 
 [PUBLIC_TYPE_SCOPE]: ConstraintSolver routing contracts
 - rail: solver#ROUTING
@@ -141,29 +141,29 @@
 - rail: solver#CP_SAT
 - note: every `CpModel.Add*` returns either a base `Constraint` (reifiable through `OnlyEnforceIf`) or a refined family that exposes its own fluent builder. These are the methods a discretization/clash design page composes — the table in section 2 names the types, this names the live builders.
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]   | [RAIL]                                          |
-| :-----: | :------------------------------------------------------------------------ | :--------------- | :---------------------------------------------- |
-|  [01]   | `Constraint.OnlyEnforceIf(ILiteral lit)` / `OnlyEnforceIf(ILiteral[] lits)` | reification      | half-reifies any constraint on a literal/and-set |
-|  [02]   | `Constraint.Proto` / `Constraint.Index`                                   | constraint value | the underlying `ConstraintProto` and model index |
-|  [03]   | `ReservoirConstraint.AddEvent<T,L>(T time, L levelChange)`                 | reservoir build  | adds a fixed level event                        |
-|  [04]   | `ReservoirConstraint.AddOptionalEvent<T,L>(T time, L levelChange, ILiteral)` | reservoir build  | adds a presence-gated level event               |
-|  [05]   | `CumulativeConstraint.AddDemand<D>(IntervalVar interval, D demand)`        | cumulative build | binds one interval's resource demand            |
-|  [06]   | `CumulativeConstraint.AddDemands<D>(IEnumerable<IntervalVar>, IEnumerable<D>)` | cumulative build | binds a batch of interval demands               |
-|  [07]   | `NoOverlap2dConstraint.AddRectangle(IntervalVar xInterval, IntervalVar yInterval)` | 2D pack build | adds an x/y interval rectangle to the packing   |
-|  [08]   | `AutomatonConstraint.AddTransition(int tail, int head, long label)`       | automaton build  | adds one labeled state transition               |
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY]   | [RAIL]                                           |
+| :-----: | :--------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------- |
+|  [01]   | `Constraint.OnlyEnforceIf(ILiteral lit)` / `OnlyEnforceIf(ILiteral[] lits)`        | reification      | half-reifies any constraint on a literal/and-set |
+|  [02]   | `Constraint.Proto` / `Constraint.Index`                                            | constraint value | the underlying `ConstraintProto` and model index |
+|  [03]   | `ReservoirConstraint.AddEvent<T,L>(T time, L levelChange)`                         | reservoir build  | adds a fixed level event                         |
+|  [04]   | `ReservoirConstraint.AddOptionalEvent<T,L>(T time, L levelChange, ILiteral)`       | reservoir build  | adds a presence-gated level event                |
+|  [05]   | `CumulativeConstraint.AddDemand<D>(IntervalVar interval, D demand)`                | cumulative build | binds one interval's resource demand             |
+|  [06]   | `CumulativeConstraint.AddDemands<D>(IEnumerable<IntervalVar>, IEnumerable<D>)`     | cumulative build | binds a batch of interval demands                |
+|  [07]   | `NoOverlap2dConstraint.AddRectangle(IntervalVar xInterval, IntervalVar yInterval)` | 2D pack build    | adds an x/y interval rectangle to the packing    |
+|  [08]   | `AutomatonConstraint.AddTransition(int tail, int head, long label)`                | automaton build  | adds one labeled state transition                |
 
 [ENTRYPOINT_SCOPE]: `Domain` value algebra
 - rail: solver#CP_SAT
 - note: `Domain` (`Google.OrTools.Util`) is the discrete-domain value type behind `NewIntVarFromDomain`/`AddLinearExpressionInDomain`; it is a full set algebra, not an opaque token, and is `IDisposable`.
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY]   | [RAIL]                                          |
-| :-----: | :------------------------------------------------------------------------ | :--------------- | :---------------------------------------------- |
-|  [01]   | `new Domain(long value)` / `new Domain(long left, long right)`            | ctor             | singleton or single-interval domain             |
+| [INDEX] | [SURFACE]                                                                             | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
+|  [01]   | `new Domain(long value)` / `new Domain(long left, long right)`                        | ctor           | singleton or single-interval domain             |
 |  [02]   | `Domain.FromValues(long[])` / `FromIntervals(long[][])` / `FromFlatIntervals(long[])` | static factory | explicit value set or interval set              |
-|  [03]   | `Domain.AllValues()` / `LowerOrEqual(long)` / `GreaterOrEqual(long)`      | static factory   | half-open and universal domains                 |
-|  [04]   | `Domain.Complement()` / `IntersectionWith` / `UnionWith`                  | set algebra      | domain set operations                           |
-|  [05]   | `Domain.Contains(long)` / `IsIncludedIn(Domain)` / `OverlapsWith(Domain)` | set predicate    | membership and containment tests                |
-|  [06]   | `Domain.Min()` / `Max()` / `Size()` / `IsEmpty()` / `FlattenedIntervals()` | domain inspect   | bounds, cardinality, and the flat interval form |
+|  [03]   | `Domain.AllValues()` / `LowerOrEqual(long)` / `GreaterOrEqual(long)`                  | static factory | half-open and universal domains                 |
+|  [04]   | `Domain.Complement()` / `IntersectionWith` / `UnionWith`                              | set algebra    | domain set operations                           |
+|  [05]   | `Domain.Contains(long)` / `IsIncludedIn(Domain)` / `OverlapsWith(Domain)`             | set predicate  | membership and containment tests                |
+|  [06]   | `Domain.Min()` / `Max()` / `Size()` / `IsEmpty()` / `FlattenedIntervals()`            | domain inspect | bounds, cardinality, and the flat interval form |
 
 [ENTRYPOINT_SCOPE]: CP-SAT solve and result projection
 - rail: solver#CP_SAT
@@ -204,29 +204,29 @@
 - rail: solver#LINEAR
 - note: all are members of `Solver`; `MakeVar*`/`MakeConstraint` build the variable and constraint handles.
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]     | [RAIL]                              |
-| :-----: | :----------------------------------------------------------- | :----------------- | :---------------------------------- |
-|  [01]   | `CreateSolver(string solver_id)`                             | static factory     | backend solver by id string         |
-|  [02]   | `Solver(string name, OptimizationProblemType problem_type)`  | ctor               | backend solver by enum              |
-|  [03]   | `SupportsProblemType(OptimizationProblemType)`               | static query       | backend availability                |
-|  [04]   | `MakeNumVar` / `MakeIntVar` / `MakeBoolVar(.., name)`        | variable factory   | continuous/integer/boolean variable |
-|  [05]   | `MakeVar(double lb, double ub, bool integer, string name)`   | variable factory   | typed variable                      |
-|  [06]   | `MakeVarArray` / `MakeNumVarMatrix` / `MakeBoolVarMatrix`    | variable factory   | bulk variable arrays and matrices   |
-|  [07]   | `MakeConstraint(double lb, double ub, string name)`          | constraint factory | bounded constraint row              |
-|  [08]   | `Add(LinearConstraint constraint)`                           | constraint add     | relational-expression constraint    |
-|  [09]   | `Objective()`                                                | objective access   | the model objective handle          |
-|  [10]   | `Minimize` / `Maximize(LinearExpr\|Variable)`                | objective set      | objective direction                 |
-|  [11]   | `Solve()` / `Solve(MPSolverParameters param)`                | solve call         | runs solve, returns `ResultStatus`  |
-|  [12]   | `Value(Variable)` / `ReducedCost(Variable)`                  | result read        | primal value and reduced cost       |
-|  [13]   | `DualValue(LinearConstraint)` / `Activity(LinearConstraint)` | result read        | dual value and row activity         |
-|  [14]   | `ObjectiveValue` / `BestObjectiveBound`                      | result property    | objective and bound                 |
-|  [15]   | `SetTimeLimit(long ms)` / `SetNumThreads(int)`               | solve control      | time limit and thread count         |
-|  [16]   | `SetHint(MPVariableVector, double[])`                        | solve control      | warm-start hint                     |
-|  [17]   | `InterruptSolve()` / `EnableOutput()` / `SuppressOutput()`   | solve control      | interrupt and logging               |
-|  [18]   | `Iterations()` / `Nodes()` / `WallTime()`                    | solve stats        | simplex/branch statistics           |
-|  [19]   | `ExportModelAsLpFormat(bool obfuscated)` / `ExportModelAsMpsFormat(bool fixed_format, bool obfuscated)` | model export | LP/MPS text export    |
-|  [20]   | `VerifySolution(double tolerance, bool log_errors)`          | solve check        | feasibility verification            |
-|  [21]   | `SetSolverSpecificParametersAsString(string)` / `SolverVersion()` | solve control  | backend-native parameter passthrough + version |
+| [INDEX] | [SURFACE]                                                                                               | [ENTRY_FAMILY]     | [RAIL]                                         |
+| :-----: | :------------------------------------------------------------------------------------------------------ | :----------------- | :--------------------------------------------- |
+|  [01]   | `CreateSolver(string solver_id)`                                                                        | static factory     | backend solver by id string                    |
+|  [02]   | `Solver(string name, OptimizationProblemType problem_type)`                                             | ctor               | backend solver by enum                         |
+|  [03]   | `SupportsProblemType(OptimizationProblemType)`                                                          | static query       | backend availability                           |
+|  [04]   | `MakeNumVar` / `MakeIntVar` / `MakeBoolVar(.., name)`                                                   | variable factory   | continuous/integer/boolean variable            |
+|  [05]   | `MakeVar(double lb, double ub, bool integer, string name)`                                              | variable factory   | typed variable                                 |
+|  [06]   | `MakeVarArray` / `MakeNumVarMatrix` / `MakeBoolVarMatrix`                                               | variable factory   | bulk variable arrays and matrices              |
+|  [07]   | `MakeConstraint(double lb, double ub, string name)`                                                     | constraint factory | bounded constraint row                         |
+|  [08]   | `Add(LinearConstraint constraint)`                                                                      | constraint add     | relational-expression constraint               |
+|  [09]   | `Objective()`                                                                                           | objective access   | the model objective handle                     |
+|  [10]   | `Minimize` / `Maximize(LinearExpr\|Variable)`                                                           | objective set      | objective direction                            |
+|  [11]   | `Solve()` / `Solve(MPSolverParameters param)`                                                           | solve call         | runs solve, returns `ResultStatus`             |
+|  [12]   | `Value(Variable)` / `ReducedCost(Variable)`                                                             | result read        | primal value and reduced cost                  |
+|  [13]   | `DualValue(LinearConstraint)` / `Activity(LinearConstraint)`                                            | result read        | dual value and row activity                    |
+|  [14]   | `ObjectiveValue` / `BestObjectiveBound`                                                                 | result property    | objective and bound                            |
+|  [15]   | `SetTimeLimit(long ms)` / `SetNumThreads(int)`                                                          | solve control      | time limit and thread count                    |
+|  [16]   | `SetHint(MPVariableVector, double[])`                                                                   | solve control      | warm-start hint                                |
+|  [17]   | `InterruptSolve()` / `EnableOutput()` / `SuppressOutput()`                                              | solve control      | interrupt and logging                          |
+|  [18]   | `Iterations()` / `Nodes()` / `WallTime()`                                                               | solve stats        | simplex/branch statistics                      |
+|  [19]   | `ExportModelAsLpFormat(bool obfuscated)` / `ExportModelAsMpsFormat(bool fixed_format, bool obfuscated)` | model export       | LP/MPS text export                             |
+|  [20]   | `VerifySolution(double tolerance, bool log_errors)`                                                     | solve check        | feasibility verification                       |
+|  [21]   | `SetSolverSpecificParametersAsString(string)` / `SolverVersion()`                                       | solve control      | backend-native parameter passthrough + version |
 
 [ENTRYPOINT_SCOPE]: ConstraintSolver routing model and solve
 - rail: solver#ROUTING
@@ -256,19 +256,19 @@
 - rail: solver#GRAPH
 - note: build the arc set imperatively (each `Add*` returns the arc index), `Solve` returns the `Status`, then read the optimal value and per-arc flow. The `Analysis/circulation` exit-capacity solve maps occupant-load supplies onto space nodes and door/corridor capacities onto arcs of the concrete `ElementGraph` space-adjacency subgraph.
 
-| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]   | [RAIL]                                          |
-| :-----: | :--------------------------------------------------------------- | :--------------- | :---------------------------------------------- |
-|  [01]   | `MaxFlow.AddArcWithCapacity(int tail, int head, long capacity)`  | arc build        | adds one capacitated arc, returns its index     |
-|  [02]   | `MaxFlow.SetArcCapacity(int arc, long capacity)`                 | arc mutate       | reset an arc capacity for an incremental re-solve |
-|  [03]   | `MaxFlow.Solve(int source, int sink)`                           | solve call       | runs push-relabel, returns `MaxFlow.Status`     |
-|  [04]   | `MaxFlow.OptimalFlow()` / `Flow(int arc)`                       | result read      | the max-flow value / per-arc flow (the min-cut is read via `Flow == Capacity` saturated arcs) |
-|  [05]   | `MinCostFlow(int reserveNodes[, int reserveArcs])`             | ctor             | pre-sized min-cost-flow engine                  |
-|  [06]   | `MinCostFlow.AddArcWithCapacityAndUnitCost(tail, head, cap, unitCost)` | arc build  | adds one capacitated, priced arc                |
-|  [07]   | `MinCostFlow.SetNodeSupply(int node, long supply)`             | node build       | sets a node's supply (+) / demand (−)           |
-|  [08]   | `MinCostFlow.Solve()` / `SolveMaxFlowWithMinCost()`           | solve call       | min-cost flow / max-flow-at-min-cost, returns `Status` |
-|  [09]   | `MinCostFlow.OptimalCost()` / `MaximumFlow()` / `Flow(int arc)` | result read     | optimal cost / total flow / per-arc flow        |
-|  [10]   | `LinearSumAssignment.AddArcWithCost(left, right, long cost)`   | arc build        | adds one left→right assignment arc              |
-|  [11]   | `LinearSumAssignment.Solve()` / `OptimalCost()` / `RightMate(int left)` / `AssignmentCost(int left)` | solve + read | optimal assignment, total cost, per-left-node mate + cost |
+| [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY] | [RAIL]                                                                                        |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `MaxFlow.AddArcWithCapacity(int tail, int head, long capacity)`                                      | arc build      | adds one capacitated arc, returns its index                                                   |
+|  [02]   | `MaxFlow.SetArcCapacity(int arc, long capacity)`                                                     | arc mutate     | reset an arc capacity for an incremental re-solve                                             |
+|  [03]   | `MaxFlow.Solve(int source, int sink)`                                                                | solve call     | runs push-relabel, returns `MaxFlow.Status`                                                   |
+|  [04]   | `MaxFlow.OptimalFlow()` / `Flow(int arc)`                                                            | result read    | the max-flow value / per-arc flow (the min-cut is read via `Flow == Capacity` saturated arcs) |
+|  [05]   | `MinCostFlow(int reserveNodes[, int reserveArcs])`                                                   | ctor           | pre-sized min-cost-flow engine                                                                |
+|  [06]   | `MinCostFlow.AddArcWithCapacityAndUnitCost(tail, head, cap, unitCost)`                               | arc build      | adds one capacitated, priced arc                                                              |
+|  [07]   | `MinCostFlow.SetNodeSupply(int node, long supply)`                                                   | node build     | sets a node's supply (+) / demand (−)                                                         |
+|  [08]   | `MinCostFlow.Solve()` / `SolveMaxFlowWithMinCost()`                                                  | solve call     | min-cost flow / max-flow-at-min-cost, returns `Status`                                        |
+|  [09]   | `MinCostFlow.OptimalCost()` / `MaximumFlow()` / `Flow(int arc)`                                      | result read    | optimal cost / total flow / per-arc flow                                                      |
+|  [10]   | `LinearSumAssignment.AddArcWithCost(left, right, long cost)`                                         | arc build      | adds one left→right assignment arc                                                            |
+|  [11]   | `LinearSumAssignment.Solve()` / `OptimalCost()` / `RightMate(int left)` / `AssignmentCost(int left)` | solve + read   | optimal assignment, total cost, per-left-node mate + cost                                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

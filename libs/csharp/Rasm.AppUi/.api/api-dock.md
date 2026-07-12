@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Dock.Avalonia`
+
 - package: `Dock.Avalonia`
 - license: MIT (expression)
 - assembly: `Dock.Avalonia`
@@ -20,6 +21,7 @@
 - rail: docking
 
 [PACKAGE_SURFACE]: `Dock.Model.ReactiveUI`
+
 - package: `Dock.Model.ReactiveUI`
 - license: MIT (expression)
 - assembly: `Dock.Model.ReactiveUI`
@@ -37,169 +39,269 @@
 ## [02]-[PUBLIC_TYPES]
 
 [DOCK_CONTROLS]: `Dock.Avalonia.Controls` visual tree
+
 - rail: docking
 
-| [INDEX] | [SYMBOL]                  | [RAIL]                          |
-| :-----: | :------------------------ | :------------------------------ |
-|  [01]   | `DockControl`             | dock root control (binds graph) |
-|  [02]   | `RootDockControl`         | root view                       |
-|  [03]   | `ProportionalDockControl` | split view                      |
-|  [04]   | `DocumentDockControl`     | document dock                   |
-|  [05]   | `ToolDockControl`         | tool dock                       |
-|  [06]   | `DocumentControl`         | document host                   |
-|  [07]   | `ToolControl`             | tool host                       |
-|  [08]   | `DocumentTabStrip`        | document tabs                   |
-|  [09]   | `ToolTabStrip` / `ToolTabStripItem` | tool tabs             |
-|  [10]   | `ToolChromeControl`       | tool chrome                     |
-|  [11]   | `PinnedDockControl` / `PinnedDockHostPanel` | pinned dock + host |
-|  [12]   | `ToolPinnedControl`       | pinned tools                    |
+| [INDEX] | [SYMBOL]                                    | [RAIL]                          |
+| :-----: | :------------------------------------------ | :------------------------------ |
+|  [01]   | `DockControl`                               | dock root control (binds graph) |
+|  [02]   | `RootDockControl`                           | root view                       |
+|  [03]   | `ProportionalDockControl`                   | split view                      |
+|  [04]   | `DocumentDockControl`                       | document dock                   |
+|  [05]   | `ToolDockControl`                           | tool dock                       |
+|  [06]   | `DocumentControl`                           | document host                   |
+|  [07]   | `ToolControl`                               | tool host                       |
+|  [08]   | `DocumentTabStrip`                          | document tabs                   |
+|  [09]   | `ToolTabStrip` / `ToolTabStripItem`         | tool tabs                       |
+|  [10]   | `ToolChromeControl`                         | tool chrome                     |
+|  [11]   | `PinnedDockControl` / `PinnedDockHostPanel` | pinned dock + host              |
+|  [12]   | `ToolPinnedControl`                         | pinned tools                    |
 
 [WINDOW_TARGET_OVERLAY_TYPES]: floating windows, managed-float layer, drop targets, selectors, overlays, MDI
+
 - rail: docking
 
-| [INDEX] | [SYMBOL]                                        | [RAIL]                          |
-| :-----: | :---------------------------------------------- | :------------------------------ |
-|  [01]   | `HostWindow` / `HostWindowTitleBar`             | OS floating host + chrome       |
-|  [02]   | `ManagedHostWindow` / `ManagedWindowLayer` / `ManagedWindowDock` / `ManagedDockWindowDocument` | in-window managed float layer |
-|  [03]   | `DockTarget` / `GlobalDockTarget`               | local + global drop target      |
-|  [04]   | `DockableControl`                               | dockable region                 |
-|  [05]   | `DragPreviewControl`                            | drag preview                    |
-|  [06]   | `DockSelectorOverlay` / `DockSelectorItem`      | selector overlay + item         |
-|  [07]   | `OverlayHost` / `DialogOverlayControl` / `ConfirmationOverlayControl` / `BusyOverlayControl` | overlay layer (dialog/confirm/busy) |
-|  [08]   | `OverlayLayerRegistry` / `OverlayLayerCollection` | overlay layer registry        |
-|  [09]   | `MdiDocumentControl` / `MdiDocumentWindow` / `ClassicMdiLayoutManager` | MDI surface + classic layout |
-|  [10]   | `DockPresetThemeManagerBase`                    | theme preset manager base       |
-|  [11]   | `DockCommandBarManager` / `DefaultDockCommandBarAdapter` | command-bar merge surface |
-|  [12]   | `DockControlFactoryService`                     | control-to-factory wiring service |
-|  [13]   | `IDockThemeManager` (`Dock.Avalonia.Themes`)    | dock theme-manager contract bound at composition (the `Factory` override exposes a `Func<IDockThemeManager>`); the theme-variant subscription flips dock-owned brushes |
-|  [14]   | `IExternalDockSurface` (`DockControl? DockControl { get; set; }` / `Control SurfaceControl { get; }`) | embedded external-dock surface contract `DockControl.RegisterExternalDockSurface`/`UnregisterExternalDockSurface` attach/detach |
-|  [15]   | `DockSelectorMode` (`Dock.Avalonia.Selectors`)  | `Documents`/`Tools`/`All` selector-overlay scope enum (`DockControl.ShowSelector` argument) |
+| [INDEX] | [SYMBOL]                       | [RAIL]                    |
+| :-----: | :----------------------------- | :------------------------ |
+|  [01]   | `HostWindow`                   | OS floating host          |
+|  [02]   | `HostWindowTitleBar`           | floating chrome           |
+|  [03]   | `ManagedHostWindow`            | managed float host        |
+|  [04]   | `ManagedWindowLayer`           | managed float layer       |
+|  [05]   | `ManagedWindowDock`            | managed float dock        |
+|  [06]   | `ManagedDockWindowDocument`    | managed float document    |
+|  [07]   | `DockTarget`                   | local drop target         |
+|  [08]   | `GlobalDockTarget`             | global drop target        |
+|  [09]   | `DockableControl`              | dockable region           |
+|  [10]   | `DragPreviewControl`           | drag preview              |
+|  [11]   | `DockSelectorOverlay`          | selector overlay          |
+|  [12]   | `DockSelectorItem`             | selector item             |
+|  [13]   | `OverlayHost`                  | overlay host              |
+|  [14]   | `DialogOverlayControl`         | dialog overlay            |
+|  [15]   | `ConfirmationOverlayControl`   | confirmation overlay      |
+|  [16]   | `BusyOverlayControl`           | busy overlay              |
+|  [17]   | `OverlayLayerRegistry`         | overlay registry          |
+|  [18]   | `OverlayLayerCollection`       | overlay collection        |
+|  [19]   | `MdiDocumentControl`           | MDI document control      |
+|  [20]   | `MdiDocumentWindow`            | MDI document window       |
+|  [21]   | `ClassicMdiLayoutManager`      | classic MDI layout        |
+|  [22]   | `DockPresetThemeManagerBase`   | theme preset manager      |
+|  [23]   | `DockCommandBarManager`        | command-bar merge         |
+|  [24]   | `DefaultDockCommandBarAdapter` | command-bar adapter       |
+|  [25]   | `DockControlFactoryService`    | control-factory wiring    |
+|  [26]   | `IDockThemeManager`            | theme-manager contract    |
+|  [27]   | `IExternalDockSurface`         | external surface contract |
+|  [28]   | `DockSelectorMode`             | selector scope            |
+
+[IDOCK_THEME_MANAGER]:
+
+- Namespace: `Dock.Avalonia.Themes`
+- Binding: the `Factory` override exposes `Func<IDockThemeManager>`
+- Effect: theme-variant changes update dock-owned brushes
+
+[IEXTERNAL_DOCK_SURFACE]:
+
+- Properties: `DockControl? DockControl { get; set; }` and `Control SurfaceControl { get; }`
+- Lifecycle: `DockControl.RegisterExternalDockSurface` attaches and `UnregisterExternalDockSurface` detaches the embedded surface
+
+[DOCK_SELECTOR_MODE]:
+
+- Namespace: `Dock.Avalonia.Selectors`
+- Values: `Documents`, `Tools`, and `All`
+- Consumer: `DockControl.ShowSelector`
 
 [MODEL_TYPES]: `Dock.Model.ReactiveUI` graph + `Dock.Model.Core`/`Controls` contracts
+
 - rail: docking
 
-| [INDEX] | [SYMBOL]                       | [RAIL]                                 |
-| :-----: | :----------------------------- | :------------------------------------- |
-|  [01]   | `Factory : FactoryBase`        | model factory (construct + operate)    |
-|  [02]   | `DockableBase` / `DockBase`    | dockable + dock base (ReactiveObject)  |
-|  [03]   | `RootDock` / `ProportionalDock` / `ProportionalDockSplitter` | root + split + splitter model |
-|  [04]   | `DocumentDock` / `ToolDock`    | document + tool dock model             |
-|  [05]   | `Document` / `Tool`            | document + tool model                  |
-|  [06]   | `DockWindow`                   | float-window model                     |
-|  [07]   | `IFactory`                     | construction + operation contract      |
-|  [08]   | `IDock` / `IDockable`          | dock graph node + leaf contract        |
-|  [09]   | `IRootDock` / `IDocumentDock` / `IToolDock` / `IProportionalDock` | typed dock contracts |
-|  [10]   | `IDockManager` / `IDockManagerState` | `ValidateTool`/`…Document`/`…Dock`/`…Dockable`(src, tgt, `DragAction`, `DockOperation`, exec) + `IsDockTargetVisible` |
-|  [11]   | `IDockState`                   | `Save(IDock)` / `Restore(IDock)` / `Reset()` snapshot |
-|  [12]   | `IDockSerializer`              | `Serialize<T>(T)` / `Deserialize<T>(string)` / `Load<T>(Stream)` / `Save<T>(Stream,T)` round-trip contract — `Dock.Serializer.SystemTextJson.DockSerializer` (`api-dock-serializer.md`) is the admitted impl |
-|  [13]   | `IHostWindow` / `IDockWindow`  | float-host contracts                   |
-|  [14]   | `IDocumentTemplate` / `IToolTemplate` | item-source template contracts  |
-|  [15]   | `IDockDispatcher`              | `Dock.Model.ReactiveUI.Services` UI-thread post |
+| [INDEX] | [SYMBOL]                   | [RAIL]                |
+| :-----: | :------------------------- | :-------------------- |
+|  [01]   | `Factory : FactoryBase`    | model factory         |
+|  [02]   | `DockableBase`             | reactive dockable     |
+|  [03]   | `DockBase`                 | reactive dock         |
+|  [04]   | `RootDock`                 | root model            |
+|  [05]   | `ProportionalDock`         | split model           |
+|  [06]   | `ProportionalDockSplitter` | splitter model        |
+|  [07]   | `DocumentDock`             | document dock model   |
+|  [08]   | `ToolDock`                 | tool dock model       |
+|  [09]   | `Document`                 | document model        |
+|  [10]   | `Tool`                     | tool model            |
+|  [11]   | `DockWindow`               | float-window model    |
+|  [12]   | `IFactory`                 | factory contract      |
+|  [13]   | `IDock`                    | dock-node contract    |
+|  [14]   | `IDockable`                | dockable contract     |
+|  [15]   | `IRootDock`                | root-dock contract    |
+|  [16]   | `IDocumentDock`            | document contract     |
+|  [17]   | `IToolDock`                | tool contract         |
+|  [18]   | `IProportionalDock`        | split-dock contract   |
+|  [19]   | `IDockManager`             | drag/drop contract    |
+|  [20]   | `IDockManagerState`        | manager state         |
+|  [21]   | `IDockState`               | snapshot contract     |
+|  [22]   | `IDockSerializer`          | round-trip contract   |
+|  [23]   | `IHostWindow`              | float-host contract   |
+|  [24]   | `IDockWindow`              | float-window contract |
+|  [25]   | `IDocumentTemplate`        | document template     |
+|  [26]   | `IToolTemplate`            | tool template         |
+|  [27]   | `IDockDispatcher`          | UI-thread dispatch    |
+
+[IDOCK_MANAGER]:
+
+- Validation: `ValidateTool`, `ValidateDocument`, `ValidateDock`, and `ValidateDockable`
+- Inputs: source, target, `DragAction`, `DockOperation`, and execution state
+- Visibility: `IsDockTargetVisible`
+
+[IDOCK_STATE]:
+
+- Snapshot: `Save(IDock)`, `Restore(IDock)`, and `Reset()`
+
+[IDOCK_SERIALIZER]:
+
+- Methods: `Serialize<T>(T)`, `Deserialize<T>(string)`, `Load<T>(Stream)`, and `Save<T>(Stream,T)`
+- Implementation: `Dock.Serializer.SystemTextJson.DockSerializer` (`api-dock-serializer.md`)
+
+[IDOCK_DISPATCHER]:
+
+- Namespace: `Dock.Model.ReactiveUI.Services`
+- Operation: UI-thread post
 
 [MODEL_ENUMS]: `Dock.Model.Core` vocabulary
+
 - rail: docking
 
-| [INDEX] | [SYMBOL]                                   | [RAIL]                             |
-| :-----: | :----------------------------------------- | :--------------------------------- |
-|  [01]   | `DockMode`                                 | `Left`/`Right`/`Top`/`Bottom`/`Center` |
-|  [02]   | `DockOperation` / `DockOperationMask`      | window/fill/split target operation |
-|  [03]   | `Alignment` / `Orientation`                | dock alignment + split orientation |
-|  [04]   | `DragAction`                               | copy/move/link drag action         |
-|  [05]   | `GripMode`                                 | tool grip visibility               |
-|  [06]   | `DocumentTabLayout` / `DocumentLayoutMode` / `DocumentCloseButtonShowMode` | document tab policy |
-|  [07]   | `PinnedDockDisplayMode`                     | pinned-dock reveal policy          |
-|  [08]   | `DockFloatingWindowHostMode` / `DockWindowOwnerMode` / `DockWindowState` | float-window policy |
-|  [09]   | `MdiWindowState`                            | MDI child window state             |
-|  [10]   | `DockCapability` / `DockCapabilityValueSource` | per-dockable capability flags  |
+| [INDEX] | [SYMBOL]                                                                   | [RAIL]                                 |
+| :-----: | :------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `DockMode`                                                                 | `Left`/`Right`/`Top`/`Bottom`/`Center` |
+|  [02]   | `DockOperation` / `DockOperationMask`                                      | window/fill/split target operation     |
+|  [03]   | `Alignment` / `Orientation`                                                | dock alignment + split orientation     |
+|  [04]   | `DragAction`                                                               | copy/move/link drag action             |
+|  [05]   | `GripMode`                                                                 | tool grip visibility                   |
+|  [06]   | `DocumentTabLayout` / `DocumentLayoutMode` / `DocumentCloseButtonShowMode` | document tab policy                    |
+|  [07]   | `PinnedDockDisplayMode`                                                    | pinned-dock reveal policy              |
+|  [08]   | `DockFloatingWindowHostMode` / `DockWindowOwnerMode` / `DockWindowState`   | float-window policy                    |
+|  [09]   | `MdiWindowState`                                                           | MDI child window state                 |
+|  [10]   | `DockCapability` / `DockCapabilityValueSource`                             | per-dockable capability flags          |
 
 ## [03]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: `DockControl` wiring (`StyledProperty`-backed)
+
 - rail: docking
 
-| [INDEX] | [SURFACE]                                  | [TYPE]                   | [RAIL]                  |
-| :-----: | :----------------------------------------- | :----------------------- | :---------------------- |
-|  [01]   | `Layout`                                   | `IDock?`                 | bound dock graph        |
-|  [02]   | `Factory`                                  | `IFactory?`              | factory binding         |
-|  [03]   | `DockManager`                              | `IDockManager`           | drag/drop manager       |
-|  [04]   | `InitializeLayout` / `InitializeFactory`   | `bool`                   | auto-init on attach     |
-|  [05]   | `DefaultContext`                           | `object?`                | context fallback        |
-|  [06]   | `IsDockingEnabled` / `IsDraggingDock`      | `bool`                   | drag gate + drag state  |
-|  [07]   | `AutoCreateDataTemplates`                  | `bool`                   | auto template gen       |
-|  [08]   | `HostWindowFactory`                        | `Func<IHostWindow?>?`    | float-window kind       |
-|  [09]   | `EnableManagedWindowLayer`                 | `bool`                   | managed in-window floats |
-|  [10]   | `RegisterExternalDockSurface(IExternalDockSurface)` / `UnregisterExternalDockSurface(IExternalDockSurface) -> bool` | method | external surface attach / detach |
-|  [11]   | `ShowSelector(DockSelectorMode)` / `HideSelector()` | method          | selector overlay        |
+| [INDEX] | [SURFACE]                                             | [TYPE]                | [RAIL]          |
+| :-----: | :---------------------------------------------------- | :-------------------- | :-------------- |
+|  [01]   | `Layout`                                              | `IDock?`              | dock graph      |
+|  [02]   | `Factory`                                             | `IFactory?`           | factory binding |
+|  [03]   | `DockManager`                                         | `IDockManager`        | drag/drop       |
+|  [04]   | `InitializeLayout`                                    | `bool`                | layout init     |
+|  [05]   | `InitializeFactory`                                   | `bool`                | factory init    |
+|  [06]   | `DefaultContext`                                      | `object?`             | fallback        |
+|  [07]   | `IsDockingEnabled`                                    | `bool`                | docking gate    |
+|  [08]   | `IsDraggingDock`                                      | `bool`                | drag state      |
+|  [09]   | `AutoCreateDataTemplates`                             | `bool`                | templates       |
+|  [10]   | `HostWindowFactory`                                   | `Func<IHostWindow?>?` | window factory  |
+|  [11]   | `EnableManagedWindowLayer`                            | `bool`                | managed floats  |
+|  [12]   | `RegisterExternalDockSurface(IExternalDockSurface)`   | method                | attach surface  |
+|  [13]   | `UnregisterExternalDockSurface(IExternalDockSurface)` | `bool`                | detach surface  |
+|  [14]   | `ShowSelector(DockSelectorMode)`                      | method                | show selector   |
+|  [15]   | `HideSelector()`                                      | method                | hide selector   |
 
 [FACTORY_CONSTRUCTION]: `Factory` (`IFactory`) layout construction — every `Create*` returns the typed `Dock.Model` contract
+
 - rail: docking
 
-| [INDEX] | [SURFACE]                                          | [RETURNS]                  | [RAIL]          |
-| :-----: | :------------------------------------------------- | :------------------------- | :-------------- |
-|  [01]   | `CreateLayout()`                                   | `IRootDock`                | layout root     |
-|  [02]   | `CreateRootDock()`                                 | `IRootDock`                | root dock       |
-|  [03]   | `CreateProportionalDock()`                         | `IProportionalDock`        | split dock      |
-|  [04]   | `CreateProportionalDockSplitter()`                 | `IProportionalDockSplitter` | splitter       |
-|  [05]   | `CreateDocumentDock()`                             | `IDocumentDock`            | document dock   |
-|  [06]   | `CreateToolDock()`                                 | `IToolDock`                | tool dock       |
-|  [07]   | `CreateDocument()` / `CreateTool()`                | `IDocument` / `ITool`      | document / tool |
-|  [08]   | `CreateDockWindow()`                               | `IDockWindow`              | float window    |
-|  [09]   | `CreateList<T>(params T[])`                        | `IList<T>`                 | dockable list   |
+| [INDEX] | [SURFACE]                           | [RETURNS]                   | [RAIL]          |
+| :-----: | :---------------------------------- | :-------------------------- | :-------------- |
+|  [01]   | `CreateLayout()`                    | `IRootDock`                 | layout root     |
+|  [02]   | `CreateRootDock()`                  | `IRootDock`                 | root dock       |
+|  [03]   | `CreateProportionalDock()`          | `IProportionalDock`         | split dock      |
+|  [04]   | `CreateProportionalDockSplitter()`  | `IProportionalDockSplitter` | splitter        |
+|  [05]   | `CreateDocumentDock()`              | `IDocumentDock`             | document dock   |
+|  [06]   | `CreateToolDock()`                  | `IToolDock`                 | tool dock       |
+|  [07]   | `CreateDocument()` / `CreateTool()` | `IDocument` / `ITool`       | document / tool |
+|  [08]   | `CreateDockWindow()`                | `IDockWindow`               | float window    |
+|  [09]   | `CreateList<T>(params T[])`         | `IList<T>`                  | dockable list   |
 
 [FACTORY_OPERATIONS]: `IFactory` docking operations — the layout graph mutates HERE, not through view manipulation
+
 - rail: docking
 
-| [INDEX] | [SURFACE]                                                       | [RAIL]                       |
-| :-----: | :-------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `InitLayout(IDockable)`                                         | wire owners + active/focused |
-|  [02]   | `AddDockable(IDock, IDockable)` / `InsertDockable(IDock, IDockable, int)` | add at end / at index |
-|  [03]   | `MoveDockable(...)` / `SwapDockable(...)`                       | reorder / swap within or across docks |
-|  [04]   | `RemoveDockable(IDockable, bool collapse)` / `CloseDockable(IDockable)` / `CloseAllDockables(IDock)` | remove / close |
-|  [05]   | `FloatDockable(IDockable)`                                      | tear out into a float window |
-|  [06]   | `PinDockable(IDockable)` / `UnpinDockable(IDockable)`           | pin to edge / restore        |
-|  [07]   | `CollapseDock(IDock)`                                           | collapse an emptied dock     |
-|  [08]   | `SetActiveDockable(IDockable)` / `SetFocusedDockable(IDock, IDockable?)` | activate / focus    |
-|  [09]   | `CreateWindowFrom(IDockable)` / `AddWindow(IRootDock, IDockWindow)` / `RemoveWindow(IDockWindow)` | float-window lifecycle |
-|  [10]   | `FindDockable(IDock, Func<IDockable,bool>)`                     | predicate locate             |
-|  [11]   | `RestoreDockable(IDockable)` / `RestoreDockable(string id)` / `OnDockableRestored(IDockable?)` + `event DockableRestored` | load-side rehydration: resolves an id through `DockableLocator`, re-owns it into the graph, and raises `DockableRestored` — the `IDockState.Restore` counterpart to `DockableLocator` |
+| [INDEX] | [SURFACE]                                   | [RAIL]           |
+| :-----: | :------------------------------------------ | :--------------- |
+|  [01]   | `InitLayout(IDockable)`                     | initialize       |
+|  [02]   | `AddDockable(IDock, IDockable)`             | append           |
+|  [03]   | `InsertDockable(IDock, IDockable, int)`     | indexed insert   |
+|  [04]   | `MoveDockable(...)`                         | move             |
+|  [05]   | `SwapDockable(...)`                         | swap             |
+|  [06]   | `RemoveDockable(IDockable, bool collapse)`  | remove           |
+|  [07]   | `CloseDockable(IDockable)`                  | close            |
+|  [08]   | `CloseAllDockables(IDock)`                  | close all        |
+|  [09]   | `FloatDockable(IDockable)`                  | float            |
+|  [10]   | `PinDockable(IDockable)`                    | pin              |
+|  [11]   | `UnpinDockable(IDockable)`                  | restore          |
+|  [12]   | `CollapseDock(IDock)`                       | collapse         |
+|  [13]   | `SetActiveDockable(IDockable)`              | activate         |
+|  [14]   | `SetFocusedDockable(IDock, IDockable?)`     | focus            |
+|  [15]   | `CreateWindowFrom(IDockable)`               | create window    |
+|  [16]   | `AddWindow(IRootDock, IDockWindow)`         | add window       |
+|  [17]   | `RemoveWindow(IDockWindow)`                 | remove window    |
+|  [18]   | `FindDockable(IDock, Func<IDockable,bool>)` | locate           |
+|  [19]   | `RestoreDockable(IDockable)`                | restore object   |
+|  [20]   | `RestoreDockable(string id)`                | restore by ID    |
+|  [21]   | `OnDockableRestored(IDockable?)`            | restoration hook |
+|  [22]   | `DockableRestored`                          | event            |
+
+[RESTORE_DOCKABLE]:
+
+- Resolution: `RestoreDockable(string id)` resolves through `DockableLocator`
+- Ownership: the restored dockable rejoins the graph
+- Notification: `OnDockableRestored` raises `DockableRestored`
+- Counterpart: `IDockState.Restore`
 
 [FACTORY_REGISTRIES]: `IFactory` live `IDictionary`/`IList` registries the runtime maintains
+
 - rail: docking
 
-| [INDEX] | [SURFACE]                                                       | [RAIL]                       |
-| :-----: | :-------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `DockControls : IList<IDockControl>` / `HostWindows : IList<IHostWindow>` | active controls + float hosts |
-|  [02]   | `VisibleDockableControls` / `PinnedDockableControls` / `TabDockableControls` | dockable-to-control maps |
-|  [03]   | `DocumentControls` / `ToolControls`                            | document/tool content maps   |
-|  [04]   | `DockableLocator : IDictionary<string, Func<IDockable?>>?`     | id-to-dockable resolver (deserialization) |
+| [INDEX] | [SURFACE]                                                                    | [RAIL]                                    |
+| :-----: | :--------------------------------------------------------------------------- | :---------------------------------------- |
+|  [01]   | `DockControls : IList<IDockControl>` / `HostWindows : IList<IHostWindow>`    | active controls + float hosts             |
+|  [02]   | `VisibleDockableControls` / `PinnedDockableControls` / `TabDockableControls` | dockable-to-control maps                  |
+|  [03]   | `DocumentControls` / `ToolControls`                                          | document/tool content maps                |
+|  [04]   | `DockableLocator : IDictionary<string, Func<IDockable?>>?`                   | id-to-dockable resolver (deserialization) |
 
 [MODEL_GRAPH_PROPERTIES]: `Dock.Model.Core`/`Controls` node + leaf properties the `Factory`-built graph assigns (every property is `get; set;`)
+
 - rail: docking
 
-| [INDEX] | [SURFACE]                                                       | [SURFACE_ROOT]       | [RAIL]                       |
-| :-----: | :-------------------------------------------------------------- | :------------------- | :--------------------------- |
-|  [01]   | `Id` (`string`) / `Title` (`string`) / `Context` (`object?`)    | `IDockable`          | identity, header, view-model  |
-|  [02]   | `CanFloat` / `CanPin` / `CanClose` (`bool`)                     | `IDockable`          | per-dockable capability gates |
-|  [03]   | `Proportion` (`double`)                                         | `IDockable`          | proportional split size       |
-|  [04]   | `VisibleDockables` (`IList<IDockable>?`)                        | `IDock`              | child dockable list           |
-|  [05]   | `ActiveDockable` (`IDockable?`) / `FocusedDockable` (`IDockable?`) | `IDock`           | active + focused leaf         |
-|  [06]   | `Orientation` (`Orientation`)                                   | `IProportionalDock`  | split orientation             |
+| [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT]      | [RAIL]                        |
+| :-----: | :----------------------------------------------------------------- | :------------------ | :---------------------------- |
+|  [01]   | `Id` (`string`) / `Title` (`string`) / `Context` (`object?`)       | `IDockable`         | identity, header, view-model  |
+|  [02]   | `CanFloat` / `CanPin` / `CanClose` (`bool`)                        | `IDockable`         | per-dockable capability gates |
+|  [03]   | `Proportion` (`double`)                                            | `IDockable`         | proportional split size       |
+|  [04]   | `VisibleDockables` (`IList<IDockable>?`)                           | `IDock`             | child dockable list           |
+|  [05]   | `ActiveDockable` (`IDockable?`) / `FocusedDockable` (`IDockable?`) | `IDock`             | active + focused leaf         |
+|  [06]   | `Orientation` (`Orientation`)                                      | `IProportionalDock` | split orientation             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DOCKING_LAW]:
+
 - Package: `Dock.Avalonia`
 - Owns: the dock visual tree, drag/drop targets (`DockTarget`/`GlobalDockTarget`), OS and managed-in-window floating hosts (`HostWindow` / `ManagedWindowLayer` gated by `EnableManagedWindowLayer`), pinned docks, selector overlays, the overlay layer (dialog/confirmation/busy via `OverlayHost`), command-bar merge (`DockCommandBarManager`), MDI (`ClassicMdiLayoutManager`/`MdiDocumentControl`), and theme presets (`DockPresetThemeManagerBase`).
 - Accept: panel arrangement intent expressed as an `IDock` graph bound through `DockControl.Layout`; the `DockControl.DockManager` (`IDockManager`) validates every drag/drop and the `Factory` operations mutate the graph; data templates resolve `Document`/`Tool` view-models to views (auto-generated when `AutoCreateDataTemplates`).
 - Reject: hand-built splitter/tab arrangements for dockable panels; mutating the dock graph through view manipulation instead of the `IFactory` operations; a second selector/overlay layer beside `DockSelectorOverlay`/`OverlayHost`.
 
 [MODEL_LAW]:
+
 - Package: `Dock.Model.ReactiveUI` (over the `Dock.Model` host-neutral core)
 - Owns: the ReactiveUI binding of the dock model graph (`DockBase`/`DockableBase` are `ReactiveObject`s) and the `Factory : FactoryBase` override that constructs ReactiveUI-typed `RootDock`/`DocumentDock`/`ToolDock`/`Document`/`Tool` and carries the inherited `IFactory` operations and registries.
 - Accept: layout state lives in factory-created models; `DocumentDock.CanCreateDocument`/`CreateDocument` drives runtime document spawning; `IDockDispatcher.Invoke` (the `Dock.Model.ReactiveUI.Services` surface) marshals graph mutation onto the Avalonia UI thread; observed-property reactivity drives the bound `DockControl` without manual invalidation.
 - Reject: view-layer mutation of dock structure outside the factory surface; a hand-rolled `INotifyPropertyChanged` model duplicating `DockableBase`; a `Dock.Model.Avalonia`/`Dock.Model.Mvvm` parallel binding when the ReactiveUI binding is the admitted one.
 
 [PERSISTENCE_LAW]:
-- The `IFactory` graph + registries are the object the `IDockSerializer` contract round-trips, with `Dock.Serializer.SystemTextJson.DockSerializer` (`api-dock-serializer.md`) as the admitted impl: `IDockState.Save(IDock)`/`Restore(IDock)` snapshots the live layout, the serializer's `DockModelPolymorphicTypeResolver` discriminates the `IDockable`/`IDock`/`IRootDock` graph by `$type`, and on load `DockableLocator` resolves id-keyed dockables while `RestoreDockable(string)`/`OnDockableRestored` re-own each one into the graph and raise `DockableRestored` — so a saved workspace layout restores the exact dock tree, the open documents, and the pinned tools.
+
+- Graph: `IDockSerializer` round-trips the `IFactory` graph and registries through `Dock.Serializer.SystemTextJson.DockSerializer` (`api-dock-serializer.md`).
+- Snapshot: `IDockState.Save(IDock)` and `Restore(IDock)` capture and restore the live layout.
+- Discriminator: `DockModelPolymorphicTypeResolver` identifies the `IDockable`, `IDock`, and `IRootDock` graph by `$type`.
+- Rehydration: `DockableLocator` resolves id-keyed dockables, and `RestoreDockable(string)` with `OnDockableRestored` re-owns each dockable and raises `DockableRestored`.
+- Outcome: the restored workspace retains its dock tree, open documents, and pinned tools.
 - Accept: persist through the `IDockSerializer` round-trip — `DockSerializer.Save<IRootDock>(Stream,…)`/`Load<IRootDock>(Stream)` over the `IDockState` snapshot; register the per-assembly source-generated `IJsonTypeInfoResolver` for AOT-safe serialization (`api-dock-serializer.md`).
 - Reject: a bespoke layout serializer replicating the polymorphic resolution the `Dock.Serializer` sibling owns; mutating the restored graph by hand instead of the `RestoreDockable`/`DockableLocator` rehydration surface.

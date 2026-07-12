@@ -19,66 +19,66 @@
 [PUBLIC_TYPE_SCOPE]: serde family
 - rail: cdc-egress (JSON Schema)
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [RAIL]                                          |
-| :-----: | :------------------------ | :--------------- | :---------------------------------------------- |
-|  [01]   | `JsonSerializer<T>`       | async serializer | `where T : class`; generates schema, validates, frames id |
-|  [02]   | `JsonDeserializer<T>`     | async deserializer | `where T : class`; resolves id, validates, parses |
-|  [03]   | `JsonSerializerConfig`    | serializer config | register/normalize/validate/subject/id-strategy |
-|  [04]   | `JsonDeserializerConfig`  | deserializer config | latest-version + validate + id-strategy       |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                                                    |
+| :-----: | :----------------------- | :------------------ | :-------------------------------------------------------- |
+|  [01]   | `JsonSerializer<T>`      | async serializer    | `where T : class`; generates schema, validates, frames id |
+|  [02]   | `JsonDeserializer<T>`    | async deserializer  | `where T : class`; resolves id, validates, parses         |
+|  [03]   | `JsonSerializerConfig`   | serializer config   | register/normalize/validate/subject/id-strategy           |
+|  [04]   | `JsonDeserializerConfig` | deserializer config | latest-version + validate + id-strategy                   |
 
 [PUBLIC_TYPE_SCOPE]: composed contract family (re-stated from siblings)
 - rail: cdc-egress (JSON Schema)
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]   | [ORIGIN]                                        |
-| :-----: | :------------------------------------ | :-------------- | :---------------------------------------------- |
-|  [01]   | `AsyncSerializer<T, JsonSchema>`      | serde base      | `Confluent.SchemaRegistry` — shared encode base (id encoder, buffer) |
-|  [02]   | `AsyncDeserializer<T, JsonSchema>`    | serde base      | `Confluent.SchemaRegistry` — shared decode base |
-|  [03]   | `IAsyncSerializer<T>` / `IAsyncDeserializer<T>` | codec slot | `Confluent.Kafka` — the `SetValueSerializer`/`SetValueDeserializer` target |
-|  [04]   | `SerializationContext`                | codec context   | `Confluent.Kafka` — component, topic, headers   |
-|  [05]   | `ISchemaRegistryClient`               | registry client | `Confluent.SchemaRegistry` — the shared registry leg |
-|  [06]   | `RuleRegistry`                        | rule registry   | `Confluent.SchemaRegistry` — CSFLE/migration executors |
-|  [07]   | `JsonSchema`                          | json schema     | `NJsonSchema` — the generated/registered draft schema |
-|  [08]   | `NewtonsoftJsonSchemaGeneratorSettings` | schema gen     | `NJsonSchema.NewtonsoftJson` — `T` -> `JsonSchema` settings |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [ORIGIN]                                                                   |
+| :-----: | :---------------------------------------------- | :-------------- | :------------------------------------------------------------------------- |
+|  [01]   | `AsyncSerializer<T, JsonSchema>`                | serde base      | `Confluent.SchemaRegistry` — shared encode base (id encoder, buffer)       |
+|  [02]   | `AsyncDeserializer<T, JsonSchema>`              | serde base      | `Confluent.SchemaRegistry` — shared decode base                            |
+|  [03]   | `IAsyncSerializer<T>` / `IAsyncDeserializer<T>` | codec slot      | `Confluent.Kafka` — the `SetValueSerializer`/`SetValueDeserializer` target |
+|  [04]   | `SerializationContext`                          | codec context   | `Confluent.Kafka` — component, topic, headers                              |
+|  [05]   | `ISchemaRegistryClient`                         | registry client | `Confluent.SchemaRegistry` — the shared registry leg                       |
+|  [06]   | `RuleRegistry`                                  | rule registry   | `Confluent.SchemaRegistry` — CSFLE/migration executors                     |
+|  [07]   | `JsonSchema`                                    | json schema     | `NJsonSchema` — the generated/registered draft schema                      |
+|  [08]   | `NewtonsoftJsonSchemaGeneratorSettings`         | schema gen      | `NJsonSchema.NewtonsoftJson` — `T` -> `JsonSchema` settings                |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction
 - rail: cdc-egress (JSON Schema)
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
-|  [01]   | `new JsonSerializer<T>(client, config?, jsonSchemaGeneratorSettings?, ruleRegistry?)` | ctor | generates the schema from `T` via NJsonSchema   |
-|  [02]   | `new JsonSerializer<T>(client, schema, config?, jsonSchemaGeneratorSettings?, ruleRegistry?)` | ctor | uses an explicit registered `Schema`        |
-|  [03]   | `new JsonDeserializer<T>(client, config, jsonSchemaGeneratorSettings?, ruleRegistry?)` | ctor | registry + typed config                         |
-|  [04]   | `new JsonDeserializer<T>(client, schema, config?, jsonSchemaGeneratorSettings?)` | ctor | explicit reader `Schema`                        |
-|  [05]   | `new JsonDeserializer<T>(config?, jsonSchemaGeneratorSettings?)`           | ctor           | registry-less decode (id framing only, no fetch) |
+| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [RAIL]                                           |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `new JsonSerializer<T>(client, config?, jsonSchemaGeneratorSettings?, ruleRegistry?)`         | ctor           | generates the schema from `T` via NJsonSchema    |
+|  [02]   | `new JsonSerializer<T>(client, schema, config?, jsonSchemaGeneratorSettings?, ruleRegistry?)` | ctor           | uses an explicit registered `Schema`             |
+|  [03]   | `new JsonDeserializer<T>(client, config, jsonSchemaGeneratorSettings?, ruleRegistry?)`        | ctor           | registry + typed config                          |
+|  [04]   | `new JsonDeserializer<T>(client, schema, config?, jsonSchemaGeneratorSettings?)`              | ctor           | explicit reader `Schema`                         |
+|  [05]   | `new JsonDeserializer<T>(config?, jsonSchemaGeneratorSettings?)`                              | ctor           | registry-less decode (id framing only, no fetch) |
 
 [ENTRYPOINT_SCOPE]: codec invocation (Confluent.Kafka slot)
 - rail: cdc-egress (JSON Schema)
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `SerializeAsync(value, context)` -> `Task<byte[]>`         | encode         | generates/registers the schema, validates the document, frames id, writes UTF-8 JSON |
-|  [02]   | `DeserializeAsync(data, isNull, context)` -> `Task<T>`     | decode         | reads id, validates against the writer schema, parses into `T` |
-|  [03]   | `producerBuilder.SetValueSerializer(jsonSerializer)`       | wiring         | mounts the serde on the `Confluent.Kafka` value slot |
-|  [04]   | `consumerBuilder.SetValueDeserializer(jsonDeserializer)`   | wiring         | mounts the serde on the consumer value slot     |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                                               |
+| :-----: | :------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `SerializeAsync(value, context)` -> `Task<byte[]>`       | encode         | generates/registers the schema, validates the document, frames id, writes UTF-8 JSON |
+|  [02]   | `DeserializeAsync(data, isNull, context)` -> `Task<T>`   | decode         | reads id, validates against the writer schema, parses into `T`                       |
+|  [03]   | `producerBuilder.SetValueSerializer(jsonSerializer)`     | wiring         | mounts the serde on the `Confluent.Kafka` value slot                                 |
+|  [04]   | `consumerBuilder.SetValueDeserializer(jsonDeserializer)` | wiring         | mounts the serde on the consumer value slot                                          |
 
 [ENTRYPOINT_SCOPE]: config tunables (`JsonSerializerConfig` / `JsonDeserializerConfig`)
 - rail: cdc-egress (JSON Schema)
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `AutoRegisterSchemas` (`bool?`)                        | serializer     | auto-register the generated schema (production: `false`) |
-|  [02]   | `NormalizeSchemas` (`bool?`)                           | serializer     | canonical-form normalization                    |
-|  [03]   | `UseLatestVersion` (`bool?`)                           | both           | pin the latest registered schema version        |
-|  [04]   | `UseSchemaId` (`int?`)                                  | serializer     | force a specific registered schema id           |
-|  [05]   | `BufferBytes` (`int?`)                                  | serializer     | initial serialize buffer override               |
-|  [06]   | `Validate` (`bool?`)                                   | both           | validate the JSON document against the schema (the JSON-Schema-distinct guard) |
-|  [07]   | `ValidateBeforeDomainRules` (`bool?`)                  | both           | run schema validation ahead of the CSFLE/domain rules |
-|  [08]   | `LatestCompatibilityStrict` (`bool?`)                  | serializer     | strict compatibility check against the latest version |
-|  [09]   | `SubjectNameStrategy` (`SubjectNameStrategy?`)         | both           | `Topic`/`Record`/`TopicRecord` subject derivation |
-|  [10]   | `SchemaIdStrategy` (`SchemaIdSerializerStrategy?` / `SchemaIdDeserializerStrategy?`) | both | `Prefix` vs. `Header` / `Dual` id framing      |
-|  [11]   | `UseLatestWithMetadata` (`IDictionary<string,string>`) | both          | pin the schema version whose `Metadata` matches |
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [RAIL]                                                                         |
+| :-----: | :----------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `AutoRegisterSchemas` (`bool?`)                                                      | serializer     | auto-register the generated schema (production: `false`)                       |
+|  [02]   | `NormalizeSchemas` (`bool?`)                                                         | serializer     | canonical-form normalization                                                   |
+|  [03]   | `UseLatestVersion` (`bool?`)                                                         | both           | pin the latest registered schema version                                       |
+|  [04]   | `UseSchemaId` (`int?`)                                                               | serializer     | force a specific registered schema id                                          |
+|  [05]   | `BufferBytes` (`int?`)                                                               | serializer     | initial serialize buffer override                                              |
+|  [06]   | `Validate` (`bool?`)                                                                 | both           | validate the JSON document against the schema (the JSON-Schema-distinct guard) |
+|  [07]   | `ValidateBeforeDomainRules` (`bool?`)                                                | both           | run schema validation ahead of the CSFLE/domain rules                          |
+|  [08]   | `LatestCompatibilityStrict` (`bool?`)                                                | serializer     | strict compatibility check against the latest version                          |
+|  [09]   | `SubjectNameStrategy` (`SubjectNameStrategy?`)                                       | both           | `Topic`/`Record`/`TopicRecord` subject derivation                              |
+|  [10]   | `SchemaIdStrategy` (`SchemaIdSerializerStrategy?` / `SchemaIdDeserializerStrategy?`) | both           | `Prefix` vs. `Header` / `Dual` id framing                                      |
+|  [11]   | `UseLatestWithMetadata` (`IDictionary<string,string>`)                               | both           | pin the schema version whose `Metadata` matches                                |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

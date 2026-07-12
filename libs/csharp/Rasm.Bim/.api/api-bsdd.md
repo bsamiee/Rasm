@@ -21,30 +21,30 @@ The buildingSMART Data Dictionary (bSDD) is the live RESTful authority for stand
 - rail: classification
 - method: `GET` for every resource below; query parameters are URL-encoded; array parameters repeat the key
 
-| [INDEX] | [RESOURCE] | [REQUIRED] | [OPTIONAL] | [RESPONSE] |
-|:-----: |:--------------------------- |:-------------------- |:------------------------------------------------------------------------------------------ |:------------------------------------ |
-| [01] | `api/Class/v1` | `Uri` | `IncludeClassProperties` `IncludeChildClassReferences` `IncludeClassRelations` `IncludeReverseRelations` `ReverseRelationDictionaryUris[]` `languageCode` | `ClassContract.v1` |
-| [02] | `api/Class/Properties/v1` | `ClassUri` | `PropertySet` `PropertyCode` `SearchText` `Offset` `Limit` `languageCode` | `ClassPropertiesContract.v1` (paged) |
-| [03] | `api/Class/Relations/v1` | `ClassUri` `GetReverseRelations` | `SearchText` `Offset` `Limit` `languageCode` | `ClassRelationsContract.v1` (paged) |
-| [04] | `api/Class/Search/v1` | `SearchText` | `DictionaryUris[]` `RelatedIfcEntities[]` `Offset` `Limit` | `ClassSearchResponseContract.v1` |
-| [05] | `api/SearchInDictionary/v1` | `DictionaryUri` | `SearchText` `LanguageCode` `RelatedIfcEntity` `Offset` `Limit` | `SearchInDictionaryResponseContract.v1` |
-| [06] | `api/TextSearch/v2` | `SearchText` | `TypeFilter` `DictionaryUris[]` `OnlyLatestVersion` `OnlyVerified` `IncludeInactive` `IncludePreview` `IncludeSearchDescriptions` `Offset` `Limit` | `TextSearchResponseContract.v2` |
-| [07] | `api/Property/v5` | `uri` | `languageCode` | `PropertyContract.v5` |
-| [08] | `api/PropertyValue/v2` | `uri` | `languageCode` | `PropertyValueContract.v4` |
+| [INDEX] | [RESOURCE]                  | [REQUIRED]                       | [OPTIONAL]                                                                                                                                                | [RESPONSE]                              |
+| :-----: | :-------------------------- | :------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------- |
+|  [01]   | `api/Class/v1`              | `Uri`                            | `IncludeClassProperties` `IncludeChildClassReferences` `IncludeClassRelations` `IncludeReverseRelations` `ReverseRelationDictionaryUris[]` `languageCode` | `ClassContract.v1`                      |
+|  [02]   | `api/Class/Properties/v1`   | `ClassUri`                       | `PropertySet` `PropertyCode` `SearchText` `Offset` `Limit` `languageCode`                                                                                 | `ClassPropertiesContract.v1` (paged)    |
+|  [03]   | `api/Class/Relations/v1`    | `ClassUri` `GetReverseRelations` | `SearchText` `Offset` `Limit` `languageCode`                                                                                                              | `ClassRelationsContract.v1` (paged)     |
+|  [04]   | `api/Class/Search/v1`       | `SearchText`                     | `DictionaryUris[]` `RelatedIfcEntities[]` `Offset` `Limit`                                                                                                | `ClassSearchResponseContract.v1`        |
+|  [05]   | `api/SearchInDictionary/v1` | `DictionaryUri`                  | `SearchText` `LanguageCode` `RelatedIfcEntity` `Offset` `Limit`                                                                                           | `SearchInDictionaryResponseContract.v1` |
+|  [06]   | `api/TextSearch/v2`         | `SearchText`                     | `TypeFilter` `DictionaryUris[]` `OnlyLatestVersion` `OnlyVerified` `IncludeInactive` `IncludePreview` `IncludeSearchDescriptions` `Offset` `Limit`        | `TextSearchResponseContract.v2`         |
+|  [07]   | `api/Property/v5`           | `uri`                            | `languageCode`                                                                                                                                            | `PropertyContract.v5`                   |
+|  [08]   | `api/PropertyValue/v2`      | `uri`                            | `languageCode`                                                                                                                                            | `PropertyValueContract.v4`              |
 
 [ENDPOINT_SCOPE]: dictionary enumeration + reference data
 - rail: classification
 
-| [INDEX] | [RESOURCE] | [REQUIRED] | [OPTIONAL] | [RESPONSE] |
-|:-----: |:---------------------------- |:--------- |:--------------------------------------------------------------------------------- |:------------------------------------------ |
-| [01] | `api/Dictionary/v1` | — | `Uri` `IncludeTestDictionaries` `Offset` `Limit` | `DictionaryResponseContract.v1` |
-| [02] | `api/Dictionary/v1/Classes` | `Uri` | `UseNestedClasses` `ClassType` `SearchText` `RelatedIfcEntity` `RelatedIfcEntities[]` `Offset` `Limit` `languageCode` | `DictionaryClassesResponseContract.v1` |
-| [03] | `api/Dictionary/v1/Properties` | `Uri` | `SearchText` `Offset` `Limit` `languageCode` | `DictionaryPropertiesResponseContract.v1` |
-| [04] | `api/Unit/v1` | — | — | `UnitContract.v1[]` |
-| [05] | `api/Country/v1` | — | — | `CountryContract.v1[]` |
-| [06] | `api/Language/v1` | — | — | `LanguageContract.v1[]` |
-| [07] | `api/ReferenceDocument/v1` | — | — | `ReferenceDocumentContract.v1[]` |
-| [08] | `api/Health` | — | — | `200 OK` liveness probe (no body) |
+| [INDEX] | [RESOURCE]                     | [REQUIRED] | [OPTIONAL]                                                                                                            | [RESPONSE]                                |
+| :-----: | :----------------------------- | :--------- | :-------------------------------------------------------------------------------------------------------------------- | :---------------------------------------- |
+|  [01]   | `api/Dictionary/v1`            | —          | `Uri` `IncludeTestDictionaries` `Offset` `Limit`                                                                      | `DictionaryResponseContract.v1`           |
+|  [02]   | `api/Dictionary/v1/Classes`    | `Uri`      | `UseNestedClasses` `ClassType` `SearchText` `RelatedIfcEntity` `RelatedIfcEntities[]` `Offset` `Limit` `languageCode` | `DictionaryClassesResponseContract.v1`    |
+|  [03]   | `api/Dictionary/v1/Properties` | `Uri`      | `SearchText` `Offset` `Limit` `languageCode`                                                                          | `DictionaryPropertiesResponseContract.v1` |
+|  [04]   | `api/Unit/v1`                  | —          | —                                                                                                                     | `UnitContract.v1[]`                       |
+|  [05]   | `api/Country/v1`               | —          | —                                                                                                                     | `CountryContract.v1[]`                    |
+|  [06]   | `api/Language/v1`              | —          | —                                                                                                                     | `LanguageContract.v1[]`                   |
+|  [07]   | `api/ReferenceDocument/v1`     | —          | —                                                                                                                     | `ReferenceDocumentContract.v1[]`          |
+|  [08]   | `api/Health`                   | —          | —                                                                                                                     | `200 OK` liveness probe (no body)         |
 
 [PARAMETER_LAW]:
 - `Uri`/`ClassUri`/`uri` carry the FULL identifier URI (`{DictionaryUri}/class/{code}` for a class; `{DictionaryUri}/prop/{code}` for a property); the API resolves it server-side — this is the single addressing scheme `BsddPort.Fetch` builds.
@@ -57,15 +57,15 @@ The buildingSMART Data Dictionary (bSDD) is the live RESTful authority for stand
 [CONTRACT_SCOPE]: class detail + property + relation shapes
 - rail: classification
 
-| [INDEX] | [SYMBOL] | [SHAPE] |
-|:-----: |:----------------------------- |:------------------------------------------------------------------------------------------------------ |
-| [01] | `ClassContract.v1` | the class header + nested rollups; required `code`/`name`/`uri`/`status`/`activationDateUtc`/`versionDateUtc` |
-| [02] | `ClassPropertyContract.v1` | a class-scoped property binding (required `name`); the Pset placement + value constraints |
-| [03] | `ClassPropertyItemContract.v1` | the paginated `api/Class/Properties/v1` item — same fields as `ClassPropertyContract.v1` |
-| [04] | `ClassPropertyValueContract.v1` | an allowed value: `value` (required) + `uri`/`code`/`description`/`sortNumber` |
-| [05] | `ClassReferenceContract.v1` | a parent/child class pointer: `uri` (required) + `name`/`code` |
-| [06] | `ClassRelationContract.v1` | a forward relation: `relationType` + `relatedClassUri` (required) + `relatedClassName`/`fraction`/`uri` |
-| [07] | `HierarchyItemContract.v1` | an ancestor row to root: `level`/`name`/`code`/`uri` |
+| [INDEX] | [SYMBOL]                        | [SHAPE]                                                                                                       |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ClassContract.v1`              | the class header + nested rollups; required `code`/`name`/`uri`/`status`/`activationDateUtc`/`versionDateUtc` |
+|  [02]   | `ClassPropertyContract.v1`      | a class-scoped property binding (required `name`); the Pset placement + value constraints                     |
+|  [03]   | `ClassPropertyItemContract.v1`  | the paginated `api/Class/Properties/v1` item — same fields as `ClassPropertyContract.v1`                      |
+|  [04]   | `ClassPropertyValueContract.v1` | an allowed value: `value` (required) + `uri`/`code`/`description`/`sortNumber`                                |
+|  [05]   | `ClassReferenceContract.v1`     | a parent/child class pointer: `uri` (required) + `name`/`code`                                                |
+|  [06]   | `ClassRelationContract.v1`      | a forward relation: `relationType` + `relatedClassUri` (required) + `relatedClassName`/`fraction`/`uri`       |
+|  [07]   | `HierarchyItemContract.v1`      | an ancestor row to root: `level`/`name`/`code`/`uri`                                                          |
 
 `ClassContract.v1` fields: `dictionaryUri`, `code`, `name`, `uri`, `status` (`Preview`|`Active`|`Inactive`), `classType` (`Class`|`Material`|`GroupOfProperties`|`AlternativeUse`), `referenceCode`, `definition`, `description`, `documentReference`, `creatorLanguageCode`, `countriesOfUse[]`, `countryOfOrigin`, `subdivisionsOfUse[]`, `synonyms[]`, `relatedIfcEntityNames[]` (version-independent IFC entity bindings), `replacedObjectCodes[]`/`replacingObjectCodes[]`, `deprecationExplanation`, `uid`, `visualRepresentationUri`, `revisionNumber`/`revisionDateUtc`, `versionNumber`/`versionDateUtc`, `activationDateUtc`/`deActivationDateUtc`, `parentClassReference` (`ClassReferenceContract.v1`), `classProperties[]` (`ClassPropertyContract.v1`), `classRelations[]` (`ClassRelationContract.v1`), `childClassReferences[]`, `reverseClassRelations[]`, `hierarchy[]` (`HierarchyItemContract.v1`).
 
@@ -74,16 +74,16 @@ The buildingSMART Data Dictionary (bSDD) is the live RESTful authority for stand
 [CONTRACT_SCOPE]: dictionary + search + reference shapes
 - rail: classification
 
-| [INDEX] | [SYMBOL] | [SHAPE] |
-|:-----: |:-------------------------------------- |:-------------------------------------------------------------------------------------------------- |
-| [01] | `DictionaryResponseContract.v1` | paged `{ totalCount, offset, count, dictionaries[] }` over `DictionaryContract.v1` |
-| [02] | `DictionaryContract.v1` | dictionary header: `code`/`uri`/`name`/`version`/`organizationCodeOwner`/`organizationNameOwner`/`defaultLanguageCode` + flags |
-| [03] | `ClassSearchResponseContract.v1` | paged `{ totalCount, offset, count, classes[] }` over `ClassSearchResponseClassContract.v1` |
-| [04] | `SearchInDictionaryResponseContract.v1` | paged `{ totalCount, offset, count, dictionary }` (one `DictionarySearchResultContract.v1`) |
-| [05] | `TextSearchResponseContract.v2` | paged `{ totalCount, offset, count, classes[], dictionaries[], properties[] }` (combined paging) |
-| [06] | `PropertyContract.v5` | the property master record (dictionary-level metadata + `allowedValues[]` + `propertyRelations[]`) |
-| [07] | `UnitContract.v1` | `code`/`name`/`symbol`/`qudtUri` |
-| [08] | `CountryContract.v1` / `LanguageContract.v1` / `ReferenceDocumentContract.v1` | `{code,name}` / `{isoCode,name}` / `{title,name,date}` |
+| [INDEX] | [SYMBOL]                                                                      | [SHAPE]                                                                                                                        |
+| :-----: | :---------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `DictionaryResponseContract.v1`                                               | paged `{ totalCount, offset, count, dictionaries[] }` over `DictionaryContract.v1`                                             |
+|  [02]   | `DictionaryContract.v1`                                                       | dictionary header: `code`/`uri`/`name`/`version`/`organizationCodeOwner`/`organizationNameOwner`/`defaultLanguageCode` + flags |
+|  [03]   | `ClassSearchResponseContract.v1`                                              | paged `{ totalCount, offset, count, classes[] }` over `ClassSearchResponseClassContract.v1`                                    |
+|  [04]   | `SearchInDictionaryResponseContract.v1`                                       | paged `{ totalCount, offset, count, dictionary }` (one `DictionarySearchResultContract.v1`)                                    |
+|  [05]   | `TextSearchResponseContract.v2`                                               | paged `{ totalCount, offset, count, classes[], dictionaries[], properties[] }` (combined paging)                               |
+|  [06]   | `PropertyContract.v5`                                                         | the property master record (dictionary-level metadata + `allowedValues[]` + `propertyRelations[]`)                             |
+|  [07]   | `UnitContract.v1`                                                             | `code`/`name`/`symbol`/`qudtUri`                                                                                               |
+|  [08]   | `CountryContract.v1` / `LanguageContract.v1` / `ReferenceDocumentContract.v1` | `{code,name}` / `{isoCode,name}` / `{title,name,date}`                                                                         |
 
 `DictionaryContract.v1` fields: `code`, `uri`, `name`, `version`, `organizationCodeOwner`, `organizationNameOwner`, `defaultLanguageCode`, `isLatestVersion`, `isVerified`, `isPrivate`, `status`, `license`, `licenseUrl`, `qualityAssuranceProcedure`/`qualityAssuranceProcedureUrl`, `changeRequestEmail`, `moreInfoUrl`, `releaseDate`, `lastUpdatedUtc`, `availableLanguages[]` (`{code,name}`). `ClassSearchResponseClassContract.v1` fields: `dictionaryUri`, `dictionaryName`, `name`, `referenceCode`, `uri`, `classType`, `description`, `parentClassName`, `relatedIfcEntityNames[]`. `TextSearchResponseClassContract.v2` adds `code`; `TextSearchResponseDictionaryContract.v2` carries `uri`/`code`/`name`/`version`/`organizationName`/`status`/`languages[]`/`isLatestVersion`/`isVerified`; `TextSearchResponsePropertyContract.v2` carries `dictionaryUri`/`uri`/`code`/`name`/`description`. `PropertyContract.v5` mirrors the `ClassPropertyContract.v1` value fields (`dataType`/`propertyValueKind`/`allowedValues[]` as `PropertyValueContract.v5`/`units[]`/`qudtCodes[]`/`dimension*`/`pattern`/`min*`/`max*`) plus dictionary-master metadata (`code`/`uri`/`status`/`versionDateUtc`/`connectedPropertyCodes[]`/`methodOfMeasurement`/`textFormat`/`propertyRelations[]`).
 
@@ -93,16 +93,16 @@ The buildingSMART Data Dictionary (bSDD) is the live RESTful authority for stand
 - rail: classification
 - surface-root: `Semantics/classification#BSDD_RESOLUTION` (`BsddPort`/`BsddResolution`/`BsddClass`/`BsddProperty`)
 
-| [INDEX] | [SURFACE] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------------- |:-------------------------------------------------------------------------- |
-| [01] | `classUri = $"{Classification.DictionaryUri}/class/{code}"` | the identifier URI is the `Uri` query argument — the one addressing scheme |
-| [02] | `GET {BsddApiUrl}/api/Class/v1?Uri={classUri}&IncludeClassProperties=true[&languageCode=]` | resolve a class header + its property bindings in one round trip |
-| [03] | `Accept: application/json`, `X-User-Agent: Rasm.Bim/<ver>` | content-negotiate JSON; attribute usage |
-| [04] | project `ClassContract.v1` → `BsddClass(code, name, classType, definition, uri, properties, status, relatedIfcEntities, relations, reverseRelations, parent, ancestry, children, replaces, replacedBy, deprecation)` | `BsddClass.Of` projects the FULL verified surface — `Status` gates IDS admission, `Relations`/`ReverseRelations` feed the `BsddFederation` closure, `Parent`/`Ancestry`/`Children` the containment, `Replaces`/`ReplacedBy`/`Deprecation` the supersession the `Admit` gate reads |
-| [05] | per `ClassPropertyContract.v1` → `BsddProperty(propertyCode ?? code, name, dataType, propertySet, predefinedValue, isRequired, valueKind, allowedValues, pattern, bounds, exponents, units, status)` | the full constraint-surface template seed (`AllowedValues`/`Pattern`/`Bounds`/`SiExponents`/`Units`) the `Semantics/properties` templates and IDS value constraints consume |
-| [06] | transport miss → `LocalShape` (the row's code-shape regex) | degrade, never fault — ingest never blocks on the dictionary |
-| [07] | `GET api/Class/Search/v1?SearchText=&DictionaryUris=&RelatedIfcEntities=` | resolve a code from a label/IFC-entity search (authoring, not ingest) |
-| [08] | `GET api/Dictionary/v1[?Uri=]` | enumerate dictionaries / pin a single dictionary version row |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                            | [CAPABILITY]                                                                                                                                                                                                                                                                      |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `classUri = $"{Classification.DictionaryUri}/class/{code}"`                                                                                                                                                          | the identifier URI is the `Uri` query argument — the one addressing scheme                                                                                                                                                                                                        |
+|  [02]   | `GET {BsddApiUrl}/api/Class/v1?Uri={classUri}&IncludeClassProperties=true[&languageCode=]`                                                                                                                           | resolve a class header + its property bindings in one round trip                                                                                                                                                                                                                  |
+|  [03]   | `Accept: application/json`, `X-User-Agent: Rasm.Bim/<ver>`                                                                                                                                                           | content-negotiate JSON; attribute usage                                                                                                                                                                                                                                           |
+|  [04]   | project `ClassContract.v1` → `BsddClass(code, name, classType, definition, uri, properties, status, relatedIfcEntities, relations, reverseRelations, parent, ancestry, children, replaces, replacedBy, deprecation)` | `BsddClass.Of` projects the FULL verified surface — `Status` gates IDS admission, `Relations`/`ReverseRelations` feed the `BsddFederation` closure, `Parent`/`Ancestry`/`Children` the containment, `Replaces`/`ReplacedBy`/`Deprecation` the supersession the `Admit` gate reads |
+|  [05]   | per `ClassPropertyContract.v1` → `BsddProperty(propertyCode ?? code, name, dataType, propertySet, predefinedValue, isRequired, valueKind, allowedValues, pattern, bounds, exponents, units, status)`                 | the full constraint-surface template seed (`AllowedValues`/`Pattern`/`Bounds`/`SiExponents`/`Units`) the `Semantics/properties` templates and IDS value constraints consume                                                                                                       |
+|  [06]   | transport miss → `LocalShape` (the row's code-shape regex)                                                                                                                                                           | degrade, never fault — ingest never blocks on the dictionary                                                                                                                                                                                                                      |
+|  [07]   | `GET api/Class/Search/v1?SearchText=&DictionaryUris=&RelatedIfcEntities=`                                                                                                                                            | resolve a code from a label/IFC-entity search (authoring, not ingest)                                                                                                                                                                                                             |
+|  [08]   | `GET api/Dictionary/v1[?Uri=]`                                                                                                                                                                                       | enumerate dictionaries / pin a single dictionary version row                                                                                                                                                                                                                      |
 
 ## [05]-[IMPLEMENTATION_LAW]
 

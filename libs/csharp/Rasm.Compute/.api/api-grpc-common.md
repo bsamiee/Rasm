@@ -92,43 +92,43 @@
 - source: `Grpc.Core.Api` decompile
 - rail: remote-server#CONTROL_SERVICE
 
-| [INDEX] | [MEMBER]                                      | [SIGNATURE]                                                                                 |
-| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `ServerCallContext.Method`                    | `string Method { get; }`                                                                    |
-|  [02]   | `ServerCallContext.Host`                      | `string Host { get; }`                                                                      |
-|  [03]   | `ServerCallContext.Peer`                      | `string Peer { get; }`                                                                      |
-|  [04]   | `ServerCallContext.Deadline`                  | `DateTime Deadline { get; }`                                                                |
-|  [05]   | `ServerCallContext.RequestHeaders`            | `Metadata RequestHeaders { get; }`                                                          |
-|  [06]   | `ServerCallContext.CancellationToken`         | `CancellationToken CancellationToken { get; }`                                              |
-|  [07]   | `ServerCallContext.ResponseTrailers`          | `Metadata ResponseTrailers { get; }`                                                        |
-|  [08]   | `ServerCallContext.Status`                    | `Status Status { get; set; }`                                                               |
-|  [09]   | `ServerCallContext.WriteOptions`              | `WriteOptions? WriteOptions { get; set; }`                                                  |
-|  [10]   | `ServerCallContext.AuthContext`               | `AuthContext AuthContext { get; }`                                                          |
-|  [11]   | `ServerCallContext.UserState`                 | `IDictionary<object, object> UserState { get; }`                                            |
-|  [12]   | `ServerCallContext.WriteResponseHeadersAsync` | `Task WriteResponseHeadersAsync(Metadata responseHeaders)`                                  |
-|  [13]   | `ServerCallContext.CreatePropagationToken`    | `ContextPropagationToken CreatePropagationToken(ContextPropagationOptions? options = null)` |
-|  [14]   | `IAsyncStreamWriter<T>.WriteOptions`          | `WriteOptions? WriteOptions { get; set; }`                                                  |
-|  [15]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message)`                                                                |
-|  [16]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message, CancellationToken cancellationToken)`                           |
-|  [17]   | `IServerStreamWriter<T>`                      | `interface IServerStreamWriter<in T> : IAsyncStreamWriter<T>`                               |
-|  [18]   | `WriteOptions.ctor`                           | `WriteOptions(WriteFlags flags = 0)`; `static readonly WriteOptions Default`                |
-|  [19]   | `WriteFlags`                                  | `[Flags] enum WriteFlags { BufferHint = 1, NoCompress = 2 }`                                |
+| [INDEX] | [MEMBER]                                      | [SIGNATURE]                                                                                                                                              |
+| :-----: | :-------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ServerCallContext.Method`                    | `string Method { get; }`                                                                                                                                 |
+|  [02]   | `ServerCallContext.Host`                      | `string Host { get; }`                                                                                                                                   |
+|  [03]   | `ServerCallContext.Peer`                      | `string Peer { get; }`                                                                                                                                   |
+|  [04]   | `ServerCallContext.Deadline`                  | `DateTime Deadline { get; }`                                                                                                                             |
+|  [05]   | `ServerCallContext.RequestHeaders`            | `Metadata RequestHeaders { get; }`                                                                                                                       |
+|  [06]   | `ServerCallContext.CancellationToken`         | `CancellationToken CancellationToken { get; }`                                                                                                           |
+|  [07]   | `ServerCallContext.ResponseTrailers`          | `Metadata ResponseTrailers { get; }`                                                                                                                     |
+|  [08]   | `ServerCallContext.Status`                    | `Status Status { get; set; }`                                                                                                                            |
+|  [09]   | `ServerCallContext.WriteOptions`              | `WriteOptions? WriteOptions { get; set; }`                                                                                                               |
+|  [10]   | `ServerCallContext.AuthContext`               | `AuthContext AuthContext { get; }`                                                                                                                       |
+|  [11]   | `ServerCallContext.UserState`                 | `IDictionary<object, object> UserState { get; }`                                                                                                         |
+|  [12]   | `ServerCallContext.WriteResponseHeadersAsync` | `Task WriteResponseHeadersAsync(Metadata responseHeaders)`                                                                                               |
+|  [13]   | `ServerCallContext.CreatePropagationToken`    | `ContextPropagationToken CreatePropagationToken(ContextPropagationOptions? options = null)`                                                              |
+|  [14]   | `IAsyncStreamWriter<T>.WriteOptions`          | `WriteOptions? WriteOptions { get; set; }`                                                                                                               |
+|  [15]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message)`                                                                                                                             |
+|  [16]   | `IAsyncStreamWriter<T>.WriteAsync`            | `Task WriteAsync(T message, CancellationToken cancellationToken)`                                                                                        |
+|  [17]   | `IServerStreamWriter<T>`                      | `interface IServerStreamWriter<in T> : IAsyncStreamWriter<T>`                                                                                            |
+|  [18]   | `WriteOptions.ctor`                           | `WriteOptions(WriteFlags flags = 0)`; `static readonly WriteOptions Default`                                                                             |
+|  [19]   | `WriteFlags`                                  | `[Flags] enum WriteFlags { BufferHint = 1, NoCompress = 2 }`                                                                                             |
 |  [20]   | `AsyncStreamReaderExtensions.MoveNext`        | `static Task<bool> MoveNext<T>(this IAsyncStreamReader<T> streamReader) where T : class` — manual-pump alternative to `Grpc.Net.Common`'s `ReadAllAsync` |
-|  [21]   | `Metadata.ctor`                               | `Metadata()`                                                                                |
-|  [22]   | `Metadata.Add`                                | `void Add(string key, string value)`                                                        |
-|  [23]   | `Metadata.Add`                                | `void Add(string key, byte[] valueBytes)`                                                   |
-|  [24]   | `Metadata.Add`                                | `void Add(Metadata.Entry item)`                                                             |
-|  [25]   | `Metadata.Get`                                | `Metadata.Entry? Get(string key)`                                                           |
-|  [26]   | `Metadata.GetValue`                           | `string? GetValue(string key)`                                                              |
-|  [27]   | `Metadata.GetValueBytes`                      | `byte[]? GetValueBytes(string key)`                                                         |
-|  [28]   | `Metadata.GetAll`                             | `IEnumerable<Metadata.Entry> GetAll(string key)`                                            |
-|  [29]   | `Metadata.BinaryHeaderSuffix`                 | `const string BinaryHeaderSuffix = "-bin"`                                                  |
-|  [30]   | `Metadata.Empty`                              | `static readonly Metadata Empty`                                                            |
-|  [31]   | `Metadata.Entry.ctor`                         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)`                  |
-|  [32]   | `Metadata.Entry.Key`                          | `string Key { get; }`                                                                       |
-|  [33]   | `Metadata.Entry.Value`                        | `string Value { get; }`                                                                     |
-|  [34]   | `Metadata.Entry.ValueBytes`                   | `byte[] ValueBytes { get; }`                                                                |
-|  [35]   | `Metadata.Entry.IsBinary`                     | `bool IsBinary { get; }`                                                                    |
+|  [21]   | `Metadata.ctor`                               | `Metadata()`                                                                                                                                             |
+|  [22]   | `Metadata.Add`                                | `void Add(string key, string value)`                                                                                                                     |
+|  [23]   | `Metadata.Add`                                | `void Add(string key, byte[] valueBytes)`                                                                                                                |
+|  [24]   | `Metadata.Add`                                | `void Add(Metadata.Entry item)`                                                                                                                          |
+|  [25]   | `Metadata.Get`                                | `Metadata.Entry? Get(string key)`                                                                                                                        |
+|  [26]   | `Metadata.GetValue`                           | `string? GetValue(string key)`                                                                                                                           |
+|  [27]   | `Metadata.GetValueBytes`                      | `byte[]? GetValueBytes(string key)`                                                                                                                      |
+|  [28]   | `Metadata.GetAll`                             | `IEnumerable<Metadata.Entry> GetAll(string key)`                                                                                                         |
+|  [29]   | `Metadata.BinaryHeaderSuffix`                 | `const string BinaryHeaderSuffix = "-bin"`                                                                                                               |
+|  [30]   | `Metadata.Empty`                              | `static readonly Metadata Empty`                                                                                                                         |
+|  [31]   | `Metadata.Entry.ctor`                         | `Entry(string key, string value)` / `Entry(string key, byte[] valueBytes)`                                                                               |
+|  [32]   | `Metadata.Entry.Key`                          | `string Key { get; }`                                                                                                                                    |
+|  [33]   | `Metadata.Entry.Value`                        | `string Value { get; }`                                                                                                                                  |
+|  [34]   | `Metadata.Entry.ValueBytes`                   | `byte[] ValueBytes { get; }`                                                                                                                             |
+|  [35]   | `Metadata.Entry.IsBinary`                     | `bool IsBinary { get; }`                                                                                                                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

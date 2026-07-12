@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.Input`
+
 - package: `Silk.NET.Input` (MIT, meta — no assembly; nuspec deps are `Silk.NET.Input.Common`/`.Glfw`/`.Sdl`, all `exclude=Build,Analyzers`)
 - package: `Silk.NET.Input.Common` (MIT — carries the assembly; consumer net10 binds `lib/net5.0`)
 - package: `Silk.NET.Input.Glfw` (— `[InputPlatform]` backend, reflection-loaded)
@@ -17,34 +18,37 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and device contracts
+
 - rail: input
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]    | [RAIL]                                       |
-| :-----: | :--------------- | :--------------- | :------------------------------------------- |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]    | [RAIL]                                                    |
+| :-----: | :--------------- | :--------------- | :-------------------------------------------------------- |
 |  [01]   | `IInputContext`  | disposable root  | per-view device aggregator + `Handle`/`ConnectionChanged` |
-|  [02]   | `IInputDevice`   | device base      | `Name`/`Index`/`IsConnected` identity        |
-|  [03]   | `IGamepad`       | device contract  | mapped controller (buttons/sticks/triggers/motors) |
-|  [04]   | `IJoystick`      | device contract  | raw axes/buttons/hats                        |
-|  [05]   | `IKeyboard`      | device contract  | key state, char intake, `ClipboardText`, IME |
-|  [06]   | `IMouse`         | device contract  | position, buttons, scroll, double-click, cursor |
-|  [07]   | `IMotor`         | actuator         | `Index` + per-motor rumble `Speed`           |
-|  [08]   | `ICursor`        | cursor handle    | mode/type/standard shape/image/confine/hotspot |
-|  [09]   | `IInputPlatform` | backend contract | `IsApplicable(IView)` + `CreateInput(IView)` |
+|  [02]   | `IInputDevice`   | device base      | `Name`/`Index`/`IsConnected` identity                     |
+|  [03]   | `IGamepad`       | device contract  | mapped controller (buttons/sticks/triggers/motors)        |
+|  [04]   | `IJoystick`      | device contract  | raw axes/buttons/hats                                     |
+|  [05]   | `IKeyboard`      | device contract  | key state, char intake, `ClipboardText`, IME              |
+|  [06]   | `IMouse`         | device contract  | position, buttons, scroll, double-click, cursor           |
+|  [07]   | `IMotor`         | actuator         | `Index` + per-motor rumble `Speed`                        |
+|  [08]   | `ICursor`        | cursor handle    | mode/type/standard shape/image/confine/hotspot            |
+|  [09]   | `IInputPlatform` | backend contract | `IsApplicable(IView)` + `CreateInput(IView)`              |
 
 [PUBLIC_TYPE_SCOPE]: input value carriers (immutable poll state)
+
 - rail: input
 
-| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]   | [RAIL]                                            |
-| :-----: | :------------ | :-------------- | :------------------------------------------------ |
-|  [01]   | `Button`      | struct          | `Name`(`ButtonName`)/`Index`/`Pressed`            |
-|  [02]   | `Thumbstick`  | struct          | `Index`/`X`/`Y`; derived polar `Position`/`Direction` |
-|  [03]   | `Trigger`     | struct          | `Index`/`Position`                                |
-|  [04]   | `Axis`        | readonly struct | `Index`/`Position`                                |
-|  [05]   | `Hat`         | struct          | `Index`/`Position`(`Position2D` bitfield)         |
-|  [06]   | `Deadzone`    | readonly struct | `Value`/`Method` + `Apply(float raw)` fold        |
-|  [07]   | `ScrollWheel` | struct (`IEquatable`) | `X`/`Y` scroll delta                        |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [RAIL]                                                |
+| :-----: | :------------ | :-------------------- | :---------------------------------------------------- |
+|  [01]   | `Button`      | struct                | `Name`(`ButtonName`)/`Index`/`Pressed`                |
+|  [02]   | `Thumbstick`  | struct                | `Index`/`X`/`Y`; derived polar `Position`/`Direction` |
+|  [03]   | `Trigger`     | struct                | `Index`/`Position`                                    |
+|  [04]   | `Axis`        | readonly struct       | `Index`/`Position`                                    |
+|  [05]   | `Hat`         | struct                | `Index`/`Position`(`Position2D` bitfield)             |
+|  [06]   | `Deadzone`    | readonly struct       | `Value`/`Method` + `Apply(float raw)` fold            |
+|  [07]   | `ScrollWheel` | struct (`IEquatable`) | `X`/`Y` scroll delta                                  |
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies
+
 - rail: input
 
 | [INDEX] | [SYMBOL]         | [KIND] | [RAIL]                                            |
@@ -59,28 +63,31 @@
 |  [08]   | `StandardCursor` | enum   | named OS cursor shapes                            |
 
 [PUBLIC_TYPE_SCOPE]: backend registration and extensions
+
 - rail: input
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                            |
-| :-----: | :----------------------- | :------------ | :-------------------------------- |
-|  [01]   | `InputWindowExtensions`  | static class  | `CreateInput` + platform registry |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                               |
+| :-----: | :----------------------- | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `InputWindowExtensions`  | static class  | `CreateInput` + platform registry                                    |
 |  [02]   | `GamepadExtensions`      | static class  | named-button/stick accessors (throw `PlatformNotSupportedException`) |
-|  [03]   | `InputPlatformAttribute` | assembly attr | backend discovery marker          |
+|  [03]   | `InputPlatformAttribute` | assembly attr | backend discovery marker                                             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: context creation and platform registry
+
 - rail: input
 
-| [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]          | [RAIL]                  |
-| :-----: | :----------------------------------------------- | :---------------------- | :---------------------- |
-|  [01]   | `IView.CreateInput()`                            | `InputWindowExtensions` | mint `IInputContext`    |
+| [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]          | [RAIL]                                         |
+| :-----: | :----------------------------------------------- | :---------------------- | :--------------------------------------------- |
+|  [01]   | `IView.CreateInput()`                            | `InputWindowExtensions` | mint `IInputContext`                           |
 |  [02]   | `Platforms`                                      | `InputWindowExtensions` | registered backend list (lazy reflection load) |
-|  [03]   | `ShouldLoadFirstPartyPlatforms(bool)`            | `InputWindowExtensions` | toggle reflection load (throws after load) |
-|  [04]   | `Add(IInputPlatform)` / `Remove(IInputPlatform)` | `InputWindowExtensions` | manual backend registry |
-|  [05]   | `TryAdd(string assemblyName)`                    | `InputWindowExtensions` | reflective backend load |
+|  [03]   | `ShouldLoadFirstPartyPlatforms(bool)`            | `InputWindowExtensions` | toggle reflection load (throws after load)     |
+|  [04]   | `Add(IInputPlatform)` / `Remove(IInputPlatform)` | `InputWindowExtensions` | manual backend registry                        |
+|  [05]   | `TryAdd(string assemblyName)`                    | `InputWindowExtensions` | reflective backend load                        |
 
 [ENTRYPOINT_SCOPE]: gamepad named accessors (`GamepadExtensions`)
+
 - rail: input
 
 | [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]      | [RAIL]               |
@@ -93,27 +100,35 @@
 |  [06]   | `LeftThumbstick` / `RightThumbstick`             | `GamepadExtensions` | `Thumbstick` lookup  |
 
 [ENTRYPOINT_SCOPE]: device state and event streams
+
 - rail: input
 
-| [INDEX] | [SURFACE]                                                       | [SURFACE_ROOT]         | [RAIL]                  |
-| :-----: | :-------------------------------------------------------------- | :--------------------- | :---------------------- |
-|  [01]   | `Gamepads` / `Joysticks` / `Keyboards` / `Mice` / `OtherDevices` / `Handle` | `IInputContext` | live device lists + native ptr |
-|  [02]   | `ConnectionChanged` (`Action<IInputDevice, bool>`)             | `IInputContext`        | hotplug event           |
-|  [03]   | `Buttons` / `Thumbsticks` / `Triggers` / `VibrationMotors`     | `IGamepad`             | mapped controller state |
-|  [04]   | `ButtonDown` / `ButtonUp` / `ThumbstickMoved` / `TriggerMoved` | `IGamepad`             | gamepad event stream    |
-|  [05]   | `Axes` / `Buttons` / `Hats`                                    | `IJoystick`            | raw joystick state      |
-|  [06]   | `ButtonDown` / `ButtonUp` / `AxisMoved` / `HatMoved`           | `IJoystick`            | joystick event stream   |
-|  [07]   | `Deadzone` (get/set)                                           | `IGamepad`/`IJoystick` | stick deadzone policy   |
-|  [08]   | `SupportedKeys` / `IsKeyPressed(Key)` / `IsScancodePressed(int)` | `IKeyboard`          | key roster + poll       |
-|  [09]   | `KeyDown` / `KeyUp` / `KeyChar` / `ClipboardText` / `BeginInput()` / `EndInput()` | `IKeyboard` | keyboard event stream + IME + clipboard |
-|  [10]   | `Position`(`Vector2`) / `SupportedButtons` / `IsButtonPressed(MouseButton)` / `ScrollWheels` / `Cursor` | `IMouse` | mouse poll + cursor |
-|  [11]   | `MouseDown` / `MouseUp` / `Click` / `DoubleClick` / `MouseMove` / `Scroll` / `DoubleClickTime` / `DoubleClickRange` | `IMouse` | mouse event stream |
-|  [12]   | `Type` / `StandardCursor` / `CursorMode` / `IsConfined` / `HotspotX` / `HotspotY` / `Image`(`RawImage`) / `IsSupported(...)` | `ICursor` | cursor configuration |
-|  [13]   | `Index` / `Speed` (get/set)                                   | `IMotor`               | rumble actuation        |
+| [INDEX] | [SURFACE]                                                                   | [ROOT]                 | [RAIL]                      |
+| :-----: | :-------------------------------------------------------------------------- | :--------------------- | :-------------------------- |
+|  [01]   | `Gamepads` / `Joysticks` / `Keyboards` / `Mice` / `OtherDevices`            | `IInputContext`        | live device lists           |
+|  [02]   | `Handle`                                                                    | `IInputContext`        | native pointer              |
+|  [03]   | `ConnectionChanged` (`Action<IInputDevice, bool>`)                          | `IInputContext`        | hotplug event               |
+|  [04]   | `Buttons` / `Thumbsticks` / `Triggers` / `VibrationMotors`                  | `IGamepad`             | mapped controller state     |
+|  [05]   | `ButtonDown` / `ButtonUp` / `ThumbstickMoved` / `TriggerMoved`              | `IGamepad`             | gamepad event stream        |
+|  [06]   | `Axes` / `Buttons` / `Hats`                                                 | `IJoystick`            | raw joystick state          |
+|  [07]   | `ButtonDown` / `ButtonUp` / `AxisMoved` / `HatMoved`                        | `IJoystick`            | joystick event stream       |
+|  [08]   | `Deadzone` (get/set)                                                        | `IGamepad`/`IJoystick` | stick deadzone policy       |
+|  [09]   | `SupportedKeys` / `IsKeyPressed(Key)` / `IsScancodePressed(int)`            | `IKeyboard`            | key roster and poll         |
+|  [10]   | `KeyDown` / `KeyUp` / `KeyChar` / `ClipboardText`                           | `IKeyboard`            | key events and clipboard    |
+|  [11]   | `BeginInput()` / `EndInput()`                                               | `IKeyboard`            | IME lifecycle               |
+|  [12]   | `Position`(`Vector2`) / `SupportedButtons` / `IsButtonPressed(MouseButton)` | `IMouse`               | position and button poll    |
+|  [13]   | `ScrollWheels` / `Cursor`                                                   | `IMouse`               | scroll and cursor state     |
+|  [14]   | `MouseDown` / `MouseUp` / `Click` / `DoubleClick`                           | `IMouse`               | button event stream         |
+|  [15]   | `MouseMove` / `Scroll`                                                      | `IMouse`               | motion event stream         |
+|  [16]   | `DoubleClickTime` / `DoubleClickRange`                                      | `IMouse`               | double-click policy         |
+|  [17]   | `Type` / `StandardCursor` / `CursorMode` / `IsConfined`                     | `ICursor`              | cursor mode                 |
+|  [18]   | `HotspotX` / `HotspotY` / `Image`(`RawImage`) / `IsSupported(...)`          | `ICursor`              | custom cursor configuration |
+|  [19]   | `Index` / `Speed` (get/set)                                                 | `IMotor`               | rumble actuation            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [INPUT_TOPOLOGY]:
+
 - Single public namespace `Silk.NET.Input`; the meta-package carries no assembly and folds to empty under decompile, so the consumable types (10 interfaces, 8 enums, 7 value-carrier structs, 3 static/attribute owners) live in `Silk.NET.Input.Common`.
 - Lifecycle is `IView` -> `CreateInput()` -> `IInputContext` -> device lists; `IInputContext` is `IDisposable` and `Handle` (`nint`) exposes the native backend pointer.
 - `IInputContext` enumerates `Gamepads`/`Joysticks`/`Keyboards`/`Mice`/`OtherDevices` as `IReadOnlyList<T>`; each device carries `Name`/`Index`/`IsConnected` from `IInputDevice` and raises through device-level `event Action<...>` delegates rather than a callback registry.
@@ -123,13 +138,16 @@
 - `Hat.Position` is the `Position2D` bitfield (`Up|Left = UpLeft`); `Thumbstick` derives polar `Position = √(x²+y²)` / `Direction = atan2(y,x)` from `X`/`Y`; `Trigger`/`Axis` carry a single normalized `Position`; `IMouse.Position` is `Vector2` from `System.Numerics`.
 
 [LOCAL_ADMISSION]:
+
 - The backend is reflection-loaded: `InputWindowExtensions.Platforms` lazily calls `TryAdd("Silk.NET.Input.Sdl")` and `TryAdd("Silk.NET.Input.Glfw")` for `[InputPlatform]`-marked assemblies, so the AppUi Shell references `Silk.NET.Input.Sdl` to make the SDL2 osx-arm64 backend resolvable before the first `CreateInput()`; `ShouldLoadFirstPartyPlatforms(false)` (which throws if platforms already loaded) plus explicit `Add` pins a single backend.
-- The reflection-loaded `Silk.NET.Input.Sdl` backend and the `Silk.NET.SDL` (`.api/api-silk-sdl.md`) `Sdl.GetApi()` haptic root P/Invoke ONE shared SDL2 native runtime: the InputFabric binds a single SDL2 native bundle per process, so the controller/gamepad stream from `IInputContext` and the `SDL_Haptic` force-feedback rail never re-load the SDL2 binding against each other. This is the reciprocal of the `api-silk-sdl` shared-native-bundle law — both packages name the same SDL2 bundle and the boundary capsule owns one binding.
+- The reflection-loaded `Silk.NET.Input.Sdl` backend and the `Silk.NET.SDL` (`.api/api-silk-sdl.md`) `Sdl.GetApi()` haptic root P/Invoke one shared SDL2 native runtime, and InputFabric binds one SDL2 native bundle per process.
+- The controller stream from `IInputContext` and the `SDL_Haptic` force-feedback rail consume that binding without reloading it. The reciprocal `api-silk-sdl` shared-native-bundle law names the same bundle, and the boundary capsule owns its binding.
 - `IInputContext` is the one disposed input owner per view; the AppUi InputFabric pairs `CreateInput()` and `Dispose()` in a scoped boundary capsule and never holds device references past context disposal.
 - Per-frame InputFabric reads the immutable state carriers (`Button`, `Thumbstick`, `Trigger`, `Axis`, `Hat`) and folds them into canonical input facts; the device `event Action<...>` streams feed edge-triggered actions, never a second polling loop over the same state.
 - Rumble routes through `IGamepad.VibrationMotors[i].Speed`; haptic intensity beyond linear motor speed is a `Silk.NET.SDL` force-feedback concern (`.api/api-silk-sdl.md`), not this abstraction.
 
 [RAIL_LAW]:
+
 - Package: `Silk.NET.Input` (+ `Silk.NET.Input.Common`, `Silk.NET.Input.Sdl`)
 - Owns: the input device abstraction — `IInputContext` aggregation, `IGamepad`/`IJoystick`/`IKeyboard`/`IMouse` state and event streams, `Deadzone` policy, and the `CreateInput` entrypoint over the reflection-loaded SDL2 backend for osx-arm64.
 - Stacks: the `DeviceDriver` `[Union]` (`Shell/input` `[07]-[DEVICE_DRIVERS]`) folds `Gamepad(Silk.NET.Input controller)` and `Haptic(Silk.NET.SDL force-feedback)` cases into one driver union beside `Hid(HidSharp SpaceMouse)` (`api-hidsharp.md`) and `Midi(Melanchall.DryWetMidi)` (`api-drywetmidi.md`); all four capsules bind delegate columns on the single `InputFabric` edge that folds every device onto the one `CommandIntent` table — the gamepad poll state and the SDL2 haptic rail are two cases on the same edge, not two edges. A gamepad fault maps to the `InputDriverFault` `DeviceAbsent`/`OpenRejected` rows in the 4150 code band; the polled state carriers fold into the same canonical input fact the HID/MIDI/haptic drivers emit. The `Gamepad` and `Haptic` cases share one SDL2 native binding because `Silk.NET.Input.Sdl` and `Silk.NET.SDL` P/Invoke the same runtime.

@@ -38,13 +38,13 @@ TimescaleDB policy scheduling (continuous-aggregate/retention/columnstore cadenc
 process-side `persistence-maintenance` cadence). Preloaded as `pg_cron`; `cron.schedule` supports
 both 5-field cron and PG18 interval syntax (`'30 seconds'`).
 
-| [INDEX] | [FUNCTION]                          | [SIGNATURE]                                             | [SEMANTICS]                     |
-| :-----: | :---------------------------------- | :------------------------------------------------------ | :------------------------------ |
-|  [01]   | `cron.schedule`                     | `cron.schedule('name', '* * * * *', 'SQL')`             | register a recurring SQL job; returns `bigint` jobid |
-|  [02]   | `cron.schedule_in_database`         | `cron.schedule_in_database('name', sched, 'SQL', 'db'[, 'user'])` | job scoped to a target database/role |
-|  [03]   | `cron.unschedule`                   | `cron.unschedule('name')` / `cron.unschedule(jobid)`    | remove a job by name or id      |
-|  [04]   | `cron.alter_job`                    | `cron.alter_job(jobid, schedule:=…, active:=…)`         | mutate cadence / pause a job    |
-|  [05]   | `cron.job` / `cron.job_run_details` | views                                                   | configured jobs and run history (status, return_message, end_time) |
+| [INDEX] | [FUNCTION]                          | [SIGNATURE]                                                       | [SEMANTICS]                                                        |
+| :-----: | :---------------------------------- | :---------------------------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | `cron.schedule`                     | `cron.schedule('name', '* * * * *', 'SQL')`                       | register a recurring SQL job; returns `bigint` jobid               |
+|  [02]   | `cron.schedule_in_database`         | `cron.schedule_in_database('name', sched, 'SQL', 'db'[, 'user'])` | job scoped to a target database/role                               |
+|  [03]   | `cron.unschedule`                   | `cron.unschedule('name')` / `cron.unschedule(jobid)`              | remove a job by name or id                                         |
+|  [04]   | `cron.alter_job`                    | `cron.alter_job(jobid, schedule:=…, active:=…)`                   | mutate cadence / pause a job                                       |
+|  [05]   | `cron.job` / `cron.job_run_details` | views                                                             | configured jobs and run history (status, return_message, end_time) |
 
 Consumer: the page schedules in-DB maintenance through `cron.schedule_in_database` only where the
 cadence must be server-local (a job the process must not own); the `cron.job_run_details` view feeds
@@ -57,12 +57,12 @@ Declarative range/list partition maintenance over a PG18-native partitioned pare
 `pg_partman`). Owns time/serial partition lifecycle for the `OpLogEntry`-rollup and audit-history
 tables; consumed at `Version/retention` where retention is partition drop, not row `DELETE`.
 
-| [INDEX] | [SURFACE]                 | [SIGNATURE]                                                                           | [SEMANTICS]                        |
-| :-----: | :------------------------ | :------------------------------------------------------------------------------------ | :--------------------------------- |
-|  [01]   | `partman.create_parent`   | `partman.create_parent(p_parent_table := 't', p_control := 'col', p_interval := 'i'[, p_type := 'range'])` | declare a partition set (named params) |
-|  [02]   | `partman.run_maintenance` | `partman.run_maintenance([p_parent_table := 't'])` / `partman.run_maintenance_proc()` | create future / drop expired parts; the proc is the `pg_cron`-callable form |
-|  [03]   | `partman.part_config`     | table                                                                                 | per-parent `premake`, `retention`, `retention_keep_table`, `infinite_time_partitions` policy |
-|  [04]   | `partman.partition_data_proc` | `partman.partition_data_proc(p_parent_table := 't')`                              | back-fills existing rows into the new partition set |
+| [INDEX] | [SURFACE]                     | [SIGNATURE]                                                                                                | [SEMANTICS]                                                                                  |
+| :-----: | :---------------------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `partman.create_parent`       | `partman.create_parent(p_parent_table := 't', p_control := 'col', p_interval := 'i'[, p_type := 'range'])` | declare a partition set (named params)                                                       |
+|  [02]   | `partman.run_maintenance`     | `partman.run_maintenance([p_parent_table := 't'])` / `partman.run_maintenance_proc()`                      | create future / drop expired parts; the proc is the `pg_cron`-callable form                  |
+|  [03]   | `partman.part_config`         | table                                                                                                      | per-parent `premake`, `retention`, `retention_keep_table`, `infinite_time_partitions` policy |
+|  [04]   | `partman.partition_data_proc` | `partman.partition_data_proc(p_parent_table := 't')`                                                       | back-fills existing rows into the new partition set                                          |
 
 Consumer: a partitioned history table declares one `create_parent` call in a migration; the
 `pg_partman_bgw` worker (or a `cron.schedule`d `run_maintenance_proc`) rolls partitions, and
@@ -76,12 +76,12 @@ lock at swap, the in-DB online alternative to `VACUUM FULL` and to an out-of-DB 
 Preloaded as `pg_squeeze`; consumed at `Store/provisioning#PROVISIONING_ROWS` where a scheduled reclaim
 runs as a pure in-DB bgworker registered through `squeeze.tables`, never an external binary.
 
-| [INDEX] | [SURFACE]                | [SIGNATURE]                                              | [SEMANTICS]                         |
-| :-----: | :----------------------- | :------------------------------------------------------- | :---------------------------------- |
-|  [01]   | `squeeze.squeeze_table`  | `squeeze.squeeze_table('schema', 'table'[, 'index', 'tablespace'])` | one-shot online rewrite to reclaim bloat |
-|  [02]   | `squeeze.start_worker`   | `squeeze.start_worker()`                                 | start the per-database scheduling bgworker |
-|  [03]   | `squeeze.tables`         | table                                                    | scheduled-table registry: `schedule` (cron), `free_space_extent_threshold`, `vacuum_max_age` policy columns |
-|  [04]   | `squeeze.squeeze_table_recent` / `squeeze.log` | views                                  | last-run state and the per-run reclaim log (receipt source) |
+| [INDEX] | [SURFACE]                                      | [SIGNATURE]                                                         | [SEMANTICS]                                                                                                 |
+| :-----: | :--------------------------------------------- | :------------------------------------------------------------------ | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `squeeze.squeeze_table`                        | `squeeze.squeeze_table('schema', 'table'[, 'index', 'tablespace'])` | one-shot online rewrite to reclaim bloat                                                                    |
+|  [02]   | `squeeze.start_worker`                         | `squeeze.start_worker()`                                            | start the per-database scheduling bgworker                                                                  |
+|  [03]   | `squeeze.tables`                               | table                                                               | scheduled-table registry: `schedule` (cron), `free_space_extent_threshold`, `vacuum_max_age` policy columns |
+|  [04]   | `squeeze.squeeze_table_recent` / `squeeze.log` | views                                                               | last-run state and the per-run reclaim log (receipt source)                                                 |
 
 Consumer: a table that needs scheduled reclaim gets one `INSERT INTO squeeze.tables (..., schedule)`
 row; the bgworker reads the `schedule` cron column and rewrites on cadence. A scheduled
@@ -92,11 +92,11 @@ row; the bgworker reads the `schedule` cron column and rewrites on cadence. A sc
 Server-side JSON Schema validation. NOT preloaded — `CREATE EXTENSION pg_jsonschema` registers the
 `json_matches_schema`/`jsonb_matches_schema` boolean functions used inside a column `CHECK`.
 
-| [INDEX] | [SURFACE]                 | [SIGNATURE]                                   | [SEMANTICS]                          |
-| :-----: | :------------------------ | :-------------------------------------------- | :----------------------------------- |
-|  [01]   | `jsonb_matches_schema`    | `jsonb_matches_schema('<schema>'::json, doc)` | validate a `jsonb` document; → `bool` for `CHECK` |
-|  [02]   | `json_matches_schema`     | `json_matches_schema('<schema>'::json, doc)`  | validate a `json` document; → `bool` for `CHECK`  |
-|  [03]   | `jsonschema_is_valid`     | `jsonschema_is_valid('<schema>'::json)`       | validate that the schema itself is well-formed |
+| [INDEX] | [SURFACE]              | [SIGNATURE]                                   | [SEMANTICS]                                       |
+| :-----: | :--------------------- | :-------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `jsonb_matches_schema` | `jsonb_matches_schema('<schema>'::json, doc)` | validate a `jsonb` document; → `bool` for `CHECK` |
+|  [02]   | `json_matches_schema`  | `json_matches_schema('<schema>'::json, doc)`  | validate a `json` document; → `bool` for `CHECK`  |
+|  [03]   | `jsonschema_is_valid`  | `jsonschema_is_valid('<schema>'::json)`       | validate that the schema itself is well-formed    |
 
 Consumer + fallback stack: the document lane declares one `ServerExtension` `CreateSql` over `(Table, Column,
 Constraint, Schema)` (`Store/provisioning#SERVER_EXTENSIONS`) whose `Sql` emits `ALTER TABLE … ADD CONSTRAINT …
@@ -126,14 +126,14 @@ Session/object audit logging into the server log. PRELOADED as `pgaudit`; the ru
 the bound `pgaudit.log` GUC value verified read-only against `pg_settings`. Owned at
 `Version/retention#AUDIT_BINDING` where a `DataClassification` binds to one audit category.
 
-| [INDEX] | [SURFACE]                   | [SIGNATURE]                                          | [SEMANTICS]                          |
-| :-----: | :-------------------------- | :--------------------------------------------------- | :----------------------------------- |
-|  [01]   | `pgaudit.log` (GUC)         | `SET pgaudit.log = 'read, write, ddl, role'`         | session-audit class selection (`read`/`write`/`function`/`role`/`ddl`/`misc`/`all`) |
-|  [02]   | `pgaudit.log_catalog` (GUC) | `SET pgaudit.log_catalog = off`                      | exclude `pg_catalog` statements      |
-|  [03]   | `pgaudit.log_relation` (GUC)| `SET pgaudit.log_relation = on`                      | one log entry per relation in a statement |
-|  [04]   | `pgaudit.log_parameter` (GUC)| `SET pgaudit.log_parameter = on`                    | include bound statement parameters   |
-|  [05]   | `pgaudit.role` (GUC)        | `SET pgaudit.role = 'auditor'`                       | object-audit role for `GRANT`-scoped per-object auditing |
-|  [06]   | `pg_settings`               | view                                                 | read-only GUC verification probe (`SELECT setting FROM pg_settings WHERE name = ANY(...)`) |
+| [INDEX] | [SURFACE]                     | [SIGNATURE]                                  | [SEMANTICS]                                                                                |
+| :-----: | :---------------------------- | :------------------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `pgaudit.log` (GUC)           | `SET pgaudit.log = 'read, write, ddl, role'` | session-audit class selection (`read`/`write`/`function`/`role`/`ddl`/`misc`/`all`)        |
+|  [02]   | `pgaudit.log_catalog` (GUC)   | `SET pgaudit.log_catalog = off`              | exclude `pg_catalog` statements                                                            |
+|  [03]   | `pgaudit.log_relation` (GUC)  | `SET pgaudit.log_relation = on`              | one log entry per relation in a statement                                                  |
+|  [04]   | `pgaudit.log_parameter` (GUC) | `SET pgaudit.log_parameter = on`             | include bound statement parameters                                                         |
+|  [05]   | `pgaudit.role` (GUC)          | `SET pgaudit.role = 'auditor'`               | object-audit role for `GRANT`-scoped per-object auditing                                   |
+|  [06]   | `pg_settings`                 | view                                         | read-only GUC verification probe (`SELECT setting FROM pg_settings WHERE name = ANY(...)`) |
 
 Consumer + stack: the audit binding maps a `DataClassification` to one pgaudit category and binds it
 per-tenant through `BindTenant` (`Version/retention#AUDIT_BINDING`); the provisioning verifier folds

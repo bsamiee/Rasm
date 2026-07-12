@@ -18,21 +18,21 @@
 [CODEC_TYPES]: writer and reader surfaces
 - rail: blob-codec
 
-| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]       | [CAPABILITY]                                       |
-| :-----: | :--------------------- | :------------------- | :------------------------------------------------- |
-|  [01]   | `CborWriter`           | encoder              | push-model encoder over an internal grow buffer    |
-|  [02]   | `CborReader`           | decoder              | pull-model decoder over a fixed `ReadOnlyMemory`   |
-|  [03]   | `CborReaderState`      | decode discriminant  | `PeekState()` result driving the read loop         |
-|  [04]   | `CborContentException` | malformed-data fault | thrown on structurally invalid CBOR during read    |
+| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]       | [CAPABILITY]                                     |
+| :-----: | :--------------------- | :------------------- | :----------------------------------------------- |
+|  [01]   | `CborWriter`           | encoder              | push-model encoder over an internal grow buffer  |
+|  [02]   | `CborReader`           | decoder              | pull-model decoder over a fixed `ReadOnlyMemory` |
+|  [03]   | `CborReaderState`      | decode discriminant  | `PeekState()` result driving the read loop       |
+|  [04]   | `CborContentException` | malformed-data fault | thrown on structurally invalid CBOR during read  |
 
 [POLICY_TYPES]: conformance and tag vocabulary
 - rail: blob-codec
 
-| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]      | [CAPABILITY]                                         |
-| :-----: | :-------------------- | :------------------ | :--------------------------------------------------- |
-|  [01]   | `CborConformanceMode` | validation profile  | `Lax`/`Strict`/`Canonical`/`Ctap2Canonical`          |
-|  [02]   | `CborTag`             | semantic-tag enum   | RFC 8949 tag vocabulary (`ulong`-backed)             |
-|  [03]   | `CborSimpleValue`     | simple-value enum   | `byte`-backed `False=20`/`True`/`Null`/`Undefined`   |
+| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]     | [CAPABILITY]                                       |
+| :-----: | :-------------------- | :----------------- | :------------------------------------------------- |
+|  [01]   | `CborConformanceMode` | validation profile | `Lax`/`Strict`/`Canonical`/`Ctap2Canonical`        |
+|  [02]   | `CborTag`             | semantic-tag enum  | RFC 8949 tag vocabulary (`ulong`-backed)           |
+|  [03]   | `CborSimpleValue`     | simple-value enum  | `byte`-backed `False=20`/`True`/`Null`/`Undefined` |
 
 `CborConformanceMode` cases: `Lax` (no validation), `Strict` (well-formedness + no duplicate keys), `Canonical` (RFC 8949 § deterministic — shortest-form ints, length-sorted map keys, definite lengths), `Ctap2Canonical` (CTAP2 §6 — canonical plus depth/type restrictions for FIDO2). `Canonical`/`Ctap2Canonical` force `WriteStartMap`/`WriteStartArray` to emit definite-length headers and reorder map-key encodings on `WriteEndMap`.
 `CborSimpleValue` cases (RFC 8949 major type 7): `False = 20`, `True = 21`, `Null = 22`, `Undefined = 23`. Values 0-19 and 32-255 are writable via the raw `WriteSimpleValue(CborSimpleValue)` overload.
@@ -43,68 +43,68 @@
 [ENTRYPOINT_SCOPE]: writer construction and framing
 - rail: blob-codec
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]   | [CAPABILITY]                                          |
-| :-----: | :-------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `new CborWriter(conformanceMode, convertIndefiniteLengthEncodings, allowMultipleRootLevelValues, initialCapacity)` | ctor | builds an encoder with a fixed conformance profile |
-|  [02]   | `WriteStartArray(int?)` / `WriteEndArray()`                     | container      | definite (length) or indefinite (`null`) array frame |
-|  [03]   | `WriteStartMap(int?)` / `WriteEndMap()`                         | container      | definite or indefinite map frame; canonical reorders keys on end |
-|  [04]   | `WriteStartIndefiniteLengthByteString()` / `WriteEndIndefiniteLengthByteString()` | container | chunked byte-string frame |
-|  [05]   | `WriteStartIndefiniteLengthTextString()` / `WriteEndIndefiniteLengthTextString()` | container | chunked text-string frame |
-|  [06]   | `WriteTag(CborTag)`                                             | semantic tag   | prefixes the next data item with a tag               |
-|  [07]   | `WriteEncodedValue(ReadOnlySpan<byte>)`                         | raw splice     | appends a pre-encoded CBOR data item verbatim        |
-|  [08]   | `Encode()` → `byte[]` / `Encode(Span<byte>)` / `TryEncode(Span<byte>, out int)` | drain | materializes the buffer; `TryEncode` is allocation-free |
-|  [09]   | `Reset()`                                                       | reuse          | clears state for buffer reuse without realloc        |
-|  [10]   | `BytesWritten` / `CurrentDepth` / `IsWriteCompleted`            | state          | encoder cursor, nesting depth, root-complete flag    |
+| [INDEX] | [SURFACE]                                                                                                          | [CALL_SHAPE] | [CAPABILITY]                                                     |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :----------- | :--------------------------------------------------------------- |
+|  [01]   | `new CborWriter(conformanceMode, convertIndefiniteLengthEncodings, allowMultipleRootLevelValues, initialCapacity)` | ctor         | builds an encoder with a fixed conformance profile               |
+|  [02]   | `WriteStartArray(int?)` / `WriteEndArray()`                                                                        | container    | definite (length) or indefinite (`null`) array frame             |
+|  [03]   | `WriteStartMap(int?)` / `WriteEndMap()`                                                                            | container    | definite or indefinite map frame; canonical reorders keys on end |
+|  [04]   | `WriteStartIndefiniteLengthByteString()` / `WriteEndIndefiniteLengthByteString()`                                  | container    | chunked byte-string frame                                        |
+|  [05]   | `WriteStartIndefiniteLengthTextString()` / `WriteEndIndefiniteLengthTextString()`                                  | container    | chunked text-string frame                                        |
+|  [06]   | `WriteTag(CborTag)`                                                                                                | semantic tag | prefixes the next data item with a tag                           |
+|  [07]   | `WriteEncodedValue(ReadOnlySpan<byte>)`                                                                            | raw splice   | appends a pre-encoded CBOR data item verbatim                    |
+|  [08]   | `Encode()` → `byte[]` / `Encode(Span<byte>)` / `TryEncode(Span<byte>, out int)`                                    | drain        | materializes the buffer; `TryEncode` is allocation-free          |
+|  [09]   | `Reset()`                                                                                                          | reuse        | clears state for buffer reuse without realloc                    |
+|  [10]   | `BytesWritten` / `CurrentDepth` / `IsWriteCompleted`                                                               | state        | encoder cursor, nesting depth, root-complete flag                |
 
 [ENTRYPOINT_SCOPE]: writer scalar surface
 - rail: blob-codec
 
-| [INDEX] | [SURFACE]                                            | [CALL_SHAPE] | [CAPABILITY]                                  |
-| :-----: | :--------------------------------------------------- | :----------- | :-------------------------------------------- |
-|  [01]   | `WriteInt32` / `WriteInt64` / `WriteUInt32` / `WriteUInt64` | integer | major-type 0/1 unsigned and signed integers |
-|  [02]   | `WriteCborNegativeIntegerRepresentation(ulong)`      | integer      | raw major-type-1 encoding for the full negative range |
-|  [03]   | `WriteBigInteger(BigInteger)`                        | bignum       | arbitrary-precision via tag 2/3               |
-|  [04]   | `WriteDecimal(decimal)`                              | decimal      | `System.Decimal` via tag 4 decimal-fraction   |
-|  [05]   | `WriteHalf(Half)` / `WriteSingle(float)` / `WriteDouble(double)` | float | RFC 8949 half/single/double precision |
-|  [06]   | `WriteBoolean` / `WriteNull` / `WriteSimpleValue(CborSimpleValue)` | simple | major-type-7 simple values |
-|  [07]   | `WriteByteString(byte[])` / `WriteByteString(ReadOnlySpan<byte>)` | byte string | major-type-2 octet string |
-|  [08]   | `WriteTextString(string)` / `WriteTextString(ReadOnlySpan<char>)` | text string | major-type-3 UTF-8 string |
-|  [09]   | `WriteDateTimeOffset(DateTimeOffset)`                | tagged       | tag 0 RFC 3339 string                         |
-|  [10]   | `WriteUnixTimeSeconds(long)` / `WriteUnixTimeSeconds(double)` | tagged | tag 1 epoch seconds (integer or float)        |
+| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE] | [CAPABILITY]                                          |
+| :-----: | :----------------------------------------------------------------- | :----------- | :---------------------------------------------------- |
+|  [01]   | `WriteInt32` / `WriteInt64` / `WriteUInt32` / `WriteUInt64`        | integer      | major-type 0/1 unsigned and signed integers           |
+|  [02]   | `WriteCborNegativeIntegerRepresentation(ulong)`                    | integer      | raw major-type-1 encoding for the full negative range |
+|  [03]   | `WriteBigInteger(BigInteger)`                                      | bignum       | arbitrary-precision via tag 2/3                       |
+|  [04]   | `WriteDecimal(decimal)`                                            | decimal      | `System.Decimal` via tag 4 decimal-fraction           |
+|  [05]   | `WriteHalf(Half)` / `WriteSingle(float)` / `WriteDouble(double)`   | float        | RFC 8949 half/single/double precision                 |
+|  [06]   | `WriteBoolean` / `WriteNull` / `WriteSimpleValue(CborSimpleValue)` | simple       | major-type-7 simple values                            |
+|  [07]   | `WriteByteString(byte[])` / `WriteByteString(ReadOnlySpan<byte>)`  | byte string  | major-type-2 octet string                             |
+|  [08]   | `WriteTextString(string)` / `WriteTextString(ReadOnlySpan<char>)`  | text string  | major-type-3 UTF-8 string                             |
+|  [09]   | `WriteDateTimeOffset(DateTimeOffset)`                              | tagged       | tag 0 RFC 3339 string                                 |
+|  [10]   | `WriteUnixTimeSeconds(long)` / `WriteUnixTimeSeconds(double)`      | tagged       | tag 1 epoch seconds (integer or float)                |
 
 [ENTRYPOINT_SCOPE]: reader construction and navigation
 - rail: blob-codec
 
-| [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]  | [CAPABILITY]                                       |
-| :-----: | :--------------------------------------------------------- | :------------ | :------------------------------------------------- |
-|  [01]   | `new CborReader(ReadOnlyMemory<byte>, conformanceMode, allowMultipleRootLevelValues)` | ctor | binds a decoder to an immutable buffer |
-|  [02]   | `PeekState()` → `CborReaderState`                          | discriminant  | next-token kind without consuming — the read-loop pivot |
-|  [03]   | `PeekTag()` → `CborTag`                                    | lookahead     | reads the upcoming tag without consuming           |
-|  [04]   | `ReadStartArray()` → `int?` / `ReadEndArray()`             | container     | definite length or `null` for indefinite           |
-|  [05]   | `ReadStartMap()` → `int?` / `ReadEndMap()`                 | container     | definite pair-count or `null` for indefinite       |
-|  [06]   | `SkipValue(bool)` / `SkipToParent(bool)`                   | skip          | skips a sub-tree; `disableConformanceModeChecks` bypasses validation |
-|  [07]   | `ReadEncodedValue(bool)` → `ReadOnlyMemory<byte>`          | raw slice     | returns the next item's encoded bytes verbatim     |
-|  [08]   | `Reset(ReadOnlyMemory<byte>)`                              | rebind        | reuses the reader against a new buffer             |
-|  [09]   | `BytesRemaining` / `CurrentDepth`                          | state         | unconsumed byte count and nesting depth            |
+| [INDEX] | [SURFACE]                                                                             | [CALL_SHAPE] | [CAPABILITY]                                                         |
+| :-----: | :------------------------------------------------------------------------------------ | :----------- | :------------------------------------------------------------------- |
+|  [01]   | `new CborReader(ReadOnlyMemory<byte>, conformanceMode, allowMultipleRootLevelValues)` | ctor         | binds a decoder to an immutable buffer                               |
+|  [02]   | `PeekState()` → `CborReaderState`                                                     | discriminant | next-token kind without consuming — the read-loop pivot              |
+|  [03]   | `PeekTag()` → `CborTag`                                                               | lookahead    | reads the upcoming tag without consuming                             |
+|  [04]   | `ReadStartArray()` → `int?` / `ReadEndArray()`                                        | container    | definite length or `null` for indefinite                             |
+|  [05]   | `ReadStartMap()` → `int?` / `ReadEndMap()`                                            | container    | definite pair-count or `null` for indefinite                         |
+|  [06]   | `SkipValue(bool)` / `SkipToParent(bool)`                                              | skip         | skips a sub-tree; `disableConformanceModeChecks` bypasses validation |
+|  [07]   | `ReadEncodedValue(bool)` → `ReadOnlyMemory<byte>`                                     | raw slice    | returns the next item's encoded bytes verbatim                       |
+|  [08]   | `Reset(ReadOnlyMemory<byte>)`                                                         | rebind       | reuses the reader against a new buffer                               |
+|  [09]   | `BytesRemaining` / `CurrentDepth`                                                     | state        | unconsumed byte count and nesting depth                              |
 
 [ENTRYPOINT_SCOPE]: reader scalar surface
 - rail: blob-codec
 
-| [INDEX] | [SURFACE]                                              | [CALL_SHAPE] | [CAPABILITY]                                   |
-| :-----: | :----------------------------------------------------- | :----------- | :--------------------------------------------- |
-|  [01]   | `ReadInt32` / `ReadInt64` / `ReadUInt32` / `ReadUInt64` | integer | typed integer reads; range-checked per type    |
-|  [02]   | `ReadCborNegativeIntegerRepresentation()` → `ulong`    | integer      | raw negative-integer representation            |
-|  [03]   | `ReadBigInteger()` / `ReadDecimal()`                   | numeric      | tag-2/3 bignum and tag-4 decimal-fraction      |
-|  [04]   | `ReadHalf()` / `ReadSingle()` / `ReadDouble()`         | float        | half/single/double precision                   |
-|  [05]   | `ReadBoolean` / `ReadNull` / `ReadSimpleValue`         | simple       | major-type-7 simple values                     |
-|  [06]   | `ReadByteString()` → `byte[]`                          | byte string  | allocates a copy of the octet string           |
-|  [07]   | `TryReadByteString(Span<byte>, out int)`               | byte string  | allocation-free read into a caller span        |
-|  [08]   | `ReadDefiniteLengthByteString()` → `ReadOnlyMemory<byte>` | byte string | zero-copy slice into the source buffer       |
-|  [09]   | `ReadTextString()` → `string`                          | text string  | decodes a UTF-8 string                         |
-|  [10]   | `TryReadTextString(Span<char>, out int)`               | text string  | allocation-free decode into a caller span      |
-|  [11]   | `ReadDefiniteLengthTextStringBytes()` → `ReadOnlyMemory<byte>` | text string | zero-copy UTF-8 bytes of the text string |
-|  [12]   | `ReadTag()` → `CborTag`                                | semantic tag | consumes a tag prefix                          |
-|  [13]   | `ReadDateTimeOffset()` / `ReadUnixTimeSeconds()`       | tagged       | tag-0 string / tag-1 epoch decode              |
+| [INDEX] | [SURFACE]                                                      | [CALL_SHAPE] | [CAPABILITY]                                |
+| :-----: | :------------------------------------------------------------- | :----------- | :------------------------------------------ |
+|  [01]   | `ReadInt32` / `ReadInt64` / `ReadUInt32` / `ReadUInt64`        | integer      | typed integer reads; range-checked per type |
+|  [02]   | `ReadCborNegativeIntegerRepresentation()` → `ulong`            | integer      | raw negative-integer representation         |
+|  [03]   | `ReadBigInteger()` / `ReadDecimal()`                           | numeric      | tag-2/3 bignum and tag-4 decimal-fraction   |
+|  [04]   | `ReadHalf()` / `ReadSingle()` / `ReadDouble()`                 | float        | half/single/double precision                |
+|  [05]   | `ReadBoolean` / `ReadNull` / `ReadSimpleValue`                 | simple       | major-type-7 simple values                  |
+|  [06]   | `ReadByteString()` → `byte[]`                                  | byte string  | allocates a copy of the octet string        |
+|  [07]   | `TryReadByteString(Span<byte>, out int)`                       | byte string  | allocation-free read into a caller span     |
+|  [08]   | `ReadDefiniteLengthByteString()` → `ReadOnlyMemory<byte>`      | byte string  | zero-copy slice into the source buffer      |
+|  [09]   | `ReadTextString()` → `string`                                  | text string  | decodes a UTF-8 string                      |
+|  [10]   | `TryReadTextString(Span<char>, out int)`                       | text string  | allocation-free decode into a caller span   |
+|  [11]   | `ReadDefiniteLengthTextStringBytes()` → `ReadOnlyMemory<byte>` | text string  | zero-copy UTF-8 bytes of the text string    |
+|  [12]   | `ReadTag()` → `CborTag`                                        | semantic tag | consumes a tag prefix                       |
+|  [13]   | `ReadDateTimeOffset()` / `ReadUnixTimeSeconds()`               | tagged       | tag-0 string / tag-1 epoch decode           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

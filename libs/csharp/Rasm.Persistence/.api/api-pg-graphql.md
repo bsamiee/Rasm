@@ -50,14 +50,14 @@ a primary key (or a directive-supplied surrogate) is not exposed. Inflection is 
 names pass through literally; opting in maps `snake_case` → `PascalCase` (types) / `camelCase`
 (fields).
 
-| [INDEX] | [SQL_SHAPE]                       | [GRAPHQL_SHAPE]                                                              | [SEMANTICS]                              |
-| :-----: | :-------------------------------- | :-------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | table                             | object type + `Query.<table>Collection`                                      | each table is a type with a paginated collection entrypoint |
-|  [02]   | column                            | field (typed by the column type)                                            | columns become object fields             |
-|  [03]   | primary key                       | `nodeId: ID!` (base64 `["schema","table",pk...]`) + `Query.node(nodeId)`     | Relay global object identity; PK is required for exposure |
-|  [04]   | foreign key                       | to-one field on the referencing side + `<child>Collection` on the referenced side | FKs become relationship/connection fields |
-|  [05]   | collection                        | `<Table>Connection { edges { cursor, node }, pageInfo, totalCount?, aggregate? }` | the Relay connection envelope            |
-|  [06]   | collection args                   | `first`/`last`/`before`/`after`/`offset`, `filter`, `orderBy`               | cursor pagination, filtering, ordering   |
+| [INDEX] | [SQL_SHAPE]     | [GRAPHQL_SHAPE]                                                                   | [SEMANTICS]                                                 |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | table           | object type + `Query.<table>Collection`                                           | each table is a type with a paginated collection entrypoint |
+|  [02]   | column          | field (typed by the column type)                                                  | columns become object fields                                |
+|  [03]   | primary key     | `nodeId: ID!` (base64 `["schema","table",pk...]`) + `Query.node(nodeId)`          | Relay global object identity; PK is required for exposure   |
+|  [04]   | foreign key     | to-one field on the referencing side + `<child>Collection` on the referenced side | FKs become relationship/connection fields                   |
+|  [05]   | collection      | `<Table>Connection { edges { cursor, node }, pageInfo, totalCount?, aggregate? }` | the Relay connection envelope                               |
+|  [06]   | collection args | `first`/`last`/`before`/`after`/`offset`, `filter`, `orderBy`                     | cursor pagination, filtering, ordering                      |
 
 Filtering is `input <Table>Filter { <col>: <Type>Filter, nodeId, and, or, not }`; per-scalar filters
 expose `eq`/`neq`/`gt`/`gte`/`lt`/`lte`/`in`/`is` (string adds `startsWith`/`like`/`ilike`/`regex`/
@@ -72,19 +72,19 @@ Schema shape is tuned by `@graphql` JSON directives carried in SQL `COMMENT` tex
 `graphql.comment_directive` helper. The escape-string form `e'@graphql(<json>)'` is used because the
 payload commonly contains quotes.
 
-| [INDEX] | [DIRECTIVE]           | [APPLIES_TO]                       | [FORM]                                                                 |
-| :-----: | :-------------------- | :--------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `inflect_names`       | schema                             | `comment on schema s is e'@graphql({"inflect_names": true})'`         |
-|  [02]   | `max_rows`            | schema / table / view              | `e'@graphql({"max_rows": 100})'` (default 30; cascades to parent)      |
-|  [03]   | `introspection`       | schema                             | `e'@graphql({"introspection": true})'` (default off)                 |
-|  [04]   | `name`                | table / column / function          | `e'@graphql({"name": "AccountHolder"})'` — rename the type/field      |
-|  [05]   | `description`         | table / column / function          | `e'@graphql({"description": "..."})'`                                  |
-|  [06]   | `totalCount`          | table                              | `e'@graphql({"totalCount": {"enabled": true}})'`                       |
-|  [07]   | `aggregate`           | table                              | `e'@graphql({"aggregate": {"enabled": true}})'`                        |
-|  [08]   | `local_name` / `foreign_name` | foreign-key constraint     | `comment on constraint fk on t is e'@graphql({"local_name": "posts", "foreign_name": "author"})'` |
-|  [09]   | `primary_key_columns` | view / matview / foreign table     | `e'@graphql({"primary_key_columns": ["id"]})'` — surrogate PK for exposure |
-|  [10]   | `foreign_keys`        | view / matview / foreign table     | array of `{"local_columns":[...], "foreign_schema":"...", "foreign_table":"...", "foreign_columns":[...], "local_name"?, "foreign_name"?}` |
-|  [11]   | `mappings`            | enum type                          | `e'@graphql({"mappings": {"aead-ietf": "AEAD_IETF"}})'` — remap non-conforming enum variants |
+| [INDEX] | [DIRECTIVE]                   | [APPLIES_TO]                   | [FORM]                                                                                                                                     |
+| :-----: | :---------------------------- | :----------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `inflect_names`               | schema                         | `comment on schema s is e'@graphql({"inflect_names": true})'`                                                                              |
+|  [02]   | `max_rows`                    | schema / table / view          | `e'@graphql({"max_rows": 100})'` (default 30; cascades to parent)                                                                          |
+|  [03]   | `introspection`               | schema                         | `e'@graphql({"introspection": true})'` (default off)                                                                                       |
+|  [04]   | `name`                        | table / column / function      | `e'@graphql({"name": "AccountHolder"})'` — rename the type/field                                                                           |
+|  [05]   | `description`                 | table / column / function      | `e'@graphql({"description": "..."})'`                                                                                                      |
+|  [06]   | `totalCount`                  | table                          | `e'@graphql({"totalCount": {"enabled": true}})'`                                                                                           |
+|  [07]   | `aggregate`                   | table                          | `e'@graphql({"aggregate": {"enabled": true}})'`                                                                                            |
+|  [08]   | `local_name` / `foreign_name` | foreign-key constraint         | `comment on constraint fk on t is e'@graphql({"local_name": "posts", "foreign_name": "author"})'`                                          |
+|  [09]   | `primary_key_columns`         | view / matview / foreign table | `e'@graphql({"primary_key_columns": ["id"]})'` — surrogate PK for exposure                                                                 |
+|  [10]   | `foreign_keys`                | view / matview / foreign table | array of `{"local_columns":[...], "foreign_schema":"...", "foreign_table":"...", "foreign_columns":[...], "local_name"?, "foreign_name"?}` |
+|  [11]   | `mappings`                    | enum type                      | `e'@graphql({"mappings": {"aead-ietf": "AEAD_IETF"}})'` — remap non-conforming enum variants                                               |
 
 ## [05]-[CONFIGURATION]
 
@@ -92,12 +92,12 @@ Schema reflection is cached and invalidated by version, not rebuilt by hand. Two
 the schema version on any DDL, so the next `resolve` sees the new shape — there is no manual
 `rebuild_schema` entrypoint.
 
-| [INDEX] | [SURFACE]                            | [SIGNATURE]                                  | [SEMANTICS]                                  |
-| :-----: | :----------------------------------- | :------------------------------------------- | :------------------------------------------- |
-|  [01]   | `graphql.comment_directive`          | `graphql.comment_directive(comment_ text)` → `jsonb` | parse the `@graphql(...)` JSON out of a comment string (`{}` if none) |
-|  [02]   | `graphql.get_schema_version`         | `graphql.get_schema_version()` → `int`       | read the current reflected-schema version    |
-|  [03]   | `graphql.increment_schema_version`   | `graphql.increment_schema_version()` → `event_trigger` | bump the schema version (driven by the DDL triggers) |
-|  [04]   | `graphql_watch_ddl` / `graphql_watch_drop` | event triggers (`ddl_command_end` / `sql_drop`) | auto-invalidate the cache on schema change |
+| [INDEX] | [SURFACE]                                  | [SIGNATURE]                                            | [SEMANTICS]                                                           |
+| :-----: | :----------------------------------------- | :----------------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `graphql.comment_directive`                | `graphql.comment_directive(comment_ text)` → `jsonb`   | parse the `@graphql(...)` JSON out of a comment string (`{}` if none) |
+|  [02]   | `graphql.get_schema_version`               | `graphql.get_schema_version()` → `int`                 | read the current reflected-schema version                             |
+|  [03]   | `graphql.increment_schema_version`         | `graphql.increment_schema_version()` → `event_trigger` | bump the schema version (driven by the DDL triggers)                  |
+|  [04]   | `graphql_watch_ddl` / `graphql_watch_drop` | event triggers (`ddl_command_end` / `sql_drop`)        | auto-invalidate the cache on schema change                            |
 
 ## [06]-[IMPLEMENTATION_LAW]
 

@@ -100,176 +100,176 @@ core `Apache.Arrow` (`Apache.Arrow.Ipc`); the concrete LZ4-frame/ZSTD codec impl
 [PUBLIC_TYPE_SCOPE]: type system and IPC family
 - rail: analytical-egress
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]                                            |
-| :-----: | :------------------------- | :-------------- | :----------------------------------------------------- |
-|  [01]   | `ArrowType`                | type base       | root type for all Arrow types                          |
-|  [02]   | `ArrowTypeId`              | type enum       | discriminates Arrow type identities                    |
-|  [03]   | `IArrowType`               | type contract   | minimal type contract                                  |
-|  [04]   | `ArrowStreamReader`        | IPC reader      | reads Arrow IPC stream format                          |
-|  [05]   | `ArrowStreamWriter`        | IPC writer      | writes Arrow IPC stream format                         |
-|  [06]   | `ArrowFileReader`          | IPC reader      | reads Arrow IPC file format (random-access footer)     |
-|  [07]   | `ArrowFileWriter`          | IPC writer      | writes Arrow IPC file format                           |
-|  [08]   | `IArrowReader`             | reader contract | shared sync/async reader contract                      |
-|  [09]   | `IpcOptions`               | IPC policy      | codec + level + legacy-format flags                    |
-|  [10]   | `CompressionCodecType`     | codec enum      | `Lz4Frame` \| `Zstd` (the only two members)            |
-|  [11]   | `ICompressionCodecFactory` | codec factory   | `CreateCodec(type[, level])`; required to enable IPC compression — concrete impl in `Apache.Arrow.Compression` |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]                                                                                                           |
+| :-----: | :------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ArrowType`                | type base       | root type for all Arrow types                                                                                          |
+|  [02]   | `ArrowTypeId`              | type enum       | discriminates Arrow type identities                                                                                    |
+|  [03]   | `IArrowType`               | type contract   | minimal type contract                                                                                                  |
+|  [04]   | `ArrowStreamReader`        | IPC reader      | reads Arrow IPC stream format                                                                                          |
+|  [05]   | `ArrowStreamWriter`        | IPC writer      | writes Arrow IPC stream format                                                                                         |
+|  [06]   | `ArrowFileReader`          | IPC reader      | reads Arrow IPC file format (random-access footer)                                                                     |
+|  [07]   | `ArrowFileWriter`          | IPC writer      | writes Arrow IPC file format                                                                                           |
+|  [08]   | `IArrowReader`             | reader contract | shared sync/async reader contract                                                                                      |
+|  [09]   | `IpcOptions`               | IPC policy      | codec + level + legacy-format flags                                                                                    |
+|  [10]   | `CompressionCodecType`     | codec enum      | `Lz4Frame` \| `Zstd` (the only two members)                                                                            |
+|  [11]   | `ICompressionCodecFactory` | codec factory   | `CreateCodec(type[, level])`; required to enable IPC compression — concrete impl in `Apache.Arrow.Compression`         |
 |  [12]   | `ICompressionCodec`        | codec contract  | `int Decompress(ReadOnlyMemory<byte>, Memory<byte>)` + default-throwing `Compress(…, Stream)`; produced by the factory |
-|  [13]   | `IArrowArrayStream`        | stream contract | async enumerable of record batches; `Schema` + `ReadNextRecordBatchAsync` |
+|  [13]   | `IArrowArrayStream`        | stream contract | async enumerable of record batches; `Schema` + `ReadNextRecordBatchAsync`                                              |
 
 [PUBLIC_TYPE_SCOPE]: ADBC family
 - rail: analytical-egress
 
-| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [CAPABILITY]                                              |
-| :-----: | :------------------------------ | :--------------- | :------------------------------------------------------- |
-|  [01]   | `AdbcDriver`                    | driver root      | loads and creates databases                              |
-|  [02]   | `AdbcDatabase`                  | database root    | opens connections                                        |
-|  [03]   | `AdbcConnection`                | connection root  | statements, schema ops, transactions, partitions         |
-|  [04]   | `AdbcConnection.GetObjectsDepth`| nested enum      | `All` \| `Catalogs` \| `DbSchemas` \| `Tables` filter    |
-|  [05]   | `AdbcStatement`                 | statement root   | SQL or Substrait queries, updates, prepared bind          |
-|  [06]   | `QueryResult`                   | result value     | `long RowCount` + `IArrowArrayStream? Stream`            |
-|  [07]   | `UpdateResult`                  | result value     | `long AffectedRows` row-count receipt                    |
-|  [08]   | `PartitionedResult`             | result value     | partition descriptors for distributed reads              |
-|  [09]   | `PartitionDescriptor`           | partition handle | opaque partition token for `ReadPartition`               |
-|  [10]   | `BulkIngestMode`                | ingest enum      | `Create` \| `Append` \| `Replace` \| `CreateAppend`      |
-|  [11]   | `AdbcException`                 | ADBC failure     | typed ADBC error with `AdbcStatusCode`                   |
-|  [12]   | `AdbcInfoCode`                  | info enum        | driver info code identifiers for `GetInfo`               |
-|  [13]   | `AdbcOptions`                   | options value    | generic key-value option map                             |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]    | [CAPABILITY]                                          |
+| :-----: | :------------------------------- | :--------------- | :---------------------------------------------------- |
+|  [01]   | `AdbcDriver`                     | driver root      | loads and creates databases                           |
+|  [02]   | `AdbcDatabase`                   | database root    | opens connections                                     |
+|  [03]   | `AdbcConnection`                 | connection root  | statements, schema ops, transactions, partitions      |
+|  [04]   | `AdbcConnection.GetObjectsDepth` | nested enum      | `All` \| `Catalogs` \| `DbSchemas` \| `Tables` filter |
+|  [05]   | `AdbcStatement`                  | statement root   | SQL or Substrait queries, updates, prepared bind      |
+|  [06]   | `QueryResult`                    | result value     | `long RowCount` + `IArrowArrayStream? Stream`         |
+|  [07]   | `UpdateResult`                   | result value     | `long AffectedRows` row-count receipt                 |
+|  [08]   | `PartitionedResult`              | result value     | partition descriptors for distributed reads           |
+|  [09]   | `PartitionDescriptor`            | partition handle | opaque partition token for `ReadPartition`            |
+|  [10]   | `BulkIngestMode`                 | ingest enum      | `Create` \| `Append` \| `Replace` \| `CreateAppend`   |
+|  [11]   | `AdbcException`                  | ADBC failure     | typed ADBC error with `AdbcStatusCode`                |
+|  [12]   | `AdbcInfoCode`                   | info enum        | driver info code identifiers for `GetInfo`            |
+|  [13]   | `AdbcOptions`                    | options value    | generic key-value option map                          |
 
 [PUBLIC_TYPE_SCOPE]: Flight family
 - rail: analytical-egress
 
-| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]   | [CAPABILITY]                                       |
-| :-----: | :------------------------------- | :-------------- | :------------------------------------------------- |
-|  [01]   | `FlightClient`                   | client root     | gRPC client for Flight protocol                    |
-|  [02]   | `FlightInfo`                     | info message    | schema, `Endpoints`, `TotalRecords`, `TotalBytes`  |
-|  [03]   | `FlightDescriptor`               | descriptor      | `CreatePathDescriptor` / `CreateCommandDescriptor` |
-|  [04]   | `FlightDescriptorType`           | descriptor enum | path vs. command discriminant                      |
-|  [05]   | `FlightEndpoint`                 | endpoint        | carries the `Ticket` plus location list            |
-|  [06]   | `FlightTicket`                   | ticket          | opaque token passed to `GetStream`                 |
-|  [07]   | `FlightCriteria`                 | discovery input | optional `ListFlights` filter                      |
-|  [08]   | `FlightData`                     | data message    | carries `RecordBatch` on the wire                  |
-|  [09]   | `FlightAction`                   | action message  | opaque action request (`Type` + `Body`)            |
-|  [10]   | `FlightActionType`               | action type     | describes an available action                      |
-|  [11]   | `FlightResult`                   | action result   | per-action `DoAction` result body                  |
-|  [12]   | `FlightRecordBatchStreamingCall` | call handle     | streaming read call handle (`ResponseStream`)      |
-|  [13]   | `FlightRecordBatchDuplexStreamingCall` | call handle | `StartPut` write call handle (`RequestStream`)    |
-|  [14]   | `FlightRecordBatchExchangeCall`  | call handle     | bidirectional exchange call handle                 |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]   | [CAPABILITY]                                       |
+| :-----: | :------------------------------------- | :-------------- | :------------------------------------------------- |
+|  [01]   | `FlightClient`                         | client root     | gRPC client for Flight protocol                    |
+|  [02]   | `FlightInfo`                           | info message    | schema, `Endpoints`, `TotalRecords`, `TotalBytes`  |
+|  [03]   | `FlightDescriptor`                     | descriptor      | `CreatePathDescriptor` / `CreateCommandDescriptor` |
+|  [04]   | `FlightDescriptorType`                 | descriptor enum | path vs. command discriminant                      |
+|  [05]   | `FlightEndpoint`                       | endpoint        | carries the `Ticket` plus location list            |
+|  [06]   | `FlightTicket`                         | ticket          | opaque token passed to `GetStream`                 |
+|  [07]   | `FlightCriteria`                       | discovery input | optional `ListFlights` filter                      |
+|  [08]   | `FlightData`                           | data message    | carries `RecordBatch` on the wire                  |
+|  [09]   | `FlightAction`                         | action message  | opaque action request (`Type` + `Body`)            |
+|  [10]   | `FlightActionType`                     | action type     | describes an available action                      |
+|  [11]   | `FlightResult`                         | action result   | per-action `DoAction` result body                  |
+|  [12]   | `FlightRecordBatchStreamingCall`       | call handle     | streaming read call handle (`ResponseStream`)      |
+|  [13]   | `FlightRecordBatchDuplexStreamingCall` | call handle     | `StartPut` write call handle (`RequestStream`)     |
+|  [14]   | `FlightRecordBatchExchangeCall`        | call handle     | bidirectional exchange call handle                 |
 
 [PUBLIC_TYPE_SCOPE]: Flight server family (`Apache.Arrow.Flight.Server`)
 - rail: analytical-egress
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]   | [CAPABILITY]                                       |
-| :-----: | :------------------------------------ | :-------------- | :------------------------------------------------- |
-|  [01]   | `FlightServer`                        | server base     | `abstract`; the served node subclasses it and overrides the verbs — nine `virtual` handlers each throw `NotImplementedException` until overridden (`GetFlightInfo`/`GetSchema`/`DoGet`/`DoPut`/`DoExchange`/`ListFlights`/`ListActions`/`DoAction`/`Handshake`) |
-|  [02]   | `FlightServerRecordBatchStreamWriter` | server writer   | `: FlightRecordBatchStreamWriter, IServerStreamWriter<RecordBatch>`; the `DoGet`/`DoExchange` response stream |
-|  [03]   | `FlightServerRecordBatchStreamReader` | server reader   | `: FlightRecordBatchStreamReader`; the `DoExchange`/`DoPut` request stream; `ValueTask<FlightDescriptor> FlightDescriptor` resolves the exchange address |
-|  [04]   | `FlightRecordBatchStreamWriter`       | writer base     | `abstract : IAsyncStreamWriter<RecordBatch>, IDisposable`; carries `WriteAsync`/`SetupStream`/`WriteOptions` the server writer inherits |
-|  [05]   | `FlightRecordBatchStreamReader`       | reader base     | `abstract : IAsyncStreamReader<RecordBatch>, IAsyncEnumerable<RecordBatch>, IDisposable`; carries `Current`/`Schema`/`MoveNextAsync`/`ApplicationMetadata` the server reader inherits |
-|  [06]   | `FlightLocation`                      | location        | `FlightLocation(string uri)`; `string Uri` — the `FlightEndpoint` serving address |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                                                                                                                                                    |
+| :-----: | :------------------------------------ | :------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `FlightServer`                        | server base   | `abstract`; the served node subclasses it and overrides the verbs — nine `virtual` handlers each throw `NotImplementedException` until overridden (`GetFlightInfo`/`GetSchema`/`DoGet`/`DoPut`/`DoExchange`/`ListFlights`/`ListActions`/`DoAction`/`Handshake`) |
+|  [02]   | `FlightServerRecordBatchStreamWriter` | server writer | `: FlightRecordBatchStreamWriter, IServerStreamWriter<RecordBatch>`; the `DoGet`/`DoExchange` response stream                                                                                                                                                   |
+|  [03]   | `FlightServerRecordBatchStreamReader` | server reader | `: FlightRecordBatchStreamReader`; the `DoExchange`/`DoPut` request stream; `ValueTask<FlightDescriptor> FlightDescriptor` resolves the exchange address                                                                                                        |
+|  [04]   | `FlightRecordBatchStreamWriter`       | writer base   | `abstract : IAsyncStreamWriter<RecordBatch>, IDisposable`; carries `WriteAsync`/`SetupStream`/`WriteOptions` the server writer inherits                                                                                                                         |
+|  [05]   | `FlightRecordBatchStreamReader`       | reader base   | `abstract : IAsyncStreamReader<RecordBatch>, IAsyncEnumerable<RecordBatch>, IDisposable`; carries `Current`/`Schema`/`MoveNextAsync`/`ApplicationMetadata` the server reader inherits                                                                           |
+|  [06]   | `FlightLocation`                      | location      | `FlightLocation(string uri)`; `string Uri` — the `FlightEndpoint` serving address                                                                                                                                                                               |
 
 [PUBLIC_TYPE_SCOPE]: IPC compression family (`Apache.Arrow.Compression`)
 - rail: analytical-egress (IPC compression)
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]                                                              |
-| :-----: | :------------------------- | :-------------- | :----------------------------------------------------------------------- |
-|  [01]   | `CompressionCodecFactory`  | codec factory   | the only public type; `sealed : ICompressionCodecFactory`; maps `Lz4Frame` → LZ4-frame codec, `Zstd` → Zstandard codec |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                                                           |
+| :-----: | :------------------------ | :------------ | :--------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `CompressionCodecFactory` | codec factory | the only public type; `sealed : ICompressionCodecFactory`; maps `Lz4Frame` → LZ4-frame codec, `Zstd` → Zstandard codec |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: RecordBatch and Schema construction
 - rail: analytical-egress
 
-| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CAPABILITY]                          |
-| :-----: | :---------------------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `RecordBatch.Builder(allocator?)`                     | ctor           | creates batch builder with allocator  |
-|  [02]   | `RecordBatch.Builder.Append(name, nullable, array)`   | builder        | adds typed column to batch            |
-|  [03]   | `RecordBatch.Builder.Append(name, nullable, builder)` | builder        | adds built column                     |
-|  [04]   | `RecordBatch.Builder.Append(batch)`                   | builder        | merges schema and arrays from a batch |
-|  [05]   | `RecordBatch.Builder.Build()`                         | factory call   | yields immutable `RecordBatch`        |
-|  [06]   | `RecordBatch.Builder.Clear()`                         | reset          | resets schema and arrays              |
-|  [07]   | `Schema.Builder.Field(field)`                         | builder        | adds field to schema                  |
-|  [08]   | `Schema.Builder.Build()`                              | factory call   | yields immutable `Schema`             |
-|  [09]   | `Field.Builder.Name(name)`                            | builder        | sets field name                       |
-|  [10]   | `Field.Builder.DataType(type)`                        | builder        | sets Arrow type                       |
-|  [11]   | `Field.Builder.Nullable(nullable)`                    | builder        | sets nullability                      |
-|  [12]   | `Field.Builder.Build()`                               | factory call   | yields immutable `Field`              |
-|  [13]   | `RecordBatch.Slice(offset, length)` / `SliceShared`   | zero-copy view | windows a batch without copying buffers |
+| [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY] | [CAPABILITY]                                 |
+| :-----: | :---------------------------------------------------- | :------------- | :------------------------------------------- |
+|  [01]   | `RecordBatch.Builder(allocator?)`                     | ctor           | creates batch builder with allocator         |
+|  [02]   | `RecordBatch.Builder.Append(name, nullable, array)`   | builder        | adds typed column to batch                   |
+|  [03]   | `RecordBatch.Builder.Append(name, nullable, builder)` | builder        | adds built column                            |
+|  [04]   | `RecordBatch.Builder.Append(batch)`                   | builder        | merges schema and arrays from a batch        |
+|  [05]   | `RecordBatch.Builder.Build()`                         | factory call   | yields immutable `RecordBatch`               |
+|  [06]   | `RecordBatch.Builder.Clear()`                         | reset          | resets schema and arrays                     |
+|  [07]   | `Schema.Builder.Field(field)`                         | builder        | adds field to schema                         |
+|  [08]   | `Schema.Builder.Build()`                              | factory call   | yields immutable `Schema`                    |
+|  [09]   | `Field.Builder.Name(name)`                            | builder        | sets field name                              |
+|  [10]   | `Field.Builder.DataType(type)`                        | builder        | sets Arrow type                              |
+|  [11]   | `Field.Builder.Nullable(nullable)`                    | builder        | sets nullability                             |
+|  [12]   | `Field.Builder.Build()`                               | factory call   | yields immutable `Field`                     |
+|  [13]   | `RecordBatch.Slice(offset, length)` / `SliceShared`   | zero-copy view | windows a batch without copying buffers      |
 |  [14]   | `RecordBatch.Column(name)` / `Column(int)`            | column access  | reads one `IArrowArray` column by name/index |
 
 [ENTRYPOINT_SCOPE]: IPC read and write
 - rail: analytical-egress
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                          |
-| :-----: | :----------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `new ArrowStreamReader(stream, leaveOpen?)`                        | ctor           | opens IPC stream reader (`IArrowReader`)              |
-|  [02]   | `new ArrowStreamWriter(stream, schema, leaveOpen, options)`        | ctor           | opens IPC stream writer; `MemoryAllocator` overload    |
-|  [03]   | `new ArrowFileReader(stream, leaveOpen?)`                          | ctor           | opens IPC file reader (random-access)                 |
-|  [04]   | `new ArrowFileWriter(stream, schema, leaveOpen, options)`          | ctor           | opens IPC file writer                                 |
-|  [05]   | `WriteStart()` / `WriteStartAsync()`                               | schema write   | emits the schema message before the first batch        |
-|  [06]   | `ReadNextRecordBatch()`                                            | sync read      | reads next `RecordBatch`                              |
-|  [07]   | `ReadNextRecordBatchAsync()`                                       | async read     | async reads next `RecordBatch`                        |
-|  [08]   | `WriteRecordBatch(batch)`                                          | sync write     | writes one `RecordBatch`                              |
-|  [09]   | `WriteRecordBatchAsync(batch)`                                     | async write    | async writes one `RecordBatch`                        |
-|  [10]   | `WriteEnd()` / `WriteEndAsync()`                                   | finalize       | writes IPC EOS terminator (mandatory before dispose)  |
-|  [11]   | `IpcOptions { CompressionCodec, CompressionCodecFactory, CompressionLevel, WriteLegacyIpcFormat }` | configuration | `CompressionCodec` is `CompressionCodecType?`, inert unless `CompressionCodecFactory` is set; `CompressionLevel` is `int?` forwarded to `CreateCodec(type, level)` |
-|  [12]   | `new Apache.Arrow.Compression.CompressionCodecFactory()`           | factory ctor   | the admitted concrete `ICompressionCodecFactory`; assign to `IpcOptions.CompressionCodecFactory` to enable `Lz4Frame`/`Zstd` IPC compression |
-|  [13]   | `CompressionCodecFactory.CreateCodec(CompressionCodecType[, int? level])` | codec factory | yields the per-codec `ICompressionCodec`; the Arrow IPC writer/reader calls this internally per batch |
+| [INDEX] | [SURFACE]                                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                                       |
+| :-----: | :------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `new ArrowStreamReader(stream, leaveOpen?)`                                                        | ctor           | opens IPC stream reader (`IArrowReader`)                                                                                                                           |
+|  [02]   | `new ArrowStreamWriter(stream, schema, leaveOpen, options)`                                        | ctor           | opens IPC stream writer; `MemoryAllocator` overload                                                                                                                |
+|  [03]   | `new ArrowFileReader(stream, leaveOpen?)`                                                          | ctor           | opens IPC file reader (random-access)                                                                                                                              |
+|  [04]   | `new ArrowFileWriter(stream, schema, leaveOpen, options)`                                          | ctor           | opens IPC file writer                                                                                                                                              |
+|  [05]   | `WriteStart()` / `WriteStartAsync()`                                                               | schema write   | emits the schema message before the first batch                                                                                                                    |
+|  [06]   | `ReadNextRecordBatch()`                                                                            | sync read      | reads next `RecordBatch`                                                                                                                                           |
+|  [07]   | `ReadNextRecordBatchAsync()`                                                                       | async read     | async reads next `RecordBatch`                                                                                                                                     |
+|  [08]   | `WriteRecordBatch(batch)`                                                                          | sync write     | writes one `RecordBatch`                                                                                                                                           |
+|  [09]   | `WriteRecordBatchAsync(batch)`                                                                     | async write    | async writes one `RecordBatch`                                                                                                                                     |
+|  [10]   | `WriteEnd()` / `WriteEndAsync()`                                                                   | finalize       | writes IPC EOS terminator (mandatory before dispose)                                                                                                               |
+|  [11]   | `IpcOptions { CompressionCodec, CompressionCodecFactory, CompressionLevel, WriteLegacyIpcFormat }` | configuration  | `CompressionCodec` is `CompressionCodecType?`, inert unless `CompressionCodecFactory` is set; `CompressionLevel` is `int?` forwarded to `CreateCodec(type, level)` |
+|  [12]   | `new Apache.Arrow.Compression.CompressionCodecFactory()`                                           | factory ctor   | the admitted concrete `ICompressionCodecFactory`; assign to `IpcOptions.CompressionCodecFactory` to enable `Lz4Frame`/`Zstd` IPC compression                       |
+|  [13]   | `CompressionCodecFactory.CreateCodec(CompressionCodecType[, int? level])`                          | codec factory  | yields the per-codec `ICompressionCodec`; the Arrow IPC writer/reader calls this internally per batch                                                              |
 
 [ENTRYPOINT_SCOPE]: ADBC statement execution
 - rail: analytical-egress
 
-| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY] | [CAPABILITY]                                              |
-| :-----: | :----------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `AdbcDriver.Open(parameters)`                                                        | driver open    | creates `AdbcDatabase`                                   |
-|  [02]   | `AdbcDatabase.Connect(options)`                                                      | connect        | creates `AdbcConnection`                                 |
-|  [03]   | `AdbcConnection.CreateStatement()`                                                   | factory        | creates `AdbcStatement`                                  |
-|  [04]   | `AdbcConnection.BulkIngest(targetTable, BulkIngestMode)`                             | ingest factory | creates ingest statement; 5-arg catalog/schema/temporary overload |
-|  [05]   | `AdbcConnection.GetObjects(GetObjectsDepth, catalog?, dbSchema?, table?, types?, column?)` | schema query | returns `IArrowArrayStream`                            |
-|  [06]   | `AdbcConnection.GetTableSchema(catalog?, dbSchema?, table)`                          | schema         | returns `Schema`                                        |
-|  [07]   | `AdbcConnection.GetTableTypes()` / `GetInfo(IReadOnlyList<AdbcInfoCode>)`            | schema query   | returns `IArrowArrayStream`                             |
-|  [08]   | `AdbcConnection.AutoCommit` / `Commit()` / `Rollback()`                              | transaction    | turns off autocommit and bounds a multi-statement unit  |
-|  [09]   | `AdbcConnection.ReadPartition(PartitionDescriptor)`                                  | partition read | reads one partition stream from a `PartitionedResult`    |
-|  [10]   | `AdbcStatement.SqlQuery` / `SubstraitPlan`                                           | property       | sets SQL text or a Substrait `byte[]` plan              |
-|  [11]   | `AdbcStatement.ExecuteQuery()` / `ExecuteQueryAsync()`                               | execute        | returns `QueryResult` (`RowCount` + `Stream`)           |
-|  [12]   | `AdbcStatement.ExecuteUpdate()` / `ExecuteUpdateAsync()`                             | update         | returns `UpdateResult` (`AffectedRows`)                 |
-|  [13]   | `AdbcStatement.ExecutePartitioned()`                                                 | partitioned    | returns `PartitionedResult` for distributed reads        |
-|  [14]   | `AdbcStatement.Prepare()`                                                            | prepare        | prepares statement server-side                          |
-|  [15]   | `AdbcStatement.Bind(batch, schema)` / `BindStream(IArrowArrayStream)`                | bind           | binds one batch or a whole stream for parameterised exec |
+| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                                      |
+| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `AdbcDriver.Open(parameters)`                                                              | driver open    | creates `AdbcDatabase`                                            |
+|  [02]   | `AdbcDatabase.Connect(options)`                                                            | connect        | creates `AdbcConnection`                                          |
+|  [03]   | `AdbcConnection.CreateStatement()`                                                         | factory        | creates `AdbcStatement`                                           |
+|  [04]   | `AdbcConnection.BulkIngest(targetTable, BulkIngestMode)`                                   | ingest factory | creates ingest statement; 5-arg catalog/schema/temporary overload |
+|  [05]   | `AdbcConnection.GetObjects(GetObjectsDepth, catalog?, dbSchema?, table?, types?, column?)` | schema query   | returns `IArrowArrayStream`                                       |
+|  [06]   | `AdbcConnection.GetTableSchema(catalog?, dbSchema?, table)`                                | schema         | returns `Schema`                                                  |
+|  [07]   | `AdbcConnection.GetTableTypes()` / `GetInfo(IReadOnlyList<AdbcInfoCode>)`                  | schema query   | returns `IArrowArrayStream`                                       |
+|  [08]   | `AdbcConnection.AutoCommit` / `Commit()` / `Rollback()`                                    | transaction    | turns off autocommit and bounds a multi-statement unit            |
+|  [09]   | `AdbcConnection.ReadPartition(PartitionDescriptor)`                                        | partition read | reads one partition stream from a `PartitionedResult`             |
+|  [10]   | `AdbcStatement.SqlQuery` / `SubstraitPlan`                                                 | property       | sets SQL text or a Substrait `byte[]` plan                        |
+|  [11]   | `AdbcStatement.ExecuteQuery()` / `ExecuteQueryAsync()`                                     | execute        | returns `QueryResult` (`RowCount` + `Stream`)                     |
+|  [12]   | `AdbcStatement.ExecuteUpdate()` / `ExecuteUpdateAsync()`                                   | update         | returns `UpdateResult` (`AffectedRows`)                           |
+|  [13]   | `AdbcStatement.ExecutePartitioned()`                                                       | partitioned    | returns `PartitionedResult` for distributed reads                 |
+|  [14]   | `AdbcStatement.Prepare()`                                                                  | prepare        | prepares statement server-side                                    |
+|  [15]   | `AdbcStatement.Bind(batch, schema)` / `BindStream(IArrowArrayStream)`                      | bind           | binds one batch or a whole stream for parameterised exec          |
 
 [ENTRYPOINT_SCOPE]: Flight client operations
 - rail: analytical-egress
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `new FlightClient(ChannelBase)` / `new FlightClient(CallInvoker)` | ctor   | client from a gRPC channel or invoker (no static factory) |
-|  [02]   | `FlightClient.GetInfo(descriptor)`                     | info query     | `AsyncUnaryCall<FlightInfo>` for a descriptor           |
-|  [03]   | `FlightClient.GetSchema(descriptor)`                   | schema query   | `AsyncUnaryCall<Schema>` for a descriptor               |
-|  [04]   | `FlightClient.GetStream(FlightTicket)`                 | stream read    | `FlightRecordBatchStreamingCall` (use `endpoint.Ticket`) |
-|  [05]   | `FlightClient.StartPut(descriptor[, schema])`          | stream write   | `FlightRecordBatchDuplexStreamingCall` write path        |
-|  [06]   | `FlightClient.DoExchange(descriptor)`                  | exchange       | `FlightRecordBatchExchangeCall` bidirectional call      |
-|  [07]   | `FlightClient.DoAction(FlightAction)`                  | action call    | `AsyncServerStreamingCall<FlightResult>`                |
-|  [08]   | `FlightClient.ListActions()`                           | discovery      | `AsyncServerStreamingCall<FlightActionType>`            |
-|  [09]   | `FlightClient.ListFlights(FlightCriteria?)`            | discovery      | `AsyncServerStreamingCall<FlightInfo>`                  |
-|  [10]   | `FlightClient.Handshake()`                             | auth handshake | `AsyncDuplexStreamingCall` handshake exchange           |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [CAPABILITY]                                              |
+| :-----: | :---------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `new FlightClient(ChannelBase)` / `new FlightClient(CallInvoker)` | ctor           | client from a gRPC channel or invoker (no static factory) |
+|  [02]   | `FlightClient.GetInfo(descriptor)`                                | info query     | `AsyncUnaryCall<FlightInfo>` for a descriptor             |
+|  [03]   | `FlightClient.GetSchema(descriptor)`                              | schema query   | `AsyncUnaryCall<Schema>` for a descriptor                 |
+|  [04]   | `FlightClient.GetStream(FlightTicket)`                            | stream read    | `FlightRecordBatchStreamingCall` (use `endpoint.Ticket`)  |
+|  [05]   | `FlightClient.StartPut(descriptor[, schema])`                     | stream write   | `FlightRecordBatchDuplexStreamingCall` write path         |
+|  [06]   | `FlightClient.DoExchange(descriptor)`                             | exchange       | `FlightRecordBatchExchangeCall` bidirectional call        |
+|  [07]   | `FlightClient.DoAction(FlightAction)`                             | action call    | `AsyncServerStreamingCall<FlightResult>`                  |
+|  [08]   | `FlightClient.ListActions()`                                      | discovery      | `AsyncServerStreamingCall<FlightActionType>`              |
+|  [09]   | `FlightClient.ListFlights(FlightCriteria?)`                       | discovery      | `AsyncServerStreamingCall<FlightInfo>`                    |
+|  [10]   | `FlightClient.Handshake()`                                        | auth handshake | `AsyncDuplexStreamingCall` handshake exchange             |
 
 [ENTRYPOINT_SCOPE]: Flight server operations (`Apache.Arrow.Flight.Server`)
 - rail: analytical-egress
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `override Task<FlightInfo> GetFlightInfo(FlightDescriptor, ServerCallContext)` | server verb | one dataset per descriptor command bytes |
-|  [02]   | `override Task<Schema> GetSchema(FlightDescriptor, ServerCallContext)` | server verb | dataset schema for a descriptor |
-|  [03]   | `override Task DoGet(FlightTicket, FlightServerRecordBatchStreamWriter, ServerCallContext)` | server verb | streams `RecordBatch` per redeemed ticket |
-|  [04]   | `override Task DoExchange(FlightServerRecordBatchStreamReader, FlightServerRecordBatchStreamWriter, ServerCallContext)` | server verb | full-duplex incremental delta channel |
-|  [05]   | `override Task DoPut(FlightServerRecordBatchStreamReader, IAsyncStreamWriter<FlightPutResult>, ServerCallContext)` | server verb | client→server batch ingest (the remaining base verbs throw until overridden) |
-|  [06]   | `FlightServerRecordBatchStreamWriter.WriteAsync(RecordBatch)` / `WriteAsync(RecordBatch, ByteString applicationMetadata)` | server write | writes one batch; auto-runs `SetupStream(batch.Schema)` on first write; the `ByteString` overload stamps per-batch app metadata |
-|  [07]   | `FlightRecordBatchStreamWriter.SetupStream(Schema)` / `WriteOptions`   | schema/opts    | emits the schema message before the first batch; IPC write options |
-|  [08]   | `await FlightServerRecordBatchStreamReader.FlightDescriptor`           | exchange address | `ValueTask<FlightDescriptor>` resolves the `DoExchange` descriptor |
-|  [09]   | `FlightServerRecordBatchStreamReader.MoveNextAsync()` / `Current` / `Schema` / `ApplicationMetadata` | request read | reads the inbound `RecordBatch` request stream |
-|  [10]   | `new FlightInfo(Schema, FlightDescriptor, IReadOnlyList<FlightEndpoint>, long totalRecords = -1, long totalBytes = -1)` | ctor | discovery payload; `Schema`/`Descriptor`/`Endpoints`/`TotalRecords`/`TotalBytes` props |
-|  [11]   | `new FlightEndpoint(FlightTicket, IReadOnlyList<FlightLocation>)`      | ctor           | `Ticket` + `Locations` for one endpoint |
-|  [12]   | `new FlightTicket(string)` / `(ByteString)` / `(byte[])`; `ByteString Ticket` | ctor/prop | the opaque `DoGet` redemption token |
-|  [13]   | `FlightDescriptor.Command` / `Paths` / `Type`                         | property       | `ByteString` command bytes, path list, `FlightDescriptorType` |
+| [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY]   | [CAPABILITY]                                                                                                                    |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :--------------- | :------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `override Task<FlightInfo> GetFlightInfo(FlightDescriptor, ServerCallContext)`                                            | server verb      | one dataset per descriptor command bytes                                                                                        |
+|  [02]   | `override Task<Schema> GetSchema(FlightDescriptor, ServerCallContext)`                                                    | server verb      | dataset schema for a descriptor                                                                                                 |
+|  [03]   | `override Task DoGet(FlightTicket, FlightServerRecordBatchStreamWriter, ServerCallContext)`                               | server verb      | streams `RecordBatch` per redeemed ticket                                                                                       |
+|  [04]   | `override Task DoExchange(FlightServerRecordBatchStreamReader, FlightServerRecordBatchStreamWriter, ServerCallContext)`   | server verb      | full-duplex incremental delta channel                                                                                           |
+|  [05]   | `override Task DoPut(FlightServerRecordBatchStreamReader, IAsyncStreamWriter<FlightPutResult>, ServerCallContext)`        | server verb      | client→server batch ingest (the remaining base verbs throw until overridden)                                                    |
+|  [06]   | `FlightServerRecordBatchStreamWriter.WriteAsync(RecordBatch)` / `WriteAsync(RecordBatch, ByteString applicationMetadata)` | server write     | writes one batch; auto-runs `SetupStream(batch.Schema)` on first write; the `ByteString` overload stamps per-batch app metadata |
+|  [07]   | `FlightRecordBatchStreamWriter.SetupStream(Schema)` / `WriteOptions`                                                      | schema/opts      | emits the schema message before the first batch; IPC write options                                                              |
+|  [08]   | `await FlightServerRecordBatchStreamReader.FlightDescriptor`                                                              | exchange address | `ValueTask<FlightDescriptor>` resolves the `DoExchange` descriptor                                                              |
+|  [09]   | `FlightServerRecordBatchStreamReader.MoveNextAsync()` / `Current` / `Schema` / `ApplicationMetadata`                      | request read     | reads the inbound `RecordBatch` request stream                                                                                  |
+|  [10]   | `new FlightInfo(Schema, FlightDescriptor, IReadOnlyList<FlightEndpoint>, long totalRecords = -1, long totalBytes = -1)`   | ctor             | discovery payload; `Schema`/`Descriptor`/`Endpoints`/`TotalRecords`/`TotalBytes` props                                          |
+|  [11]   | `new FlightEndpoint(FlightTicket, IReadOnlyList<FlightLocation>)`                                                         | ctor             | `Ticket` + `Locations` for one endpoint                                                                                         |
+|  [12]   | `new FlightTicket(string)` / `(ByteString)` / `(byte[])`; `ByteString Ticket`                                             | ctor/prop        | the opaque `DoGet` redemption token                                                                                             |
+|  [13]   | `FlightDescriptor.Command` / `Paths` / `Type`                                                                             | property         | `ByteString` command bytes, path list, `FlightDescriptorType`                                                                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

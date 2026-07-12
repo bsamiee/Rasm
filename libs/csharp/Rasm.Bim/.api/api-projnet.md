@@ -28,38 +28,38 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 - namespace: `ProjNet` (services), `ProjNet.CoordinateSystems`, `ProjNet.CoordinateSystems.Transformations`
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:-------------------------------- |:------- |:-------------------------------------------------------------------------------------------------------- |
-| [01] | `ProjNet.CoordinateSystemServices` | geometry | SRID-keyed CS cache + transformation facade; `GetCoordinateSystem`, `CreateTransformation`, `GetSRID`. Top-level `ProjNet` namespace, NOT `ProjNet.CoordinateSystems`. Ctors: `()` (bundled `SRID.csv`), `(IEnumerable<KeyValuePair<int,string>> definitions)` (custom SRID->WKT source), `(CoordinateSystemFactory, CoordinateTransformationFactory[, IEnumerable<KeyValuePair<int,string>>])` |
-| [02] | `CoordinateSystemFactory` | geometry | builds CS objects; `CreateFromWkt`, `CreateGeographicCoordinateSystem`, `CreateProjectedCoordinateSystem` |
-| [03] | `CoordinateTransformationFactory` | geometry | builds transformations; `CreateFromCoordinateSystems(source, target)` |
-| [04] | `ICoordinateTransformation` | geometry | a built transformation; `MathTransform`, `SourceCS`, `TargetCS`, `TransformType`, `Authority`/`AuthorityCode`; `AreaOfUse` is `string.Empty` on every factory-built instance (`[PHANTOM_SURFACE]`) |
-| [05] | `MathTransform` | geometry | numeric transform pipeline; abstract `Transform(ref x,ref y,ref z)` + per-coord, array, list, and `Span<double>`/`Span<XY>`/`Span<XYZ>` batch overloads; `Inverse`/`Invert`, `DimSource`/`DimTarget`; `Derivative`/`GetDomainFlags`/`GetCodomainConvexHull` are member surface-refuted phantoms (`[PHANTOM_SURFACE]`) |
+| [INDEX] | [SYMBOL]                           | [RAIL]   | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                    |
+| :-----: | :--------------------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ProjNet.CoordinateSystemServices` | geometry | SRID-keyed CS cache + transformation facade; `GetCoordinateSystem`, `CreateTransformation`, `GetSRID`. Top-level `ProjNet` namespace, NOT `ProjNet.CoordinateSystems`. Ctors: `()` (bundled `SRID.csv`), `(IEnumerable<KeyValuePair<int,string>> definitions)` (custom SRID->WKT source), `(CoordinateSystemFactory, CoordinateTransformationFactory[, IEnumerable<KeyValuePair<int,string>>])` |
+|  [02]   | `CoordinateSystemFactory`          | geometry | builds CS objects; `CreateFromWkt`, `CreateGeographicCoordinateSystem`, `CreateProjectedCoordinateSystem`                                                                                                                                                                                                                                                                                       |
+|  [03]   | `CoordinateTransformationFactory`  | geometry | builds transformations; `CreateFromCoordinateSystems(source, target)`                                                                                                                                                                                                                                                                                                                           |
+|  [04]   | `ICoordinateTransformation`        | geometry | a built transformation; `MathTransform`, `SourceCS`, `TargetCS`, `TransformType`, `Authority`/`AuthorityCode`; `AreaOfUse` is `string.Empty` on every factory-built instance (`[PHANTOM_SURFACE]`)                                                                                                                                                                                              |
+|  [05]   | `MathTransform`                    | geometry | numeric transform pipeline; abstract `Transform(ref x,ref y,ref z)` + per-coord, array, list, and `Span<double>`/`Span<XY>`/`Span<XYZ>` batch overloads; `Inverse`/`Invert`, `DimSource`/`DimTarget`; `Derivative`/`GetDomainFlags`/`GetCodomainConvexHull` are member surface-refuted phantoms (`[PHANTOM_SURFACE]`)                                                                           |
 
 [PUBLIC_TYPE_SCOPE]: coordinate-system models and units
 - package: `ProjNET`
 - namespace: `ProjNet.CoordinateSystems`
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:--------------------------- |:------- |:----------------------------------------------------------------------------------------------------------- |
-| [01] | `CoordinateSystem` | geometry | abstract CS base; `WKT`, `Authority`, `AuthorityCode`, `Dimension` |
-| [02] | `GeographicCoordinateSystem` | geometry | lat/lon CS; `AngularUnit`, `HorizontalDatum`, `PrimeMeridian`, static `WGS84` |
-| [03] | `ProjectedCoordinateSystem` | geometry | planar CS; `GeographicCoordinateSystem`, `LinearUnit`, `Projection`, `WGS84_UTM(zone, north)`, `WebMercator` |
-| [04] | `HorizontalDatum` | geometry | geodetic datum; `Ellipsoid`, `Wgs84Parameters` (Bursa-Wolf 7-param shift) |
-| [05] | `Ellipsoid` | geometry | reference ellipsoid; `SemiMajorAxis`, `InverseFlattening`, static `WGS84`/`GRS80` |
-| [06] | `Projection` | geometry | map-projection parameter set; named projection + `ProjectionParameter` list |
-| [07] | `LinearUnit` / `AngularUnit` | geometry | unit definitions; static `Metre`, `Degrees`, conversion factor |
+| [INDEX] | [SYMBOL]                     | [RAIL]   | [CAPABILITY]                                                                                                 |
+| :-----: | :--------------------------- | :------- | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | `CoordinateSystem`           | geometry | abstract CS base; `WKT`, `Authority`, `AuthorityCode`, `Dimension`                                           |
+|  [02]   | `GeographicCoordinateSystem` | geometry | lat/lon CS; `AngularUnit`, `HorizontalDatum`, `PrimeMeridian`, static `WGS84`                                |
+|  [03]   | `ProjectedCoordinateSystem`  | geometry | planar CS; `GeographicCoordinateSystem`, `LinearUnit`, `Projection`, `WGS84_UTM(zone, north)`, `WebMercator` |
+|  [04]   | `HorizontalDatum`            | geometry | geodetic datum; `Ellipsoid`, `Wgs84Parameters` (Bursa-Wolf 7-param shift)                                    |
+|  [05]   | `Ellipsoid`                  | geometry | reference ellipsoid; `SemiMajorAxis`, `InverseFlattening`, static `WGS84`/`GRS80`                            |
+|  [06]   | `Projection`                 | geometry | map-projection parameter set; named projection + `ProjectionParameter` list                                  |
+|  [07]   | `LinearUnit` / `AngularUnit` | geometry | unit definitions; static `Metre`, `Degrees`, conversion factor                                               |
 
 [PUBLIC_TYPE_SCOPE]: WKT/SRID I/O
 - package: `ProjNET`
 - namespace: `ProjNet.IO.CoordinateSystems`
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:-------------------------- |:------- |:------------------------------------------------------------------- |
-| [01] | `CoordinateSystemWktReader` | geometry | parses an OGC WKT string into a `CoordinateSystem` (`Parse(string)`) |
-| [02] | `SridReader` | geometry | SRID-to-WKT lookup from the bundled `SRID.csv` EPSG table |
+| [INDEX] | [SYMBOL]                    | [RAIL]   | [CAPABILITY]                                                         |
+| :-----: | :-------------------------- | :------- | :------------------------------------------------------------------- |
+|  [01]   | `CoordinateSystemWktReader` | geometry | parses an OGC WKT string into a `CoordinateSystem` (`Parse(string)`) |
+|  [02]   | `SridReader`                | geometry | SRID-to-WKT lookup from the bundled `SRID.csv` EPSG table            |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -68,33 +68,33 @@ geographic-to-projected and datum-to-datum coordinate transformation, and the
 - namespace: `ProjNet.CoordinateSystems`, `ProjNet.CoordinateSystems.Transformations`
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------------ |:--------------------------------------------------------------------------------- |:--------------------------------------------- |
-| [01] | `CoordinateSystemServices.GetCoordinateSystem` | `(int srid)` → `CoordinateSystem` | resolves a CS from an EPSG/SRID code |
-| [02] | `CoordinateSystemServices.GetCoordinateSystem` | `(string authority, long code)` → `CoordinateSystem` | resolves a CS by authority + code |
-| [03] | `CoordinateSystemServices.CreateTransformation` | `(int sourceSrid, int targetSrid)` → `ICoordinateTransformation` | builds a transformation between two SRIDs |
-| [04] | `CoordinateSystemFactory.CreateFromWkt` | `(string wkt)` → `CoordinateSystem` | parses a WKT CS definition |
-| [05] | `CoordinateTransformationFactory.CreateFromCoordinateSystems` | `(CoordinateSystem source, CoordinateSystem target)` → `ICoordinateTransformation` | builds a transformation between two CS objects |
+| [INDEX] | [SURFACE]                                                     | [CALL_SHAPE]                                                                       | [CAPABILITY]                                   |
+| :-----: | :------------------------------------------------------------ | :--------------------------------------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | `CoordinateSystemServices.GetCoordinateSystem`                | `(int srid)` → `CoordinateSystem`                                                  | resolves a CS from an EPSG/SRID code           |
+|  [02]   | `CoordinateSystemServices.GetCoordinateSystem`                | `(string authority, long code)` → `CoordinateSystem`                               | resolves a CS by authority + code              |
+|  [03]   | `CoordinateSystemServices.CreateTransformation`               | `(int sourceSrid, int targetSrid)` → `ICoordinateTransformation`                   | builds a transformation between two SRIDs      |
+|  [04]   | `CoordinateSystemFactory.CreateFromWkt`                       | `(string wkt)` → `CoordinateSystem`                                                | parses a WKT CS definition                     |
+|  [05]   | `CoordinateTransformationFactory.CreateFromCoordinateSystems` | `(CoordinateSystem source, CoordinateSystem target)` → `ICoordinateTransformation` | builds a transformation between two CS objects |
 
 [ENTRYPOINT_SCOPE]: transform coordinates
 - package: `ProjNET`
 - namespace: `ProjNet.CoordinateSystems.Transformations`
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:---------------------------------------- |:---------------------------------------------- |:---------------------------------------------- |
-| [01] | `MathTransform.Transform` | `(double x, double y)` → `(double x, double y)` | transforms one 2D coordinate |
-| [02] | `MathTransform.Transform` | `(double x, double y, double z)` → `(double, double, double)` | transforms one 3D coordinate, returns tuple |
-| [03] | `MathTransform.Transform` | `(ref double x, ref double y, ref double z)` | abstract core; transforms one 3D coordinate in place |
-| [04] | `MathTransform.Transform` | `(double[] point)` → `double[]` | transforms a single ordinate array |
-| [05] | `MathTransform.Transform` | `(Span<XYZ> xyzs)` | strongly-typed `double`-XYZ batch in place; `XYZ` is `double`-backed (24 B), so this aliases a `double` triple buffer, NOT a `float` glTF buffer |
-| [06] | `MathTransform.Transform` | `(Span<XY> xys, Span<double> zs = default, int strideZ = 0)` | `double`-XY batch + optional Z column; `XY` is `double`-backed (16 B) |
-| [07] | `MathTransform.Transform` | `(Span<double> xs, Span<double> ys, int strideX=1, int strideY=1)` | strided `double` XY pair batch (Z assumed 0); the 2-column twin of `[08]` |
-| [08] | `MathTransform.Transform` | `(Span<double> xs, Span<double> ys, Span<double> zs, int strideX=1, int strideY=1, int strideZ=1)` | strided `double` struct-of-arrays batch over three reinterpreted ordinate columns of one `double` vertex span |
-| [09] | `MathTransform.TransformList` | `(IList<double[]>)` → `IList<double[]>` | array-of-arrays batch (allocating) |
-| [10] | `MathTransform.Inverse` / `Invert` | → `MathTransform` / in-place | the reverse transform (target → source); every concrete transform overrides `Inverse` |
-| [11] | `MathTransform.DimSource`/`DimTarget` | property | source/target ordinate dimensionality |
-| [12] | `ICoordinateTransformation.MathTransform` | property | the numeric transform of a built transformation |
+| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                                                       | [CAPABILITY]                                                                                                                                     |
+| :-----: | :---------------------------------------- | :------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `MathTransform.Transform`                 | `(double x, double y)` → `(double x, double y)`                                                    | transforms one 2D coordinate                                                                                                                     |
+|  [02]   | `MathTransform.Transform`                 | `(double x, double y, double z)` → `(double, double, double)`                                      | transforms one 3D coordinate, returns tuple                                                                                                      |
+|  [03]   | `MathTransform.Transform`                 | `(ref double x, ref double y, ref double z)`                                                       | abstract core; transforms one 3D coordinate in place                                                                                             |
+|  [04]   | `MathTransform.Transform`                 | `(double[] point)` → `double[]`                                                                    | transforms a single ordinate array                                                                                                               |
+|  [05]   | `MathTransform.Transform`                 | `(Span<XYZ> xyzs)`                                                                                 | strongly-typed `double`-XYZ batch in place; `XYZ` is `double`-backed (24 B), so this aliases a `double` triple buffer, NOT a `float` glTF buffer |
+|  [06]   | `MathTransform.Transform`                 | `(Span<XY> xys, Span<double> zs = default, int strideZ = 0)`                                       | `double`-XY batch + optional Z column; `XY` is `double`-backed (16 B)                                                                            |
+|  [07]   | `MathTransform.Transform`                 | `(Span<double> xs, Span<double> ys, int strideX=1, int strideY=1)`                                 | strided `double` XY pair batch (Z assumed 0); the 2-column twin of `[08]`                                                                        |
+|  [08]   | `MathTransform.Transform`                 | `(Span<double> xs, Span<double> ys, Span<double> zs, int strideX=1, int strideY=1, int strideZ=1)` | strided `double` struct-of-arrays batch over three reinterpreted ordinate columns of one `double` vertex span                                    |
+|  [09]   | `MathTransform.TransformList`             | `(IList<double[]>)` → `IList<double[]>`                                                            | array-of-arrays batch (allocating)                                                                                                               |
+|  [10]   | `MathTransform.Inverse` / `Invert`        | → `MathTransform` / in-place                                                                       | the reverse transform (target → source); every concrete transform overrides `Inverse`                                                            |
+|  [11]   | `MathTransform.DimSource`/`DimTarget`     | property                                                                                           | source/target ordinate dimensionality                                                                                                            |
+|  [12]   | `ICoordinateTransformation.MathTransform` | property                                                                                           | the numeric transform of a built transformation                                                                                                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

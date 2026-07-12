@@ -30,15 +30,15 @@ text representation is a 15- or 16-character lowercase hex string (`'8928308280f
 `LIKE int8` so storage and pass-by-value are identical to `bigint`. A literal lands through the input
 function (`'8928308280fffff'::h3index`); the numeric round-trip rides the bigint casts.
 
-| [INDEX] | [SURFACE]                  | [SIGNATURE]                                  | [SEMANTICS]                                  |
-| :-----: | :------------------------- | :------------------------------------------- | :------------------------------------------- |
-|  [01]   | `h3index`                  | `CREATE TYPE h3index (LIKE = int8, …)`       | 64-bit cell id; hex-string text I/O, binary `RECEIVE`/`SEND` |
-|  [02]   | `h3index <-> h3index`      | → `bigint` (`h3index_distance`)              | grid distance (KNN-style; works across resolutions via center child) |
-|  [03]   | `h3index = / <>`           | → `boolean` (`h3index_eq` `HASHES, MERGES` / `h3index_ne`) | equality / inequality                     |
-|  [04]   | `h3index && / @> / <@`     | → `boolean` (`h3index_overlaps`/`contains`/`contained_by`) | intersects / contains / contained-by (hierarchical) |
-|  [05]   | `h3index < <= > >=`        | → `boolean` (raw 64-bit ordering)            | btree-support comparison                      |
-|  [06]   | casts                      | `h3index::bigint` (decimal), `bigint::h3index`, `h3index::point` (centroid) | scalar interconversion; `h3_postgis` adds `h3index::geometry`/`::geography` |
-|  [07]   | `geometry @ integer` / `geography @ integer` | → `h3index` (`h3_postgis`)     | shorthand for `h3_latlng_to_cell`            |
+| [INDEX] | [SURFACE]                                    | [SIGNATURE]                                                                 | [SEMANTICS]                                                                 |
+| :-----: | :------------------------------------------- | :-------------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `h3index`                                    | `CREATE TYPE h3index (LIKE = int8, …)`                                      | 64-bit cell id; hex-string text I/O, binary `RECEIVE`/`SEND`                |
+|  [02]   | `h3index <-> h3index`                        | → `bigint` (`h3index_distance`)                                             | grid distance (KNN-style; works across resolutions via center child)        |
+|  [03]   | `h3index = / <>`                             | → `boolean` (`h3index_eq` `HASHES, MERGES` / `h3index_ne`)                  | equality / inequality                                                       |
+|  [04]   | `h3index && / @> / <@`                       | → `boolean` (`h3index_overlaps`/`contains`/`contained_by`)                  | intersects / contains / contained-by (hierarchical)                         |
+|  [05]   | `h3index < <= > >=`                          | → `boolean` (raw 64-bit ordering)                                           | btree-support comparison                                                    |
+|  [06]   | casts                                        | `h3index::bigint` (decimal), `bigint::h3index`, `h3index::point` (centroid) | scalar interconversion; `h3_postgis` adds `h3index::geometry`/`::geography` |
+|  [07]   | `geometry @ integer` / `geography @ integer` | → `h3index` (`h3_postgis`)                                                  | shorthand for `h3_latlng_to_cell`                                           |
 
 ## [03]-[INDEXING]
 
@@ -48,32 +48,32 @@ The core indexing and inspection functions (h3 extension). H3 renamed the `lat_l
 (`POINT(lat, lng)` per the H3 convention); the `h3_postgis` `geometry`/`geography` overloads use standard
 SRID-4326 `(lng, lat)` and cast internally — distinct conventions, the SAME resulting cell.
 
-| [INDEX] | [FUNCTION]                  | [SIGNATURE]                                                  | [SEMANTICS]                          |
-| :-----: | :-------------------------- | :---------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `h3_latlng_to_cell`         | `h3_latlng_to_cell(latlng point, resolution integer)` → `h3index` | index a location at resolution 0..15 |
-|  [02]   | `h3_cell_to_latlng`         | `h3_cell_to_latlng(cell h3index)` → `point`                 | cell centroid                        |
-|  [03]   | `h3_cell_to_boundary`       | `h3_cell_to_boundary(cell h3index)` → `polygon`             | cell boundary (antimeridian via `SET h3.extend_antimeridian`) |
-|  [04]   | `h3_get_resolution`         | `h3_get_resolution(h3index)` → `integer`                    | resolution 0..15                     |
-|  [05]   | `h3_get_base_cell_number`   | `h3_get_base_cell_number(h3index)` → `integer`              | base cell 0..121                     |
-|  [06]   | `h3_is_valid_cell`          | `h3_is_valid_cell(h3index)` → `boolean`                     | validity test                        |
-|  [07]   | `h3_is_pentagon` / `h3_is_res_class_iii` | `h3_is_pentagon(h3index)` → `boolean`          | pentagon / Class-III orientation     |
-|  [08]   | `h3_get_icosahedron_faces`  | `h3_get_icosahedron_faces(h3index)` → `integer[]`           | icosahedron faces the cell intersects |
+| [INDEX] | [FUNCTION]                               | [SIGNATURE]                                                       | [SEMANTICS]                                                   |
+| :-----: | :--------------------------------------- | :---------------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `h3_latlng_to_cell`                      | `h3_latlng_to_cell(latlng point, resolution integer)` → `h3index` | index a location at resolution 0..15                          |
+|  [02]   | `h3_cell_to_latlng`                      | `h3_cell_to_latlng(cell h3index)` → `point`                       | cell centroid                                                 |
+|  [03]   | `h3_cell_to_boundary`                    | `h3_cell_to_boundary(cell h3index)` → `polygon`                   | cell boundary (antimeridian via `SET h3.extend_antimeridian`) |
+|  [04]   | `h3_get_resolution`                      | `h3_get_resolution(h3index)` → `integer`                          | resolution 0..15                                              |
+|  [05]   | `h3_get_base_cell_number`                | `h3_get_base_cell_number(h3index)` → `integer`                    | base cell 0..121                                              |
+|  [06]   | `h3_is_valid_cell`                       | `h3_is_valid_cell(h3index)` → `boolean`                           | validity test                                                 |
+|  [07]   | `h3_is_pentagon` / `h3_is_res_class_iii` | `h3_is_pentagon(h3index)` → `boolean`                             | pentagon / Class-III orientation                              |
+|  [08]   | `h3_get_icosahedron_faces`               | `h3_get_icosahedron_faces(h3index)` → `integer[]`                 | icosahedron faces the cell intersects                         |
 
 ## [04]-[HIERARCHY]
 
 Hierarchy and grid-traversal (h3 extension). Parent/children/center-child/uncompact each ship a
 no-resolution one-step form alongside the explicit-resolution form.
 
-| [INDEX] | [FUNCTION]                | [SIGNATURE]                                                           | [SEMANTICS]                          |
-| :-----: | :------------------------ | :------------------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `h3_grid_disk`            | `h3_grid_disk(origin h3index, k integer => 1)` → `SETOF h3index`     | filled disk within distance `k`      |
-|  [02]   | `h3_grid_disk_distances`  | `h3_grid_disk_distances(origin h3index, k integer => 1, OUT index h3index, OUT distance int)` → `SETOF record` | disk with per-cell distance |
-|  [03]   | `h3_grid_ring_unsafe`     | `h3_grid_ring_unsafe(origin h3index, k integer => 1)` → `SETOF h3index` | hollow ring at distance `k`         |
-|  [04]   | `h3_grid_path_cells`      | `h3_grid_path_cells(origin h3index, destination h3index)` → `SETOF h3index` | straight-line cell path             |
-|  [05]   | `h3_grid_distance`        | `h3_grid_distance(origin h3index, destination h3index)` → `bigint`   | grid distance between two cells      |
-|  [06]   | `h3_cell_to_parent`       | `h3_cell_to_parent(cell h3index, resolution integer)` → `h3index` (1-arg = one step coarser) | coarser ancestor cell |
-|  [07]   | `h3_cell_to_children`     | `h3_cell_to_children(cell h3index, resolution integer)` → `SETOF h3index` (1-arg = one step finer) | finer child cells |
-|  [08]   | `h3_cell_to_center_child` | `h3_cell_to_center_child(cell h3index, resolution integer)` → `h3index` | center child at finer resolution    |
+| [INDEX] | [FUNCTION]                                | [SIGNATURE]                                                                                                                         | [SEMANTICS]                                                   |
+| :-----: | :---------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | `h3_grid_disk`                            | `h3_grid_disk(origin h3index, k integer => 1)` → `SETOF h3index`                                                                    | filled disk within distance `k`                               |
+|  [02]   | `h3_grid_disk_distances`                  | `h3_grid_disk_distances(origin h3index, k integer => 1, OUT index h3index, OUT distance int)` → `SETOF record`                      | disk with per-cell distance                                   |
+|  [03]   | `h3_grid_ring_unsafe`                     | `h3_grid_ring_unsafe(origin h3index, k integer => 1)` → `SETOF h3index`                                                             | hollow ring at distance `k`                                   |
+|  [04]   | `h3_grid_path_cells`                      | `h3_grid_path_cells(origin h3index, destination h3index)` → `SETOF h3index`                                                         | straight-line cell path                                       |
+|  [05]   | `h3_grid_distance`                        | `h3_grid_distance(origin h3index, destination h3index)` → `bigint`                                                                  | grid distance between two cells                               |
+|  [06]   | `h3_cell_to_parent`                       | `h3_cell_to_parent(cell h3index, resolution integer)` → `h3index` (1-arg = one step coarser)                                        | coarser ancestor cell                                         |
+|  [07]   | `h3_cell_to_children`                     | `h3_cell_to_children(cell h3index, resolution integer)` → `SETOF h3index` (1-arg = one step finer)                                  | finer child cells                                             |
+|  [08]   | `h3_cell_to_center_child`                 | `h3_cell_to_center_child(cell h3index, resolution integer)` → `h3index`                                                             | center child at finer resolution                              |
 |  [09]   | `h3_compact_cells` / `h3_uncompact_cells` | `h3_compact_cells(cells h3index[])` → `SETOF h3index` / `h3_uncompact_cells(cells h3index[], resolution integer)` → `SETOF h3index` | minimal mixed-resolution cover / expand to uniform resolution |
 
 ## [05]-[REGION_BRIDGE]
@@ -82,16 +82,16 @@ Region fill and the `h3_postgis` geometry bridge. The core region API uses nativ
 `polygon[]` (exterior ring + hole array); the `h3_postgis` variants take/return PostGIS `geometry`/
 `geography` (SRID 4326 required) and EWKB `bytea` (PG has no native multipolygon).
 
-| [INDEX] | [FUNCTION]                          | [SIGNATURE]                                                                 | [SEMANTICS]                          |
-| :-----: | :---------------------------------- | :------------------------------------------------------------------------- | :----------------------------------- |
-|  [01]   | `h3_polygon_to_cells`               | `h3_polygon_to_cells(exterior polygon, holes polygon[], resolution integer => 1)` → `SETOF h3index` | native polygon → covering cells      |
-|  [02]   | `h3_polygon_to_cells_experimental`  | `h3_polygon_to_cells_experimental(exterior polygon, holes polygon[], resolution integer => 1, containment_mode text => 'center')` → `SETOF h3index` | `center`/`full`/`overlapping`/`overlapping_bbox` containment |
-|  [03]   | `h3_cells_to_multi_polygon`         | `h3_cells_to_multi_polygon(h3index[], OUT exterior polygon, OUT holes polygon[])` → `SETOF record` | cell set → multipolygon loops        |
-|  [04]   | `h3_latlng_to_cell` (`h3_postgis`)  | `h3_latlng_to_cell(geometry, resolution integer)` / `(geography, resolution integer)` → `h3index` | SRID-4326 point → cell (casts to `point`) |
-|  [05]   | `h3_cell_to_geometry` / `h3_cell_to_geography` | `h3_cell_to_geometry(h3index)` → `geometry` / `geography`        | cell centroid as PostGIS geometry/geography |
-|  [06]   | `h3_cell_to_boundary_geometry` / `…_geography` | `h3_cell_to_boundary_geometry(h3index)` → `geometry` / `geography` | cell boundary as PostGIS geometry/geography (splits at 180°) |
-|  [07]   | `h3_polygon_to_cells` (`h3_postgis`) | `h3_polygon_to_cells(multi geometry, resolution integer)` / `(multi geography, resolution integer)` → `SETOF h3index` | PostGIS polygon → covering cells     |
-|  [08]   | `h3_cells_to_multi_polygon_geometry` / `…_geography` / `h3_cell_to_boundary_wkb` / `h3_cells_to_multi_polygon_wkb` | → `geometry` / `geography` / `bytea` / `bytea` | cell set → multipolygon geometry / EWKB |
+| [INDEX] | [FUNCTION]                                                                                                         | [SIGNATURE]                                                                                                                                         | [SEMANTICS]                                                  |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `h3_polygon_to_cells`                                                                                              | `h3_polygon_to_cells(exterior polygon, holes polygon[], resolution integer => 1)` → `SETOF h3index`                                                 | native polygon → covering cells                              |
+|  [02]   | `h3_polygon_to_cells_experimental`                                                                                 | `h3_polygon_to_cells_experimental(exterior polygon, holes polygon[], resolution integer => 1, containment_mode text => 'center')` → `SETOF h3index` | `center`/`full`/`overlapping`/`overlapping_bbox` containment |
+|  [03]   | `h3_cells_to_multi_polygon`                                                                                        | `h3_cells_to_multi_polygon(h3index[], OUT exterior polygon, OUT holes polygon[])` → `SETOF record`                                                  | cell set → multipolygon loops                                |
+|  [04]   | `h3_latlng_to_cell` (`h3_postgis`)                                                                                 | `h3_latlng_to_cell(geometry, resolution integer)` / `(geography, resolution integer)` → `h3index`                                                   | SRID-4326 point → cell (casts to `point`)                    |
+|  [05]   | `h3_cell_to_geometry` / `h3_cell_to_geography`                                                                     | `h3_cell_to_geometry(h3index)` → `geometry` / `geography`                                                                                           | cell centroid as PostGIS geometry/geography                  |
+|  [06]   | `h3_cell_to_boundary_geometry` / `…_geography`                                                                     | `h3_cell_to_boundary_geometry(h3index)` → `geometry` / `geography`                                                                                  | cell boundary as PostGIS geometry/geography (splits at 180°) |
+|  [07]   | `h3_polygon_to_cells` (`h3_postgis`)                                                                               | `h3_polygon_to_cells(multi geometry, resolution integer)` / `(multi geography, resolution integer)` → `SETOF h3index`                               | PostGIS polygon → covering cells                             |
+|  [08]   | `h3_cells_to_multi_polygon_geometry` / `…_geography` / `h3_cell_to_boundary_wkb` / `h3_cells_to_multi_polygon_wkb` | → `geometry` / `geography` / `bytea` / `bytea`                                                                                                      | cell set → multipolygon geometry / EWKB                      |
 
 `h3_cells_to_multi_polygon_geometry`/`_geography` exist BOTH as array functions (`h3index[]`) AND as
 `CREATE AGGREGATE` finalisers over a single `h3index` column, so a `GROUP BY` region rolls a cell column
@@ -106,12 +106,12 @@ custom access method. A plain `CREATE INDEX ON tbl (h3col)` picks the DEFAULT bt
 is index-numeric (raw 64-bit) not spatially contiguous, so spatial locality is supplied by the H3
 hierarchy, not the index sort.
 
-| [INDEX] | [OPCLASS]                    | [AM]   | [DEFAULT] | [SEMANTICS]                                                  |
-| :-----: | :--------------------------- | :----- | :-------- | :--------------------------------------------------------- |
-|  [01]   | `h3index_ops`                | btree  | yes       | `=` exact cell, range, `ORDER BY` (`h3index_sortsupport`), equi-join |
-|  [02]   | `h3index_ops`                | hash   | yes       | `=` / `IN` membership, hash partitioning                   |
-|  [03]   | `h3index_minmax_ops`         | brin   | yes       | append-mostly, cell-clustered tables                       |
-|  [04]   | `h3index_ops_experimental`   | spgist | no        | hierarchical containment `=` / `@>` / `<@` (must be named explicitly) |
+| [INDEX] | [OPCLASS]                  | [AM]   | [DEFAULT] | [SEMANTICS]                                                           |
+| :-----: | :------------------------- | :----- | :-------- | :-------------------------------------------------------------------- |
+|  [01]   | `h3index_ops`              | btree  | yes       | `=` exact cell, range, `ORDER BY` (`h3index_sortsupport`), equi-join  |
+|  [02]   | `h3index_ops`              | hash   | yes       | `=` / `IN` membership, hash partitioning                              |
+|  [03]   | `h3index_minmax_ops`       | brin   | yes       | append-mostly, cell-clustered tables                                  |
+|  [04]   | `h3index_ops_experimental` | spgist | no        | hierarchical containment `=` / `@>` / `<@` (must be named explicitly) |
 
 ## [07]-[IMPLEMENTATION_LAW]
 

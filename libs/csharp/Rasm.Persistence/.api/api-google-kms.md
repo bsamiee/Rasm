@@ -44,22 +44,22 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 [PUBLIC_TYPE_SCOPE]: cryptographic message family
 - rail: encryption
 
-| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]    | [RAIL]                                            |
-| :-----: | :---------------------------- | :--------------- | :----------------------------------------------- |
-|  [01]   | `EncryptRequest`              | request message  | `Name`/`ResourceName`, `Plaintext`, AAD, CRC32C  |
-|  [02]   | `EncryptResponse`             | response message | `Ciphertext`, `CiphertextCrc32C`, verified-flags, `ProtectionLevel` |
-|  [03]   | `DecryptRequest`              | request message  | `Name`/`CryptoKeyName`, `Ciphertext`, AAD, CRC32C |
-|  [04]   | `DecryptResponse`             | response message | `Plaintext`, `PlaintextCrc32C`, `UsedPrimary`, `ProtectionLevel` |
-|  [05]   | `GenerateRandomBytesRequest`  | request message  | location, length, protection level               |
-|  [06]   | `GenerateRandomBytesResponse` | response message | random `Data` (+ CRC32C)                          |
-|  [07]   | `RawEncryptRequest` / `RawEncryptResponse` | raw message | bring-your-own-IV symmetric encrypt (+ `InitializationVector`) |
-|  [08]   | `RawDecryptRequest` / `RawDecryptResponse` | raw message | bring-your-own-IV symmetric decrypt              |
-|  [09]   | `MacSignRequest`/`MacVerifyRequest` (+responses) | MAC message | HMAC sign/verify over a Mac-purpose key       |
-|  [10]   | `AsymmetricDecryptRequest` (+response) | asym message | decrypt under an `AsymmetricDecrypt`-purpose version |
-|  [11]   | `AsymmetricSignRequest`       | sign message     | `Name`/`CryptoKeyVersionName`, `Digest`, `DigestCrc32C`, `Data`, `DataCrc32C` (the `SigningKeyring` arm) |
-|  [12]   | `AsymmetricSignResponse`      | sign message     | `Signature` (`ByteString`), `SignatureCrc32C`, `VerifiedDigestCrc32C`, `ProtectionLevel`, `Name` |
-|  [13]   | `Digest`                      | digest message   | the precomputed `OpDigest` wrapper — one of `Sha256`/`Sha384`/`Sha512` `ByteString` fields |
-|  [14]   | `GetPublicKeyRequest` / `PublicKey` | key-export message | downloads the asymmetric public key (`Pem`/`Algorithm`) for the CLIENT-side verify |
+| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]      | [RAIL]                                                                                                   |
+| :-----: | :----------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `EncryptRequest`                                 | request message    | `Name`/`ResourceName`, `Plaintext`, AAD, CRC32C                                                          |
+|  [02]   | `EncryptResponse`                                | response message   | `Ciphertext`, `CiphertextCrc32C`, verified-flags, `ProtectionLevel`                                      |
+|  [03]   | `DecryptRequest`                                 | request message    | `Name`/`CryptoKeyName`, `Ciphertext`, AAD, CRC32C                                                        |
+|  [04]   | `DecryptResponse`                                | response message   | `Plaintext`, `PlaintextCrc32C`, `UsedPrimary`, `ProtectionLevel`                                         |
+|  [05]   | `GenerateRandomBytesRequest`                     | request message    | location, length, protection level                                                                       |
+|  [06]   | `GenerateRandomBytesResponse`                    | response message   | random `Data` (+ CRC32C)                                                                                 |
+|  [07]   | `RawEncryptRequest` / `RawEncryptResponse`       | raw message        | bring-your-own-IV symmetric encrypt (+ `InitializationVector`)                                           |
+|  [08]   | `RawDecryptRequest` / `RawDecryptResponse`       | raw message        | bring-your-own-IV symmetric decrypt                                                                      |
+|  [09]   | `MacSignRequest`/`MacVerifyRequest` (+responses) | MAC message        | HMAC sign/verify over a Mac-purpose key                                                                  |
+|  [10]   | `AsymmetricDecryptRequest` (+response)           | asym message       | decrypt under an `AsymmetricDecrypt`-purpose version                                                     |
+|  [11]   | `AsymmetricSignRequest`                          | sign message       | `Name`/`CryptoKeyVersionName`, `Digest`, `DigestCrc32C`, `Data`, `DataCrc32C` (the `SigningKeyring` arm) |
+|  [12]   | `AsymmetricSignResponse`                         | sign message       | `Signature` (`ByteString`), `SignatureCrc32C`, `VerifiedDigestCrc32C`, `ProtectionLevel`, `Name`         |
+|  [13]   | `Digest`                                         | digest message     | the precomputed `OpDigest` wrapper — one of `Sha256`/`Sha384`/`Sha512` `ByteString` fields               |
+|  [14]   | `GetPublicKeyRequest` / `PublicKey`              | key-export message | downloads the asymmetric public key (`Pem`/`Algorithm`) for the CLIENT-side verify                       |
 
 [PUBLIC_TYPE_SCOPE]: resource-model family
 - rail: encryption
@@ -76,10 +76,10 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 [PUBLIC_TYPE_SCOPE]: bounded vocabulary
 - rail: encryption
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [RAIL]                                                       |
-| :-----: | :--------------------------------------------- | :------------ | :----------------------------------------------------------- |
-|  [01]   | `ProtectionLevel`                              | enum          | `Unspecified`, `Software`, `Hsm`, `External`, `ExternalVpc`, `HsmSingleTenant` |
-|  [02]   | `CryptoKey.Types.CryptoKeyPurpose`             | nested enum   | `EncryptDecrypt`, `RawEncryptDecrypt`, `AsymmetricSign`, `AsymmetricDecrypt`, `Mac`, `KeyEncapsulation` |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [RAIL]                                                                                                       |
+| :-----: | :--------------------------------------------- | :------------ | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ProtectionLevel`                              | enum          | `Unspecified`, `Software`, `Hsm`, `External`, `ExternalVpc`, `HsmSingleTenant`                               |
+|  [02]   | `CryptoKey.Types.CryptoKeyPurpose`             | nested enum   | `EncryptDecrypt`, `RawEncryptDecrypt`, `AsymmetricSign`, `AsymmetricDecrypt`, `Mac`, `KeyEncapsulation`      |
 |  [03]   | `CryptoKeyVersion.Types.CryptoKeyVersionState` | nested enum   | `PendingGeneration`, `Enabled`, `Disabled`, `Destroyed`, `DestroyScheduled`, `PendingImport`, `ImportFailed` |
 
 ## [03]-[ENTRYPOINTS]
@@ -99,31 +99,31 @@ Persistence rails consume only `KeyManagementServiceClient`. All payload fields 
 [ENTRYPOINT_SCOPE]: symmetric envelope operations (sync; each has an `…Async` mirror taking `CallSettings`/`CancellationToken`)
 - rail: encryption
 
-| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]  | [RAIL]                                               |
-| :-----: | :------------------------------------------------------ | :-------------- | :--------------------------------------------------- |
-|  [01]   | `Encrypt(EncryptRequest, callSettings?)`                | request encrypt | full-request encrypt with AAD and CRC32C             |
-|  [02]   | `Encrypt(string name, ByteString plaintext, …)`         | name encrypt    | encrypt under a key resource name                    |
-|  [03]   | `Encrypt(IResourceName name, ByteString plaintext, …)`  | typed encrypt   | encrypt under `CryptoKeyName`/`CryptoKeyVersionName` |
-|  [04]   | `EncryptAsync(EncryptRequest, callSettings? \| ct)`     | async encrypt   | awaitable full-request encrypt                       |
-|  [05]   | `Decrypt(DecryptRequest, callSettings?)`                | request decrypt | full-request decrypt with AAD and CRC32C             |
-|  [06]   | `Decrypt(string name, ByteString ciphertext, …)`        | name decrypt    | decrypt under a key resource name                    |
-|  [07]   | `Decrypt(CryptoKeyName name, ByteString ciphertext, …)` | typed decrypt   | decrypt under `CryptoKeyName`                        |
-|  [08]   | `DecryptAsync(DecryptRequest, callSettings? \| ct)`     | async decrypt   | awaitable full-request decrypt                       |
-|  [09]   | `RawEncrypt(RawEncryptRequest, callSettings?)`          | raw encrypt     | bring-your-own-IV symmetric encrypt                  |
-|  [10]   | `RawDecrypt(RawDecryptRequest, callSettings?)`          | raw decrypt     | bring-your-own-IV symmetric decrypt                  |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]  | [RAIL]                                                  |
+| :-----: | :------------------------------------------------------ | :-------------- | :------------------------------------------------------ |
+|  [01]   | `Encrypt(EncryptRequest, callSettings?)`                | request encrypt | full-request encrypt with AAD and CRC32C                |
+|  [02]   | `Encrypt(string name, ByteString plaintext, …)`         | name encrypt    | encrypt under a key resource name                       |
+|  [03]   | `Encrypt(IResourceName name, ByteString plaintext, …)`  | typed encrypt   | encrypt under `CryptoKeyName`/`CryptoKeyVersionName`    |
+|  [04]   | `EncryptAsync(EncryptRequest, callSettings? \| ct)`     | async encrypt   | awaitable full-request encrypt                          |
+|  [05]   | `Decrypt(DecryptRequest, callSettings?)`                | request decrypt | full-request decrypt with AAD and CRC32C                |
+|  [06]   | `Decrypt(string name, ByteString ciphertext, …)`        | name decrypt    | decrypt under a key resource name                       |
+|  [07]   | `Decrypt(CryptoKeyName name, ByteString ciphertext, …)` | typed decrypt   | decrypt under `CryptoKeyName`                           |
+|  [08]   | `DecryptAsync(DecryptRequest, callSettings? \| ct)`     | async decrypt   | awaitable full-request decrypt                          |
+|  [09]   | `RawEncrypt(RawEncryptRequest, callSettings?)`          | raw encrypt     | bring-your-own-IV symmetric encrypt                     |
+|  [10]   | `RawDecrypt(RawDecryptRequest, callSettings?)`          | raw decrypt     | bring-your-own-IV symmetric decrypt                     |
 |  [11]   | `MacSign(...)` / `MacVerify(...)`                       | mac             | HMAC over a `Mac`-purpose key (integrity, not envelope) |
-|  [12]   | `AsymmetricDecrypt(...)`                                | asym decrypt    | decrypt under an `AsymmetricDecrypt` version         |
+|  [12]   | `AsymmetricDecrypt(...)`                                | asym decrypt    | decrypt under an `AsymmetricDecrypt` version            |
 
 [ENTRYPOINT_SCOPE]: signing operations (the `Element/identity#KMS_CUSTODY` `SigningKeyring` arm)
 - rail: signing
 
-| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :---------------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `AsymmetricSign(AsymmetricSignRequest, callSettings?)`      | sign           | signs the `Digest` (the precomputed `OpDigest`) under an `ASYMMETRIC_SIGN`-purpose `CryptoKeyVersion`, returning the `Signature` blob |
-|  [02]   | `AsymmetricSign(CryptoKeyVersionName name, Digest, …)`      | typed sign     | sign overload taking the typed version name + `Digest` |
-|  [03]   | `AsymmetricSignAsync(AsymmetricSignRequest, … \| ct)`       | async sign     | awaitable asymmetric sign                            |
-|  [04]   | `GetPublicKey(CryptoKeyVersionName, callSettings?)` / `GetPublicKeyAsync(…)` | key export | downloads the `PublicKey` (`Pem`/`Algorithm`) for the CLIENT-side verify (no server-side asymmetric verify exists) |
-|  [05]   | `AsymmetricSignResponse.Signature` / `.SignatureCrc32C` / `.VerifiedDigestCrc32C` | response field | the signature blob + the CRC32C integrity stack the keyring verifies before trusting |
+| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY] | [RAIL]                                                                                                                                |
+| :-----: | :-------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `AsymmetricSign(AsymmetricSignRequest, callSettings?)`                            | sign           | signs the `Digest` (the precomputed `OpDigest`) under an `ASYMMETRIC_SIGN`-purpose `CryptoKeyVersion`, returning the `Signature` blob |
+|  [02]   | `AsymmetricSign(CryptoKeyVersionName name, Digest, …)`                            | typed sign     | sign overload taking the typed version name + `Digest`                                                                                |
+|  [03]   | `AsymmetricSignAsync(AsymmetricSignRequest, … \| ct)`                             | async sign     | awaitable asymmetric sign                                                                                                             |
+|  [04]   | `GetPublicKey(CryptoKeyVersionName, callSettings?)` / `GetPublicKeyAsync(…)`      | key export     | downloads the `PublicKey` (`Pem`/`Algorithm`) for the CLIENT-side verify (no server-side asymmetric verify exists)                    |
+|  [05]   | `AsymmetricSignResponse.Signature` / `.SignatureCrc32C` / `.VerifiedDigestCrc32C` | response field | the signature blob + the CRC32C integrity stack the keyring verifies before trusting                                                  |
 
 [ENTRYPOINT_SCOPE]: random and key-material operations
 - rail: encryption

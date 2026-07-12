@@ -29,17 +29,17 @@ The rewriter classes are `public` but `Internal`-namespaced — consumers extend
 `INameRewriter` contract plus the DI plugin, never by referencing a sealed rewriter type. The five
 built-in rewriters are the `NamingConvention` enum cases the `Use*` extensions select.
 
-| [INDEX] | [SYMBOL]                       | [NAMESPACE]                     | [PACKAGE_ROLE]      | [CAPABILITY]                                            |
-| :-----: | :----------------------------- | :------------------------------ | :------------------ | :----------------------------------------------------- |
-|  [01]   | `INameRewriter`                | `EFCore.NamingConventions.Internal` | rewriter contract   | `string RewriteName(string name)` — the extension point |
-|  [02]   | `NamingConvention`             | `EFCore.NamingConventions.Internal` | policy enum         | `None`/`SnakeCase`/`LowerCase`/`CamelCase`/`UpperCase`/`UpperSnakeCase` |
-|  [03]   | `NamingConventionSetPlugin`    | `EFCore.NamingConventions.Internal` | `IConventionSetPlugin` | injects `NameRewritingConvention` into the convention set |
-|  [04]   | `NameRewritingConvention`      | `EFCore.NamingConventions.Internal` | model convention    | applies the rewriter across entity/property/key/FK/index add events |
-|  [05]   | `SnakeCaseNameRewriter`        | `EFCore.NamingConventions.Internal` | rewriter row        | writes snake_case (culture-aware)                      |
-|  [06]   | `LowerCaseNameRewriter`        | `EFCore.NamingConventions.Internal` | rewriter row        | writes lowercase                                       |
-|  [07]   | `UpperCaseNameRewriter`        | `EFCore.NamingConventions.Internal` | rewriter row        | writes UPPERCASE                                       |
-|  [08]   | `CamelCaseNameRewriter`        | `EFCore.NamingConventions.Internal` | rewriter row        | writes camelCase                                       |
-|  [09]   | `UpperSnakeCaseNameRewriter`   | `EFCore.NamingConventions.Internal` | rewriter row        | writes UPPER_SNAKE_CASE (`: SnakeCaseNameRewriter`)    |
+| [INDEX] | [SYMBOL]                     | [NAMESPACE]                         | [PACKAGE_ROLE]         | [CAPABILITY]                                                            |
+| :-----: | :--------------------------- | :---------------------------------- | :--------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `INameRewriter`              | `EFCore.NamingConventions.Internal` | rewriter contract      | `string RewriteName(string name)` — the extension point                 |
+|  [02]   | `NamingConvention`           | `EFCore.NamingConventions.Internal` | policy enum            | `None`/`SnakeCase`/`LowerCase`/`CamelCase`/`UpperCase`/`UpperSnakeCase` |
+|  [03]   | `NamingConventionSetPlugin`  | `EFCore.NamingConventions.Internal` | `IConventionSetPlugin` | injects `NameRewritingConvention` into the convention set               |
+|  [04]   | `NameRewritingConvention`    | `EFCore.NamingConventions.Internal` | model convention       | applies the rewriter across entity/property/key/FK/index add events     |
+|  [05]   | `SnakeCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes snake_case (culture-aware)                                       |
+|  [06]   | `LowerCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes lowercase                                                        |
+|  [07]   | `UpperCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes UPPERCASE                                                        |
+|  [08]   | `CamelCaseNameRewriter`      | `EFCore.NamingConventions.Internal` | rewriter row           | writes camelCase                                                        |
+|  [09]   | `UpperSnakeCaseNameRewriter` | `EFCore.NamingConventions.Internal` | rewriter row           | writes UPPER_SNAKE_CASE (`: SnakeCaseNameRewriter`)                     |
 
 `INameRewriter` contract:
 - `string RewriteName(string name)` — the single rewrite hook every built-in rewriter implements and a custom convention overrides; `NameRewritingConvention` calls it once per emitted table/column/key/index/constraint identifier.
@@ -57,13 +57,13 @@ returns `DbContextOptionsBuilder<TContext>`, so both `OnConfiguring` and a typed
 registration apply the policy without a cast. Applying a convention adds (or amends) one
 `NamingConventionsOptionsExtension` on the options.
 
-| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                                                 | [CAPABILITY]                |
-| :-----: | :---------------------------------- | :-------------------------------------------------------------------------- | :-------------------------- |
-|  [01]   | `UseSnakeCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror       | snake_case schema names     |
-|  [02]   | `UseLowerCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror       | lowercase schema names      |
-|  [03]   | `UseUpperCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror       | UPPERCASE schema names      |
-|  [04]   | `UseCamelCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror       | camelCase schema names      |
-|  [05]   | `UseUpperSnakeCaseNamingConvention` | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror       | UPPER_SNAKE_CASE names      |
+| [INDEX] | [SURFACE]                           | [CALL_SHAPE]                                                           | [CAPABILITY]            |
+| :-----: | :---------------------------------- | :--------------------------------------------------------------------- | :---------------------- |
+|  [01]   | `UseSnakeCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | snake_case schema names |
+|  [02]   | `UseLowerCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | lowercase schema names  |
+|  [03]   | `UseUpperCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | UPPERCASE schema names  |
+|  [04]   | `UseCamelCaseNamingConvention`      | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | camelCase schema names  |
+|  [05]   | `UseUpperSnakeCaseNamingConvention` | `(DbContextOptionsBuilder, CultureInfo? = null)` + `<TContext>` mirror | UPPER_SNAKE_CASE names  |
 
 `NamingConventionsServiceCollectionExtensions.AddEntityFrameworkNamingConventions(this IServiceCollection) : IServiceCollection` (namespace `Microsoft.Extensions.DependencyInjection`) admits the convention services into the DI container — the registration path the `Use*` extensions rely on; a host wiring the convention through explicit service registration uses this surface rather than the options builder.
 

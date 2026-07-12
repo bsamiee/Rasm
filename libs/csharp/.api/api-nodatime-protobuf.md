@@ -1,20 +1,11 @@
 # [RASM_API_NODATIME_PROTOBUF]
 
-`NodaTime.Serialization.Protobuf` supplies bidirectional extension conversions
-between NodaTime temporal values and protobuf wire types: `Instant`/`Duration`
-against the `Google.Protobuf.WellKnownTypes` `Timestamp`/`Duration`, and
-`LocalDate`/`LocalTime`/`IsoDayOfWeek` against the `Google.Type` common protos
-(`Date`/`TimeOfDay`/`DayOfWeek`) shipped by `Google.Api.CommonProtos`. Version
- is Apache-2.0 and ships `lib/netstandard2.0` only (the `net10.0` consumer
-binds it directly). The package is two static extension classes and nothing else —
-it owns no message type, no codec, and no `Google.Protobuf`/`Grpc.Net.Client`
-surface; it composes ONTO the wire types those packages own, converting at the gRPC
-boundary so the `remote-contracts` rail carries temporal values as well-known /
-common-proto messages and the interior carries NodaTime values exclusively.
+`NodaTime.Serialization.Protobuf` supplies bidirectional extensions between NodaTime temporal values and protobuf wire types: `Instant` and `Duration` pair with the well-known `Timestamp` and `Duration` messages, while `LocalDate`, `LocalTime`, and `IsoDayOfWeek` pair with the common `Date`, `TimeOfDay`, and `DayOfWeek` messages. The package owns conversion only; the remote-contract rail carries protobuf messages, and the interior carries NodaTime values.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime.Serialization.Protobuf`
+
 - package: `NodaTime.Serialization.Protobuf`
 - assembly: `NodaTime.Serialization.Protobuf`
 - namespace: `NodaTime.Serialization.Protobuf`
@@ -24,6 +15,7 @@ common-proto messages and the interior carries NodaTime values exclusively.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: conversion extension owners
+
 - rail: remote-contracts
 
 | [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]    | [CAPABILITY]                  |
@@ -34,6 +26,7 @@ common-proto messages and the interior carries NodaTime values exclusively.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: NodaTime to protobuf projection (`NodaExtensions`)
+
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]             | [CALL_SHAPE]                  | [CAPABILITY]              |
@@ -45,6 +38,7 @@ common-proto messages and the interior carries NodaTime values exclusively.
 |  [05]   | `ToProtobufDayOfWeek` | `IsoDayOfWeek` extension      | emits `DayOfWeek` enum    |
 
 [ENTRYPOINT_SCOPE]: protobuf to NodaTime projection (`ProtobufExtensions`)
+
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]        | [CALL_SHAPE]                  | [CAPABILITY]              |
@@ -58,13 +52,18 @@ common-proto messages and the interior carries NodaTime values exclusively.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONVERSION_CONTRACTS]:
+
 - namespace: `NodaTime.Serialization.Protobuf`
 - well-known root: `Instant`/`Duration` pair with `Google.Protobuf.WellKnownTypes.Timestamp`/`Duration` (the `Google.Protobuf` package owns the message types)
 - common-proto root: `LocalDate`/`LocalTime`/`IsoDayOfWeek` pair with `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` — the `Google.Type` protos ship in the transitive `Google.Api.CommonProtos` dependency, not in `Google.Protobuf`
 - direction law: `NodaExtensions` projects outward; `ProtobufExtensions` projects inward; no codec or message ownership
-- rail stacking: a remote Compute contract field is a `Timestamp`/`Duration`/`Date`/`TimeOfDay`/`DayOfWeek` message (the `api-protobuf` `Google.Protobuf.WellKnownTypes` / `Google.Type` owner mints the carrier) on the `Grpc.Net.Client` channel and a NodaTime value at the rail — the inbound dispatch reads `ToInstant`/`ToNodaDuration`/`ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek` once at the seam onto a `Fin`/`Validation` rail, and the outbound response writes `ToTimestamp`/`ToProtobufDuration`/`ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` once; the `Runtime/wire` `FrameEdge.Transaction` realized form writes `hlc.ToTimestamp` onto the `TransactionRequest` HLC-physical field, the single staging site for the clock seam. Under the `RemoteTransport.InProcess` row (`.api/api-microsoftaspnetcoretesthost.md`) the same conversions ride the in-memory handler so the temporal wire contract is proven without a live remote
+- Wire shape: Remote contracts carry `Timestamp`, `Duration`, `Date`, `TimeOfDay`, and `DayOfWeek`; rail interiors carry NodaTime values.
+- Inbound: The seam applies `ToInstant`, `ToNodaDuration`, `ToLocalDate`, `ToLocalTime`, or `ToIsoDayOfWeek` once before lifting the result onto `Fin` or `Validation`.
+- Outbound: The seam applies `ToTimestamp`, `ToProtobufDuration`, `ToDate`, `ToTimeOfDay`, or `ToProtobufDayOfWeek` once; `FrameEdge.Transaction` writes `hlc.ToTimestamp` into the request's physical-clock field.
+- In-process: `RemoteTransport.InProcess` applies the same conversions through its in-memory handler, preserving the temporal wire contract without a live remote.
 
 [RANGE_CONTRACTS]:
+
 - `ToTimestamp` rejects instants before `NodaConstants.BclEpoch` (0001-01-01 CE) with `ArgumentOutOfRangeException`
 - `ToProtobufDuration` rejects durations outside the protobuf ±315576000000s window (~10,000 years) with `ArgumentOutOfRangeException`
 - `ToInstant` and `ToNodaDuration` reject invalid or null wire payloads with `ArgumentException`/`ArgumentNullException`
@@ -72,11 +71,13 @@ common-proto messages and the interior carries NodaTime values exclusively.
 - `ToIsoDayOfWeek` maps `Unspecified` to `IsoDayOfWeek.None` and rejects out-of-range enum values
 
 [LOCAL_ADMISSION]:
+
 - Temporal values cross remote Compute contracts as protobuf well-known and common-proto types, never as serialized NodaTime text.
 - Conversion happens at the wire boundary; internal code carries NodaTime values only.
 - Range failures are boundary faults to project onto typed rails at the call site; the package throws.
 
 [RAIL_LAW]:
+
 - Package: `NodaTime.Serialization.Protobuf`
 - Owns: NodaTime-to-protobuf temporal conversion
 - Accept: boundary extension calls on NodaTime and protobuf temporal values

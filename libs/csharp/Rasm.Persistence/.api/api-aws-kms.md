@@ -30,105 +30,105 @@ delegate pair. The whole surface is async-only on the v4 line and pure-managed.
 [PUBLIC_TYPE_SCOPE]: client and configuration family
 - rail: encryption
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [RAIL]                                       |
-| :-----: | :---------------------------------------- | :-------------- | :------------------------------------------- |
-|  [01]   | `IAmazonKeyManagementService`             | client contract | async KMS operation surface (v4: no sync twin) |
-|  [02]   | `AmazonKeyManagementServiceClient`        | client root     | concrete client, `IDisposable`, long-lived   |
-|  [03]   | `AmazonKeyManagementServiceConfig`        | configuration   | region, endpoint, retry, timeout policy      |
-|  [04]   | `IKeyManagementServicePaginatorFactory`   | paginator       | `Paginators` property for list-op auto-paging |
-|  [05]   | `AmazonKeyManagementServiceException`     | service failure | KMS request-failure base                     |
-|  [06]   | `DryRunOperationException`                | dry-run failure | thrown on a would-succeed `DryRun` probe     |
+| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]   | [RAIL]                                         |
+| :-----: | :-------------------------------------- | :-------------- | :--------------------------------------------- |
+|  [01]   | `IAmazonKeyManagementService`           | client contract | async KMS operation surface (v4: no sync twin) |
+|  [02]   | `AmazonKeyManagementServiceClient`      | client root     | concrete client, `IDisposable`, long-lived     |
+|  [03]   | `AmazonKeyManagementServiceConfig`      | configuration   | region, endpoint, retry, timeout policy        |
+|  [04]   | `IKeyManagementServicePaginatorFactory` | paginator       | `Paginators` property for list-op auto-paging  |
+|  [05]   | `AmazonKeyManagementServiceException`   | service failure | KMS request-failure base                       |
+|  [06]   | `DryRunOperationException`              | dry-run failure | thrown on a would-succeed `DryRun` probe       |
 
 [PUBLIC_TYPE_SCOPE]: envelope request and response shapes
 - rail: encryption
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [RAIL]                                       |
-| :-----: | :---------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `GenerateDataKeyRequest`                  | request shape  | data-key request with plaintext return       |
-|  [02]   | `GenerateDataKeyResponse`                 | response shape | plaintext + wrapped `CiphertextBlob` + `KeyMaterialId` |
-|  [03]   | `GenerateDataKeyWithoutPlaintextRequest`  | request shape  | data-key request, wrapped-only               |
-|  [04]   | `GenerateDataKeyWithoutPlaintextResponse` | response shape | wrapped `CiphertextBlob` only                |
-|  [05]   | `EncryptRequest`                          | request shape  | wrap arbitrary plaintext (the DEK) under a key |
-|  [06]   | `EncryptResponse`                         | response shape | `CiphertextBlob`, echoed `EncryptionAlgorithm`, `KeyId` |
-|  [07]   | `DecryptRequest`                          | request shape  | unwrap a `CiphertextBlob`                     |
-|  [08]   | `DecryptResponse`                         | response shape | recovered `Plaintext`, resolving `KeyId`, echoed `EncryptionAlgorithm`, `KeyMaterialId` |
-|  [09]   | `ReEncryptRequest`                        | request shape  | rewrap ciphertext under a new key             |
-|  [10]   | `ReEncryptResponse`                       | response shape | rewrapped `CiphertextBlob` + source/destination ARN |
-|  [11]   | `GenerateRandomRequest` / `GenerateRandomResponse` | random shape | HSM/FIPS random bytes for off-board DEK material |
-|  [12]   | `RecipientInfo`                           | attestation    | Nitro enclave recipient binding (`CiphertextForRecipient`) |
+| [INDEX] | [SYMBOL]                                           | [TYPE_FAMILY]  | [RAIL]                                                                                  |
+| :-----: | :------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `GenerateDataKeyRequest`                           | request shape  | data-key request with plaintext return                                                  |
+|  [02]   | `GenerateDataKeyResponse`                          | response shape | plaintext + wrapped `CiphertextBlob` + `KeyMaterialId`                                  |
+|  [03]   | `GenerateDataKeyWithoutPlaintextRequest`           | request shape  | data-key request, wrapped-only                                                          |
+|  [04]   | `GenerateDataKeyWithoutPlaintextResponse`          | response shape | wrapped `CiphertextBlob` only                                                           |
+|  [05]   | `EncryptRequest`                                   | request shape  | wrap arbitrary plaintext (the DEK) under a key                                          |
+|  [06]   | `EncryptResponse`                                  | response shape | `CiphertextBlob`, echoed `EncryptionAlgorithm`, `KeyId`                                 |
+|  [07]   | `DecryptRequest`                                   | request shape  | unwrap a `CiphertextBlob`                                                               |
+|  [08]   | `DecryptResponse`                                  | response shape | recovered `Plaintext`, resolving `KeyId`, echoed `EncryptionAlgorithm`, `KeyMaterialId` |
+|  [09]   | `ReEncryptRequest`                                 | request shape  | rewrap ciphertext under a new key                                                       |
+|  [10]   | `ReEncryptResponse`                                | response shape | rewrapped `CiphertextBlob` + source/destination ARN                                     |
+|  [11]   | `GenerateRandomRequest` / `GenerateRandomResponse` | random shape   | HSM/FIPS random bytes for off-board DEK material                                        |
+|  [12]   | `RecipientInfo`                                    | attestation    | Nitro enclave recipient binding (`CiphertextForRecipient`)                              |
 
 [PUBLIC_TYPE_SCOPE]: algorithm and key-spec vocabularies
 - rail: encryption
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [RAIL]                                                |
-| :-----: | :------------------------ | :------------- | :--------------------------------------------------- |
-|  [01]   | `DataKeySpec`             | constant class | data-key length: `AES_256`, `AES_128`                |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [RAIL]                                                                                  |
+| :-----: | :------------------------ | :------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `DataKeySpec`             | constant class | data-key length: `AES_256`, `AES_128`                                                   |
 |  [02]   | `EncryptionAlgorithmSpec` | constant class | wrap algorithm: `SYMMETRIC_DEFAULT`, `RSAES_OAEP_SHA_1`, `RSAES_OAEP_SHA_256`, `SM2PKE` |
-|  [03]   | `KeySpec`                 | constant class | KMS key-material spec                                 |
+|  [03]   | `KeySpec`                 | constant class | KMS key-material spec                                                                   |
 
 [PUBLIC_TYPE_SCOPE]: signing request, response, and algorithm vocabulary (the `Element/identity#KMS_CUSTODY` `SigningKeyring` arm)
 - rail: signing
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [RAIL]                                                |
-| :-----: | :------------------------ | :------------- | :--------------------------------------------------- |
-|  [01]   | `SignRequest`             | request shape  | `KeyId`, `Message` (`MemoryStream`), `MessageType`, `SigningAlgorithm`, `GrantTokens`, `DryRun` |
-|  [02]   | `SignResponse`            | response shape | `KeyId`, `Signature` (`MemoryStream`), echoed `SigningAlgorithm` |
-|  [03]   | `VerifyRequest`           | request shape  | `KeyId`, `Message`, `MessageType`, `Signature`, `SigningAlgorithm`, `GrantTokens`, `DryRun` |
-|  [04]   | `VerifyResponse`          | response shape | `KeyId`, `SignatureValid` (`bool?`), echoed `SigningAlgorithm` |
-|  [05]   | `SigningAlgorithmSpec`    | constant class | sign algorithm: `ECDSA_SHA_256`/`ECDSA_SHA_384`/`ECDSA_SHA_512`, `RSASSA_PSS_SHA_256/384/512`, `RSASSA_PKCS1_V1_5_SHA_256/384/512`, `ED25519_SHA_512`/`ED25519_PH_SHA_512`, `ML_DSA_SHAKE_256` |
-|  [06]   | `MessageType`             | constant class | `DIGEST` (the pre-hashed `OpDigest` path), `RAW`, `EXTERNAL_MU` |
-|  [07]   | `GetPublicKeyRequest` / `GetPublicKeyResponse` | key-export shape | downloads the public key for outside-KMS verification |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [RAIL]                                                                                                                                                                                         |
+| :-----: | :--------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SignRequest`                                  | request shape    | `KeyId`, `Message` (`MemoryStream`), `MessageType`, `SigningAlgorithm`, `GrantTokens`, `DryRun`                                                                                                |
+|  [02]   | `SignResponse`                                 | response shape   | `KeyId`, `Signature` (`MemoryStream`), echoed `SigningAlgorithm`                                                                                                                               |
+|  [03]   | `VerifyRequest`                                | request shape    | `KeyId`, `Message`, `MessageType`, `Signature`, `SigningAlgorithm`, `GrantTokens`, `DryRun`                                                                                                    |
+|  [04]   | `VerifyResponse`                               | response shape   | `KeyId`, `SignatureValid` (`bool?`), echoed `SigningAlgorithm`                                                                                                                                 |
+|  [05]   | `SigningAlgorithmSpec`                         | constant class   | sign algorithm: `ECDSA_SHA_256`/`ECDSA_SHA_384`/`ECDSA_SHA_512`, `RSASSA_PSS_SHA_256/384/512`, `RSASSA_PKCS1_V1_5_SHA_256/384/512`, `ED25519_SHA_512`/`ED25519_PH_SHA_512`, `ML_DSA_SHAKE_256` |
+|  [06]   | `MessageType`                                  | constant class   | `DIGEST` (the pre-hashed `OpDigest` path), `RAW`, `EXTERNAL_MU`                                                                                                                                |
+|  [07]   | `GetPublicKeyRequest` / `GetPublicKeyResponse` | key-export shape | downloads the public key for outside-KMS verification                                                                                                                                          |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: envelope and random operations (all `…Async(request, CancellationToken)`)
 - rail: encryption
 
-| [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :---------------------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `GenerateDataKeyAsync(GenerateDataKeyRequest, ct)`          | data-key mint  | returns plaintext key + wrapped `CiphertextBlob`    |
-|  [02]   | `GenerateDataKeyWithoutPlaintextAsync(request, ct)`         | data-key mint  | returns wrapped `CiphertextBlob` only               |
-|  [03]   | `EncryptAsync(EncryptRequest, ct)`                          | wrap           | wraps `Plaintext` (the DEK) under `KeyId`           |
-|  [04]   | `DecryptAsync(DecryptRequest, ct)`                          | unwrap         | recovers `Plaintext` from a `CiphertextBlob`        |
-|  [05]   | `ReEncryptAsync(ReEncryptRequest, ct)`                      | rewrap         | KMS-side rewrap; plaintext never leaves KMS         |
-|  [06]   | `GenerateRandomAsync(GenerateRandomRequest, ct)` / `GenerateRandomAsync(int? numberOfBytes, ct)` | random | FIPS/HSM random bytes (off-board DEK material if not using `GenerateDataKey`) |
-|  [07]   | `DescribeKeyAsync(string keyId, ct)`                        | key probe      | resolves key metadata (`KeyState`, `KeySpec`, ARN)  |
-|  [08]   | `Paginators`                                                | paginator      | `IKeyManagementServicePaginatorFactory` for list ops |
-|  [09]   | `new AmazonKeyManagementServiceClient(credentials, region)` | construction   | concrete `IAmazonKeyManagementService` instance     |
+| [INDEX] | [SURFACE]                                                                                        | [ENTRY_FAMILY] | [RAIL]                                                                        |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `GenerateDataKeyAsync(GenerateDataKeyRequest, ct)`                                               | data-key mint  | returns plaintext key + wrapped `CiphertextBlob`                              |
+|  [02]   | `GenerateDataKeyWithoutPlaintextAsync(request, ct)`                                              | data-key mint  | returns wrapped `CiphertextBlob` only                                         |
+|  [03]   | `EncryptAsync(EncryptRequest, ct)`                                                               | wrap           | wraps `Plaintext` (the DEK) under `KeyId`                                     |
+|  [04]   | `DecryptAsync(DecryptRequest, ct)`                                                               | unwrap         | recovers `Plaintext` from a `CiphertextBlob`                                  |
+|  [05]   | `ReEncryptAsync(ReEncryptRequest, ct)`                                                           | rewrap         | KMS-side rewrap; plaintext never leaves KMS                                   |
+|  [06]   | `GenerateRandomAsync(GenerateRandomRequest, ct)` / `GenerateRandomAsync(int? numberOfBytes, ct)` | random         | FIPS/HSM random bytes (off-board DEK material if not using `GenerateDataKey`) |
+|  [07]   | `DescribeKeyAsync(string keyId, ct)`                                                             | key probe      | resolves key metadata (`KeyState`, `KeySpec`, ARN)                            |
+|  [08]   | `Paginators`                                                                                     | paginator      | `IKeyManagementServicePaginatorFactory` for list ops                          |
+|  [09]   | `new AmazonKeyManagementServiceClient(credentials, region)`                                      | construction   | concrete `IAmazonKeyManagementService` instance                               |
 
 [ENTRYPOINT_SCOPE]: `GenerateDataKey` request and response fields
 - rail: encryption
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :----------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `GenerateDataKeyRequest.KeyId`             | request field  | symmetric KMS key that wraps the data key       |
-|  [02]   | `GenerateDataKeyRequest.KeySpec`           | request field  | `DataKeySpec` length selector                   |
-|  [03]   | `GenerateDataKeyRequest.NumberOfBytes`     | request field  | `int?` explicit byte length (`1`–`1024`)        |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [RAIL]                                                                     |
+| :-----: | :----------------------------------------- | :------------- | :------------------------------------------------------------------------- |
+|  [01]   | `GenerateDataKeyRequest.KeyId`             | request field  | symmetric KMS key that wraps the data key                                  |
+|  [02]   | `GenerateDataKeyRequest.KeySpec`           | request field  | `DataKeySpec` length selector                                              |
+|  [03]   | `GenerateDataKeyRequest.NumberOfBytes`     | request field  | `int?` explicit byte length (`1`–`1024`)                                   |
 |  [04]   | `GenerateDataKeyRequest.EncryptionContext` | request field  | `Dictionary<string,string>` non-secret AAD, exact match required to unwrap |
-|  [05]   | `GenerateDataKeyRequest.GrantTokens`       | request field  | up to `10` eventual-consistency grant tokens    |
-|  [06]   | `GenerateDataKeyRequest.DryRun`            | request field  | `bool?` permission probe without effect          |
-|  [07]   | `GenerateDataKeyResponse.Plaintext`        | response field | `MemoryStream` DEK, sensitive, `1`–`4096` bytes |
-|  [08]   | `GenerateDataKeyResponse.CiphertextBlob`   | response field | wrapped DEK, `1`–`6144` bytes                   |
-|  [09]   | `GenerateDataKeyResponse.KeyId`            | response field | wrapping key ARN                                |
-|  [10]   | `GenerateDataKeyResponse.KeyMaterialId`    | response field | key-material identifier; omitted with a recipient |
+|  [05]   | `GenerateDataKeyRequest.GrantTokens`       | request field  | up to `10` eventual-consistency grant tokens                               |
+|  [06]   | `GenerateDataKeyRequest.DryRun`            | request field  | `bool?` permission probe without effect                                    |
+|  [07]   | `GenerateDataKeyResponse.Plaintext`        | response field | `MemoryStream` DEK, sensitive, `1`–`4096` bytes                            |
+|  [08]   | `GenerateDataKeyResponse.CiphertextBlob`   | response field | wrapped DEK, `1`–`6144` bytes                                              |
+|  [09]   | `GenerateDataKeyResponse.KeyId`            | response field | wrapping key ARN                                                           |
+|  [10]   | `GenerateDataKeyResponse.KeyMaterialId`    | response field | key-material identifier; omitted with a recipient                          |
 
 [ENTRYPOINT_SCOPE]: `Encrypt` and `Decrypt` request and response fields
 - rail: encryption
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [RAIL]                                         |
-| :-----: | :----------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `EncryptRequest.KeyId`               | request field  | required wrapping key, `1`–`2048` chars        |
-|  [02]   | `EncryptRequest.Plaintext`           | request field  | required `MemoryStream`, sensitive, `1`–`4096` |
-|  [03]   | `EncryptRequest.EncryptionAlgorithm` | request field  | `EncryptionAlgorithmSpec` selector             |
-|  [04]   | `EncryptRequest.EncryptionContext`   | request field  | `Dictionary<string,string>` AAD bound to the ciphertext |
-|  [05]   | `EncryptResponse.CiphertextBlob`     | response field | wrapped output, `1`–`6144` bytes               |
-|  [06]   | `EncryptResponse.KeyId` / `.EncryptionAlgorithm` | response field | resolving key ARN + echoed algorithm      |
-|  [07]   | `DecryptRequest.CiphertextBlob`      | request field  | wrapped input, `1`–`6144` bytes                |
-|  [08]   | `DecryptRequest.KeyId`               | request field  | optional explicit key for symmetric ciphertext |
-|  [09]   | `DecryptRequest.EncryptionContext`   | request field  | AAD; must match the wrap context exactly       |
-|  [10]   | `DecryptRequest.EncryptionAlgorithm` | request field  | required for asymmetric ciphertext             |
-|  [11]   | `DecryptRequest.Recipient` / `DryRun` / `DryRunModifiers` | request field | `RecipientInfo` enclave binding; permission probe |
-|  [12]   | `DecryptResponse.Plaintext`          | response field | recovered `MemoryStream`, sensitive            |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                                  |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------------ |
+|  [01]   | `EncryptRequest.KeyId`                                              | request field  | required wrapping key, `1`–`2048` chars                 |
+|  [02]   | `EncryptRequest.Plaintext`                                          | request field  | required `MemoryStream`, sensitive, `1`–`4096`          |
+|  [03]   | `EncryptRequest.EncryptionAlgorithm`                                | request field  | `EncryptionAlgorithmSpec` selector                      |
+|  [04]   | `EncryptRequest.EncryptionContext`                                  | request field  | `Dictionary<string,string>` AAD bound to the ciphertext |
+|  [05]   | `EncryptResponse.CiphertextBlob`                                    | response field | wrapped output, `1`–`6144` bytes                        |
+|  [06]   | `EncryptResponse.KeyId` / `.EncryptionAlgorithm`                    | response field | resolving key ARN + echoed algorithm                    |
+|  [07]   | `DecryptRequest.CiphertextBlob`                                     | request field  | wrapped input, `1`–`6144` bytes                         |
+|  [08]   | `DecryptRequest.KeyId`                                              | request field  | optional explicit key for symmetric ciphertext          |
+|  [09]   | `DecryptRequest.EncryptionContext`                                  | request field  | AAD; must match the wrap context exactly                |
+|  [10]   | `DecryptRequest.EncryptionAlgorithm`                                | request field  | required for asymmetric ciphertext                      |
+|  [11]   | `DecryptRequest.Recipient` / `DryRun` / `DryRunModifiers`           | request field  | `RecipientInfo` enclave binding; permission probe       |
+|  [12]   | `DecryptResponse.Plaintext`                                         | response field | recovered `MemoryStream`, sensitive                     |
 |  [13]   | `DecryptResponse.KeyId` / `.EncryptionAlgorithm` / `.KeyMaterialId` | response field | key ARN that decrypted + echoed algorithm + material id |
 
 [ENTRYPOINT_SCOPE]: `ReEncrypt` rewrap fields
@@ -148,13 +148,13 @@ delegate pair. The whole surface is async-only on the v4 line and pure-managed.
 [ENTRYPOINT_SCOPE]: signing operations (all `…Async(request, CancellationToken)`; the `SigningKeyring` `Sign`/`Verify` arm)
 - rail: signing
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :---------------------------------------------- | :------------- | :-------------------------------------------------- |
-|  [01]   | `SignAsync(SignRequest, ct)`                    | sign           | signs `Message` (`MessageType.DIGEST` = the precomputed `OpDigest`) under `KeyId` returning the `Signature` blob |
-|  [02]   | `VerifyAsync(VerifyRequest, ct)`                | verify         | verifies `Signature` against `Message` under `KeyId`, `SignatureValid` the boolean verdict |
-|  [03]   | `GetPublicKeyAsync(string keyId, ct)`           | key export     | downloads the asymmetric public key for an outside-KMS verify path |
-|  [04]   | `SignRequest.MessageType`                       | request field  | `DIGEST` for the seam `OpDigest` (KMS skips its own hash), `RAW` for an un-hashed message |
-|  [05]   | `SignResponse.Signature` / `VerifyResponse.SignatureValid` | response field | the `MemoryStream` signature blob / the `bool?` verify verdict the keyring lifts |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                                                                                           |
+| :-----: | :--------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SignAsync(SignRequest, ct)`                               | sign           | signs `Message` (`MessageType.DIGEST` = the precomputed `OpDigest`) under `KeyId` returning the `Signature` blob |
+|  [02]   | `VerifyAsync(VerifyRequest, ct)`                           | verify         | verifies `Signature` against `Message` under `KeyId`, `SignatureValid` the boolean verdict                       |
+|  [03]   | `GetPublicKeyAsync(string keyId, ct)`                      | key export     | downloads the asymmetric public key for an outside-KMS verify path                                               |
+|  [04]   | `SignRequest.MessageType`                                  | request field  | `DIGEST` for the seam `OpDigest` (KMS skips its own hash), `RAW` for an un-hashed message                        |
+|  [05]   | `SignResponse.Signature` / `VerifyResponse.SignatureValid` | response field | the `MemoryStream` signature blob / the `bool?` verify verdict the keyring lifts                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

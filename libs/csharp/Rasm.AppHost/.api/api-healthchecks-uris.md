@@ -33,38 +33,38 @@
 
 Every overload returns `IHealthChecksBuilder` for chaining, and every overload accepts the shared `name`, `failureStatus`, `tags`, `timeout`, `configureClient`, and `configurePrimaryHttpMessageHandler` tail. The `Action<IServiceProvider, HttpClient>` and `Func<IServiceProvider, HttpMessageHandler>` hooks are the seam where the probe's `HttpClient` adopts the host's resilience handler and service-discovery resolver rather than a bare socket.
 
-| [INDEX] | [SURFACE]                                                                       | [ENTRY_FAMILY]   | [RAIL]                                       |
-| :-----: | :------------------------------------------------------------------------------ | :--------------- | :------------------------------------------- |
-|  [01]   | `AddUrlGroup(Uri uri, …)`                                                       | single-URI GET   | one endpoint, default GET                    |
-|  [02]   | `AddUrlGroup(Uri uri, HttpMethod httpMethod, …)`                                | single-URI verb  | one endpoint, explicit method                |
-|  [03]   | `AddUrlGroup(IEnumerable<Uri> uris, …)`                                         | URI-group GET    | many endpoints, default GET                  |
-|  [04]   | `AddUrlGroup(IEnumerable<Uri> uris, HttpMethod httpMethod, …)`                  | URI-group verb   | many endpoints, explicit method              |
-|  [05]   | `AddUrlGroup(Action<UriHealthCheckOptions> uriOptions, …)`                      | options-driven   | per-URI method/timeout/code/content/headers  |
-|  [06]   | `AddUrlGroup(Func<IServiceProvider, Uri> uriProvider, …)`                       | resolved-URI GET | endpoint resolved from DI (service discovery) |
+| [INDEX] | [SURFACE]                                                      | [ENTRY_FAMILY]   | [RAIL]                                        |
+| :-----: | :------------------------------------------------------------- | :--------------- | :-------------------------------------------- |
+|  [01]   | `AddUrlGroup(Uri uri, …)`                                      | single-URI GET   | one endpoint, default GET                     |
+|  [02]   | `AddUrlGroup(Uri uri, HttpMethod httpMethod, …)`               | single-URI verb  | one endpoint, explicit method                 |
+|  [03]   | `AddUrlGroup(IEnumerable<Uri> uris, …)`                        | URI-group GET    | many endpoints, default GET                   |
+|  [04]   | `AddUrlGroup(IEnumerable<Uri> uris, HttpMethod httpMethod, …)` | URI-group verb   | many endpoints, explicit method               |
+|  [05]   | `AddUrlGroup(Action<UriHealthCheckOptions> uriOptions, …)`     | options-driven   | per-URI method/timeout/code/content/headers   |
+|  [06]   | `AddUrlGroup(Func<IServiceProvider, Uri> uriProvider, …)`      | resolved-URI GET | endpoint resolved from DI (service discovery) |
 
 [ENTRYPOINT_SCOPE]: fluent option assembly — `UriHealthCheckOptions`
 - rail: health-outbound
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]    | [RAIL]                                  |
-| :-----: | :--------------------------------------------------- | :---------------- | :-------------------------------------- |
-|  [01]   | `AddUri(Uri uriToAdd, Action<IUriOptions>? setup)`   | URI admission     | adds one endpoint with per-URI override |
-|  [02]   | `UseGet()` / `UsePost()`                             | default method    | sets group-wide GET/POST                |
-|  [03]   | `UseHttpMethod(HttpMethod methodToUse)`              | default method    | sets group-wide arbitrary verb          |
-|  [04]   | `UseTimeout(TimeSpan timeout)`                       | default timeout   | sets group-wide per-probe timeout       |
-|  [05]   | `ExpectHttpCode(int codeToExpect)`                   | status policy     | exact expected code                     |
-|  [06]   | `ExpectHttpCodes(int minCodeToExpect, int maxCode)`  | status policy     | inclusive expected-code window          |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]  | [RAIL]                                  |
+| :-----: | :-------------------------------------------------- | :-------------- | :-------------------------------------- |
+|  [01]   | `AddUri(Uri uriToAdd, Action<IUriOptions>? setup)`  | URI admission   | adds one endpoint with per-URI override |
+|  [02]   | `UseGet()` / `UsePost()`                            | default method  | sets group-wide GET/POST                |
+|  [03]   | `UseHttpMethod(HttpMethod methodToUse)`             | default method  | sets group-wide arbitrary verb          |
+|  [04]   | `UseTimeout(TimeSpan timeout)`                      | default timeout | sets group-wide per-probe timeout       |
+|  [05]   | `ExpectHttpCode(int codeToExpect)`                  | status policy   | exact expected code                     |
+|  [06]   | `ExpectHttpCodes(int minCodeToExpect, int maxCode)` | status policy   | inclusive expected-code window          |
 
 [ENTRYPOINT_SCOPE]: per-URI policy override — `IUriOptions`
 - rail: health-outbound
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]   | [RAIL]                                   |
-| :-----: | :----------------------------------------- | :--------------- | :--------------------------------------- |
-|  [01]   | `UseHttpMethod(HttpMethod method)`         | per-URI method   | overrides the group method for one URI   |
-|  [02]   | `UseTimeout(TimeSpan timeout)`             | per-URI timeout  | overrides the group timeout for one URI  |
-|  [03]   | `ExpectHttpCode(int code)`                 | per-URI status   | exact code for one URI                   |
-|  [04]   | `ExpectHttpCodes(int min, int max)`        | per-URI status   | code window for one URI                  |
-|  [05]   | `ExpectContent(string expectedContent)`    | per-URI body     | required response substring              |
-|  [06]   | `AddCustomHeader(string name, string val)` | per-URI header   | request header (e.g. auth bearer)        |
+| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]  | [RAIL]                                  |
+| :-----: | :----------------------------------------- | :-------------- | :-------------------------------------- |
+|  [01]   | `UseHttpMethod(HttpMethod method)`         | per-URI method  | overrides the group method for one URI  |
+|  [02]   | `UseTimeout(TimeSpan timeout)`             | per-URI timeout | overrides the group timeout for one URI |
+|  [03]   | `ExpectHttpCode(int code)`                 | per-URI status  | exact code for one URI                  |
+|  [04]   | `ExpectHttpCodes(int min, int max)`        | per-URI status  | code window for one URI                 |
+|  [05]   | `ExpectContent(string expectedContent)`    | per-URI body    | required response substring             |
+|  [06]   | `AddCustomHeader(string name, string val)` | per-URI header  | request header (e.g. auth bearer)       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

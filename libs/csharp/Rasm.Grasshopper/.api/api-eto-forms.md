@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto`
+
 - package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP)
 - license: BSD-3-Clause
 - assembly: `Eto` (`Eto.dll`)
@@ -15,166 +16,355 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: control base and the panel-field roster
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                                                | [KIND]       | [CAPABILITY]                                                                                                                                                                                                    |
-| :-----: | :------------------------------------------------------ | :----------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Control`                                               | control base | lifecycle/focus/size/mouse/key/drag event owner; `Enabled`/`Visible`/`Bounds`/`Cursor`/`ContextMenu`/`ToolTip`/`ParentWindow`, `Focus()`/`Invalidate()`/`CaptureMouse()`/`DoDragDrop(IDataObject, DragEffects)` |
-|  [02]   | `TextBox`                                               | control      | single-line text; `PlaceholderText`/`MaxLength`/`ReadOnly`/`CaretIndex`/`SelectedText`, `Selection` (`Range<int>`), `SelectAll()`, `TextChanging` event                                                         |
-|  [03]   | `TextArea`                                              | control      | multi-line text; `AcceptsReturn`/`AcceptsTab`/`SpellCheck`/`Wrap`/`CaretIndex`, `Selection`, `CaretIndexChanged`/`SelectionChanged`                                                                             |
-|  [04]   | `NumericStepper`                                        | control      | bounded number field; `MinValue`/`MaxValue`/`Increment`/`Value`/`DecimalPlaces`/`FormatString`/`Wrap`, `ValueBinding`                                                                                           |
-|  [05]   | `CheckBox`                                              | control      | tri-state boolean; `Checked` (`bool?`), `ThreeState`, `CheckedBinding`, `CheckedChanged`                                                                                                                        |
-|  [06]   | `Slider`                                                | control      | ranged integer track; `MinValue`/`MaxValue`/`Value`/`Orientation`/`TickFrequency`/`SnapToTick`, `ValueBinding`, `ValueChanged`                                                                                  |
-|  [07]   | `DropDown`                                              | control      | single-choice list; `ShowBorder`, `ItemImageBinding`, `DropDownOpening`/`DropDownClosed`/`FormatItem`                                                                                                           |
-|  [08]   | `ComboBox`                                              | control      | editable single-choice text/list field                                                                                                                                                                          |
-|  [09]   | `ColorPicker`                                           | control      | inline colour swatch and picker field                                                                                                                                                                           |
-|  [10]   | `DateTimePicker`                                        | control      | date and/or time field with min/max range                                                                                                                                                                       |
-|  [11]   | `Label` / `LinkButton`                                  | control      | static text; `LinkButton` raises a click on an inline hyperlink                                                                                                                                                 |
-|  [12]   | `Button` / `ToggleButton`                               | control      | command trigger; `ToggleButton` holds a pressed state                                                                                                                                                           |
-|  [13]   | `RadioButton` / `RadioButtonList` / `CheckBoxList`      | control      | mutually-exclusive and multi-select option groups                                                                                                                                                               |
-|  [14]   | `PasswordBox` / `SearchBox`                             | control      | masked-entry and search-styled text fields                                                                                                                                                                      |
-|  [15]   | `Stepper` / `TextStepper` / `NumericUpDown` / `Spinner` | control      | up/down increment and busy-indicator fields                                                                                                                                                                     |
-|  [16]   | `FilePicker` / `FontPicker`                             | control      | inline file-path and font-selection fields                                                                                                                                                                      |
-|  [17]   | `MaskedTextBox<T>` / `MaskedTextStepper<T>`             | control      | format-masked text and stepper over a typed provider                                                                                                                                                            |
+| [INDEX] | [SYMBOL]               | [KIND]       | [CAPABILITY]                                             |
+| :-----: | :--------------------- | :----------- | :------------------------------------------------------- |
+|  [01]   | `Control`              | control base | lifecycle, focus, size, mouse, key, and drag event owner |
+|  [02]   | `Control`              | property     | `Enabled`/`Visible`/`Bounds`/`Cursor`                    |
+|  [03]   | `Control`              | property     | `ContextMenu`/`ToolTip`/`ParentWindow`                   |
+|  [04]   | `Control`              | method       | `Focus()`/`Invalidate()`/`CaptureMouse()`                |
+|  [05]   | `Control`              | method       | `DoDragDrop(IDataObject, DragEffects)`                   |
+|  [06]   | `TextBox`              | control      | single-line text                                         |
+|  [07]   | `TextBox`              | property     | `PlaceholderText`/`MaxLength`/`ReadOnly`                 |
+|  [08]   | `TextBox`              | property     | `CaretIndex`/`SelectedText`/`Selection` (`Range<int>`)   |
+|  [09]   | `TextBox`              | method/event | `SelectAll()`/`TextChanging`                             |
+|  [10]   | `TextArea`             | control      | multi-line text                                          |
+|  [11]   | `TextArea`             | property     | `AcceptsReturn`/`AcceptsTab`/`SpellCheck`/`Wrap`         |
+|  [12]   | `TextArea`             | property     | `CaretIndex`/`Selection`                                 |
+|  [13]   | `TextArea`             | event        | `CaretIndexChanged`/`SelectionChanged`                   |
+|  [14]   | `NumericStepper`       | control      | bounded number field                                     |
+|  [15]   | `NumericStepper`       | property     | `MinValue`/`MaxValue`/`Increment`/`Value`                |
+|  [16]   | `NumericStepper`       | property     | `DecimalPlaces`/`FormatString`/`Wrap`/`ValueBinding`     |
+|  [17]   | `CheckBox`             | control      | tri-state boolean                                        |
+|  [18]   | `CheckBox`             | property     | `Checked` (`bool?`)/`ThreeState`/`CheckedBinding`        |
+|  [19]   | `CheckBox`             | event        | `CheckedChanged`                                         |
+|  [20]   | `Slider`               | control      | ranged integer track                                     |
+|  [21]   | `Slider`               | property     | `MinValue`/`MaxValue`/`Value`/`Orientation`              |
+|  [22]   | `Slider`               | property     | `TickFrequency`/`SnapToTick`/`ValueBinding`              |
+|  [23]   | `Slider`               | event        | `ValueChanged`                                           |
+|  [24]   | `DropDown`             | control      | single-choice list                                       |
+|  [25]   | `DropDown`             | property     | `ShowBorder`/`ItemImageBinding`                          |
+|  [26]   | `DropDown`             | event        | `DropDownOpening`/`DropDownClosed`/`FormatItem`          |
+|  [27]   | `ComboBox`             | control      | editable single-choice text/list field                   |
+|  [28]   | `ColorPicker`          | control      | inline colour swatch and picker field                    |
+|  [29]   | `DateTimePicker`       | control      | date and/or time field with min/max range                |
+|  [30]   | `Label`                | control      | static text                                              |
+|  [31]   | `LinkButton`           | control      | click-raising inline hyperlink                           |
+|  [32]   | `Button`               | control      | command trigger                                          |
+|  [33]   | `ToggleButton`         | control      | command trigger with pressed state                       |
+|  [34]   | `RadioButton`          | control      | mutually-exclusive option                                |
+|  [35]   | `RadioButtonList`      | control      | mutually-exclusive option group                          |
+|  [36]   | `CheckBoxList`         | control      | multi-select option group                                |
+|  [37]   | `PasswordBox`          | control      | masked-entry text field                                  |
+|  [38]   | `SearchBox`            | control      | search-styled text field                                 |
+|  [39]   | `Stepper`              | control      | up/down increment field                                  |
+|  [40]   | `TextStepper`          | control      | up/down increment text field                             |
+|  [41]   | `NumericUpDown`        | control      | up/down increment numeric field                          |
+|  [42]   | `Spinner`              | control      | busy-indicator field                                     |
+|  [43]   | `FilePicker`           | control      | inline file-path field                                   |
+|  [44]   | `FontPicker`           | control      | inline font-selection field                              |
+|  [45]   | `MaskedTextBox<T>`     | control      | format-masked text over a typed provider                 |
+|  [46]   | `MaskedTextStepper<T>` | control      | format-masked stepper over a typed provider              |
 
 [PUBLIC_TYPE_SCOPE]: data views — grid, tree, list, property grid
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                                | [KIND]       | [CAPABILITY]                                                                                                                                                                                                                                        |
-| :-----: | :-------------------------------------- | :----------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Grid`                                  | control base | column/row view base; `Columns` (`GridColumnCollection`), `ShowHeader`/`AllowColumnReordering`/`AllowMultipleSelection`/`RowHeight`/`GridLines`, `SelectedRows`/`SelectedItem`/`SelectedItems`, `SelectedItemBinding`, edit and format event family |
-|  [02]   | `GridView`                              | control      | list-backed grid over an `IEnumerable` data store                                                                                                                                                                                                   |
-|  [03]   | `TreeGridView`                          | control      | multi-column tree; `DataStore` (`ITreeGridStore<ITreeGridItem>`), `SelectedItem` (`ITreeGridItem`), `ReloadData()`/`ReloadItem(...)`/`GetCellAt(PointF)`/`GetDragInfo(...)`, expand/collapse/activate event family                                  |
-|  [04]   | `GridColumn`                            | model        | one column; header text, `DataCell`, editable/resizable/sortable/visible/width                                                                                                                                                                      |
-|  [05]   | `Cell` family                           | model        | `TextBoxCell`/`CheckBoxCell`/`ComboBoxCell`/`ImageViewCell`/`ImageTextCell`/`ProgressCell`/`DrawableCell`/`CustomCell` cell renderers                                                                                                               |
-|  [06]   | `ListBox`                               | control      | single-column selectable list (`: ListControl`); `ItemImageBinding`, `Border`, `Activated`                                                                                                                                                          |
-|  [07]   | `ListControl`                           | control base | list base; `DataStore`, `SelectedIndex`/`SelectedValue`/`SelectedKey`, `ItemTextBinding`/`ItemKeyBinding`, `SelectedIndexChanged`/`SelectedValueChanged`                                                                                            |
-|  [08]   | `PropertyGrid`                          | control      | reflected property editor over a bound object graph                                                                                                                                                                                                 |
-|  [09]   | `TreeGridCell` / `TreeGridViewDragInfo` | model        | hit-test result (`Item`/`Column`/`ColumnIndex`/`Type`) and drop-target descriptor (`Item`/`Parent`/`Position`/`InsertIndex`)                                                                                                                        |
+| [INDEX] | [SYMBOL]                    | [KIND]       | [CAPABILITY]                                        |
+| :-----: | :-------------------------- | :----------- | :-------------------------------------------------- |
+|  [01]   | `Grid`                      | control base | column/row view base                                |
+|  [02]   | `Grid.Columns`              | property     | `GridColumnCollection`                              |
+|  [03]   | `Grid`                      | property     | `ShowHeader`/`AllowColumnReordering`                |
+|  [04]   | `Grid`                      | property     | `AllowMultipleSelection`/`RowHeight`/`GridLines`    |
+|  [05]   | `Grid`                      | property     | `SelectedRows`/`SelectedItem`/`SelectedItems`       |
+|  [06]   | `Grid.SelectedItemBinding`  | binding      | selected-item binding                               |
+|  [07]   | `Grid`                      | event        | edit and format event family                        |
+|  [08]   | `GridView`                  | control      | list-backed grid over an `IEnumerable` data store   |
+|  [09]   | `TreeGridView`              | control      | multi-column tree                                   |
+|  [10]   | `TreeGridView.DataStore`    | property     | `ITreeGridStore<ITreeGridItem>`                     |
+|  [11]   | `TreeGridView.SelectedItem` | property     | `ITreeGridItem`                                     |
+|  [12]   | `TreeGridView`              | method       | `ReloadData()`/`ReloadItem(...)`                    |
+|  [13]   | `TreeGridView`              | method       | `GetCellAt(PointF)`/`GetDragInfo(...)`              |
+|  [14]   | `TreeGridView`              | event        | expand, collapse, and activate event family         |
+|  [15]   | `GridColumn`                | model        | header text and `DataCell`                          |
+|  [16]   | `GridColumn`                | property     | editable/resizable/sortable/visible/width           |
+|  [17]   | `TextBoxCell`               | model        | cell renderer                                       |
+|  [18]   | `CheckBoxCell`              | model        | cell renderer                                       |
+|  [19]   | `ComboBoxCell`              | model        | cell renderer                                       |
+|  [20]   | `ImageViewCell`             | model        | cell renderer                                       |
+|  [21]   | `ImageTextCell`             | model        | cell renderer                                       |
+|  [22]   | `ProgressCell`              | model        | cell renderer                                       |
+|  [23]   | `DrawableCell`              | model        | cell renderer                                       |
+|  [24]   | `CustomCell`                | model        | cell renderer                                       |
+|  [25]   | `ListBox`                   | control      | single-column selectable list (`: ListControl`)     |
+|  [26]   | `ListBox`                   | property     | `ItemImageBinding`/`Border`                         |
+|  [27]   | `ListBox.Activated`         | event        | list activation                                     |
+|  [28]   | `ListControl`               | control base | list base                                           |
+|  [29]   | `ListControl.DataStore`     | property     | data store                                          |
+|  [30]   | `ListControl`               | property     | `SelectedIndex`/`SelectedValue`/`SelectedKey`       |
+|  [31]   | `ListControl`               | binding      | `ItemTextBinding`/`ItemKeyBinding`                  |
+|  [32]   | `ListControl`               | event        | `SelectedIndexChanged`/`SelectedValueChanged`       |
+|  [33]   | `PropertyGrid`              | control      | reflected property editor over a bound object graph |
+|  [34]   | `TreeGridCell`              | model        | hit-test result                                     |
+|  [35]   | `TreeGridCell`              | property     | `Item`/`Column`/`ColumnIndex`/`Type`                |
+|  [36]   | `TreeGridViewDragInfo`      | model        | drop-target descriptor                              |
+|  [37]   | `TreeGridViewDragInfo`      | property     | `Item`/`Parent`/`Position`/`InsertIndex`            |
 
 [PUBLIC_TYPE_SCOPE]: containers and rich controls
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]            | [KIND]    | [CAPABILITY]                                                                                                                                                   |
-| :-----: | :------------------ | :-------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Panel`             | container | single-child content host; the panel-subclass base                                                                                                             |
-|  [02]   | `Scrollable`        | container | scrolling viewport; border, scroll size, expand-content flags                                                                                                  |
-|  [03]   | `Splitter`          | container | two-panel split; `Panel1`/`Panel2`/`Orientation`/`Position`/`FixedPanel`/`SplitterWidth`                                                                       |
-|  [04]   | `TabControl`        | container | tabbed pages; `Pages` (`Collection<TabPage>`), `SelectedIndex`/`SelectedPage`/`TabPosition`, `SelectedIndexBinding`, `SelectedIndexChanged`                    |
-|  [05]   | `TabPage`           | container | one tab; text, image, child content                                                                                                                            |
-|  [06]   | `GroupBox`          | container | titled bordered frame around child content                                                                                                                     |
-|  [07]   | `Expander`          | container | collapsible header + content region; `Expanded`, `ExpandedChanged`                                                                                             |
-|  [08]   | `Drawable`          | control   | owner-drawn surface; `CanFocus`/`SupportsCreateGraphics`, `Paint` (`PaintEventArgs`), `TextComposition`/`TextInsertionBoundsRequested`                         |
-|  [09]   | `RichTextArea`      | control   | formatted text (`: TextArea`); `Selection*` font/colour/bold/italic/underline/strikethrough, `Buffer` (`ITextBuffer`), `Rtf`                                   |
-|  [10]   | `ITextBuffer`       | contract  | range formatting and IO; `SetBold`/`SetItalic`/`SetFont`/`SetForeground`/`SetBackground`, `Load`/`Save(Stream, RichTextAreaFormat)`, `Insert`/`Delete`/`Clear` |
-|  [11]   | `ImageView`         | control   | static bitmap display                                                                                                                                          |
-|  [12]   | `SegmentedButton`   | control   | multi-segment toggle bar; per-segment items and selection modes                                                                                                |
-|  [13]   | `ProgressBar`       | control   | determinate/indeterminate progress; `MinValue`/`MaxValue`/`Value`/`Indeterminate`                                                                              |
-|  [14]   | `WebView`           | control   | embedded browser; navigation, script execution, document title                                                                                                 |
-|  [15]   | `NativeControlHost` | control   | host-native view embedding seam                                                                                                                                |
+| [INDEX] | [SYMBOL]              | [KIND]     | [CAPABILITY]                                      |
+| :-----: | :-------------------- | :--------- | :------------------------------------------------ |
+|  [01]   | `Panel`               | container  | single-child content host and panel-subclass base |
+|  [02]   | `Scrollable`          | container  | scrolling viewport                                |
+|  [03]   | `Scrollable`          | property   | border, scroll size, and expand-content flags     |
+|  [04]   | `Splitter`            | container  | two-panel split                                   |
+|  [05]   | `Splitter`            | property   | `Panel1`/`Panel2`/`Orientation`/`Position`        |
+|  [06]   | `Splitter`            | property   | `FixedPanel`/`SplitterWidth`                      |
+|  [07]   | `TabControl`          | container  | tabbed pages                                      |
+|  [08]   | `TabControl.Pages`    | property   | `Collection<TabPage>`                             |
+|  [09]   | `TabControl`          | property   | `SelectedIndex`/`SelectedPage`/`TabPosition`      |
+|  [10]   | `TabControl`          | binding    | `SelectedIndexBinding`                            |
+|  [11]   | `TabControl`          | event      | `SelectedIndexChanged`                            |
+|  [12]   | `TabPage`             | container  | one tab with text, image, and child content       |
+|  [13]   | `GroupBox`            | container  | titled bordered frame around child content        |
+|  [14]   | `Expander`            | container  | collapsible header and content region             |
+|  [15]   | `Expander`            | property   | `Expanded`                                        |
+|  [16]   | `Expander`            | event      | `ExpandedChanged`                                 |
+|  [17]   | `Drawable`            | control    | owner-drawn surface                               |
+|  [18]   | `Drawable`            | property   | `CanFocus`/`SupportsCreateGraphics`               |
+|  [19]   | `Drawable.Paint`      | event      | `PaintEventArgs`                                  |
+|  [20]   | `Drawable`            | event      | `TextComposition`/`TextInsertionBoundsRequested`  |
+|  [21]   | `RichTextArea`        | control    | formatted text (`: TextArea`)                     |
+|  [22]   | `RichTextArea`        | property   | `Selection*` font/colour/bold/italic              |
+|  [23]   | `RichTextArea`        | property   | `Selection*` underline/strikethrough              |
+|  [24]   | `RichTextArea.Buffer` | property   | `ITextBuffer`                                     |
+|  [25]   | `RichTextArea.Rtf`    | property   | rich-text format                                  |
+|  [26]   | `ITextBuffer`         | contract   | range formatting and IO                           |
+|  [27]   | `ITextBuffer`         | method     | `SetBold`/`SetItalic`/`SetFont`                   |
+|  [28]   | `ITextBuffer`         | method     | `SetForeground`/`SetBackground`                   |
+|  [29]   | `ITextBuffer`         | method     | `Load`/`Save(Stream, RichTextAreaFormat)`         |
+|  [30]   | `ITextBuffer`         | method     | `Insert`/`Delete`/`Clear`                         |
+|  [31]   | `ImageView`           | control    | static bitmap display                             |
+|  [32]   | `SegmentedButton`     | control    | multi-segment toggle bar                          |
+|  [33]   | `SegmentedButton`     | property   | per-segment items and selection modes             |
+|  [34]   | `ProgressBar`         | control    | determinate/indeterminate progress                |
+|  [35]   | `ProgressBar`         | property   | `MinValue`/`MaxValue`/`Value`/`Indeterminate`     |
+|  [36]   | `WebView`             | control    | embedded browser                                  |
+|  [37]   | `WebView`             | capability | navigation, script execution, and document title  |
+|  [38]   | `NativeControlHost`   | control    | host-native view embedding seam                   |
 
 [PUBLIC_TYPE_SCOPE]: layout owners
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                                                                     | [KIND] | [CAPABILITY]                                                                                                                                                                                     |
-| :-----: | :--------------------------------------------------------------------------- | :----- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `DynamicLayout`                                                              | layout | fluent row/column builder; `Padding`/`Spacing`/`DefaultPadding`/`DefaultSpacing`, `AddRow`/`AddSeparateRow`/`AddSeparateColumn`, `BeginHorizontal`/`EndHorizontal`/`BeginVertical`/`EndVertical` |
-|  [02]   | `TableLayout`                                                                | layout | fixed grid; `Rows` (`TableRowCollection`), `Dimensions`, `Add(Control, int x, int y)`/`Move`/`SetColumnScale`/`SetRowScale`/`SetCellSize`                                                        |
-|  [03]   | `PixelLayout`                                                                | layout | absolute placement; `Add(Control, int x, int y)`/`Move`/`GetLocation`, `Controls`                                                                                                                |
-|  [04]   | `StackLayout`                                                                | layout | linear stack; `Orientation`/`Spacing`/`HorizontalContentAlignment`/`VerticalContentAlignment`, `Items` (`StackLayoutItemCollection`)                                                             |
-|  [05]   | `Orientation` / `HorizontalAlignment` / `VerticalAlignment` / `DockPosition` | enum   | axis and alignment vocabularies the layout owners discriminate on                                                                                                                                |
-|  [06]   | `Padding` / `Size` (`Eto`)                                                   | value  | edge inset and integer extent value types                                                                                                                                                        |
+| [INDEX] | [SYMBOL]                          | [KIND]   | [CAPABILITY]                                 |
+| :-----: | :-------------------------------- | :------- | :------------------------------------------- |
+|  [01]   | `DynamicLayout`                   | layout   | fluent row/column builder                    |
+|  [02]   | `DynamicLayout`                   | property | `Padding`/`Spacing`                          |
+|  [03]   | `DynamicLayout`                   | property | `DefaultPadding`/`DefaultSpacing`            |
+|  [04]   | `DynamicLayout`                   | method   | `AddRow`/`AddSeparateRow`                    |
+|  [05]   | `DynamicLayout.AddSeparateColumn` | method   | separate-column composition                  |
+|  [06]   | `DynamicLayout`                   | method   | `BeginHorizontal`/`EndHorizontal`            |
+|  [07]   | `DynamicLayout`                   | method   | `BeginVertical`/`EndVertical`                |
+|  [08]   | `TableLayout`                     | layout   | fixed grid                                   |
+|  [09]   | `TableLayout.Rows`                | property | `TableRowCollection`                         |
+|  [10]   | `TableLayout.Dimensions`          | property | grid dimensions                              |
+|  [11]   | `TableLayout`                     | method   | `Add(Control, int x, int y)`/`Move`          |
+|  [12]   | `TableLayout`                     | method   | `SetColumnScale`/`SetRowScale`/`SetCellSize` |
+|  [13]   | `PixelLayout`                     | layout   | absolute placement                           |
+|  [14]   | `PixelLayout`                     | method   | `Add(Control, int x, int y)`/`Move`          |
+|  [15]   | `PixelLayout.GetLocation`         | method   | control location                             |
+|  [16]   | `PixelLayout.Controls`            | property | placed controls                              |
+|  [17]   | `StackLayout`                     | layout   | linear stack                                 |
+|  [18]   | `StackLayout`                     | property | `Orientation`/`Spacing`                      |
+|  [19]   | `StackLayout`                     | property | `HorizontalContentAlignment`                 |
+|  [20]   | `StackLayout`                     | property | `VerticalContentAlignment`                   |
+|  [21]   | `StackLayout.Items`               | property | `StackLayoutItemCollection`                  |
+|  [22]   | `Orientation`                     | enum     | axis vocabulary                              |
+|  [23]   | `HorizontalAlignment`             | enum     | horizontal-alignment vocabulary              |
+|  [24]   | `VerticalAlignment`               | enum     | vertical-alignment vocabulary                |
+|  [25]   | `DockPosition`                    | enum     | dock-position vocabulary                     |
+|  [26]   | `Padding` (`Eto`)                 | value    | edge inset                                   |
+|  [27]   | `Size` (`Eto`)                    | value    | integer extent                               |
 
 [PUBLIC_TYPE_SCOPE]: windows, dialogs, and native pickers
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                                                             | [KIND]      | [CAPABILITY]                                                                                                                                                                                                                                             |
-| :-----: | :------------------------------------------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Window`                                                             | window base | `Title`/`Location`/`Bounds`/`Opacity`/`Resizable`/`Topmost`/`WindowState`/`WindowStyle`/`LogicalPixelSize`, `Close()`/`BringToFront()`/`SetOwner(Window)`, static `FromPoint(PointF)`, `Closing`/`Closed`/`WindowStateChanged`/`LogicalPixelSizeChanged` |
-|  [02]   | `Form`                                                               | window      | modeless top-level window; `ShowActivated`, `Show()`                                                                                                                                                                                                     |
-|  [03]   | `FloatingForm`                                                       | window      | always-on-top modeless window                                                                                                                                                                                                                            |
-|  [04]   | `Dialog`                                                             | window      | modal window; `DisplayMode` (`DialogDisplayMode`), `DefaultButton`/`AbortButton`, `PositiveButtons`/`NegativeButtons`, `ShowModal(Control)`/`ShowModalAsync(Control)`                                                                                    |
-|  [05]   | `Dialog<T>`                                                          | window      | typed-result modal; `Result` (`T`)                                                                                                                                                                                                                       |
-|  [06]   | `MessageBox`                                                         | dialog      | static `Show(...)` overload family for text/type/buttons prompts                                                                                                                                                                                         |
-|  [07]   | `FileDialog`                                                         | dialog base | `Directory`/`FileName`/`Title`/`CheckFileExists`, `Filters` (`FilterCollection<FileFilter>`), `CurrentFilter`/`CurrentFilterIndex`, `ShowDialog(Control)`                                                                                                |
-|  [08]   | `OpenFileDialog` / `SaveFileDialog`                                  | dialog      | file open (`MultiSelect`, `Filenames`) and save pickers                                                                                                                                                                                                  |
-|  [09]   | `SelectFolderDialog`                                                 | dialog      | folder picker; `Directory`/`Title`, `ShowDialog(Control)`                                                                                                                                                                                                |
-|  [10]   | `ColorDialog` / `FontDialog`                                         | dialog      | native colour (`Color`/`AllowAlpha`/`ColorChanged`) and font (`Font`/`FontChanged`) pickers                                                                                                                                                              |
-|  [11]   | `FileFilter`                                                         | model       | extension filter row for the file dialogs                                                                                                                                                                                                                |
-|  [12]   | `DialogResult` / `WindowState` / `WindowStyle` / `DialogDisplayMode` | enum        | dialog outcome, window presentation, and modal-display vocabularies                                                                                                                                                                                      |
+| [INDEX] | [SYMBOL]                   | [KIND]      | [CAPABILITY]                                      |
+| :-----: | :------------------------- | :---------- | :------------------------------------------------ |
+|  [01]   | `Window`                   | window base | top-level window base                             |
+|  [02]   | `Window`                   | property    | `Title`/`Location`/`Bounds`/`Opacity`             |
+|  [03]   | `Window`                   | property    | `Resizable`/`Topmost`/`WindowState`/`WindowStyle` |
+|  [04]   | `Window.LogicalPixelSize`  | property    | logical pixel dimensions                          |
+|  [05]   | `Window`                   | method      | `Close()`/`BringToFront()`/`SetOwner(Window)`     |
+|  [06]   | `Window.FromPoint`         | static      | `(PointF)` window lookup                          |
+|  [07]   | `Window`                   | event       | `Closing`/`Closed`                                |
+|  [08]   | `Window`                   | event       | `WindowStateChanged`/`LogicalPixelSizeChanged`    |
+|  [09]   | `Form`                     | window      | modeless top-level window                         |
+|  [10]   | `Form.ShowActivated`       | property    | activation policy                                 |
+|  [11]   | `Form.Show`                | method      | modeless presentation                             |
+|  [12]   | `FloatingForm`             | window      | always-on-top modeless window                     |
+|  [13]   | `Dialog`                   | window      | modal window                                      |
+|  [14]   | `Dialog.DisplayMode`       | property    | `DialogDisplayMode`                               |
+|  [15]   | `Dialog`                   | property    | `DefaultButton`/`AbortButton`                     |
+|  [16]   | `Dialog`                   | property    | `PositiveButtons`/`NegativeButtons`               |
+|  [17]   | `Dialog`                   | method      | `ShowModal(Control)`/`ShowModalAsync(Control)`    |
+|  [18]   | `Dialog<T>`                | window      | typed-result modal                                |
+|  [19]   | `Dialog<T>.Result`         | property    | `T`                                               |
+|  [20]   | `MessageBox.Show`          | static      | text/type/buttons prompt overload family          |
+|  [21]   | `FileDialog`               | dialog base | file-dialog base                                  |
+|  [22]   | `FileDialog`               | property    | `Directory`/`FileName`/`Title`/`CheckFileExists`  |
+|  [23]   | `FileDialog.Filters`       | property    | `FilterCollection<FileFilter>`                    |
+|  [24]   | `FileDialog`               | property    | `CurrentFilter`/`CurrentFilterIndex`              |
+|  [25]   | `FileDialog.ShowDialog`    | method      | `(Control)` presentation                          |
+|  [26]   | `OpenFileDialog`           | dialog      | file-open picker                                  |
+|  [27]   | `OpenFileDialog`           | property    | `MultiSelect`/`Filenames`                         |
+|  [28]   | `SaveFileDialog`           | dialog      | file-save picker                                  |
+|  [29]   | `SelectFolderDialog`       | dialog      | folder picker                                     |
+|  [30]   | `SelectFolderDialog`       | property    | `Directory`/`Title`                               |
+|  [31]   | `SelectFolderDialog`       | method      | `ShowDialog(Control)`                             |
+|  [32]   | `ColorDialog`              | dialog      | native colour picker                              |
+|  [33]   | `ColorDialog`              | property    | `Color`/`AllowAlpha`                              |
+|  [34]   | `ColorDialog.ColorChanged` | event       | colour change                                     |
+|  [35]   | `FontDialog`               | dialog      | native font picker                                |
+|  [36]   | `FontDialog.Font`          | property    | selected font                                     |
+|  [37]   | `FontDialog.FontChanged`   | event       | font change                                       |
+|  [38]   | `FileFilter`               | model       | extension filter row for file dialogs             |
+|  [39]   | `DialogResult`             | enum        | dialog-outcome vocabulary                         |
+|  [40]   | `WindowState`              | enum        | window-state vocabulary                           |
+|  [41]   | `WindowStyle`              | enum        | window-presentation vocabulary                    |
+|  [42]   | `DialogDisplayMode`        | enum        | modal-display vocabulary                          |
 
 [PUBLIC_TYPE_SCOPE]: menus and commands
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                                      | [KIND]  | [CAPABILITY]                                                                                                         |
-| :-----: | :-------------------------------------------- | :------ | :------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ContextMenu`                                 | menu    | popup menu; `Items` (`MenuItemCollection`), `Trim`, `Show(Control, PointF)`, `Opening`/`Closing`/`Closed`            |
-|  [02]   | `MenuItem` / `ButtonMenuItem` / `SubMenuItem` | menu    | leaf, command-bound, and nested menu entries                                                                         |
-|  [03]   | `Command`                                     | command | reusable action; `ID`/`MenuText`/`ToolBarText`/`ToolTip`/`Enabled`/`Shortcut`/`DataContext`, `Execute()`, `Executed` |
-|  [04]   | `CheckCommand`                                | command | toggling command; `Checked`, `CheckedChanged`                                                                        |
-|  [05]   | `RadioCommand`                                | command | grouped exclusive command; `Controller`                                                                              |
+| [INDEX] | [SYMBOL]                      | [KIND]   | [CAPABILITY]                            |
+| :-----: | :---------------------------- | :------- | :-------------------------------------- |
+|  [01]   | `ContextMenu`                 | menu     | popup menu                              |
+|  [02]   | `ContextMenu.Items`           | property | `MenuItemCollection`                    |
+|  [03]   | `ContextMenu.Trim`            | property | menu trim                               |
+|  [04]   | `ContextMenu.Show`            | method   | `(Control, PointF)` presentation        |
+|  [05]   | `ContextMenu`                 | event    | `Opening`/`Closing`/`Closed`            |
+|  [06]   | `MenuItem`                    | menu     | leaf menu entry                         |
+|  [07]   | `ButtonMenuItem`              | menu     | command-bound menu entry                |
+|  [08]   | `SubMenuItem`                 | menu     | nested menu entry                       |
+|  [09]   | `Command`                     | command  | reusable action                         |
+|  [10]   | `Command`                     | property | `ID`/`MenuText`/`ToolBarText`/`ToolTip` |
+|  [11]   | `Command`                     | property | `Enabled`/`Shortcut`/`DataContext`      |
+|  [12]   | `Command.Execute`             | method   | action execution                        |
+|  [13]   | `Command.Executed`            | event    | execution observation                   |
+|  [14]   | `CheckCommand`                | command  | toggling command                        |
+|  [15]   | `CheckCommand.Checked`        | property | toggled state                           |
+|  [16]   | `CheckCommand.CheckedChanged` | event    | toggled-state change                    |
+|  [17]   | `RadioCommand`                | command  | grouped exclusive command               |
+|  [18]   | `RadioCommand.Controller`     | property | exclusivity controller                  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: control lifecycle, input, and drag
+
 - rail: native UI
 
-| [INDEX] | [SURFACE]                                                           | [CALL_SHAPE]                                          | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------------ | :---------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | `Control.Focus` / `Invalidate` / `UpdateLayout`                     | `()`                                                  | focus, repaint, and re-measure requests           |
-|  [02]   | `Control.CaptureMouse` / `ReleaseMouseCapture`                      | `()` → `bool` / `()`                                  | pointer-capture lifecycle for a drag gesture      |
-|  [03]   | `Control.DoDragDrop`                                                | `(IDataObject, DragEffects)` → `DragEffects`          | starts a drag with a typed payload                |
-|  [04]   | `Control.KeyDown` / `KeyUp` / `TextInput`                           | `EventHandler<KeyEventArgs>` / `<TextInputEventArgs>` | keyboard and composed-text input                  |
-|  [05]   | `Control.MouseDown` … `MouseWheel`                                  | `EventHandler<MouseEventArgs>`                        | pointer press/move/enter/leave/double-click/wheel |
-|  [06]   | `Control.DragEnter` … `DragEnd`                                     | `EventHandler<DragEventArgs>`                         | drag-over and drop lifecycle                      |
-|  [07]   | `Control.GotFocus` / `LostFocus` / `SizeChanged` / `Load` / `Shown` | `EventHandler`                                        | focus, geometry, and attach lifecycle             |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                 | [CAPABILITY]                              |
+| :-----: | :--------------------------------- | :------------------------------------------- | :---------------------------------------- |
+|  [01]   | `Control.Focus`                    | `()`                                         | focus request                             |
+|  [02]   | `Control.Invalidate`               | `()`                                         | repaint request                           |
+|  [03]   | `Control.UpdateLayout`             | `()`                                         | re-measure request                        |
+|  [04]   | `Control.CaptureMouse`             | `()` → `bool`                                | begins pointer capture                    |
+|  [05]   | `Control.ReleaseMouseCapture`      | `()`                                         | ends pointer capture                      |
+|  [06]   | `Control.DoDragDrop`               | `(IDataObject, DragEffects)` → `DragEffects` | starts a drag with a typed payload        |
+|  [07]   | `Control.KeyDown`/`KeyUp`          | `EventHandler<KeyEventArgs>`                 | keyboard input                            |
+|  [08]   | `Control.TextInput`                | `EventHandler<TextInputEventArgs>`           | composed-text input                       |
+|  [09]   | `Control.MouseDown` … `MouseWheel` | `EventHandler<MouseEventArgs>`               | press/move/enter/leave/double-click/wheel |
+|  [10]   | `Control.DragEnter` … `DragEnd`    | `EventHandler<DragEventArgs>`                | drag-over and drop lifecycle              |
+|  [11]   | `Control.GotFocus`/`LostFocus`     | `EventHandler`                               | focus lifecycle                           |
+|  [12]   | `Control.SizeChanged`              | `EventHandler`                               | geometry lifecycle                        |
+|  [13]   | `Control.Load`/`Shown`             | `EventHandler`                               | attach lifecycle                          |
 
 [ENTRYPOINT_SCOPE]: grid and tree selection, edit, and reload
+
 - rail: native UI
 
-| [INDEX] | [SURFACE]                                                                            | [CALL_SHAPE]                                                             | [CAPABILITY]                                   |
-| :-----: | :----------------------------------------------------------------------------------- | :----------------------------------------------------------------------- | :--------------------------------------------- |
-|  [01]   | `Grid.SelectRow` / `UnselectRow` / `SelectAll` / `UnselectAll`                       | `(int)` / `(int)` / `()` / `()`                                          | selection mutation                             |
-|  [02]   | `Grid.BeginEdit` / `CommitEdit` / `CancelEdit`                                       | `(int row, int column)` / `()` → `bool`                                  | inline-edit lifecycle; `IsEditing` gates state |
-|  [03]   | `Grid.ScrollToRow`                                                                   | `(int)`                                                                  | brings a row into view                         |
-|  [04]   | `Grid.CellEditing` / `CellEdited` / `CellClick` / `CellFormatting` / `RowFormatting` | event                                                                    | per-cell edit and per-row format hooks         |
-|  [05]   | `TreeGridView.ReloadData` / `ReloadItem`                                             | `()` / `(ITreeGridItem, bool reloadChildren)`                            | refresh keeping selection                      |
-|  [06]   | `TreeGridView.GetCellAt` / `GetDragInfo`                                             | `(PointF)` → `TreeGridCell` / `(DragEventArgs)` → `TreeGridViewDragInfo` | hit-test and drop-target resolution            |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                               | [CAPABILITY]                      |
+| :-----: | :------------------------------ | :----------------------------------------- | :-------------------------------- |
+|  [01]   | `Grid.SelectRow`                | `(int)`                                    | selects a row                     |
+|  [02]   | `Grid.UnselectRow`              | `(int)`                                    | unselects a row                   |
+|  [03]   | `Grid.SelectAll`                | `()`                                       | selects every row                 |
+|  [04]   | `Grid.UnselectAll`              | `()`                                       | unselects every row               |
+|  [05]   | `Grid.BeginEdit`                | `(int row, int column)`                    | begins inline editing             |
+|  [06]   | `Grid.CommitEdit`               | `()` → `bool`                              | commits inline editing            |
+|  [07]   | `Grid.CancelEdit`               | `()` → `bool`                              | cancels inline editing            |
+|  [08]   | `Grid.IsEditing`                | state                                      | gates the edit lifecycle          |
+|  [09]   | `Grid.ScrollToRow`              | `(int)`                                    | brings a row into view            |
+|  [10]   | `Grid.CellEditing`/`CellEdited` | event                                      | per-cell edit hooks               |
+|  [11]   | `Grid.CellClick`                | event                                      | per-cell click hook               |
+|  [12]   | `Grid.CellFormatting`           | event                                      | per-cell format hook              |
+|  [13]   | `Grid.RowFormatting`            | event                                      | per-row format hook               |
+|  [14]   | `TreeGridView.ReloadData`       | `()`                                       | refreshes while keeping selection |
+|  [15]   | `TreeGridView.ReloadItem`       | `(ITreeGridItem, bool reloadChildren)`     | refreshes while keeping selection |
+|  [16]   | `TreeGridView.GetCellAt`        | `(PointF)` → `TreeGridCell`                | hit-test resolution               |
+|  [17]   | `TreeGridView.GetDragInfo`      | `(DragEventArgs)` → `TreeGridViewDragInfo` | drop-target resolution            |
 
 [ENTRYPOINT_SCOPE]: window, dialog, and picker presentation
+
 - rail: native UI
 
-| [INDEX] | [SURFACE]                                          | [CALL_SHAPE]                            | [CAPABILITY]                                                    |
-| :-----: | :------------------------------------------------- | :-------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | `Form.Show`                                        | `()`                                    | shows a modeless window                                         |
-|  [02]   | `Dialog.ShowModal` / `ShowModalAsync`              | `(Control owner)` / `()` → `Task`       | runs a modal loop; `Dialog<T>.Result` carries the typed outcome |
-|  [03]   | `MessageBox.Show`                                  | `(Control, string, …)` → `DialogResult` | static prompt overload family                                   |
-|  [04]   | `FileDialog.ShowDialog`                            | `(Control parent)` → `DialogResult`     | file open/save picker                                           |
-|  [05]   | `SelectFolderDialog.ShowDialog`                    | `(Control parent)` → `DialogResult`     | folder picker                                                   |
-|  [06]   | `ColorDialog.ShowDialog` / `FontDialog.ShowDialog` | `(Control parent)` → `DialogResult`     | native colour and font pickers                                  |
-|  [07]   | `Window.Close` / `BringToFront` / `SetOwner`       | `()` / `()` / `(Window)`                | window teardown and z-order                                     |
+`Dialog<T>.Result` carries the typed outcome from either modal presentation surface.
+
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                            | [CAPABILITY]            |
+| :-----: | :------------------------------ | :-------------------------------------- | :---------------------- |
+|  [01]   | `Form.Show`                     | `()`                                    | modeless window         |
+|  [02]   | `Dialog.ShowModal`              | `(Control owner)`                       | modal loop              |
+|  [03]   | `Dialog.ShowModalAsync`         | `()` → `Task`                           | asynchronous modal loop |
+|  [04]   | `MessageBox.Show`               | `(Control, string, …)` → `DialogResult` | static prompt overload  |
+|  [05]   | `FileDialog.ShowDialog`         | `(Control parent)` → `DialogResult`     | file open/save picker   |
+|  [06]   | `SelectFolderDialog.ShowDialog` | `(Control parent)` → `DialogResult`     | folder picker           |
+|  [07]   | `ColorDialog.ShowDialog`        | `(Control parent)` → `DialogResult`     | native colour picker    |
+|  [08]   | `FontDialog.ShowDialog`         | `(Control parent)` → `DialogResult`     | native font picker      |
+|  [09]   | `Window.Close`                  | `()`                                    | window teardown         |
+|  [10]   | `Window.BringToFront`           | `()`                                    | z-order promotion       |
+|  [11]   | `Window.SetOwner`               | `(Window)`                              | owner assignment        |
 
 [ENTRYPOINT_SCOPE]: layout composition and command dispatch
+
 - rail: native UI
 
-| [INDEX] | [SURFACE]                                                                           | [CALL_SHAPE]                                      | [CAPABILITY]                    |
-| :-----: | :---------------------------------------------------------------------------------- | :------------------------------------------------ | :------------------------------ |
-|  [01]   | `DynamicLayout.AddRow` / `AddSeparateRow`                                           | `(params Control[])`                              | fluent row composition          |
-|  [02]   | `DynamicLayout.BeginVertical` / `EndVertical` / `BeginHorizontal` / `EndHorizontal` | `()`                                              | nested-section scoping          |
-|  [03]   | `TableLayout.Add` / `Move` / `SetColumnScale` / `SetRowScale`                       | `(Control, int x, int y)` / `(int, bool)`         | fixed-cell placement and scale  |
-|  [04]   | `PixelLayout.Add` / `Move` / `GetLocation`                                          | `(Control, int x, int y)` / `(Control)` → `Point` | absolute placement              |
-|  [05]   | `ContextMenu.Show`                                                                  | `(Control, PointF)`                               | popup at a canvas point         |
-|  [06]   | `Command.Execute` / `Executed`                                                      | `()` / `EventHandler`                             | action dispatch and observation |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]              | [CAPABILITY]             |
+| :-----: | :------------------------------ | :------------------------ | :----------------------- |
+|  [01]   | `DynamicLayout.AddRow`          | `(params Control[])`      | fluent row composition   |
+|  [02]   | `DynamicLayout.AddSeparateRow`  | `(params Control[])`      | separate-row composition |
+|  [03]   | `DynamicLayout.BeginVertical`   | `()`                      | begins vertical scope    |
+|  [04]   | `DynamicLayout.EndVertical`     | `()`                      | ends vertical scope      |
+|  [05]   | `DynamicLayout.BeginHorizontal` | `()`                      | begins horizontal scope  |
+|  [06]   | `DynamicLayout.EndHorizontal`   | `()`                      | ends horizontal scope    |
+|  [07]   | `TableLayout.Add`               | `(Control, int x, int y)` | fixed-cell placement     |
+|  [08]   | `TableLayout.Move`              | `(Control, int x, int y)` | fixed-cell movement      |
+|  [09]   | `TableLayout.SetColumnScale`    | `(int, bool)`             | column scaling           |
+|  [10]   | `TableLayout.SetRowScale`       | `(int, bool)`             | row scaling              |
+|  [11]   | `PixelLayout.Add`               | `(Control, int x, int y)` | absolute placement       |
+|  [12]   | `PixelLayout.Move`              | `(Control, int x, int y)` | absolute movement        |
+|  [13]   | `PixelLayout.GetLocation`       | `(Control)` → `Point`     | location lookup          |
+|  [14]   | `ContextMenu.Show`              | `(Control, PointF)`       | canvas-point popup       |
+|  [15]   | `Command.Execute`               | `()`                      | action dispatch          |
+|  [16]   | `Command.Executed`              | `EventHandler`            | action observation       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONSTRUCTION_TOPOLOGY]:
+
 - a hosted panel is an `Eto.Forms` control composition: a `Panel`/`Scrollable` root holds a layout owner (`DynamicLayout`/`TableLayout`/`PixelLayout`/`StackLayout`), and the layout holds the field, data-view, and container roster
 - one control owns one concern: a field carries its typed value plus a `*Binding`, a data view carries a data store plus selection, a container carries children plus split/tab/expand state
 - the enum vocabularies (`Orientation`, `WindowState`, `WindowStyle`, `DialogDisplayMode`, `DockPosition`, `GridLines`, `HorizontalAlignment`, `VerticalAlignment`) are the closed discriminants layout and window construction switch on
 - `Grid` is the shared base of `GridView` and `TreeGridView`; column definitions, cell renderers, selection, edit, and format events are Grid-level and inherited, with `TreeGridView` adding the expand/collapse and tree-drag surface
 
 [STACKING]:
+
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): a dialog show, file-dialog result, or control-property mutation that throws at the host boundary lands on `Fin<A>` through `Try.lift(() => dialog.ShowModal(owner)).Run()`; `Optional(grid.SelectedItem).ToFin(error)` null-gates a selection read; independent field reads lift `.ToValidation`, fan in through the tuple `.Apply(...)`, and exit `.ToFin()` before a panel commits its edit
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the host enum vocabularies project onto `[SmartEnum<TKey>]` owners where a panel attaches behaviour or a display label to a case; a bounded field value (a titled numeric range, a validated text token, a colour channel) is a `[ValueObject<T>]` the control `*Binding` reads and writes
 - `api-eto-binding`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-binding.md`): every field and view exposes its `*Binding` (`TextBinding`, `CheckedBinding`, `ValueBinding`, `SelectedItemBinding`, `SelectedIndexBinding`), the seam the binding rail fuses to a `DataContext` model
@@ -182,11 +372,13 @@
 - `api-eto-runtime`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-runtime.md`): dialog presentation, control invalidation, and cross-thread mutation marshal through `Application.Instance`
 
 [LOCAL_ADMISSION]:
+
 - `Eto.Forms` is host-provided and composed directly — a panel subclasses a control or composes the roster, never a local wrapper that renames or partially re-exports Eto members
 - a new control capability is a subclass or a composition of the admitted roster, never a re-implemented native widget
 - boundary faults ride the LanguageExt rail; the panel never carries an exception-style control flow beside it
 
 [RAIL_LAW]:
+
 - Package: `Eto`
 - Owns: native control construction, layout, windows and dialogs, menus and commands for GH2-hosted panels
 - Accept: panel chrome, form fields, grid/tree/list/property data views, modal and modeless dialogs, native file/colour/font pickers

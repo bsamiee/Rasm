@@ -18,26 +18,26 @@
 - namespace: `Microsoft.Z3`
 - rail: satisfaction
 
-| [INDEX] | [SYMBOL]      | [RAIL]       | [CAPABILITY]                                                                                              |
-| :-----: | :------------ | :----------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Context`     | satisfaction | the AST factory and owning arena, `: IDisposable` — every `Expr`/`Sort`/`Solver` is minted by ONE context and disposed with it; ctor `Context()` / `Context(Dictionary<string,string> settings)`. All `Mk*` builders hang off it |
-|  [02]   | `Expr`        | satisfaction | the AST-node base; `BoolExpr`/`ArithExpr`/`IntExpr`/`RealExpr`/`BitVecExpr`/`ArrayExpr` refine it. `Sort`, `Simplify()`, `Substitute(from, to)`, `ToString()` |
-|  [03]   | `BoolExpr`    | satisfaction | a boolean-sorted term — the type a `Solver.Assert` takes and `MkAnd`/`MkOr`/`MkNot`/`MkImplies`/`MkEq`/comparison builders return |
-|  [04]   | `ArithExpr` / `IntExpr` / `RealExpr` | satisfaction | numeric-sorted terms; `IntNum`/`RatNum` are the concrete literal refinements a `Model` interpretation yields (`RatNum.Numerator`/`Denominator`, `IntNum.Int64`) |
-|  [05]   | `Sort` / `BoolSort` / `IntSort` / `RealSort` | satisfaction | the type of a term; `Context.BoolSort`/`IntSort`/`RealSort` are the cached instances constants are minted against |
-|  [06]   | `FuncDecl` / `Symbol` | satisfaction | an (uninterpreted) function/constant declaration and its name symbol; `Model.ConstDecls`/`FuncDecls` enumerate the interpreted symbols |
+| [INDEX] | [SYMBOL]                                     | [RAIL]       | [CAPABILITY]                                                                                                                                                                                                                     |
+| :-----: | :------------------------------------------- | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Context`                                    | satisfaction | the AST factory and owning arena, `: IDisposable` — every `Expr`/`Sort`/`Solver` is minted by ONE context and disposed with it; ctor `Context()` / `Context(Dictionary<string,string> settings)`. All `Mk*` builders hang off it |
+|  [02]   | `Expr`                                       | satisfaction | the AST-node base; `BoolExpr`/`ArithExpr`/`IntExpr`/`RealExpr`/`BitVecExpr`/`ArrayExpr` refine it. `Sort`, `Simplify()`, `Substitute(from, to)`, `ToString()`                                                                    |
+|  [03]   | `BoolExpr`                                   | satisfaction | a boolean-sorted term — the type a `Solver.Assert` takes and `MkAnd`/`MkOr`/`MkNot`/`MkImplies`/`MkEq`/comparison builders return                                                                                                |
+|  [04]   | `ArithExpr` / `IntExpr` / `RealExpr`         | satisfaction | numeric-sorted terms; `IntNum`/`RatNum` are the concrete literal refinements a `Model` interpretation yields (`RatNum.Numerator`/`Denominator`, `IntNum.Int64`)                                                                  |
+|  [05]   | `Sort` / `BoolSort` / `IntSort` / `RealSort` | satisfaction | the type of a term; `Context.BoolSort`/`IntSort`/`RealSort` are the cached instances constants are minted against                                                                                                                |
+|  [06]   | `FuncDecl` / `Symbol`                        | satisfaction | an (uninterpreted) function/constant declaration and its name symbol; `Model.ConstDecls`/`FuncDecls` enumerate the interpreted symbols                                                                                           |
 
 [PUBLIC_TYPE_SCOPE]: solver, model, verdict
 - namespace: `Microsoft.Z3`
 - rail: satisfaction
 
-| [INDEX] | [SYMBOL]     | [RAIL]       | [CAPABILITY]                                                                                              |
-| :-----: | :----------- | :----------- | :------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Solver`     | satisfaction | the incremental assertion stack, `: IDisposable`; `Assert(params BoolExpr[])`, `AssertAndTrack(BoolExpr constraint, BoolExpr literal)` (the tracked-assertion form that populates the unsat core), `Check(params Expr[] assumptions)` → `Status`, `Push()`/`Pop()`/`Reset()`, `Model`, `UnsatCore` (`BoolExpr[]`), `Statistics`, `Parameters` (`Params`) |
-|  [02]   | `Status`     | satisfaction | the verdict enum: `SATISFIABLE`, `UNSATISFIABLE`, `UNKNOWN` — the discriminant lowered onto the `AssessmentResult` |
-|  [03]   | `Model`      | satisfaction | a satisfying assignment, `: IDisposable`; `Evaluate(Expr t, bool completion = false)` / `Eval(...)` → the interpreted `Expr`, `ConstInterp(decl)`, `ConstDecls`/`FuncDecls`, `NumConsts` — the witness a `SATISFIABLE` verdict projects onto the named rule variables |
-|  [04]   | `Optimize`   | satisfaction | the optimizing solver (`Context.MkOptimize()`); `MkMaximize`/`MkMinimize` objectives beside `Assert` — recorded, NOT the default rule-verify path (CP-SAT owns optimization; Z3 verifies) |
-|  [05]   | `Params` / `Tactic` / `Goal` | satisfaction | solver configuration (`Context.MkParams()`, `Params.Add(name, value)`), and the tactic/goal machinery for custom solving strategies |
+| [INDEX] | [SYMBOL]                     | [RAIL]       | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                             |
+| :-----: | :--------------------------- | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Solver`                     | satisfaction | the incremental assertion stack, `: IDisposable`; `Assert(params BoolExpr[])`, `AssertAndTrack(BoolExpr constraint, BoolExpr literal)` (the tracked-assertion form that populates the unsat core), `Check(params Expr[] assumptions)` → `Status`, `Push()`/`Pop()`/`Reset()`, `Model`, `UnsatCore` (`BoolExpr[]`), `Statistics`, `Parameters` (`Params`) |
+|  [02]   | `Status`                     | satisfaction | the verdict enum: `SATISFIABLE`, `UNSATISFIABLE`, `UNKNOWN` — the discriminant lowered onto the `AssessmentResult`                                                                                                                                                                                                                                       |
+|  [03]   | `Model`                      | satisfaction | a satisfying assignment, `: IDisposable`; `Evaluate(Expr t, bool completion = false)` / `Eval(...)` → the interpreted `Expr`, `ConstInterp(decl)`, `ConstDecls`/`FuncDecls`, `NumConsts` — the witness a `SATISFIABLE` verdict projects onto the named rule variables                                                                                    |
+|  [04]   | `Optimize`                   | satisfaction | the optimizing solver (`Context.MkOptimize()`); `MkMaximize`/`MkMinimize` objectives beside `Assert` — recorded, NOT the default rule-verify path (CP-SAT owns optimization; Z3 verifies)                                                                                                                                                                |
+|  [05]   | `Params` / `Tactic` / `Goal` | satisfaction | solver configuration (`Context.MkParams()`, `Params.Add(name, value)`), and the tactic/goal machinery for custom solving strategies                                                                                                                                                                                                                      |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -45,27 +45,27 @@
 - namespace: `Microsoft.Z3`
 - rail: satisfaction
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                              | [CAPABILITY]                                                  |
-| :-----: | :------------------------------ | :--------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `ctx.MkRealConst` / `MkIntConst` / `MkBoolConst` | `(string name)` → `RealExpr`/`IntExpr`/`BoolExpr`                         | mint a free variable of the given sort — the rule-variable seeds |
-|  [02]   | `ctx.MkReal` / `MkInt`          | `(string / int / long)` → `RatNum`/`IntNum`                                               | numeric literals (a rational from a `"num/den"` string is exact) |
-|  [03]   | `ctx.MkAdd` / `MkMul` / `MkSub` / `MkDiv` / `MkPower` | `(params ArithExpr[])` → `ArithExpr`                                 | arithmetic terms — NONLINEAR (`MkMul`/`MkPower`) drives the NRA/NIA theory Z3 owns and CP-SAT cannot |
-|  [04]   | `ctx.MkGe` / `MkLe` / `MkGt` / `MkLt` / `MkEq` | `(Expr, Expr)` → `BoolExpr`                                              | the relational atoms a rule constraint is built from         |
-|  [05]   | `ctx.MkAnd` / `MkOr` / `MkNot` / `MkImplies` / `MkIff` | `(params BoolExpr[])` / `(BoolExpr, BoolExpr)` → `BoolExpr`         | the boolean combinators composing a rule set                 |
-|  [06]   | `ctx.MkSolver` / `MkOptimize`   | `()` / `(string logic)` → `Solver` / `Optimize`                                          | the solve engine (a named logic e.g. `"QF_NRA"` selects the theory fragment) |
+| [INDEX] | [SURFACE]                                              | [CALL_SHAPE]                                                | [CAPABILITY]                                                                                         |
+| :-----: | :----------------------------------------------------- | :---------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `ctx.MkRealConst` / `MkIntConst` / `MkBoolConst`       | `(string name)` → `RealExpr`/`IntExpr`/`BoolExpr`           | mint a free variable of the given sort — the rule-variable seeds                                     |
+|  [02]   | `ctx.MkReal` / `MkInt`                                 | `(string / int / long)` → `RatNum`/`IntNum`                 | numeric literals (a rational from a `"num/den"` string is exact)                                     |
+|  [03]   | `ctx.MkAdd` / `MkMul` / `MkSub` / `MkDiv` / `MkPower`  | `(params ArithExpr[])` → `ArithExpr`                        | arithmetic terms — NONLINEAR (`MkMul`/`MkPower`) drives the NRA/NIA theory Z3 owns and CP-SAT cannot |
+|  [04]   | `ctx.MkGe` / `MkLe` / `MkGt` / `MkLt` / `MkEq`         | `(Expr, Expr)` → `BoolExpr`                                 | the relational atoms a rule constraint is built from                                                 |
+|  [05]   | `ctx.MkAnd` / `MkOr` / `MkNot` / `MkImplies` / `MkIff` | `(params BoolExpr[])` / `(BoolExpr, BoolExpr)` → `BoolExpr` | the boolean combinators composing a rule set                                                         |
+|  [06]   | `ctx.MkSolver` / `MkOptimize`                          | `()` / `(string logic)` → `Solver` / `Optimize`             | the solve engine (a named logic e.g. `"QF_NRA"` selects the theory fragment)                         |
 
 [ENTRYPOINT_SCOPE]: assert, check, explain — `Solver`
 - namespace: `Microsoft.Z3`
 - rail: satisfaction
 - composition law: the rule set asserts through `AssertAndTrack` (each constraint paired with a boolean tracking literal named for the rule), `Check()` returns the `Status`, and on `UNSATISFIABLE` the `UnsatCore` tracking literals name the exact violated rules the `AssessmentResult` reports.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                              | [CAPABILITY]                                                  |
-| :-----: | :------------------------------ | :--------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `s.Assert` / `s.AssertAndTrack` | `(params BoolExpr[])` / `(BoolExpr constraint, BoolExpr trackingLiteral)`                 | add constraints; the tracked form is REQUIRED for a named unsat core |
-|  [02]   | `s.Check`                       | `(params Expr[] assumptions)` → `Status`                                                  | the SAT/UNSAT/UNKNOWN verdict; assumptions scope a query without a `Push`/`Pop` |
-|  [03]   | `s.Model`                       | `→ Model` (valid after a `SATISFIABLE` check)                                             | the witnessing assignment; `model.Evaluate(v)` reads each rule variable |
-|  [04]   | `s.UnsatCore`                   | `→ BoolExpr[]` (valid after an `UNSATISFIABLE` check)                                     | the minimal conflicting tracking literals — the exact violated rule names |
-|  [05]   | `s.Push` / `s.Pop`              | `()` / `(uint n)`                                                                         | scope a backtrackable assertion frame for incremental what-if checks |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                              | [CAPABILITY]                                                                    |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `s.Assert` / `s.AssertAndTrack` | `(params BoolExpr[])` / `(BoolExpr constraint, BoolExpr trackingLiteral)` | add constraints; the tracked form is REQUIRED for a named unsat core            |
+|  [02]   | `s.Check`                       | `(params Expr[] assumptions)` → `Status`                                  | the SAT/UNSAT/UNKNOWN verdict; assumptions scope a query without a `Push`/`Pop` |
+|  [03]   | `s.Model`                       | `→ Model` (valid after a `SATISFIABLE` check)                             | the witnessing assignment; `model.Evaluate(v)` reads each rule variable         |
+|  [04]   | `s.UnsatCore`                   | `→ BoolExpr[]` (valid after an `UNSATISFIABLE` check)                     | the minimal conflicting tracking literals — the exact violated rule names       |
+|  [05]   | `s.Push` / `s.Pop`              | `()` / `(uint n)`                                                         | scope a backtrackable assertion frame for incremental what-if checks            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

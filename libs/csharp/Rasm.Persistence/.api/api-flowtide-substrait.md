@@ -24,77 +24,77 @@ This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` ob
 
 `Plan` is the top-level IR (a `List<Relation>`; sealed, value-equatable). `PlanModifier` composes plans — registers subplans as named views, stacks root plans, and re-binds relation references across them via `Modify()`. `SubstraitToDifferentialCompute` is the public static bridge into the FlowtideDotNet streaming engine.
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
-| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
-|  [01]   | `Plan`                                | plan root        | sealed; `List<Relation> Relations`; value equality |
-|  [02]   | `PlanModifier`                        | plan composer    | `AddPlanAsView`/`AddRootPlan`/`Modify()`     |
-|  [03]   | `SubstraitDeserializer`               | wire → IR bridge | PUBLIC; `Deserialize(Substrait.Protobuf.Plan)` / `Deserialize(string json)` (instance) + static `DeserializeFromJson(string)` → managed `Plan` |
-|  [04]   | `Substrait.Protobuf.Plan`             | protobuf message | generated `IMessage`; static `Parser` (`MessageParser<Plan>`: `ParseFrom(byte[]/ReadOnlySpan<byte>/CodedInputStream)`), `WriteTo`/`ToByteArray` for retained wire bytes |
-|  [05]   | `SubstraitSerializer`                 | IR → wire (internal) | `internal` — no public managed→protobuf lowering; retain the inbound bytes instead of re-serializing |
-|  [06]   | `Conversion.SubstraitToDifferentialCompute` | engine bridge | static `Convert(Plan, addWriteRelation, tableName, params primaryKeys)` |
-|  [07]   | `Hints.Hint` / `Hints.HintOptimizations` | plan hint     | `Alias` + optimization flags on each `Relation` |
-|  [08]   | `Exceptions.SubstraitParseException`  | parse failure    | thrown by the SQL/plan front-end             |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]        | [RAIL]                                                                                                                                                                  |
+| :-----: | :------------------------------------------ | :------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Plan`                                      | plan root            | sealed; `List<Relation> Relations`; value equality                                                                                                                      |
+|  [02]   | `PlanModifier`                              | plan composer        | `AddPlanAsView`/`AddRootPlan`/`Modify()`                                                                                                                                |
+|  [03]   | `SubstraitDeserializer`                     | wire → IR bridge     | PUBLIC; `Deserialize(Substrait.Protobuf.Plan)` / `Deserialize(string json)` (instance) + static `DeserializeFromJson(string)` → managed `Plan`                          |
+|  [04]   | `Substrait.Protobuf.Plan`                   | protobuf message     | generated `IMessage`; static `Parser` (`MessageParser<Plan>`: `ParseFrom(byte[]/ReadOnlySpan<byte>/CodedInputStream)`), `WriteTo`/`ToByteArray` for retained wire bytes |
+|  [05]   | `SubstraitSerializer`                       | IR → wire (internal) | `internal` — no public managed→protobuf lowering; retain the inbound bytes instead of re-serializing                                                                    |
+|  [06]   | `Conversion.SubstraitToDifferentialCompute` | engine bridge        | static `Convert(Plan, addWriteRelation, tableName, params primaryKeys)`                                                                                                 |
+|  [07]   | `Hints.Hint` / `Hints.HintOptimizations`    | plan hint            | `Alias` + optimization flags on each `Relation`                                                                                                                         |
+|  [08]   | `Exceptions.SubstraitParseException`        | parse failure        | thrown by the SQL/plan front-end                                                                                                                                        |
 
 [PUBLIC_TYPE_SCOPE]: relations (the relational-algebra tree)
 - rail: query-plan
 
 `Relation` is the abstract base: `Emit` (column projection), `OutputLength`, `Hint`, and `Accept<TReturn, TState>(RelationVisitor<TReturn, TState>, state)` for double-dispatch. Each concrete relation is sealed and value-equatable, with `required` inputs.
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
-| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
-|  [01]   | `Relations.Relation`                  | rel base         | abstract; `Emit`/`OutputLength`/`Hint`/`Accept` |
-|  [02]   | `Relations.RelationVisitor<TReturn, TState>` | rel visitor | `Visit` + `VisitReadRelation`/`VisitJoinRelation`/... double-dispatch |
-|  [03]   | `Relations.ReadRelation`              | source rel       | `required NamedStruct BaseSchema`, `required NamedTable NamedTable`, `Filter?` |
-|  [04]   | `Relations.FilterRelation`            | filter rel       | predicate over an input                      |
-|  [05]   | `Relations.ProjectRelation`           | project rel      | computed expression columns                  |
-|  [06]   | `Relations.JoinRelation` / `MergeJoinRelation` | join rel | `JoinType`, `Left`/`Right`, `Expression`, `PostJoinFilter`; `IsFieldFromLeft` |
-|  [07]   | `Relations.AggregateRelation`         | aggregate rel    | `AggregateGrouping`/`AggregateMeasure` groupings |
-|  [08]   | `Relations.SortRelation` / `TopNRelation` / `FetchRelation` | order rel | sort fields, top-N, limit/offset |
-|  [09]   | `Relations.SetRelation`               | set rel          | `SetOperation` (union/intersect/except)      |
-|  [10]   | `Relations.WriteRelation`             | sink rel         | `required Input`/`TableSchema`/`NamedObject`, `Overwrite` |
-|  [11]   | `Relations.RootRelation`              | root rel         | `required Input`, `Names` (output column names) |
-|  [12]   | `Relations.ReferenceRelation`         | reference rel    | cross-subplan reference (view binding)       |
-|  [13]   | `Relations.ConsistentPartitionWindowRelation` | window rel | partitioned window functions                 |
-|  [14]   | `Relations.ExchangeRelation` / `TableFunctionRelation` / `VirtualTableReadRelation` / `IterationRelation` | rel | shuffle, table-function, literal-table, recursive iteration |
-|  [15]   | `Relations.JoinType` / `SetOperation` / `ExchangeKindType` | rel enum | join kind, set op, exchange partitioning |
+| [INDEX] | [SYMBOL]                                                                                                  | [TYPE_FAMILY] | [RAIL]                                                                         |
+| :-----: | :-------------------------------------------------------------------------------------------------------- | :------------ | :----------------------------------------------------------------------------- |
+|  [01]   | `Relations.Relation`                                                                                      | rel base      | abstract; `Emit`/`OutputLength`/`Hint`/`Accept`                                |
+|  [02]   | `Relations.RelationVisitor<TReturn, TState>`                                                              | rel visitor   | `Visit` + `VisitReadRelation`/`VisitJoinRelation`/... double-dispatch          |
+|  [03]   | `Relations.ReadRelation`                                                                                  | source rel    | `required NamedStruct BaseSchema`, `required NamedTable NamedTable`, `Filter?` |
+|  [04]   | `Relations.FilterRelation`                                                                                | filter rel    | predicate over an input                                                        |
+|  [05]   | `Relations.ProjectRelation`                                                                               | project rel   | computed expression columns                                                    |
+|  [06]   | `Relations.JoinRelation` / `MergeJoinRelation`                                                            | join rel      | `JoinType`, `Left`/`Right`, `Expression`, `PostJoinFilter`; `IsFieldFromLeft`  |
+|  [07]   | `Relations.AggregateRelation`                                                                             | aggregate rel | `AggregateGrouping`/`AggregateMeasure` groupings                               |
+|  [08]   | `Relations.SortRelation` / `TopNRelation` / `FetchRelation`                                               | order rel     | sort fields, top-N, limit/offset                                               |
+|  [09]   | `Relations.SetRelation`                                                                                   | set rel       | `SetOperation` (union/intersect/except)                                        |
+|  [10]   | `Relations.WriteRelation`                                                                                 | sink rel      | `required Input`/`TableSchema`/`NamedObject`, `Overwrite`                      |
+|  [11]   | `Relations.RootRelation`                                                                                  | root rel      | `required Input`, `Names` (output column names)                                |
+|  [12]   | `Relations.ReferenceRelation`                                                                             | reference rel | cross-subplan reference (view binding)                                         |
+|  [13]   | `Relations.ConsistentPartitionWindowRelation`                                                             | window rel    | partitioned window functions                                                   |
+|  [14]   | `Relations.ExchangeRelation` / `TableFunctionRelation` / `VirtualTableReadRelation` / `IterationRelation` | rel           | shuffle, table-function, literal-table, recursive iteration                    |
+|  [15]   | `Relations.JoinType` / `SetOperation` / `ExchangeKindType`                                                | rel enum      | join kind, set op, exchange partitioning                                       |
 
 [PUBLIC_TYPE_SCOPE]: expressions and the type system
 - rail: query-plan
 
 `Expression` is the abstract expression base (`Accept<TOutput, TState>(ExpressionVisitor<TOutput, TState>, state)`); `SubstraitBaseType` roots the type lattice over the `SubstraitType` enum. Scalar/aggregate/window functions reference the standard function-extension URIs.
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
-| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
-|  [01]   | `Expressions.Expression`              | expr base        | abstract; `Accept<TOutput, TState>`          |
-|  [02]   | `Expressions.ExpressionVisitor<TOutput, TState>` | expr visitor | double-dispatch fold over the expression tree |
-|  [03]   | `Expressions.ScalarFunction` / `AggregateFunction` / `WindowFunction` | function expr | `ExtensionUri` + `ExtensionName` + arguments |
-|  [04]   | `Expressions.FieldReference` / `DirectFieldReference` / `ReferenceSegment` / `StructReferenceSegment` / `MapKeyReferenceSegment` | reference expr | column/struct/map field access |
-|  [05]   | `Expressions.CastExpression` / `IfThen.IfThenExpression` / `SingularOrListExpression` / `MultiOrListExpression` | control expr | cast, if/then, IN-list |
-|  [06]   | `Expressions.NestedExpression` / `ListNestedExpression` / `MapNestedExpression` / `StructExpression` | nested expr | list/map/struct constructors |
-|  [07]   | `Expressions.SortField` / `SortDirection` / `WindowBound` (+ `Preceeding`/`Following`/`CurrentRow`/`Unbounded`) | order/window | sort key, frame bound |
-|  [08]   | `Expressions.Literals.Literal` (+ `Bool`/`Numeric`/`String`/`Binary`/`Array`/`Null`) | literal expr | typed constants; `LiteralType` |
-|  [09]   | `Type.SubstraitBaseType` / `SubstraitType` | type base    | abstract `Type`/`Nullable`; enum `String`/`Int32`/`Fp64`/`Decimal`/`Struct`/`Map`/`List`/`Binary`/`TimestampTz`/... |
-|  [10]   | `Type.NamedStruct` / `Type.Struct`    | row type         | `Names` + `Struct` of column types           |
-|  [11]   | `Type.NamedTable` / `Type.VirtualTable` | table ref     | qualified table name / inline literal rows   |
-|  [12]   | `Type.Int32Type`/`Int64Type`/`Fp32Type`/`Fp64Type`/`BoolType`/`StringType`/`BinaryType`/`DateType`/`TimestampType`/`DecimalType`/`ListType`/`MapType`/`AnyType`/`NullType` | scalar/compound type | the concrete `SubstraitBaseType` leaves |
+| [INDEX] | [SYMBOL]                                                                                                                                                                   | [TYPE_FAMILY]        | [RAIL]                                                                                                              |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Expressions.Expression`                                                                                                                                                   | expr base            | abstract; `Accept<TOutput, TState>`                                                                                 |
+|  [02]   | `Expressions.ExpressionVisitor<TOutput, TState>`                                                                                                                           | expr visitor         | double-dispatch fold over the expression tree                                                                       |
+|  [03]   | `Expressions.ScalarFunction` / `AggregateFunction` / `WindowFunction`                                                                                                      | function expr        | `ExtensionUri` + `ExtensionName` + arguments                                                                        |
+|  [04]   | `Expressions.FieldReference` / `DirectFieldReference` / `ReferenceSegment` / `StructReferenceSegment` / `MapKeyReferenceSegment`                                           | reference expr       | column/struct/map field access                                                                                      |
+|  [05]   | `Expressions.CastExpression` / `IfThen.IfThenExpression` / `SingularOrListExpression` / `MultiOrListExpression`                                                            | control expr         | cast, if/then, IN-list                                                                                              |
+|  [06]   | `Expressions.NestedExpression` / `ListNestedExpression` / `MapNestedExpression` / `StructExpression`                                                                       | nested expr          | list/map/struct constructors                                                                                        |
+|  [07]   | `Expressions.SortField` / `SortDirection` / `WindowBound` (+ `Preceeding`/`Following`/`CurrentRow`/`Unbounded`)                                                            | order/window         | sort key, frame bound                                                                                               |
+|  [08]   | `Expressions.Literals.Literal` (+ `Bool`/`Numeric`/`String`/`Binary`/`Array`/`Null`)                                                                                       | literal expr         | typed constants; `LiteralType`                                                                                      |
+|  [09]   | `Type.SubstraitBaseType` / `SubstraitType`                                                                                                                                 | type base            | abstract `Type`/`Nullable`; enum `String`/`Int32`/`Fp64`/`Decimal`/`Struct`/`Map`/`List`/`Binary`/`TimestampTz`/... |
+|  [10]   | `Type.NamedStruct` / `Type.Struct`                                                                                                                                         | row type             | `Names` + `Struct` of column types                                                                                  |
+|  [11]   | `Type.NamedTable` / `Type.VirtualTable`                                                                                                                                    | table ref            | qualified table name / inline literal rows                                                                          |
+|  [12]   | `Type.Int32Type`/`Int64Type`/`Fp32Type`/`Fp64Type`/`BoolType`/`StringType`/`BinaryType`/`DateType`/`TimestampType`/`DecimalType`/`ListType`/`MapType`/`AnyType`/`NullType` | scalar/compound type | the concrete `SubstraitBaseType` leaves                                                                             |
 
 [PUBLIC_TYPE_SCOPE]: SQL front-end and function-extension catalogs
 - rail: query-plan
 
 `SqlPlanBuilder` is the SQL-text → `Plan` front-end (parses via `SqlParserCS` under `FlowtideDialect`); `ITableProvider`/`ISqlFunctionRegister` are the extension seams. The `Functions*` static classes are the standard Substrait function-extension URI catalogs (each a `Uri` const plus the function-name consts).
 
-| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                       |
-| :-----: | :------------------------------------ | :--------------- | :------------------------------------------- |
-|  [01]   | `Sql.SqlPlanBuilder`                  | SQL front-end    | `AddTableDefinition`/`AddTableProvider`/`AddPlanAsView`/`Sql(text)`/`GetPlan()` |
-|  [02]   | `Sql.ITableProvider`                  | table seam       | `TryGetTableInformation`/`TryHandleTableFunction` |
-|  [03]   | `Sql.ISqlFunctionRegister`            | function seam    | `RegisterScalarFunction`/`RegisterAggregateFunction`/`RegisterTableFunction` |
-|  [04]   | `Sql.TableMetadata` / `TableProviderTableFunctionResult` / `TableProviderTableFunctionArguments` | table seam data | table name + `NamedStruct` schema; function relation result |
-|  [05]   | `Sql.SqlExpressionVisitor` / `BaseExpressionVisitor<TOut, TState>` | SQL expr visitor | the SQL expression lowering fold |
-|  [06]   | `Sql.ScalarResponse` / `AggregateResponse` / `WindowResponse` | registration result | the relation/expression a registered function emits |
-|  [07]   | `FunctionExtensions.FunctionsArithmetic` | function URIs  | `Uri`, `Add`/`Subtract`/`Multiply`/`Sum`/`Min`/`Max`/`Avg`/`RowNumber`/`Lead`/`Lag`/... |
-|  [08]   | `FunctionExtensions.FunctionsComparison` | function URIs  | `Uri`, `Equal`/`GreaterThan`/`Between`/`Coalesce`/`IsNull`/`IsNan`/... |
-|  [09]   | `FunctionExtensions.FunctionsString` | function URIs    | `Uri`, `Concat`/`Lower`/`Upper`/`Substring`/`Like`/`StrPos`/`StringSplit`/`ToJson`/... |
-|  [10]   | `FunctionExtensions.FunctionsAggregateGeneric` / `FunctionsBoolean` / `FunctionsDatetime` / `FunctionsList` / `FunctionsRounding` / `FunctionsHash` / `FunctionsGuid` / `FunctionsStruct` / `FunctionsCheck` / `FunctionsLogarithmic` / `FunctionsTableGeneric` | function URIs | `Count`/`CountDistinct`, boolean, datetime, list, rounding, hash, guid, struct, check, logarithmic, and table-function catalogs (each a `Uri` const + name consts) |
+| [INDEX] | [SYMBOL]                                                                                                                                                                                                                                                        | [TYPE_FAMILY]       | [RAIL]                                                                                                                                                             |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Sql.SqlPlanBuilder`                                                                                                                                                                                                                                            | SQL front-end       | `AddTableDefinition`/`AddTableProvider`/`AddPlanAsView`/`Sql(text)`/`GetPlan()`                                                                                    |
+|  [02]   | `Sql.ITableProvider`                                                                                                                                                                                                                                            | table seam          | `TryGetTableInformation`/`TryHandleTableFunction`                                                                                                                  |
+|  [03]   | `Sql.ISqlFunctionRegister`                                                                                                                                                                                                                                      | function seam       | `RegisterScalarFunction`/`RegisterAggregateFunction`/`RegisterTableFunction`                                                                                       |
+|  [04]   | `Sql.TableMetadata` / `TableProviderTableFunctionResult` / `TableProviderTableFunctionArguments`                                                                                                                                                                | table seam data     | table name + `NamedStruct` schema; function relation result                                                                                                        |
+|  [05]   | `Sql.SqlExpressionVisitor` / `BaseExpressionVisitor<TOut, TState>`                                                                                                                                                                                              | SQL expr visitor    | the SQL expression lowering fold                                                                                                                                   |
+|  [06]   | `Sql.ScalarResponse` / `AggregateResponse` / `WindowResponse`                                                                                                                                                                                                   | registration result | the relation/expression a registered function emits                                                                                                                |
+|  [07]   | `FunctionExtensions.FunctionsArithmetic`                                                                                                                                                                                                                        | function URIs       | `Uri`, `Add`/`Subtract`/`Multiply`/`Sum`/`Min`/`Max`/`Avg`/`RowNumber`/`Lead`/`Lag`/...                                                                            |
+|  [08]   | `FunctionExtensions.FunctionsComparison`                                                                                                                                                                                                                        | function URIs       | `Uri`, `Equal`/`GreaterThan`/`Between`/`Coalesce`/`IsNull`/`IsNan`/...                                                                                             |
+|  [09]   | `FunctionExtensions.FunctionsString`                                                                                                                                                                                                                            | function URIs       | `Uri`, `Concat`/`Lower`/`Upper`/`Substring`/`Like`/`StrPos`/`StringSplit`/`ToJson`/...                                                                             |
+|  [10]   | `FunctionExtensions.FunctionsAggregateGeneric` / `FunctionsBoolean` / `FunctionsDatetime` / `FunctionsList` / `FunctionsRounding` / `FunctionsHash` / `FunctionsGuid` / `FunctionsStruct` / `FunctionsCheck` / `FunctionsLogarithmic` / `FunctionsTableGeneric` | function URIs       | `Count`/`CountDistinct`, boolean, datetime, list, rounding, hash, guid, struct, check, logarithmic, and table-function catalogs (each a `Uri` const + name consts) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -103,44 +103,44 @@ This is a plan-IR library: it produces and transforms a vendor-neutral `Plan` ob
 
 `SqlPlanBuilder` registers table schemas/providers and accumulates one or more SQL statements, then `GetPlan()` runs the `PlanModifier` to bind references and yield a single composed `Plan`. The default function register pre-loads the built-in Substrait functions.
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new SqlPlanBuilder()`                               | ctor           | loads `BuiltInSqlFunctions` into the register |
-|  [02]   | `AddTableDefinition(name, NamedStruct schema)`       | schema decl    | declares a queryable table + its row type    |
-|  [03]   | `AddTableProvider(ITableProvider)`                   | table seam     | dynamic table/table-function resolution       |
-|  [04]   | `AddPlanAsView(viewName, Plan)`                      | view decl      | registers a prior plan as a named view        |
-|  [05]   | `Sql(sqlText)`                                       | parse          | parses + lowers SQL into the accumulating plan |
-|  [06]   | `GetPlan()`                                          | finalize       | runs `PlanModifier.Modify()` → composed `Plan` |
-|  [07]   | `FunctionRegister` (property)                        | function seam  | `ISqlFunctionRegister` for custom functions   |
+| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY] | [RAIL]                                         |
+| :-----: | :--------------------------------------------- | :------------- | :--------------------------------------------- |
+|  [01]   | `new SqlPlanBuilder()`                         | ctor           | loads `BuiltInSqlFunctions` into the register  |
+|  [02]   | `AddTableDefinition(name, NamedStruct schema)` | schema decl    | declares a queryable table + its row type      |
+|  [03]   | `AddTableProvider(ITableProvider)`             | table seam     | dynamic table/table-function resolution        |
+|  [04]   | `AddPlanAsView(viewName, Plan)`                | view decl      | registers a prior plan as a named view         |
+|  [05]   | `Sql(sqlText)`                                 | parse          | parses + lowers SQL into the accumulating plan |
+|  [06]   | `GetPlan()`                                    | finalize       | runs `PlanModifier.Modify()` → composed `Plan` |
+|  [07]   | `FunctionRegister` (property)                  | function seam  | `ISqlFunctionRegister` for custom functions    |
 
 [ENTRYPOINT_SCOPE]: compose, register, and convert
 - rail: query-plan
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new PlanModifier()` + `.AddRootPlan(Plan)` / `.AddPlanAsView(name, Plan)` / `.Modify()` | plan compose | stack roots + views, re-bind references |
-|  [02]   | `ISqlFunctionRegister.RegisterScalarFunction(name, Func<…, ScalarResponse>)` | function reg | custom scalar function lowering |
-|  [03]   | `ISqlFunctionRegister.RegisterAggregateFunction(name, Func<…, AggregateResponse>)` | function reg | custom aggregate lowering |
-|  [04]   | `ISqlFunctionRegister.RegisterTableFunction(name, Func<SqlTableFunctionArgument, TableFunction>)` | function reg | custom table-function lowering |
-|  [05]   | `ITableProvider.TryGetTableInformation(name, out TableMetadata)` | table seam | resolve a table's `NamedStruct` schema |
-|  [06]   | `SubstraitToDifferentialCompute.Convert(Plan, addWriteRelation, tableName, params primaryKeys)` | engine bridge | lower a `Plan` into the streaming differential-compute plan |
-|  [07]   | `new SubstraitDeserializer().Deserialize(Substrait.Protobuf.Plan.Parser.ParseFrom(bytes))` | wire → IR | decode a foreign protobuf plan and lift it to the managed `Plan` |
-|  [08]   | `SubstraitDeserializer.DeserializeFromJson(json)` / `.Deserialize(json)` | json → IR | lift a Substrait-JSON plan string to the managed `Plan` |
+| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] | [RAIL]                                                           |
+| :-----: | :------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `new PlanModifier()` + `.AddRootPlan(Plan)` / `.AddPlanAsView(name, Plan)` / `.Modify()`          | plan compose   | stack roots + views, re-bind references                          |
+|  [02]   | `ISqlFunctionRegister.RegisterScalarFunction(name, Func<…, ScalarResponse>)`                      | function reg   | custom scalar function lowering                                  |
+|  [03]   | `ISqlFunctionRegister.RegisterAggregateFunction(name, Func<…, AggregateResponse>)`                | function reg   | custom aggregate lowering                                        |
+|  [04]   | `ISqlFunctionRegister.RegisterTableFunction(name, Func<SqlTableFunctionArgument, TableFunction>)` | function reg   | custom table-function lowering                                   |
+|  [05]   | `ITableProvider.TryGetTableInformation(name, out TableMetadata)`                                  | table seam     | resolve a table's `NamedStruct` schema                           |
+|  [06]   | `SubstraitToDifferentialCompute.Convert(Plan, addWriteRelation, tableName, params primaryKeys)`   | engine bridge  | lower a `Plan` into the streaming differential-compute plan      |
+|  [07]   | `new SubstraitDeserializer().Deserialize(Substrait.Protobuf.Plan.Parser.ParseFrom(bytes))`        | wire → IR      | decode a foreign protobuf plan and lift it to the managed `Plan` |
+|  [08]   | `SubstraitDeserializer.DeserializeFromJson(json)` / `.Deserialize(json)`                          | json → IR      | lift a Substrait-JSON plan string to the managed `Plan`          |
 
 [ENTRYPOINT_SCOPE]: traverse and build the plan tree directly
 - rail: query-plan
 
 The plan IR is buildable and foldable in-memory without SQL: construct `Relation`/`Expression` nodes directly, and traverse via a `RelationVisitor<TReturn, TState>`/`ExpressionVisitor<TOutput, TState>` subclass that overrides the per-node `Visit*` methods.
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new ReadRelation { BaseSchema = …, NamedTable = …, Filter = … }` | rel build | a source relation with row type + predicate  |
-|  [02]   | `new Plan { Relations = [ rootRelation ] }`          | plan build     | a plan from explicit relations               |
-|  [03]   | `relation.Accept(visitor, state)` / `visitor.Visit(relation, state)` | traverse | double-dispatch over the relation tree       |
-|  [04]   | `class MyVisitor : RelationVisitor<TReturn, TState> { override VisitJoinRelation(...) }` | fold | per-relation transform/extract fold          |
-|  [05]   | `expression.Accept(exprVisitor, state)`              | traverse       | double-dispatch over the expression tree      |
-|  [06]   | `new ScalarFunction { ExtensionUri = FunctionsArithmetic.Uri, ExtensionName = FunctionsArithmetic.Add, ... }` | expr build | a scalar function expression by standard URI |
-|  [07]   | `relation.Emit` / `relation.Hint`                    | rel projection | output-column projection + optimizer hint     |
+| [INDEX] | [SURFACE]                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                       |
+| :-----: | :------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------- |
+|  [01]   | `new ReadRelation { BaseSchema = …, NamedTable = …, Filter = … }`                                             | rel build      | a source relation with row type + predicate  |
+|  [02]   | `new Plan { Relations = [ rootRelation ] }`                                                                   | plan build     | a plan from explicit relations               |
+|  [03]   | `relation.Accept(visitor, state)` / `visitor.Visit(relation, state)`                                          | traverse       | double-dispatch over the relation tree       |
+|  [04]   | `class MyVisitor : RelationVisitor<TReturn, TState> { override VisitJoinRelation(...) }`                      | fold           | per-relation transform/extract fold          |
+|  [05]   | `expression.Accept(exprVisitor, state)`                                                                       | traverse       | double-dispatch over the expression tree     |
+|  [06]   | `new ScalarFunction { ExtensionUri = FunctionsArithmetic.Uri, ExtensionName = FunctionsArithmetic.Add, ... }` | expr build     | a scalar function expression by standard URI |
+|  [07]   | `relation.Emit` / `relation.Hint`                                                                             | rel projection | output-column projection + optimizer hint    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

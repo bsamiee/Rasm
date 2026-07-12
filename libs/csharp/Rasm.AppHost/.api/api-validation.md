@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_VALIDATION]
 
-`FluentValidation` supplies validators, rule graphs, built-in validators, conditions,
-rule sets, child and polymorphic validation, validation contexts, descriptors, results,
-failures, exceptions, global options, and scanner facts.
+`FluentValidation` supplies validators, rule graphs, built-in validators, conditions, rule sets, child and polymorphic validation, validation contexts, descriptors, results, failures, exceptions, global options, and scanner facts.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentValidation`
+
 - package: `FluentValidation`
 - assembly: `FluentValidation`
 - namespace: `FluentValidation`
@@ -16,6 +15,7 @@ failures, exceptions, global options, and scanner facts.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validator and rule family
+
 - rail: validation
 
 | [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]       | [RAIL]                 |
@@ -36,6 +36,7 @@ failures, exceptions, global options, and scanner facts.
 |  [14]   | `IConditionBuilder`                         | condition builder   | otherwise branch       |
 
 [PUBLIC_TYPE_SCOPE]: result option and scanner family
+
 - rail: validation
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [RAIL]                     |
@@ -55,6 +56,7 @@ failures, exceptions, global options, and scanner facts.
 |  [13]   | `AsyncValidatorInvokedSynchronouslyException` | async exception     | async rule guard           |
 
 [PUBLIC_TYPE_SCOPE]: validator implementation family
+
 - rail: validation
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]         | [RAIL]                    |
@@ -72,6 +74,7 @@ failures, exceptions, global options, and scanner facts.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: rule graph operations
+
 - rail: validation
 
 | [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]     | [RAIL]                   |
@@ -91,6 +94,7 @@ failures, exceptions, global options, and scanner facts.
 |  [13]   | `UnlessAsync`             | async condition    | async negative condition |
 
 [ENTRYPOINT_SCOPE]: built-in validator operations
+
 - rail: validation
 
 | [INDEX] | [SURFACE]          | [ENTRY_FAMILY]       | [RAIL]                  |
@@ -115,6 +119,7 @@ failures, exceptions, global options, and scanner facts.
 |  [18]   | `CustomAsync`      | custom validator     | async manual failure    |
 
 [ENTRYPOINT_SCOPE]: execution and result operations
+
 - rail: validation
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]      | [RAIL]                   |
@@ -132,6 +137,7 @@ failures, exceptions, global options, and scanner facts.
 |  [11]   | `ValidationResult.ToDictionary`       | result projection   | grouped failures         |
 
 [ENTRYPOINT_SCOPE]: rule option operations
+
 - rail: validation
 
 | [INDEX] | [SURFACE]              | [ENTRY_FAMILY]       | [RAIL]                  |
@@ -148,6 +154,7 @@ failures, exceptions, global options, and scanner facts.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [VALIDATION_TOPOLOGY]:
+
 - namespaces: `FluentValidation`, `FluentValidation.Results`, `FluentValidation.Validators`
 - rule families: property rule, collection rule, child validator, include rule, ruleset
 - validator families: null/empty, string, regex, comparison, range, enum, decimal, predicate, custom, async
@@ -159,6 +166,7 @@ failures, exceptions, global options, and scanner facts.
 - global policy: cascade defaults, language manager, selector factories, resolver delegates
 
 [LOCAL_ADMISSION]:
+
 - Boundary validators accumulate input failures before runtime state changes.
 - Async validators stay outside hot runtime paths unless the boundary explicitly owns I/O.
 - Rule sets are explicit boundary variants and do not become hidden conditional branches.
@@ -166,6 +174,7 @@ failures, exceptions, global options, and scanner facts.
 - Validation failures fold into typed rail errors; exception-driven validation stays rejected.
 
 [RAIL_LAW]:
+
 - Package: `FluentValidation`
 - Owns: input and options validation
 - Accept: failures fold into typed rails

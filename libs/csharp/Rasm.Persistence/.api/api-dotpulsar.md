@@ -24,133 +24,133 @@ The async surface is `ValueTask`-based throughout; `IPulsarClient`/`IProducer`/`
 
 `IPulsarClient` is the connection-pool root (`PulsarClient.Builder()` → `IPulsarClientBuilder.Build()`); it mints the three client kinds from typed options. Each client interface composes the verb mix-ins (`ISend`/`IReceive`/`ISeek`) plus `IStateHolder<TState>` for reactive state.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [RAIL]                                          |
-| :-----: | :----------------------------- | :--------------- | :---------------------------------------------- |
-|  [01]   | `IPulsarClient`                | client root      | `CreateProducer/Consumer/Reader<TMessage>(options)`; `IAsyncDisposable` |
-|  [02]   | `IPulsarClientBuilder`         | client builder   | service url, auth, TLS, encryption policy, keep-alive, exception handler |
-|  [03]   | `IProducer<TMessage>`          | producer client  | `ISend<TMessage>` + `SendChannel`; `IStateHolder<ProducerState>` |
-|  [04]   | `IProducerBuilder<TMessage>`   | producer builder | topic, compression, access mode, router, pending cap, properties |
-|  [05]   | `IConsumer<TMessage>`          | consumer client  | `IReceive<IMessage<TMessage>>` + ack/seek/redeliver; `IStateHolder<ConsumerState>` |
-|  [06]   | `IConsumerBuilder<TMessage>`   | consumer builder | subscription name/type, initial position, topics/pattern, prefetch, compacted |
-|  [07]   | `IReader<TMessage>`            | reader client    | `IReceive<IMessage<TMessage>>` + seek; cursorless replay from `MessageId` |
-|  [08]   | `IReaderBuilder<TMessage>`     | reader builder   | topic, start `MessageId`, prefetch, compacted, name |
-|  [09]   | `IConsumer` / `IProducer` / `IReader` | base contracts | `ServiceUrl`/`Topic`; consumer base owns `Acknowledge`/`Unsubscribe`/`RedeliverUnacknowledgedMessages` |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [RAIL]                                                                                                 |
+| :-----: | :------------------------------------ | :--------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `IPulsarClient`                       | client root      | `CreateProducer/Consumer/Reader<TMessage>(options)`; `IAsyncDisposable`                                |
+|  [02]   | `IPulsarClientBuilder`                | client builder   | service url, auth, TLS, encryption policy, keep-alive, exception handler                               |
+|  [03]   | `IProducer<TMessage>`                 | producer client  | `ISend<TMessage>` + `SendChannel`; `IStateHolder<ProducerState>`                                       |
+|  [04]   | `IProducerBuilder<TMessage>`          | producer builder | topic, compression, access mode, router, pending cap, properties                                       |
+|  [05]   | `IConsumer<TMessage>`                 | consumer client  | `IReceive<IMessage<TMessage>>` + ack/seek/redeliver; `IStateHolder<ConsumerState>`                     |
+|  [06]   | `IConsumerBuilder<TMessage>`          | consumer builder | subscription name/type, initial position, topics/pattern, prefetch, compacted                          |
+|  [07]   | `IReader<TMessage>`                   | reader client    | `IReceive<IMessage<TMessage>>` + seek; cursorless replay from `MessageId`                              |
+|  [08]   | `IReaderBuilder<TMessage>`            | reader builder   | topic, start `MessageId`, prefetch, compacted, name                                                    |
+|  [09]   | `IConsumer` / `IProducer` / `IReader` | base contracts   | `ServiceUrl`/`Topic`; consumer base owns `Acknowledge`/`Unsubscribe`/`RedeliverUnacknowledgedMessages` |
 
 [PUBLIC_TYPE_SCOPE]: verb mix-ins, message, and metadata
 - rail: egress-sink
 
 The send/receive/seek verbs are small composable interfaces so a producer/consumer/reader exposes exactly the verbs it supports. `IMessage<TValue>` is the received envelope (id, payload, key, event/publish time, properties, redelivery count); `MessageMetadata` is the produce-side carrier.
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]    | [RAIL]                                          |
-| :-----: | :----------------------------- | :--------------- | :---------------------------------------------- |
-|  [01]   | `ISend<TMessage>`              | send verb        | `Send(MessageMetadata, TMessage, ct)` → `ValueTask<MessageId>` |
-|  [02]   | `ISendChannel<TMessage>`       | send channel     | buffered `Send(..., onMessageSent)`, `Complete()`, `Completion()` |
-|  [03]   | `IReceive<TMessage>`           | receive verb     | `Receive(ct)` → `ValueTask<TMessage>`           |
-|  [04]   | `ISeek`                        | seek verb        | `Seek(MessageId)` / `Seek(ulong publishTime)`   |
-|  [05]   | `IGetLastMessageIds`           | lag probe        | `GetLastMessageIds(ct)` → topic head positions  |
-|  [06]   | `IMessageBuilder<TMessage>`    | message builder  | key/orderingKey/eventTime/deliverAt/properties/sequenceId → `Send` |
-|  [07]   | `IMessage<TValue>` / `IMessage` | received message | `Value()`, `MessageId`, `Data`, `Key`, `EventTime*`, `Properties`, `RedeliveryCount` |
-|  [08]   | `MessageMetadata`              | produce metadata | `Key`/`KeyBytes`/`OrderingKey`/`SequenceId`/`EventTime*`/`DeliverAt*`; property indexer; `SetCompressionInfo` |
-|  [09]   | `MessageId`                    | message position | `Earliest`/`Latest`; `LedgerId`/`EntryId`/`Partition`/`BatchIndex`/`Topic`; comparable; `TryParse` |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [RAIL]                                                                                                        |
+| :-----: | :------------------------------ | :--------------- | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ISend<TMessage>`               | send verb        | `Send(MessageMetadata, TMessage, ct)` → `ValueTask<MessageId>`                                                |
+|  [02]   | `ISendChannel<TMessage>`        | send channel     | buffered `Send(..., onMessageSent)`, `Complete()`, `Completion()`                                             |
+|  [03]   | `IReceive<TMessage>`            | receive verb     | `Receive(ct)` → `ValueTask<TMessage>`                                                                         |
+|  [04]   | `ISeek`                         | seek verb        | `Seek(MessageId)` / `Seek(ulong publishTime)`                                                                 |
+|  [05]   | `IGetLastMessageIds`            | lag probe        | `GetLastMessageIds(ct)` → topic head positions                                                                |
+|  [06]   | `IMessageBuilder<TMessage>`     | message builder  | key/orderingKey/eventTime/deliverAt/properties/sequenceId → `Send`                                            |
+|  [07]   | `IMessage<TValue>` / `IMessage` | received message | `Value()`, `MessageId`, `Data`, `Key`, `EventTime*`, `Properties`, `RedeliveryCount`                          |
+|  [08]   | `MessageMetadata`               | produce metadata | `Key`/`KeyBytes`/`OrderingKey`/`SequenceId`/`EventTime*`/`DeliverAt*`; property indexer; `SetCompressionInfo` |
+|  [09]   | `MessageId`                     | message position | `Earliest`/`Latest`; `LedgerId`/`EntryId`/`Partition`/`BatchIndex`/`Topic`; comparable; `TryParse`            |
 
 [PUBLIC_TYPE_SCOPE]: options, schema, routing, auth, and state
 - rail: egress-sink
 
 `ProducerOptions<T>`/`ConsumerOptions<T>`/`ReaderOptions<T>` each require an `ISchema<T>`. `Schema` is the static schema factory; `ProcessingOptions` tunes the `Process` auto-ack pump; `IState<T>`/`IStateHolder<T>` expose reactive state with `OnStateChangeTo`/`From`.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]    | [RAIL]                                       |
-| :-----: | :-------------------------------- | :--------------- | :------------------------------------------- |
-|  [01]   | `ProducerOptions<TMessage>`       | producer options | topic, `Schema`, compression, access mode, router, pending cap |
-|  [02]   | `ConsumerOptions<TMessage>`       | consumer options | subscription name/type, `Schema`, topics/pattern, initial position, prefetch |
-|  [03]   | `ReaderOptions<TMessage>`         | reader options   | start `MessageId`, topic, `Schema`, prefetch, compacted |
-|  [04]   | `ProcessingOptions`               | process pump     | `MaxDegreeOfParallelism`, `MaxMessagesPerTask`, `EnsureOrderedAcknowledgment`, `ShutdownGracePeriod` |
-|  [05]   | `ISchema<T>`                      | schema contract  | `Encode(T)`/`Decode(bytes, schemaVersion?)`, `SchemaInfo` |
-|  [06]   | `Schema` (static)                 | schema factory   | `ByteArray`/`ByteSequence`/`String`/`Boolean`/`Int8..Int64`/`Float`/`TimeStamp`/`Date`/`Time`; `Json<T>`/`Protobuf<T>`/`AvroISpecificRecord<T>`/`AvroGenericRecord<T>` |
-|  [07]   | `SchemaInfo`                      | schema descriptor | name, data bytes, `SchemaType`, properties    |
-|  [08]   | `IMessageRouter` / `RoundRobinPartitionRouter` / `SinglePartitionRouter` | partition router | `ChoosePartition(metadata, n)`; MurmurHash3 on key bytes |
-|  [09]   | `AuthenticationFactory`           | auth factory     | `Token(string)` / `Token(supplier)` / `Basic(user, pw)` / `Basic(supplier)` |
-|  [10]   | `IAuthentication`                 | auth contract    | `AuthenticationMethodName`, `GetAuthenticationData(ct)` |
-|  [11]   | `IState<TState>` / `IStateHolder<TState>` | reactive state | `OnStateChangeTo/From(state, ct)`, `IsFinalState` |
-|  [12]   | `ConsumerStateChanged`/`ProducerStateChanged`/`ReaderStateChanged` | state event | the client + the state it changed to          |
-|  [13]   | `ExceptionContext`                | fault context    | `Exception`, `ExceptionHandled`, `Result` (`FaultAction`) |
+| [INDEX] | [SYMBOL]                                                                 | [TYPE_FAMILY]     | [RAIL]                                                                                                                                                                 |
+| :-----: | :----------------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ProducerOptions<TMessage>`                                              | producer options  | topic, `Schema`, compression, access mode, router, pending cap                                                                                                         |
+|  [02]   | `ConsumerOptions<TMessage>`                                              | consumer options  | subscription name/type, `Schema`, topics/pattern, initial position, prefetch                                                                                           |
+|  [03]   | `ReaderOptions<TMessage>`                                                | reader options    | start `MessageId`, topic, `Schema`, prefetch, compacted                                                                                                                |
+|  [04]   | `ProcessingOptions`                                                      | process pump      | `MaxDegreeOfParallelism`, `MaxMessagesPerTask`, `EnsureOrderedAcknowledgment`, `ShutdownGracePeriod`                                                                   |
+|  [05]   | `ISchema<T>`                                                             | schema contract   | `Encode(T)`/`Decode(bytes, schemaVersion?)`, `SchemaInfo`                                                                                                              |
+|  [06]   | `Schema` (static)                                                        | schema factory    | `ByteArray`/`ByteSequence`/`String`/`Boolean`/`Int8..Int64`/`Float`/`TimeStamp`/`Date`/`Time`; `Json<T>`/`Protobuf<T>`/`AvroISpecificRecord<T>`/`AvroGenericRecord<T>` |
+|  [07]   | `SchemaInfo`                                                             | schema descriptor | name, data bytes, `SchemaType`, properties                                                                                                                             |
+|  [08]   | `IMessageRouter` / `RoundRobinPartitionRouter` / `SinglePartitionRouter` | partition router  | `ChoosePartition(metadata, n)`; MurmurHash3 on key bytes                                                                                                               |
+|  [09]   | `AuthenticationFactory`                                                  | auth factory      | `Token(string)` / `Token(supplier)` / `Basic(user, pw)` / `Basic(supplier)`                                                                                            |
+|  [10]   | `IAuthentication`                                                        | auth contract     | `AuthenticationMethodName`, `GetAuthenticationData(ct)`                                                                                                                |
+|  [11]   | `IState<TState>` / `IStateHolder<TState>`                                | reactive state    | `OnStateChangeTo/From(state, ct)`, `IsFinalState`                                                                                                                      |
+|  [12]   | `ConsumerStateChanged`/`ProducerStateChanged`/`ReaderStateChanged`       | state event       | the client + the state it changed to                                                                                                                                   |
+|  [13]   | `ExceptionContext`                                                       | fault context     | `Exception`, `ExceptionHandled`, `Result` (`FaultAction`)                                                                                                              |
 
 [PUBLIC_TYPE_SCOPE]: enums and exceptions
 - rail: egress-sink
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]    | [RAIL]                                       |
-| :-----: | :-------------------------------- | :--------------- | :------------------------------------------- |
-|  [01]   | `SubscriptionType`                | subscription enum | `Exclusive`/`Shared`/`Failover`/`KeyShared` |
-|  [02]   | `SubscriptionInitialPosition`     | position enum    | `Latest`/`Earliest`                          |
-|  [03]   | `RegexSubscriptionMode`           | topic-mode enum  | `Persistent`/`NonPersistent`/`All`           |
-|  [04]   | `ProducerAccessMode`              | access enum      | `Shared`/`Exclusive`/`WaitForExclusive`/`ExclusiveWithFencing` |
-|  [05]   | `CompressionType`                 | codec enum       | `None`/`Lz4`/`Zlib`/`Zstd`/`Snappy`          |
-|  [06]   | `SchemaType`                      | schema enum      | `None`/`String`/`Json`/`Protobuf`/`Avro`/primitives/`KeyValue`/`ProtobufNative` |
-|  [07]   | `EncryptionPolicy`                | TLS enum         | `EnforceUnencrypted`..`EnforceEncrypted`     |
-|  [08]   | `FaultAction`                     | fault enum       | `Rethrow`/`ThrowException`/`Retry`           |
-|  [09]   | `ConsumerState`/`ProducerState`/`ReaderState` | state enum | lifecycle states incl. final `Closed`/`Faulted`/`Fenced`/`ReachedEndOfTopic` |
-|  [10]   | `DotPulsarException` (+ ~40 subtypes) | failure family | `ProducerFencedException`, `ConsumerFaultedException`, `TooLargeMessageException`, `TransactionConflictException`, ... |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]     | [RAIL]                                                                                                                 |
+| :-----: | :-------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SubscriptionType`                            | subscription enum | `Exclusive`/`Shared`/`Failover`/`KeyShared`                                                                            |
+|  [02]   | `SubscriptionInitialPosition`                 | position enum     | `Latest`/`Earliest`                                                                                                    |
+|  [03]   | `RegexSubscriptionMode`                       | topic-mode enum   | `Persistent`/`NonPersistent`/`All`                                                                                     |
+|  [04]   | `ProducerAccessMode`                          | access enum       | `Shared`/`Exclusive`/`WaitForExclusive`/`ExclusiveWithFencing`                                                         |
+|  [05]   | `CompressionType`                             | codec enum        | `None`/`Lz4`/`Zlib`/`Zstd`/`Snappy`                                                                                    |
+|  [06]   | `SchemaType`                                  | schema enum       | `None`/`String`/`Json`/`Protobuf`/`Avro`/primitives/`KeyValue`/`ProtobufNative`                                        |
+|  [07]   | `EncryptionPolicy`                            | TLS enum          | `EnforceUnencrypted`..`EnforceEncrypted`                                                                               |
+|  [08]   | `FaultAction`                                 | fault enum        | `Rethrow`/`ThrowException`/`Retry`                                                                                     |
+|  [09]   | `ConsumerState`/`ProducerState`/`ReaderState` | state enum        | lifecycle states incl. final `Closed`/`Faulted`/`Fenced`/`ReachedEndOfTopic`                                           |
+|  [10]   | `DotPulsarException` (+ ~40 subtypes)         | failure family    | `ProducerFencedException`, `ConsumerFaultedException`, `TooLargeMessageException`, `TransactionConflictException`, ... |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client build and client creation
 - rail: egress-sink
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `PulsarClient.Builder()`                                   | factory        | yields `IPulsarClientBuilder`                |
-|  [02]   | `.ServiceUrl(uri)` / `.Authentication(IAuthentication)`    | builder        | broker address + auth provider               |
-|  [03]   | `.ConnectionSecurity(EncryptionPolicy)` / `.TrustedCertificateAuthority(cert)` / `.AuthenticateUsingClientCertificate(cert)` | builder | TLS posture + mTLS |
-|  [04]   | `.KeepAliveInterval(t)` / `.RetryInterval(t)` / `.CloseInactiveConnectionsInterval(t)` | builder | connection timing |
-|  [05]   | `.ExceptionHandler(Action<ExceptionContext>)` / `.ExceptionHandler(Func<…, ValueTask>)` | builder | custom fault handler (sets `FaultAction`) |
-|  [06]   | `.RemoteCertificateValidation(Func<…, bool>)`              | builder        | custom server-cert validation                |
-|  [07]   | `.Build()`                                                 | factory call   | yields `IPulsarClient`                       |
-|  [08]   | `CreateProducer<TMessage>(ProducerOptions<TMessage>)`      | client         | `IProducer<TMessage>`                        |
-|  [09]   | `CreateConsumer<TMessage>(ConsumerOptions<TMessage>)`      | client         | `IConsumer<TMessage>`                        |
-|  [10]   | `CreateReader<TMessage>(ReaderOptions<TMessage>)`          | client         | `IReader<TMessage>`                          |
+| [INDEX] | [SURFACE]                                                                                                                    | [ENTRY_FAMILY] | [RAIL]                                    |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------- |
+|  [01]   | `PulsarClient.Builder()`                                                                                                     | factory        | yields `IPulsarClientBuilder`             |
+|  [02]   | `.ServiceUrl(uri)` / `.Authentication(IAuthentication)`                                                                      | builder        | broker address + auth provider            |
+|  [03]   | `.ConnectionSecurity(EncryptionPolicy)` / `.TrustedCertificateAuthority(cert)` / `.AuthenticateUsingClientCertificate(cert)` | builder        | TLS posture + mTLS                        |
+|  [04]   | `.KeepAliveInterval(t)` / `.RetryInterval(t)` / `.CloseInactiveConnectionsInterval(t)`                                       | builder        | connection timing                         |
+|  [05]   | `.ExceptionHandler(Action<ExceptionContext>)` / `.ExceptionHandler(Func<…, ValueTask>)`                                      | builder        | custom fault handler (sets `FaultAction`) |
+|  [06]   | `.RemoteCertificateValidation(Func<…, bool>)`                                                                                | builder        | custom server-cert validation             |
+|  [07]   | `.Build()`                                                                                                                   | factory call   | yields `IPulsarClient`                    |
+|  [08]   | `CreateProducer<TMessage>(ProducerOptions<TMessage>)`                                                                        | client         | `IProducer<TMessage>`                     |
+|  [09]   | `CreateConsumer<TMessage>(ConsumerOptions<TMessage>)`                                                                        | client         | `IConsumer<TMessage>`                     |
+|  [10]   | `CreateReader<TMessage>(ReaderOptions<TMessage>)`                                                                            | client         | `IReader<TMessage>`                       |
 
 [ENTRYPOINT_SCOPE]: produce
 - rail: egress-sink
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new ProducerOptions<TMessage>(topic, schema)` + `{ CompressionType, ProducerAccessMode, MessageRouter, MaxPendingMessages }` | object init | producer config; default `RoundRobinPartitionRouter` |
-|  [02]   | `producer.Send(message, ct)` (extension)                   | produce        | awaits broker ack → `MessageId`              |
-|  [03]   | `producer.Send(MessageMetadata, message, ct)`              | produce        | keyed/timed produce → `MessageId`            |
-|  [04]   | `sender.Send(byte[] / ReadOnlyMemory<byte>, ct)` (raw-bytes ext) | produce  | `ISend<ReadOnlySequence<byte>>` byte overloads |
-|  [05]   | `producer.NewMessage()` → `IMessageBuilder<TMessage>`      | message build  | fluent `.Key(...).EventTime(...).Property(...).Send(message, ct)` |
-|  [06]   | `producer.SendChannel`                                     | buffered send  | `ISendChannel`: fire-with-callback, `Complete()`, `Completion()` |
-|  [07]   | `AuthenticationFactory.Token(token)` / `.Basic(user, pw)`  | auth           | `IAuthentication` for the client builder      |
-|  [08]   | `Schema.Json<T>()` / `Schema.Protobuf<T>()` / `Schema.AvroISpecificRecord<T>()` / `Schema.ByteArray` | schema | the typed `ISchema<T>` for the options |
+| [INDEX] | [SURFACE]                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                            |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `new ProducerOptions<TMessage>(topic, schema)` + `{ CompressionType, ProducerAccessMode, MessageRouter, MaxPendingMessages }` | object init    | producer config; default `RoundRobinPartitionRouter`              |
+|  [02]   | `producer.Send(message, ct)` (extension)                                                                                      | produce        | awaits broker ack → `MessageId`                                   |
+|  [03]   | `producer.Send(MessageMetadata, message, ct)`                                                                                 | produce        | keyed/timed produce → `MessageId`                                 |
+|  [04]   | `sender.Send(byte[] / ReadOnlyMemory<byte>, ct)` (raw-bytes ext)                                                              | produce        | `ISend<ReadOnlySequence<byte>>` byte overloads                    |
+|  [05]   | `producer.NewMessage()` → `IMessageBuilder<TMessage>`                                                                         | message build  | fluent `.Key(...).EventTime(...).Property(...).Send(message, ct)` |
+|  [06]   | `producer.SendChannel`                                                                                                        | buffered send  | `ISendChannel`: fire-with-callback, `Complete()`, `Completion()`  |
+|  [07]   | `AuthenticationFactory.Token(token)` / `.Basic(user, pw)`                                                                     | auth           | `IAuthentication` for the client builder                          |
+|  [08]   | `Schema.Json<T>()` / `Schema.Protobuf<T>()` / `Schema.AvroISpecificRecord<T>()` / `Schema.ByteArray`                          | schema         | the typed `ISchema<T>` for the options                            |
 
 [ENTRYPOINT_SCOPE]: consume, acknowledge, and process
 - rail: egress-sink
 
 `Process` is the auto-acknowledge pump: it receives, runs the processor concurrently up to `ProcessingOptions.MaxDegreeOfParallelism`, and acks on success (ordered if `EnsureOrderedAcknowledgment`). For manual control, `Receive`/`Messages` plus explicit `Acknowledge`/`AcknowledgeCumulative` give at-least-once with cumulative or individual ack.
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new ConsumerOptions<TMessage>(subscriptionName, topic, schema)` (+ `IEnumerable<string>` / `Regex` topic overloads) | object init | subscription config |
-|  [02]   | `consumer.Receive(ct)`                                     | consume        | one `IMessage<TMessage>`                     |
-|  [03]   | `consumer.Messages(ct)` (extension)                        | consume stream | `IAsyncEnumerable<IMessage<TMessage>>`       |
-|  [04]   | `consumer.TryReceive(out message)` (extension)             | consume probe  | non-blocking buffered receive                |
-|  [05]   | `consumer.Acknowledge(message / MessageId, ct)`            | ack            | individual ack                               |
-|  [06]   | `consumer.AcknowledgeCumulative(message / MessageId, ct)`  | ack            | cumulative ack up to and including           |
-|  [07]   | `consumer.RedeliverUnacknowledgedMessages(ids?, ct)`       | nack           | request redelivery                           |
-|  [08]   | `consumer.Process(Func<IMessage<TMessage>, CancellationToken, ValueTask>, ProcessingOptions?, ct)` | auto-ack pump | concurrent process + auto-acknowledge |
-|  [09]   | `consumer.Unsubscribe(ct)`                                 | teardown       | leaves and deletes the subscription          |
+| [INDEX] | [SURFACE]                                                                                                            | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `new ConsumerOptions<TMessage>(subscriptionName, topic, schema)` (+ `IEnumerable<string>` / `Regex` topic overloads) | object init    | subscription config                    |
+|  [02]   | `consumer.Receive(ct)`                                                                                               | consume        | one `IMessage<TMessage>`               |
+|  [03]   | `consumer.Messages(ct)` (extension)                                                                                  | consume stream | `IAsyncEnumerable<IMessage<TMessage>>` |
+|  [04]   | `consumer.TryReceive(out message)` (extension)                                                                       | consume probe  | non-blocking buffered receive          |
+|  [05]   | `consumer.Acknowledge(message / MessageId, ct)`                                                                      | ack            | individual ack                         |
+|  [06]   | `consumer.AcknowledgeCumulative(message / MessageId, ct)`                                                            | ack            | cumulative ack up to and including     |
+|  [07]   | `consumer.RedeliverUnacknowledgedMessages(ids?, ct)`                                                                 | nack           | request redelivery                     |
+|  [08]   | `consumer.Process(Func<IMessage<TMessage>, CancellationToken, ValueTask>, ProcessingOptions?, ct)`                   | auto-ack pump  | concurrent process + auto-acknowledge  |
+|  [09]   | `consumer.Unsubscribe(ct)`                                                                                           | teardown       | leaves and deletes the subscription    |
 
 [ENTRYPOINT_SCOPE]: read, seek, and reactive state
 - rail: egress-sink
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new ReaderOptions<TMessage>(MessageId.Earliest, topic, schema)` | object init | cursorless replay from a position           |
-|  [02]   | `reader.Messages(ct)` / `reader.Receive(ct)`               | read           | replay stream / one message                  |
-|  [03]   | `seeker.Seek(MessageId)` / `Seek(ulong publishTime)` / `Seek(DateTime/Offset)` | seek | reposition consumer or reader cursor         |
-|  [04]   | `consumer.GetLastMessageIds(ct)` / `reader.GetLastMessageIds(ct)` | lag probe | topic head positions for lag computation     |
-|  [05]   | `client.State.OnStateChangeTo(state, ct)` / `.OnStateChangeFrom(...)` | state watch | await a `ProducerState`/`ConsumerState`/`ReaderState` |
-|  [06]   | `producer.StateChangedTo(ProducerState, ct)` (extension)   | state watch    | typed state-change await                     |
-|  [07]   | `entity.DelayedStateMonitor(state, delay, onLeft, onReached, ct)` | state monitor | reconnect-aware state callback loop          |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `new ReaderOptions<TMessage>(MessageId.Earliest, topic, schema)`               | object init    | cursorless replay from a position                     |
+|  [02]   | `reader.Messages(ct)` / `reader.Receive(ct)`                                   | read           | replay stream / one message                           |
+|  [03]   | `seeker.Seek(MessageId)` / `Seek(ulong publishTime)` / `Seek(DateTime/Offset)` | seek           | reposition consumer or reader cursor                  |
+|  [04]   | `consumer.GetLastMessageIds(ct)` / `reader.GetLastMessageIds(ct)`              | lag probe      | topic head positions for lag computation              |
+|  [05]   | `client.State.OnStateChangeTo(state, ct)` / `.OnStateChangeFrom(...)`          | state watch    | await a `ProducerState`/`ConsumerState`/`ReaderState` |
+|  [06]   | `producer.StateChangedTo(ProducerState, ct)` (extension)                       | state watch    | typed state-change await                              |
+|  [07]   | `entity.DelayedStateMonitor(state, delay, onLeft, onReached, ct)`              | state monitor  | reconnect-aware state callback loop                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

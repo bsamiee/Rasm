@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_RESILIENCE]
 
-`Microsoft.Extensions.Http.Resilience` supplies outbound HTTP resilience handlers,
-standard pipelines, hedging pipelines, routing groups, predicates, request context
-bridges, and policy options for remote hops.
+`Microsoft.Extensions.Http.Resilience` supplies outbound HTTP resilience handlers, standard pipelines, hedging pipelines, routing groups, predicates, request context bridges, and policy options for remote hops.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Http.Resilience`
+
 - package: `Microsoft.Extensions.Http.Resilience`
 - assembly: `Microsoft.Extensions.Http.Resilience`
 - namespace: `Microsoft.Extensions.Http.Resilience`
@@ -16,6 +15,7 @@ bridges, and policy options for remote hops.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: handler and pipeline family
+
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]      | [RAIL]                    |
@@ -28,6 +28,7 @@ bridges, and policy options for remote hops.
 |  [06]   | `IRoutingStrategyBuilder`                | routing builder    | hedging route setup       |
 
 [PUBLIC_TYPE_SCOPE]: strategy options family
+
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]     | [RAIL]                  |
@@ -42,6 +43,7 @@ bridges, and policy options for remote hops.
 |  [08]   | `HedgingEndpointOptions`               | endpoint policy   | endpoint resilience     |
 
 [PUBLIC_TYPE_SCOPE]: routing and predicate family
+
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]     | [RAIL]                   |
@@ -59,6 +61,7 @@ bridges, and policy options for remote hops.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: handler operations
+
 - rail: resilience
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]        | [RAIL]                     |
@@ -76,6 +79,7 @@ bridges, and policy options for remote hops.
 |  [11]   | `DisableFor`                          | retry filter          | method-specific guard      |
 
 [ENTRYPOINT_SCOPE]: routing and context operations
+
 - rail: resilience
 
 | [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]    | [RAIL]                  |
@@ -97,6 +101,7 @@ bridges, and policy options for remote hops.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RESILIENCE_TOPOLOGY]:
+
 - namespaces: `Microsoft.Extensions.Http.Resilience`, `Microsoft.Extensions.Resilience`
 - handler rails: standard resilience handler, custom resilience handler, standard hedging handler
 - policy families: retry, timeout, circuit breaker, rate limiter, attempt timeout, total request timeout
@@ -108,6 +113,7 @@ bridges, and policy options for remote hops.
 - generated validators: option validators for strategy and routing option records
 
 [LOCAL_ADMISSION]:
+
 - Each outbound seam has one resilience policy chain.
 - Hedging is admitted only when the remote operation is idempotent by policy.
 - Routing groups are explicit package policy, not hidden URI rewriting.
@@ -115,6 +121,7 @@ bridges, and policy options for remote hops.
 - Domain retry schedules and HTTP resilience pipelines never stack on the same seam.
 
 [RAIL_LAW]:
+
 - Package: `Microsoft.Extensions.Http.Resilience`
 - Owns: HTTP boundary resilience
 - Accept: outbound retry policy stays seam-local

@@ -28,63 +28,63 @@ ABI fact that fixes the OGR-vs-NTS and OSR-vs-ProjNET seam decisions.
 - asset: `runtimes/osx-arm64/native/`
 - rail: geometry
 
-| [INDEX] | [DYLIB] | [RAIL] | [ROLE] |
-|:-----: |:-------------------------------- |:------- |:------------------------------------------------------------------------------------------------------- |
-| [01] | `libgdal.39.3.13.1.dylib` (+ `libgdal.39.dylib` symlink) | geometry | the GDAL core: every raster driver, the OGR vector driver registry, the GDAL utility algorithms — the library `OSGeo.GDAL.Gdal`/`OSGeo.OGR.Ogr` ultimately drive |
-| [02] | `libgdal_wrap.dylib` | geometry | the SWIG C-wrapper `OSGeo.GDAL.GdalPINVOKE` P/Invokes — the bridge between the managed `Dataset`/`Band`/`Driver` and `libgdal`'s raster C API |
-| [03] | `libogr_wrap.dylib` | geometry | the SWIG wrapper `OSGeo.OGR.OgrPINVOKE` P/Invokes — the bridge for the managed `DataSource`/`Layer`/`Feature`/`Geometry` vector API |
-| [04] | `libosr_wrap.dylib` | geometry | the SWIG wrapper `OSGeo.OSR.OsrPINVOKE` P/Invokes — the bridge for the managed `SpatialReference`/`CoordinateTransformation` CRS API |
-| [05] | `libgdalconst_wrap.dylib` | geometry | the SWIG wrapper for the GDAL constant tables (the `DataType`/`CPLErr`/`ColorInterp` enum values the bindings read at load) |
-| [06] | `maxrev.gdal.core.libshared` | geometry | the dylib manifest `MaxRev.Gdal.Core.GdalBase.ConfigureAll()` reads to discover and load the native library set from the runtime directory |
+| [INDEX] | [DYLIB]                                                  | [RAIL]   | [ROLE]                                                                                                                                                           |
+| :-----: | :------------------------------------------------------- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `libgdal.39.3.13.1.dylib` (+ `libgdal.39.dylib` symlink) | geometry | the GDAL core: every raster driver, the OGR vector driver registry, the GDAL utility algorithms — the library `OSGeo.GDAL.Gdal`/`OSGeo.OGR.Ogr` ultimately drive |
+|  [02]   | `libgdal_wrap.dylib`                                     | geometry | the SWIG C-wrapper `OSGeo.GDAL.GdalPINVOKE` P/Invokes — the bridge between the managed `Dataset`/`Band`/`Driver` and `libgdal`'s raster C API                    |
+|  [03]   | `libogr_wrap.dylib`                                      | geometry | the SWIG wrapper `OSGeo.OGR.OgrPINVOKE` P/Invokes — the bridge for the managed `DataSource`/`Layer`/`Feature`/`Geometry` vector API                              |
+|  [04]   | `libosr_wrap.dylib`                                      | geometry | the SWIG wrapper `OSGeo.OSR.OsrPINVOKE` P/Invokes — the bridge for the managed `SpatialReference`/`CoordinateTransformation` CRS API                             |
+|  [05]   | `libgdalconst_wrap.dylib`                                | geometry | the SWIG wrapper for the GDAL constant tables (the `DataType`/`CPLErr`/`ColorInterp` enum values the bindings read at load)                                      |
+|  [06]   | `maxrev.gdal.core.libshared`                             | geometry | the dylib manifest `MaxRev.Gdal.Core.GdalBase.ConfigureAll()` reads to discover and load the native library set from the runtime directory                       |
 
 [NATIVE_SCOPE]: topology and reprojection engines
 - package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
 - asset: `runtimes/osx-arm64/native/`
 - rail: geometry
 
-| [INDEX] | [DYLIB] | [RAIL] | [ROLE] |
-|:-----: |:-------------------------------- |:------- |:------------------------------------------------------------------------------------------------------- |
-| [01] | `libgeos.3.14.1.dylib` (+ `libgeos_c.1.20.5.dylib`) | geometry | GEOS — the native planar-topology engine behind OGR `Geometry.Intersection`/`Union`/`Buffer`/`Simplify`. The ABI fact behind the OGR-vs-NTS seam: a second GEOS-equivalent engine exists in the closure, so the admitted policy keeps managed `NetTopologySuite` as the ONE canonical planar owner and bridges OGR geometry out at the wire rather than running boolean ops on this native GEOS |
-| [02] | `libproj.25.9.7.1.dylib` | geometry | PROJ — the datum/grid reprojection engine behind OSR `CoordinateTransformation` and `Gdal.Warp -t_srs`. The ABI fact behind the OSR-vs-ProjNET seam: OSR carries PROJ's full grid set (the exotic-datum escalation path managed `ProjNET` cannot match) |
+| [INDEX] | [DYLIB]                                             | [RAIL]   | [ROLE]                                                                                                                                                                                                                                                                                                                                                                                          |
+| :-----: | :-------------------------------------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `libgeos.3.14.1.dylib` (+ `libgeos_c.1.20.5.dylib`) | geometry | GEOS — the native planar-topology engine behind OGR `Geometry.Intersection`/`Union`/`Buffer`/`Simplify`. The ABI fact behind the OGR-vs-NTS seam: a second GEOS-equivalent engine exists in the closure, so the admitted policy keeps managed `NetTopologySuite` as the ONE canonical planar owner and bridges OGR geometry out at the wire rather than running boolean ops on this native GEOS |
+|  [02]   | `libproj.25.9.7.1.dylib`                            | geometry | PROJ — the datum/grid reprojection engine behind OSR `CoordinateTransformation` and `Gdal.Warp -t_srs`. The ABI fact behind the OSR-vs-ProjNET seam: OSR carries PROJ's full grid set (the exotic-datum escalation path managed `ProjNET` cannot match)                                                                                                                                         |
 
 [NATIVE_SCOPE]: raster format codecs
 - package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
 - asset: `runtimes/osx-arm64/native/`
 - rail: geometry
 
-| [INDEX] | [DYLIB_GROUP] | [RAIL] | [ROLE] |
-|:-----: |:------------------------------------------------------------ |:------- |:------------------------------------------------------------------------------------------------------- |
-| [01] | `libtiff.6.2.0` + `libgeotiff.5.2.4` | geometry | GeoTIFF/COG/BigTIFF — the primary site-context raster format the `Dataset.ReadRaster<T>` path decodes |
-| [02] | `libopenjp2.2.5.4` + `libopenjph.0.26.3` | geometry | JPEG2000 (and HTJ2K) — the codec for compressed imagery and elevation tiles |
-| [03] | `libjxl.0.11.2` (+ `libjxl_cms`/`libjxl_threads`) + `libwebp.7.2.0` (+ `libsharpyuv`) | geometry | JPEG-XL and WebP raster codecs |
-| [04] | `libjpeg.62.4.0` + `libpng16.16.55.0` + `libgif` | geometry | the baseline JPEG/PNG/GIF raster codecs |
-| [05] | `libnetcdf.22` + `libhdf5.320`/`libhdf5_hl`/`libhdf.10`/`libmfhdf.10` + `libcfitsio.4.6.3` | geometry | scientific multidimensional raster (netCDF/HDF5/HDF4/FITS) — the `MultiDimTranslate`/`BuildVRT` multidim path and DEM/climate-grid ingest |
-| [06] | `libOpenEXR-3_4`/`libOpenEXRCore`/`libOpenEXRUtil` + `libImath`/`libIex`/`libIlmThread` | geometry | OpenEXR high-dynamic-range raster |
-| [07] | `libpoppler.151` + `liblcms2` | geometry | PDF raster/vector ingest (the `PDF` driver) and the LittleCMS color-management the codecs share |
+| [INDEX] | [DYLIB_GROUP]                                                                              | [RAIL]   | [ROLE]                                                                                                                                    |
+| :-----: | :----------------------------------------------------------------------------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `libtiff.6.2.0` + `libgeotiff.5.2.4`                                                       | geometry | GeoTIFF/COG/BigTIFF — the primary site-context raster format the `Dataset.ReadRaster<T>` path decodes                                     |
+|  [02]   | `libopenjp2.2.5.4` + `libopenjph.0.26.3`                                                   | geometry | JPEG2000 (and HTJ2K) — the codec for compressed imagery and elevation tiles                                                               |
+|  [03]   | `libjxl.0.11.2` (+ `libjxl_cms`/`libjxl_threads`) + `libwebp.7.2.0` (+ `libsharpyuv`)      | geometry | JPEG-XL and WebP raster codecs                                                                                                            |
+|  [04]   | `libjpeg.62.4.0` + `libpng16.16.55.0` + `libgif`                                           | geometry | the baseline JPEG/PNG/GIF raster codecs                                                                                                   |
+|  [05]   | `libnetcdf.22` + `libhdf5.320`/`libhdf5_hl`/`libhdf.10`/`libmfhdf.10` + `libcfitsio.4.6.3` | geometry | scientific multidimensional raster (netCDF/HDF5/HDF4/FITS) — the `MultiDimTranslate`/`BuildVRT` multidim path and DEM/climate-grid ingest |
+|  [06]   | `libOpenEXR-3_4`/`libOpenEXRCore`/`libOpenEXRUtil` + `libImath`/`libIex`/`libIlmThread`    | geometry | OpenEXR high-dynamic-range raster                                                                                                         |
+|  [07]   | `libpoppler.151` + `liblcms2`                                                              | geometry | PDF raster/vector ingest (the `PDF` driver) and the LittleCMS color-management the codecs share                                           |
 
 [NATIVE_SCOPE]: vector format and data-source drivers
 - package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
 - asset: `runtimes/osx-arm64/native/`
 - rail: geometry
 
-| [INDEX] | [DYLIB_GROUP] | [RAIL] | [ROLE] |
-|:-----: |:------------------------------------------------------------ |:------- |:------------------------------------------------------------------------------------------------------- |
-| [01] | `libsqlite3` + `libfreexl.1` | geometry | the GeoPackage/SpatiaLite vector store (`libsqlite3`) and the Excel `.xls` ingest (`libfreexl`) |
-| [02] | `libpq.5` | geometry | PostgreSQL/PostGIS client — the `PostgreSQL`/`PostGISRaster` OGR driver connecting to a live PostGIS store |
-| [03] | `libmysqlclient.21` + `libodbc.2`/`libodbcinst.2` | geometry | the MySQL and ODBC vector data-source drivers |
-| [04] | `libkmlbase`/`libkmldom`/`libkmlengine` + `libxerces-c-3.3` + `libexpat.1` + `libxml2.16` + `libtinyxml2.11` + `liburiparser.1` | geometry | the KML/GML/CityGML/XML-family vector parsers (LibKML + Xerces + expat + libxml2) |
-| [05] | `libarrow.2300.1.0` + `libparquet.2300.1.0` + `libthrift.0.22` | geometry | Arrow/Parquet — the GeoParquet vector driver and the `OLCFastGetArrowStream` columnar bulk path |
-| [06] | `libcurl.4.8.0` + `libssl.3` + `libcrypto.3` | geometry | HTTP/TLS — the `/vsicurl/` virtual-filesystem and the remote/cloud-hosted dataset open |
+| [INDEX] | [DYLIB_GROUP]                                                                                                                   | [RAIL]   | [ROLE]                                                                                                     |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------ | :------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `libsqlite3` + `libfreexl.1`                                                                                                    | geometry | the GeoPackage/SpatiaLite vector store (`libsqlite3`) and the Excel `.xls` ingest (`libfreexl`)            |
+|  [02]   | `libpq.5`                                                                                                                       | geometry | PostgreSQL/PostGIS client — the `PostgreSQL`/`PostGISRaster` OGR driver connecting to a live PostGIS store |
+|  [03]   | `libmysqlclient.21` + `libodbc.2`/`libodbcinst.2`                                                                               | geometry | the MySQL and ODBC vector data-source drivers                                                              |
+|  [04]   | `libkmlbase`/`libkmldom`/`libkmlengine` + `libxerces-c-3.3` + `libexpat.1` + `libxml2.16` + `libtinyxml2.11` + `liburiparser.1` | geometry | the KML/GML/CityGML/XML-family vector parsers (LibKML + Xerces + expat + libxml2)                          |
+|  [05]   | `libarrow.2300.1.0` + `libparquet.2300.1.0` + `libthrift.0.22`                                                                  | geometry | Arrow/Parquet — the GeoParquet vector driver and the `OLCFastGetArrowStream` columnar bulk path            |
+|  [06]   | `libcurl.4.8.0` + `libssl.3` + `libcrypto.3`                                                                                    | geometry | HTTP/TLS — the `/vsicurl/` virtual-filesystem and the remote/cloud-hosted dataset open                     |
 
 [NATIVE_SCOPE]: compression and low-level
 - package: `MaxRev.Gdal.MacosRuntime.Minimal.arm64`
 - asset: `runtimes/osx-arm64/native/`
 - rail: geometry
 
-| [INDEX] | [DYLIB_GROUP] | [RAIL] | [ROLE] |
-|:-----: |:------------------------------------------------------------ |:------- |:------------------------------------------------------------------------------------------------------- |
-| [01] | `libz.1.3.1` + `libdeflate.0` + `libzstd.1.5.7` + `liblz4.1.10` + `libbz2` + `liblzma.5` + `libsnappy.1.2.2` + `libblosc.1.21.6` + `libbrotli*` (common/dec/enc) + `libaec`/`libsz` + `libminizip` | geometry | the compression codec set the raster (DEFLATE/ZSTD/LZW TIFF), GeoPackage, Parquet, and `/vsizip/` paths share |
-| [02] | `libfontconfig.1` + `libfreetype.6.20` + `libpcre2-8` + `libhwy.1.3` + `libltdl.7` | geometry | text rendering for raster annotation (`gdaldem` color-relief, PDF), regex, the Highway SIMD kernels, and the libtool dynamic loader |
+| [INDEX] | [DYLIB_GROUP]                                                                                                                                                                                      | [RAIL]   | [ROLE]                                                                                                                              |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `libz.1.3.1` + `libdeflate.0` + `libzstd.1.5.7` + `liblz4.1.10` + `libbz2` + `liblzma.5` + `libsnappy.1.2.2` + `libblosc.1.21.6` + `libbrotli*` (common/dec/enc) + `libaec`/`libsz` + `libminizip` | geometry | the compression codec set the raster (DEFLATE/ZSTD/LZW TIFF), GeoPackage, Parquet, and `/vsizip/` paths share                       |
+|  [02]   | `libfontconfig.1` + `libfreetype.6.20` + `libpcre2-8` + `libhwy.1.3` + `libltdl.7`                                                                                                                 | geometry | text rendering for raster annotation (`gdaldem` color-relief, PDF), regex, the Highway SIMD kernels, and the libtool dynamic loader |
 
 ## [03]-[ENTRYPOINTS]
 

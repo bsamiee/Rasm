@@ -23,67 +23,67 @@ that sits beside MessagePack's in-codec `Lz4BlockArray`, never double-framing it
 [CODEC_TYPES]: block codec, frame, and level (namespace `K4os.Compression.LZ4`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]     | [PACKAGE_ROLE]   | [CAPABILITY]                                                              |
-| :-----: | :----------- | :--------------- | :----------------------------------------------------------------------- |
-|  [01]   | `LZ4Codec`   | block codec root | span/pointer/array `Encode`/`Decode`/`PartialDecode`, `MaximumOutputSize` |
+| [INDEX] | [SYMBOL]     | [PACKAGE_ROLE]        | [CAPABILITY]                                                               |
+| :-----: | :----------- | :-------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `LZ4Codec`   | block codec root      | span/pointer/array `Encode`/`Decode`/`PartialDecode`, `MaximumOutputSize`  |
 |  [02]   | `LZ4Pickler` | self-describing frame | length-prefixed `Pickle`/`Unpickle` with `IBufferWriter<byte>` sink mirror |
-|  [03]   | `LZ4Level`   | compression level | `L00_FAST`, `L03_HC`..`L09_HC`, `L10_OPT`..`L12_MAX` gradient             |
+|  [03]   | `LZ4Level`   | compression level     | `L00_FAST`, `L03_HC`..`L09_HC`, `L10_OPT`..`L12_MAX` gradient              |
 
 [ENCODER_TYPES]: streaming encoder/decoder pipeline (namespace `K4os.Compression.LZ4.Encoders`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]       | [CAPABILITY]                                                       |
-| :-----: | :--------------------- | :------------------- | :---------------------------------------------------------------- |
-|  [01]   | `ILZ4Encoder`          | encoder contract     | `IDisposable`; `BlockSize`/`BytesReady`, `Topup`, `Encode`        |
-|  [02]   | `ILZ4Decoder`          | decoder contract     | `IDisposable`; `BlockSize`/`BytesReady`, `Decode`, `Inject`, `Drain`, `Peek` |
-|  [03]   | `LZ4Encoder`           | encoder factory      | `Create(chaining, level, blockSize, extraBlocks)` selects fast/HC |
-|  [04]   | `LZ4Decoder`           | decoder factory      | `Create(chaining, blockSize, extraBlocks)` selects chain/block    |
-|  [05]   | `LZ4BlockEncoder`      | block encoder        | `: LZ4EncoderBase`; single-block fast encode                      |
-|  [06]   | `LZ4FastChainEncoder`  | chained fast encoder | `: LZ4EncoderBase`; cross-block dictionary, fast level            |
-|  [07]   | `LZ4HighChainEncoder`  | chained HC encoder   | `: LZ4EncoderBase`; cross-block dictionary, HC/OPT level          |
-|  [08]   | `LZ4BlockDecoder`      | block decoder        | `: UnmanagedResources, ILZ4Decoder`; single-block decode          |
-|  [09]   | `LZ4ChainDecoder`      | chain decoder        | `: UnmanagedResources, ILZ4Decoder`; chained-block decode + `Peek` |
-|  [10]   | `EncoderAction`        | encoder step kind    | `None`/`Loaded`/`Copied`/`Encoded` — the `Encode` step result enum |
-|  [11]   | `LZ4EncoderExtensions` | encoder `ref` helpers | `Topup`/`Encode` cursor-advancing overloads returning `EncoderAction` |
+| [INDEX] | [SYMBOL]               | [PACKAGE_ROLE]        | [CAPABILITY]                                                                 |
+| :-----: | :--------------------- | :-------------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `ILZ4Encoder`          | encoder contract      | `IDisposable`; `BlockSize`/`BytesReady`, `Topup`, `Encode`                   |
+|  [02]   | `ILZ4Decoder`          | decoder contract      | `IDisposable`; `BlockSize`/`BytesReady`, `Decode`, `Inject`, `Drain`, `Peek` |
+|  [03]   | `LZ4Encoder`           | encoder factory       | `Create(chaining, level, blockSize, extraBlocks)` selects fast/HC            |
+|  [04]   | `LZ4Decoder`           | decoder factory       | `Create(chaining, blockSize, extraBlocks)` selects chain/block               |
+|  [05]   | `LZ4BlockEncoder`      | block encoder         | `: LZ4EncoderBase`; single-block fast encode                                 |
+|  [06]   | `LZ4FastChainEncoder`  | chained fast encoder  | `: LZ4EncoderBase`; cross-block dictionary, fast level                       |
+|  [07]   | `LZ4HighChainEncoder`  | chained HC encoder    | `: LZ4EncoderBase`; cross-block dictionary, HC/OPT level                     |
+|  [08]   | `LZ4BlockDecoder`      | block decoder         | `: UnmanagedResources, ILZ4Decoder`; single-block decode                     |
+|  [09]   | `LZ4ChainDecoder`      | chain decoder         | `: UnmanagedResources, ILZ4Decoder`; chained-block decode + `Peek`           |
+|  [10]   | `EncoderAction`        | encoder step kind     | `None`/`Loaded`/`Copied`/`Encoded` — the `Encode` step result enum           |
+|  [11]   | `LZ4EncoderExtensions` | encoder `ref` helpers | `Topup`/`Encode` cursor-advancing overloads returning `EncoderAction`        |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: raw block codec
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]   | [CAPABILITY]                                              |
-| :-----: | :--------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
-|  [01]   | `LZ4Codec.Encode(ReadOnlySpan<byte> src, Span<byte> dst, LZ4Level)`    | span codec     | compresses into a caller buffer; returns written length  |
-|  [02]   | `LZ4Codec.Decode(ReadOnlySpan<byte> src, Span<byte> dst)`             | span codec     | decompresses into a caller buffer of known size          |
-|  [03]   | `LZ4Codec.Decode(ReadOnlySpan<byte> src, Span<byte> dst, ReadOnlySpan<byte> dict)` | dictionary decode | decompresses against a shared dictionary           |
-|  [04]   | `LZ4Codec.PartialDecode(ReadOnlySpan<byte> src, Span<byte> dst)`      | bounded decode | decodes only enough to fill a smaller destination span   |
-|  [05]   | `LZ4Codec.MaximumOutputSize(int length)`                             | sizing call    | worst-case compressed bound for destination allocation   |
-|  [06]   | `LZ4Codec.Enforce32` / `LZ4Codec.Version`                            | static policy  | forces 32-bit codepath; reports the linked codec version |
+| [INDEX] | [SURFACE]                                                                          | [CALL_SHAPE]      | [CAPABILITY]                                             |
+| :-----: | :--------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------- |
+|  [01]   | `LZ4Codec.Encode(ReadOnlySpan<byte> src, Span<byte> dst, LZ4Level)`                | span codec        | compresses into a caller buffer; returns written length  |
+|  [02]   | `LZ4Codec.Decode(ReadOnlySpan<byte> src, Span<byte> dst)`                          | span codec        | decompresses into a caller buffer of known size          |
+|  [03]   | `LZ4Codec.Decode(ReadOnlySpan<byte> src, Span<byte> dst, ReadOnlySpan<byte> dict)` | dictionary decode | decompresses against a shared dictionary                 |
+|  [04]   | `LZ4Codec.PartialDecode(ReadOnlySpan<byte> src, Span<byte> dst)`                   | bounded decode    | decodes only enough to fill a smaller destination span   |
+|  [05]   | `LZ4Codec.MaximumOutputSize(int length)`                                           | sizing call       | worst-case compressed bound for destination allocation   |
+|  [06]   | `LZ4Codec.Enforce32` / `LZ4Codec.Version`                                          | static policy     | forces 32-bit codepath; reports the linked codec version |
 
 [ENTRYPOINT_SCOPE]: self-describing frame (`LZ4Pickler`)
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                                                                  | [CALL_SHAPE]    | [CAPABILITY]                                                |
-| :-----: | :------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
-|  [01]   | `LZ4Pickler.Pickle(ReadOnlySpan<byte> src, LZ4Level)`                      | frame write     | length-prefixed self-describing frame; stack-allocs ≤1 KiB |
-|  [02]   | `LZ4Pickler.Unpickle(ReadOnlySpan<byte> src)`                             | frame read      | allocates and returns the decoded payload                  |
-|  [03]   | `LZ4Pickler.Unpickle(ReadOnlySpan<byte> src, Span<byte> output)`         | frame read      | decodes into a pre-sized caller buffer                     |
-|  [04]   | `LZ4Pickler.Unpickle<TBufferWriter>(ReadOnlySpan<byte>, TBufferWriter)`   | sink read       | zero-copy decode into an `IBufferWriter<byte>` sink         |
-|  [05]   | `LZ4Pickler.UnpickledSize(ReadOnlySpan<byte> src)`                       | frame inspect   | reads the decoded length from the frame header             |
+| [INDEX] | [SURFACE]                                                               | [CALL_SHAPE]  | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------------------------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `LZ4Pickler.Pickle(ReadOnlySpan<byte> src, LZ4Level)`                   | frame write   | length-prefixed self-describing frame; stack-allocs ≤1 KiB |
+|  [02]   | `LZ4Pickler.Unpickle(ReadOnlySpan<byte> src)`                           | frame read    | allocates and returns the decoded payload                  |
+|  [03]   | `LZ4Pickler.Unpickle(ReadOnlySpan<byte> src, Span<byte> output)`        | frame read    | decodes into a pre-sized caller buffer                     |
+|  [04]   | `LZ4Pickler.Unpickle<TBufferWriter>(ReadOnlySpan<byte>, TBufferWriter)` | sink read     | zero-copy decode into an `IBufferWriter<byte>` sink        |
+|  [05]   | `LZ4Pickler.UnpickledSize(ReadOnlySpan<byte> src)`                      | frame inspect | reads the decoded length from the frame header             |
 
 [ENTRYPOINT_SCOPE]: chained streaming pipeline (`ILZ4Encoder`/`ILZ4Decoder`)
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]   | [CAPABILITY]                                                        |
-| :-----: | :----------------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `LZ4Encoder.Create(chaining, level, blockSize, extraBlocks)`      | factory        | builds a block/fast-chain/HC-chain encoder over a fixed block size |
-|  [02]   | `LZ4Decoder.Create(chaining, blockSize, extraBlocks)`            | factory        | builds a block or chain decoder matching the encoder               |
-|  [03]   | `encoder.Topup(ref byte* src, int length)`                       | feed           | copies up to `BlockSize` input bytes; advances the cursor          |
-|  [04]   | `encoder.Encode(ref byte* dst, int length, bool allowCopy)`      | flush          | emits one compressed block; returns an `EncoderAction`             |
-|  [05]   | `decoder.Decode(byte* src, int length, int blockSize)`           | block decode   | decodes one chained block into the internal window                 |
-|  [06]   | `decoder.Inject(byte* src, int length)`                          | dictionary inject | seeds the decoder window from a prior block                      |
-|  [07]   | `decoder.Drain(byte* dst, int offset, int length)`              | drain          | copies decoded bytes out of the internal window                    |
-|  [08]   | `decoder.Peek(int offset)`                                       | window peek    | returns a pointer into the live decode window                      |
+| [INDEX] | [SURFACE]                                                    | [CALL_SHAPE]      | [CAPABILITY]                                                       |
+| :-----: | :----------------------------------------------------------- | :---------------- | :----------------------------------------------------------------- |
+|  [01]   | `LZ4Encoder.Create(chaining, level, blockSize, extraBlocks)` | factory           | builds a block/fast-chain/HC-chain encoder over a fixed block size |
+|  [02]   | `LZ4Decoder.Create(chaining, blockSize, extraBlocks)`        | factory           | builds a block or chain decoder matching the encoder               |
+|  [03]   | `encoder.Topup(ref byte* src, int length)`                   | feed              | copies up to `BlockSize` input bytes; advances the cursor          |
+|  [04]   | `encoder.Encode(ref byte* dst, int length, bool allowCopy)`  | flush             | emits one compressed block; returns an `EncoderAction`             |
+|  [05]   | `decoder.Decode(byte* src, int length, int blockSize)`       | block decode      | decodes one chained block into the internal window                 |
+|  [06]   | `decoder.Inject(byte* src, int length)`                      | dictionary inject | seeds the decoder window from a prior block                        |
+|  [07]   | `decoder.Drain(byte* dst, int offset, int length)`           | drain             | copies decoded bytes out of the internal window                    |
+|  [08]   | `decoder.Peek(int offset)`                                   | window peek       | returns a pointer into the live decode window                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Core.Api`
+
 - package: `Grpc.Core.Api`
 - assembly: `Grpc.Core.Api`
 - namespace: `Grpc.Core`
@@ -47,6 +48,8 @@
 
 [ENTRYPOINT_SCOPE]: `ServerCallContext` — call properties
 
+`AuthContext` carries no stability guarantee.
+
 | [INDEX] | [SURFACE]                             | [KIND]   | [RAIL]                                   |
 | :-----: | :------------------------------------ | :------- | :--------------------------------------- |
 |  [01]   | `Method`                              | property | method name string                       |
@@ -58,7 +61,7 @@
 |  [07]   | `ResponseTrailers`                    | property | mutable outbound `Metadata`              |
 |  [08]   | `Status`                              | property | get/set outbound `Status`                |
 |  [09]   | `WriteOptions`                        | property | get/set write behaviour flags            |
-|  [10]   | `AuthContext`                         | property | auth metadata (experimental)             |
+|  [10]   | `AuthContext`                         | property | auth metadata                            |
 |  [11]   | `UserState`                           | property | `IDictionary<object,object>` slot        |
 |  [12]   | `WriteResponseHeadersAsync(Metadata)` | method   | send response headers before first write |
 |  [13]   | `CreatePropagationToken(options?)`    | method   | context propagation to child calls       |
@@ -135,6 +138,7 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CALL_CONTEXT_DISCIPLINE]:
+
 - `ServerCallContext` is abstract; Grpc.AspNetCore supplies the concrete implementation at server construction time. Do not subclass or mock unless authoring a test seam.
 - `CancellationToken` fires on deadline expiry and on network-level call termination, not only on explicit client cancel; treat it as the single call-liveness signal.
 - `Status` defaults to `OK` if never set; set it before returning from the handler when an error must propagate with a detail string.
@@ -142,17 +146,20 @@
 - `UserState` is per-call mutable scratch space; keys must be reference-comparable objects, not strings, to avoid collisions across interceptors.
 
 [METADATA_DISCIPLINE]:
+
 - Keys normalize to lowercase and accept only `[a-z0-9._-]`; binary-valued keys must end in `-bin`.
 - Binary and ASCII entries coexist in the same collection; check `Entry.IsBinary` before reading `.Value`.
 - `Metadata.Empty` is frozen; mutating it throws `InvalidOperationException`.
 - `Get(key)` returns the last matching entry; `GetAll(key)` returns all matching entries in insertion order.
 
 [STATUS_AND_ERROR_DISCIPLINE]:
+
 - `Status` is a value struct; equality is by code and detail string, not reference.
 - `RpcException.Message` is local only and never transmitted to the peer; use `Status.Detail` for peer-visible error text.
 - `DebugException` on `Status` is populated only on the client side from internal stack state; never use it in business logic.
 
 [METHOD_AND_MARSHAL_DISCIPLINE]:
+
 - `Marshaller<T>` carries both a legacy byte-array codec and a contextual codec (`ContextualSerializer` / `ContextualDeserializer`); prefer the contextual overloads for memory pooling when on Grpc.Net.Client.
 - `Method<TReq,TResp>.FullName` drives server-side dispatch; it must match the generated proto service name exactly.
 - `ServerServiceDefinition.Builder` rejects duplicate `FullName` registrations at build time with `ArgumentException`.

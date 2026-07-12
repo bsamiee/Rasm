@@ -18,43 +18,43 @@
 [PUBLIC_TYPE_SCOPE]: stream codec roots
 - rail: reconstruct#LAS_INGEST
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------------- |:----------------- |:------------------------------------------------------- |
-| [01] | `LasReader` / `ILasReader` | streaming reader | `IDisposable` forward point reader over a LAS stream |
-| [02] | `LasWriter` / `ILasWriter` | streaming writer | `IDisposable` point writer authoring a LAS file |
-| [03] | `LasHeader` / `ILasHeader` | header value | the ASPRS public header block (scale/offset/extrema) |
-| [04] | `LasVariableLengthRecord` / `ILasVariableLengthRecord` | VLR record | header-resident VLR/EVLR — `RecordID` (`ushort`; the `LasVariableLengthRecord.ProjectionRecordID` const `2112` = the OGC WKT CRS record) + `Data` (`byte[]` payload, UTF-8 WKT for record 2112), plus `UserID`/`Description`/`RecordLengthAfterHeader` — carrying the CRS WKT, GeoTIFF keys, classification lookup |
-| [05] | `Stream.IStreamHandler` / `Stream.AsyncStreamHandler` | stream handler | buffered LAS stream the reader/writer drives — `AsyncStreamHandler` is the ONLY shipped implementation and constructs from `(string, uint)` only, so byte admission is PATH-BOUND (one temp path); `LasReader(IStreamHandler)` is the stream growth seam |
-| [06] | `Stream.IStreamBuffer` / `Stream.AsyncStreamBuffer` | point buffer | the bounded point staging buffer behind the handler |
+| [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]    | [RAIL]                                                                                                                                                                                                                                                                                                             |
+| :-----: | :----------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `LasReader` / `ILasReader`                             | streaming reader | `IDisposable` forward point reader over a LAS stream                                                                                                                                                                                                                                                               |
+|  [02]   | `LasWriter` / `ILasWriter`                             | streaming writer | `IDisposable` point writer authoring a LAS file                                                                                                                                                                                                                                                                    |
+|  [03]   | `LasHeader` / `ILasHeader`                             | header value     | the ASPRS public header block (scale/offset/extrema)                                                                                                                                                                                                                                                               |
+|  [04]   | `LasVariableLengthRecord` / `ILasVariableLengthRecord` | VLR record       | header-resident VLR/EVLR — `RecordID` (`ushort`; the `LasVariableLengthRecord.ProjectionRecordID` const `2112` = the OGC WKT CRS record) + `Data` (`byte[]` payload, UTF-8 WKT for record 2112), plus `UserID`/`Description`/`RecordLengthAfterHeader` — carrying the CRS WKT, GeoTIFF keys, classification lookup |
+|  [05]   | `Stream.IStreamHandler` / `Stream.AsyncStreamHandler`  | stream handler   | buffered LAS stream the reader/writer drives — `AsyncStreamHandler` is the ONLY shipped implementation and constructs from `(string, uint)` only, so byte admission is PATH-BOUND (one temp path); `LasReader(IStreamHandler)` is the stream growth seam                                                           |
+|  [06]   | `Stream.IStreamBuffer` / `Stream.AsyncStreamBuffer`    | point buffer     | the bounded point staging buffer behind the handler                                                                                                                                                                                                                                                                |
 
 [PUBLIC_TYPE_SCOPE]: point value model
 - rail: reconstruct#LAS_INGEST
 - note: `LasPoint` implements the full facet interface set; each interface names one ASPRS field group, so a consumer that needs only position/classification depends on the narrow facet rather than the concrete record. Two decode-correctness laws bind every consumer: the reader's ref-fill `Update` MUTATES the ONE `Position` vector in place, so a collected position detaches via `Clone()` (a bare `Position` read aliases every slot onto the last decoded point); and `Classification` surfaces the RAW on-disk byte, so formats 0-5 mask `& 0x1F` off the synthetic/key-point/withheld flag bits (bits 5-7) while formats 6-10 carry a full dedicated class byte.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:------------------ |:----------------- |:---------------------------------------------------------- |
-| [01] | `LasPoint` | point record | the decoded point — implements every facet below |
-| [02] | `IPosition` | position facet | `Vector<double> Position` — the `MathNet.Numerics.LinearAlgebra.Vector<double>` (`using MathNet.Numerics.LinearAlgebra`), collected as `Position.Clone()` instances into a `Vector<double>[]` / `ReadOnlyMemory<Vector<double>>` point buffer with no re-wrap (the bare read aliases the reader's one mutating vector) — + `X`/`Y`/`Z` projections |
-| [03] | `ILasPointBase` | core-field facet | `Classification` (the RAW on-disk byte — flag-packed below format 6, mask `& 0x1F`), `Intensity`, `ScanAngle`, `FlightLine`, `UserData`, `GlobalEncoding` |
-| [04] | `ILasTime` | GPS-time facet | `double Timestamp` (GPS adjusted-standard or week seconds) |
-| [05] | `ILasRgb` | color facet | `R`/`G`/`B` (formats 2/3/5/7/8/10) |
-| [06] | `ILas4Band` | NIR facet | `ILasRgb` + `NIR` near-infrared band (formats 8/10) |
-| [07] | `ILasWaveform` | waveform facet | `WavePacketDescriptorIndex`, `ByteOffsetToWaveformData`, `ReturnPointWaveformLocation`, `X_t`/`Y_t`/`Z_t` |
-| [08] | `ILasPoint` | composite facet | the union facet over `IPosition`+base+time+rgb+4band+waveform |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]    | [RAIL]                                                                                                                                                                                                                                                                                                                                             |
+| :-----: | :-------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `LasPoint`      | point record     | the decoded point — implements every facet below                                                                                                                                                                                                                                                                                                   |
+|  [02]   | `IPosition`     | position facet   | `Vector<double> Position` — the `MathNet.Numerics.LinearAlgebra.Vector<double>` (`using MathNet.Numerics.LinearAlgebra`), collected as `Position.Clone()` instances into a `Vector<double>[]` / `ReadOnlyMemory<Vector<double>>` point buffer with no re-wrap (the bare read aliases the reader's one mutating vector) — + `X`/`Y`/`Z` projections |
+|  [03]   | `ILasPointBase` | core-field facet | `Classification` (the RAW on-disk byte — flag-packed below format 6, mask `& 0x1F`), `Intensity`, `ScanAngle`, `FlightLine`, `UserData`, `GlobalEncoding`                                                                                                                                                                                          |
+|  [04]   | `ILasTime`      | GPS-time facet   | `double Timestamp` (GPS adjusted-standard or week seconds)                                                                                                                                                                                                                                                                                         |
+|  [05]   | `ILasRgb`       | color facet      | `R`/`G`/`B` (formats 2/3/5/7/8/10)                                                                                                                                                                                                                                                                                                                 |
+|  [06]   | `ILas4Band`     | NIR facet        | `ILasRgb` + `NIR` near-infrared band (formats 8/10)                                                                                                                                                                                                                                                                                                |
+|  [07]   | `ILasWaveform`  | waveform facet   | `WavePacketDescriptorIndex`, `ByteOffsetToWaveformData`, `ReturnPointWaveformLocation`, `X_t`/`Y_t`/`Z_t`                                                                                                                                                                                                                                          |
+|  [08]   | `ILasPoint`     | composite facet  | the union facet over `IPosition`+base+time+rgb+4band+waveform                                                                                                                                                                                                                                                                                      |
 
 [PUBLIC_TYPE_SCOPE]: point data record structs and format map
 - rail: reconstruct#LAS_INGEST
 - note: `Structs.LasPointRecordFormat0..10` are `[StructLayout]` blittable records matching the eleven ASPRS on-disk layouts; `PointTypeMap` is the byte↔`Type` dispatch table the reader resolves on, never an enumerated switch.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------ |:--------------- |:----------------------------------------------------- |
-| [01] | `Structs.LasPointRecordFormat0..10` | on-disk record | the eleven blittable ASPRS point data record formats |
-| [02] | `Structs.LasPointConverter` | record converter | marshals an on-disk record ↔ `LasPoint` |
-| [03] | `Structs.FieldUpdater` | field projector | copies a facet group between records on format change |
-| [04] | `PointTypeMap` | format table | `TypeByPointDataFormat` / `PointDataFormatByType` / `SizeByType` byte↔`Type`↔size maps |
-| [05] | `Builders.ILasHeaderBuilder` / `Builders.LasHeaderBuilder` | fluent builder | composes an `ILasHeader` for the writer (`IFluentBuilder<ILasHeader>`) |
-| [06] | `Time.GpsTime` / `Time.LeapSeconds` | GPS-time helper | converts the LAS GPS timestamp ↔ UTC `DateTime` with leap-second tables |
-| [07] | `LasHelper` / `Extensions` | header helper | `GetGlobalEncoding(useGpsStandardTime, useProjWkt)` global-encoding bit composition |
+| [INDEX] | [SYMBOL]                                                   | [TYPE_FAMILY]    | [RAIL]                                                                                 |
+| :-----: | :--------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `Structs.LasPointRecordFormat0..10`                        | on-disk record   | the eleven blittable ASPRS point data record formats                                   |
+|  [02]   | `Structs.LasPointConverter`                                | record converter | marshals an on-disk record ↔ `LasPoint`                                                |
+|  [03]   | `Structs.FieldUpdater`                                     | field projector  | copies a facet group between records on format change                                  |
+|  [04]   | `PointTypeMap`                                             | format table     | `TypeByPointDataFormat` / `PointDataFormatByType` / `SizeByType` byte↔`Type`↔size maps |
+|  [05]   | `Builders.ILasHeaderBuilder` / `Builders.LasHeaderBuilder` | fluent builder   | composes an `ILasHeader` for the writer (`IFluentBuilder<ILasHeader>`)                 |
+|  [06]   | `Time.GpsTime` / `Time.LeapSeconds`                        | GPS-time helper  | converts the LAS GPS timestamp ↔ UTC `DateTime` with leap-second tables                |
+|  [07]   | `LasHelper` / `Extensions`                                 | header helper    | `GetGlobalEncoding(useGpsStandardTime, useProjWkt)` global-encoding bit composition    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -62,41 +62,41 @@
 - rail: reconstruct#LAS_INGEST
 - note: `LasReader` is the streaming front of the uncompressed ingest leg; the `ref` overload fills ONE caller-owned `LasPoint` so a tight decode loop allocates no per-point garbage — and because its `Update` mutates the one `Position` vector in place, the loop collects `point.Position.Clone()` per slot. Byte admission span-writes one `try/finally`-scoped temp path: the sole shipped `IStreamHandler` (`AsyncStreamHandler`) is path-ctor'd.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------------------------------------- |:-------------- |:----------------------------------------------- |
-| [01] | `new LasReader(string lasFilePath, uint pointsToBuffer = 250000)` | ctor | opens a LAS file and reads/validates the header |
-| [02] | `new LasReader(IStreamHandler stream)` | ctor | the stream growth seam — no shipped stream-backed handler exists (`AsyncStreamHandler` ctor is `(string, uint)` only), so this overload is a package-watch item, never a hand-implemented `IStreamHandler` |
-| [03] | `LasPoint GetNextPoint()` | read (alloc) | decodes and returns a new point — the rejected per-point-allocating form in a bulk loop |
-| [04] | `void GetNextPoint(ref LasPoint lpt)` | read (no-alloc) | fills the caller-owned point IN PLACE — the one `Position` vector mutates, so collect `Position.Clone()` |
-| [05] | `bool EOF` / `ulong PointCount` | cursor | end-of-stream flag and total point count |
-| [06] | `ILasHeader Header` / `IList<LasVariableLengthRecord> VLRs` | metadata | the public header and the VLR/EVLR set (CRS WKT) |
-| [07] | `void Dispose()` | lifetime | releases the underlying stream handle |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY]  | [RAIL]                                                                                                                                                                                                     |
+| :-----: | :---------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `new LasReader(string lasFilePath, uint pointsToBuffer = 250000)` | ctor            | opens a LAS file and reads/validates the header                                                                                                                                                            |
+|  [02]   | `new LasReader(IStreamHandler stream)`                            | ctor            | the stream growth seam — no shipped stream-backed handler exists (`AsyncStreamHandler` ctor is `(string, uint)` only), so this overload is a package-watch item, never a hand-implemented `IStreamHandler` |
+|  [03]   | `LasPoint GetNextPoint()`                                         | read (alloc)    | decodes and returns a new point — the rejected per-point-allocating form in a bulk loop                                                                                                                    |
+|  [04]   | `void GetNextPoint(ref LasPoint lpt)`                             | read (no-alloc) | fills the caller-owned point IN PLACE — the one `Position` vector mutates, so collect `Position.Clone()`                                                                                                   |
+|  [05]   | `bool EOF` / `ulong PointCount`                                   | cursor          | end-of-stream flag and total point count                                                                                                                                                                   |
+|  [06]   | `ILasHeader Header` / `IList<LasVariableLengthRecord> VLRs`       | metadata        | the public header and the VLR/EVLR set (CRS WKT)                                                                                                                                                           |
+|  [07]   | `void Dispose()`                                                  | lifetime        | releases the underlying stream handle                                                                                                                                                                      |
 
 [ENTRYPOINT_SCOPE]: point write
 - rail: reconstruct#LAS_INGEST (the symmetric uncompressed emit — no current fold composes it; the LAZ-compressed emit is the `api-laszip` writer leg)
 - note: `LasWriter` authors a LAS file; `Initialize` writes the header, `WritePoints` streams the body, the header is composed through `LasHeaderBuilder`.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------------------------------------------------------- |:------------- |:------------------------------------------- |
-| [01] | `new LasWriter(string lasFile, ILasHeader header, IEnumerable<LasVariableLengthRecord>? vlrs = null)` | ctor | binds the output file, header, and VLR set |
-| [02] | `ILasWriter Initialize()` | open | writes the header + VLRs, positions at body |
-| [03] | `void WritePoint(LasPoint point)` / `void WritePoints(IEnumerable<LasPoint>)` | write | streams one or a sequence of points |
-| [04] | `ulong PointsWritten` / `long Position` / `string OutputFile` | cursor | write progress, byte position, target path |
+| [INDEX] | [SURFACE]                                                                                             | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `new LasWriter(string lasFile, ILasHeader header, IEnumerable<LasVariableLengthRecord>? vlrs = null)` | ctor           | binds the output file, header, and VLR set  |
+|  [02]   | `ILasWriter Initialize()`                                                                             | open           | writes the header + VLRs, positions at body |
+|  [03]   | `void WritePoint(LasPoint point)` / `void WritePoints(IEnumerable<LasPoint>)`                         | write          | streams one or a sequence of points         |
+|  [04]   | `ulong PointsWritten` / `long Position` / `string OutputFile`                                         | cursor         | write progress, byte position, target path  |
 
 [ENTRYPOINT_SCOPE]: header build and field model
 - rail: reconstruct#LAS_INGEST
 - note: `LasHeaderBuilder` is a fluent `IFluentBuilder<ILasHeader>`; `ILasHeader` exposes both the read surface and the `Set*` mutators the converter writes; `LasHelper.GetGlobalEncoding` composes the global-encoding bit field.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------------ |:-------------- |:----------------------------------------------- |
-| [01] | `LasHeaderBuilder.SetVersion(byte major, byte minor)` / `SetPointDataFormat(byte)` | header build | LAS version and point data record format |
-| [02] | `LasHeaderBuilder.SetScale(double x, double y, double z)` / `SetOrigin(double x, double y, double z)` | header build | scale and offset for integer↔double position |
-| [03] | `LasHeaderBuilder.SetMinima(double, double, double)` / `SetMaxima(double, double, double)` | header build | bounding-box extrema |
-| [04] | `LasHeaderBuilder.SetPointCount(ulong)` / `SetCreationDate(ushort year, ushort doy)` | header build | point count and creation date |
-| [05] | `ILasHeader.{ScaleX, OriginX, MinX, MaxX, …}` / `PointDataFormat` / `PointCount` / `NumPointRecordsByReturn` (`ulong[]`, with the `LegacyNumPointRecordsByReturn` `uint[]` pair) | header read | the public header value surface — the `LasCloud` receipt facts |
-| [06] | `ILasHeader.CheckExtrema(IEnumerable<double> pos)` / `SetScale(ILasHeader)` | header derive | recompute extrema / copy scale from a source |
-| [07] | `LasHelper.GetGlobalEncoding(bool useGpsStandardTime = true, bool useProjWkt = false)` | bit compose | GPS-standard-time and WKT-CRS global-encoding bits |
-| [08] | `GpsTime.Parse(double timestamp)` (via `LasPoint.DateTime`) | time decode | LAS GPS timestamp → UTC `DateTime` |
+| [INDEX] | [SURFACE]                                                                                                                                                                        | [ENTRY_FAMILY] | [RAIL]                                                         |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------- |
+|  [01]   | `LasHeaderBuilder.SetVersion(byte major, byte minor)` / `SetPointDataFormat(byte)`                                                                                               | header build   | LAS version and point data record format                       |
+|  [02]   | `LasHeaderBuilder.SetScale(double x, double y, double z)` / `SetOrigin(double x, double y, double z)`                                                                            | header build   | scale and offset for integer↔double position                   |
+|  [03]   | `LasHeaderBuilder.SetMinima(double, double, double)` / `SetMaxima(double, double, double)`                                                                                       | header build   | bounding-box extrema                                           |
+|  [04]   | `LasHeaderBuilder.SetPointCount(ulong)` / `SetCreationDate(ushort year, ushort doy)`                                                                                             | header build   | point count and creation date                                  |
+|  [05]   | `ILasHeader.{ScaleX, OriginX, MinX, MaxX, …}` / `PointDataFormat` / `PointCount` / `NumPointRecordsByReturn` (`ulong[]`, with the `LegacyNumPointRecordsByReturn` `uint[]` pair) | header read    | the public header value surface — the `LasCloud` receipt facts |
+|  [06]   | `ILasHeader.CheckExtrema(IEnumerable<double> pos)` / `SetScale(ILasHeader)`                                                                                                      | header derive  | recompute extrema / copy scale from a source                   |
+|  [07]   | `LasHelper.GetGlobalEncoding(bool useGpsStandardTime = true, bool useProjWkt = false)`                                                                                           | bit compose    | GPS-standard-time and WKT-CRS global-encoding bits             |
+|  [08]   | `GpsTime.Parse(double timestamp)` (via `LasPoint.DateTime`)                                                                                                                      | time decode    | LAS GPS timestamp → UTC `DateTime`                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `JetBrains.Annotations`
+
 - package: `JetBrains.Annotations`
 - license: MIT
 - assembly: `JetBrains.Annotations`
@@ -15,6 +16,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: nullability and collection contracts
+
 - rail: source-analysis
 
 | [INDEX] | [SYMBOL]                 | [CAPABILITY]                                |
@@ -25,6 +27,7 @@
 |  [04]   | `ItemNotNullAttribute`   | marks non-null collection elements          |
 
 [PUBLIC_TYPE_SCOPE]: API reachability and generated-code contracts
+
 - rail: source-analysis
 
 | [INDEX] | [SYMBOL]                      | [CAPABILITY]                                        |
@@ -36,6 +39,7 @@
 |  [05]   | `MustUseReturnValueAttribute` | marks results that callers must consume             |
 
 [PUBLIC_TYPE_SCOPE]: expression, assertion, and string contracts
+
 - rail: source-analysis
 
 | [INDEX] | [SYMBOL]                             | [CAPABILITY]                                      |
@@ -54,6 +58,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: attribute construction
+
 - rail: source-analysis
 
 | [INDEX] | [SURFACE]                                               | [CALL_SHAPE] | [CAPABILITY]               |
@@ -70,16 +75,19 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ONE_IDENTITY]:
+
 - `Directory.Build.props` injects `JetBrains.Annotations` under `UsesThinktecture`.
 - `ThinktectureRuntimeExtensions_SourceGenerator_GenerateJetBrainsAnnotations=false` suppresses generated duplicate definitions.
 - Local code consumes the package identity only; generated code never mints a second annotations namespace.
 
 [LOCAL_ADMISSION]:
+
 - Public or reflection-bound members use `PublicAPI` / `UsedImplicitly` rather than analyzer suppression comments.
 - Generator and host seams use reachability attributes at the member or custom-attribute owner, never wrapper shims.
 - Return-value, assertion, and format contracts ride the verified JetBrains attributes instead of local marker types.
 
 [RAIL_LAW]:
+
 - Package: `JetBrains.Annotations`
 - Owns: annotation attributes for nullability, API reachability, expression contracts, assertions, and structured string analysis
 - Accept: generated-code and analyzer contracts over the single package identity

@@ -45,106 +45,106 @@ asset documented by `api-kafka`, never in these three assemblies.
 [PUBLIC_TYPE_SCOPE]: core envelope and attribute algebra (`CloudNative.CloudEvents`)
 - rail: sync-egress
 
-| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                                       |
-| :-----: | :----------------------------- | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `CloudEvent`                   | event envelope     | mutable sealed v1.0 event; attributes + `Data`               |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                                                         |
+| :-----: | :----------------------------- | :----------------- | :------------------------------------------------------------- |
+|  [01]   | `CloudEvent`                   | event envelope     | mutable sealed v1.0 event; attributes + `Data`                 |
 |  [02]   | `CloudEventAttribute`          | attribute value    | name, type, required/optional/extension, parse/format/validate |
-|  [03]   | `CloudEventAttributeType`      | attribute type     | abstract; seven `CloudEvents` value-type singletons          |
-|  [04]   | `CloudEventsSpecVersion`       | spec-version value | required/optional attribute schema, version-id resolution    |
-|  [05]   | `ContentMode`                  | content-mode enum  | `Structured` vs. `Binary` placement                          |
-|  [06]   | `CloudEventFormatter`          | formatter base     | abstract encode/decode contract every binding extends        |
-|  [07]   | `CloudEventFormatterAttribute` | data-type marker   | `[CloudEventFormatter(typeof(T))]` on a payload CLR type      |
-|  [08]   | `Partitioning`                 | extension static   | `partitionkey` attribute + `Set`/`GetPartitionKey`           |
-|  [09]   | `Sampling`                     | extension static   | `sampledrate` (Integer) attribute + `Set`/`GetSampledRate`   |
-|  [10]   | `Sequence`                     | extension static   | `sequence`/`sequencetype` (String) attributes + accessors    |
-|  [11]   | `Validation`                   | guard static       | `CheckNotNull`/`CheckArgument` boundary guards               |
-|  [12]   | `MimeUtilities`                | mime static        | `application/cloudevents` media types, content-type bridge   |
-|  [13]   | `BinaryDataUtilities`          | byte static        | `ReadOnlyMemory<byte>` ⇄ `Stream`/array/`ArraySegment` glue  |
+|  [03]   | `CloudEventAttributeType`      | attribute type     | abstract; seven `CloudEvents` value-type singletons            |
+|  [04]   | `CloudEventsSpecVersion`       | spec-version value | required/optional attribute schema, version-id resolution      |
+|  [05]   | `ContentMode`                  | content-mode enum  | `Structured` vs. `Binary` placement                            |
+|  [06]   | `CloudEventFormatter`          | formatter base     | abstract encode/decode contract every binding extends          |
+|  [07]   | `CloudEventFormatterAttribute` | data-type marker   | `[CloudEventFormatter(typeof(T))]` on a payload CLR type       |
+|  [08]   | `Partitioning`                 | extension static   | `partitionkey` attribute + `Set`/`GetPartitionKey`             |
+|  [09]   | `Sampling`                     | extension static   | `sampledrate` (Integer) attribute + `Set`/`GetSampledRate`     |
+|  [10]   | `Sequence`                     | extension static   | `sequence`/`sequencetype` (String) attributes + accessors      |
+|  [11]   | `Validation`                   | guard static       | `CheckNotNull`/`CheckArgument` boundary guards                 |
+|  [12]   | `MimeUtilities`                | mime static        | `application/cloudevents` media types, content-type bridge     |
+|  [13]   | `BinaryDataUtilities`          | byte static        | `ReadOnlyMemory<byte>` ⇄ `Stream`/array/`ArraySegment` glue    |
 
 [PUBLIC_TYPE_SCOPE]: Kafka protocol binding (`CloudNative.CloudEvents.Kafka`)
 - rail: sync-egress
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]    | [RAIL]                                                          |
-| :-----: | :---------------- | :--------------- | :------------------------------------------------------------- |
+| :-----: | :---------------- | :--------------- | :-------------------------------------------------------------- |
 |  [01]   | `KafkaExtensions` | extension static | `CloudEvent` ⇄ `Message<string?, byte[]>`; `ce_` header binding |
 
 [PUBLIC_TYPE_SCOPE]: System.Text.Json codec (`CloudNative.CloudEvents.SystemTextJson`)
 - rail: sync-egress
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                            |
-| :-----: | :---------------------- | :-------------- | :--------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                                          |
+| :-----: | :---------------------- | :-------------- | :------------------------------------------------------------------------------ |
 |  [01]   | `JsonEventFormatter`    | formatter       | `CloudEventFormatter` over `System.Text.Json`; `Data` stays `JsonElement`/bytes |
-|  [02]   | `JsonEventFormatter<T>` | typed formatter | binary-mode `Data` serialised/deserialised as CLR type `T`       |
+|  [02]   | `JsonEventFormatter<T>` | typed formatter | binary-mode `Data` serialised/deserialised as CLR type `T`                      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `CloudEvent` construction and attribute access
 - rail: sync-egress
 
-| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :------------------------------------------- | :------------- | :------------------------------------------------------ |
-|  [01]   | `new CloudEvent()`                           | ctor           | default v1.0 event (`CloudEventsSpecVersion.Default`)   |
-|  [02]   | `new CloudEvent(specVersion)`                | ctor           | explicit spec-version event                             |
-|  [03]   | `new CloudEvent(extensionAttributes)`        | ctor           | v1.0 event pre-declaring extension attributes           |
-|  [04]   | `new CloudEvent(specVersion, extensionAttributes)` | ctor     | spec version plus extension declarations                |
-|  [05]   | `Id` / `Source` / `Type` / `Time`            | property       | required (`id`/`source`/`type`) + optional `time`       |
-|  [06]   | `Subject` / `DataSchema` / `DataContentType` | property       | optional context attributes                             |
-|  [07]   | `Data`                                        | property       | `object?` payload; format-decoded, set raw bytes or POCO |
-|  [08]   | `this[CloudEventAttribute]` / `this[string]` | indexer        | typed get/set by attribute or by name (auto-extension)  |
-|  [09]   | `SetAttributeFromString(name, value)`        | parse setter   | parses + sets from canonical string form                |
-|  [10]   | `GetAttribute(name)`                          | lookup         | resolves the `CloudEventAttribute` if populated/known   |
-|  [11]   | `GetPopulatedAttributes()`                    | projection     | `KeyValuePair<CloudEventAttribute, object>` non-null set |
-|  [12]   | `ExtensionAttributes`                         | projection     | declared extension attributes on this event             |
-|  [13]   | `SpecVersion` / `IsValid` / `Validate()`      | validation     | version, required-attribute completeness, throw-on-fail |
+| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `new CloudEvent()`                                 | ctor           | default v1.0 event (`CloudEventsSpecVersion.Default`)    |
+|  [02]   | `new CloudEvent(specVersion)`                      | ctor           | explicit spec-version event                              |
+|  [03]   | `new CloudEvent(extensionAttributes)`              | ctor           | v1.0 event pre-declaring extension attributes            |
+|  [04]   | `new CloudEvent(specVersion, extensionAttributes)` | ctor           | spec version plus extension declarations                 |
+|  [05]   | `Id` / `Source` / `Type` / `Time`                  | property       | required (`id`/`source`/`type`) + optional `time`        |
+|  [06]   | `Subject` / `DataSchema` / `DataContentType`       | property       | optional context attributes                              |
+|  [07]   | `Data`                                             | property       | `object?` payload; format-decoded, set raw bytes or POCO |
+|  [08]   | `this[CloudEventAttribute]` / `this[string]`       | indexer        | typed get/set by attribute or by name (auto-extension)   |
+|  [09]   | `SetAttributeFromString(name, value)`              | parse setter   | parses + sets from canonical string form                 |
+|  [10]   | `GetAttribute(name)`                               | lookup         | resolves the `CloudEventAttribute` if populated/known    |
+|  [11]   | `GetPopulatedAttributes()`                         | projection     | `KeyValuePair<CloudEventAttribute, object>` non-null set |
+|  [12]   | `ExtensionAttributes`                              | projection     | declared extension attributes on this event              |
+|  [13]   | `SpecVersion` / `IsValid` / `Validate()`           | validation     | version, required-attribute completeness, throw-on-fail  |
 
 [ENTRYPOINT_SCOPE]: attribute algebra, spec-version, and standard extensions
 - rail: sync-egress
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY]     | [RAIL]                                              |
-| :-----: | :------------------------------------------------------------ | :----------------- | :------------------------------------------------- |
-|  [01]   | `CloudEventAttribute.CreateExtension(name, type[, validator])` | factory            | declares an extension attribute (+ optional validator) |
-|  [02]   | `CloudEventAttribute.CreateRequired` / `CreateOptional`        | factory            | declares context attributes for a custom spec version |
-|  [03]   | `attribute.Parse(text)` / `Format(value)` / `Validate(value)` | value op           | typed string round-trip and constraint check       |
-|  [04]   | `attribute.Type` / `Name` / `IsRequired` / `IsExtension`      | property           | attribute identity and role flags                  |
-|  [05]   | `CloudEventAttributeType.Boolean`..`Timestamp`                | static singleton   | seven value types: Boolean, Integer, String, Binary, Uri, UriReference, Timestamp |
-|  [06]   | `attributeType.Parse` / `Format` / `Validate` / `ClrType`     | type op            | per-type parse/format and `Type ClrType` mapping   |
-|  [07]   | `CloudEventsSpecVersion.V1_0` / `.Default` / `FromVersionId(id)` | static/parse     | v1.0 schema, default (`V1_0`), id resolution        |
-|  [08]   | `specVersion.RequiredAttributes` / `OptionalAttributes` / `AllAttributes` | projection | attribute-schema enumeration for round-trip        |
-|  [09]   | `Partitioning.SetPartitionKey(ce, key)` / `GetPartitionKey(ce)` | extension accessor | `partitionkey` → Kafka message key                 |
-|  [10]   | `Sequence.SetSequence(ce, value)` / `GetSequenceValue(ce)` / `GetSequenceString(ce)` | extension accessor | total event ordering (String-typed attribute) |
-|  [11]   | `Sampling.SetSampledRate(ce, rate)` / `GetSampledRate(ce)`    | extension accessor | sampling-rate hint (Integer, positive)             |
-|  [12]   | `Partitioning.PartitionKeyAttribute` / `Sampling.SampledRateAttribute` / `Sequence.SequenceAttribute` | static attribute | the extension `CloudEventAttribute` declarations to pre-register |
+| [INDEX] | [SURFACE]                                                                                             | [ENTRY_FAMILY]     | [RAIL]                                                                            |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :----------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `CloudEventAttribute.CreateExtension(name, type[, validator])`                                        | factory            | declares an extension attribute (+ optional validator)                            |
+|  [02]   | `CloudEventAttribute.CreateRequired` / `CreateOptional`                                               | factory            | declares context attributes for a custom spec version                             |
+|  [03]   | `attribute.Parse(text)` / `Format(value)` / `Validate(value)`                                         | value op           | typed string round-trip and constraint check                                      |
+|  [04]   | `attribute.Type` / `Name` / `IsRequired` / `IsExtension`                                              | property           | attribute identity and role flags                                                 |
+|  [05]   | `CloudEventAttributeType.Boolean`..`Timestamp`                                                        | static singleton   | seven value types: Boolean, Integer, String, Binary, Uri, UriReference, Timestamp |
+|  [06]   | `attributeType.Parse` / `Format` / `Validate` / `ClrType`                                             | type op            | per-type parse/format and `Type ClrType` mapping                                  |
+|  [07]   | `CloudEventsSpecVersion.V1_0` / `.Default` / `FromVersionId(id)`                                      | static/parse       | v1.0 schema, default (`V1_0`), id resolution                                      |
+|  [08]   | `specVersion.RequiredAttributes` / `OptionalAttributes` / `AllAttributes`                             | projection         | attribute-schema enumeration for round-trip                                       |
+|  [09]   | `Partitioning.SetPartitionKey(ce, key)` / `GetPartitionKey(ce)`                                       | extension accessor | `partitionkey` → Kafka message key                                                |
+|  [10]   | `Sequence.SetSequence(ce, value)` / `GetSequenceValue(ce)` / `GetSequenceString(ce)`                  | extension accessor | total event ordering (String-typed attribute)                                     |
+|  [11]   | `Sampling.SetSampledRate(ce, rate)` / `GetSampledRate(ce)`                                            | extension accessor | sampling-rate hint (Integer, positive)                                            |
+|  [12]   | `Partitioning.PartitionKeyAttribute` / `Sampling.SampledRateAttribute` / `Sequence.SequenceAttribute` | static attribute   | the extension `CloudEventAttribute` declarations to pre-register                  |
 
 [ENTRYPOINT_SCOPE]: `CloudEventFormatter` codec contract and `JsonEventFormatter`
 - rail: sync-egress
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `new JsonEventFormatter()`                                      | ctor           | default System.Text.Json formatter                 |
-|  [02]   | `new JsonEventFormatter(serializerOptions, documentOptions)`   | ctor           | `JsonSerializerOptions` + `JsonDocumentOptions`    |
-|  [03]   | `new JsonEventFormatter<T>([serializerOptions, documentOptions])` | ctor        | typed-`Data` formatter binding `Data` to `T`       |
-|  [04]   | `EncodeStructuredModeMessage(cloudEvent, out ContentType)`     | encode         | full event as structured-mode JSON body            |
-|  [05]   | `EncodeBinaryModeEventData(cloudEvent)`                        | encode         | binary-mode `Data` body (attributes go to headers) |
-|  [06]   | `EncodeBatchModeMessage(cloudEvents, out ContentType)`         | encode         | batch-mode JSON array body                         |
-|  [07]   | `DecodeStructuredModeMessage(body, contentType, extensions)`  | decode         | `ReadOnlyMemory<byte>`/`Stream` → `CloudEvent`     |
-|  [08]   | `DecodeStructuredModeMessageAsync(stream, contentType, extensions)` | async decode | awaitable stream structured-mode decode            |
-|  [09]   | `DecodeBatchModeMessage` / `DecodeBatchModeMessageAsync(...)`  | decode         | array body → `IReadOnlyList<CloudEvent>` (sync/async) |
-|  [10]   | `DecodeBinaryModeEventData(body, cloudEvent)`                  | decode         | binary-mode `Data` body into an event             |
-|  [11]   | `ConvertToJsonElement(ce)` / `ConvertFromJsonElement(element, exts)` | element bridge | `JsonElement` round-trip of the full event       |
-|  [12]   | `GetOrInferDataContentType(cloudEvent)`                        | content infer  | resolves the effective `datacontenttype`           |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :------------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `new JsonEventFormatter()`                                           | ctor           | default System.Text.Json formatter                    |
+|  [02]   | `new JsonEventFormatter(serializerOptions, documentOptions)`         | ctor           | `JsonSerializerOptions` + `JsonDocumentOptions`       |
+|  [03]   | `new JsonEventFormatter<T>([serializerOptions, documentOptions])`    | ctor           | typed-`Data` formatter binding `Data` to `T`          |
+|  [04]   | `EncodeStructuredModeMessage(cloudEvent, out ContentType)`           | encode         | full event as structured-mode JSON body               |
+|  [05]   | `EncodeBinaryModeEventData(cloudEvent)`                              | encode         | binary-mode `Data` body (attributes go to headers)    |
+|  [06]   | `EncodeBatchModeMessage(cloudEvents, out ContentType)`               | encode         | batch-mode JSON array body                            |
+|  [07]   | `DecodeStructuredModeMessage(body, contentType, extensions)`         | decode         | `ReadOnlyMemory<byte>`/`Stream` → `CloudEvent`        |
+|  [08]   | `DecodeStructuredModeMessageAsync(stream, contentType, extensions)`  | async decode   | awaitable stream structured-mode decode               |
+|  [09]   | `DecodeBatchModeMessage` / `DecodeBatchModeMessageAsync(...)`        | decode         | array body → `IReadOnlyList<CloudEvent>` (sync/async) |
+|  [10]   | `DecodeBinaryModeEventData(body, cloudEvent)`                        | decode         | binary-mode `Data` body into an event                 |
+|  [11]   | `ConvertToJsonElement(ce)` / `ConvertFromJsonElement(element, exts)` | element bridge | `JsonElement` round-trip of the full event            |
+|  [12]   | `GetOrInferDataContentType(cloudEvent)`                              | content infer  | resolves the effective `datacontenttype`              |
 
 [ENTRYPOINT_SCOPE]: Kafka binding and byte/mime glue
 - rail: sync-egress
 
-| [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY] | [RAIL]                                              |
-| :-----: | :----------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `cloudEvent.ToKafkaMessage(contentMode, formatter)`          | egress map     | builds `Message<string?, byte[]>` (key = partitionkey) |
-|  [02]   | `message.ToCloudEvent(formatter, params extensions)`         | ingress map    | decodes a `Message<string?, byte[]>` to `CloudEvent` |
-|  [03]   | `message.ToCloudEvent(formatter, IEnumerable<extensions>)`   | ingress map    | decode with an attribute enumerable                |
-|  [04]   | `message.IsCloudEvent()`                                     | predicate      | detects the CloudEvents `ce_`/content-type headers |
-|  [05]   | `MimeUtilities.MediaType` / `BatchMediaType` / `IsCloudEventsContentType` | mime    | `application/cloudevents[-batch]` constants + probe |
-|  [06]   | `BinaryDataUtilities.AsArray` / `AsStream` / `ToReadOnlyMemory[Async]` | byte glue | `Data`-payload byte/stream conversions             |
-|  [07]   | `CloudEventFormatterAttribute.CreateFormatter(targetType)`   | reflection     | resolves a `[CloudEventFormatter]`-annotated payload's formatter |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                                           |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `cloudEvent.ToKafkaMessage(contentMode, formatter)`                       | egress map     | builds `Message<string?, byte[]>` (key = partitionkey)           |
+|  [02]   | `message.ToCloudEvent(formatter, params extensions)`                      | ingress map    | decodes a `Message<string?, byte[]>` to `CloudEvent`             |
+|  [03]   | `message.ToCloudEvent(formatter, IEnumerable<extensions>)`                | ingress map    | decode with an attribute enumerable                              |
+|  [04]   | `message.IsCloudEvent()`                                                  | predicate      | detects the CloudEvents `ce_`/content-type headers               |
+|  [05]   | `MimeUtilities.MediaType` / `BatchMediaType` / `IsCloudEventsContentType` | mime           | `application/cloudevents[-batch]` constants + probe              |
+|  [06]   | `BinaryDataUtilities.AsArray` / `AsStream` / `ToReadOnlyMemory[Async]`    | byte glue      | `Data`-payload byte/stream conversions                           |
+|  [07]   | `CloudEventFormatterAttribute.CreateFormatter(targetType)`                | reflection     | resolves a `[CloudEventFormatter]`-annotated payload's formatter |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

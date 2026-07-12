@@ -26,20 +26,20 @@ content key.
 [CODEC_TYPES]: reader, writer, and serializer surfaces
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]     | [CAPABILITY]                           |
-| :-----: | :------------------------------- | :----------------- | :------------------------------------- |
-|  [01]   | `MessagePackSerializer`          | codec root         | serializes snapshots (typed+typeless)  |
-|  [02]   | `MessagePackSerializer.Typeless` | typeless codec     | serializes object? with type header    |
-|  [03]   | `MessagePackReader`              | reader             | reads encoded payloads                 |
-|  [04]   | `MessagePackWriter`              | writer             | writes encoded payloads                |
-|  [05]   | `MessagePackStreamReader`        | stream reader      | reads length-delimited streamed frames |
-|  [06]   | `MessagePackSerializerOptions`   | codec policy       | configures serialization               |
-|  [07]   | `MessagePackSecurity`            | security policy    | controls reader security               |
-|  [08]   | `MessagePackCompression`         | compression policy | classifies compression                 |
-|  [09]   | `ExtensionHeader`                | extension header   | carries extension metadata             |
-|  [10]   | `ExtensionResult`                | extension payload  | carries extension data                 |
-|  [11]   | `Nil`                            | nil marker         | carries nil value                      |
-|  [12]   | `MessagePackSerializationException` | codec failure   | `: Exception`; thrown on a serialize/deserialize contract violation — ctors `()`/`(string?)`/`(string?, Exception?)`, the typed throw a custom formatter raises for an unmapped wire shape |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                                                                                                               |
+| :-----: | :---------------------------------- | :----------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `MessagePackSerializer`             | codec root         | serializes snapshots (typed+typeless)                                                                                                                                                      |
+|  [02]   | `MessagePackSerializer.Typeless`    | typeless codec     | serializes object? with type header                                                                                                                                                        |
+|  [03]   | `MessagePackReader`                 | reader             | reads encoded payloads                                                                                                                                                                     |
+|  [04]   | `MessagePackWriter`                 | writer             | writes encoded payloads                                                                                                                                                                    |
+|  [05]   | `MessagePackStreamReader`           | stream reader      | reads length-delimited streamed frames                                                                                                                                                     |
+|  [06]   | `MessagePackSerializerOptions`      | codec policy       | configures serialization                                                                                                                                                                   |
+|  [07]   | `MessagePackSecurity`               | security policy    | controls reader security                                                                                                                                                                   |
+|  [08]   | `MessagePackCompression`            | compression policy | classifies compression                                                                                                                                                                     |
+|  [09]   | `ExtensionHeader`                   | extension header   | carries extension metadata                                                                                                                                                                 |
+|  [10]   | `ExtensionResult`                   | extension payload  | carries extension data                                                                                                                                                                     |
+|  [11]   | `Nil`                               | nil marker         | carries nil value                                                                                                                                                                          |
+|  [12]   | `MessagePackSerializationException` | codec failure      | `: Exception`; thrown on a serialize/deserialize contract violation — ctors `()`/`(string?)`/`(string?, Exception?)`, the typed throw a custom formatter raises for an unmapped wire shape |
 
 `MessagePackSerializer.Typeless` static class: `DefaultOptions` (readable/settable, defaults to `TypelessContractlessStandardResolver.Options`), `Serialize` overloads (`ref MessagePackWriter`, `IBufferWriter<byte>`, `byte[]`, `Stream`), `SerializeAsync(Stream, ...)`, `Deserialize` overloads (`ref MessagePackReader`, `ReadOnlySequence<byte>`, `Stream`, `Memory<byte>`, `ReadOnlyMemory<byte>`), `DeserializeAsync(Stream, ...)`.
 
@@ -89,22 +89,22 @@ Typeless type-allow gate (on `MessagePackSerializerOptions`, overridable): `virt
 `Deserialize<T>` overloads: `(in ReadOnlySequence<byte>, ...)`, `(ref MessagePackReader, ...)`, `(ReadOnlyMemory<byte>, ...)`, `(ReadOnlyMemory<byte>, out int bytesRead, ...)`, `(ReadOnlyMemory<byte>, options, out int bytesRead, ...)`, `(Stream, ...)`.
 Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(Type, ...)`, `SerializeAsync(Type, ...)`, `DeserializeAsync(Type, ...)`.
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]     | [CAPABILITY]                                       |
-| :-----: | :----------------- | :--------------- | :------------------------------------------------- |
-|  [01]   | `Serialize`        | codec call       | writes typed or typeless snapshot payload          |
-|  [02]   | `Deserialize`      | codec call       | reads typed or typeless snapshot payload           |
-|  [03]   | `SerializeAsync`   | async codec call | writes streamed payload                            |
-|  [04]   | `DeserializeAsync` | async codec call | reads streamed payload                             |
-|  [05]   | `SerializeToJson`  | projection call  | serializes directly to JSON string or `TextWriter` |
-|  [06]   | `ConvertToJson`    | projection call  | converts existing msgpack bytes to JSON            |
-|  [07]   | `ConvertFromJson`  | ingestion call   | converts JSON string/TextReader to msgpack         |
-|  [08]   | `DefaultOptions`   | static property  | process-wide default options (gettable/settable)   |
-|  [09]   | `WriteArrayHeader` | writer call      | writes array header                                |
-|  [10]   | `WriteMapHeader`   | writer call      | writes map header                                  |
-|  [11]   | `ReadArrayHeader`  | reader call      | reads array header                                 |
-|  [12]   | `ReadMapHeader`    | reader call      | reads map header                                   |
-|  [13]   | `MessagePackWriter.Write(<primitive>)` | writer call | the typed primitive-write overload family (`Write(long)`/`Write(int)`/`Write(ulong)`/`Write(bool)`/`Write(double)`/`Write(DateTime)`/`Write(ReadOnlySpan<byte>)`/…) a custom `IMessagePackFormatter<T>.Serialize(ref MessagePackWriter, …)` composes |
-|  [14]   | `MessagePackReader.Read<Primitive>()` | reader call | the typed primitive-read family (`ReadInt64()`/`ReadInt32()`/`ReadBoolean()`/`ReadDouble()`/`ReadString()`/…) a custom `IMessagePackFormatter<T>.Deserialize(ref MessagePackReader, …)` composes |
+| [INDEX] | [SURFACE]                              | [CALL_SHAPE]     | [CAPABILITY]                                                                                                                                                                                                                                         |
+| :-----: | :------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Serialize`                            | codec call       | writes typed or typeless snapshot payload                                                                                                                                                                                                            |
+|  [02]   | `Deserialize`                          | codec call       | reads typed or typeless snapshot payload                                                                                                                                                                                                             |
+|  [03]   | `SerializeAsync`                       | async codec call | writes streamed payload                                                                                                                                                                                                                              |
+|  [04]   | `DeserializeAsync`                     | async codec call | reads streamed payload                                                                                                                                                                                                                               |
+|  [05]   | `SerializeToJson`                      | projection call  | serializes directly to JSON string or `TextWriter`                                                                                                                                                                                                   |
+|  [06]   | `ConvertToJson`                        | projection call  | converts existing msgpack bytes to JSON                                                                                                                                                                                                              |
+|  [07]   | `ConvertFromJson`                      | ingestion call   | converts JSON string/TextReader to msgpack                                                                                                                                                                                                           |
+|  [08]   | `DefaultOptions`                       | static property  | process-wide default options (gettable/settable)                                                                                                                                                                                                     |
+|  [09]   | `WriteArrayHeader`                     | writer call      | writes array header                                                                                                                                                                                                                                  |
+|  [10]   | `WriteMapHeader`                       | writer call      | writes map header                                                                                                                                                                                                                                    |
+|  [11]   | `ReadArrayHeader`                      | reader call      | reads array header                                                                                                                                                                                                                                   |
+|  [12]   | `ReadMapHeader`                        | reader call      | reads map header                                                                                                                                                                                                                                     |
+|  [13]   | `MessagePackWriter.Write(<primitive>)` | writer call      | the typed primitive-write overload family (`Write(long)`/`Write(int)`/`Write(ulong)`/`Write(bool)`/`Write(double)`/`Write(DateTime)`/`Write(ReadOnlySpan<byte>)`/…) a custom `IMessagePackFormatter<T>.Serialize(ref MessagePackWriter, …)` composes |
+|  [14]   | `MessagePackReader.Read<Primitive>()`  | reader call      | the typed primitive-read family (`ReadInt64()`/`ReadInt32()`/`ReadBoolean()`/`ReadDouble()`/`ReadString()`/…) a custom `IMessagePackFormatter<T>.Deserialize(ref MessagePackReader, …)` composes                                                     |
 
 `SerializeToJson<T>` overloads: `(TextWriter, T, ...)` and `(T, ...) → string`.
 `ConvertToJson` overloads: `(ReadOnlyMemory<byte>, ...)`, `(in ReadOnlySequence<byte>, ...)`, `(ref MessagePackReader, TextWriter, ...)`.
@@ -113,30 +113,30 @@ Typeless overloads (taking `Type` first): `Serialize(Type, ...)`, `Deserialize(T
 [ENTRYPOINT_SCOPE]: resolver and policy operations
 - rail: snapshot-codec
 
-| [INDEX] | [SURFACE]                                | [CALL_SHAPE]    | [CAPABILITY]                                |
-| :-----: | :--------------------------------------- | :-------------- | :------------------------------------------ |
-|  [01]   | `WithResolver`                           | option call     | sets resolver policy                        |
-|  [02]   | `WithSecurity`                           | option call     | sets security policy                        |
-|  [03]   | `WithCompression`                        | option call     | sets compression policy                     |
-|  [04]   | `WithCompressionMinLength`               | option call     | sets minimum byte length for compression    |
-|  [05]   | `WithOldSpec`                            | option call     | forces MessagePack v1 encoding              |
-|  [06]   | `WithOmitAssemblyVersion`                | option call     | omits assembly version on typeless          |
-|  [07]   | `WithAllowAssemblyVersionMismatch`       | option call     | tolerates version mismatches on typeless    |
-|  [08]   | `WithPool`                               | option call     | substitutes `SequencePool`                  |
-|  [09]   | `WithSuggestedContiguousMemorySize`      | option call     | hints contiguous buffer cap (default 1MB)   |
-|  [10]   | `GetFormatter<T>`                        | resolver call   | resolves formatter                          |
-|  [11]   | `CompositeResolver.Create`               | factory call    | composes resolver from formatters/resolvers |
-|  [12]   | `MessagePackSerializerOptions.Standard`  | static preset   | default standard options                    |
-|  [13]   | `MessagePackSecurity.TrustedData`        | security preset | trusted-data (default) reading              |
-|  [14]   | `MessagePackSecurity.UntrustedData`      | security preset | hardens untrusted reading                   |
-|  [15]   | `MessagePackCompression.Lz4BlockArray`   | compression row | chunked LZ4 framing (ext98)                 |
-|  [16]   | `MessagePackCompression.Lz4Block`        | compression row | single-block LZ4 framing (ext99)            |
-|  [17]   | `MessagePackStreamReader.ReadAsync`      | segment read    | next length-delimited frame                 |
-|  [18]   | `MessagePackStreamReader.ReadArrayAsync` | enumerable read | streamed array elements                     |
-|  [19]   | `MessagePackSecurity.WithMaximumObjectGraphDepth` | security mutator | tighten the default-500 depth cap per profile |
+| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]     | [CAPABILITY]                                                                                                                          |
+| :-----: | :------------------------------------------------ | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `WithResolver`                                    | option call      | sets resolver policy                                                                                                                  |
+|  [02]   | `WithSecurity`                                    | option call      | sets security policy                                                                                                                  |
+|  [03]   | `WithCompression`                                 | option call      | sets compression policy                                                                                                               |
+|  [04]   | `WithCompressionMinLength`                        | option call      | sets minimum byte length for compression                                                                                              |
+|  [05]   | `WithOldSpec`                                     | option call      | forces MessagePack v1 encoding                                                                                                        |
+|  [06]   | `WithOmitAssemblyVersion`                         | option call      | omits assembly version on typeless                                                                                                    |
+|  [07]   | `WithAllowAssemblyVersionMismatch`                | option call      | tolerates version mismatches on typeless                                                                                              |
+|  [08]   | `WithPool`                                        | option call      | substitutes `SequencePool`                                                                                                            |
+|  [09]   | `WithSuggestedContiguousMemorySize`               | option call      | hints contiguous buffer cap (default 1MB)                                                                                             |
+|  [10]   | `GetFormatter<T>`                                 | resolver call    | resolves formatter                                                                                                                    |
+|  [11]   | `CompositeResolver.Create`                        | factory call     | composes resolver from formatters/resolvers                                                                                           |
+|  [12]   | `MessagePackSerializerOptions.Standard`           | static preset    | default standard options                                                                                                              |
+|  [13]   | `MessagePackSecurity.TrustedData`                 | security preset  | trusted-data (default) reading                                                                                                        |
+|  [14]   | `MessagePackSecurity.UntrustedData`               | security preset  | hardens untrusted reading                                                                                                             |
+|  [15]   | `MessagePackCompression.Lz4BlockArray`            | compression row  | chunked LZ4 framing (ext98)                                                                                                           |
+|  [16]   | `MessagePackCompression.Lz4Block`                 | compression row  | single-block LZ4 framing (ext99)                                                                                                      |
+|  [17]   | `MessagePackStreamReader.ReadAsync`               | segment read     | next length-delimited frame                                                                                                           |
+|  [18]   | `MessagePackStreamReader.ReadArrayAsync`          | enumerable read  | streamed array elements                                                                                                               |
+|  [19]   | `MessagePackSecurity.WithMaximumObjectGraphDepth` | security mutator | tighten the default-500 depth cap per profile                                                                                         |
 |  [20]   | `MessagePackSecurity.WithMaximumDecompressedSize` | security mutator | tighten the default-`int.MaxValue` decompressed-size cap per profile (the `Version/commits#CRDT_WIRE` untrusted-decode `1<<20` bound) |
-|  [21]   | `MessagePackSerializerOptions.LoadType`  | typeless gate   | resolve a typeless type header (override seam) |
-|  [22]   | `ThrowIfDeserializingTypeIsDisallowed`   | typeless gate   | type-allowlist override for untrusted typeless |
+|  [21]   | `MessagePackSerializerOptions.LoadType`           | typeless gate    | resolve a typeless type header (override seam)                                                                                        |
+|  [22]   | `ThrowIfDeserializingTypeIsDisallowed`            | typeless gate    | type-allowlist override for untrusted typeless                                                                                        |
 
 `ReadAsync` returns `ValueTask<ReadOnlySequence<byte>?>`; null signals end of stream.
 `MessagePackSerializerOptions` properties: `Resolver`, `Compression`, `CompressionMinLength` (default 64), `SuggestedContiguousMemorySize` (default 1MB), `OldSpec`, `OmitAssemblyVersion`, `AllowAssemblyVersionMismatch`, `Security` (default `TrustedData`, depth cap 500), `SequencePool` (default `SequencePool.Shared`).

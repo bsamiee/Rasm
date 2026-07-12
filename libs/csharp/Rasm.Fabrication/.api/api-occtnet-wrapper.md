@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OcctNet.Wrapper`
+
 - package: `OcctNet.Wrapper`
 - license: wrapper `MIT` (nuspec `<license type="expression">MIT</license>`); the bundled native OCCT binaries are `LGPL-2.1-with-OCCT-exception-1.0` (dynamic-link clean — the exception waives the LGPL relink obligation for the shipped `.dylib`s, no source disclosure for the consuming application)
 - assembly: `OcctNet.Wrapper`
@@ -18,124 +19,145 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: B-rep shape and topology
-- rail: fabrication
-- note: `OcctShape` is the root B-rep handle; the primitives and topology types all derive `: OcctShape`, so a box, an extrusion, and an imported STEP solid are the same disposable shape type — operations (`Fuse`/`Cut`/`Common`/`Extrude`/`Revolve`/`Translate`/`Triangulate`) are uniform across them.
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]   | [CAPABILITY]                                                              |
-| :-----: | :--------------- | :-------------- | :----------------------------------------------------------------------- |
-|  [01]   | `OcctShape`      | B-rep handle    | `IDisposable` root shape — boolean, extrude/revolve/translate, triangulate, import/export, `IsNull`, `BoundingBox` |
-|  [02]   | `OcctFace`       | topology shape  | `: OcctShape` — a planar face built from an `OuterWire` boundary; exposes `OuterWire` |
-|  [03]   | `OcctEdge`       | topology shape  | `: OcctShape` — a straight edge between `Start`/`End` `OcctPointCoordinates` |
-|  [04]   | `OcctWire`       | topology shape  | `: OcctShape` — an ordered `Edges` chain (`params OcctEdge[]` ctor) forming a closed/open boundary |
-|  [05]   | `OcctBox`        | primitive shape | `: OcctShape` — an axis-aligned box (`SizeX`/`SizeY`/`SizeZ`)             |
-|  [06]   | `OcctCylinder`   | primitive shape | `: OcctShape` — a cylinder (`Radius`/`Height`)                            |
-|  [07]   | `OcctSphere`     | primitive shape | `: OcctShape` — a sphere (`Radius`)                                       |
-|  [08]   | `OcctException`  | error type      | `: Exception` carrying the native `StatusCode` (the `OcctStatus` failure surfaced to managed code) |
+- rail: fabrication
+- note: `OcctShape` is the disposable B-rep root for uniform boolean, sweep, transform, and tessellation operations. Every primitive and topology type derives from it, and `OcctException` carries the native `StatusCode` into managed code.
+
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]   | [CAPABILITY]              |
+| :-----: | :-------------- | :-------------- | :------------------------ |
+|  [01]   | `OcctShape`     | B-rep handle    | disposable operation root |
+|  [02]   | `OcctFace`      | topology shape  | planar outer-wire face    |
+|  [03]   | `OcctEdge`      | topology shape  | straight endpoint edge    |
+|  [04]   | `OcctWire`      | topology shape  | ordered edge chain        |
+|  [05]   | `OcctBox`       | primitive shape | axis-aligned box          |
+|  [06]   | `OcctCylinder`  | primitive shape | radius-height cylinder    |
+|  [07]   | `OcctSphere`    | primitive shape | radius sphere             |
+|  [08]   | `OcctException` | error type      | native status exception   |
 
 [PUBLIC_TYPE_SCOPE]: mesh and value types
-- rail: fabrication
-- note: `OcctMesh` is the tessellation result — an immutable indexed triangle mesh; the value types are `readonly record struct`s carrying static well-known anchors (`OcctVector3d.Zero`, `OcctAxis1d.{X,Y,Z}Axis`).
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [CAPABILITY]                                                              |
-| :-----: | :----------------------- | :-------------- | :----------------------------------------------------------------------- |
-|  [01]   | `OcctMesh`               | mesh result     | `sealed` — `Vertices : IReadOnlyList<OcctMeshVertex>`, `TriangleIndices : IReadOnlyList<int>`, `TriangleCount`; `FromShape(OcctShape, linearDeflection, angularDeflection)` |
-|  [02]   | `OcctMeshVertex`         | record struct   | `(double X, double Y, double Z)` triangle vertex                          |
-|  [03]   | `OcctVector3d`           | record struct   | `(double X, double Y, double Z)` — `Zero`, `Length`; the extrude/translate direction |
-|  [04]   | `OcctPointCoordinates`   | record struct   | `(double X, double Y, double Z)` — the value-type point (edge endpoints, axis origin) |
-|  [05]   | `OcctAxis1d`             | record struct   | `(OcctPointCoordinates Origin, OcctVector3d Direction)` — `XAxis`/`YAxis`/`ZAxis`; the revolve axis |
-|  [06]   | `OcctBoundingBox`        | record struct   | `(MinX, MinY, MinZ, MaxX, MaxY, MaxZ)` — `SizeX`/`SizeY`/`SizeZ`; the `OcctShape.BoundingBox` |
-|  [07]   | `OcctPoint3d`            | handle point    | `IDisposable` native point handle — `X`/`Y`/`Z`, `Coordinates`, `Origin()`, `SetCoordinates`, `DistanceTo` (distinct from the value-type `OcctPointCoordinates`) |
-|  [08]   | `OcctRuntime`            | runtime probe   | `static` — `NativeVersion` (P/Invoke `GetVersion()`), `TryGetNativeVersion(out version, out error)` native-load confirmation |
+- rail: fabrication
+- note: `OcctMesh` carries immutable `Vertices`, `TriangleIndices`, and `TriangleCount`, and `FromShape` constructs the tessellation result. Every value type is a `readonly record struct`; `OcctVector3d.Zero` and the `OcctAxis1d` axis members are canonical anchors.
+- point forms: `OcctPointCoordinates` carries edge endpoints and axis origins by value. `OcctPoint3d` owns the disposable native handle with `Coordinates`, `Origin()`, `SetCoordinates`, and `DistanceTo`.
+
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]            |
+| :-----: | :--------------------- | :------------ | :---------------------- |
+|  [01]   | `OcctMesh`             | mesh result   | indexed triangle mesh   |
+|  [02]   | `OcctMeshVertex`       | value type    | triangle vertex         |
+|  [03]   | `OcctVector3d`         | value type    | direction and length    |
+|  [04]   | `OcctPointCoordinates` | value type    | point coordinates       |
+|  [05]   | `OcctAxis1d`           | value type    | revolution axis         |
+|  [06]   | `OcctBoundingBox`      | value type    | shape extents and sizes |
+|  [07]   | `OcctPoint3d`          | handle point  | native distance point   |
+|  [08]   | `OcctRuntime`          | runtime probe | native-load status      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: import / export — `OcctShape` (static read, instance write)
+
 - rail: fabrication
 - note: import is the manufacturing-geometry ingress (STEP/IGES B-rep, STL mesh-as-shape); export round-trips the shape back to a neutral CAD file. ImportStep reads a SINGLE shape — the package surfaces no assembly/XCAF document reader.
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `OcctShape.ImportStep(string filePath)`    | static import  | read STEP AP203/AP214/AP242 → `OcctShape` B-rep        |
-|  [02]   | `OcctShape.ImportIges(string filePath)`    | static import  | read IGES → `OcctShape` B-rep                           |
-|  [03]   | `OcctShape.ImportStl(string filePath)`     | static import  | read STL → `OcctShape` (mesh-as-shape)                  |
-|  [04]   | `shape.ExportStep(string filePath)`        | export         | write the shape to STEP                                 |
-|  [05]   | `shape.ExportIges(string filePath)`        | export         | write the shape to IGES                                 |
-|  [06]   | `shape.ExportStl(string filePath, bool ascii = false)` | export | write the shape to binary (default) or ASCII STL    |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                     |
+| :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `OcctShape.ImportStep(string filePath)`                | static import  | read STEP AP203/AP214/AP242 → `OcctShape` B-rep  |
+|  [02]   | `OcctShape.ImportIges(string filePath)`                | static import  | read IGES → `OcctShape` B-rep                    |
+|  [03]   | `OcctShape.ImportStl(string filePath)`                 | static import  | read STL → `OcctShape` (mesh-as-shape)           |
+|  [04]   | `shape.ExportStep(string filePath)`                    | export         | write the shape to STEP                          |
+|  [05]   | `shape.ExportIges(string filePath)`                    | export         | write the shape to IGES                          |
+|  [06]   | `shape.ExportStl(string filePath, bool ascii = false)` | export         | write the shape to binary (default) or ASCII STL |
 
 [ENTRYPOINT_SCOPE]: primitive construction and topology
-- rail: fabrication
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `new OcctBox(double sizeX, double sizeY, double sizeZ)` | primitive     | an axis-aligned box solid                               |
-|  [02]   | `new OcctCylinder(double radius, double height)`       | primitive     | a cylinder solid                                        |
-|  [03]   | `new OcctSphere(double radius)`                        | primitive     | a sphere solid                                          |
-|  [04]   | `new OcctEdge(OcctPointCoordinates start, OcctPointCoordinates end)` | topology | a straight edge; `Start`/`End` read back the endpoints |
-|  [05]   | `new OcctWire(params OcctEdge[] edges)`                | topology       | an ordered edge chain; `Edges` reads back the chain     |
-|  [06]   | `new OcctFace(OcctWire outerWire)`                     | topology       | a face from a boundary wire; `OuterWire` reads it back   |
-|  [07]   | `new OcctPoint3d(double x, double y, double z)` / `OcctPoint3d.Origin()` | point handle | a native point handle (`DistanceTo`, `SetCoordinates`) |
+- rail: fabrication
+- note: constructed edges expose `Start` and `End`; wires and faces expose `Edges` and `OuterWire`. `OcctPoint3d` carries `DistanceTo` and `SetCoordinates`.
+
+| [INDEX] | [SURFACE]                                                            | [KIND]       | [CAPABILITY]       |
+| :-----: | :------------------------------------------------------------------- | :----------- | :----------------- |
+|  [01]   | `new OcctBox(double sizeX, double sizeY, double sizeZ)`              | primitive    | axis-aligned solid |
+|  [02]   | `new OcctCylinder(double radius, double height)`                     | primitive    | cylinder solid     |
+|  [03]   | `new OcctSphere(double radius)`                                      | primitive    | sphere solid       |
+|  [04]   | `new OcctEdge(OcctPointCoordinates start, OcctPointCoordinates end)` | topology     | straight edge      |
+|  [05]   | `new OcctWire(params OcctEdge[] edges)`                              | topology     | ordered edge chain |
+|  [06]   | `new OcctFace(OcctWire outerWire)`                                   | topology     | boundary face      |
+|  [07]   | `new OcctPoint3d(double x, double y, double z)`                      | point handle | coordinate point   |
+|  [08]   | `OcctPoint3d.Origin()`                                               | point handle | origin point       |
 
 [ENTRYPOINT_SCOPE]: modeling operations — `OcctShape` instance
+
 - rail: fabrication
 - note: every operation returns a NEW `OcctShape` (the source is unmodified, each result disposable); boolean and sweep are the manufacturing-modeling primitives.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `shape.Fuse(OcctShape other)`                          | boolean        | union (BRepAlgoAPI_Fuse)                                |
-|  [02]   | `shape.Cut(OcctShape other)`                           | boolean        | difference (BRepAlgoAPI_Cut)                            |
-|  [03]   | `shape.Common(OcctShape other)`                        | boolean        | intersection (BRepAlgoAPI_Common)                       |
-|  [04]   | `shape.Extrude(OcctVector3d vector)`                   | sweep          | linear extrude a face/wire along a vector               |
-|  [05]   | `shape.Revolve(OcctAxis1d axis, double angleRadians = 2π)` | sweep      | revolve a profile about an axis (default full turn)     |
-|  [06]   | `shape.Translate(OcctVector3d vector)`                 | transform      | rigid translation                                       |
-|  [07]   | `shape.BoundingBox` / `shape.IsNull`                   | query          | the `OcctBoundingBox` extents / null-shape guard        |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                        |
+| :-----: | :--------------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `shape.Fuse(OcctShape other)`                              | boolean        | union (BRepAlgoAPI_Fuse)                            |
+|  [02]   | `shape.Cut(OcctShape other)`                               | boolean        | difference (BRepAlgoAPI_Cut)                        |
+|  [03]   | `shape.Common(OcctShape other)`                            | boolean        | intersection (BRepAlgoAPI_Common)                   |
+|  [04]   | `shape.Extrude(OcctVector3d vector)`                       | sweep          | linear extrude a face/wire along a vector           |
+|  [05]   | `shape.Revolve(OcctAxis1d axis, double angleRadians = 2π)` | sweep          | revolve a profile about an axis (default full turn) |
+|  [06]   | `shape.Translate(OcctVector3d vector)`                     | transform      | rigid translation                                   |
+|  [07]   | `shape.BoundingBox` / `shape.IsNull`                       | query          | the `OcctBoundingBox` extents / null-shape guard    |
 
 [ENTRYPOINT_SCOPE]: tessellation — `OcctShape` → `OcctMesh`
-- rail: fabrication
-- note: tessellation is the bridge from the exact B-rep to a triangle mesh the rest of the fabrication/compute stack consumes; the two deflection knobs trade triangle count against chord/angle accuracy (smaller = finer).
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `shape.Triangulate(double linearDeflection = 0.1, double angularDeflection = 0.5)` → `OcctMesh` | tessellate | incremental-mesh the B-rep to triangles |
-|  [02]   | `OcctMesh.FromShape(OcctShape, double linearDeflection = 0.1, double angularDeflection = 0.5)` | tessellate | the static-factory mirror of `Triangulate` |
-|  [03]   | `mesh.Vertices` / `mesh.TriangleIndices` / `mesh.TriangleCount` | mesh read | the indexed triangle soup (flat `int` index triples) |
-|  [04]   | `new OcctMesh(IReadOnlyList<OcctMeshVertex> vertices, IReadOnlyList<int> triangleIndices)` | construct | wrap an externally-built triangle mesh |
+- rail: fabrication
+- note: tessellation bridges the exact B-rep to an indexed triangle mesh. Both tessellation entrypoints default `linearDeflection` to `0.1` and `angularDeflection` to `0.5`; smaller values refine chord and angle accuracy.
+- mesh layout: `TriangleIndices` carries flat index triples into `Vertices`, and `TriangleCount` reports the resulting face count.
+
+| [INDEX] | [SURFACE]                                                                                  | [KIND]     | [CAPABILITY]          |
+| :-----: | :----------------------------------------------------------------------------------------- | :--------- | :-------------------- |
+|  [01]   | `shape.Triangulate(linearDeflection, angularDeflection)` → `OcctMesh`                      | tessellate | instance tessellation |
+|  [02]   | `OcctMesh.FromShape(OcctShape, linearDeflection, angularDeflection)`                       | tessellate | static tessellation   |
+|  [03]   | `mesh.Vertices`                                                                            | mesh read  | triangle vertices     |
+|  [04]   | `mesh.TriangleIndices`                                                                     | mesh read  | flat index triples    |
+|  [05]   | `mesh.TriangleCount`                                                                       | mesh read  | triangle count        |
+|  [06]   | `new OcctMesh(IReadOnlyList<OcctMeshVertex> vertices, IReadOnlyList<int> triangleIndices)` | construct  | external indexed mesh |
 
 [ENTRYPOINT_SCOPE]: native runtime probe — `OcctRuntime`
-- rail: fabrication
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                                            |
-| :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------------------- |
-|  [01]   | `OcctRuntime.NativeVersion`                            | probe          | the loaded native OCCT version (`GetVersion()` P/Invoke) — confirms the osx-arm64 native asset resolved |
-|  [02]   | `OcctRuntime.TryGetNativeVersion(out string version, out string? error)` | probe | the non-throwing native-load check the boundary runs at startup |
+- rail: fabrication
+- note: `NativeVersion` P/Invokes `GetVersion()` and confirms native asset resolution. `TryGetNativeVersion` returns the version or load error without throwing for the startup gate.
+
+| [INDEX] | [SURFACE]                                                                | [KIND] | [CAPABILITY]      |
+| :-----: | :----------------------------------------------------------------------- | :----- | :---------------- |
+|  [01]   | `OcctRuntime.NativeVersion`                                              | probe  | loaded version    |
+|  [02]   | `OcctRuntime.TryGetNativeVersion(out string version, out string? error)` | probe  | native-load check |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ABI_TOPOLOGY]:
+
 - `OcctShape` and `OcctPoint3d` own native unmanaged handles (`OcctShapeHandle`/`OcctPointHandle` SafeHandles) and are `IDisposable` — wrap EVERY shape (imported, constructed, or operation-result) in `using`, and treat a boolean/sweep/translate result as a fresh disposable shape distinct from its operands; a leaked shape leaks native OCCT memory
 - the value types (`OcctVector3d`/`OcctPointCoordinates`/`OcctAxis1d`/`OcctBoundingBox`/`OcctMeshVertex`) are `readonly record struct`s — pure managed, copyable, not disposable; `OcctPoint3d` is the DISTINCT native handle point (use the value-type `OcctPointCoordinates` for edge endpoints and axis origins, reserve `OcctPoint3d` for the rare native-distance query)
 - a native failure surfaces as `OcctException` carrying the `StatusCode`; the `.Native.OcctStatus` codes and `NativeMethods` P/Invokes are internal — a consumer catches `OcctException` and lowers it to the fabrication fault rail, never reads the raw status enum
 - the osx-arm64 native asset MUST resolve at load (`runtimes/osx-arm64/native/libOcctNetNative.dylib` + its 170 OCCT toolkit `.dylib`s) — gate startup on `OcctRuntime.TryGetNativeVersion` and lower a load failure to a typed capability-miss rather than letting a `DllNotFoundException` escape
 
 [SCOPE_LIMIT]:
-- SINGLE-SHAPE import only — `ImportStep`/`ImportIges` return ONE `OcctShape`; the package surfaces NO assembly/document reader, so STEP color/material/PMI and the assembly tree (the OCCT TKXCAF / XDE document) are UNREACHABLE from managed code even though `libTKXCAF.dylib` and `libTKBinXCAF.dylib` ship in the native bundle — the managed wrapper binds no entry to them. This is the STANDING DEMAND ROW: assembly-tree + AP242 PMI surfacing is durable wrapper pressure (a future managed-binding lane), and it is the `Spec/` plane's secondary GD&T source once bound
-- NO hidden-line removal — `libTKHLR.dylib` ships in the osx-arm64 native bundle but is MANAGED-UNBOUND (no `OcctShape.HiddenLine` / projection entry exists); the HLR projection is the `Documentation/projection` kernel `DrawingProjection` consumer (`Drawing/view.md#View.Apply`), NOT delegated to OCCT
+
+- SINGLE-SHAPE import only — `ImportStep` and `ImportIges` return one `OcctShape`; the managed wrapper binds no assembly/XCAF document reader for STEP color, material, PMI, or assembly trees despite the bundled `libTKXCAF.dylib` and `libTKBinXCAF.dylib` assets
+- assembly-tree and AP242 PMI surfaces remain wrapper-binding pressure and become the `Spec/` plane's secondary GD&T source once bound
+- NO hidden-line removal — `libTKHLR.dylib` ships in the osx-arm64 native bundle but is managed-unbound because no projection entry exists; the `DrawingProjection` consumer owns HLR
 - NO general B-rep editing — the managed surface is import/export + primitives + boolean + linear-extrude/revolve/translate + tessellate; fillet/chamfer/loft/sweep-along-spine, face/edge filleting, and parametric features are absent (the native toolkits exist but are unbound)
 - the `OcctEdge` is straight-only (point-to-point); there is no arc/spline edge constructor in the managed surface — a curved profile is imported (STEP/IGES) or approximated, never authored edge-by-edge with curvature
 
 [LOCAL_ADMISSION]:
+
 - the solid-ingress entry is `OcctShape.ImportStep(path)` / `ImportIges(path)` under a `using`, the imported B-rep tessellated through `shape.Triangulate(linearDeflection, angularDeflection)` to an `OcctMesh`, the deflection chosen by the fabrication tolerance (a finer linear deflection for a small precision part); the `OcctMesh` triangle soup is the cross-seam payload, never the live `OcctShape` handle
 - boolean stock-removal modeling (rough-stock minus the part, a fixture-clearance cut) is `Fuse`/`Cut`/`Common` returning fresh disposable shapes; extrude/revolve build a solid from a profile face for the stock or a swept feature
 - the `BoundingBox` extents drive stock sizing and the `Nesting`/`Workholding` keep-out envelope; read it from `shape.BoundingBox` rather than folding the mesh vertices
 - gate the whole rail on `OcctRuntime.TryGetNativeVersion(out v, out err)` at first use and surface `err` as a capability-miss fault — the rest of the portable-fabrication owner degrades gracefully when the native asset is absent
 
 [INTEGRATION_STACK]:
-- mesh seam: the `OcctMesh` (`Vertices`/`TriangleIndices`) crosses at the boundary to the kernel `MeshSpace` vocabulary (`Meshing/mesh.md`), dirty STL routed through the kernel predicate-gated `HealOp` (`Processing/repair.md`, K15) — a STEP-imported solid flows `OcctShape.ImportStep` → `Triangulate` → `OcctMesh` → kernel `MeshSpace` for the planar-section (kernel `Meshing/slice` slice-stack, K3) and HLR projection (`Documentation/projection` kernel `DrawingProjection` consumer, K6) rails; the OCCT handle never crosses, only the admitted mesh
+
+- mesh seam: `OcctMesh` crosses through `Vertices` and `TriangleIndices` to the kernel `MeshSpace` vocabulary, while dirty STL routes through the predicate-gated `HealOp`
+- mesh consumers: a STEP-imported solid flows `OcctShape.ImportStep` → `Triangulate` → `OcctMesh` → `MeshSpace` for planar-section and `DrawingProjection` rails; only the admitted mesh crosses the boundary
 - 2D ingress complement: this is the 3D B-rep peer of the 2D `ACadSharp` DXF/DWG reader (`api-acadsharp`) — `ACadSharp` owns 2D profile ingress (closed polylines, arcs → `Loop`), `OcctNet.Wrapper` owns 3D solid ingress (STEP/IGES → B-rep → mesh); a part arriving as a 3D STEP solid is tessellated then planar-sectioned to 2D loops, a part arriving as a 2D DXF profile goes straight to `Loop` — neither duplicates the other
 - arc-offset seam: a planar section of the tessellated `OcctMesh` produces line-only contours (the mesh has no curvature); when the section needs arc-comp toolpaths it is re-fit through the owned Bolton biarc fold (`Posting/program`, line-sourced chains only) or carried as bulge into `CavalierContours` (`api-cavaliercontours`) — the OCCT path is line-sourced, so the biarc refit applies here (unlike a natively-bulge `ACadSharp` arc)
 - kernel atoms: `OcctVector3d`/`OcctPointCoordinates`/`OcctBoundingBox` map at the boundary to the kernel `Rasm` `Vector3d`/`Point3d`/box — a kernel geometry type is NEVER passed INTO the OCCT ABI (the named seam rule); the conversion is one-directional at the `OcctShape`/`OcctMesh` boundary
-- persistence: a STEP/IGES/STL export (`ExportStep`/`ExportStl`) mints through `ContentKey.Of(EgressKind, ReadOnlySpan<byte>)` into kernel `ContentHash.Of`; artifact enrollment lands as the Persistence artifact-index posture at `Query/cache#ARTIFACT_BLOB_INDEX`, never a local hasher or a schema-local content-key fork
+- persistence: a STEP/IGES/STL export (`ExportStep`/`ExportStl`) mints through `ContentKey.Of(EgressKind, ReadOnlySpan<byte>)` into kernel `ContentHash.Of`; artifact enrollment lands in the Persistence artifact index, never a local hasher or a schema-local content-key fork
 
 [RAIL_LAW]:
+
 - Package: `OcctNet.Wrapper` (wrapper MIT, native OCCT LGPL-2.1-with-OCCT-exception-1.0 dynamic-link; `lib/net10.0` managed + real `runtimes/osx-arm64/native` OCCT build, NOT ALC-safe, native handles `IDisposable`)
 - Owns: STEP/IGES/STL read into an `OcctShape` B-rep, B-rep → `OcctMesh` tessellation, STEP/IGES/STL write, primitive construction (box/cylinder/sphere/edge/wire/face), boolean fuse/cut/common, linear-extrude/revolve/translate, bounding-box query, and native-version probe
 - Accept: a single imported `OcctShape` under `using`, tessellated to `OcctMesh` at a tolerance-driven deflection, the mesh crossed at the boundary; boolean/sweep modeling returning fresh disposable shapes; the value-type `OcctVector3d`/`OcctAxis1d`/`OcctPointCoordinates` for direction/axis/point inputs; the rail gated on `OcctRuntime.TryGetNativeVersion`

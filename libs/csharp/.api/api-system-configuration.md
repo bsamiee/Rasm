@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Configuration.ConfigurationManager`
+
 - package: `System.Configuration.ConfigurationManager`
 - assembly: `System.Configuration.ConfigurationManager`
 - bound asset: `lib/net10.0` for `net10.0` consumers
@@ -16,23 +17,25 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: root configuration surfaces
+
 - rail: host-configuration-xml
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [CAPABILITY]                                                                                     |
-| :-----: | :-------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `ConfigurationManager`            | static facade       | app settings, connection strings, section lookup, section refresh, configuration open operations |
-|  [02]   | `Configuration`                   | configuration file  | section/group access plus save/save-as operations                                                |
-|  [03]   | `ConfigurationSection`            | section base        | section serialization, deserialization, and section metadata                                     |
-|  [04]   | `ConfigurationSectionGroup`       | section group       | grouped section ownership                                                                        |
-|  [05]   | `ConfigurationElement`            | element base        | property-backed configuration element                                                            |
-|  [06]   | `ConfigurationElementCollection`  | element collection  | collection of configuration elements                                                             |
-|  [07]   | `ConfigurationProperty`           | property metadata   | declared configuration property                                                                  |
-|  [08]   | `ConfigurationPropertyAttribute`  | property attribute  | maps a CLR property to a configuration property                                                  |
-|  [09]   | `ConfigurationPropertyCollection` | property collection | section/element property set                                                                     |
-|  [10]   | `SectionInformation`              | section metadata    | protection, source, declaration, and override metadata                                           |
-|  [11]   | `ContextInformation`              | context metadata    | hosting/context metadata for configuration                                                       |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [CAPABILITY]                  |
+| :-----: | :-------------------------------- | :------------------ | :---------------------------- |
+|  [01]   | `ConfigurationManager`            | static facade       | opens XML configuration       |
+|  [02]   | `Configuration`                   | configuration file  | accesses and saves sections   |
+|  [03]   | `ConfigurationSection`            | section base        | codecs section content        |
+|  [04]   | `ConfigurationSectionGroup`       | section group       | groups sections               |
+|  [05]   | `ConfigurationElement`            | element base        | owns property-backed elements |
+|  [06]   | `ConfigurationElementCollection`  | element collection  | collects elements             |
+|  [07]   | `ConfigurationProperty`           | property metadata   | describes declared properties |
+|  [08]   | `ConfigurationPropertyAttribute`  | property attribute  | maps CLR properties           |
+|  [09]   | `ConfigurationPropertyCollection` | property collection | collects property metadata    |
+|  [10]   | `SectionInformation`              | section metadata    | describes section policy      |
+|  [11]   | `ContextInformation`              | context metadata    | describes host context        |
 
 [PUBLIC_TYPE_SCOPE]: app settings and connection strings
+
 - rail: host-configuration-xml
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [CAPABILITY]                                   |
@@ -45,6 +48,7 @@
 |  [06]   | `ConnectionStringSettingsCollection` | connection rows  | named connection string collection             |
 
 [PUBLIC_TYPE_SCOPE]: file maps, save modes, and section collections
+
 - rail: host-configuration-xml
 
 | [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [CAPABILITY]                                       |
@@ -58,6 +62,7 @@
 |  [07]   | `ConfigurationErrorsException`        | error rail       | XML/configuration failure exception                |
 
 [PUBLIC_TYPE_SCOPE]: application settings provider model
+
 - rail: host-configuration-xml
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]     | [CAPABILITY]                                  |
@@ -73,6 +78,7 @@
 |  [09]   | `SettingsSerializeAsAttribute`      | setting attribute | setting serialization mode marker             |
 
 [PUBLIC_TYPE_SCOPE]: validators and protected configuration
+
 - rail: host-configuration-xml
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]       | [CAPABILITY]                              |
@@ -90,9 +96,10 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ConfigurationManager` facade
+
 - rail: host-configuration-xml
 
-```csharp
+```csharp signature
 public static NameValueCollection ConfigurationManager.AppSettings { get; }
 public static ConnectionStringSettingsCollection ConfigurationManager.ConnectionStrings { get; }
 public static object ConfigurationManager.GetSection(string sectionName);
@@ -106,6 +113,7 @@ public static Configuration ConfigurationManager.OpenMappedExeConfiguration(ExeC
 ```
 
 [ENTRYPOINT_SCOPE]: `Configuration` file model
+
 - rail: host-configuration-xml
 
 | [INDEX] | [SURFACE]                                                | [CALL_SHAPE] | [CAPABILITY]                        |
@@ -124,17 +132,20 @@ public static Configuration ConfigurationManager.OpenMappedExeConfiguration(ExeC
 ## [04]-[IMPLEMENTATION_LAW]
 
 [XML_CONFIGURATION_BOUNDARY]:
+
 - New host configuration code composes `Microsoft.Extensions.Configuration`. This package owns XML configuration APIs and transitive host-compile closure.
 - A direct `PackageReference` is added only if a real owner consumes `System.Configuration.*` APIs.
 - Do not present `ConfigurationManager` as the workspace default configuration abstraction.
 - Do not claim Windows-only behavior unless the exact resolved member/doc surface proves that behavior for the described API.
 
 [LOCAL_ADMISSION]:
+
 - The central manifest pin keeps transitive XML-configuration consumers on the bound package surface without making every project reference it directly.
 - File-map APIs are the explicit route when a caller must load a non-default XML configuration file.
 - App settings, connection strings, settings providers, validators, and protected configuration are XML configuration surfaces. New application settings must route through the active host configuration owner.
 
 [RAIL_LAW]:
+
 - Package: `System.Configuration.ConfigurationManager`
 - Owns: XML configuration files, app settings, connection strings, section/group/element model, settings provider model, validators, protected configuration providers, and file-map open/save operations.
 - Accept: central host-compile/transitive pinning; direct use only where `System.Configuration.*` APIs are a real source dependency.

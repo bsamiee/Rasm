@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Hosting`
+
 - package: `Microsoft.Extensions.Hosting`
 - assembly: `Microsoft.Extensions.Hosting`
 - contract_assembly: `Microsoft.Extensions.Hosting.Abstractions`
@@ -15,6 +16,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: host implementation family
+
 - rail: bootstrap
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [RAIL]               |
@@ -28,6 +30,7 @@
 |  [07]   | `BackgroundServiceExceptionBehavior` | exception policy | hosted loop failure  |
 
 [PUBLIC_TYPE_SCOPE]: host contract family
+
 - rail: bootstrap
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]        | [RAIL]                  |
@@ -47,6 +50,7 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder operations
+
 - rail: bootstrap
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]         | [RAIL]                  |
@@ -69,29 +73,33 @@
 |  [16]   | `Build`                              | host factory           | root host construction  |
 
 [ENTRYPOINT_SCOPE]: runtime operations
+
 - rail: bootstrap
 
-| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]      | [RAIL]                   |
-| :-----: | :-------------------------------------- | :------------------ | :----------------------- |
-|  [01]   | `AddHostedService<T>`                   | hosted registration | hosted service admission |
-|  [02]   | `StartAsync`                            | host lifecycle      | starts hosted services   |
-|  [03]   | `RunAsync`                              | host lifecycle      | run-until-shutdown       |
-|  [04]   | `RunConsoleAsync`                       | console lifecycle   | run console host         |
-|  [05]   | `WaitForShutdownAsync`                  | shutdown wait       | blocks until stop        |
-|  [06]   | `StopAsync`                             | host lifecycle      | stops hosted services    |
-|  [07]   | `IHostedLifecycleService.StartingAsync` | lifecycle hook      | before service start     |
-|  [08]   | `IHostedLifecycleService.StartedAsync`  | lifecycle hook      | after service start      |
-|  [09]   | `IHostedLifecycleService.StoppingAsync` | lifecycle hook      | before service stop      |
-|  [10]   | `IHostedLifecycleService.StoppedAsync`  | lifecycle hook      | after service stop       |
-|  [11]   | `BackgroundService.ExecuteAsync`        | hosted loop         | long-running execution   |
-|  [12]   | `StopApplication`                       | lifetime signal     | coordinated shutdown     |
-|  [13]   | `IHostApplicationLifetime.ApplicationStarted`  | lifetime token  | `CancellationToken` signalled after host start (`.Register(...)` for the running transition) |
-|  [14]   | `IHostApplicationLifetime.ApplicationStopping` | lifetime token  | `CancellationToken` signalled at graceful-shutdown start (`.Register(...)` for the draining transition) |
-|  [15]   | `IHostApplicationLifetime.ApplicationStopped`  | lifetime token  | `CancellationToken` signalled after host stop |
+| [INDEX] | [SURFACE]                                      | [CAPABILITY]           |
+| :-----: | :--------------------------------------------- | :--------------------- |
+|  [01]   | `AddHostedService<T>`                          | hosted registration    |
+|  [02]   | `StartAsync`                                   | starts hosted services |
+|  [03]   | `RunAsync`                                     | run until shutdown     |
+|  [04]   | `RunConsoleAsync`                              | run console host       |
+|  [05]   | `WaitForShutdownAsync`                         | wait for stop          |
+|  [06]   | `StopAsync`                                    | stops hosted services  |
+|  [07]   | `IHostedLifecycleService.StartingAsync`        | pre-start hook         |
+|  [08]   | `IHostedLifecycleService.StartedAsync`         | post-start hook        |
+|  [09]   | `IHostedLifecycleService.StoppingAsync`        | pre-stop hook          |
+|  [10]   | `IHostedLifecycleService.StoppedAsync`         | post-stop hook         |
+|  [11]   | `BackgroundService.ExecuteAsync`               | long-running execution |
+|  [12]   | `StopApplication`                              | coordinated shutdown   |
+|  [13]   | `IHostApplicationLifetime.ApplicationStarted`  | started token          |
+|  [14]   | `IHostApplicationLifetime.ApplicationStopping` | stopping token         |
+|  [15]   | `IHostApplicationLifetime.ApplicationStopped`  | stopped token          |
+
+[APPLICATION_LIFETIME_TOKENS]: `ApplicationStarted` signals after host start, `ApplicationStopping` signals when graceful shutdown begins, and `ApplicationStopped` signals after host stop; each `CancellationToken.Register(...)` binds work to its transition.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [HOSTING_TOPOLOGY]:
+
 - namespaces: `Microsoft.Extensions.Hosting`
 - builder path: create builder, configure host, configure app, register services, configure container, build host
 - builder state: environment, configuration, services, logging, metrics, properties
@@ -102,6 +110,7 @@
 - console policy: `ConsoleLifetimeOptions.SuppressStatusMessages`
 
 [LOCAL_ADMISSION]:
+
 - Process-backed integrations boot through Generic Host.
 - Hosted services adapt external lifetimes into runtime state transitions with ordered lifecycle hooks.
 - Host configuration, app configuration, logging, and metrics enter through the builder rail.
@@ -109,6 +118,7 @@
 - Host lifetime events feed receipts; they never become a second runtime state machine.
 
 [RAIL_LAW]:
+
 - Package: `Microsoft.Extensions.Hosting`
 - Owns: process bootstrap
 - Accept: Generic Host feeds runtime ports

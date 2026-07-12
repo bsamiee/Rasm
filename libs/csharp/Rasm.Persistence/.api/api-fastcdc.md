@@ -24,10 +24,10 @@ and the object-store multipart window; it owns no stream or file IO and no conte
 [PUBLIC_TYPE_SCOPE]: CDC family — the entire public surface is two types
 - rail: chunking
 
-| [INDEX] | [SYMBOL]  | [TYPE_FAMILY] | [CAPABILITY]                                                          |
-| :-----: | :-------- | :------------ | :------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]  | [TYPE_FAMILY]               | [CAPABILITY]                                                   |
+| :-----: | :-------- | :-------------------------- | :------------------------------------------------------------- |
 |  [01]   | `FastCdc` | `sealed class` chunker root | stateful one-shot content-defined chunker over a held `byte[]` |
-|  [02]   | `Chunk`   | `class` cut value           | `Hash`/`Offset`/`Length` cut descriptor, get-only             |
+|  [02]   | `Chunk`   | `class` cut value           | `Hash`/`Offset`/`Length` cut descriptor, get-only              |
 
 `Chunk` is a reference type with a three-arg ctor `Chunk(uint hash, uint offset, uint length)` and
 three get-only `uint` properties; `FastCdc.GetChunks()` yields `Chunk` instances and signals
@@ -46,10 +46,10 @@ implementation members of the gear-hash kernel; only `GetChunks()` and the const
 [ENTRYPOINT_SCOPE]: construction and chunking — one ctor, one enumeration method
 - rail: chunking
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                                              |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------- |
-|  [01]   | `FastCdc(byte[] source, uint minSize, uint avgSize, uint maxSize, bool eof = true)` | ctor   | one constructor; `eof` is an optional parameter (default `true`), not a second overload |
-|  [02]   | `IEnumerable<Chunk> GetChunks()`                                           | enumeration    | lazy iterator over `Next()`; yields `Chunk` rows until a `null` cut ends the stream |
+| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [CAPABILITY]                                                                            |
+| :-----: | :---------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `FastCdc(byte[] source, uint minSize, uint avgSize, uint maxSize, bool eof = true)` | ctor           | one constructor; `eof` is an optional parameter (default `true`), not a second overload |
+|  [02]   | `IEnumerable<Chunk> GetChunks()`                                                    | enumeration    | lazy iterator over `Next()`; yields `Chunk` rows until a `null` cut ends the stream     |
 
 The ctor validates eagerly: `null`/empty `source` throw `ArgumentNullException`/`ArgumentException`;
 `minSize`/`avgSize`/`maxSize` outside their constant bounds throw `ArgumentOutOfRangeException`;

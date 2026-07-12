@@ -24,106 +24,106 @@ The Arrow model is the wire shape on both edges: reads yield `Apache.Arrow.Recor
 
 `DeltaEngine : IEngine, IDisposable` wraps the native `delta-rs` runtime (one per `EngineOptions`, owns DataFusion config) and is the create/load factory; `DeltaTable : ITable, IDisposable` is the deep table owner returned from it. Both are disposable — the engine owns the native runtime, the table owns the native table handle.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [RAIL]                                          |
-| :-----: | :-------------------- | :--------------- | :---------------------------------------------- |
-|  [01]   | `DeltaEngine`         | engine root      | native runtime owner; `CreateTableAsync`/`LoadTableAsync` |
-|  [02]   | `IEngine`             | engine contract  | the engine interface (DI seam)                  |
-|  [03]   | `DeltaTable`          | table owner      | full Delta protocol read/write/maintenance/time-travel |
-|  [04]   | `ITable`              | table contract   | the table interface (the documented operation set) |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY]   | [RAIL]                                                    |
+| :-----: | :------------ | :-------------- | :-------------------------------------------------------- |
+|  [01]   | `DeltaEngine` | engine root     | native runtime owner; `CreateTableAsync`/`LoadTableAsync` |
+|  [02]   | `IEngine`     | engine contract | the engine interface (DI seam)                            |
+|  [03]   | `DeltaTable`  | table owner     | full Delta protocol read/write/maintenance/time-travel    |
+|  [04]   | `ITable`      | table contract  | the table interface (the documented operation set)        |
 
 [PUBLIC_TYPE_SCOPE]: options and create/storage policy
 - rail: store-backend
 
 The options form a record hierarchy rooted at `TableStorageOptions` (URI + `StorageOptions` map). `EngineOptions` tunes the embedded DataFusion executor (batch size, spill, temp dir).
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]     | [RAIL]                                         |
-| :-----: | :--------------------- | :---------------- | :--------------------------------------------- |
-|  [01]   | `TableStorageOptions`  | storage record    | `TableLocation` URI + `StorageOptions` map (S3/Azure/GCS creds) |
-|  [02]   | `TableOptions`         | load record       | `TableStorageOptions` + `Version`/`WithoutFiles`/`LogBufferSize` |
-|  [03]   | `TableCreateOptions`   | create record     | `TableStorageOptions` + Arrow `Schema`/`PartitionBy`/`SaveMode`/`Name`/`Configuration` |
-|  [04]   | `EngineOptions`        | engine record     | DataFusion batch size, spill size, temp dir; `Default` static |
-|  [05]   | `InsertOptions`        | insert record     | `Predicate`/`SaveMode`/`MaxRowsPerGroup`/`OverwriteSchema`; `IsValid` |
-|  [06]   | `CommitOptions`        | commit record     | `CustomMetadata` + idempotent `AppId`/`TransactionVersion` (txn action) |
-|  [07]   | `OptimizeOptions`      | optimize policy   | `OptimizeType`/`TargetSize`/`ZOrderColumns`/`MaxConcurrentTasks`/`MinCommitInterval` |
-|  [08]   | `VacuumOptions`        | vacuum policy     | `DryRun`/`RetentionHours`/`VacuumMode`/`CustomMetadata` |
-|  [09]   | `RestoreOptions`       | restore policy    | `Version` xor `Timestamp`, `IgnoreMissingFiles`, `ProtocolDowngradeAllowed` |
-|  [10]   | `SelectQuery`          | query value       | DataFusion `Query` SQL + `TableAlias` (default `deltatable`) |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]   | [RAIL]                                                                                 |
+| :-----: | :-------------------- | :-------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `TableStorageOptions` | storage record  | `TableLocation` URI + `StorageOptions` map (S3/Azure/GCS creds)                        |
+|  [02]   | `TableOptions`        | load record     | `TableStorageOptions` + `Version`/`WithoutFiles`/`LogBufferSize`                       |
+|  [03]   | `TableCreateOptions`  | create record   | `TableStorageOptions` + Arrow `Schema`/`PartitionBy`/`SaveMode`/`Name`/`Configuration` |
+|  [04]   | `EngineOptions`       | engine record   | DataFusion batch size, spill size, temp dir; `Default` static                          |
+|  [05]   | `InsertOptions`       | insert record   | `Predicate`/`SaveMode`/`MaxRowsPerGroup`/`OverwriteSchema`; `IsValid`                  |
+|  [06]   | `CommitOptions`       | commit record   | `CustomMetadata` + idempotent `AppId`/`TransactionVersion` (txn action)                |
+|  [07]   | `OptimizeOptions`     | optimize policy | `OptimizeType`/`TargetSize`/`ZOrderColumns`/`MaxConcurrentTasks`/`MinCommitInterval`   |
+|  [08]   | `VacuumOptions`       | vacuum policy   | `DryRun`/`RetentionHours`/`VacuumMode`/`CustomMetadata`                                |
+|  [09]   | `RestoreOptions`      | restore policy  | `Version` xor `Timestamp`, `IgnoreMissingFiles`, `ProtocolDowngradeAllowed`            |
+|  [10]   | `SelectQuery`         | query value     | DataFusion `Query` SQL + `TableAlias` (default `deltatable`)                           |
 
 [PUBLIC_TYPE_SCOPE]: result, metadata, action records, and enums
 - rail: store-backend
 
 `AddAction` is the metadata-only commit unit (a pre-written Parquet file registered into the Delta log); `TableMetadata`/`CommitInfo`/`ProtocolInfo` are read-side metadata. The `SaveMode`/`OptimizeType`/`VacuumMode` enums are the protocol vocabulary.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [RAIL]                                          |
-| :-----: | :-------------------- | :--------------- | :---------------------------------------------- |
-|  [01]   | `AddAction`           | commit unit      | `record`; `Path`/`Size`/`PartitionValues`/`ModificationTime`/`DataChange`/`NumRecords`; `ToJson`/`FromJson` |
-|  [02]   | `TableMetadata`       | metadata record  | `Id`/`Name`/`SchemaString`/`PartitionColumns`/`Configuration`/`CreatedTime` |
-|  [03]   | `CommitInfo`          | history record   | `Timestamp`/`Operation`/`OperationParameters`/`ReadVersion`/`IsolationLevel`/`EngineInfo` |
-|  [04]   | `ProtocolInfo`        | protocol struct  | `readonly struct (MinimumReaderVersion, MinimumWriterVersion)` |
-|  [05]   | `SaveMode`            | write enum       | `Append`/`Overwrite`/`ErrorIfExists`/`Ignore`  |
-|  [06]   | `OptimizeType`        | optimize enum    | `BinPack` / `ZOrder`                            |
-|  [07]   | `VacuumMode`          | vacuum enum      | `Lite` / `Full`                                 |
-|  [08]   | `DeltaLakeException`   | base failure     | `Exception`; carries native `ErrorCode`         |
-|  [09]   | `DeltaConfigurationException` | config fault | `DeltaLakeException` code `1000` (bad options)  |
-|  [10]   | `DeltaRuntimeException` | runtime fault   | `DeltaLakeException`; lifts a native `delta-rs` error |
-|  [11]   | `DataFrameExtensions`  | DataFrame ext    | `ToMarkdown()`/`ToPrettyText()` on `Microsoft.Data.Analysis.DataFrame` |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]   | [RAIL]                                                                                                      |
+| :-----: | :---------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `AddAction`                   | commit unit     | `record`; `Path`/`Size`/`PartitionValues`/`ModificationTime`/`DataChange`/`NumRecords`; `ToJson`/`FromJson` |
+|  [02]   | `TableMetadata`               | metadata record | `Id`/`Name`/`SchemaString`/`PartitionColumns`/`Configuration`/`CreatedTime`                                 |
+|  [03]   | `CommitInfo`                  | history record  | `Timestamp`/`Operation`/`OperationParameters`/`ReadVersion`/`IsolationLevel`/`EngineInfo`                   |
+|  [04]   | `ProtocolInfo`                | protocol struct | `readonly struct (MinimumReaderVersion, MinimumWriterVersion)`                                              |
+|  [05]   | `SaveMode`                    | write enum      | `Append`/`Overwrite`/`ErrorIfExists`/`Ignore`                                                               |
+|  [06]   | `OptimizeType`                | optimize enum   | `BinPack` / `ZOrder`                                                                                        |
+|  [07]   | `VacuumMode`                  | vacuum enum     | `Lite` / `Full`                                                                                             |
+|  [08]   | `DeltaLakeException`          | base failure    | `Exception`; carries native `ErrorCode`                                                                     |
+|  [09]   | `DeltaConfigurationException` | config fault    | `DeltaLakeException` code `1000` (bad options)                                                              |
+|  [10]   | `DeltaRuntimeException`       | runtime fault   | `DeltaLakeException`; lifts a native `delta-rs` error                                                       |
+|  [11]   | `DataFrameExtensions`         | DataFrame ext   | `ToMarkdown()`/`ToPrettyText()` on `Microsoft.Data.Analysis.DataFrame`                                      |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine, create, and load
 - rail: store-backend
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `new DeltaEngine(EngineOptions)` / `EngineOptions.Default` | ctor      | builds the native runtime + DataFusion config |
-|  [02]   | `DeltaEngine.CreateTableAsync(TableCreateOptions, ct)` | factory      | creates a table at the URI; returns `ITable` |
-|  [03]   | `DeltaEngine.LoadTableAsync(TableOptions, ct)`       | factory        | loads an existing table at latest/pinned version |
-|  [04]   | `new TableCreateOptions(location, Apache.Arrow.Schema)` + `{ PartitionBy, SaveMode, Configuration }` | object init | mandatory Arrow schema + partition/config policy |
-|  [05]   | `new TableOptions { TableLocation, StorageOptions, Version }` | object init | URI + cloud-store creds + optional pinned version |
+| [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY] | [RAIL]                                            |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `new DeltaEngine(EngineOptions)` / `EngineOptions.Default`                                           | ctor           | builds the native runtime + DataFusion config     |
+|  [02]   | `DeltaEngine.CreateTableAsync(TableCreateOptions, ct)`                                               | factory        | creates a table at the URI; returns `ITable`      |
+|  [03]   | `DeltaEngine.LoadTableAsync(TableOptions, ct)`                                                       | factory        | loads an existing table at latest/pinned version  |
+|  [04]   | `new TableCreateOptions(location, Apache.Arrow.Schema)` + `{ PartitionBy, SaveMode, Configuration }` | object init    | mandatory Arrow schema + partition/config policy  |
+|  [05]   | `new TableOptions { TableLocation, StorageOptions, Version }`                                        | object init    | URI + cloud-store creds + optional pinned version |
 
 [ENTRYPOINT_SCOPE]: Arrow-native read (DataFusion)
 - rail: store-backend
 
 `QueryAsync` runs a DataFusion SQL `SELECT` over the table and streams `RecordBatch`es as an `IAsyncEnumerable` (the table is registered under `SelectQuery.TableAlias`). `ReadAsArrowTableAsync` materializes the whole table as an Arrow `Table`; `ReadAsDataFrameAsync` materializes a `Microsoft.Data.Analysis.DataFrame` (loads into memory).
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `QueryAsync(SelectQuery, ct)`                        | streaming read | `IAsyncEnumerable<RecordBatch>` over DataFusion SQL |
-|  [02]   | `ReadAsArrowTableAsync(ct)`                          | bulk read      | `Apache.Arrow.Table` of the whole table      |
-|  [03]   | `ReadAsDataFrameAsync(ct)`                           | dataframe read | `Microsoft.Data.Analysis.DataFrame` (in-memory) |
-|  [04]   | `FilesAsync()` / `FileUrisAsync()`                   | file listing   | physical Parquet file paths/URIs             |
-|  [05]   | `Schema()` / `Metadata()` / `ProtocolVersions()` / `Version()` / `Location()` | metadata | Arrow `Schema`, `TableMetadata`, `ProtocolInfo`, version, URI |
+| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [RAIL]                                                        |
+| :-----: | :---------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `QueryAsync(SelectQuery, ct)`                                                 | streaming read | `IAsyncEnumerable<RecordBatch>` over DataFusion SQL           |
+|  [02]   | `ReadAsArrowTableAsync(ct)`                                                   | bulk read      | `Apache.Arrow.Table` of the whole table                       |
+|  [03]   | `ReadAsDataFrameAsync(ct)`                                                    | dataframe read | `Microsoft.Data.Analysis.DataFrame` (in-memory)               |
+|  [04]   | `FilesAsync()` / `FileUrisAsync()`                                            | file listing   | physical Parquet file paths/URIs                              |
+|  [05]   | `Schema()` / `Metadata()` / `ProtocolVersions()` / `Version()` / `Location()` | metadata       | Arrow `Schema`, `TableMetadata`, `ProtocolInfo`, version, URI |
 
 [ENTRYPOINT_SCOPE]: write, merge, and metadata-only commit
 - rail: store-backend
 
 `InsertAsync` appends/overwrites Arrow data (`RecordBatch` collection or `IArrowArrayStream`) per `InsertOptions.SaveMode`. `MergeAsync`/`UpdateAsync`/`DeleteAsync` run Delta MERGE/UPDATE/DELETE over SQL predicates. `CreateWriteTransactionAsync` is the metadata-only rail: it registers externally-written Parquet files (`AddAction`s) into the Delta log without rewriting data, with optional idempotent `AppId`/`TransactionVersion` txn markers — pair with `GetLatestTransactionVersionAsync` for exactly-once pre-checks.
 
-| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `InsertAsync(IReadOnlyCollection<RecordBatch>, Schema, InsertOptions, ct)` | write       | append/overwrite Arrow batches               |
-|  [02]   | `InsertAsync(IArrowArrayStream, InsertOptions, ct)`                    | streaming write | append/overwrite from an Arrow stream        |
-|  [03]   | `MergeAsync(query, IReadOnlyCollection<RecordBatch>, Schema, ct)`      | merge          | Delta MERGE over a SQL statement + source batches |
-|  [04]   | `UpdateAsync(query, ct)`                                              | update         | SQL UPDATE; returns JSON stats               |
-|  [05]   | `DeleteAsync(predicate, ct)` / `DeleteAsync(ct)`                      | delete         | predicate delete / delete-all                |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY]  | [RAIL]                                               |
+| :-----: | :-------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `InsertAsync(IReadOnlyCollection<RecordBatch>, Schema, InsertOptions, ct)`  | write           | append/overwrite Arrow batches                       |
+|  [02]   | `InsertAsync(IArrowArrayStream, InsertOptions, ct)`                         | streaming write | append/overwrite from an Arrow stream                |
+|  [03]   | `MergeAsync(query, IReadOnlyCollection<RecordBatch>, Schema, ct)`           | merge           | Delta MERGE over a SQL statement + source batches    |
+|  [04]   | `UpdateAsync(query, ct)`                                                    | update          | SQL UPDATE; returns JSON stats                       |
+|  [05]   | `DeleteAsync(predicate, ct)` / `DeleteAsync(ct)`                            | delete          | predicate delete / delete-all                        |
 |  [06]   | `CreateWriteTransactionAsync(IReadOnlyList<AddAction>, CommitOptions?, ct)` | metadata commit | registers pre-written Parquet files in the Delta log |
-|  [07]   | `GetLatestTransactionVersionAsync(appId, ct)`                         | idempotency    | last committed version for an `AppId` (pre-check) |
-|  [08]   | `AddAction.ToJson()` / `AddAction.FromJson(json)`                    | action codec   | Delta-protocol add-action JSON round-trip    |
+|  [07]   | `GetLatestTransactionVersionAsync(appId, ct)`                               | idempotency     | last committed version for an `AppId` (pre-check)    |
+|  [08]   | `AddAction.ToJson()` / `AddAction.FromJson(json)`                           | action codec    | Delta-protocol add-action JSON round-trip            |
 
 [ENTRYPOINT_SCOPE]: time-travel and maintenance
 - rail: store-backend
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `HistoryAsync(limit?, ct)`                           | time-travel    | `CommitInfo[]` commit log                    |
-|  [02]   | `LoadVersionAsync(version, ct)`                      | time-travel    | reload table state at a version              |
-|  [03]   | `LoadDateTimeAsync(DateTimeOffset/long ms, ct)`      | time-travel    | reload table state as of a timestamp         |
-|  [04]   | `UpdateIncrementalAsync(maxVersion?, ct)`            | refresh        | advance to latest (or pinned) version        |
-|  [05]   | `RestoreAsync(RestoreOptions, ct)`                   | restore        | restore to a version xor timestamp           |
-|  [06]   | `OptimizeAsync(OptimizeOptions, ct)`                 | compaction     | BinPack or Z-Order (`ZOrderColumns` required for ZOrder) |
-|  [07]   | `VacuumAsync(VacuumOptions, ct)`                     | vacuum         | tombstone cleanup (`Lite`/`Full`, `RetentionHours`) |
-|  [08]   | `CheckpointAsync(ct)`                                | checkpoint     | writes a Delta log checkpoint                |
-|  [09]   | `AddConstraintsAsync(constraints, customMetadata?, ct)` | constraint  | adds CHECK constraints + metadata            |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :------------------------------------------------------ | :------------- | :------------------------------------------------------- |
+|  [01]   | `HistoryAsync(limit?, ct)`                              | time-travel    | `CommitInfo[]` commit log                                |
+|  [02]   | `LoadVersionAsync(version, ct)`                         | time-travel    | reload table state at a version                          |
+|  [03]   | `LoadDateTimeAsync(DateTimeOffset/long ms, ct)`         | time-travel    | reload table state as of a timestamp                     |
+|  [04]   | `UpdateIncrementalAsync(maxVersion?, ct)`               | refresh        | advance to latest (or pinned) version                    |
+|  [05]   | `RestoreAsync(RestoreOptions, ct)`                      | restore        | restore to a version xor timestamp                       |
+|  [06]   | `OptimizeAsync(OptimizeOptions, ct)`                    | compaction     | BinPack or Z-Order (`ZOrderColumns` required for ZOrder) |
+|  [07]   | `VacuumAsync(VacuumOptions, ct)`                        | vacuum         | tombstone cleanup (`Lite`/`Full`, `RetentionHours`)      |
+|  [08]   | `CheckpointAsync(ct)`                                   | checkpoint     | writes a Delta log checkpoint                            |
+|  [09]   | `AddConstraintsAsync(constraints, customMetadata?, ct)` | constraint     | adds CHECK constraints + metadata                        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

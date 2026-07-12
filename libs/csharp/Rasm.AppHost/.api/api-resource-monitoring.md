@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_RESOURCE_MONITORING]
 
-`Microsoft.Extensions.Diagnostics.ResourceMonitoring` admits windowed CPU and memory
-utilization snapshots, container-aware resource limits, publisher fan-out, and
-monitoring option policy into the observability rail.
+`Microsoft.Extensions.Diagnostics.ResourceMonitoring` admits windowed CPU and memory utilization snapshots, container-aware resource limits, publisher fan-out, and monitoring option policy into the observability rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
+
 - package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - assembly: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - namespace: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
@@ -17,6 +16,7 @@ monitoring option policy into the observability rail.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: monitor contracts
+
 - rail: observability
 
 | [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]              |
@@ -27,6 +27,7 @@ monitoring option policy into the observability rail.
 |  [04]   | `ISnapshotProvider`             | snapshot contract  | platform snapshot source  |
 
 [PUBLIC_TYPE_SCOPE]: utilization values and options
+
 - rail: observability
 
 | [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]    | [CAPABILITY]                      |
@@ -39,6 +40,7 @@ monitoring option policy into the observability rail.
 |  [06]   | `ResourceMonitoringOptions` | option value      | windows, intervals, metric flags  |
 
 [PUBLIC_TYPE_SCOPE]: registration surfaces
+
 - rail: observability
 
 | [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]    | [CAPABILITY]         |
@@ -49,6 +51,7 @@ monitoring option policy into the observability rail.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration and configuration
+
 - rail: observability
 
 | [INDEX] | [SURFACE]               | [CALL_SHAPE]                                  | [CAPABILITY]                 |
@@ -58,6 +61,7 @@ monitoring option policy into the observability rail.
 |  [03]   | `AddPublisher<T>`       | builder generic registration                  | admits utilization publisher |
 
 [ENTRYPOINT_SCOPE]: monitor operations
+
 - rail: observability
 
 | [INDEX] | [SURFACE]          | [CALL_SHAPE]                  | [CAPABILITY]                               |
@@ -67,6 +71,7 @@ monitoring option policy into the observability rail.
 |  [03]   | `GetResourceQuota` | quota read                    | reads the current container resource quota |
 
 [ENTRYPOINT_SCOPE]: option policy
+
 - rail: observability
 - call shape: option property on `ResourceMonitoringOptions`
 
@@ -84,6 +89,7 @@ monitoring option policy into the observability rail.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MONITOR_TOPOLOGY]:
+
 - registration root: `AddResourceMonitoring` wires monitor service, snapshot provider, publishers, and the quota provider
 - observable-instrument read model: the current path reads CPU/memory pressure off the meter `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, instruments `process.cpu.utilization` and `dotnet.process.memory.virtual.ratio`, via a `MeterListener` over observable instruments — never the obsolete `IResourceMonitor.GetUtilization` pull
 - quota model: `ResourceQuotaProvider.GetResourceQuota()` returns the current `ResourceQuota` carrying `MaxMemoryInBytes`/`MaxCpuInCores` and `BaselineMemoryInBytes`/`BaselineCpuInCores` ceilings so a container-row grade compares against the limit the process runs under, not the host total
@@ -91,12 +97,14 @@ monitoring option policy into the observability rail.
 - platform model: Linux and Windows snapshot sources stay internal behind `ISnapshotProvider`
 
 [LOCAL_ADMISSION]:
+
 - Resource monitoring is host-level observability; domain code never reads utilization directly.
 - Publishers are admitted through the builder, not resolved ad hoc from the container.
 - Option policy binds at composition from typed options or a configuration section.
 - Utilization values are read-only evidence; throttling decisions live in owning policy surfaces.
 
 [RAIL_LAW]:
+
 - Package: `Microsoft.Extensions.Diagnostics.ResourceMonitoring`
 - Owns: process and container resource utilization evidence
 - Accept: windowed utilization reads and publisher fan-out

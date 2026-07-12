@@ -1,11 +1,12 @@
 # [RASM_API_MAPPERLY]
 
-`Riok.Mapperly` is a compile-time Roslyn source generator that materializes object-to-object mapping methods from attributed partial declarations: zero reflection, zero runtime allocation beyond the target instances, trimming- and AOT-safe generated code that reads like hand-written assignment. The only runtime asset is `Riok.Mapperly.Abstractions` (a netstandard2.0 attribute/enum surface marked `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]`, so the attributes are erased from the final IL); the generator (`Riok.Mapperly.dll`) runs only inside the compiler. A mapper is a `partial class`/`struct` (instance) or `static partial class` (static/extension) carrying `[Mapper]`; each declared `partial` mapping method is filled in by the generator. Its value to the seam: Mapperly generates every per-case seam↔wire field transcription (the `Rasm.Element` `Graph/wire` `WireCodec` — flat columns generated, `[UserMapping]` carrier codecs owning the `Option`/`Seq`/`Map`/identity crossings), while `[MapDerivedType]` emits a real polymorphic type-switch for abstract-to-abstract CLASS-HIERARCHY pairs — a protobuf `oneof` envelope's case messages share no base type, so there the case dispatch rides the union's generated total `Switch` (encode) and the generated `PayloadCase` closed enum (decode), Mapperly owning the per-case field mapping the protobuf runtime does not; `IQueryable` projection mappings inline an EF/LINQ-translatable expression tree for the columnar read lane; `void`-returning existing-target methods update an instance in place; `[UseMapper]`/`[UseStaticMapper]` compose one seam mapper from per-concern projectors. This is the `ElementGraph`↔DTO/proto rail of the §4E integration map — Mapperly owns the boundary transcription, the kernel owns identity/hash, LanguageExt owns the result rail.
+`Riok.Mapperly` is a compile-time Roslyn source generator that materializes object-to-object mapping methods from attributed partial declarations: zero reflection, zero runtime allocation beyond the target instances, trimming- and AOT-safe generated code that reads like hand-written assignment. The only runtime asset is `Riok.Mapperly.Abstractions` (a netstandard2.0 attribute/enum surface marked `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]`, so the attributes are erased from the final IL); the generator (`Riok.Mapperly.dll`) runs only inside the compiler. A mapper is an instance or static `partial class` carrying `[Mapper]`; each declared `partial` mapping method is filled in by the generator. Its value to the seam: Mapperly generates every per-case seam↔wire field transcription (the `Rasm.Element` `Graph/wire` `WireCodec` — flat columns generated, `[UserMapping]` carrier codecs owning the `Option`/`Seq`/`Map`/identity crossings), while `[MapDerivedType]` emits a real polymorphic type-switch for abstract-to-abstract CLASS-HIERARCHY pairs — a protobuf `oneof` envelope's case messages share no base type, so there the case dispatch rides the union's generated total `Switch` (encode) and the generated `PayloadCase` closed enum (decode), Mapperly owning the per-case field mapping the protobuf runtime does not; `IQueryable` projection mappings inline an EF/LINQ-translatable expression tree for the columnar read lane; `void`-returning existing-target methods update an instance in place; `[UseMapper]`/`[UseStaticMapper]` compose one seam mapper from per-concern projectors. This is the `ElementGraph`↔DTO/proto rail of the §4E integration map — Mapperly owns the boundary transcription, the kernel owns identity/hash, LanguageExt owns the result rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Riok.Mapperly`
-- package: `Riok.Mapperly` (, Apache-2.0, © Riok / Mapperly contributors)
+
+- package: `Riok.Mapperly` (Apache-2.0, © Riok / Mapperly contributors)
 - assembly: `Riok.Mapperly.Abstractions` (runtime attributes/enums); `Riok.Mapperly` (Roslyn analyzer/generator, never referenced at runtime)
 - namespace: `Riok.Mapperly.Abstractions`, `Riok.Mapperly.Abstractions.ReferenceHandling`
 - asset: source generator + analyzer (`analyzers/dotnet/cs`, multi-Roslyn `roslyn4.0`…`roslyn5.0`) plus the `lib/netstandard2.0` abstractions assembly; `build/Riok.Mapperly.targets` wires the generator. Reference as an analyzer-style package (`PrivateAssets="all"`); the abstractions flow transitively to consumers that declare mappers.
@@ -14,144 +15,253 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: mapper declaration, defaults, and composition (class/assembly level)
+
 - rail: mapping
 
-| [INDEX] | [SYMBOL]                     | [TARGET]                | [CAPABILITY]                                                                                                                                                      |
-| :-----: | :--------------------------- | :---------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MapperAttribute`            | class                   | marks a `partial` class/struct as a mapper; carries the full per-mapper default policy (see below)                                                                |
-|  [02]   | `MapperDefaultsAttribute`    | assembly                | `: MapperAttribute` — sets the same policy as assembly-wide defaults for every mapper                                                                             |
-|  [03]   | `UseMapperAttribute`         | property / field        | includes all accessible (static + instance) mapping methods of the member's type as delegated sub-mappers                                                         |
-|  [04]   | `UseStaticMapperAttribute`   | class (`AllowMultiple`) | `(Type)` ctor — includes all static mapping methods of the named type; generic `UseStaticMapperAttribute<T>` (C# ≥ 11)                                            |
-|  [05]   | `MapperConstructorAttribute` | constructor             | selects the constructor Mapperly uses when activating the target type                                                                                             |
-|  [06]   | `ObjectFactoryAttribute`     | method                  | marks a (optionally generic, 0-or-1-param) non-void method as the target-instance factory — the seam hook for minting through `IObjectFactory` instead of `new()` |
+`MapperDefaultsAttribute` inherits the mapper policy. `UseMapperAttribute` delegates accessible static and instance mappings from an annotated field or property, while the repeatable `UseStaticMapperAttribute` delegates static mappings from its named type. `ObjectFactoryAttribute` admits generic non-void factories with zero or one parameter.
 
-[MapperAttribute] policy properties (each also settable on `MapperDefaultsAttribute`):
+| [INDEX] | [SYMBOL]                      | [TARGET]    | [CAPABILITY]              |
+| :-----: | :---------------------------- | :---------- | :------------------------ |
+|  [01]   | `MapperAttribute`             | class       | mapper policy             |
+|  [02]   | `MapperDefaultsAttribute`     | assembly    | assembly mapper policy    |
+|  [03]   | `UseMapperAttribute`          | field       | member mapper delegation  |
+|  [04]   | `UseMapperAttribute`          | property    | member mapper delegation  |
+|  [05]   | `UseStaticMapperAttribute`    | class       | static mapper delegation  |
+|  [06]   | `UseStaticMapperAttribute<T>` | class       | generic mapper delegation |
+|  [07]   | `MapperConstructorAttribute`  | constructor | target constructor choice |
+|  [08]   | `ObjectFactoryAttribute`      | method      | target factory choice     |
 
-| [INDEX] | [PROPERTY]                           | [TYPE]                          | [DEFAULT]       | [CAPABILITY]                                                          |
-| :-----: | :----------------------------------- | :------------------------------ | :-------------- | :-------------------------------------------------------------------- |
-|  [01]   | `PropertyNameMappingStrategy`        | `PropertyNameMappingStrategy`   | `CaseSensitive` | case sensitivity of member-name matching                              |
-|  [02]   | `EnumMappingStrategy`                | `EnumMappingStrategy`           | `ByValue`       | default enum→enum match mode                                          |
-|  [03]   | `EnumNamingStrategy`                 | `EnumNamingStrategy`            | `MemberName`    | default enum↔string naming                                            |
-|  [04]   | `EnumMappingIgnoreCase`              | `bool`                          | `false`         | ignore case on enum mappings                                          |
-|  [05]   | `ThrowOnMappingNullMismatch`         | `bool`                          | `true`          | throw `ArgumentNullException` when a non-nullable return does be null |
-|  [06]   | `ThrowOnPropertyMappingNullMismatch` | `bool`                          | `false`         | throw vs ignore when a non-nullable property does be null             |
-|  [07]   | `AllowNullPropertyAssignment`        | `bool`                          | `true`          | assign null to a nullable target vs never                             |
-|  [08]   | `UseDeepCloning`                     | `bool`                          | `false`         | deep-copy same-type members instead of reusing the reference          |
-|  [09]   | `EnabledConversions`                 | `MappingConversionType`         | `All`           | the implicit-conversion flag set Mapperly may apply                   |
-|  [10]   | `UseReferenceHandling`               | `bool`                          | `false`         | thread an `IReferenceHandler` to preserve identity across cycles      |
-|  [11]   | `IgnoreObsoleteMembersStrategy`      | `IgnoreObsoleteMembersStrategy` | `None`          | how `[Obsolete]` members participate                                  |
-|  [12]   | `RequiredMappingStrategy`            | `RequiredMappingStrategy`       | `Both`          | unmapped-member diagnostic strictness                                 |
-|  [13]   | `RequiredEnumMappingStrategy`        | `RequiredMappingStrategy`       | `Both`          | unmapped-enum-member diagnostic strictness                            |
-|  [14]   | `IncludedMembers`                    | `MemberVisibility`              | `AllAccessible` | accessibility of members Mapperly maps                                |
-|  [15]   | `IncludedConstructors`               | `MemberVisibility`              | `AllAccessible` | accessibility of constructors considered                              |
-|  [16]   | `PreferParameterlessConstructors`    | `bool`                          | `true`          | prefer `new()` + init over the widest parameterized ctor              |
-|  [17]   | `AutoUserMappings`                   | `bool`                          | `true`          | auto-discover signature-shaped methods vs require `[UserMapping]`     |
+Every `MapperAttribute` policy property is also settable through `MapperDefaultsAttribute`. Null-return mismatch throws when enabled and otherwise attempts a default; null-property mismatch throws when enabled and otherwise suppresses assignment.
+
+`AllowNullPropertyAssignment` governs nullable targets, `PreferParameterlessConstructors` selects constructor priority, and `AutoUserMappings` controls signature-based discovery.
+
+| [INDEX] | [PROPERTY]                           | [TYPE]                          | [DEFAULT]       | [EFFECT]                     |
+| :-----: | :----------------------------------- | :------------------------------ | :-------------- | :--------------------------- |
+|  [01]   | `PropertyNameMappingStrategy`        | `PropertyNameMappingStrategy`   | `CaseSensitive` | member-name matching         |
+|  [02]   | `EnumMappingStrategy`                | `EnumMappingStrategy`           | `ByValue`       | enum-member matching         |
+|  [03]   | `EnumNamingStrategy`                 | `EnumNamingStrategy`            | `MemberName`    | enum-string naming           |
+|  [04]   | `EnumMappingIgnoreCase`              | `bool`                          | `false`         | enum-match casing            |
+|  [05]   | `ThrowOnMappingNullMismatch`         | `bool`                          | `true`          | null-return mismatch         |
+|  [06]   | `ThrowOnPropertyMappingNullMismatch` | `bool`                          | `false`         | null-property mismatch       |
+|  [07]   | `AllowNullPropertyAssignment`        | `bool`                          | `true`          | nullable-property assignment |
+|  [08]   | `UseDeepCloning`                     | `bool`                          | `false`         | same-type member cloning     |
+|  [09]   | `EnabledConversions`                 | `MappingConversionType`         | `All`           | admitted conversion set      |
+|  [10]   | `UseReferenceHandling`               | `bool`                          | `false`         | reference-cycle identity     |
+|  [11]   | `IgnoreObsoleteMembersStrategy`      | `IgnoreObsoleteMembersStrategy` | `None`          | obsolete-member policy       |
+|  [12]   | `RequiredMappingStrategy`            | `RequiredMappingStrategy`       | `Both`          | member diagnostic policy     |
+|  [13]   | `RequiredEnumMappingStrategy`        | `RequiredMappingStrategy`       | `Both`          | enum diagnostic policy       |
+|  [14]   | `IncludedMembers`                    | `MemberVisibility`              | `AllAccessible` | admitted member visibility   |
+|  [15]   | `IncludedConstructors`               | `MemberVisibility`              | `AllAccessible` | admitted constructor scope   |
+|  [16]   | `PreferParameterlessConstructors`    | `bool`                          | `true`          | constructor preference       |
+|  [17]   | `AutoUserMappings`                   | `bool`                          | `true`          | user-mapping discovery       |
 
 [PUBLIC_TYPE_SCOPE]: per-mapping-method configuration (method level)
+
 - rail: mapping
 
-| [INDEX] | [SYMBOL]                                                    | [SHAPE]                                                                               | [CAPABILITY]                                                                                                                                                         |
-| :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MapPropertyAttribute`                                      | `(string\| string[] source, string\| string[] target)`, `AllowMultiple`               | rename / flatten / unflatten a member path (`.`-joined or `string[]`); `StringFormat`, `FormatProvider`, `Use` (named sub-mapping), `SuppressNullMismatchDiagnostic` |
-|  [02]   | `MapPropertyFromSourceAttribute`                            | `(string\| string[] target)`, `AllowMultiple`                                         | maps a target member from the whole source object; `StringFormat`/`FormatProvider`/`Use`                                                                             |
-|  [03]   | `MapNestedPropertiesAttribute`                              | `(string\| string[] source)`, `AllowMultiple`                                         | flattens every member of a nested source path onto the target root; `SourceFullName`                                                                                 |
-|  [04]   | `MapValueAttribute`                                         | `(string\| string[] target, object? value)` / `(target)`+`Use`, `AllowMultiple`       | assigns a constant (`Value`) or a parameterless-method-produced (`Use`) value to a target member                                                                     |
-|  [05]   | `MapperIgnoreSourceAttribute`                               | `(string source)`, `AllowMultiple`                                                    | excludes a source member from required-mapping diagnostics                                                                                                           |
-|  [06]   | `MapperIgnoreTargetAttribute`                               | `(string target)`, `AllowMultiple`                                                    | excludes a target member from mapping/diagnostics                                                                                                                    |
-|  [07]   | `MapperRequiredMappingAttribute`                            | `(RequiredMappingStrategy)`                                                           | per-method override of the unmapped-member diagnostic strictness                                                                                                     |
-|  [08]   | `MapperIgnoreObsoleteMembersAttribute`                      | `(IgnoreObsoleteMembersStrategy = Both)`                                              | per-method override of `[Obsolete]` handling                                                                                                                         |
-|  [09]   | `MapDerivedTypeAttribute(Type sourceType, Type targetType)` | method, `AllowMultiple`; generic `MapDerivedTypeAttribute<TSource,TTarget>` (C# ≥ 11) | emits a polymorphic type-switch over the source object for an abstract/base-typed mapping method — the `[Union]`→wire-case rail                                      |
-|  [10]   | `IncludeMappingConfigurationAttribute`                      | `(string name)`                                                                       | reuses the `[MapProperty]`/etc. configuration of another named mapping method                                                                                        |
-|  [11]   | `NamedMappingAttribute`                                     | `(string name)`                                                                       | names a mapping so `Use = "..."`/`IncludeMappingConfiguration` can reference it                                                                                      |
-|  [12]   | `UserMappingAttribute`                                      | method; `Default`/`Ignore`                                                            | declares a hand-written method as a (default or ignorable) user mapping when `AutoUserMappings = false`                                                              |
-|  [13]   | `MapEnumAttribute`                                          | `(EnumMappingStrategy)`, `AllowMultiple`                                              | per-method enum policy: `Strategy`, `IgnoreCase`, `FallbackValue`, `NamingStrategy`                                                                                  |
-|  [14]   | `MapEnumValueAttribute`                                     | `(object source, object target)`, `AllowMultiple`                                     | maps one explicit enum member to another                                                                                                                             |
-|  [15]   | `MapperIgnoreSourceValueAttribute`                          | `(object source)`, `AllowMultiple`                                                    | drops a source enum value (`SourceValue`) from the enum mapping                                                                                                      |
-|  [16]   | `MapperIgnoreTargetValueAttribute`                          | `(object target)`, `AllowMultiple`                                                    | drops a target enum value (`TargetValue`) from the enum mapping                                                                                                      |
+`MapPropertyAttribute` renames, flattens, or unflattens member paths. `MapPropertyFromSourceAttribute` maps the whole source, and `MapNestedPropertiesAttribute` flattens a nested source onto the target root. Paired constructor arguments are ordered source then target.
+
+| [INDEX] | [SYMBOL]                                   | [INPUT]                                  | [MANY] | [CAPABILITY]                |
+| :-----: | :----------------------------------------- | :--------------------------------------- | :----: | :-------------------------- |
+|  [01]   | `MapPropertyAttribute`                     | `(string\|string[], string\|string[])`   |  yes   | member-path mapping         |
+|  [02]   | `MapPropertyFromSourceAttribute`           | `(string\|string[])`                     |  yes   | whole-source mapping        |
+|  [03]   | `MapNestedPropertiesAttribute`             | `(string\|string[])`                     |  yes   | nested-source flattening    |
+|  [04]   | `MapValueAttribute`                        | `(string\|string[], object?)`            |  yes   | constant assignment         |
+|  [05]   | `MapValueAttribute`                        | `(string\|string[])`                     |  yes   | mapping-produced assignment |
+|  [06]   | `MapperIgnoreSourceAttribute`              | `(string)`                               |  yes   | source diagnostic exclusion |
+|  [07]   | `MapperIgnoreTargetAttribute`              | `(string)`                               |  yes   | target mapping exclusion    |
+|  [08]   | `MapperRequiredMappingAttribute`           | `(RequiredMappingStrategy)`              |   no   | diagnostic policy override  |
+|  [09]   | `MapperIgnoreObsoleteMembersAttribute`     | `(IgnoreObsoleteMembersStrategy = Both)` |   no   | obsolete policy override    |
+|  [10]   | `MapDerivedTypeAttribute`                  | `(Type, Type)`                           |  yes   | derived-type dispatch       |
+|  [11]   | `MapDerivedTypeAttribute<TSource,TTarget>` | type arguments                           |  yes   | generic derived dispatch    |
+|  [12]   | `IncludeMappingConfigurationAttribute`     | `(string)`                               |   no   | mapping configuration reuse |
+|  [13]   | `NamedMappingAttribute`                    | `(string)`                               |   no   | mapping registration        |
+|  [14]   | `UserMappingAttribute`                     | —                                        |   no   | user mapping registration   |
+|  [15]   | `MapEnumAttribute`                         | `(EnumMappingStrategy)`                  |   no   | enum policy override        |
+|  [16]   | `MapEnumValueAttribute`                    | `(object, object)`                       |  yes   | enum-member mapping         |
+|  [17]   | `MapperIgnoreSourceValueAttribute`         | `(object)`                               |  yes   | source enum exclusion       |
+|  [18]   | `MapperIgnoreTargetValueAttribute`         | `(object)`                               |  yes   | target enum exclusion       |
+
+[ATTRIBUTE_MEMBER_SCOPE]: attribute policy members
+
+Each row records one named policy member extracted from the method-level configuration surface.
+
+| [INDEX] | [ATTRIBUTE]                        | [MEMBER]                         | [CAPABILITY]                |
+| :-----: | :--------------------------------- | :------------------------------- | :-------------------------- |
+|  [01]   | `MapPropertyAttribute`             | `StringFormat`                   | string format               |
+|  [02]   | `MapPropertyAttribute`             | `FormatProvider`                 | format provider             |
+|  [03]   | `MapPropertyAttribute`             | `Use`                            | named mapping               |
+|  [04]   | `MapPropertyAttribute`             | `SuppressNullMismatchDiagnostic` | null-diagnostic suppression |
+|  [05]   | `MapPropertyFromSourceAttribute`   | `StringFormat`                   | string format               |
+|  [06]   | `MapPropertyFromSourceAttribute`   | `FormatProvider`                 | format provider             |
+|  [07]   | `MapPropertyFromSourceAttribute`   | `Use`                            | named mapping               |
+|  [08]   | `MapNestedPropertiesAttribute`     | `SourceFullName`                 | source path                 |
+|  [09]   | `MapValueAttribute`                | `Value`                          | constant value              |
+|  [10]   | `MapValueAttribute`                | `Use`                            | value mapping               |
+|  [11]   | `UserMappingAttribute`             | `Default`                        | default selection           |
+|  [12]   | `UserMappingAttribute`             | `Ignore`                         | discovery exclusion         |
+|  [13]   | `MapEnumAttribute`                 | `Strategy`                       | match strategy              |
+|  [14]   | `MapEnumAttribute`                 | `IgnoreCase`                     | name-match casing           |
+|  [15]   | `MapEnumAttribute`                 | `FallbackValue`                  | unmatched fallback          |
+|  [16]   | `MapEnumAttribute`                 | `NamingStrategy`                 | string naming               |
+|  [17]   | `MapperIgnoreSourceValueAttribute` | `SourceValue`                    | source enum value           |
+|  [18]   | `MapperIgnoreTargetValueAttribute` | `TargetValue`                    | target enum value           |
 
 [PUBLIC_TYPE_SCOPE]: member/parameter markers
+
 - rail: mapping
 
-| [INDEX] | [SYMBOL]                    | [TARGET]              | [CAPABILITY]                                                                                                                              |
-| :-----: | :-------------------------- | :-------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `MappingTargetAttribute`    | parameter             | marks the parameter that is the (existing) mapping target for a `void`/update method                                                      |
-|  [02]   | `MapperIgnoreAttribute`     | method/property/field | excludes a member from mapping, or excludes a method from mapping-method discovery                                                        |
-|  [03]   | `FormatProviderAttribute`   | property/field        | marks an `IFormatProvider`-typed member as a format provider; `Default` makes it the implicit provider for all `IFormattable` conversions |
-|  [04]   | `ReferenceHandlerAttribute` | parameter             | marks an `IReferenceHandler` parameter threaded through the mapping for cycle/identity preservation                                       |
+`FormatProviderAttribute.Default` selects the implicit `IFormattable` provider. Multi-target attributes retain one row per exact `AttributeUsage` target.
+
+| [INDEX] | [SYMBOL]                    | [TARGET]  | [CAPABILITY]               |
+| :-----: | :-------------------------- | :-------- | :------------------------- |
+|  [01]   | `MappingTargetAttribute`    | parameter | existing-target binding    |
+|  [02]   | `MapperIgnoreAttribute`     | method    | method-discovery exclusion |
+|  [03]   | `MapperIgnoreAttribute`     | property  | member-mapping exclusion   |
+|  [04]   | `MapperIgnoreAttribute`     | field     | member-mapping exclusion   |
+|  [05]   | `FormatProviderAttribute`   | property  | format-provider binding    |
+|  [06]   | `FormatProviderAttribute`   | field     | format-provider binding    |
+|  [07]   | `ReferenceHandlerAttribute` | parameter | reference-handler binding  |
 
 [PUBLIC_TYPE_SCOPE]: strategy and conversion enums
+
 - rail: mapping
 
-| [INDEX] | [SYMBOL]                        | [MEMBERS]                                                                                                                                                                                                                                                                                                                                  |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `EnumMappingStrategy`           | `ByValue`, `ByName`, `ByValueCheckDefined`                                                                                                                                                                                                                                                                                                 |
-|  [02]   | `EnumNamingStrategy`            | `MemberName`, `CamelCase`, `PascalCase`, `SnakeCase`, `UpperSnakeCase`, `KebabCase`, `UpperKebabCase`, `ComponentModelDescriptionAttribute`, `SerializationEnumMemberAttribute`                                                                                                                                                            |
-|  [03]   | `PropertyNameMappingStrategy`   | `CaseSensitive`, `CaseInsensitive`                                                                                                                                                                                                                                                                                                         |
-|  [04]   | `RequiredMappingStrategy`       | `[Flags]` `None=0`, `Both=-1`, `Source=1`, `Target=2`                                                                                                                                                                                                                                                                                      |
-|  [05]   | `IgnoreObsoleteMembersStrategy` | `[Flags]` `None=0`, `Both=-1`, `Source=1`, `Target=2`                                                                                                                                                                                                                                                                                      |
-|  [06]   | `MemberVisibility`              | `[Flags]` `AllAccessible=0x1F`, `All=0x1E`, `Accessible=1`, `Public=2`, `Internal=4`, `Protected=8`, `Private=0x10` (`All`/`Private` use `UnsafeAccessor` on net8+)                                                                                                                                                                        |
-|  [07]   | `MappingConversionType`         | `[Flags]` `None=0`, `Constructor`, `ImplicitCast`, `ExplicitCast`, `ParseMethod`, `ToStringMethod`, `StringToEnum`, `EnumToString`, `EnumToEnum`, `DateTimeToDateOnly`, `DateTimeToTimeOnly`, `Queryable`, `Enumerable`, `Dictionary`, `Span`, `Memory`, `Tuple`, `EnumUnderlyingType`, `ToTargetMethod`, `StaticConvertMethods`, `All=-1` |
+`RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, `MemberVisibility`, and `MappingConversionType` are flag vocabularies. `MemberVisibility.All` and `Private` reach non-public members through `UnsafeAccessor` where the target framework exposes it; explicit values remain part of the declaration.
+
+| [INDEX] | [ENUM]                          | [DECLARATION]                        |
+| :-----: | :------------------------------ | :----------------------------------- |
+|  [01]   | `EnumMappingStrategy`           | `ByValue`                            |
+|  [02]   | `EnumMappingStrategy`           | `ByName`                             |
+|  [03]   | `EnumMappingStrategy`           | `ByValueCheckDefined`                |
+|  [04]   | `EnumNamingStrategy`            | `MemberName`                         |
+|  [05]   | `EnumNamingStrategy`            | `CamelCase`                          |
+|  [06]   | `EnumNamingStrategy`            | `PascalCase`                         |
+|  [07]   | `EnumNamingStrategy`            | `SnakeCase`                          |
+|  [08]   | `EnumNamingStrategy`            | `UpperSnakeCase`                     |
+|  [09]   | `EnumNamingStrategy`            | `KebabCase`                          |
+|  [10]   | `EnumNamingStrategy`            | `UpperKebabCase`                     |
+|  [11]   | `EnumNamingStrategy`            | `ComponentModelDescriptionAttribute` |
+|  [12]   | `EnumNamingStrategy`            | `SerializationEnumMemberAttribute`   |
+|  [13]   | `PropertyNameMappingStrategy`   | `CaseSensitive`                      |
+|  [14]   | `PropertyNameMappingStrategy`   | `CaseInsensitive`                    |
+|  [15]   | `RequiredMappingStrategy`       | `None = 0`                           |
+|  [16]   | `RequiredMappingStrategy`       | `Both = -1`                          |
+|  [17]   | `RequiredMappingStrategy`       | `Source = 1`                         |
+|  [18]   | `RequiredMappingStrategy`       | `Target = 2`                         |
+|  [19]   | `IgnoreObsoleteMembersStrategy` | `None = 0`                           |
+|  [20]   | `IgnoreObsoleteMembersStrategy` | `Both = -1`                          |
+|  [21]   | `IgnoreObsoleteMembersStrategy` | `Source = 1`                         |
+|  [22]   | `IgnoreObsoleteMembersStrategy` | `Target = 2`                         |
+|  [23]   | `MemberVisibility`              | `AllAccessible = 0x1F`               |
+|  [24]   | `MemberVisibility`              | `All = 0x1E`                         |
+|  [25]   | `MemberVisibility`              | `Accessible = 1`                     |
+|  [26]   | `MemberVisibility`              | `Public = 2`                         |
+|  [27]   | `MemberVisibility`              | `Internal = 4`                       |
+|  [28]   | `MemberVisibility`              | `Protected = 8`                      |
+|  [29]   | `MemberVisibility`              | `Private = 0x10`                     |
+|  [30]   | `MappingConversionType`         | `None = 0`                           |
+|  [31]   | `MappingConversionType`         | `Constructor`                        |
+|  [32]   | `MappingConversionType`         | `ImplicitCast`                       |
+|  [33]   | `MappingConversionType`         | `ExplicitCast`                       |
+|  [34]   | `MappingConversionType`         | `ParseMethod`                        |
+|  [35]   | `MappingConversionType`         | `ToStringMethod`                     |
+|  [36]   | `MappingConversionType`         | `StringToEnum`                       |
+|  [37]   | `MappingConversionType`         | `EnumToString`                       |
+|  [38]   | `MappingConversionType`         | `EnumToEnum`                         |
+|  [39]   | `MappingConversionType`         | `DateTimeToDateOnly`                 |
+|  [40]   | `MappingConversionType`         | `DateTimeToTimeOnly`                 |
+|  [41]   | `MappingConversionType`         | `Queryable`                          |
+|  [42]   | `MappingConversionType`         | `Enumerable`                         |
+|  [43]   | `MappingConversionType`         | `Dictionary`                         |
+|  [44]   | `MappingConversionType`         | `Span`                               |
+|  [45]   | `MappingConversionType`         | `Memory`                             |
+|  [46]   | `MappingConversionType`         | `Tuple`                              |
+|  [47]   | `MappingConversionType`         | `EnumUnderlyingType`                 |
+|  [48]   | `MappingConversionType`         | `ToTargetMethod`                     |
+|  [49]   | `MappingConversionType`         | `StaticConvertMethods`               |
+|  [50]   | `MappingConversionType`         | `All = -1`                           |
 
 [PUBLIC_TYPE_SCOPE]: reference handling (`Riok.Mapperly.Abstractions.ReferenceHandling`)
+
 - rail: mapping
 
-| [INDEX] | [SYMBOL]                    | [SHAPE]          | [CAPABILITY]                                                                                                                                                                                                                                          |
-| :-----: | :-------------------------- | :--------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IReferenceHandler`         | interface        | `TryGetReference<TSource,TTarget>(TSource source, out TTarget? target)` + `SetReference<TSource,TTarget>(TSource source, TTarget target)` (both `where TSource:notnull where TTarget:notnull`) — resolve/store already-mapped targets to break cycles |
-|  [02]   | `PreserveReferenceHandler`  | sealed class     | the built-in `IReferenceHandler` returning the same target for the same source identity (reference-equality keyed); generator-internal — not a hand-authored seam type                                                                                |
-|  [03]   | `ReferenceHandlerAttribute` | parameter marker | (re-listed) marks the `IReferenceHandler` parameter the mapper threads                                                                                                                                                                                |
+`IReferenceHandler` resolves targets through `TryGetReference<TSource,TTarget>(TSource source, out TTarget? target)` and records them through `SetReference<TSource,TTarget>(TSource source, TTarget target)`; both methods constrain source and target to `notnull`. `PreserveReferenceHandler` is generator-owned and keys source objects by reference identity.
+
+| [INDEX] | [SYMBOL]                   | [SHAPE]      | [CAPABILITY]             |
+| :-----: | :------------------------- | :----------- | :----------------------- |
+|  [01]   | `IReferenceHandler`        | interface    | cycle identity registry  |
+|  [02]   | `PreserveReferenceHandler` | sealed class | generator-owned registry |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the generation contract — declare a `partial` method, the generator emits the body
+
 - rail: mapping
 - surface-root: a `[Mapper] partial class` (instance) or `[Mapper] static partial class` (static/extension)
 
-| [INDEX] | [DECLARED_SIGNATURE]                                                                                                           | [GENERATED_CAPABILITY]                                                                                  |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ |
-|  [01]   | `partial TTarget Map(TSource source);`                                                                                         | new-instance mapping; ctor/init/property assignment                                                     |
-|  [02]   | `static partial TTarget Map(this TSource source);`                                                                             | static extension-method mapping (on `static partial class`)                                             |
-|  [03]   | `partial void Update(TSource source, [MappingTarget] TTarget target);`                                                         | mutate an existing target in place                                                                      |
-|  [04]   | `partial TTarget? Map(TSource? source);`                                                                                       | nullable-aware mapping (policy via `ThrowOnMappingNullMismatch`)                                        |
-|  [05]   | `static partial IQueryable<TTarget> ProjectTo(this IQueryable<TSource> q);`                                                    | EF/LINQ-translatable projection (object-initializer expression tree; `MappingConversionType.Queryable`) |
-|  [06]   | `[MapDerivedType<A,ADto>][MapDerivedType<B,BDto>] partial BaseDto Map(Base source);`                                           | polymorphic type-switch over the source runtime type                                                    |
-|  [07]   | `partial void Map<TSource,TTarget>(TSource source, TTarget target);` / `partial TTarget Map<TSource,TTarget>(TSource source);` | generic dispatch routed to the concrete partial mappings declared in the same mapper                    |
-|  [08]   | `partial TTarget Map(TSource source, [ReferenceHandler] IReferenceHandler refs);`                                              | cycle-safe mapping threading a caller `IReferenceHandler`                                               |
-|  [09]   | `partial TTarget Map(TSource source, FooContext ctx);`                                                                         | extra parameters flow as available values to `[MapValue(Use=...)]`/sub-mappings                         |
+Each row is one generated method shape. Repeatable `MapDerivedTypeAttribute` instances compose the runtime type switch; additional parameters map to same-name target members after explicit `MapPropertyAttribute` configuration and before source-member matching.
+
+| [INDEX] | [SIGNATURE]                                                                          | [CAPABILITY]             |
+| :-----: | :----------------------------------------------------------------------------------- | :----------------------- |
+|  [01]   | `partial TTarget Map(TSource source);`                                               | target construction      |
+|  [02]   | `static partial TTarget Map(this TSource source);`                                   | extension mapping        |
+|  [03]   | `partial void Update(TSource source, [MappingTarget] TTarget target);`               | existing-target update   |
+|  [04]   | `partial TTarget? Map(TSource? source);`                                             | nullable mapping         |
+|  [05]   | `static partial IQueryable<TTarget> ProjectTo(this IQueryable<TSource> source);`     | queryable projection     |
+|  [06]   | `[MapDerivedType<Variant,RefinedVariant>] partial RefinedShape Map(Shape source);`   | derived-type dispatch    |
+|  [07]   | `partial void Map<TSource,TTarget>(TSource source, TTarget target);`                 | generic target update    |
+|  [08]   | `partial TTarget Map<TTarget>(Shape source);`                                        | generic target mapping   |
+|  [09]   | `partial TTarget Map(TSource source, [ReferenceHandler] IReferenceHandler handler);` | cycle-safe mapping       |
+|  [10]   | `partial TTarget Map(TSource source, TContext context);`                             | additional value mapping |
 
 [ENTRYPOINT_SCOPE]: composition and instantiation
+
 - rail: mapping
 
-| [INDEX] | [SURFACE]                                                                       | [CAPABILITY]                                                                                  |
-| :-----: | :------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `[Mapper] partial class M {... }` → `new M()`                                   | instance mapper; DI-friendly, holds `[UseMapper]` sub-mapper fields                           |
-|  [02]   | `[Mapper] static partial class M {... }`                                        | static mapper; methods are callable statically / as extensions                                |
-|  [03]   | `[UseMapper] private readonly SubMapper _sub;` / `[UseStaticMapper(typeof(X))]` | delegate unmatched type-pairs to a referenced mapper                                          |
-|  [04]   | `[ObjectFactory] T Create<T>() / T Create<T>(TSource src)`                      | route target activation through a factory (the `IObjectFactory` mint seam) instead of `new()` |
-|  [05]   | `[MapperDefaults]` on the assembly                                              | one policy applied to every mapper in the assembly                                            |
-|  [06]   | `[UserMapping] private TTarget MapCore(TSource s) {... }`                       | a hand-written mapping the generator composes into other mappings                             |
+Each row shows one mapper composition or activation surface. Object-factory type parameters may represent the source, target, or both; member-target alternatives remain owned by the public-type registry.
+
+| [INDEX] | [SURFACE]                                                         | [CAPABILITY]               |
+| :-----: | :---------------------------------------------------------------- | :------------------------- |
+|  [01]   | `[Mapper] partial class Shape`                                    | instance mapper            |
+|  [02]   | `[Mapper] static partial class Shape`                             | static mapper              |
+|  [03]   | `[UseMapper] private readonly Mapper _mapper;`                    | instance mapper delegation |
+|  [04]   | `[UseStaticMapper(typeof(Mapper))]`                               | static mapper delegation   |
+|  [05]   | `[ObjectFactory] RefinedShape Create()`                           | parameterless activation   |
+|  [06]   | `[ObjectFactory] RefinedShape Create(Shape source)`               | source-based activation    |
+|  [07]   | `[ObjectFactory] RefinedShape Create<TSource>(TSource source)`    | generic-source activation  |
+|  [08]   | `[ObjectFactory] TTarget Create<TTarget>()`                       | generic-target activation  |
+|  [09]   | `[ObjectFactory] TTarget Create<TTarget>(Shape source)`           | source-based target        |
+|  [10]   | `[ObjectFactory] TTarget Create<TSource,TTarget>(TSource source)` | source-target activation   |
+|  [11]   | `[ObjectFactory] TTarget Create<TTarget,TSource>(TSource source)` | target-source activation   |
+|  [12]   | `[assembly: MapperDefaults]`                                      | assembly mapper policy     |
+|  [13]   | `[UserMapping] private TTarget MapCore(TSource source)`           | user mapping composition   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GENERATION_MODEL]:
-- Mapperly is wholly compile-time. The mapper body the generator emits is ordinary C# — direct member assignment, `new`/init, `foreach` element loops, a `switch` over derived types — verifiable by reading the generated partial. There is no runtime mapping engine, no expression compilation (except the `IQueryable` projection, which is itself a static expression tree), no reflection, no per-map allocation beyond the produced targets. The result is trimming- and Native-AOT-safe by construction.
+
+- Mapperly emits ordinary C# bodies at compile time: direct assignments, construction and initialization, element loops, and derived-type switches remain inspectable in the generated partial. `IQueryable` projection emits a static expression tree; no mapping engine, runtime expression compilation, or reflection remains, and target construction owns per-map allocation.
 - The runtime footprint is `Riok.Mapperly.Abstractions` only, and every attribute is `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]` — absent that symbol the attribute calls are erased, so the attributes carry zero IL weight in the shipped assembly. Reference the package analyzer-style (`PrivateAssets="all"`); a consumer that declares no mapper still inherits nothing.
 - Unmapped members are a build-time diagnostic (`RMG` codes), not a silent drop: `RequiredMappingStrategy`/`MapperRequiredMapping` tune severity and `[MapperIgnoreSource]`/`[MapperIgnoreTarget]` waive a member explicitly. A mapping that does not round-trip is a compiler warning, surfaced where it is written.
 
 [LOCAL_ADMISSION]:
+
 - Mapperly owns boundary transcription only: `ElementGraph`/`Node`/`Relationship`/`PropertyValue` ↔ protobuf DTOs, DuckDB/Marten row shapes, and external import/export records. It never owns identity, content hashing, equality, or the result rail — `NodeId`/`ContentAddress` and `XxHash128` stay in the kernel, equality stays in `Generator.Equals`, and the failure rail stays in LanguageExt `Fin`/`Validation`.
 - A mapper is a thin generated capsule, not a domain owner: it declares partial method shapes and configuration attributes, and the generated body is the whole implementation. Do not hand-roll a `switch`/assignment mapper where `[Mapper]` + `[MapDerivedType]` generates it; do not wrap the generated mapper in a forwarding adapter.
-- `[Union]` and `[SmartEnum]` owners map through their generated key/case surface: a `[Union]` lowers via `[MapDerivedType]` (one attribute per case → a total type-switch) ONLY when the wire cases share a base type — a protobuf `oneof` envelope's case messages do not, so there the dispatch rides the union's generated `Switch` (encode) and the generated `PayloadCase` enum (decode) while Mapperly keeps the per-case field mapping (the `Rasm.Element` `Graph/wire#WIRE_CODEC` division); a `[ValueObject<T>]`/`[SmartEnum<TKey>]` maps via its key (`MappingConversionType.Constructor`/`ParseMethod`/`StaticConvertMethods`, or a `[UseStaticMapper]` over the Thinktecture key codec). Tighten `EnabledConversions` (e.g. `All & ~ToStringMethod`) when an implicit conversion does mask a real mismatch.
+- `[Union]` and `[SmartEnum]` owners map through their generated key/case surface: a `[Union]` lowers via `[MapDerivedType]` (one attribute per case → a total type-switch) ONLY when the wire cases share a base type — a protobuf `oneof` envelope's case messages do not, so there the dispatch rides the union's generated `Switch` (encode) and the generated `PayloadCase` enum (decode) while Mapperly keeps the per-case field mapping; a `[ValueObject<T>]`/`[SmartEnum<TKey>]` maps via its key (`MappingConversionType.Constructor`/`ParseMethod`/`StaticConvertMethods`, or a `[UseStaticMapper]` over the Thinktecture key codec). Tighten `EnabledConversions` (e.g. `All & ~ToStringMethod`) when an implicit conversion does mask a real mismatch.
 - Boundary policy (culture, null strictness, enum naming) is declared on the mapper attribute, never hidden in an interior helper: `[FormatProvider(Default = true)]` carries the culture; `ThrowOnPropertyMappingNullMismatch`/`AllowNullPropertyAssignment` carry the null contract; `EnumNamingStrategy.SerializationEnumMemberAttribute` aligns enum strings with the wire schema.
 
 [STACKING]:
+
 - `Generator.Equals` (`api-generator-equals.md`): the same DTO/wire records Mapperly produces carry `[Equatable]` structural equality, so a mapped target compares by content for the diff/dedup lane — Mapperly transcribes the shape, `Generator.Equals` decides identity, neither reimplements the other.
-- `Google.Protobuf` (`api-protobuf.md`): the protobuf-generated message classes are the wire DTOs Mapperly maps to/from; a `oneof` envelope's case messages share no base type, so the `Node`/`Relationship`/`PropertyValue` case dispatch rides the union's generated total `Switch` (encode) and the generated `PayloadCase` closed enum (decode) while Mapperly owns the per-case field-by-field transcription the protobuf runtime does not (the `Rasm.Element` `Graph/wire#WIRE_CODEC` division); existing-target `[UserMapping]` update methods fill the get-only `RepeatedField`/`MapField` members.
+- `Google.Protobuf` (`api-protobuf.md`): the protobuf-generated message classes are the wire DTOs Mapperly maps to/from; a `oneof` envelope's case messages share no base type, so the `Node`/`Relationship`/`PropertyValue` case dispatch rides the union's generated total `Switch` (encode) and the generated `PayloadCase` closed enum (decode) while Mapperly owns the per-case field-by-field transcription the protobuf runtime does not; existing-target `[UserMapping]` update methods fill the get-only `RepeatedField`/`MapField` members.
 - Thinktecture (`api-thinktecture-runtime-extensions.md`): a `[ValueObject<string>]` `NodeId` or `[SmartEnum]` `Discipline` maps through its generated key — `[UseStaticMapper]` over the Thinktecture factory/key accessor, or `MappingConversionType.Constructor`/`StaticConvertMethods` resolving `IObjectFactory.Create`. Mapperly never re-parses a value object by hand.
 - LanguageExt (`api-languageext.md`): a mapper method returns the bare target; the seam wraps the call in `Fin`/`Validation` at the call site (`Try`/`Eff`), because Mapperly throws (or returns default) per its null policy rather than returning a typed result. Keep the rail outside the generated method.
 - Marten / DuckDB (`api-marten.md`, `api-duckdb.md`): a `static partial IQueryable<TDto> ProjectTo(this IQueryable<T>)` projection inlines an EF/LINQ-translatable expression tree for the columnar read lane, so the projection executes in-store (SQL) rather than materializing the graph; pair it with `IReferenceHandler` only on the in-memory object path, never on the `IQueryable` path (reference handling and projection are mutually exclusive by design).
 
 [RAIL_LAW]:
+
 - Package: `Riok.Mapperly`
 - Owns: compile-time object-to-object mapping — `[Mapper]` partial-method generation, member rename/flatten/unflatten, constant/computed value injection, enum mapping (by value/name, naming strategies, explicit value maps), polymorphic `[MapDerivedType]` type-switches, `IQueryable` projection, existing-target update, generic dispatch, mapper composition (`[UseMapper]`/`[UseStaticMapper]`), object-factory activation, and `IReferenceHandler` cycle preservation.
 - Accept: boundary transcription between the canonical graph/value vocabulary and wire/DTO/row shapes; the `[Union]`→wire-case switch via `[MapDerivedType]` where the wire cases share a base type (a `oneof` envelope dispatches through the union's own generated `Switch`/`PayloadCase`); the in-store projection via a `ProjectTo` partial; activation through the `IObjectFactory` mint via `[ObjectFactory]`.

@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_POLLY_EXTENSIONS]
 
-`Polly.Extensions` supplies resilience telemetry options, telemetry enrichment,
-metering integration, dependency-injection pipeline registration, and builder
-extensions that add telemetry to resilience pipelines.
+`Polly.Extensions` supplies resilience telemetry options, telemetry enrichment, metering integration, dependency-injection pipeline registration, and builder extensions that add telemetry to resilience pipelines.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Polly.Extensions`
+
 - package: `Polly.Extensions`
 - assembly: `Polly.Extensions`
 - namespace: `Polly`
@@ -17,6 +16,7 @@ extensions that add telemetry to resilience pipelines.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: telemetry configuration family
+
 - rail: resilience telemetry
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]      | [RAIL]                   |
@@ -31,6 +31,7 @@ extensions that add telemetry to resilience pipelines.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: telemetry operations
+
 - rail: resilience telemetry
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]    | [RAIL]                        |
@@ -48,6 +49,7 @@ extensions that add telemetry to resilience pipelines.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_TOPOLOGY]:
+
 - namespaces: `Polly`, `Polly.Telemetry`
 - builder surface: telemetry configuration on resilience pipeline builders
 - option surface: logger factory, severity provider, result formatter, and metering enrichers
@@ -55,12 +57,14 @@ extensions that add telemetry to resilience pipelines.
 - pipeline effect: telemetry strategy is inserted at the beginning of the composite pipeline
 
 [LOCAL_ADMISSION]:
+
 - Resilience telemetry is configured on the pipeline builder, not inside handled operations.
 - Metric enrichment is bounded by telemetry options and never reads arbitrary domain state.
 - Severity policy is a value-level callback over resilience event arguments.
 - Result formatting is an observability projection and cannot mutate the outcome.
 
 [RAIL_LAW]:
+
 - Package: `Polly.Extensions`
 - Owns: resilience pipeline telemetry configuration
 - Accept: builder-level telemetry policy

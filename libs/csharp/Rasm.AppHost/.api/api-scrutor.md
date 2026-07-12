@@ -1,11 +1,11 @@
 # [RASM_APPHOST_API_SCRUTOR]
 
-`Scrutor` supplies assembly scanning, type filtering, service mapping, registration
-strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
+`Scrutor` supplies assembly scanning, type filtering, service mapping, registration strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Scrutor`
+
 - package: `Scrutor`
 - assembly: `Scrutor`
 - namespace: `Microsoft.Extensions.DependencyInjection`
@@ -15,6 +15,7 @@ strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: scan family
+
 - rail: composition
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]        | [RAIL]                   |
@@ -35,6 +36,7 @@ strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: scan operations
+
 - rail: composition
 
 | [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]    | [RAIL]                     |
@@ -58,6 +60,7 @@ strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
 |  [17]   | `Where`                       | predicate filter  | custom type filter         |
 
 [ENTRYPOINT_SCOPE]: mapping lifetime and decoration operations
+
 - rail: composition
 
 | [INDEX] | [SURFACE]                      | [ENTRY_FAMILY]      | [RAIL]                   |
@@ -82,6 +85,7 @@ strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SCAN_TOPOLOGY]:
+
 - namespaces: `Scrutor`, `Microsoft.Extensions.DependencyInjection`
 - assembly selectors: entry assembly, dependency context, explicit assemblies, marker types
 - type filters: assignable type, multi-type assignability, attribute, namespace, exact namespace, predicate
@@ -91,11 +95,13 @@ strategy, keyed lifetime selection, and decoration over the AppHost DI rail.
 - decoration policy: required decoration, optional decoration, decorated-service handles
 
 [LOCAL_ADMISSION]:
+
 - Scanning is bootstrap-only composition work.
 - Scan filters are package-owned and deterministic; runtime reflection loops stay rejected.
 - Decoration is admitted for cross-cutting ports where the decorated service contract remains the public contract.
 
 [RAIL_LAW]:
+
 - Package: `Scrutor`
 - Owns: assembly scanning and decoration
 - Accept: scans populate composition records

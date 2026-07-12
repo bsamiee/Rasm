@@ -1,27 +1,15 @@
 # [RASM_API_PROTOBUF]
 
-`Google.Protobuf` supplies the generated wire-contract runtime the Compute remote
-lane projects: `IMessage<T>` message contracts, the `MessageParser<T>` /
-`CodedInputStream` / `CodedOutputStream` codec stack, the `IBufferMessage` +
-`MessageExtensions` zero-allocation Span/Sequence/`IBufferWriter` fast path, the
-`FieldCodec<T>` per-payload encoding primitive, the reflection descriptor graph,
-the well-known type family (`Any`, `Timestamp`, `Duration`, `FieldMask`, `Struct`),
-and JSON projection at the edge. It is the wire codec under the
-`Runtime/wire#PROTO_VOCABULARY` five-service gRPC vocabulary and the
-`Runtime/transport#ARTIFACT_FRAMES` `FrameEdge` fold; the `IBufferMessage` fast path
-writes into a `Microsoft.IO.RecyclableMemoryStream` `IBufferWriter<byte>` face
-(`api-recyclable-stream`) and the same buffer is content-keyed by the suite
-`XxHash128` law (`api-hashing` / `Runtime/codecs#CONTENT_ADDRESSING`). This page is
-HOST-LOCAL and carries no TS_PROJECTION; the browser projects the wire through its
-own `protobufjs`/`@bufbuild` decode at the `Rasm.AppUi` seam.
+`Google.Protobuf` owns generated wire contracts and their binary, buffered, reflected, and JSON projections for the Compute remote lane. Its `IBufferMessage` path writes into `IBufferWriter<byte>`, while the same bytes carry content identity. Browser clients decode the wire through `protobufjs` or `@bufbuild` at the `Rasm.AppUi` seam.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Google.Protobuf`
+
 - package: `Google.Protobuf` (version, direct pin)
 - license: BSD-3-Clause (`protocolbuffers/protobuf`)
 - assembly: `Google.Protobuf`
-- managed-tfm: multi-target (`net45`, `net5.0`, `netstandard1.1`, `netstandard2.0`); the `net10.0` consumer binds `lib/net5.0` — the asset that carries the `ReadOnlySpan`/`ReadOnlySequence`/`IBufferWriter` fast-path overloads. `lib/netstandard2.0` (the `api resolve` default pick) is the lower-API fallback and is NOT the bound surface; verify member presence against `lib/net5.0`.
+- managed-tfm: multi-target (`net45`, `net5.0`, `netstandard1.1`, `netstandard2.0`); the `net10.0` consumer binds `lib/net5.0`, whose surface carries the `ReadOnlySpan<byte>`, `ReadOnlySequence<byte>`, and `IBufferWriter<byte>` overloads absent from `lib/netstandard2.0`
 - namespaces: `Google.Protobuf`, `Google.Protobuf.Collections`, `Google.Protobuf.Reflection`, `Google.Protobuf.WellKnownTypes`
 - asset: managed runtime library; `Google.Protobuf.Tools` (`protoc`) and the gRPC `.proto` compile are separate package owners
 - transitive floor: bound transitively by `Google.OrTools` (`MPModelProto` carriers) and `NodaTime.Serialization.Protobuf`; the central pin wins the version-conflict resolution
@@ -30,236 +18,385 @@ own `protobufjs`/`@bufbuild` decode at the `Rasm.AppUi` seam.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: message, codec, and buffer-context contracts
+
 - rail: remote-contracts
 
-| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]      | [CAPABILITY]                                                                                                                                                                                                                            |
-| :-----: | :------------------------------- | :------------------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `IMessage`                       | message contract    | untyped wire payload (`MergeFrom`/`WriteTo`/`CalculateSize`)                                                                                                                                                                            |
-|  [02]   | `IMessage<T>`                    | message contract    | typed payload; carries the static `Parser`/`Descriptor`                                                                                                                                                                                 |
-|  [03]   | `IBufferMessage`                 | buffer contract     | `InternalMergeFrom(ref ParseContext)` / `InternalWriteTo(ref WriteContext)` zero-alloc entry                                                                                                                                            |
-|  [04]   | `IDeepCloneable<T>`              | clone contract      | structural `Clone()` deep copy                                                                                                                                                                                                          |
-|  [05]   | `MessageParser<T>`               | parser              | typed parse over byte[]/Span/Sequence/Stream/Coded + JSON + config                                                                                                                                                                      |
-|  [06]   | `CodedInputStream`               | binary reader       | streaming wire reader with size/recursion limits                                                                                                                                                                                        |
-|  [07]   | `CodedOutputStream`              | binary writer       | streaming wire writer + static `Compute*Size` cost family                                                                                                                                                                               |
-|  [08]   | `ParseContext`                   | ref parse context   | `ref struct` buffer parse cursor driven by generated code                                                                                                                                                                               |
-|  [09]   | `WriteContext`                   | ref write context   | `ref struct` buffer write cursor driven by generated code                                                                                                                                                                               |
-|  [10]   | `FieldCodec<T>`                  | per-field codec     | the reusable read/write/size unit behind every generated accessor                                                                                                                                                                       |
-|  [11]   | `ByteString`                     | immutable bytes     | zero-copy `Span`/`Memory` view, base64/utf8/stream factories                                                                                                                                                                            |
-|  [12]   | `JsonFormatter`                  | JSON codec          | message → JSON with a `Settings` builder                                                                                                                                                                                                |
-|  [13]   | `JsonParser`                     | JSON codec          | JSON → message with a `Settings` builder                                                                                                                                                                                                |
-|  [14]   | `InvalidProtocolBufferException` | protocol fault rail | the binary-codec parse-failure exception (`: IOException`)                                                                                                                                                                              |
-|  [15]   | `InvalidJsonException`           | JSON fault rail     | the JSON parse-failure exception (`: IOException`, sibling rail)                                                                                                                                                                        |
-|  [16]   | `WireFormat`                     | wire tag helper     | `static uint MakeTag(int fieldNumber, WireType)` + `GetTagWireType`/`GetTagFieldNumber` over the `WireType` enum (`Varint`/`Fixed64`/`LengthDelimited`/`StartGroup`/`EndGroup`/`Fixed32`) — builds the tag a `FieldCodec.For*` consumes |
+`IBufferMessage` exposes `InternalMergeFrom(ref ParseContext)` and `InternalWriteTo(ref WriteContext)`, while `FieldCodec<T>` is the reusable read, write, and size unit behind each generated accessor. `WireFormat.MakeTag(int, WireFormat.WireType)` builds a field tag, while `GetTagWireType` and `GetTagFieldNumber` project its number and wire type.
+
+| [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]      | [CAPABILITY]                      |
+| :-----: | :------------------------------- | :------------------ | :-------------------------------- |
+|  [01]   | `IMessage`                       | message contract    | descriptor with binary operations |
+|  [02]   | `IMessage<T>`                    | message contract    | typed equality and cloning        |
+|  [03]   | `IBufferMessage`                 | buffer contract     | generated buffer entry            |
+|  [04]   | `IDeepCloneable<T>`              | clone contract      | structural deep copy              |
+|  [05]   | `MessageParser<T>`               | parser              | typed message decoding            |
+|  [06]   | `CodedInputStream`               | binary reader       | bounded binary decoding           |
+|  [07]   | `CodedOutputStream`              | binary writer       | binary encoding with size costing |
+|  [08]   | `ParseContext`                   | ref parse context   | generated parse cursor            |
+|  [09]   | `WriteContext`                   | ref write context   | generated write cursor            |
+|  [10]   | `FieldCodec<T>`                  | per-field codec     | generated accessor codec          |
+|  [11]   | `ByteString`                     | immutable bytes     | immutable wire-byte ownership     |
+|  [12]   | `JsonFormatter`                  | JSON codec          | message projection                |
+|  [13]   | `JsonParser`                     | JSON codec          | message reconstruction            |
+|  [14]   | `InvalidProtocolBufferException` | protocol fault rail | binary parse failure              |
+|  [15]   | `InvalidJsonException`           | JSON fault rail     | JSON parse failure                |
+|  [16]   | `WireFormat`                     | wire tag helper     | tag construction and projection   |
+
+`ParseContext` and `WriteContext` are `ref struct` cursors driven only by generated code. `InvalidProtocolBufferException` and `InvalidJsonException` inherit `IOException`.
+
+`WireFormat.WireType` is the closed wire-tag vocabulary.
+
+| [INDEX] | [VARIANT]         |
+| :-----: | :---------------- |
+|  [01]   | `Varint`          |
+|  [02]   | `Fixed64`         |
+|  [03]   | `LengthDelimited` |
+|  [04]   | `StartGroup`      |
+|  [05]   | `EndGroup`        |
+|  [06]   | `Fixed32`         |
 
 [PUBLIC_TYPE_SCOPE]: collection and reflection contracts
+
 - rail: remote-contracts
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]      | [CAPABILITY]                                                            |
-| :-----: | :----------------------------- | :------------------ | :---------------------------------------------------------------------- |
-|  [01]   | `RepeatedField<T>`             | repeated collection | typed list with codec-driven `AddEntriesFrom`/`WriteTo`/`CalculateSize` |
-|  [02]   | `MapField<TKey,TValue>`        | map collection      | typed dictionary with a nested `MapField.Codec` map-entry codec         |
-|  [03]   | `UnknownFieldSet`              | unknown field store | round-trips fields absent from the local schema                         |
-|  [04]   | `ExtensionRegistry`            | extension registry  | resolves proto2 extensions during parse                                 |
-|  [05]   | `Extension` / `Extension<T,V>` | extension handle    | a single registered extension field                                     |
-|  [06]   | `FileDescriptor`               | reflection metadata | message/enum/service/dependency graph + `BuildFromByteStrings`          |
-|  [07]   | `MessageDescriptor`            | reflection metadata | `Fields`/`Oneofs`/`Parser`/`ClrType` + `FindFieldBy*`                   |
-|  [08]   | `FieldDescriptor`              | reflection metadata | `FieldNumber`/`FieldType`/`Accessor`/`IsRepeated`/`IsMap`/`JsonName`    |
-|  [09]   | `EnumDescriptor`               | reflection metadata | enum value set                                                          |
-|  [10]   | `ServiceDescriptor`            | reflection metadata | `Methods` rpc set                                                       |
-|  [11]   | `MethodDescriptor`             | reflection metadata | input/output type + client/server-streaming flags                       |
-|  [12]   | `TypeRegistry`                 | type registry       | name→`MessageDescriptor` map for `Any`/JSON resolution                  |
-|  [13]   | `GeneratedClrTypeInfo`         | generated binding   | binds generated CLR types, parsers, oneof/property names                |
-|  [14]   | `OriginalNameAttribute`        | generated attribute | preserves the proto name where the C# name diverges                     |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                   |
+| :-----: | :--------------------------- | :------------------ | :----------------------------- |
+|  [01]   | `RepeatedField<T>`           | repeated collection | codec-driven repeated fields   |
+|  [02]   | `MapField<TKey, TValue>`     | map collection      | codec-driven map fields        |
+|  [03]   | `UnknownFieldSet`            | unknown field store | unknown-field preservation     |
+|  [04]   | `ExtensionRegistry`          | extension registry  | proto2 extension resolution    |
+|  [05]   | `Extension`                  | extension base      | field-number identity          |
+|  [06]   | `Extension<TTarget, TValue>` | extension handle    | typed extension field          |
+|  [07]   | `FileDescriptor`             | reflection metadata | file-level descriptor graph    |
+|  [08]   | `MessageDescriptor`          | reflection metadata | message-level descriptor graph |
+|  [09]   | `FieldDescriptor`            | reflection metadata | field-level descriptor graph   |
+|  [10]   | `EnumDescriptor`             | reflection metadata | enum-value descriptor graph    |
+|  [11]   | `ServiceDescriptor`          | reflection metadata | RPC service descriptor graph   |
+|  [12]   | `MethodDescriptor`           | reflection metadata | RPC method descriptor graph    |
+|  [13]   | `TypeRegistry`               | type registry       | typed payload resolution       |
+|  [14]   | `GeneratedClrTypeInfo`       | generated binding   | generated CLR metadata binding |
+|  [15]   | `OriginalNameAttribute`      | generated attribute | protocol-name preservation     |
 
 [PUBLIC_TYPE_SCOPE]: well-known contracts
-- rail: remote-contracts
-- note: namespace `Google.Protobuf.WellKnownTypes`; each is a generated message with C#-native conversion helpers.
 
-| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]  | [CAPABILITY]                                                         |
-| :-----: | :---------------- | :-------------- | :------------------------------------------------------------------- |
-|  [01]   | `Any`             | typed envelope  | `Pack`/`Unpack<T>`/`TryUnpack<T>`/`Is` over a type-URL               |
-|  [02]   | `Timestamp`       | instant message | `From`/`ToDateTime` + `From`/`ToDateTimeOffset`                      |
-|  [03]   | `Duration`        | span message    | `FromTimeSpan` / `ToTimeSpan`                                        |
-|  [04]   | `FieldMask`       | field selector  | `Paths` `RepeatedField<string>` + `FromString`/`IsValid`/`Normalize` |
-|  [05]   | `Struct`          | dynamic object  | string→`Value` `MapField`                                            |
-|  [06]   | `Value`           | dynamic value   | `ForString`/`ForNumber`/`ForBool`/`ForStruct`/`ForList`/`ForNull`    |
-|  [07]   | `ListValue`       | dynamic list    | ordered `Value` sequence                                             |
-|  [08]   | `Empty`           | empty message   | the no-payload rpc marker                                            |
-|  [09]   | `*Value` wrappers | scalar wrappers | `Int32Value`/`StringValue`/`BoolValue`/… nullable scalars            |
+- rail: remote-contracts
+- note: namespace `Google.Protobuf.WellKnownTypes`; each row is a generated message, while temporal rows add CLR conversion helpers
+
+| [INDEX] | [SYMBOL]    | [PACKAGE_ROLE]  | [CAPABILITY]             |
+| :-----: | :---------- | :-------------- | :----------------------- |
+|  [01]   | `Any`       | typed envelope  | typed payload packing    |
+|  [02]   | `Timestamp` | instant message | timestamp conversion     |
+|  [03]   | `Duration`  | span message    | duration conversion      |
+|  [04]   | `FieldMask` | field selector  | path selection and merge |
+|  [05]   | `Struct`    | dynamic object  | string-keyed values      |
+|  [06]   | `Value`     | dynamic value   | dynamic value union      |
+|  [07]   | `ListValue` | dynamic list    | ordered dynamic values   |
+|  [08]   | `Empty`     | empty message   | no-payload RPC marker    |
+
+Every scalar wrapper is a generated message over one CLR primitive.
+
+| [INDEX] | [SYMBOL]      | [PRIMITIVE]  |
+| :-----: | :------------ | :----------- |
+|  [01]   | `DoubleValue` | `double`     |
+|  [02]   | `FloatValue`  | `float`      |
+|  [03]   | `Int64Value`  | `long`       |
+|  [04]   | `UInt64Value` | `ulong`      |
+|  [05]   | `Int32Value`  | `int`        |
+|  [06]   | `UInt32Value` | `uint`       |
+|  [07]   | `BoolValue`   | `bool`       |
+|  [08]   | `StringValue` | `string`     |
+|  [09]   | `BytesValue`  | `ByteString` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stream and copy message operations
-- rail: remote-contracts
-- note: the generated-message instance/extension surface for the stream-bound and copy paths; the buffer fast path is the next section.
 
-| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                                                   | [CAPABILITY]                                    |
-| :-----: | :------------------------------------------ | :------------------------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `MessageParser<T>.ParseFrom`                | `T ParseFrom(byte[]\| ByteString\| Stream\| CodedInputStream)` | typed parse from a stream-bound source          |
-|  [02]   | `MessageParser<T>.ParseDelimitedFrom`       | `T ParseDelimitedFrom(Stream)`                                 | parses one length-prefixed message off a stream |
-|  [03]   | `MessageParser<T>.ParseJson`                | `T ParseJson(string)`                                          | typed JSON parse via the parser                 |
-|  [04]   | `MessageParser<T>.WithDiscardUnknownFields` | `MessageParser<T> WithDiscardUnknownFields(bool)`              | returns a parser that drops unknown fields      |
-|  [05]   | `MessageParser<T>.WithExtensionRegistry`    | `MessageParser<T> WithExtensionRegistry(ExtensionRegistry)`    | returns an extension-aware parser               |
-|  [06]   | `IMessage.MergeFrom`                        | `void MergeFrom(CodedInputStream)`                             | extends a live message from the wire            |
-|  [07]   | `IMessage.WriteTo`                          | `void WriteTo(CodedOutputStream)`                              | writes the message to the wire                  |
-|  [08]   | `IMessage.CalculateSize`                    | `int CalculateSize()`                                          | exact serialized byte length                    |
-|  [09]   | `MessageExtensions.ToByteArray`             | `byte[] ToByteArray(this IMessage)`                            | edge copy to a managed array                    |
-|  [10]   | `MessageExtensions.ToByteString`            | `ByteString ToByteString(this IMessage)`                       | edge copy to an immutable `ByteString`          |
-|  [11]   | `MessageExtensions.WriteTo`                 | `void WriteTo(this IMessage, Stream)`                          | streaming write                                 |
-|  [12]   | `MessageExtensions.WriteDelimitedTo`        | `void WriteDelimitedTo(this IMessage, Stream)`                 | length-prefixed streaming write                 |
-|  [13]   | `IDeepCloneable<T>.Clone`                   | `T Clone()`                                                    | structural deep copy                            |
+- rail: remote-contracts
+- note: parser operations decode one typed message, parser policies drop unknown fields or bind an extension registry, and copy operations materialize owned bytes.
+
+| [INDEX] | [SURFACE]                                   | [INPUT]             | [RESULT]           | [CAPABILITY]                 |
+| :-----: | :------------------------------------------ | :------------------ | :----------------- | :--------------------------- |
+|  [01]   | `MessageParser<T>.ParseFrom`                | `byte[]`            | `T`                | typed message parse          |
+|  [02]   | `MessageParser<T>.ParseFrom`                | `ByteString`        | `T`                | typed message parse          |
+|  [03]   | `MessageParser<T>.ParseFrom`                | `Stream`            | `T`                | typed message parse          |
+|  [04]   | `MessageParser<T>.ParseFrom`                | `CodedInputStream`  | `T`                | typed message parse          |
+|  [05]   | `MessageParser<T>.ParseDelimitedFrom`       | `Stream`            | `T`                | length-prefixed parse        |
+|  [06]   | `MessageParser<T>.ParseJson`                | `string`            | `T`                | typed JSON parse             |
+|  [07]   | `MessageParser<T>.WithDiscardUnknownFields` | `bool`              | `MessageParser<T>` | unknown-field policy         |
+|  [08]   | `MessageParser<T>.WithExtensionRegistry`    | `ExtensionRegistry` | `MessageParser<T>` | extension-aware parser       |
+|  [09]   | `IMessage.MergeFrom`                        | `CodedInputStream`  | `void`             | in-place message merge       |
+|  [10]   | `IMessage.WriteTo`                          | `CodedOutputStream` | `void`             | binary stream write          |
+|  [11]   | `IMessage.CalculateSize`                    | —                   | `int`              | exact serialized size        |
+|  [12]   | `MessageExtensions.ToByteArray`             | `IMessage`          | `byte[]`           | managed byte copy            |
+|  [13]   | `MessageExtensions.ToByteString`            | `IMessage`          | `ByteString`       | immutable byte copy          |
+|  [14]   | `MessageExtensions.WriteTo`                 | `IMessage, Stream`  | `void`             | stream write                 |
+|  [15]   | `MessageExtensions.WriteDelimitedTo`        | `IMessage, Stream`  | `void`             | length-prefixed stream write |
+|  [16]   | `IDeepCloneable<T>.Clone`                   | —                   | `T`                | structural deep copy         |
 
 [ENTRYPOINT_SCOPE]: buffer fast-path parse and write operations
-- rail: remote-contracts#ARTIFACT_SYNC
-- note: this is the zero-allocation path the `FrameEdge` fold and the `RecyclableMemoryStream` writer face compose; every overload is present in `lib/net5.0`, absent in `lib/netstandard2.0`.
 
-| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                     | [CAPABILITY]                                                                          |
-| :-----: | :---------------------------------------- | :--------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `MessageParser<T>.ParseFrom`              | `T ParseFrom(ReadOnlySpan<byte>)`                                | parses a contiguous buffer with no stream allocation                                  |
-|  [02]   | `MessageParser<T>.ParseFrom`              | `T ParseFrom(ReadOnlySequence<byte>)`                            | parses a fragmented buffer — accepts a `RecyclableMemoryStream.GetReadOnlySequence()` |
-|  [03]   | `MessageExtensions.MergeFrom`             | `void MergeFrom(this IMessage, ReadOnlySpan<byte>)`              | merges a contiguous buffer into a live message                                        |
-|  [04]   | `MessageExtensions.MergeFrom`             | `void MergeFrom(this IMessage, ReadOnlySequence<byte>)`          | merges a fragmented buffer                                                            |
-|  [05]   | `MessageExtensions.WriteTo`               | `void WriteTo(this IMessage, IBufferWriter<byte>)`               | writes into a pooled writer — the `RecyclableMemoryStream` sink                       |
-|  [06]   | `MessageExtensions.WriteTo`               | `void WriteTo(this IMessage, Span<byte>)`                        | writes into a pre-sized (`CalculateSize`) buffer                                      |
-|  [07]   | `MessageExtensions.WriteLengthPrefixedTo` | `void WriteLengthPrefixedTo(this IMessage, IBufferWriter<byte>)` | writes a varint-length-prefixed payload — the `FrameEdge` frame body                  |
-|  [08]   | `ByteString.Span` / `Memory`              | `ReadOnlySpan<byte> Span` / `ReadOnlyMemory<byte> Memory`        | zero-copy view; `UnsafeByteOperations.UnsafeWrap` aliases without copying             |
+- rail: remote-contracts#ARTIFACT_SYNC
+- note: `ParseFrom` returns `T` without stream allocation. The extension operations bind `this IMessage`; `MergeFrom` mutates it, write operations emit it into pooled or pre-sized targets, and `WriteLengthPrefixedTo` adds a varint length prefix. The `lib/net5.0` asset carries these overloads, while `lib/netstandard2.0` does not.
+
+| [INDEX] | [SURFACE]                                 | [BUFFER]                 | [RESULT] |
+| :-----: | :---------------------------------------- | :----------------------- | :------- |
+|  [01]   | `MessageParser<T>.ParseFrom`              | `ReadOnlySpan<byte>`     | `T`      |
+|  [02]   | `MessageParser<T>.ParseFrom`              | `ReadOnlySequence<byte>` | `T`      |
+|  [03]   | `MessageExtensions.MergeFrom`             | `ReadOnlySpan<byte>`     | `void`   |
+|  [04]   | `MessageExtensions.MergeFrom`             | `ReadOnlySequence<byte>` | `void`   |
+|  [05]   | `MessageExtensions.WriteTo`               | `IBufferWriter<byte>`    | `void`   |
+|  [06]   | `MessageExtensions.WriteTo`               | `Span<byte>`             | `void`   |
+|  [07]   | `MessageExtensions.WriteLengthPrefixedTo` | `IBufferWriter<byte>`    | `void`   |
 
 [ENTRYPOINT_SCOPE]: `ByteString` and no-copy buffer ownership
+
 - rail: remote-contracts
 
-`ByteString` is the immutable wire-byte carrier; `UnsafeByteOperations.UnsafeWrap` adopts caller-owned memory and shifts buffer-lifetime ownership to the caller.
+`ByteString` is the immutable wire-byte carrier. Copy factories own their bytes, `Span` and `Memory` expose zero-copy views, and `UnsafeByteOperations.UnsafeWrap` adopts caller-owned memory whose contents remain unchanged for the `ByteString` lifetime.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                               | [CAPABILITY]                                                              |
-| :-----: | :----------------------------------- | :------------------------------------------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `ByteString.CopyFrom`                | `static ByteString CopyFrom(ReadOnlySpan<byte>\| byte[]\| byte[],int,int)` | copies bytes into an immutable `ByteString`                               |
-|  [02]   | `ByteString.CopyFromUtf8`            | `static ByteString CopyFromUtf8(string)`                                   | utf8-encodes a string                                                     |
-|  [03]   | `ByteString.FromStream`              | `static ByteString FromStream(Stream)`                                     | drains a stream into a `ByteString`                                       |
-|  [04]   | `ByteString.FromStreamAsync`         | `static Task<ByteString> FromStreamAsync(Stream, CancellationToken)`       | async stream drain                                                        |
-|  [05]   | `ByteString.FromBase64` / `ToBase64` | `static ByteString FromBase64(string)` / `string ToBase64()`               | base64 edge transcode                                                     |
-|  [06]   | `ByteString.ToStringUtf8`            | `string ToStringUtf8()`                                                    | utf8 decode                                                               |
-|  [07]   | `ByteString.CreateCodedInput`        | `CodedInputStream CreateCodedInput()`                                      | reads the bytes as a coded stream                                         |
-|  [08]   | `UnsafeByteOperations.UnsafeWrap`    | `static ByteString UnsafeWrap(ReadOnlyMemory<byte>)`                       | aliases backing memory into a `ByteString` no-copy (caller owns lifetime) |
+| [INDEX] | [SURFACE]                         | [INPUT]                     | [RESULT]               |
+| :-----: | :-------------------------------- | :-------------------------- | :--------------------- |
+|  [01]   | `ByteString.CopyFrom`             | `ReadOnlySpan<byte>`        | `ByteString`           |
+|  [02]   | `ByteString.CopyFrom`             | `byte[]`                    | `ByteString`           |
+|  [03]   | `ByteString.CopyFrom`             | `byte[], int, int`          | `ByteString`           |
+|  [04]   | `ByteString.CopyFromUtf8`         | `string`                    | `ByteString`           |
+|  [05]   | `ByteString.FromStream`           | `Stream`                    | `ByteString`           |
+|  [06]   | `ByteString.FromStreamAsync`      | `Stream, CancellationToken` | `Task<ByteString>`     |
+|  [07]   | `ByteString.FromBase64`           | `string`                    | `ByteString`           |
+|  [08]   | `ByteString.ToBase64`             | —                           | `string`               |
+|  [09]   | `ByteString.ToStringUtf8`         | —                           | `string`               |
+|  [10]   | `ByteString.CreateCodedInput`     | —                           | `CodedInputStream`     |
+|  [11]   | `ByteString.Span`                 | —                           | `ReadOnlySpan<byte>`   |
+|  [12]   | `ByteString.Memory`               | —                           | `ReadOnlyMemory<byte>` |
+|  [13]   | `UnsafeByteOperations.UnsafeWrap` | `ReadOnlyMemory<byte>`      | `ByteString`           |
 
 [ENTRYPOINT_SCOPE]: any-envelope, field-mask, and well-known operations
-- rail: remote-contracts
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                                                               | [CAPABILITY]                                                          |
-| :-----: | :------------------------------------- | :------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `Any.Pack`                             | `static Any Pack(IMessage)` / `Pack(IMessage, string typeUrlPrefix)`                                                       | wraps a typed message under a type-URL                                |
-|  [02]   | `Any.Unpack<T>` / `TryUnpack<T>`       | `T Unpack<T>()` / `bool TryUnpack<T>(out T)`                                                                               | extracts a typed message (throwing / Try variant)                     |
-|  [03]   | `Any.Unpack`                           | `IMessage Unpack(TypeRegistry)`                                                                                            | resolves the payload type by registry                                 |
-|  [04]   | `Any.Is`                               | `bool Is(MessageDescriptor)`                                                                                               | tests the type-URL against a descriptor                               |
-|  [05]   | `Any.GetTypeName`                      | `static string GetTypeName(string typeUrl)`                                                                                | strips the prefix to a bare full name                                 |
-|  [06]   | `FieldMask.FromString`                 | `static FieldMask FromString(string)` / `FromString<T>(string)`                                                            | parses a comma-path mask (typed validates against `T`)                |
-|  [07]   | `FieldMask.FromFieldNumbers<T>`        | `static FieldMask FromFieldNumbers<T>(IEnumerable<int>)`                                                                   | builds a mask from field numbers                                      |
-|  [08]   | `FieldMask.IsValid`                    | `static bool IsValid(MessageDescriptor, FieldMask\| string)`                                                               | validates mask paths against a descriptor                             |
-|  [09]   | `FieldMask.Normalize`                  | `FieldMask Normalize()`                                                                                                    | sorts/dedups/prunes redundant sub-paths                               |
-|  [10]   | `Timestamp.FromDateTimeOffset`         | `static Timestamp FromDateTimeOffset(DateTimeOffset)`                                                                      | offset-aware instant construction                                     |
-|  [11]   | `Duration.FromTimeSpan` / `ToTimeSpan` | `static Duration FromTimeSpan(TimeSpan)` / `TimeSpan ToTimeSpan()`                                                         | span transcode                                                        |
-|  [12]   | `Value.For*`                           | `static Value ForString\| ForNumber\| ForBool\| ForStruct\| ForList\| ForNull(...)`                                        | dynamic-value construction for `Struct` graphs                        |
-|  [13]   | `FieldMask.Union`                      | `FieldMask Union(params FieldMask[] otherMasks)`                                                                           | merges two or more masks into one (the multi-tile viewport union)     |
-|  [14]   | `FieldMask.Merge`                      | `void Merge(IMessage source, IMessage destination, MergeOptions options)` / `Merge(IMessage source, IMessage destination)` | the partial-update APPLY leg copies masked paths source→destination   |
-|  [15]   | `FieldMask.MergeOptions`               | `sealed class { bool ReplaceMessageFields; bool ReplaceRepeatedFields; bool ReplacePrimitiveFields }`                      | per-field-kind merge policy: replace vs append/merge (default merges) |
+- rail: remote-contracts
+- note: `Any.Unpack<T>` throws on a type mismatch, while `TryUnpack<T>` returns a boolean verdict. Typed `FieldMask.FromString<T>` validates the parsed comma-path mask, `Normalize` sorts, deduplicates, and prunes redundant subpaths, and `Merge` copies masked paths from source to destination with an optional policy.
+
+| [INDEX] | [SURFACE]                       | [INPUT]                                                       | [RESULT]         |
+| :-----: | :------------------------------ | :------------------------------------------------------------ | :--------------- |
+|  [01]   | `Any.Pack`                      | `IMessage`                                                    | `Any`            |
+|  [02]   | `Any.Pack`                      | `IMessage, string typeUrlPrefix`                              | `Any`            |
+|  [03]   | `Any.Unpack<T>`                 | —                                                             | `T`              |
+|  [04]   | `Any.TryUnpack<T>`              | `out T`                                                       | `bool`           |
+|  [05]   | `Any.Unpack`                    | `TypeRegistry`                                                | `IMessage`       |
+|  [06]   | `Any.Is`                        | `MessageDescriptor`                                           | `bool`           |
+|  [07]   | `Any.GetTypeName`               | `string typeUrl`                                              | `string`         |
+|  [08]   | `FieldMask.FromString`          | `string`                                                      | `FieldMask`      |
+|  [09]   | `FieldMask.FromString<T>`       | `string`                                                      | `FieldMask`      |
+|  [10]   | `FieldMask.FromFieldNumbers<T>` | `IEnumerable<int>`                                            | `FieldMask`      |
+|  [11]   | `FieldMask.IsValid`             | `MessageDescriptor, FieldMask`                                | `bool`           |
+|  [12]   | `FieldMask.IsValid`             | `MessageDescriptor, string`                                   | `bool`           |
+|  [13]   | `FieldMask.Normalize`           | —                                                             | `FieldMask`      |
+|  [14]   | `Timestamp.FromDateTime`        | `DateTime`                                                    | `Timestamp`      |
+|  [15]   | `Timestamp.ToDateTime`          | —                                                             | `DateTime`       |
+|  [16]   | `Timestamp.FromDateTimeOffset`  | `DateTimeOffset`                                              | `Timestamp`      |
+|  [17]   | `Timestamp.ToDateTimeOffset`    | —                                                             | `DateTimeOffset` |
+|  [18]   | `Duration.FromTimeSpan`         | `TimeSpan`                                                    | `Duration`       |
+|  [19]   | `Duration.ToTimeSpan`           | —                                                             | `TimeSpan`       |
+|  [20]   | `Value.ForString`               | `string`                                                      | `Value`          |
+|  [21]   | `Value.ForNumber`               | `double`                                                      | `Value`          |
+|  [22]   | `Value.ForBool`                 | `bool`                                                        | `Value`          |
+|  [23]   | `Value.ForStruct`               | `Struct`                                                      | `Value`          |
+|  [24]   | `Value.ForList`                 | `params Value[]`                                              | `Value`          |
+|  [25]   | `Value.ForNull`                 | —                                                             | `Value`          |
+|  [26]   | `FieldMask.Union`               | `params FieldMask[] otherMasks`                               | `FieldMask`      |
+|  [27]   | `FieldMask.Merge`               | `IMessage source, IMessage destination`                       | `void`           |
+|  [28]   | `FieldMask.Merge`               | `IMessage source, IMessage destination, MergeOptions options` | `void`           |
+
+`FieldMask.MergeOptions` is sealed. Its defaults merge messages, append repeated values, and copy source primitive values; replacement flags discard existing message or repeated content and preserve source presence semantics for primitives.
+
+| [INDEX] | [PROPERTY]               | [TYPE] |
+| :-----: | :----------------------- | :----- |
+|  [01]   | `ReplaceMessageFields`   | `bool` |
+|  [02]   | `ReplaceRepeatedFields`  | `bool` |
+|  [03]   | `ReplacePrimitiveFields` | `bool` |
 
 [ENTRYPOINT_SCOPE]: JSON projection
+
 - rail: remote-contracts
 - note: `JsonFormatter`/`JsonParser` carry an immutable `Settings` builder; reuse one configured formatter, never per-call construction.
 
-| [INDEX] | [SURFACE]                                            | [CALL_SHAPE]                                                             | [CAPABILITY]                          |
-| :-----: | :--------------------------------------------------- | :----------------------------------------------------------------------- | :------------------------------------ |
-|  [01]   | `JsonFormatter.Format`                               | `string Format(IMessage)` / `void Format(IMessage, TextWriter)`          | message → JSON string or writer       |
-|  [02]   | `JsonFormatter.ToDiagnosticString`                   | `static string ToDiagnosticString(IMessage)`                             | best-effort JSON for logs/diagnostics |
-|  [03]   | `JsonFormatter.Settings.WithFormatDefaultValues`     | `Settings WithFormatDefaultValues(bool)`                                 | emit default-valued fields            |
-|  [04]   | `JsonFormatter.Settings.WithTypeRegistry`            | `Settings WithTypeRegistry(TypeRegistry)`                                | resolve `Any`/well-known payloads     |
-|  [05]   | `JsonFormatter.Settings.WithFormatEnumsAsIntegers`   | `Settings WithFormatEnumsAsIntegers(bool)`                               | numeric vs named enum projection      |
-|  [06]   | `JsonFormatter.Settings.WithPreserveProtoFieldNames` | `Settings WithPreserveProtoFieldNames(bool)`                             | proto snake_case vs JSON camelCase    |
-|  [07]   | `JsonParser.Parse`                                   | `T Parse<T>(string)` / `IMessage Parse(string, MessageDescriptor)`       | JSON → message                        |
-|  [08]   | `JsonParser.Settings`                                | `Settings(int recursionLimit, TypeRegistry)` + `WithIgnoreUnknownFields` | recursion/type/unknown JSON policy    |
+Formatting targets a string or `TextWriter`; parser overloads target a generic message or a runtime `MessageDescriptor`. Formatter policy controls default values, type resolution, enum projection, and proto-name preservation, while parser policy controls recursion, type resolution, and unknown fields. `ToDiagnosticString` emits best-effort diagnostic JSON.
+
+| [INDEX] | [SURFACE]                                            | [INPUT]                     | [RESULT]   |
+| :-----: | :--------------------------------------------------- | :-------------------------- | :--------- |
+|  [01]   | `JsonFormatter.Format`                               | `IMessage`                  | `string`   |
+|  [02]   | `JsonFormatter.Format`                               | `IMessage, TextWriter`      | `void`     |
+|  [03]   | `JsonFormatter.ToDiagnosticString`                   | `IMessage`                  | `string`   |
+|  [04]   | `JsonFormatter.Settings.WithFormatDefaultValues`     | `bool`                      | `Settings` |
+|  [05]   | `JsonFormatter.Settings.WithTypeRegistry`            | `TypeRegistry`              | `Settings` |
+|  [06]   | `JsonFormatter.Settings.WithFormatEnumsAsIntegers`   | `bool`                      | `Settings` |
+|  [07]   | `JsonFormatter.Settings.WithPreserveProtoFieldNames` | `bool`                      | `Settings` |
+|  [08]   | `JsonParser.Parse<T>`                                | `string`                    | `T`        |
+|  [09]   | `JsonParser.Parse`                                   | `string, MessageDescriptor` | `IMessage` |
+|  [10]   | `new JsonParser.Settings`                            | `int, TypeRegistry`         | `Settings` |
+|  [11]   | `JsonParser.Settings.WithIgnoreUnknownFields`        | `bool`                      | `Settings` |
 
 [ENTRYPOINT_SCOPE]: reflection descriptor graph
+
 - rail: remote-contracts#CONTRACT_EVOLUTION
-- note: the descriptor surface the `Runtime/wire` descriptor-diff contract-evolution law walks to fold its `XxHash128` projection-checksum.
-- note: every descriptor (`File`/`Message`/`Field`/`Enum`/`EnumValue`/`Oneof`/`Service`/`Method`) exposes `Name` and `FullName` (`DescriptorBase`); the surface-fold keys read these.
+- note: the descriptor-diff contract-evolution law walks this surface to fold its `XxHash128` projection checksum.
+- note: `DescriptorBase` gives every descriptor `Name` and `FullName`; surface folds key on those properties
 
-| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]                                                                                             | [CAPABILITY]                                                        |
-| :-----: | :------------------------------------------------------------------------ | :------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `FileDescriptor.BuildFromByteStrings`                                     | `static IReadOnlyList<FileDescriptor> BuildFromByteStrings(IEnumerable<ByteString>, ExtensionRegistry?)` | reconstructs descriptors from a serialized `FileDescriptorSet`      |
-|  [02]   | `FileDescriptor.MessageTypes` / `Services` / `EnumTypes` / `Dependencies` | descriptor-graph walk                                                                                    | enumerates the contract surface for diffing                         |
-|  [03]   | `MessageDescriptor.Fields`                                                | `FieldCollection Fields { InDeclarationOrder()\| InFieldNumberOrder() }`                                 | ordered field walk                                                  |
-|  [04]   | `MessageDescriptor.FindFieldByNumber` / `FindFieldByName`                 | `FieldDescriptor FindFieldBy*(...)`                                                                      | field lookup by wire number or name                                 |
-|  [05]   | `MessageDescriptor.Parser` / `ClrType` / `Oneofs`                         | descriptor values                                                                                        | the message parser, CLR type, and oneof set                         |
-|  [06]   | `FieldDescriptor.FieldNumber` / `FieldType` / `JsonName`                  | descriptor values                                                                                        | wire number, wire type, JSON name                                   |
-|  [07]   | `FieldDescriptor.IsRepeated` / `IsMap` / `IsPacked`                       | descriptor flags                                                                                         | shape predicates for the diff law                                   |
-|  [08]   | `FieldDescriptor.Accessor` / `ContainingOneof`                            | `IFieldAccessor Accessor` / `OneofDescriptor`                                                            | reflective get/set + oneof membership                               |
-|  [09]   | `ServiceDescriptor.Methods`                                               | `MethodDescriptor` walk (`IsClientStreaming`/`IsServerStreaming`)                                        | rpc-shape diff inputs                                               |
-|  [10]   | `TypeRegistry.FromFiles` / `FromMessages`                                 | `static TypeRegistry From*(...)`                                                                         | builds the `Any`/JSON resolution registry                           |
-|  [11]   | `MessageDescriptor.NestedTypes` / `EnumTypes`                             | `IList<MessageDescriptor> NestedTypes` / `IList<EnumDescriptor> EnumTypes`                               | nested message/enum recursion for the surface-fold                  |
-|  [12]   | `MessageDescriptor.ToProto`                                               | `DescriptorProto ToProto()` — `.ReservedRange` carries `int Start` / `int End` (end-exclusive)           | reserved-number ranges for the removed-then-reclaimed Breaking gate |
-|  [13]   | `EnumDescriptor.Values` / `EnumValueDescriptor`                           | `IList<EnumValueDescriptor> Values`; `EnumValueDescriptor.Name` / `int Number`                           | enum value-set walk                                                 |
-|  [14]   | `OneofDescriptor.Fields` / `MethodDescriptor.InputType` / `OutputType`    | `IList<FieldDescriptor> Fields`; `MethodDescriptor.InputType` / `OutputType` (`MessageDescriptor`)       | oneof membership + rpc input/output type for the rpc-shape diff     |
+`FileDescriptor.BuildFromByteStrings(IEnumerable<ByteString>)` returns `IReadOnlyList<FileDescriptor>` from serialized `FileDescriptorProto` payloads; its second overload binds an `ExtensionRegistry`. `MessageDescriptor.Fields` orders through `InDeclarationOrder()` or `InFieldNumberOrder()`. `MessageDescriptor.ToProto()` returns `DescriptorProto`, whose end-exclusive `ReservedRange` entries carry `int Start` and `int End` for removed-then-reclaimed detection.
 
-[ENTRYPOINT_SCOPE]: `FieldCodec<T>` per-field codec
+| [INDEX] | [SURFACE]                             | [TYPE]                          | [CAPABILITY]          |
+| :-----: | :------------------------------------ | :------------------------------ | :-------------------- |
+|  [01]   | `FileDescriptor.BuildFromByteStrings` | `IReadOnlyList<FileDescriptor>` | descriptor restore    |
+|  [02]   | `FileDescriptor.MessageTypes`         | `IList<MessageDescriptor>`      | message walk          |
+|  [03]   | `FileDescriptor.Services`             | `IList<ServiceDescriptor>`      | service walk          |
+|  [04]   | `FileDescriptor.EnumTypes`            | `IList<EnumDescriptor>`         | enum walk             |
+|  [05]   | `FileDescriptor.Dependencies`         | `IList<FileDescriptor>`         | dependency walk       |
+|  [06]   | `MessageDescriptor.Fields`            | `FieldCollection`               | ordered field walk    |
+|  [07]   | `MessageDescriptor.FindFieldByNumber` | `FieldDescriptor?`              | wire-number lookup    |
+|  [08]   | `MessageDescriptor.FindFieldByName`   | `FieldDescriptor?`              | name lookup           |
+|  [09]   | `MessageDescriptor.Parser`            | `MessageParser?`                | message parser        |
+|  [10]   | `MessageDescriptor.ClrType`           | `Type?`                         | CLR type              |
+|  [11]   | `MessageDescriptor.Oneofs`            | `IList<OneofDescriptor>`        | oneof walk            |
+|  [12]   | `FieldDescriptor.FieldNumber`         | `int`                           | wire number           |
+|  [13]   | `FieldDescriptor.FieldType`           | `FieldType`                     | wire type             |
+|  [14]   | `FieldDescriptor.JsonName`            | `string`                        | JSON name             |
+|  [15]   | `FieldDescriptor.IsRepeated`          | `bool`                          | repeated predicate    |
+|  [16]   | `FieldDescriptor.IsMap`               | `bool`                          | map predicate         |
+|  [17]   | `FieldDescriptor.IsPacked`            | `bool`                          | packed predicate      |
+|  [18]   | `FieldDescriptor.Accessor`            | `IFieldAccessor`                | reflective access     |
+|  [19]   | `FieldDescriptor.ContainingOneof`     | `OneofDescriptor?`              | oneof membership      |
+|  [20]   | `ServiceDescriptor.Methods`           | `IList<MethodDescriptor>`       | RPC walk              |
+|  [21]   | `TypeRegistry.FromFiles`              | `TypeRegistry`                  | file registry         |
+|  [22]   | `TypeRegistry.FromMessages`           | `TypeRegistry`                  | message registry      |
+|  [23]   | `MessageDescriptor.NestedTypes`       | `IList<MessageDescriptor>`      | nested-message walk   |
+|  [24]   | `MessageDescriptor.EnumTypes`         | `IList<EnumDescriptor>`         | nested-enum walk      |
+|  [25]   | `MessageDescriptor.ToProto`           | `DescriptorProto`               | reserved-range access |
+|  [26]   | `EnumDescriptor.Values`               | `IList<EnumValueDescriptor>`    | enum-value walk       |
+|  [27]   | `EnumValueDescriptor.Name`            | `string`                        | enum name             |
+|  [28]   | `EnumValueDescriptor.Number`          | `int`                           | enum number           |
+|  [29]   | `OneofDescriptor.Fields`              | `IList<FieldDescriptor>`        | oneof field walk      |
+|  [30]   | `MethodDescriptor.InputType`          | `MessageDescriptor`             | RPC input type        |
+|  [31]   | `MethodDescriptor.OutputType`         | `MessageDescriptor`             | RPC output type       |
+|  [32]   | `MethodDescriptor.IsClientStreaming`  | `bool`                          | client-streaming flag |
+|  [33]   | `MethodDescriptor.IsServerStreaming`  | `bool`                          | server-streaming flag |
+
+[ENTRYPOINT_SCOPE]: scalar `FieldCodec` factories
+
 - rail: remote-contracts
-- note: `FieldCodec.For*` builds the reusable codec a generated accessor drives by `ref` context; `RepeatedField<T>`/`MapField<TKey,TValue>` consume a codec for bulk wire flow.
+- note: `uint tag` selects the wire field; each factory has a tag-only overload and a default-value overload of its `[VALUE]` type
 
-| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]                                                                                                                         | [CAPABILITY]                                                                                         |
-| :-----: | :-------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `FieldCodec.For*`                             | `static FieldCodec<T> ForBool\| ForInt\| ForFixed\| ForDouble\| ForFloat\| ForString\| ForBytes\| ForSInt\| ForSFixed(uint tag,...)` | scalar field codecs by wire tag                                                                      |
-|  [02]   | `FieldCodec.ForMessage<T>`                    | `static FieldCodec<T> ForMessage<T>(uint tag, MessageParser<T>)`                                                                     | message-field codec                                                                                  |
-|  [03]   | `FieldCodec.ForEnum<T>`                       | `static FieldCodec<T> ForEnum<T>(uint tag, Func<T,int>, Func<int,T>)`                                                                | enum-field codec                                                                                     |
-|  [04]   | `FieldCodec<T>.Read`                          | `T Read(ref ParseContext)`                                                                                                           | reads a typed field value                                                                            |
-|  [05]   | `FieldCodec<T>.WriteTagAndValue`              | `void WriteTagAndValue(ref WriteContext, T)`                                                                                         | writes tag plus value                                                                                |
-|  [06]   | `FieldCodec<T>.CalculateSizeWithTag`          | `int CalculateSizeWithTag(T)`                                                                                                        | encoded size including the tag                                                                       |
-|  [07]   | `RepeatedField<T>.AddEntriesFrom` / `WriteTo` | `void AddEntriesFrom(ref ParseContext, FieldCodec<T>)` / `WriteTo(ref WriteContext, FieldCodec<T>)`                                  | bulk repeated read/write through a codec                                                             |
-|  [08]   | `MapField<TKey,TValue>.Codec`                 | `new MapField.Codec(FieldCodec<TKey>, FieldCodec<TValue>, uint mapTag)`                                                              | map-entry codec for the map fast path                                                                |
-|  [09]   | `WireFormat.MakeTag`                          | `static uint MakeTag(int fieldNumber, WireFormat.WireType)` over the `WireType` enum (`…/LengthDelimited/…`)                         | builds the `uint tag` a `FieldCodec.For*` row consumes — `ForBytes(MakeTag(field, LengthDelimited))` |
+| [INDEX] | [SURFACE]                | [VALUE]      | [RESULT]                 |
+| :-----: | :----------------------- | :----------- | :----------------------- |
+|  [01]   | `FieldCodec.ForString`   | `string`     | `FieldCodec<string>`     |
+|  [02]   | `FieldCodec.ForBytes`    | `ByteString` | `FieldCodec<ByteString>` |
+|  [03]   | `FieldCodec.ForBool`     | `bool`       | `FieldCodec<bool>`       |
+|  [04]   | `FieldCodec.ForInt32`    | `int`        | `FieldCodec<int>`        |
+|  [05]   | `FieldCodec.ForSInt32`   | `int`        | `FieldCodec<int>`        |
+|  [06]   | `FieldCodec.ForFixed32`  | `uint`       | `FieldCodec<uint>`       |
+|  [07]   | `FieldCodec.ForSFixed32` | `int`        | `FieldCodec<int>`        |
+|  [08]   | `FieldCodec.ForUInt32`   | `uint`       | `FieldCodec<uint>`       |
+|  [09]   | `FieldCodec.ForInt64`    | `long`       | `FieldCodec<long>`       |
+|  [10]   | `FieldCodec.ForSInt64`   | `long`       | `FieldCodec<long>`       |
+|  [11]   | `FieldCodec.ForFixed64`  | `ulong`      | `FieldCodec<ulong>`      |
+|  [12]   | `FieldCodec.ForSFixed64` | `long`       | `FieldCodec<long>`       |
+|  [13]   | `FieldCodec.ForUInt64`   | `ulong`      | `FieldCodec<ulong>`      |
+|  [14]   | `FieldCodec.ForFloat`    | `float`      | `FieldCodec<float>`      |
+|  [15]   | `FieldCodec.ForDouble`   | `double`     | `FieldCodec<double>`     |
+
+[ENTRYPOINT_SCOPE]: generic and collection field-codec operations
+
+- rail: remote-contracts
+- note: generated accessors drive codecs by `ref` context, and repeated or map collections consume them for bulk wire flow. `CalculateSizeWithTag` includes the field tag.
+
+| [INDEX] | [SURFACE]                            | [INPUT]                                             | [RESULT]                       |
+| :-----: | :----------------------------------- | :-------------------------------------------------- | :----------------------------- |
+|  [01]   | `FieldCodec.ForMessage<T>`           | `uint tag, MessageParser<T>`                        | `FieldCodec<T>`                |
+|  [02]   | `FieldCodec.ForEnum<T>`              | `uint tag, Func<T, int>, Func<int, T>`              | `FieldCodec<T>`                |
+|  [03]   | `FieldCodec<T>.Read`                 | `ref ParseContext`                                  | `T`                            |
+|  [04]   | `FieldCodec<T>.WriteTagAndValue`     | `ref WriteContext, T`                               | `void`                         |
+|  [05]   | `FieldCodec<T>.CalculateSizeWithTag` | `T`                                                 | `int`                          |
+|  [06]   | `RepeatedField<T>.AddEntriesFrom`    | `ref ParseContext, FieldCodec<T>`                   | `void`                         |
+|  [07]   | `RepeatedField<T>.WriteTo`           | `ref WriteContext, FieldCodec<T>`                   | `void`                         |
+|  [08]   | `new MapField<TKey, TValue>.Codec`   | `FieldCodec<TKey>, FieldCodec<TValue>, uint mapTag` | `MapField<TKey, TValue>.Codec` |
+|  [09]   | `WireFormat.MakeTag`                 | `int fieldNumber, WireFormat.WireType`              | `uint`                         |
 
 [ENTRYPOINT_SCOPE]: `CodedInputStream` / `CodedOutputStream` limits and sizing
-- rail: remote-contracts
-- note: the stream codecs back the non-buffer path; the `Compute*Size` family is the static cost oracle for pre-sizing a `WriteTo(Span<byte>)`.
 
-| [INDEX] | [SURFACE]                                       | [CALL_SHAPE]                                                                                                    | [CAPABILITY]                                                 |
-| :-----: | :---------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `CodedInputStream.CreateWithLimits`             | `static CodedInputStream CreateWithLimits(Stream, int sizeLimit, int recursionLimit)`                           | bounds untrusted-payload depth and size                      |
-|  [02]   | `CodedInputStream.SizeLimit` / `RecursionLimit` | `int SizeLimit` / `int RecursionLimit`                                                                          | reads back the active limits (package default recursion 100) |
-|  [03]   | `CodedInputStream(Stream, bool leaveOpen)`      | `CodedInputStream(Stream input, bool leaveOpen)`                                                                | leaves the backing stream open on dispose                    |
-|  [04]   | `CodedOutputStream.Compute*Size`                | `static int ComputeInt32Size\| ComputeInt64Size\| ComputeBoolSize\| ComputeDoubleSize\| ComputeStringSize(...)` | per-wire-type size oracle                                    |
-|  [05]   | `CodedOutputStream.SpaceLeft`                   | `int SpaceLeft`                                                                                                 | remaining capacity in a fixed buffer                         |
+- rail: remote-contracts
+- note: stream codecs back the non-buffer path. `CreateWithLimits` bounds payload depth and size, the constructor's `leaveOpen` flag retains the backing stream, and each static size member costs its matching wire value. `IMessage.CalculateSize()` sizes a direct `WriteTo(Span<byte>)`, while `SpaceLeft` reports the remaining fixed-buffer capacity.
+
+| [INDEX] | [SURFACE]                                  | [INPUT]                                     | [RESULT]           |
+| :-----: | :----------------------------------------- | :------------------------------------------ | :----------------- |
+|  [01]   | `CodedInputStream.CreateWithLimits`        | `Stream, int sizeLimit, int recursionLimit` | `CodedInputStream` |
+|  [02]   | `CodedInputStream.SizeLimit`               | —                                           | `int`              |
+|  [03]   | `CodedInputStream.RecursionLimit`          | —                                           | `int`              |
+|  [04]   | `new CodedInputStream`                     | `Stream, bool leaveOpen`                    | `CodedInputStream` |
+|  [05]   | `CodedOutputStream.SpaceLeft`              | —                                           | `int`              |
+|  [06]   | `CodedOutputStream.ComputeDoubleSize`      | `double`                                    | `int`              |
+|  [07]   | `CodedOutputStream.ComputeFloatSize`       | `float`                                     | `int`              |
+|  [08]   | `CodedOutputStream.ComputeUInt64Size`      | `ulong`                                     | `int`              |
+|  [09]   | `CodedOutputStream.ComputeInt64Size`       | `long`                                      | `int`              |
+|  [10]   | `CodedOutputStream.ComputeInt32Size`       | `int`                                       | `int`              |
+|  [11]   | `CodedOutputStream.ComputeFixed64Size`     | `ulong`                                     | `int`              |
+|  [12]   | `CodedOutputStream.ComputeFixed32Size`     | `uint`                                      | `int`              |
+|  [13]   | `CodedOutputStream.ComputeBoolSize`        | `bool`                                      | `int`              |
+|  [14]   | `CodedOutputStream.ComputeStringSize`      | `string`                                    | `int`              |
+|  [15]   | `CodedOutputStream.ComputeGroupSize`       | `IMessage`                                  | `int`              |
+|  [16]   | `CodedOutputStream.ComputeMessageSize`     | `IMessage`                                  | `int`              |
+|  [17]   | `CodedOutputStream.ComputeBytesSize`       | `ByteString`                                | `int`              |
+|  [18]   | `CodedOutputStream.ComputeUInt32Size`      | `uint`                                      | `int`              |
+|  [19]   | `CodedOutputStream.ComputeEnumSize`        | `int`                                       | `int`              |
+|  [20]   | `CodedOutputStream.ComputeSFixed32Size`    | `int`                                       | `int`              |
+|  [21]   | `CodedOutputStream.ComputeSFixed64Size`    | `long`                                      | `int`              |
+|  [22]   | `CodedOutputStream.ComputeSInt32Size`      | `int`                                       | `int`              |
+|  [23]   | `CodedOutputStream.ComputeSInt64Size`      | `long`                                      | `int`              |
+|  [24]   | `CodedOutputStream.ComputeLengthSize`      | `int length`                                | `int`              |
+|  [25]   | `CodedOutputStream.ComputeRawVarint32Size` | `uint`                                      | `int`              |
+|  [26]   | `CodedOutputStream.ComputeRawVarint64Size` | `ulong`                                     | `int`              |
+|  [27]   | `CodedOutputStream.ComputeTagSize`         | `int fieldNumber`                           | `int`              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [WIRE_CONTRACTS]:
+
 - namespace: `Google.Protobuf`; generated messages implement `IMessage<T>` and expose a static `Parser` (`MessageParser<T>`) and `Descriptor` (`MessageDescriptor`).
 - codec root: `MessageParser<T>`, `CodedInputStream`/`CodedOutputStream`, and `FieldCodec<T>` own binary payload flow; JSON is an edge format, never a replacement for binary remote-contract ownership.
-- collection root: `RepeatedField<T>`/`MapField<TKey,TValue>` are generated-contract members, but their `AddEntriesFrom`/`WriteTo`/`CalculateSize` codec methods and `MapField.Codec` are the wire primitives a descriptor-driven dynamic walker composes.
-- consumer TFM: the `net10.0` consumer binds `lib/net5.0`. The Span/Sequence/`IBufferWriter` fast-path overloads (`ParseFrom(ReadOnlySpan)`, `MergeFrom(ReadOnlySequence)`, `WriteTo(IBufferWriter)`, `WriteLengthPrefixedTo`) exist in `net5.0` and are ABSENT from `netstandard2.0`; an `api resolve` that previews `netstandard2.0` is not proof of the bound surface.
+- collection root: `RepeatedField<T>` and `MapField<TKey, TValue>` are generated-contract members, while their `AddEntriesFrom`, `WriteTo`, and `CalculateSize` operations and `MapField<TKey, TValue>.Codec` are the wire primitives a descriptor-driven walker composes
+- consumer TFM: the `net10.0` consumer binds `lib/net5.0`, which carries `ParseFrom(ReadOnlySpan<byte>)`, `MergeFrom(ReadOnlySequence<byte>)`, `WriteTo(IBufferWriter<byte>)`, and `WriteLengthPrefixedTo(IBufferWriter<byte>)`; `lib/netstandard2.0` does not
 
 [BUFFER_FAST_PATH]:
-- read entry: `MessageParser<T>.ParseFrom(ReadOnlySpan<byte>)` and `ParseFrom(ReadOnlySequence<byte>)` parse pooled buffers without a stream allocation; `MergeFrom(ReadOnlySpan/ReadOnlySequence)` extends a live message in place.
-- write entry: `MessageExtensions.WriteTo(IBufferWriter<byte>)`, `WriteTo(Span<byte>)`, and `WriteLengthPrefixedTo(IBufferWriter<byte>)` emit into pooled or pre-sized buffers; pre-size a `Span` write through `IMessage.CalculateSize()` / the `CodedOutputStream.Compute*Size` family.
+
+- read entry: `MessageParser<T>.ParseFrom(ReadOnlySpan<byte>)` and `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)` parse pooled buffers without a stream allocation; `MessageExtensions.MergeFrom(ReadOnlySpan<byte>)` and `MessageExtensions.MergeFrom(ReadOnlySequence<byte>)` extend a live message in place
+- write entry: `MessageExtensions.WriteTo(IBufferWriter<byte>)`, `MessageExtensions.WriteTo(Span<byte>)`, and `MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` emit into pooled or pre-sized buffers; `IMessage.CalculateSize()` pre-sizes a direct `Span<byte>` write
 - no-copy aliasing: `UnsafeByteOperations.UnsafeWrap(ReadOnlyMemory<byte>)` adopts caller-owned memory into a `ByteString`; the caller owns buffer lifetime past the message's read window.
 - context boundary: `ParseContext`/`WriteContext` `Initialize` factories are package-internal; generated code drives them through `IBufferMessage.InternalMergeFrom(ref ParseContext)` / `InternalWriteTo(ref WriteContext)`, and Compute reaches the fast path only through the public parser, message-extension, and field-codec surfaces — never by constructing a `ref` context.
 - field codec: `FieldCodec<T>.Read(ref ParseContext)`, `WriteTagAndValue(ref WriteContext, T)`, and `CalculateSizeWithTag(T)` are the per-field ref-context operations behind generated accessors.
 
 [REFLECTION_CONTRACTS]:
-- namespace: `Google.Protobuf.Reflection`; the file/message/field/enum/method/service descriptor graph drives contract inspection.
+
+- namespace: `Google.Protobuf.Reflection`; the descriptor graph drives contract inspection
 - generated metadata: `GeneratedClrTypeInfo` binds generated CLR types, parsers, and oneof/property names to descriptors; `OriginalNameAttribute` preserves protocol names where C# names diverge.
-- contract evolution: `FileDescriptor.BuildFromByteStrings` reconstructs a serialized `FileDescriptorSet`, and the `MessageDescriptor.Fields` / `FieldDescriptor.{FieldNumber,FieldType,IsRepeated,IsMap,IsPacked}` / `ServiceDescriptor.Methods` walk feeds the `Runtime/wire#CONTRACT_EVOLUTION` descriptor-diff `XxHash128` projection-checksum.
+- contract evolution: `FileDescriptor.BuildFromByteStrings` reconstructs serialized descriptor payloads; `MessageDescriptor.Fields`, `FieldDescriptor.FieldNumber`, `FieldDescriptor.FieldType`, `FieldDescriptor.IsRepeated`, `FieldDescriptor.IsMap`, `FieldDescriptor.IsPacked`, and `ServiceDescriptor.Methods` feed the descriptor-diff `XxHash128` projection checksum
 
 [INTEGRATION_STACK]:
-- artifact-sync frame: `IMessage.CalculateSize` sizes the `Runtime/transport#ARTIFACT_FRAMES` 64 KiB `FrameEdge`; `MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` writes the frame body into a `Microsoft.IO.RecyclableMemoryStream` `IBufferWriter<byte>` sink (`api-recyclable-stream`); the per-frame integrity is `Crc32.HashToUInt32(ReadOnlySpan<byte>)` over the contiguous `ByteString`/segment span and the whole-artifact identity is `XxHash128` over the pooled `GetReadOnlySequence()` view (`HashToUInt128(ReadOnlySpan<byte>, long seed)` for a single segment, else incremental `Append`+`GetCurrentHashAsUInt128`) — both ride `System.IO.Hashing` (`api-hashing`) over the same pooled bytes; protobuf owns the message body, never the frame envelope or the hash.
+
+- artifact frame: `IMessage.CalculateSize()` sizes the message, and `MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` writes its prefixed body into a `Microsoft.IO.RecyclableMemoryStream` sink. Protobuf owns the message body, while the frame envelope and hash remain outside its boundary.
+- frame integrity: `Crc32.HashToUInt32(ReadOnlySpan<byte>)` hashes the contiguous `ByteString` or segment span through `System.IO.Hashing`
+- artifact identity: `XxHash128` hashes the pooled `GetReadOnlySequence()` view through `HashToUInt128(ReadOnlySpan<byte>, long seed)` for one segment or incremental `Append` plus `GetCurrentHashAsUInt128` for several segments.
 - decode mirror: a received frame's `RecyclableMemoryStream.GetReadOnlySequence()` feeds `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)` so a fragmented pooled payload decodes without a contiguous copy; `IBufferMessage.InternalMergeFrom` is the generated zero-alloc leg.
-- transport: the five `Runtime/wire#PROTO_VOCABULARY` services are `Google.Protobuf` message contracts carried by `Grpc.Net.Client` (`api-grpc-client`); the typed `FaultDetail`/`Status` rail and the `Any`-wrapped in-band conflict payload decode through `Any.TryUnpack<T>`/`Unpack(TypeRegistry)`.
-- partial update: a `FieldMask` `Paths` set drives the `Runtime/transport` partial-update APPLY leg — `FieldMask.IsValid(descriptor,...)` gates the paths against the target `MessageDescriptor` and `Normalize` dedups before the field-level merge over the descriptor `Accessor`.
-- clock seam: `Timestamp`/`Duration` cross to NodaTime through `NodaTime.Serialization.Protobuf` (`api-nodatime-protobuf`) — `Instant.ToTimestamp()` / `Duration.ToProtobufDuration()` outward and `Timestamp.ToInstant()` / `Duration.ToNodaDuration()` inward (the `Runtime/wire` `FrameEdge.Transaction` realized form writes `hlc.ToTimestamp()` onto the `TransactionRequest` HLC field); calendar-bearing fields cross as `Google.Type` commons through `ToDate`/`ToTimeOfDay`/`ToProtobufDayOfWeek` ↔ `ToLocalDate`/`ToLocalTime`/`ToIsoDayOfWeek`. A hand-rolled `DateTime`↔`Timestamp` bridge beside that adapter is the rejected form.
+- transport: transport services carry `Google.Protobuf` message contracts through `Grpc.Net.Client`; typed `FaultDetail` and `Status` values and `Any`-wrapped payloads decode through `Any.TryUnpack<T>` or `Any.Unpack(TypeRegistry)`
+- partial update: a `FieldMask.Paths` set drives partial updates; `FieldMask.IsValid(MessageDescriptor, FieldMask)` gates the paths and `FieldMask.Normalize()` deduplicates them before the descriptor accessor applies the merge
+- clock seam: `NodaTime.Serialization.Protobuf` maps `Timestamp` and `Duration` through `Instant.ToTimestamp()`, `Duration.ToProtobufDuration()`, `Timestamp.ToInstant()`, and `Duration.ToNodaDuration()`
+- calendar seam: the same owner maps Google common date values through `ToDate()`, `ToTimeOfDay()`, `ToProtobufDayOfWeek()`, `ToLocalDate()`, `ToLocalTime()`, and `ToIsoDayOfWeek()`; these extension surfaces own temporal conversion
 
 [LOCAL_ADMISSION]:
-- Remote Compute contracts enter source through generated `IMessage<T>` surfaces; binary payloads use the protobuf codec stack and never handwritten byte DTOs.
-- JSON projection is an edge format (diagnostics, debug, browser-adjacent), gated through one reused `JsonFormatter`/`JsonParser` with an explicit `Settings`/`TypeRegistry`; it cannot replace binary remote-contract ownership.
-- Reflection descriptors are diagnostics and contract-evolution material before they become runtime dispatch material; the descriptor-diff law consumes them read-only.
+
+- Remote Compute contracts enter through generated `IMessage<T>` surfaces, and the protobuf codec stack exclusively owns their binary payloads.
+- JSON projection remains an edge format for diagnostics and browser-adjacent consumers; one reused `JsonFormatter` or `JsonParser` carries explicit `Settings` and `TypeRegistry` policy.
+- Reflection descriptors serve diagnostics, contract evolution, and read-only runtime dispatch.
 
 [RAIL_LAW]:
+
 - Package: `Google.Protobuf`
 - Owns: generated wire contracts, the codec stack, the buffer fast path, `FieldCodec<T>`, the reflection descriptor graph, the well-known type family, and JSON edge projection
 - Accept: generated message contracts over the Span/Sequence/`IBufferWriter` fast path stacked onto the `RecyclableMemoryStream` writer face and the `XxHash128`/`Crc32` content-identity law
-- Reject: handwritten binary DTOs; per-call `JsonFormatter`/`CodedInputStream` construction; a managed `ParseContext`/`WriteContext` driver; a second clock or hash bridge beside the NodaTime/`System.IO.Hashing` owners; trusting a `netstandard2.0` `api resolve` preview as the bound surface
+- Reject: any parallel owner that bypasses generated messages, public buffer entries, admitted temporal or hash owners, or the selected target-framework asset

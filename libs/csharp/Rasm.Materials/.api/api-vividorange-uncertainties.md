@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Uncertainties`
+
 - package: `VividOrange.Uncertainties`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy; `github.com/VividOrange/Uncertainties`)
 - assembly: `VividOrange.Uncertainties`
@@ -15,6 +16,7 @@
 - rail: properties
 
 [PACKAGE_SURFACE]: `VividOrange.Uncertainties.Quantities`
+
 - package: `VividOrange.Uncertainties.Quantities`
 - license: MIT (`licenses.nuget.org/MIT`)
 - assembly: `VividOrange.Uncertainties.Quantities`
@@ -25,6 +27,7 @@
 - rail: properties (UnitsNet quantities)
 
 [PACKAGE_SURFACE]: `VividOrange.IUncertainties`
+
 - package: `VividOrange.IUncertainties`
 - license: MIT (`licenses.nuget.org/MIT`; `github.com/VividOrange/Taxonomy`)
 - assembly: `VividOrange.IUncertainties`
@@ -38,123 +41,319 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: interface floor (`VividOrange.IUncertainties`, namespace `VividOrange.Uncertainties`)
+
 - rail: properties
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:---------------------------------- |:------------ |:--------------------------------------------------------------------------------------- |
-| [01] | `IUncertainty<T>` | contract | `: ITaxonomySerializable` — `CentralValue`/`LowerBound`/`UpperBound` (all `T`); `PropagateBinary(IUncertainty<T> other, Func<T,T,T> op)`; `PropagateUnary(Func<double,double> op)` |
-| [02] | `IAbsoluteUncertainty<T>` | contract | `: IUncertainty<T>` + `T AbsoluteUncertaintyValue` |
-| [03] | `IRelativeUncertainty<T>` | contract | `: IUncertainty<T>` + `double RelativeUncertaintyValue` |
-| [04] | `IIntervalUncertainty<T>` | contract | `: IUncertainty<T>` — bounds-only (`LowerBound`/`UpperBound` are the carrier) |
-| [05] | `INormalDistributionUncertainty<T>` | contract | `: IUncertainty<T>` + `T StandardDeviation` + `double CoverageFactor` |
+The interface floor mints one propagation contract and four model-specific contracts.
+
+| [INDEX] | [SYMBOL]                            |
+| :-----: | :---------------------------------- |
+|  [01]   | `IUncertainty<T>`                   |
+|  [02]   | `IAbsoluteUncertainty<T>`           |
+|  [03]   | `IRelativeUncertainty<T>`           |
+|  [04]   | `IIntervalUncertainty<T>`           |
+|  [05]   | `INormalDistributionUncertainty<T>` |
+
+[IUNCERTAINTY]:
+
+- inheritance: `ITaxonomySerializable`
+- values: `CentralValue`, `LowerBound`, and `UpperBound` (all `T`)
+- binary propagation: `PropagateBinary(IUncertainty<T> other, Func<T,T,T> op)`
+- unary propagation: `PropagateUnary(Func<double,double> op)`
+
+[IABSOLUTE_UNCERTAINTY]:
+
+- inheritance: `IUncertainty<T>`
+- member: `T AbsoluteUncertaintyValue`
+
+[IRELATIVE_UNCERTAINTY]:
+
+- inheritance: `IUncertainty<T>`
+- member: `double RelativeUncertaintyValue`
+
+[IINTERVAL_UNCERTAINTY]:
+
+- inheritance: `IUncertainty<T>`
+- bounds: `LowerBound` and `UpperBound` are the carrier
+
+[INORMAL_DISTRIBUTION_UNCERTAINTY]:
+
+- inheritance: `IUncertainty<T>`
+- members: `T StandardDeviation` and `double CoverageFactor`
 
 [PUBLIC_TYPE_SCOPE]: `double` scalar family (`VividOrange.Uncertainties`)
+
 - rail: properties
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:-------------------------------- |:------------ |:------------------------------------------------------------------------------------------- |
-| [01] | `Uncertainty` | wrapper | wraps `IUncertainty<double> UncertaintyModel`; operators `+`/`-`/`*`(double)/`/`(double); implicit-from / explicit-to the four kinds; `From{Absolute,Relative,Interval,NormalDistribution}Uncertainty` factories |
-| [02] | `AbsoluteUncertainty` | model | `(centralValue, uncertainty)` — `[cv-u, cv+u]` |
-| [03] | `RelativeUncertainty` | model | `(centralValue, relativeUncertainty)` — `[cv·(1-r), cv·(1+r)]` |
-| [04] | `IntervalUncertainty` | model | `(centralValue, boundStart, boundEnd)` — explicit `[lo, hi]` (auto-ordered) |
-| [05] | `NormalDistributionUncertainty` | model | `(mean, standardDeviation, coverageFactor =)` — `[μ-k·σ, μ+k·σ]` |
-| [06] | `UncertaintyModel` | enum | `Interval` / `Relative` / `Absolute` / `NormalDistribution` — the kind discriminant |
+The `double` family carries one wrapper, four bound models, and their discriminant.
+
+| [INDEX] | [SYMBOL]                        | [KIND]  |
+| :-----: | :------------------------------ | :------ |
+|  [01]   | `Uncertainty`                   | wrapper |
+|  [02]   | `AbsoluteUncertainty`           | model   |
+|  [03]   | `RelativeUncertainty`           | model   |
+|  [04]   | `IntervalUncertainty`           | model   |
+|  [05]   | `NormalDistributionUncertainty` | model   |
+|  [06]   | `UncertaintyModel`              | enum    |
+
+[UNCERTAINTY]:
+
+- shape: wraps `IUncertainty<double> UncertaintyModel`
+- operators: `+`, `-`, `*` (`double`), and `/` (`double`)
+- conversions: implicit from and explicit to the four kinds
+- factories: `From{Absolute,Relative,Interval,NormalDistribution}Uncertainty`
+
+[ABSOLUTE_UNCERTAINTY]: `(centralValue, uncertainty)` produces `[cv-u, cv+u]`.
+[RELATIVE_UNCERTAINTY]: `(centralValue, relativeUncertainty)` produces `[cv·(1-r), cv·(1+r)]`.
+[INTERVAL_UNCERTAINTY]: `(centralValue, boundStart, boundEnd)` produces the auto-ordered `[lo, hi]` interval.
+[NORMAL_DISTRIBUTION_UNCERTAINTY]: `(mean, standardDeviation, coverageFactor =)` produces `[μ-k·σ, μ+k·σ]`.
+[UNCERTAINTY_MODEL]: `Interval`, `Relative`, `Absolute`, and `NormalDistribution` form the kind discriminant.
 
 [PUBLIC_TYPE_SCOPE]: generic `INumber<T>` scalar family (`.Scalar`) and `decimal` family (`.Decimal`)
+
 - rail: properties
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:---------------------------------------- |:------------ |:--------------------------------------------------------------------------- |
-| [01] | `Scalar.UncertaintyScalar<T>` | wrapper | `where T: INumber<T>` — the generic-numeric wrapper (the `double`/`decimal` peers' generic form) |
-| [02] | `Scalar.{Absolute,Relative,Interval,NormalDistribution}UncertaintyScalar<T>` | model | the four `INumber<T>` models |
-| [03] | `Decimal.{Absolute,Relative,Interval,NormalDistribution}UncertaintyDecimal` | model | the four `decimal` models (financial/precision cost rows) |
+The generic and decimal families mirror the four scalar uncertainty models.
+
+| [INDEX] | [SYMBOL]                                                                     | [KIND]  |
+| :-----: | :--------------------------------------------------------------------------- | :------ |
+|  [01]   | `Scalar.UncertaintyScalar<T>`                                                | wrapper |
+|  [02]   | `Scalar.{Absolute,Relative,Interval,NormalDistribution}UncertaintyScalar<T>` | model   |
+|  [03]   | `Decimal.{Absolute,Relative,Interval,NormalDistribution}UncertaintyDecimal`  | model   |
+
+[UNCERTAINTY_SCALAR]: `Scalar.UncertaintyScalar<T>` is the generic-numeric wrapper under `where T: INumber<T>` and the generic form of the `double` and `decimal` peers.
+[UNCERTAINTY_SCALAR_MODELS]: the four `Scalar.*UncertaintyScalar<T>` models carry `INumber<T>` values.
+[UNCERTAINTY_DECIMAL_MODELS]: the four `Decimal.*UncertaintyDecimal` models carry financial and precision cost rows.
 
 [PUBLIC_TYPE_SCOPE]: `UnitsNet` quantity family (`VividOrange.Uncertainties.Quantities`)
+
 - rail: properties
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:--------------------------------------------- |:------------ |:----------------------------------------------------------------------------------------- |
-| [01] | `UncertaintyQuantity<T>` | wrapper | `where T: IQuantity` (namespace `VividOrange.Uncertainties`) — value+unit+uncertainty together; implicit-from / explicit-to the four kinds; `From…` factories |
-| [02] | `Quantities.AbsoluteUncertaintyQuantity<TQuantity>` | model | `(centralValue, uncertainty)` — bounds via `IQuantity.Subtract`/`Add` |
-| [03] | `Quantities.RelativeUncertaintyQuantity<TQuantity>` | model | `(centralValue, Ratio\| double uncertainty)` — bounds via `Multiply(1 ± r)` |
-| [04] | `Quantities.IntervalUncertaintyQuantity<TQuantity>` | model | `(centralValue, lowerBound, upperBound)` — auto-ordered quantity bounds |
-| [05] | `Quantities.NormalDistributionUncertaintyQuantity<TQuantity>` | model | `(mean, standardDeviation, coverageFactor =)` — RSS combination on binary propagate |
+The quantity family binds a `UnitsNet` value, unit, and uncertainty under one wrapper and four models.
+
+| [INDEX] | [SYMBOL]                                                      | [KIND]  |
+| :-----: | :------------------------------------------------------------ | :------ |
+|  [01]   | `UncertaintyQuantity<T>`                                      | wrapper |
+|  [02]   | `Quantities.AbsoluteUncertaintyQuantity<TQuantity>`           | model   |
+|  [03]   | `Quantities.RelativeUncertaintyQuantity<TQuantity>`           | model   |
+|  [04]   | `Quantities.IntervalUncertaintyQuantity<TQuantity>`           | model   |
+|  [05]   | `Quantities.NormalDistributionUncertaintyQuantity<TQuantity>` | model   |
+
+[UNCERTAINTY_QUANTITY]:
+
+- constraint: `where T: IQuantity`
+- namespace: `VividOrange.Uncertainties`
+- shape: carries value, unit, and uncertainty together
+- conversions: implicit from and explicit to the four kinds
+- factories: `From…`
+
+[ABSOLUTE_UNCERTAINTY_QUANTITY]: `(centralValue, uncertainty)` computes bounds through `IQuantity.Subtract` and `IQuantity.Add`.
+[RELATIVE_UNCERTAINTY_QUANTITY]: `(centralValue, Ratio\| double uncertainty)` computes bounds through `Multiply(1 ± r)`.
+[INTERVAL_UNCERTAINTY_QUANTITY]: `(centralValue, lowerBound, upperBound)` produces auto-ordered quantity bounds.
+[NORMAL_DISTRIBUTION_UNCERTAINTY_QUANTITY]: `(mean, standardDeviation, coverageFactor =)` applies RSS combination during binary propagation.
 
 [PUBLIC_TYPE_SCOPE]: admission + arithmetic (`.Utility`, `.Quantities.Utility`)
+
 - rail: properties
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:---------------------------------------- |:-------------- |:-------------------------------------------------------------------------------- |
-| [01] | `Utility.DoubleExtensions` | static (fluent) | `(this double).With{Absolute,Relative,Interval,NormalDistribution}Uncertainty(...)` -> a `double` model |
-| [02] | `Utility.GenericINumberExtensions` | static (fluent) | `(this T).WithX<T>(...) where T: INumber<T>` -> a `Scalar.*UncertaintyScalar<T>` |
-| [03] | `Utility.DecimalExtensions` | static (fluent) | `(this decimal).WithX(...)` -> a `Decimal.*UncertaintyDecimal` |
-| [04] | `Utility.UncertaintyOperators` | static (math) | `Add`/`Subtract`/`Multiply`(double)/`Divide`(double) over `IUncertainty<double>` |
-| [05] | `Utility.UncertaintyScalarOperators` | static (math) | `Add`/`Subtract`/`Multiply`(double)/`Divide`(double) over `UncertaintyScalar<T>` (`T: INumber<T>`) |
-| [06] | `Quantities.Utility.UncertaintyQuantityFactory` | static (fluent) | `(this TQuantity).WithX<TQuantity>(...) where TQuantity: IQuantity` -> a `*UncertaintyQuantity<TQuantity>` |
-| [07] | `Quantities.Utility.UncertaintyQuantityOperators` | static (math) | `Add`/`Subtract` (unit-checked, throws `"Incompatible units."`) / `Multiply`(double) / `Divide`(double) over `UncertaintyQuantity<T>` |
+The static utility surfaces own fluent admission and arithmetic.
+
+| [INDEX] | [SYMBOL]                                          | [KIND] |
+| :-----: | :------------------------------------------------ | :----- |
+|  [01]   | `Utility.DoubleExtensions`                        | fluent |
+|  [02]   | `Utility.GenericINumberExtensions`                | fluent |
+|  [03]   | `Utility.DecimalExtensions`                       | fluent |
+|  [04]   | `Utility.UncertaintyOperators`                    | math   |
+|  [05]   | `Utility.UncertaintyScalarOperators`              | math   |
+|  [06]   | `Quantities.Utility.UncertaintyQuantityFactory`   | fluent |
+|  [07]   | `Quantities.Utility.UncertaintyQuantityOperators` | math   |
+
+[DOUBLE_EXTENSIONS]: `(this double).With{Absolute,Relative,Interval,NormalDistribution}Uncertainty(...)` returns a `double` model.
+[GENERIC_INUMBER_EXTENSIONS]: `(this T).WithX<T>(...) where T: INumber<T>` returns a `Scalar.*UncertaintyScalar<T>`.
+[DECIMAL_EXTENSIONS]: `(this decimal).WithX(...)` returns a `Decimal.*UncertaintyDecimal`.
+[UNCERTAINTY_OPERATORS]: `Add`, `Subtract`, `Multiply` (`double`), and `Divide` (`double`) operate over `IUncertainty<double>`.
+[UNCERTAINTY_SCALAR_OPERATORS]: `Add`, `Subtract`, `Multiply` (`double`), and `Divide` (`double`) operate over `UncertaintyScalar<T>` under `T: INumber<T>`.
+[UNCERTAINTY_QUANTITY_FACTORY]: `(this TQuantity).WithX<TQuantity>(...) where TQuantity: IQuantity` returns a `*UncertaintyQuantity<TQuantity>`.
+[UNCERTAINTY_QUANTITY_OPERATORS]: `Add` and `Subtract` enforce units and throw `"Incompatible units."`; `Multiply` and `Divide` take a `double` over `UncertaintyQuantity<T>`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: fluent admission — attach uncertainty to a value
+
 - rail: properties
 - composition law: the `.WithXUncertainty` extension is the primary entry; it returns the typed model the operators and `IUncertainty<T>` bounds read. A `UnitsNet` quantity (`Pressure`/`Density`/…) admits via `UncertaintyQuantityFactory`; a raw `double`/`decimal`/`INumber<T>` via the matching `.Utility` class.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:------------------------------------------------- |:--------------------------------------------------------------------------------------------- |:------------------------------------------- |
-| [01] | `(double).WithRelativeUncertainty` | `RelativeUncertainty WithRelativeUncertainty(this double value, double relativeUncertainty)` | `value ± r·value` |
-| [02] | `(double).WithAbsoluteUncertainty` | `AbsoluteUncertainty WithAbsoluteUncertainty(this double value, double absoluteUncertainty)` | `value ± u` |
-| [03] | `(double).WithIntervalUncertainty` | `IntervalUncertainty WithIntervalUncertainty(this double value, double lowerBound, double upperBound)` | explicit `[lo, hi]` |
-| [04] | `(double).WithNormalDistributionUncertainty` | `NormalDistributionUncertainty WithNormalDistributionUncertainty(this double value, double standardDeviation, double coverageFactor =)` | `μ ± k·σ` |
-| [05] | `(TQuantity).WithRelativeUncertainty` | `RelativeUncertaintyQuantity<TQuantity> WithRelativeUncertainty<TQuantity>(this TQuantity quantity, Ratio\| double relativeUncertainty) where TQuantity: IQuantity` | a `UnitsNet` value `± r%` |
-| [06] | `(TQuantity).WithAbsoluteUncertainty` | `AbsoluteUncertaintyQuantity<TQuantity> WithAbsoluteUncertainty<TQuantity>(this TQuantity quantity, TQuantity\| double absoluteUncertainty) where TQuantity: IQuantity` | a `UnitsNet` value `± u` (same-unit or double) |
-| [07] | `(T).WithAbsoluteUncertainty<T>` | `AbsoluteUncertaintyScalar<T> WithAbsoluteUncertainty<T>(this T value, T absoluteUncertainty) where T: INumber<T>` | generic-numeric `value ± u` |
+The admission surface dispatches by scalar or quantity carrier.
+
+| [INDEX] | [SURFACE]                                    | [CARRIER]    |
+| :-----: | :------------------------------------------- | :----------- |
+|  [01]   | `(double).WithRelativeUncertainty`           | `double`     |
+|  [02]   | `(double).WithAbsoluteUncertainty`           | `double`     |
+|  [03]   | `(double).WithIntervalUncertainty`           | `double`     |
+|  [04]   | `(double).WithNormalDistributionUncertainty` | `double`     |
+|  [05]   | `(TQuantity).WithRelativeUncertainty`        | `IQuantity`  |
+|  [06]   | `(TQuantity).WithAbsoluteUncertainty`        | `IQuantity`  |
+|  [07]   | `(T).WithAbsoluteUncertainty<T>`             | `INumber<T>` |
+
+[DOUBLE_RELATIVE_ADMISSION]:
+
+- call: `RelativeUncertainty WithRelativeUncertainty(this double value, double relativeUncertainty)`
+- result: `value ± r·value`
+
+[DOUBLE_ABSOLUTE_ADMISSION]:
+
+- call: `AbsoluteUncertainty WithAbsoluteUncertainty(this double value, double absoluteUncertainty)`
+- result: `value ± u`
+
+[DOUBLE_INTERVAL_ADMISSION]:
+
+- call: `IntervalUncertainty WithIntervalUncertainty(this double value, double lowerBound, double upperBound)`
+- result: explicit `[lo, hi]`
+
+[DOUBLE_NORMAL_ADMISSION]:
+
+- call: `NormalDistributionUncertainty WithNormalDistributionUncertainty(this double value, double standardDeviation, double coverageFactor =)`
+- result: `μ ± k·σ`
+
+[QUANTITY_RELATIVE_ADMISSION]:
+
+- call: `RelativeUncertaintyQuantity<TQuantity> WithRelativeUncertainty<TQuantity>(this TQuantity quantity, Ratio\| double relativeUncertainty) where TQuantity: IQuantity`
+- result: a `UnitsNet` value `± r%`
+
+[QUANTITY_ABSOLUTE_ADMISSION]:
+
+- call: `AbsoluteUncertaintyQuantity<TQuantity> WithAbsoluteUncertainty<TQuantity>(this TQuantity quantity, TQuantity\| double absoluteUncertainty) where TQuantity: IQuantity`
+- result: a `UnitsNet` value `± u` in the same unit or as `double`
+
+[GENERIC_ABSOLUTE_ADMISSION]:
+
+- call: `AbsoluteUncertaintyScalar<T> WithAbsoluteUncertainty<T>(this T value, T absoluteUncertainty) where T: INumber<T>`
+- result: generic-numeric `value ± u`
 
 [ENTRYPOINT_SCOPE]: wrapper construction + factories
+
 - rail: properties
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:---------------------------------------------- |:------------------------------------------------------------------------------------------ |:------------------------------------------ |
-| [01] | `new UncertaintyQuantity<T>(cv, uncertainty)` | `UncertaintyQuantity(T centralValue, T absoluteUncertainty)` | absolute quantity wrapper |
-| [02] | `new UncertaintyQuantity<T>(cv, Ratio\| double)` | `UncertaintyQuantity(T centralValue, Ratio relativeUncertainty)` / `(T, double)` | relative quantity wrapper (ctor discriminates by arg type) |
-| [03] | `new UncertaintyQuantity<T>(cv, lo, hi)` | `UncertaintyQuantity(T centralValue, T lowerBound, T upperBound)` | interval quantity wrapper |
-| [04] | `new UncertaintyQuantity<T>(cv, sd, k)` | `UncertaintyQuantity(T centralValue, T standardDeviation, double coverageFactor =)` | normal quantity wrapper |
-| [05] | `UncertaintyQuantity<T>.FromNormalDistributionUncertainty` | `static UncertaintyQuantity<T> FromNormalDistributionUncertainty(T cv, T sd, double coverageFactor =)` | named-factory mirror of the ctors |
-| [06] | `Uncertainty.FromIntervalUncertainty` | `static Uncertainty FromIntervalUncertainty(double cv, double lo, double hi)` | `double` named factory (the four `From…` mirror the ctors) |
-| [07] | `(IntervalUncertaintyQuantity<T>)quantityWrapper` | explicit conversion | unwrap to the concrete kind (throws on model mismatch) |
+Construction discriminates the quantity model by argument shape, while named factories mirror the constructors.
+
+| [INDEX] | [SURFACE]                                                  | [KIND]      |
+| :-----: | :--------------------------------------------------------- | :---------- |
+|  [01]   | `new UncertaintyQuantity<T>(cv, uncertainty)`              | constructor |
+|  [02]   | `new UncertaintyQuantity<T>(cv, Ratio\| double)`           | constructor |
+|  [03]   | `new UncertaintyQuantity<T>(cv, lo, hi)`                   | constructor |
+|  [04]   | `new UncertaintyQuantity<T>(cv, sd, k)`                    | constructor |
+|  [05]   | `UncertaintyQuantity<T>.FromNormalDistributionUncertainty` | factory     |
+|  [06]   | `Uncertainty.FromIntervalUncertainty`                      | factory     |
+|  [07]   | `(IntervalUncertaintyQuantity<T>)quantityWrapper`          | conversion  |
+
+[ABSOLUTE_QUANTITY_CONSTRUCTOR]:
+
+- call: `UncertaintyQuantity(T centralValue, T absoluteUncertainty)`
+- result: absolute quantity wrapper
+
+[RELATIVE_QUANTITY_CONSTRUCTOR]:
+
+- calls: `UncertaintyQuantity(T centralValue, Ratio relativeUncertainty)` and `(T, double)`
+- result: relative quantity wrapper; the argument type selects the constructor
+
+[INTERVAL_QUANTITY_CONSTRUCTOR]:
+
+- call: `UncertaintyQuantity(T centralValue, T lowerBound, T upperBound)`
+- result: interval quantity wrapper
+
+[NORMAL_QUANTITY_CONSTRUCTOR]:
+
+- call: `UncertaintyQuantity(T centralValue, T standardDeviation, double coverageFactor =)`
+- result: normal quantity wrapper
+
+[NORMAL_QUANTITY_FACTORY]:
+
+- call: `static UncertaintyQuantity<T> FromNormalDistributionUncertainty(T cv, T sd, double coverageFactor =)`
+- result: named-factory mirror of the constructors
+
+[INTERVAL_DOUBLE_FACTORY]:
+
+- call: `static Uncertainty FromIntervalUncertainty(double cv, double lo, double hi)`
+- result: one of the four `double` named factories that mirror the constructors
+
+[INTERVAL_QUANTITY_CONVERSION]: an explicit conversion unwraps the concrete kind and throws on a model mismatch.
 
 [ENTRYPOINT_SCOPE]: propagation + arithmetic
+
 - rail: properties
 - composition law: arithmetic propagates uncertainty through the bound algebra; `Add`/`Subtract` require the SAME model kind (else `InvalidOperationException "Incompatible uncertainty model."`), and the quantity `Add`/`Subtract` additionally require unit agreement (else `"Incompatible units."`). `Multiply`/`Divide` scale by a `double`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:---------------------------------------------- |:------------------------------------------------------------------------------------------------------ |:------------------------------------------ |
-| [01] | `UncertaintyQuantityOperators.Add` | `UncertaintyQuantity<T> Add<T>(this UncertaintyQuantity<T> a, UncertaintyQuantity<T> b) where T: IQuantity` | unit-checked quantity sum with propagated bounds |
-| [02] | `UncertaintyQuantityOperators.Multiply` | `UncertaintyQuantity<T> Multiply<T>(this UncertaintyQuantity<T> a, double factor) where T: IQuantity` | scale value + uncertainty by a scalar |
-| [03] | `UncertaintyOperators.Add` | `Uncertainty Add<T>(this IUncertainty<double> a, T b) where T: IUncertainty<double>` | `double` model sum |
-| [04] | `UncertaintyScalarOperators.Subtract` | `IUncertainty<T> Subtract<T>(this UncertaintyScalar<T> a, UncertaintyScalar<T> b) where T: INumber<T>` | generic-numeric difference |
-| [05] | `a + b` / `a * factor` | `static Uncertainty operator +(Uncertainty, Uncertainty)` / `operator *(Uncertainty, double)` | the `double` wrapper's native operators |
-| [06] | `model.PropagateBinary` | `IUncertainty<T> PropagateBinary(IUncertainty<T> other, Func<T,T,T> operation)` | custom binary op with bound propagation |
-| [07] | `model.PropagateUnary` | `IUncertainty<T> PropagateUnary(Func<double,double> operation)` | custom unary op (scales uncertainty by `\| f(1)\| `) |
-| [08] | `model.CentralValue` / `.LowerBound` / `.UpperBound` | property (`T`) | read the value and the propagated bounds |
+The arithmetic surface preserves the carrier while propagating bounds.
+
+| [INDEX] | [SURFACE]                                            | [KIND]   |
+| :-----: | :--------------------------------------------------- | :------- |
+|  [01]   | `UncertaintyQuantityOperators.Add`                   | quantity |
+|  [02]   | `UncertaintyQuantityOperators.Multiply`              | quantity |
+|  [03]   | `UncertaintyOperators.Add`                           | `double` |
+|  [04]   | `UncertaintyScalarOperators.Subtract`                | generic  |
+|  [05]   | `a + b` / `a * factor`                               | wrapper  |
+|  [06]   | `model.PropagateBinary`                              | model    |
+|  [07]   | `model.PropagateUnary`                               | model    |
+|  [08]   | `model.CentralValue` / `.LowerBound` / `.UpperBound` | read     |
+
+[QUANTITY_ADD]:
+
+- call: `UncertaintyQuantity<T> Add<T>(this UncertaintyQuantity<T> a, UncertaintyQuantity<T> b) where T: IQuantity`
+- result: unit-checked quantity sum with propagated bounds
+
+[QUANTITY_MULTIPLY]:
+
+- call: `UncertaintyQuantity<T> Multiply<T>(this UncertaintyQuantity<T> a, double factor) where T: IQuantity`
+- result: scales value and uncertainty by a scalar
+
+[DOUBLE_ADD]:
+
+- call: `Uncertainty Add<T>(this IUncertainty<double> a, T b) where T: IUncertainty<double>`
+- result: `double` model sum
+
+[GENERIC_SUBTRACT]:
+
+- call: `IUncertainty<T> Subtract<T>(this UncertaintyScalar<T> a, UncertaintyScalar<T> b) where T: INumber<T>`
+- result: generic-numeric difference
+
+[DOUBLE_WRAPPER_OPERATORS]: `static Uncertainty operator +(Uncertainty, Uncertainty)` and `operator *(Uncertainty, double)` are the `double` wrapper's native operators.
+
+[PROPAGATE_BINARY]:
+
+- call: `IUncertainty<T> PropagateBinary(IUncertainty<T> other, Func<T,T,T> operation)`
+- result: custom binary operation with bound propagation
+
+[PROPAGATE_UNARY]:
+
+- call: `IUncertainty<T> PropagateUnary(Func<double,double> operation)`
+- result: custom unary operation that scales uncertainty by `\| f(1)\| `
+
+[PROPAGATED_VALUES]: `model.CentralValue`, `.LowerBound`, and `.UpperBound` are `T` properties that expose the value and propagated bounds.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PROPAGATION_ALGEBRA]:
+
 - `PropagateBinary` is model-homogeneous: it casts `other` to the SAME kind interface (`IAbsoluteUncertainty<T>`/`IIntervalUncertainty<T>`/`IRelativeUncertainty<T>`/`INormalDistributionUncertainty<T>`) and throws `InvalidOperationException "Incompatible uncertainty model."` on a mismatch — the caller cannot add an absolute to a normal without lowering one first.
 - For the absolute/relative/interval kinds, binary propagation evaluates the operation over the FOUR bound corners (`op(lo_a, lo_b)`, `op(lo_a, hi_b)`, `op(hi_a, lo_b)`, `op(hi_a, hi_b)`) and returns an `IntervalUncertaintyQuantity`/`IntervalUncertainty` of `(op(cv_a, cv_b), min(corners), max(corners))` — exact interval arithmetic, not a linearized error term.
 - For the normal kind, binary propagation combines in QUADRATURE (root-sum-square): `σ = sqrt(σ_a² + σ_b²)`, preserving the `CoverageFactor`. `PropagateUnary` applies the operation to the central value and scales the uncertainty by `\|operation\|` (absolute/normal) or maps the bounds (interval).
 - The quantity arithmetic works in the central value's unit: bounds and quadrature compute via `IQuantity.As(unit)` / `Quantity.From(value, unit)`, so a `Pressure ± Pressure` stays in the left operand's unit and a unit mismatch is caught by `QuantityInfo.BaseUnitInfo.QuantityName` before the operation.
 
 [SERIALIZATION_BOUNDARY]:
-- The uncertainty types implement `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` (from the `VividOrange.Taxonomy.ISerialization` assembly). This is a DISTINCT interface from `VividOrange.Serialization.ITaxonomySerializable` (the `VividOrange.ISerialization` assembly) that the Sections/Materials/Profiles packages implement — different namespace, different assembly, different type identity. The PUBLIC serializer entry — `VividOrange.Serialization.JsonSerializationExtensions.ToJson<T>`/`FromJson<T>`, both `where T: VividOrange.Serialization.ITaxonomySerializable` (defaulting to the internal `TaxonomyJsonSerializer.Settings`: `StringEnumConverter` + `UnitsNetIQuantityJsonConverter`, `TypeNameHandling.Objects`) — CANNOT accept a uncertainty type at all: it implements the `VividOrange.Taxonomy.Serialization` `ITaxonomySerializable`, so it fails the generic constraint at COMPILE time, not at round-trip. The two `ITaxonomySerializable` are NOT interchangeable.
+
+- The uncertainty types implement `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` from the `VividOrange.Taxonomy.ISerialization` assembly. The Sections, Materials, and Profiles packages implement the distinct `VividOrange.Serialization.ITaxonomySerializable` from `VividOrange.ISerialization`; the namespace, assembly, and type identity differ.
+- `VividOrange.Serialization.JsonSerializationExtensions.ToJson<T>` and `FromJson<T>` require `T: VividOrange.Serialization.ITaxonomySerializable` and default to the internal `TaxonomyJsonSerializer.Settings` carrying `StringEnumConverter`, `UnitsNetIQuantityJsonConverter`, and `TypeNameHandling.Objects`. An uncertainty type implements the taxonomy-serialization interface instead, so the generic constraint rejects it at compile time rather than at round-trip.
 - Consequence: a Materials property owner reads the typed `CentralValue`/`LowerBound`/`UpperBound`/uncertainty value off the wrapper and serializes through the canonical Rasm snapshot codec (`Thinktecture.Runtime.Extensions.Json`/`MessagePack`) at the boundary — it never routes an uncertainty value through either VividOrange taxonomy serializer, and never assumes the section/material serializer covers it.
 
 [STACK]:
+
 - units seam: the quantity family wraps `UnitsNet` `IQuantity` (`api-unitsnet.md`) on the SAME floor the section-property (`api-vividorange-sections-sectionproperties.md`) and material-grade (`api-vividorange-materials.md`) rows use — so a computed `AreaMomentOfInertia`, a measured `Pressure`, and its `±` band are one quantity type; `pressure.WithRelativeUncertainty` yields an `UncertaintyQuantity<Pressure>` whose bounds are `Pressure`.
-- properties seam: the Materials `Properties/` shared `Published<T>` ingress carrier wraps `IUncertainty<T>` (a `UnitsNet` quantity through `.Quantities.Utility.WithRelativeUncertainty`, a raw scalar through the double `.Utility`) and lowers the provider model to the neutral seam `MeasureBand` at the ONE mint — a property crosses as value+band together, never a bare scalar + separate tolerance; the multi-ply rule-of-mixtures / series-resistance / layered-STC folds live in `Rasm.Compute` and propagate bands through `UncertaintyQuantityOperators.Add`/`Multiply`, so an aggregated assembly property reports its propagated uncertainty, not a discarded one.
+- properties seam: the Materials `Properties/` shared `Published<T>` ingress carrier wraps `IUncertainty<T>` through `.Quantities.Utility.WithRelativeUncertainty` for a `UnitsNet` quantity or the double `.Utility` for a raw scalar. The carrier lowers the provider model to the neutral `MeasureBand` seam at the ONE mint, so a property crosses as value+band rather than a bare scalar and separate tolerance.
+- propagation seam: the multi-ply rule-of-mixtures, series-resistance, and layered-STC folds live in `Rasm.Compute` and propagate bands through `UncertaintyQuantityOperators.Add` and `Multiply`. An aggregated assembly property therefore reports its propagated uncertainty.
 - model-axis seam: the four MODELS (absolute/relative/interval/normal) × four CARRIERS (`double`/`INumber<T>`/`decimal`/`IQuantity`) collapse to ONE `IUncertainty<T>` propagation contract — a Materials property owner discriminates on the `UncertaintyModel` axis (or the carrier `T`), never a per-property uncertainty type; `decimal` carries cost rows, `IQuantity` the physical properties, `INumber<T>` the dimensionless ratios.
 
 [RAIL_LAW]:
+
 - Packages: `VividOrange.Uncertainties` + `VividOrange.Uncertainties.Quantities` + `VividOrange.IUncertainties` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the four uncertainty models over four numeric carriers, the fluent `.WithXUncertainty` admission, the bound-corner / quadrature propagation algebra, the unit-checked quantity arithmetic, and the `IUncertainty<T>` floor — all carried with the value through the Materials `Properties/` and `Profiles/` surfaces
 - Accept: a measured/declared material property attached to its uncertainty via `.WithXUncertainty`, read as typed `UnitsNet` quantity bounds, propagated through the assembly-property folds; the value serialized via the canonical Rasm codec at the boundary
@@ -163,6 +362,7 @@
 ## [05]-[CATALOGUE_LAW]
 
 [PACKAGE_SCOPE]:
+
 - This page carries `VividOrange.Uncertainties[.Quantities]` + `VividOrange.IUncertainties` API facts only; the shared `Published<T>` ingress carrier, the catalogue rows, the model-axis discriminant, and the snapshot codec binding are owned at the Materials `Properties/` design pages.
 - Units lane: the quantity carrier composes the in-folder `UnitsNet` owner (`api-unitsnet.md`); this page never re-documents the `UnitsNet` quantity surface.
 - Serialization lane: the `VividOrange.Taxonomy.Serialization.ITaxonomySerializable` floor is DISTINCT from the `VividOrange.Serialization` floor the Sections/Materials/Profiles use; the two are not interchangeable, and the Materials owner serializes uncertainty values through the canonical Rasm codec ([04]-[SERIALIZATION_BOUNDARY]).

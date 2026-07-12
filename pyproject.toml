@@ -673,6 +673,30 @@ ignore = [
     "TID251",
     "TRY300",
 ]
+# hooks-builder templates/examples are boundary-kernel single-file uv hook scripts: os.environ, subprocess probes, stderr
+# reasons, fail-open/closed broad-except, and POLICY danger-root literals are admitted at the hook seam (docs/stacks scripting
+# carve-out), and one-line focused docstrings carry no Returns/Raises sections.
+"**/.claude/skills/hooks-builder/**" = [
+    "ANN401",   # dynamic hookSpecificOutput payloads are dict[str, object]
+    "BLE001",   # a fail-open observer swallows every fault to a guaranteed exit 0
+    "DOC201",   # one-line focused docstrings carry no Returns section
+    "DOC501",   # ... and no Raises section
+    "E501",     # dense boundary-kernel lines run wide
+    "PLR1702",  # the command-decomposition kernel nests its scan
+    "PLW0717",  # the boundary-admission try wraps decode plus dispatch
+    "PTH109",   # os.getcwd is the admitted fallback-root primitive at the hook seam
+    "S105",     # a completion sentinel and secret-basename set are not passwords
+    "S108",     # POLICY danger/temp-root classifications, never temp-file creation
+    "S110",     # a telemetry try-except-pass is the fail-open disposition
+    "S112",     # a tolerant transcript decode skips one malformed line
+    "S404",     # subprocess is the admitted probe/checker primitive at the hook seam
+    "S603",     # ... invoked without a shell by construction
+    "S607",     # ... resolved against the estate tool, never a bare namesake
+    "TC001",    # msgspec resolves annotation types at runtime, so a TYPE_CHECKING guard would break decode
+    "TC002",
+    "TC003",
+    "TID251",   # os.environ and subprocess are admitted at the boundary-kernel seam
+]
 "tests/**"         = ["S101", "PT018", "PLR2004", "PLR0913", "ARG001", "ARG002", "ANN201", "ANN401", "D101", "D102", "D103", "SLF001", "PLC2701"]  # PLC2701: specs import the private-by-design _testkit package
 "**/adapters/**"   = ["ANN401"]
 "**/conftest.py"   = ["E402", "F401", "ARG001"]

@@ -26,61 +26,61 @@ from the `System.Data.Common` base types and returns `Sqlite*` results.
 [CONNECTION_TYPES]: connection and command surfaces (ADO.NET `Db*` subclasses)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                              |
-| :-----: | :------------------------------ | :----------------- | :------------------------------------------------------- |
-|  [01]   | `SqliteConnection`              | `DbConnection`     | opens embedded store; `Handle`, pooling, backup, functions |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                           |
+| :-----: | :------------------------------ | :----------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `SqliteConnection`              | `DbConnection`     | opens embedded store; `Handle`, pooling, backup, functions                             |
 |  [02]   | `SqliteConnectionStringBuilder` | connection builder | `Mode`/`Cache`/`Pooling`/`ForeignKeys`/`RecursiveTriggers`/`Password`/`DefaultTimeout` |
-|  [03]   | `SqliteCommand`                 | `DbCommand`        | executes statements; `Prepare`/`Cancel`; async via base   |
-|  [04]   | `SqliteTransaction`             | `DbTransaction`    | bounds atomic work; deferred-mode supported               |
-|  [05]   | `SqliteDataReader`              | `DbDataReader`     | reads rows; `GetStream`/`GetTextReader`/`GetFieldValue<T>` |
-|  [06]   | `SqliteParameter`               | `DbParameter`      | binds typed statement values (`SqliteType`)               |
-|  [07]   | `SqliteParameterCollection`     | parameter store    | owns parameters                                           |
-|  [08]   | `SqliteException`               | `DbException`      | reports provider failure with `SqliteErrorCode`           |
+|  [03]   | `SqliteCommand`                 | `DbCommand`        | executes statements; `Prepare`/`Cancel`; async via base                                |
+|  [04]   | `SqliteTransaction`             | `DbTransaction`    | bounds atomic work; deferred-mode supported                                            |
+|  [05]   | `SqliteDataReader`              | `DbDataReader`     | reads rows; `GetStream`/`GetTextReader`/`GetFieldValue<T>`                             |
+|  [06]   | `SqliteParameter`               | `DbParameter`      | binds typed statement values (`SqliteType`)                                            |
+|  [07]   | `SqliteParameterCollection`     | parameter store    | owns parameters                                                                        |
+|  [08]   | `SqliteException`               | `DbException`      | reports provider failure with `SqliteErrorCode`                                        |
 
 [STORE_TYPES]: embedded store extensions and classifiers
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]   | [CAPABILITY]                                                   |
-| :-----: | :---------------- | :--------------- | :------------------------------------------------------------- |
-|  [01]   | `SqliteBlob`      | `Stream` handle  | seekable blob stream; `byte[]` + `Span<byte>`/`ReadOnlySpan<byte>` IO |
-|  [02]   | `SqliteFactory`   | `DbProviderFactory` | creates provider objects                                    |
-|  [03]   | `SqliteOpenMode`  | open enum        | `ReadWriteCreate`, `ReadWrite`, `ReadOnly`, `Memory`          |
-|  [04]   | `SqliteCacheMode` | cache enum       | classifies shared/private cache                               |
-|  [05]   | `SqliteType`      | type enum        | pins value binding (`Integer`/`Real`/`Text`/`Blob`)           |
+| [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]      | [CAPABILITY]                                                          |
+| :-----: | :---------------- | :------------------ | :-------------------------------------------------------------------- |
+|  [01]   | `SqliteBlob`      | `Stream` handle     | seekable blob stream; `byte[]` + `Span<byte>`/`ReadOnlySpan<byte>` IO |
+|  [02]   | `SqliteFactory`   | `DbProviderFactory` | creates provider objects                                              |
+|  [03]   | `SqliteOpenMode`  | open enum           | `ReadWriteCreate`, `ReadWrite`, `ReadOnly`, `Memory`                  |
+|  [04]   | `SqliteCacheMode` | cache enum          | classifies shared/private cache                                       |
+|  [05]   | `SqliteType`      | type enum           | pins value binding (`Integer`/`Real`/`Text`/`Blob`)                   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: connection, execution, and the raw-handle bridge
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]        | [CAPABILITY]                                                    |
-| :-----: | :-------------------------------------------------------------- | :------------------ | :------------------------------------------------------------- |
-|  [01]   | `Open()` / `OpenAsync(CancellationToken)`                       | connection call     | opens store; async mirror inherited from `DbConnection`        |
-|  [02]   | `Close()` / `CloseAsync()`                                      | connection call     | closes; returns the connection to its pool                     |
-|  [03]   | `Handle` (`sqlite3? Handle`)                                    | connection read     | the `SQLitePCL.sqlite3` bridge to the `api-sqlitepcl` raw calls |
-|  [04]   | `CreateCommand()`                                               | factory call        | returns `SqliteCommand` (via `DbConnection`)                   |
-|  [05]   | `BeginTransaction(bool deferred)` / `BeginTransaction(IsolationLevel, bool deferred)` / `BeginTransactionAsync(...)` | transaction factory | starts a (deferred) transaction; async mirror inherited        |
-|  [06]   | `ExecuteReader()` / `ExecuteReaderAsync(...)`                   | command call        | reads rows; async mirror inherited from `DbCommand`            |
-|  [07]   | `ExecuteNonQuery()` / `ExecuteNonQueryAsync(...)`              | command call        | writes changes; async mirror inherited                         |
-|  [08]   | `ExecuteScalar()` / `ExecuteScalarAsync(...)`                  | command call        | reads a scalar; async mirror inherited                         |
-|  [09]   | `Prepare()` / `PrepareAsync(...)` / `Cancel()`                  | command call        | precompiles / cancels a statement                              |
-|  [10]   | `BackupDatabase(SqliteConnection)` / `BackupDatabase(SqliteConnection, string destName, string srcName)` | connection call | whole-file copy; the engine prefers the paged raw backup session |
-|  [11]   | `ClearPool(SqliteConnection)` / `ClearAllPools()`              | static call         | flushes pooled physical connections                            |
-|  [12]   | `DefaultTimeout` / `ServerVersion` / `DataSource` / `Database` | connection read     | busy-timeout policy and store identity facts                   |
+| [INDEX] | [SURFACE]                                                                                                            | [CALL_SHAPE]        | [CAPABILITY]                                                     |
+| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------------------ | :--------------------------------------------------------------- |
+|  [01]   | `Open()` / `OpenAsync(CancellationToken)`                                                                            | connection call     | opens store; async mirror inherited from `DbConnection`          |
+|  [02]   | `Close()` / `CloseAsync()`                                                                                           | connection call     | closes; returns the connection to its pool                       |
+|  [03]   | `Handle` (`sqlite3? Handle`)                                                                                         | connection read     | the `SQLitePCL.sqlite3` bridge to the `api-sqlitepcl` raw calls  |
+|  [04]   | `CreateCommand()`                                                                                                    | factory call        | returns `SqliteCommand` (via `DbConnection`)                     |
+|  [05]   | `BeginTransaction(bool deferred)` / `BeginTransaction(IsolationLevel, bool deferred)` / `BeginTransactionAsync(...)` | transaction factory | starts a (deferred) transaction; async mirror inherited          |
+|  [06]   | `ExecuteReader()` / `ExecuteReaderAsync(...)`                                                                        | command call        | reads rows; async mirror inherited from `DbCommand`              |
+|  [07]   | `ExecuteNonQuery()` / `ExecuteNonQueryAsync(...)`                                                                    | command call        | writes changes; async mirror inherited                           |
+|  [08]   | `ExecuteScalar()` / `ExecuteScalarAsync(...)`                                                                        | command call        | reads a scalar; async mirror inherited                           |
+|  [09]   | `Prepare()` / `PrepareAsync(...)` / `Cancel()`                                                                       | command call        | precompiles / cancels a statement                                |
+|  [10]   | `BackupDatabase(SqliteConnection)` / `BackupDatabase(SqliteConnection, string destName, string srcName)`             | connection call     | whole-file copy; the engine prefers the paged raw backup session |
+|  [11]   | `ClearPool(SqliteConnection)` / `ClearAllPools()`                                                                    | static call         | flushes pooled physical connections                              |
+|  [12]   | `DefaultTimeout` / `ServerVersion` / `DataSource` / `Database`                                                       | connection read     | busy-timeout policy and store identity facts                     |
 
 [ENTRYPOINT_SCOPE]: embedded features — functions, collations, blobs, extensions
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]     | [CAPABILITY]                                                       |
-| :-----: | :---------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------- |
-|  [01]   | `CreateFunction<…,TResult>(name, Func<…>, isDeterministic)`        | connection call  | registers a scalar UDF; arity-0..15 + `object?[]` params overloads |
-|  [02]   | `CreateAggregate<…TAccumulate[,TResult]>(name, [seed,] func, [resultSelector,] isDeterministic)` | connection call | registers an aggregate; seeded/stateless + resultSelector families |
-|  [03]   | `CreateCollation(name, Comparison<string>)` / `CreateCollation<T>(name, T state, Func<T,string,string,int>)` | connection call | registers a (stateful) collation                                   |
-|  [04]   | `EnableExtensions(bool enable = true)`                             | connection call  | arms C-API extension loading                                       |
-|  [05]   | `LoadExtension(string file, string? proc = null)`                 | connection call  | loads a native extension by path                                   |
-|  [06]   | `new SqliteBlob(connection, table, column, rowid, readOnly)`       | constructor call | opens a seekable blob stream                                       |
-|  [07]   | `Read(byte[]…)` / `Read(Span<byte>)` / `Write(byte[]…)` / `Write(ReadOnlySpan<byte>)` / `Seek` / `Position` | blob stream call | zero-copy span blob IO; full `Stream` (`CanRead`/`CanWrite`/`CanSeek`/`Length`) |
-|  [08]   | `GetStream(int)` / `GetTextReader(int)` / `GetFieldValue<T>(int)` / `GetBytes` / `GetChars` | data reader call | streams or width-reads a blob/text column without materializing it |
+| [INDEX] | [SURFACE]                                                                                                    | [CALL_SHAPE]     | [CAPABILITY]                                                                    |
+| :-----: | :----------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `CreateFunction<…,TResult>(name, Func<…>, isDeterministic)`                                                  | connection call  | registers a scalar UDF; arity-0..15 + `object?[]` params overloads              |
+|  [02]   | `CreateAggregate<…TAccumulate[,TResult]>(name, [seed,] func, [resultSelector,] isDeterministic)`             | connection call  | registers an aggregate; seeded/stateless + resultSelector families              |
+|  [03]   | `CreateCollation(name, Comparison<string>)` / `CreateCollation<T>(name, T state, Func<T,string,string,int>)` | connection call  | registers a (stateful) collation                                                |
+|  [04]   | `EnableExtensions(bool enable = true)`                                                                       | connection call  | arms C-API extension loading                                                    |
+|  [05]   | `LoadExtension(string file, string? proc = null)`                                                            | connection call  | loads a native extension by path                                                |
+|  [06]   | `new SqliteBlob(connection, table, column, rowid, readOnly)`                                                 | constructor call | opens a seekable blob stream                                                    |
+|  [07]   | `Read(byte[]…)` / `Read(Span<byte>)` / `Write(byte[]…)` / `Write(ReadOnlySpan<byte>)` / `Seek` / `Position`  | blob stream call | zero-copy span blob IO; full `Stream` (`CanRead`/`CanWrite`/`CanSeek`/`Length`) |
+|  [08]   | `GetStream(int)` / `GetTextReader(int)` / `GetFieldValue<T>(int)` / `GetBytes` / `GetChars`                  | data reader call | streams or width-reads a blob/text column without materializing it              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

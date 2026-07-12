@@ -1,18 +1,11 @@
 # [RASM_APPHOST_API_GRPC_CLIENT]
 
-`Grpc.Net.Client` supplies gRPC channels, HTTP-backed call invocation, service
-configuration, retry, and hedging for the AppHost outbound clients: the
-`Wire/outbound#DISCOVERY_ATTACH` UDS channel to a companion server
-(`GrpcChannel.ForAddress` + a `SocketsHttpHandler.ConnectCallback` dialing the
-Unix socket) and the `Wire/coordination` resolver-driven cluster channel. The
-custom `Resolver`/`LoadBalancer`/`Subchannel` extensibility surface is owned by
-`Microsoft.Extensions.ServiceDiscovery` (`api-service-discovery.md`), documented
-here as inventory only — AppHost composes it through the service-discovery
-integration, never by subclassing these types directly.
+`Grpc.Net.Client` owns HTTP-backed gRPC channel construction, call invocation, service configuration, retry, and hedging for AppHost outbound clients. The discovery-attach channel dials the companion Unix socket through `GrpcChannel.ForAddress` and `SocketsHttpHandler.ConnectCallback`, while the coordination channel resolves cluster endpoints. `Microsoft.Extensions.ServiceDiscovery` owns the custom `Resolver`, `LoadBalancer`, and `Subchannel` surface; AppHost composes balancing through its service-discovery integration.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Client`
+
 - package: `Grpc.Net.Client`
 - assembly: `Grpc.Net.Client`
 - namespace: `Grpc.Net.Client`
@@ -22,6 +15,7 @@ integration, never by subclassing these types directly.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: channel and call contracts
+
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]   | [CAPABILITY]            |
@@ -37,9 +31,10 @@ integration, never by subclassing these types directly.
 |  [09]   | `RetryThrottlingPolicy` | retry policy     | throttles retries       |
 
 [PUBLIC_TYPE_SCOPE]: resolver and balancer contracts (ServiceDiscovery-owned — inventory)
+
 - rail: remote-client
 
-These types are the custom-extensibility surface `Microsoft.Extensions.ServiceDiscovery` (`api-service-discovery.md`) owns; AppHost composes balancing through the service-discovery integration and the `dns`/`static` factory config, never by subclassing `Resolver`/`LoadBalancer`/`Subchannel` directly. Documented for completeness, not as an AppHost implementation surface.
+`Microsoft.Extensions.ServiceDiscovery` owns these custom-extensibility types; AppHost composes balancing through the service-discovery integration and the `dns`/`static` factory config.
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]     | [CAPABILITY]             |
 | :-----: | :---------------------- | :----------------- | :----------------------- |
@@ -57,6 +52,7 @@ These types are the custom-extensibility surface `Microsoft.Extensions.ServiceDi
 |  [12]   | `PickResult`            | picker result      | carries selection result |
 
 [PUBLIC_TYPE_SCOPE]: transitive `Grpc.Core.Api` call contracts
+
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                        |
@@ -80,6 +76,7 @@ These types are the custom-extensibility surface `Microsoft.Extensions.ServiceDi
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: channel operations
+
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]    | [CAPABILITY]             |
@@ -95,6 +92,7 @@ These types are the custom-extensibility surface `Microsoft.Extensions.ServiceDi
 |  [09]   | `ThrowOperationCanceledOnCancellation` | option property | controls cancellation    |
 
 [ENTRYPOINT_SCOPE]: channel-state and compression operations
+
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                                 | [CALL_SHAPE]    | [CAPABILITY]                                          |
@@ -106,6 +104,7 @@ These types are the custom-extensibility surface `Microsoft.Extensions.ServiceDi
 |  [05]   | `grpc-internal-encoding-request`          | metadata key    | selects per-call request compression                  |
 
 [ENTRYPOINT_SCOPE]: interceptor override signatures
+
 - rail: remote-client#CALL_SPINE
 
 Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `ClientInterceptorContext<TReq,TResp>`, and constrains both generic arguments to `class`.
@@ -119,6 +118,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [05]   | `AsyncDuplexStreamingCall` | async duplex-streaming | `AsyncDuplexStreamingCallContinuation<TReq,TResp>` | —              |
 
 [ENTRYPOINT_SCOPE]: `ClientInterceptorContext` struct members
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]  | [SIGNATURE]                                                                                      |
@@ -129,6 +129,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [04]   | `ctor`    | `ClientInterceptorContext(Method<TRequest,TResponse> method, string? host, CallOptions options)` |
 
 [ENTRYPOINT_SCOPE]: `CallOptions` struct members
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]                | [SIGNATURE]                                                              |
@@ -143,22 +144,24 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [08]   | `WithCredentials`       | `CallOptions WithCredentials(CallCredentials credentials)`               |
 
 [ENTRYPOINT_SCOPE]: `Metadata` collection members
+
 - rail: remote-client#CALL_SPINE
 
-`Metadata` is a mutable `IList<Metadata.Entry>` header collection; it doubles as the W3C-trace-context propagation carrier (`Set`/`Get`/`GetAll`) the telemetry rail injects/extracts across the call.
+`Metadata` is a mutable `IList<Metadata.Entry>` header collection and the W3C-trace-context propagation carrier the telemetry rail injects and extracts across the call. Every `Entry.*` row resolves against `Metadata.Entry`.
 
-| [INDEX] | [MEMBER]                | [SIGNATURE]                                                    |
-| :-----: | :---------------------- | :------------------------------------------------------------- |
-|  [01]   | `Add`                   | `void Add(string key, string value)`                          |
-|  [02]   | `Add`                   | `void Add(string key, byte[] valueBytes)` (binary `-bin` key) |
-|  [03]   | `Add`                   | `void Add(Metadata.Entry entry)`                              |
-|  [04]   | `GetAll`                | `IEnumerable<Metadata.Entry> GetAll(string key)`             |
-|  [05]   | `Get`                   | `Metadata.Entry? Get(string key)`                            |
-|  [06]   | `Metadata.Entry.Key`    | `string Key { get; }`                                         |
-|  [07]   | `Metadata.Entry.Value`  | `string Value { get; }`                                       |
-|  [08]   | `Metadata.Entry.ValueBytes` | `byte[] ValueBytes { get; }` (binary entries)            |
+| [INDEX] | [MEMBER]           | [SIGNATURE]                                                   |
+| :-----: | :----------------- | :------------------------------------------------------------ |
+|  [01]   | `Add`              | `void Add(string key, string value)`                          |
+|  [02]   | `Add`              | `void Add(string key, byte[] valueBytes)` (binary `-bin` key) |
+|  [03]   | `Add`              | `void Add(Metadata.Entry entry)`                              |
+|  [04]   | `GetAll`           | `IEnumerable<Metadata.Entry> GetAll(string key)`              |
+|  [05]   | `Get`              | `Metadata.Entry? Get(string key)`                             |
+|  [06]   | `Entry.Key`        | `string Key { get; }`                                         |
+|  [07]   | `Entry.Value`      | `string Value { get; }`                                       |
+|  [08]   | `Entry.ValueBytes` | `byte[] ValueBytes { get; }` (binary entries)                 |
 
 [ENTRYPOINT_SCOPE]: `RpcException` members
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]     | [SIGNATURE]                                                      |
@@ -172,6 +175,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [07]   | `ctor`       | `RpcException(Status status, Metadata trailers, string message)` |
 
 [ENTRYPOINT_SCOPE]: `StatusCode` enum members
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]             | [SIGNATURE]              |
@@ -195,17 +199,27 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [17]   | `Unauthenticated`    | `Unauthenticated = 16`   |
 
 [ENTRYPOINT_SCOPE]: credential composition members
+
 - rail: remote-client#CALL_SPINE
 
-| [INDEX] | [MEMBER]                          | [SIGNATURE]                                                                                                |
-| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `CallCredentials.Compose`         | `static CallCredentials Compose(params CallCredentials[] credentials)`                                     |
-|  [02]   | `CallCredentials.FromInterceptor` | `static CallCredentials FromInterceptor(AsyncAuthInterceptor interceptor)`                                 |
-|  [03]   | `ChannelCredentials.Create`       | `static ChannelCredentials Create(ChannelCredentials channelCredentials, CallCredentials callCredentials)` |
-|  [04]   | `ChannelCredentials.Insecure`     | `static ChannelCredentials Insecure { get; }`                                                              |
-|  [05]   | `ChannelCredentials.SecureSsl`    | `static ChannelCredentials SecureSsl { get; }`                                                             |
+`CallCredentials` owns its composition factories.
+
+| [INDEX] | [MEMBER]          | [SIGNATURE]                                                                |
+| :-----: | :---------------- | :------------------------------------------------------------------------- |
+|  [01]   | `Compose`         | `static CallCredentials Compose(params CallCredentials[] credentials)`     |
+|  [02]   | `FromInterceptor` | `static CallCredentials FromInterceptor(AsyncAuthInterceptor interceptor)` |
+
+`ChannelCredentials` binds channel and call credentials through its static `Create` factory.
+
+- [CREATE_SIGNATURE]: `static ChannelCredentials Create(ChannelCredentials channelCredentials, CallCredentials callCredentials)`
+
+| [INDEX] | [MEMBER]    | [SIGNATURE]                                    |
+| :-----: | :---------- | :--------------------------------------------- |
+|  [01]   | `Insecure`  | `static ChannelCredentials Insecure { get; }`  |
+|  [02]   | `SecureSsl` | `static ChannelCredentials SecureSsl { get; }` |
 
 [ENTRYPOINT_SCOPE]: `CallInvokerExtensions` intercept factory members
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]                          | [SIGNATURE]                                                                                    |
@@ -216,18 +230,23 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [04]   | `InterceptingCallInvoker.ctor`    | `InterceptingCallInvoker(CallInvoker invoker, Interceptor interceptor)`                        |
 
 [ENTRYPOINT_SCOPE]: `AsyncAuthInterceptor` delegate and `AuthInterceptorContext` members
+
 - rail: remote-client#CALL_SPINE
 
-| [INDEX] | [MEMBER]                                   | [SIGNATURE]                                                                                         |
-| :-----: | :----------------------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `AsyncAuthInterceptor`                     | `delegate Task AsyncAuthInterceptor(AuthInterceptorContext context, Metadata metadata)`             |
-|  [02]   | `AuthInterceptorContext.ctor`              | `AuthInterceptorContext(string serviceUrl, string methodName)`                                      |
-|  [03]   | `AuthInterceptorContext.ctor`              | `AuthInterceptorContext(string serviceUrl, string methodName, CancellationToken cancellationToken)` |
-|  [04]   | `AuthInterceptorContext.ServiceUrl`        | `string ServiceUrl { get; }`                                                                        |
-|  [05]   | `AuthInterceptorContext.MethodName`        | `string MethodName { get; }`                                                                        |
-|  [06]   | `AuthInterceptorContext.CancellationToken` | `CancellationToken CancellationToken { get; }`                                                      |
+- [ASYNC_AUTH_INTERCEPTOR]: `delegate Task AsyncAuthInterceptor(AuthInterceptorContext context, Metadata metadata)`
+
+Every member row resolves against `AuthInterceptorContext`.
+
+| [INDEX] | [MEMBER]            | [SIGNATURE]                                                                                         |
+| :-----: | :------------------ | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `ctor`              | `AuthInterceptorContext(string serviceUrl, string methodName)`                                      |
+|  [02]   | `ctor`              | `AuthInterceptorContext(string serviceUrl, string methodName, CancellationToken cancellationToken)` |
+|  [03]   | `ServiceUrl`        | `string ServiceUrl { get; }`                                                                        |
+|  [04]   | `MethodName`        | `string MethodName { get; }`                                                                        |
+|  [05]   | `CancellationToken` | `CancellationToken CancellationToken { get; }`                                                      |
 
 [ENTRYPOINT_SCOPE]: `SocketsHttpHandler` keepalive members
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]                                            | [SIGNATURE]                                                           |
@@ -240,6 +259,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [06]   | `HttpKeepAlivePingPolicy.Always`                    | `Always = 1` — ping even on idle connections                          |
 
 [ENTRYPOINT_SCOPE]: compression provider types
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]                                         | [SIGNATURE]                                                                         |
@@ -253,6 +273,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [07]   | `DeflateCompressionProvider.EncodingName`        | `string EncodingName { get; }` returns `"deflate"`                                  |
 
 [ENTRYPOINT_SCOPE]: `GrpcChannelOptions` property surface — transport and payload
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]                                  | [SIGNATURE]                                                       |
@@ -277,6 +298,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [18]   | `LoggerFactory`                           | `ILoggerFactory? LoggerFactory { get; set; }`                     |
 
 [ENTRYPOINT_SCOPE]: `GrpcChannelOptions` property surface — reconnect backoff
+
 - rail: remote-client#CALL_SPINE
 
 | [INDEX] | [MEMBER]                  | [SIGNATURE]                                                    |
@@ -285,6 +307,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 |  [02]   | `InitialReconnectBackoff` | `TimeSpan InitialReconnectBackoff { get; set; }` — default 1 s |
 
 [ENTRYPOINT_SCOPE]: policy and balancing operations
+
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                      | [CALL_SHAPE]    | [CAPABILITY]             |
@@ -302,6 +325,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CHANNEL_POLICY]:
+
 - namespace: `Grpc.Net.Client`
 - channel root: `GrpcChannel`
 - policy root: `GrpcChannelOptions`
@@ -309,6 +333,7 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 - payload bounds: send and receive message sizes are part of remote execution policy
 
 [INTERCEPTOR_SURFACE]:
+
 - namespace: `Grpc.Core.Interceptors`
 - base class: `abstract class Interceptor` in `Grpc.Core.Api`
 - client overrides: `BlockingUnaryCall`, `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, `AsyncDuplexStreamingCall` — each virtual with a matching continuation delegate type
@@ -318,11 +343,13 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 - server overrides: `UnaryServerHandler`, `ClientStreamingServerHandler`, `ServerStreamingServerHandler`, `DuplexStreamingServerHandler` — out of scope for the Compute client rail
 
 [KEEPALIVE_POLICY]:
+
 - keepalive is owned by `SocketsHttpHandler` (BCL) when passed as `GrpcChannelOptions.HttpHandler`
 - properties: `SocketsHttpHandler.KeepAlivePingDelay`, `KeepAlivePingTimeout`, `KeepAlivePingPolicy` (`HttpKeepAlivePingPolicy.WithActiveRequests` / `Always`), `EnableMultipleHttp2Connections`
 - reconnect backoff: `GrpcChannelOptions.InitialReconnectBackoff` (default 1 s) and `MaxReconnectBackoff` (default 120 s) control exponential backoff between connection attempts
 
 [COMPRESSION_SURFACE]:
+
 - namespace: `Grpc.Net.Compression` (in `Grpc.Net.Common`)
 - interface: `ICompressionProvider` with `EncodingName`, `CreateCompressionStream`, `CreateDecompressionStream`
 - built-in providers: `GzipCompressionProvider(CompressionLevel)` → encoding `"gzip"`; `DeflateCompressionProvider(CompressionLevel)` → encoding `"deflate"` (wraps `ZLibStream`)
@@ -330,23 +357,27 @@ Each interceptor override is virtual and generic over `<TReq,TResp>`, receives `
 - per-call selection: `grpc-internal-encoding-request` metadata key
 
 [REMOTE_RESILIENCE]:
+
 - namespace: `Grpc.Net.Client.Configuration`
 - retry: `RetryPolicy` sets attempts, backoff, status codes, and commit behavior
 - hedging: `HedgingPolicy` sets parallel attempt limits and delay
 - service config: method policy stays data-driven and does not enter generated clients
 
 [LOCAL_ADMISSION]:
-- AppHost outbound calls enter through client-side `GrpcChannel` only; the two consumers are `Wire/outbound#DISCOVERY_ATTACH` (UDS channel to the companion server) and `Wire/coordination` (the resolver-driven cluster channel). Server hosting is `Grpc.AspNetCore` (`api-grpc-aspnetcore.md`), never this package.
+
+- AppHost outbound calls enter through client-side `GrpcChannel`: one UDS channel dials the companion server, and one service-discovery-resolved channel dials the coordination cluster. `Grpc.AspNetCore` owns server hosting.
 - the UDS attach binds `GrpcChannel.ForAddress("http://localhost", new GrpcChannelOptions { HttpHandler = new SocketsHttpHandler { ConnectCallback = ... } })` where the callback dials the companion's Unix domain socket — the channel address is nominal, the socket path is binding-spec policy.
 - the `Resolver`/`ResolverFactory`/`LoadBalancer`/`Subchannel`/`SubchannelPicker` custom-extensibility surface is `Microsoft.Extensions.ServiceDiscovery`'s to own; AppHost admits balancing through the service-discovery `AddServiceDiscovery` integration and the `dns`/`static` factory config, never a hand-subclassed resolver or balancer.
 - retry/hedging (`RetryPolicy`/`HedgingPolicy`) is data-driven service config, not a second resilience path — the `Wire/outbound` `Polly.Core` hop owns cross-cutting resilience; gRPC service config carries only the wire-native retry the channel applies.
 
 [STACK]:
-- discovery attach: `Wire/outbound#DISCOVERY_ATTACH` composes `GrpcChannel.ForAddress` + `SocketsHttpHandler.ConnectCallback` for the companion UDS server (`api-grpc-aspnetcore.md` hosts the other end); the channel is one `LiveClient`/hop, never a re-minted transport.
-- coordination channel: `Wire/coordination` dials the cluster election/lock endpoint through a resolver-driven channel, the resolver supplied by `Microsoft.Extensions.ServiceDiscovery` (`api-service-discovery.md`).
-- health projection: the channel's target reachability rides the standard gRPC health service (`Grpc.AspNetCore.HealthChecks`), reaching `Wire/companion#WIRE_HEALTH` — never a bespoke channel-liveness probe.
+
+- discovery attach: `GrpcChannel.ForAddress` and `SocketsHttpHandler.ConnectCallback` dial the companion UDS server as one `LiveClient` hop.
+- coordination channel: `Wire/coordination` dials the cluster election and lock endpoint through a resolver supplied by `Microsoft.Extensions.ServiceDiscovery`.
+- health projection: `Grpc.AspNetCore.HealthChecks` projects channel-target reachability through the standard gRPC health service.
 
 [RAIL_LAW]:
+
 - Package: `Grpc.Net.Client`
 - Owns: outbound `GrpcChannel` construction, call invocation, and wire-native service config for the discovery-attach and coordination consumers
 - Accept: a UDS-`ConnectCallback` channel or a service-discovery-resolved cluster channel, with retry/hedging as data-driven service config

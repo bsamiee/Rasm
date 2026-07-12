@@ -19,33 +19,33 @@
 [ENGINE_TYPES]: environment, database, transaction, cursor
 - rail: embedded-kv
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]      | [CAPABILITY]                                                            |
-| :-----: | :---------------------------------------- | :----------------- | :---------------------------------------------------------------------- |
-|  [01]   | `LightningEnvironment : IDisposable`      | environment root   | the mmap file + reader table; long-lived, one per store path           |
-|  [02]   | `EnvironmentConfiguration`                | config             | `MapSize` (long), `MaxDatabases` (int), `MaxReaders` (int) before `Open` |
-|  [03]   | `LightningDatabase : IDisposable`         | named database     | one B+tree (named sub-DB) opened inside a transaction                   |
-|  [04]   | `DatabaseConfiguration`                   | config             | `Flags` (`DatabaseOpenFlags`), `CompareWith`/`FindDuplicatesWith` (`IComparer<MDBValue>`) |
-|  [05]   | `LightningTransaction : IDisposable`      | transaction        | the unit of MVCC isolation; read txns are snapshots, write txns serialize |
-|  [06]   | `LightningCursor : IDisposable`           | cursor             | positioned B+tree traversal — range scan, dupsort multi-value walk      |
-|  [07]   | `MDBValue` (readonly struct)              | zero-copy span     | wraps a key/value as `ReadOnlySpan<byte>` straight from the mmap        |
-|  [08]   | `LightningVersionInfo` / `EnvironmentInfo` / `Stats` | introspection | engine version, map/reader usage, B+tree depth & page counts          |
-|  [09]   | `LightningException : Exception`          | fault              | carries the `MDBResultCode` of a failed native call                    |
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]    | [CAPABILITY]                                                                              |
+| :-----: | :--------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `LightningEnvironment : IDisposable`                 | environment root | the mmap file + reader table; long-lived, one per store path                              |
+|  [02]   | `EnvironmentConfiguration`                           | config           | `MapSize` (long), `MaxDatabases` (int), `MaxReaders` (int) before `Open`                  |
+|  [03]   | `LightningDatabase : IDisposable`                    | named database   | one B+tree (named sub-DB) opened inside a transaction                                     |
+|  [04]   | `DatabaseConfiguration`                              | config           | `Flags` (`DatabaseOpenFlags`), `CompareWith`/`FindDuplicatesWith` (`IComparer<MDBValue>`) |
+|  [05]   | `LightningTransaction : IDisposable`                 | transaction      | the unit of MVCC isolation; read txns are snapshots, write txns serialize                 |
+|  [06]   | `LightningCursor : IDisposable`                      | cursor           | positioned B+tree traversal — range scan, dupsort multi-value walk                        |
+|  [07]   | `MDBValue` (readonly struct)                         | zero-copy span   | wraps a key/value as `ReadOnlySpan<byte>` straight from the mmap                          |
+|  [08]   | `LightningVersionInfo` / `EnvironmentInfo` / `Stats` | introspection    | engine version, map/reader usage, B+tree depth & page counts                              |
+|  [09]   | `LightningException : Exception`                     | fault            | carries the `MDBResultCode` of a failed native call                                       |
 
 [VOCABULARY_TYPES]: the closed flag / result / state enums
 - rail: embedded-kv
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]      | [CAPABILITY]                                                          |
-| :-----: | :--------------------------- | :----------------- | :-------------------------------------------------------------------- |
-|  [01]   | `MDBResultCode`              | result enum        | the native return code — `Success`, `NotFound`, `KeyExist`, `MapFull`, `MapResized`, … |
-|  [02]   | `EnvironmentOpenFlags`       | flags enum         | `NoSync`/`NoMetaSync`/`WriteMap`/`MapAsync`/`NoSubDir`/`ReadOnly`/`NoLock` durability & layout |
-|  [03]   | `DatabaseOpenFlags`          | flags enum         | `Create`/`DuplicatesSort`/`IntegerKey`/`ReverseKey`/`DuplicatesFixed`/`IntegerDuplicates` |
-|  [04]   | `TransactionBeginFlags`      | flags enum         | `ReadOnly`/`NoSync`/`NoMetaSync` per-transaction posture             |
-|  [05]   | `PutOptions`                 | put flags          | `NoOverwrite`/`NoDuplicateData`/`AppendData`/`AppendDuplicateData`/`ReserveSpace` |
-|  [06]   | `CursorOperation`            | cursor op enum     | `First`/`Last`/`Next`/`Prev`/`Set`/`SetRange`/`GetCurrent`/`NextDuplicate`/`NextNoDuplicate` |
-|  [07]   | `CursorPutOptions` / `CursorDeleteOption` | cursor flags | cursor-positioned write/delete variants (`NoDupData`, `MultipleData`) |
-|  [08]   | `LightningTransactionState`  | state enum         | `Ready`/`Done`/`Released` lifecycle of a transaction                  |
-|  [09]   | `EnvironmentCopyFlags`       | copy flags         | `Compact` — the page-reclaiming variant the `CopyTo(path, compact: true)` backup maps to |
-|  [10]   | `UnixAccessMode : uint`      | mode               | POSIX file mode for the created mmap file                            |
+| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]  | [CAPABILITY]                                                                                   |
+| :-----: | :---------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `MDBResultCode`                           | result enum    | the native return code — `Success`, `NotFound`, `KeyExist`, `MapFull`, `MapResized`, …         |
+|  [02]   | `EnvironmentOpenFlags`                    | flags enum     | `NoSync`/`NoMetaSync`/`WriteMap`/`MapAsync`/`NoSubDir`/`ReadOnly`/`NoLock` durability & layout |
+|  [03]   | `DatabaseOpenFlags`                       | flags enum     | `Create`/`DuplicatesSort`/`IntegerKey`/`ReverseKey`/`DuplicatesFixed`/`IntegerDuplicates`      |
+|  [04]   | `TransactionBeginFlags`                   | flags enum     | `ReadOnly`/`NoSync`/`NoMetaSync` per-transaction posture                                       |
+|  [05]   | `PutOptions`                              | put flags      | `NoOverwrite`/`NoDuplicateData`/`AppendData`/`AppendDuplicateData`/`ReserveSpace`              |
+|  [06]   | `CursorOperation`                         | cursor op enum | `First`/`Last`/`Next`/`Prev`/`Set`/`SetRange`/`GetCurrent`/`NextDuplicate`/`NextNoDuplicate`   |
+|  [07]   | `CursorPutOptions` / `CursorDeleteOption` | cursor flags   | cursor-positioned write/delete variants (`NoDupData`, `MultipleData`)                          |
+|  [08]   | `LightningTransactionState`               | state enum     | `Ready`/`Done`/`Released` lifecycle of a transaction                                           |
+|  [09]   | `EnvironmentCopyFlags`                    | copy flags     | `Compact` — the page-reclaiming variant the `CopyTo(path, compact: true)` backup maps to       |
+|  [10]   | `UnixAccessMode : uint`                   | mode           | POSIX file mode for the created mmap file                                                      |
 
 [COMPARERS]: `LightningDB.Comparers` — the key-ordering and dupsort strategies
 - rail: embedded-kv
@@ -57,46 +57,46 @@
 [LIFECYCLE]: open the environment, open a named database in a txn
 - rail: embedded-kv
 
-| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                          |
-| :-----: | :----------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `new LightningEnvironment(path, EnvironmentConfiguration?)`        | construct      | binds the mmap path + map size + max DBs/readers      |
-|  [02]   | `LightningEnvironment.Open(EnvironmentOpenFlags = None, UnixAccessMode = Default)` | open | maps the file and the reader table                    |
-|  [03]   | `LightningEnvironment.BeginTransaction(TransactionBeginFlags = None)` / `BeginTransaction(parent, flags)` | txn factory | starts a read (snapshot) or write (serialized) txn; nested via parent |
-|  [04]   | `LightningTransaction.OpenDatabase(string name, DatabaseConfiguration configuration, bool closeOnDispose = false)` | db open | opens/creates a named sub-DB inside the txn (overloads drop the name and/or config; `OpenDatabase(bool)` = the unnamed root DB) |
-|  [05]   | `LightningTransaction.CreateCursor(LightningDatabase)`            | cursor factory | a cursor bound to the db within the txn               |
-|  [06]   | `LightningEnvironment.CopyTo(string path, bool compact = false)` / `CopyToStream(FileStream, compact)` | hot backup | consistent online copy (`compact: true` reclaims free pages) — the `Version/recovery` backup leg |
-|  [07]   | `LightningEnvironment.Flush(bool force)` / `MapSize` / `MaxReaders` / `MaxDatabases` / `IsOpened` | maintenance | force msync; grow the map; reader-slot cap; sub-DB cap |
+| [INDEX] | [SURFACE]                                                                                                          | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                    |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `new LightningEnvironment(path, EnvironmentConfiguration?)`                                                        | construct      | binds the mmap path + map size + max DBs/readers                                                                                |
+|  [02]   | `LightningEnvironment.Open(EnvironmentOpenFlags = None, UnixAccessMode = Default)`                                 | open           | maps the file and the reader table                                                                                              |
+|  [03]   | `LightningEnvironment.BeginTransaction(TransactionBeginFlags = None)` / `BeginTransaction(parent, flags)`          | txn factory    | starts a read (snapshot) or write (serialized) txn; nested via parent                                                           |
+|  [04]   | `LightningTransaction.OpenDatabase(string name, DatabaseConfiguration configuration, bool closeOnDispose = false)` | db open        | opens/creates a named sub-DB inside the txn (overloads drop the name and/or config; `OpenDatabase(bool)` = the unnamed root DB) |
+|  [05]   | `LightningTransaction.CreateCursor(LightningDatabase)`                                                             | cursor factory | a cursor bound to the db within the txn                                                                                         |
+|  [06]   | `LightningEnvironment.CopyTo(string path, bool compact = false)` / `CopyToStream(FileStream, compact)`             | hot backup     | consistent online copy (`compact: true` reclaims free pages) — the `Version/recovery` backup leg                                |
+|  [07]   | `LightningEnvironment.Flush(bool force)` / `MapSize` / `MaxReaders` / `MaxDatabases` / `IsOpened`                  | maintenance    | force msync; grow the map; reader-slot cap; sub-DB cap                                                                          |
 
 [READ_WRITE]: transaction get/put/delete and the result-code rail
 - rail: embedded-kv
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                                  |
-| :-----: | :-------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
-|  [01]   | `LightningTransaction.Get(db, ReadOnlySpan<byte> key)` (also `byte[]`) | read | returns `(MDBResultCode resultCode, MDBValue key, MDBValue value)` — zero-copy; `NotFound` code = absent |
-|  [02]   | `LightningTransaction.Put(db, ReadOnlySpan<byte> key, ReadOnlySpan<byte> value, PutOptions = None)` | write | `NoOverwrite` = write-once, returns `MDBResultCode.KeyExist` on conflict |
-|  [03]   | `LightningTransaction.Delete(db, key)` / `Delete(db, key, value)` | delete       | removes a key (the `(key,value)` overload removes one dup value)  |
-|  [04]   | `tx.ContainsKey(db, key)` / `tx.TryGet(db, key, out byte[]? value)` (`LightningExtensions`) | read | existence probe / try-pattern materializing the value — the boundary lift over `Get`'s `NotFound` code |
-|  [05]   | `LightningTransaction.Commit()` → `MDBResultCode` / `Abort()` (void) | finalize | atomic commit (fixed cost) / explicit abort; `Dispose` without `Commit` also aborts |
-|  [06]   | `LightningTransaction.Reset()` (void) / `Renew()` → `MDBResultCode` | read reuse | park then re-arm a read txn to amortize snapshot setup across reads (`mdb_txn_reset`/`mdb_txn_renew`) |
-|  [07]   | `LightningTransaction.TruncateDatabase(db)` / `DropDatabase(db)` / `GetEntriesCount(db)` / `GetStats(db)` | bulk/introspect | empty / delete a sub-DB; entry count; B+tree stats |
+| [INDEX] | [SURFACE]                                                                                                 | [ENTRY_FAMILY]  | [CAPABILITY]                                                                                             |
+| :-----: | :-------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `LightningTransaction.Get(db, ReadOnlySpan<byte> key)` (also `byte[]`)                                    | read            | returns `(MDBResultCode resultCode, MDBValue key, MDBValue value)` — zero-copy; `NotFound` code = absent |
+|  [02]   | `LightningTransaction.Put(db, ReadOnlySpan<byte> key, ReadOnlySpan<byte> value, PutOptions = None)`       | write           | `NoOverwrite` = write-once, returns `MDBResultCode.KeyExist` on conflict                                 |
+|  [03]   | `LightningTransaction.Delete(db, key)` / `Delete(db, key, value)`                                         | delete          | removes a key (the `(key,value)` overload removes one dup value)                                         |
+|  [04]   | `tx.ContainsKey(db, key)` / `tx.TryGet(db, key, out byte[]? value)` (`LightningExtensions`)               | read            | existence probe / try-pattern materializing the value — the boundary lift over `Get`'s `NotFound` code   |
+|  [05]   | `LightningTransaction.Commit()` → `MDBResultCode` / `Abort()` (void)                                      | finalize        | atomic commit (fixed cost) / explicit abort; `Dispose` without `Commit` also aborts                      |
+|  [06]   | `LightningTransaction.Reset()` (void) / `Renew()` → `MDBResultCode`                                       | read reuse      | park then re-arm a read txn to amortize snapshot setup across reads (`mdb_txn_reset`/`mdb_txn_renew`)    |
+|  [07]   | `LightningTransaction.TruncateDatabase(db)` / `DropDatabase(db)` / `GetEntriesCount(db)` / `GetStats(db)` | bulk/introspect | empty / delete a sub-DB; entry count; B+tree stats                                                       |
 
 [CURSOR_SCAN]: positioned range scan and dupsort multi-value traversal — `LightningCursor`
 - rail: embedded-kv
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                                       |
-| :-----: | :--------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `cursor.SetRange(ReadOnlySpan<byte> key)` → `MDBResultCode`  | seek           | positions at the first key ≥ key — the keyset-pagination seek      |
-|  [02]   | `cursor.Set(key)` → `MDBResultCode` / `cursor.SetKey(key)` → `(code, key, value)` | seek | positions exactly at key (without / with the value read)     |
-|  [03]   | `cursor.GetBoth(key, value)` / `GetBothRange(key, value)`  | dupsort seek   | positions at an exact / ≥ `(key,value)` pair within a dup set      |
-|  [04]   | `cursor.First()` / `Last()` / `Next()` / `Previous()` → `(code, key, value)` | walk | forward/backward B+tree traversal                          |
-|  [05]   | `cursor.GetCurrent()` → `(code, MDBValue key, MDBValue value)` | read        | the entry at the cursor                                            |
-|  [06]   | `cursor.NextDuplicate()` / `PreviousDuplicate()` / `FirstDuplicate()` / `LastDuplicate()` | dupsort walk | iterate the multi-value set under one key (`DuplicatesSort`) |
-|  [07]   | `cursor.NextNoDuplicate()` / `PreviousNoDuplicate()`       | dupsort skip   | jump to the next/prev distinct key, skipping remaining dups        |
-|  [08]   | `cursor.Count(out int value)` → `MDBResultCode`            | dupsort count  | number of dup values under the current key                         |
-|  [09]   | `cursor.Put(key, value, CursorPutOptions)` / `Put(key, byte[][] values)` | write | cursor-positioned write (`AppendData` for sorted bulk load; the `byte[][]` form for `DuplicatesFixed` batch) |
-|  [10]   | `cursor.Delete()` / `cursor.DeleteDuplicateData()`         | delete         | delete the current entry / all dup values under the current key    |
-|  [11]   | `cursor.GetMultiple()` / `cursor.NextMultiple()` → `(code, key, value)` | dupsort bulk read | the `DuplicatesFixed` bulk read — many fixed-width dup values in one page-sized `MDBValue` (the read counterpart of `Put(key, byte[][])`) |
-|  [12]   | `cursor.AsEnumerable()` / `cursor.AllValuesFor(key)` (`LightningExtensions`) | enumerate | the cursor as `IEnumerable<(MDBValue, MDBValue)>` / the dup-value set for a key |
+| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY]    | [CAPABILITY]                                                                                                                              |
+| :-----: | :---------------------------------------------------------------------------------------- | :---------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `cursor.SetRange(ReadOnlySpan<byte> key)` → `MDBResultCode`                               | seek              | positions at the first key ≥ key — the keyset-pagination seek                                                                             |
+|  [02]   | `cursor.Set(key)` → `MDBResultCode` / `cursor.SetKey(key)` → `(code, key, value)`         | seek              | positions exactly at key (without / with the value read)                                                                                  |
+|  [03]   | `cursor.GetBoth(key, value)` / `GetBothRange(key, value)`                                 | dupsort seek      | positions at an exact / ≥ `(key,value)` pair within a dup set                                                                             |
+|  [04]   | `cursor.First()` / `Last()` / `Next()` / `Previous()` → `(code, key, value)`              | walk              | forward/backward B+tree traversal                                                                                                         |
+|  [05]   | `cursor.GetCurrent()` → `(code, MDBValue key, MDBValue value)`                            | read              | the entry at the cursor                                                                                                                   |
+|  [06]   | `cursor.NextDuplicate()` / `PreviousDuplicate()` / `FirstDuplicate()` / `LastDuplicate()` | dupsort walk      | iterate the multi-value set under one key (`DuplicatesSort`)                                                                              |
+|  [07]   | `cursor.NextNoDuplicate()` / `PreviousNoDuplicate()`                                      | dupsort skip      | jump to the next/prev distinct key, skipping remaining dups                                                                               |
+|  [08]   | `cursor.Count(out int value)` → `MDBResultCode`                                           | dupsort count     | number of dup values under the current key                                                                                                |
+|  [09]   | `cursor.Put(key, value, CursorPutOptions)` / `Put(key, byte[][] values)`                  | write             | cursor-positioned write (`AppendData` for sorted bulk load; the `byte[][]` form for `DuplicatesFixed` batch)                              |
+|  [10]   | `cursor.Delete()` / `cursor.DeleteDuplicateData()`                                        | delete            | delete the current entry / all dup values under the current key                                                                           |
+|  [11]   | `cursor.GetMultiple()` / `cursor.NextMultiple()` → `(code, key, value)`                   | dupsort bulk read | the `DuplicatesFixed` bulk read — many fixed-width dup values in one page-sized `MDBValue` (the read counterpart of `Put(key, byte[][])`) |
+|  [12]   | `cursor.AsEnumerable()` / `cursor.AllValuesFor(key)` (`LightningExtensions`)              | enumerate         | the cursor as `IEnumerable<(MDBValue, MDBValue)>` / the dup-value set for a key                                                           |
 
 `LightningExtensions` also folds the raw `(MDBResultCode, …)` tuples into throw-on-error helpers (`ThrowOnError`/`ThrowOnReadError`) and the `TryGet`/`ContainsKey` boundary lifts — pin the `MDBResultCode`-returning core and lift it into the typed rail, never the throwing overload in domain logic.
 

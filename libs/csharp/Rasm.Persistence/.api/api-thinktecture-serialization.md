@@ -42,28 +42,28 @@ System.Text.Json member roster lives in `api-thinktecture-json.md` and the deep 
 [MESSAGEPACK_TYPES]: MessagePack formatter surface (namespaces `Thinktecture`, `Thinktecture.Formatters`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]     | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------ | :----------------- | :--------------------------------------------------- |
-|  [01]   | `ThinktectureMessageFormatterResolver`                              | formatter resolver | `: IFormatterResolver`; `Instance`, `GetFormatter<T>` over generated owners |
-|  [02]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`       | class formatter    | `: IMessagePackFormatter<T?>`; keyed reference-type owners (constrained `class`) |
+| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                            |
+| :-----: | :------------------------------------------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ThinktectureMessageFormatterResolver`                              | formatter resolver | `: IFormatterResolver`; `Instance`, `GetFormatter<T>` over generated owners                             |
+|  [02]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`       | class formatter    | `: IMessagePackFormatter<T?>`; keyed reference-type owners (constrained `class`)                        |
 |  [03]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>` | struct formatter   | `: IMessagePackFormatter<T>, IMessagePackFormatter<T?>`; keyed value-type owners (constrained `struct`) |
 
 [JSON_TYPES]: System.Text.Json codec roots (deep roster `api-thinktecture-json.md`)
 - rail: snapshot-codec
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]    | [CAPABILITY]                                 |
-| :-----: | :------------------------------------------------------------------ | :---------------- | :------------------------------------------- |
+| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                |
+| :-----: | :------------------------------------------------------------------ | :---------------- | :------------------------------------------------------------------------------------------ |
 |  [01]   | `ThinktectureJsonConverterFactory`                                  | converter factory | `: JsonConverterFactory`; admits all generated owners on `JsonSerializerOptions.Converters` |
-|  [02]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | span factory      | builds the zero-allocation UTF-8-span converter for span-parsable owners |
+|  [02]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | span factory      | builds the zero-allocation UTF-8-span converter for span-parsable owners                    |
 
 [EF_TYPES]: EF Core store roots (deep roster `api-thinktecture-ef.md`)
 - rail: store-provider
 
-| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]      | [CAPABILITY]                                          |
-| :-----: | :---------------------------------- | :------------------ | :--------------------------------------------------- |
-|  [01]   | `DbContextOptionsBuilderExtensions` | convention entry    | `UseThinktectureValueConverters` installs the model convention |
-|  [02]   | `Configuration`                     | conversion policy   | `Default`/`NoMaxLength`; carries the key-column max-length strategy |
-|  [03]   | `ThinktectureValueConverterFactory` | converter factory   | `Create<T, TKey>` builds a `ValueConverter<T, TKey>` directly |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]    | [CAPABILITY]                                                        |
+| :-----: | :---------------------------------- | :---------------- | :------------------------------------------------------------------ |
+|  [01]   | `DbContextOptionsBuilderExtensions` | convention entry  | `UseThinktectureValueConverters` installs the model convention      |
+|  [02]   | `Configuration`                     | conversion policy | `Default`/`NoMaxLength`; carries the key-column max-length strategy |
+|  [03]   | `ThinktectureValueConverterFactory` | converter factory | `Create<T, TKey>` builds a `ValueConverter<T, TKey>` directly       |
 
 The convention plugin, options extension, MessagePack `SerializationContext`, and Json reflection probes are `internal`, reachable only through the factory/resolver/extension surfaces above.
 
@@ -74,10 +74,10 @@ The convention plugin, options extension, MessagePack `SerializationContext`, an
 
 The resolver constructor optionally receives `skipObjectsWithMessagePackFormatterAttribute`; filtering routes through `MetadataLookup.FindMetadataForConversion` on `SerializationFrameworks.MessagePack`.
 
-| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]         | [CAPABILITY]                                  |
-| :-----: | :----------------------------------------------------------------- | :------------------- | :-------------------------------------------- |
-|  [01]   | `ThinktectureMessageFormatterResolver.Instance`                    | static resolver      | the singleton composed into the resolver chain |
-|  [02]   | `new ThinktectureMessageFormatterResolver(skipObjectsWith…: true)` | resolver constructor | skips owners already carrying a `[MessagePackFormatter]` |
+| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]         | [CAPABILITY]                                                     |
+| :-----: | :----------------------------------------------------------------- | :------------------- | :--------------------------------------------------------------- |
+|  [01]   | `ThinktectureMessageFormatterResolver.Instance`                    | static resolver      | the singleton composed into the resolver chain                   |
+|  [02]   | `new ThinktectureMessageFormatterResolver(skipObjectsWith…: true)` | resolver constructor | skips owners already carrying a `[MessagePackFormatter]`         |
 |  [03]   | `GetFormatter<T>()`                                                | resolver call        | returns the keyed reference/struct formatter, or `null` to defer |
 
 [ENTRYPOINT_SCOPE]: System.Text.Json codec admission
@@ -85,21 +85,21 @@ The resolver constructor optionally receives `skipObjectsWithMessagePackFormatte
 
 The factory constructor optionally receives `skipObjectsWithJsonConverterAttribute` and a `Func<Type, bool>?` span-deserialization opt-out callback.
 
-| [INDEX] | [SURFACE]                                                            | [CALL_SHAPE]        | [CAPABILITY]                       |
-| :-----: | :------------------------------------------------------------------- | :------------------ | :--------------------------------- |
-|  [01]   | `new ThinktectureJsonConverterFactory()`                             | converter factory   | admits all generated owners        |
+| [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE]      | [CAPABILITY]                                                 |
+| :-----: | :------------------------------------------------------------------------ | :---------------- | :----------------------------------------------------------- |
+|  [01]   | `new ThinktectureJsonConverterFactory()`                                  | converter factory | admits all generated owners                                  |
 |  [02]   | `new ThinktectureJsonConverterFactory(skipObjectsWith…: true [, optOut])` | converter factory | skips attributed owners; gates span deserialization per type |
-|  [03]   | `CanConvert` / `CreateConverter`                                     | factory overrides   | resolves the span, string, or keyed converter per type |
+|  [03]   | `CanConvert` / `CreateConverter`                                          | factory overrides | resolves the span, string, or keyed converter per type       |
 
 [ENTRYPOINT_SCOPE]: EF value-converter admission
 - rail: store-provider
 
-| [INDEX] | [SURFACE]                                             | [CALL_SHAPE]       | [CAPABILITY]                                  |
-| :-----: | :--------------------------------------------------- | :----------------- | :-------------------------------------------- |
-|  [01]   | `UseThinktectureValueConverters([Configuration])`    | convention         | installs converters + max-length context-wide |
-|  [02]   | `AddThinktectureValueConverters`                     | model/entity entry | bulk registration in builder scope            |
-|  [03]   | `HasThinktectureValueConverter`                      | property entry     | converts one declared scalar/complex/collection member |
-|  [04]   | `Configuration.Default` / `Configuration.NoMaxLength` | policy value       | bounded vs. unbounded key-column width        |
+| [INDEX] | [SURFACE]                                             | [CALL_SHAPE]       | [CAPABILITY]                                           |
+| :-----: | :---------------------------------------------------- | :----------------- | :----------------------------------------------------- |
+|  [01]   | `UseThinktectureValueConverters([Configuration])`     | convention         | installs converters + max-length context-wide          |
+|  [02]   | `AddThinktectureValueConverters`                      | model/entity entry | bulk registration in builder scope                     |
+|  [03]   | `HasThinktectureValueConverter`                       | property entry     | converts one declared scalar/complex/collection member |
+|  [04]   | `Configuration.Default` / `Configuration.NoMaxLength` | policy value       | bounded vs. unbounded key-column width                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

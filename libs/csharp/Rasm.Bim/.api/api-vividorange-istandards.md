@@ -38,59 +38,59 @@ taxonomy-serialization marker as loads, cases, countries, and stages.
 [PUBLIC_TYPE_SCOPE]: standard-identity contract family (`VividOrange.IStandards`)
 - rail: standards
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:----------------------------- |:------------------------ |:------------------------------------------------------------- |
-| [01] | `IStandard` | standard-identity contract | `: ITaxonomySerializable` + `StandardBody Body`, `string Title` |
-| [02] | `StandardBody` | publishing-body enum | 11 bodies `AASHTO`/`ACI`/`AISC`/`ANSI`/`AS`/`BS`/`CSA`/`EN`/`HK`/`IS`/`SANS` (each `[Description]`) |
-| [03] | `Eurocode.NationalAnnex` | national-annex dispatch key | 37 members: `RecommendedValues` (EN fallback, =0) + 36 nations (`Austria`…`UnitedKingdom`) |
-| [04] | `Eurocode.MissingNationalAnnexException` | unmapped-annex fault | `: Exception`; ctor `(NationalAnnex na)` → message `"National Annex of {na} not implemented"` |
+| [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]               | [RAIL]                                                                                              |
+| :-----: | :--------------------------------------- | :-------------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `IStandard`                              | standard-identity contract  | `: ITaxonomySerializable` + `StandardBody Body`, `string Title`                                     |
+|  [02]   | `StandardBody`                           | publishing-body enum        | 11 bodies `AASHTO`/`ACI`/`AISC`/`ANSI`/`AS`/`BS`/`CSA`/`EN`/`HK`/`IS`/`SANS` (each `[Description]`) |
+|  [03]   | `Eurocode.NationalAnnex`                 | national-annex dispatch key | 37 members: `RecommendedValues` (EN fallback, =0) + 36 nations (`Austria`…`UnitedKingdom`)          |
+|  [04]   | `Eurocode.MissingNationalAnnexException` | unmapped-annex fault        | `: Exception`; ctor `(NationalAnnex na)` → message `"National Annex of {na} not implemented"`       |
 
 [PUBLIC_TYPE_SCOPE]: Eurocode clause-part enums (`VividOrange.IStandards`)
 - rail: standards
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:-------------- |:------------------------ |:------------------------------------------------------------- |
-| [01] | `En1990Part` | EC0 part enum (basis) | `None` only — EN 1990 carries no clause-part split |
-| [02] | `En1991Part` | EC1 actions parts | 10: `Part1_1`…`Part1_7`/`Part2`/`Part3`/`Part4` (Dead/Fire/Snow/Wind/Thermal/Construction/Accidental/Bridge/Crane/Silos) |
-| [03] | `En1992Part` | EC2 concrete parts | 4: `Part1_1`/`Part1_2`/`Part2`/`Part3` (General/Fire/Bridges/Liquid-Retaining) |
-| [04] | `En1993Part` | EC3 steel parts | 20: `Part1_1`…`Part1_12`/`Part2`/`Part3_1`/`Part3_2`/`Part4_1`/`Part4_2`/`Part4_3`/`Part5`/`Part6` |
-| [05] | `En1994Part` | EC4 composite parts | 3: `Part1_1`/`Part1_2`/`Part2` (General/Fire/Bridges) |
-| [06] | `En1995Part` | EC5 timber parts | 3: `Part1_1`/`Part1_2`/`Part2` (General/Fire/Bridges) |
-| [07] | `En1996Part` | EC6 masonry parts | 4: `Part1_1`/`Part1_2`/`Part2`/`Part3` |
-| [08] | `En1997Part` | EC7 geotechnical parts | 2: `Part1`/`Part2` (General/Ground-Investigations) |
-| [09] | `En1998Part` | EC8 seismic parts | 6: `Part1`…`Part6` (General/Bridges/Retrofit/Silos/Geotech/Towers) |
-| [10] | `En1999Part` | EC9 aluminium parts | 5: `Part1_1`…`Part1_5` (General/Fire/Fatigue/Cold-Formed/Shell) |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]          | [RAIL]                                                                                                                   |
+| :-----: | :----------- | :--------------------- | :----------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `En1990Part` | EC0 part enum (basis)  | `None` only — EN 1990 carries no clause-part split                                                                       |
+|  [02]   | `En1991Part` | EC1 actions parts      | 10: `Part1_1`…`Part1_7`/`Part2`/`Part3`/`Part4` (Dead/Fire/Snow/Wind/Thermal/Construction/Accidental/Bridge/Crane/Silos) |
+|  [03]   | `En1992Part` | EC2 concrete parts     | 4: `Part1_1`/`Part1_2`/`Part2`/`Part3` (General/Fire/Bridges/Liquid-Retaining)                                           |
+|  [04]   | `En1993Part` | EC3 steel parts        | 20: `Part1_1`…`Part1_12`/`Part2`/`Part3_1`/`Part3_2`/`Part4_1`/`Part4_2`/`Part4_3`/`Part5`/`Part6`                       |
+|  [05]   | `En1994Part` | EC4 composite parts    | 3: `Part1_1`/`Part1_2`/`Part2` (General/Fire/Bridges)                                                                    |
+|  [06]   | `En1995Part` | EC5 timber parts       | 3: `Part1_1`/`Part1_2`/`Part2` (General/Fire/Bridges)                                                                    |
+|  [07]   | `En1996Part` | EC6 masonry parts      | 4: `Part1_1`/`Part1_2`/`Part2`/`Part3`                                                                                   |
+|  [08]   | `En1997Part` | EC7 geotechnical parts | 2: `Part1`/`Part2` (General/Ground-Investigations)                                                                       |
+|  [09]   | `En1998Part` | EC8 seismic parts      | 6: `Part1`…`Part6` (General/Bridges/Retrofit/Silos/Geotech/Towers)                                                       |
+|  [10]   | `En1999Part` | EC9 aluminium parts    | 5: `Part1_1`…`Part1_5` (General/Fire/Fatigue/Cold-Formed/Shell)                                                          |
 
 [PUBLIC_TYPE_SCOPE]: concrete Eurocode-standard realization (`VividOrange.Standards`)
 - rail: standards
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------- |:--------------------------- |:------------------------------------------------------------- |
-| [01] | `En1990` | EC0 basis of design | `: IStandard` + `NationalAnnex` (no `Part`); `Title` = "… EN 1990: Eurocode - Basis of Structural Design" |
-| [02] | `En1991` | EC1 actions on structures | `: IStandard` + `En1991Part Part`, `NationalAnnex`; "Eurocode 1: Actions on Structures" |
-| [03] | `En1992` | EC2 concrete | `: IStandard` + `En1992Part Part`, `NationalAnnex`; "Eurocode 2: Design of Concrete Structures" |
-| [04] | `En1993` | EC3 steel | `En1993Part Part`; "Eurocode 3: Design of Steel Structures" |
-| [05] | `En1994` | EC4 composite steel+concrete | `En1994Part Part`; "Eurocode 4: Design of Composite Steel & Concrete Structures" |
-| [06] | `En1995` | EC5 timber | `En1995Part Part`; "Eurocode 5: Design of Timber Structures" |
-| [07] | `En1996` | EC6 masonry | `En1996Part Part`; "Eurocode 6: Design of Masonry Structures" |
-| [08] | `En1997` | EC7 geotechnical | `En1997Part Part`; "Eurocode 7: Geotechnical Design" |
-| [09] | `En1998` | EC8 seismic | `En1998Part Part`; "Eurocode 8: Design of Structures for Earthquake Resistance" |
-| [10] | `En1999` | EC9 aluminium | `En1999Part Part`; "Eurocode 9: Design of Aluminium Structures" |
+| [INDEX] | [SYMBOL] | [TYPE_FAMILY]                | [RAIL]                                                                                                    |
+| :-----: | :------- | :--------------------------- | :-------------------------------------------------------------------------------------------------------- |
+|  [01]   | `En1990` | EC0 basis of design          | `: IStandard` + `NationalAnnex` (no `Part`); `Title` = "… EN 1990: Eurocode - Basis of Structural Design" |
+|  [02]   | `En1991` | EC1 actions on structures    | `: IStandard` + `En1991Part Part`, `NationalAnnex`; "Eurocode 1: Actions on Structures"                   |
+|  [03]   | `En1992` | EC2 concrete                 | `: IStandard` + `En1992Part Part`, `NationalAnnex`; "Eurocode 2: Design of Concrete Structures"           |
+|  [04]   | `En1993` | EC3 steel                    | `En1993Part Part`; "Eurocode 3: Design of Steel Structures"                                               |
+|  [05]   | `En1994` | EC4 composite steel+concrete | `En1994Part Part`; "Eurocode 4: Design of Composite Steel & Concrete Structures"                          |
+|  [06]   | `En1995` | EC5 timber                   | `En1995Part Part`; "Eurocode 5: Design of Timber Structures"                                              |
+|  [07]   | `En1996` | EC6 masonry                  | `En1996Part Part`; "Eurocode 6: Design of Masonry Structures"                                             |
+|  [08]   | `En1997` | EC7 geotechnical             | `En1997Part Part`; "Eurocode 7: Geotechnical Design"                                                      |
+|  [09]   | `En1998` | EC8 seismic                  | `En1998Part Part`; "Eurocode 8: Design of Structures for Earthquake Resistance"                           |
+|  [10]   | `En1999` | EC9 aluminium                | `En1999Part Part`; "Eurocode 9: Design of Aluminium Structures"                                           |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: standard-identity construction and read
 - rail: standards
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------------------------- |:------------------ |:----------------------------------------------------- |
-| [01] | `new En1990(NationalAnnex)` / `new En1990()` | EC0 identity | basis-of-design standard for a national annex (no part) |
-| [02] | `new En199x(En199xPart part, NationalAnnex na)` / `new En199x()` | parted identity | a Eurocode standard pinned to a clause part + national annex |
-| [03] | `En199x.NationalAnnex { get; set; }` | annex set/read | the settable national-annex dispatch value on the concrete standard |
-| [04] | `En199x.Part { get; set; }` | part set/read | the settable `En199xPart` clause discriminant (absent on `En1990`) |
-| [05] | `IStandard.Body` | body read | the publishing `StandardBody` (always `EN` for the `En199x` family) |
-| [06] | `IStandard.Title` | composed identity | `"{abbr} EN 199x[-part]: Eurocode N: {discipline} - {clause description}".TrimStart(' ')` — `abbr` empty for `RecommendedValues`, `Part` rendered with `Part`/`_` → `-` |
-| [07] | `new MissingNationalAnnexException(NationalAnnex)` | fault construction | the unmapped-annex fault type (thrown internally; constructible at the boundary for re-raise) |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY]     | [RAIL]                                                                                                                                                                  |
+| :-----: | :--------------------------------------------------------------- | :----------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `new En1990(NationalAnnex)` / `new En1990()`                     | EC0 identity       | basis-of-design standard for a national annex (no part)                                                                                                                 |
+|  [02]   | `new En199x(En199xPart part, NationalAnnex na)` / `new En199x()` | parted identity    | a Eurocode standard pinned to a clause part + national annex                                                                                                            |
+|  [03]   | `En199x.NationalAnnex { get; set; }`                             | annex set/read     | the settable national-annex dispatch value on the concrete standard                                                                                                     |
+|  [04]   | `En199x.Part { get; set; }`                                      | part set/read      | the settable `En199xPart` clause discriminant (absent on `En1990`)                                                                                                      |
+|  [05]   | `IStandard.Body`                                                 | body read          | the publishing `StandardBody` (always `EN` for the `En199x` family)                                                                                                     |
+|  [06]   | `IStandard.Title`                                                | composed identity  | `"{abbr} EN 199x[-part]: Eurocode N: {discipline} - {clause description}".TrimStart(' ')` — `abbr` empty for `RecommendedValues`, `Part` rendered with `Part`/`_` → `-` |
+|  [07]   | `new MissingNationalAnnexException(NationalAnnex)`               | fault construction | the unmapped-annex fault type (thrown internally; constructible at the boundary for re-raise)                                                                           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

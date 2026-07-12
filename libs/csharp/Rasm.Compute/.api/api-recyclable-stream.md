@@ -29,29 +29,29 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 [PUBLIC_TYPE_SCOPE]: stream ownership and policy
 - rail: staging
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                                                              |
-| :-----: | :-------------------------------------- | :------------- | :----------------------------------------------------------------------- |
-|  [01]   | `RecyclableMemoryStreamManager`         | pool owner     | owns the small-block + large-buffer pools and the 14-overload `GetStream` factory |
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE] | [CAPABILITY]                                                                               |
+| :-----: | :-------------------------------------- | :------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `RecyclableMemoryStreamManager`         | pool owner     | owns the small-block + large-buffer pools and the 14-overload `GetStream` factory          |
 |  [02]   | `RecyclableMemoryStream`                | pooled stream  | `MemoryStream` + `IBufferWriter<byte>`; the staging byte carrier and zero-copy sink/source |
-|  [03]   | `RecyclableMemoryStreamManager.Options` | policy object  | block size, large-buffer multiple, pool caps, capacity cap, and debug/zeroing flags |
+|  [03]   | `RecyclableMemoryStreamManager.Options` | policy object  | block size, large-buffer multiple, pool caps, capacity cap, and debug/zeroing flags        |
 
 [PUBLIC_TYPE_SCOPE]: lifecycle event payloads
 - rail: staging
 - note: each rides a `RecyclableMemoryStreamManager.EventHandler<...>?` event; the same facts mirror to ETW via `Events.Writer`.
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE] | [CAPABILITY]                                  |
-| :-----: | :-------------------------------- | :------------- | :-------------------------------------------- |
-|  [01]   | `StreamCreatedEventArgs`          | event payload  | a stream was rented (id, tag, requested size) |
-|  [02]   | `StreamDisposedEventArgs`         | event payload  | a stream returned to the pool                 |
+| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE] | [CAPABILITY]                                                |
+| :-----: | :-------------------------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `StreamCreatedEventArgs`          | event payload  | a stream was rented (id, tag, requested size)               |
+|  [02]   | `StreamDisposedEventArgs`         | event payload  | a stream returned to the pool                               |
 |  [03]   | `StreamDoubleDisposedEventArgs`   | event payload  | a double-dispose leak signal (allocation stack when traced) |
-|  [04]   | `StreamFinalizedEventArgs`        | event payload  | a stream was finalized without disposal       |
-|  [05]   | `StreamConvertedToArrayEventArgs` | event payload  | a `ToArray`/`GetBuffer` edge copy occurred    |
-|  [06]   | `StreamOverCapacityEventArgs`     | event payload  | a write exceeded `MaximumStreamCapacity`      |
-|  [07]   | `BlockCreatedEventArgs`           | event payload  | a small-pool block was allocated              |
-|  [08]   | `LargeBufferCreatedEventArgs`     | event payload  | a large-pool buffer was allocated             |
-|  [09]   | `BufferDiscardedEventArgs`        | event payload  | a buffer was discarded over the pool cap (reason) |
-|  [10]   | `UsageReportEventArgs`            | event payload  | periodic pool-usage snapshot                  |
-|  [11]   | `StreamLengthEventArgs`           | event payload  | final stream length at disposal               |
+|  [04]   | `StreamFinalizedEventArgs`        | event payload  | a stream was finalized without disposal                     |
+|  [05]   | `StreamConvertedToArrayEventArgs` | event payload  | a `ToArray`/`GetBuffer` edge copy occurred                  |
+|  [06]   | `StreamOverCapacityEventArgs`     | event payload  | a write exceeded `MaximumStreamCapacity`                    |
+|  [07]   | `BlockCreatedEventArgs`           | event payload  | a small-pool block was allocated                            |
+|  [08]   | `LargeBufferCreatedEventArgs`     | event payload  | a large-pool buffer was allocated                           |
+|  [09]   | `BufferDiscardedEventArgs`        | event payload  | a buffer was discarded over the pool cap (reason)           |
+|  [10]   | `UsageReportEventArgs`            | event payload  | periodic pool-usage snapshot                                |
+|  [11]   | `StreamLengthEventArgs`           | event payload  | final stream length at disposal                             |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -59,23 +59,23 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 - rail: staging
 - note: one manager is a process-singleton owning the pools; construct it once with an `Options` policy and rent every stream from it.
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                            | [CAPABILITY]                              |
-| :-----: | :----------------------------------------- | :------------------------------------------------------ | :---------------------------------------- |
-|  [01]   | `new RecyclableMemoryStreamManager()`      | `RecyclableMemoryStreamManager()`                       | manager with default `Options`            |
-|  [02]   | `new RecyclableMemoryStreamManager(Options)` | `RecyclableMemoryStreamManager(Options options)`      | manager with an explicit capacity/telemetry policy |
-|  [03]   | `Settings`                                 | `Options Settings { get; }`                             | the live `Options` reference (read policy back) |
+| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]                                     | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------- | :----------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `new RecyclableMemoryStreamManager()`        | `RecyclableMemoryStreamManager()`                | manager with default `Options`                     |
+|  [02]   | `new RecyclableMemoryStreamManager(Options)` | `RecyclableMemoryStreamManager(Options options)` | manager with an explicit capacity/telemetry policy |
+|  [03]   | `Settings`                                   | `Options Settings { get; }`                      | the live `Options` reference (read policy back)    |
 
 [ENTRYPOINT_SCOPE]: `RecyclableMemoryStream` direct construction
 - rail: staging#STREAM_POOL
 - note: `GetStream` is the default rent path; the public ctor family is the explicit-manager construction (it still draws from the bound manager's pools — NOT an ad hoc `MemoryStream`), mirroring the `GetStream` `Guid id` / `string? tag` / `long requestedSize` telemetry/sizing args. There is NO parameterless ctor and NO `RecyclableMemoryStreamManager.Default` static — a stream is always bound to an explicit manager instance.
 
-| [INDEX] | [MEMBER]                                                       | [SIGNATURE]                                                                              |
-| :-----: | :----------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager)`       | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager)`                    |
-|  [02]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid)`  | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id)`           |
-|  [03]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag)`     |
-|  [04]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid,string?)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id, string? tag)` |
-|  [05]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?,long)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag, long requestedSize)` |
+| [INDEX] | [MEMBER]                                                                  | [SIGNATURE]                                                                                                     |
+| :-----: | :------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager)`                   | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager)`                                           |
+|  [02]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid)`              | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id)`                                  |
+|  [03]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?)`           | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag)`                              |
+|  [04]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid,string?)`      | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id, string? tag)`                     |
+|  [05]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,string?,long)`      | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, string? tag, long requestedSize)`          |
 |  [06]   | `RecyclableMemoryStream(RecyclableMemoryStreamManager,Guid,string?,long)` | `RecyclableMemoryStream(RecyclableMemoryStreamManager memoryManager, Guid id, string? tag, long requestedSize)` |
 
 [ENTRYPOINT_SCOPE]: `GetStream` overloads
@@ -103,22 +103,22 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 - rail: staging#STREAM_POOL
 - note: this is the integration surface — `IBufferWriter<byte>` makes the stream a direct serialization sink, `GetReadOnlySequence` makes it a fragmented zero-copy source, and the `SafeRead*` family reads without mutating the shared `Position`. `GetBuffer`/`ToArray` are edge copies that fire `StreamConvertedToArray`.
 
-| [INDEX] | [MEMBER]                       | [SIGNATURE]                                                              | [CAPABILITY]                                                  |
-| :-----: | :----------------------------- | :----------------------------------------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `GetSpan`                      | `Span<byte> GetSpan(int sizeHint = 0)`                                   | `IBufferWriter<byte>` write window                           |
-|  [02]   | `GetMemory`                    | `Memory<byte> GetMemory(int sizeHint = 0)`                               | `IBufferWriter<byte>` write window (memory form)             |
-|  [03]   | `Advance`                      | `void Advance(int count)`                                                | commits `count` written bytes                                |
-|  [04]   | `GetReadOnlySequence`          | `ReadOnlySequence<byte> GetReadOnlySequence()`                           | zero-copy fragmented view over the staged blocks — feeds `MessageParser.ParseFrom(ReadOnlySequence)` |
-|  [05]   | `Write`                        | `void Write(ReadOnlySpan<byte> source)` / `void Write(byte[], int, int)` | appends bytes                                                |
-|  [06]   | `WriteTo`                      | `void WriteTo(Stream)` / `WriteTo(byte[], long, long, int)`              | copies staged bytes to a stream or pre-sized array          |
-|  [07]   | `CopyToAsync`                  | `Task CopyToAsync(Stream, int bufferSize, CancellationToken)`           | async drain to a destination stream                          |
-|  [08]   | `SafeRead`                     | `int SafeRead(Span<byte> buffer, ref long streamPosition)` / `SafeRead(byte[], int, int, ref long)` | thread-safe read passing position by ref (no shared-`Position` mutation) |
-|  [09]   | `SafeReadByte`                 | `int SafeReadByte(ref long streamPosition)`                             | thread-safe single-byte read                                 |
-|  [10]   | `GetBuffer`                    | `byte[] GetBuffer()`                                                     | the contiguous backing array (forces a single large buffer)  |
-|  [11]   | `TryGetBuffer`                 | `bool TryGetBuffer(out ArraySegment<byte> buffer)`                       | non-copy segment when already contiguous                     |
-|  [12]   | `ToArray`                      | `byte[] ToArray()`                                                       | EDGE COPY — allocates; throws if `ThrowExceptionOnToArray`   |
-|  [13]   | `Capacity64`                   | `long Capacity64 { get; }`                                               | 64-bit capacity (the `int Capacity` override saturates)      |
-|  [14]   | `Id` / `Tag`                   | `Guid Id { get; }` / `string? Tag { get; }`                             | the telemetry correlation keys carried into events           |
+| [INDEX] | [MEMBER]              | [SIGNATURE]                                                                                         | [CAPABILITY]                                                                                         |
+| :-----: | :-------------------- | :-------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `GetSpan`             | `Span<byte> GetSpan(int sizeHint = 0)`                                                              | `IBufferWriter<byte>` write window                                                                   |
+|  [02]   | `GetMemory`           | `Memory<byte> GetMemory(int sizeHint = 0)`                                                          | `IBufferWriter<byte>` write window (memory form)                                                     |
+|  [03]   | `Advance`             | `void Advance(int count)`                                                                           | commits `count` written bytes                                                                        |
+|  [04]   | `GetReadOnlySequence` | `ReadOnlySequence<byte> GetReadOnlySequence()`                                                      | zero-copy fragmented view over the staged blocks — feeds `MessageParser.ParseFrom(ReadOnlySequence)` |
+|  [05]   | `Write`               | `void Write(ReadOnlySpan<byte> source)` / `void Write(byte[], int, int)`                            | appends bytes                                                                                        |
+|  [06]   | `WriteTo`             | `void WriteTo(Stream)` / `WriteTo(byte[], long, long, int)`                                         | copies staged bytes to a stream or pre-sized array                                                   |
+|  [07]   | `CopyToAsync`         | `Task CopyToAsync(Stream, int bufferSize, CancellationToken)`                                       | async drain to a destination stream                                                                  |
+|  [08]   | `SafeRead`            | `int SafeRead(Span<byte> buffer, ref long streamPosition)` / `SafeRead(byte[], int, int, ref long)` | thread-safe read passing position by ref (no shared-`Position` mutation)                             |
+|  [09]   | `SafeReadByte`        | `int SafeReadByte(ref long streamPosition)`                                                         | thread-safe single-byte read                                                                         |
+|  [10]   | `GetBuffer`           | `byte[] GetBuffer()`                                                                                | the contiguous backing array (forces a single large buffer)                                          |
+|  [11]   | `TryGetBuffer`        | `bool TryGetBuffer(out ArraySegment<byte> buffer)`                                                  | non-copy segment when already contiguous                                                             |
+|  [12]   | `ToArray`             | `byte[] ToArray()`                                                                                  | EDGE COPY — allocates; throws if `ThrowExceptionOnToArray`                                           |
+|  [13]   | `Capacity64`          | `long Capacity64 { get; }`                                                                          | 64-bit capacity (the `int Capacity` override saturates)                                              |
+|  [14]   | `Id` / `Tag`          | `Guid Id { get; }` / `string? Tag { get; }`                                                         | the telemetry correlation keys carried into events                                                   |
 
 [ENTRYPOINT_SCOPE]: `Options` capacity, pool, and debug policy
 - rail: staging#STREAM_POOL
@@ -135,8 +135,8 @@ is HOST-LOCAL and carries no TS_PROJECTION.
 |  [07]   | `MaximumStreamCapacity`               | `long MaximumStreamCapacity { get; set; }` default `0` (no limit) — caps a single stream; over-cap fires `StreamOverCapacity`            |
 |  [08]   | `GenerateCallStacks`                  | `bool GenerateCallStacks { get; set; }` default `false` — debug-only, captures allocation/dispose stacks                                 |
 |  [09]   | `AggressiveBufferReturn`              | `bool AggressiveBufferReturn { get; set; }` default `false` — returns buffers eagerly                                                    |
-|  [10]   | `ThrowExceptionOnToArray`            | `bool ThrowExceptionOnToArray { get; set; }` default `false` — turns an unintended `ToArray` edge copy into a fault                      |
-|  [11]   | `ZeroOutBuffer`                       | `bool ZeroOutBuffer { get; set; }` default `false` — clears blocks on allocation and return                                             |
+|  [10]   | `ThrowExceptionOnToArray`             | `bool ThrowExceptionOnToArray { get; set; }` default `false` — turns an unintended `ToArray` edge copy into a fault                      |
+|  [11]   | `ZeroOutBuffer`                       | `bool ZeroOutBuffer { get; set; }` default `false` — clears blocks on allocation and return                                              |
 |  [12]   | `Options()` ctor                      | `Options()`                                                                                                                              |
 |  [13]   | `Options(int,int,int,long,long)` ctor | `Options(int blockSize, int largeBufferMultiple, int maximumBufferSize, long maximumSmallPoolFreeBytes, long maximumLargePoolFreeBytes)` |
 

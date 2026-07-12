@@ -22,110 +22,110 @@ static `Draco` facade for Bim mesh interchange rails.
 [PUBLIC_TYPE_SCOPE]: encode/decode facade
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-|:-----: |:--------------- |:------------ |:------------------------------------------------------------------------------------------ |
-| [01] | `Draco` | static facade | encode `DracoPointCloud`/`DracoMesh` → `byte[]`/stream; decode `byte[]` → `DracoPointCloud` |
-| [02] | `DrakoException` | failure type | thrown on decode format or constraint violation |
+| [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [ROLE]                                                                                      |
+| :-----: | :--------------- | :------------ | :------------------------------------------------------------------------------------------ |
+|  [01]   | `Draco`          | static facade | encode `DracoPointCloud`/`DracoMesh` → `byte[]`/stream; decode `byte[]` → `DracoPointCloud` |
+|  [02]   | `DrakoException` | failure type  | thrown on decode format or constraint violation                                             |
 
 [PUBLIC_TYPE_SCOPE]: geometry model
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-|:-----: |:------------------ |:-------------- |:---------------------------------------------------------------- |
-| [01] | `DracoPointCloud` | mutable class | root point cloud; owns attribute list and geometry metadata |
-| [02] | `DracoMesh` | mutable class | extends `DracoPointCloud`; owns indexed triangle face list |
-| [03] | `PointAttribute` | attribute class | extends `GeometryAttribute`; carries typed attribute buffer data |
-| [04] | `GeometryAttribute` | base class | attribute descriptor: type, data type, components, stride, offset |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [ROLE]                                                            |
+| :-----: | :------------------ | :-------------- | :---------------------------------------------------------------- |
+|  [01]   | `DracoPointCloud`   | mutable class   | root point cloud; owns attribute list and geometry metadata       |
+|  [02]   | `DracoMesh`         | mutable class   | extends `DracoPointCloud`; owns indexed triangle face list        |
+|  [03]   | `PointAttribute`    | attribute class | extends `GeometryAttribute`; carries typed attribute buffer data  |
+|  [04]   | `GeometryAttribute` | base class      | attribute descriptor: type, data type, components, stride, offset |
 
 [PUBLIC_TYPE_SCOPE]: attribute vocabulary
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CASES] |
-|:-----: |:------------------------- |:------------ |:------------------------------------------------------------------------------------------------------------------------------ |
-| [01] | `AttributeType` | enum | `Invalid`, `Position`, `Normal`, `Color`, `TexCoord`, `Generic`, `NamedAttributesCount` |
-| [02] | `DataType` | enum | `INVALID`, `INT8`, `UINT8`, `INT16`, `UINT16`, `INT32`, `UINT32`, `INT64`, `UINT64`, `FLOAT32`, `FLOAT64`, `BOOL`, `TYPESCOUNT` |
-| [03] | `MeshAttributeElementType` | enum | `Vertex`, `Corner`, `Face` |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CASES]                                                                                                                         |
+| :-----: | :------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `AttributeType`            | enum          | `Invalid`, `Position`, `Normal`, `Color`, `TexCoord`, `Generic`, `NamedAttributesCount`                                         |
+|  [02]   | `DataType`                 | enum          | `INVALID`, `INT8`, `UINT8`, `INT16`, `UINT16`, `INT32`, `UINT32`, `INT64`, `UINT64`, `FLOAT32`, `FLOAT64`, `BOOL`, `TYPESCOUNT` |
+|  [03]   | `MeshAttributeElementType` | enum          | `Vertex`, `Corner`, `Face`                                                                                                      |
 
 [PUBLIC_TYPE_SCOPE]: encode options
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-|:-----: |:---------------------- |:------------ |:------------------------------------------------------------------------ |
-| [01] | `DracoEncodeOptions` | mutable class | quantization bits per attribute type, compression level, point-cloud mode |
-| [02] | `DracoCompressionLevel` | enum | `NoCompression`, `Fast`, `Standard`, `Optimal` |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [ROLE]                                                                    |
+| :-----: | :---------------------- | :------------ | :------------------------------------------------------------------------ |
+|  [01]   | `DracoEncodeOptions`    | mutable class | quantization bits per attribute type, compression level, point-cloud mode |
+|  [02]   | `DracoCompressionLevel` | enum          | `NoCompression`, `Fast`, `Standard`, `Optimal`                            |
 
 [PUBLIC_TYPE_SCOPE]: metadata
 - rail: geometry
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [ROLE] |
-|:-----: |:----------------- |:------------ |:------------------------------------------------------------ |
-| [01] | `Metadata` | mutable class | string-keyed `byte[]` entries and nested `SubMetadata` map |
-| [02] | `GeometryMetadata` | mutable class | extends `Metadata`; adds per-attribute-id `AttributeMetadata` |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [ROLE]                                                        |
+| :-----: | :----------------- | :------------ | :------------------------------------------------------------ |
+|  [01]   | `Metadata`         | mutable class | string-keyed `byte[]` entries and nested `SubMetadata` map    |
+|  [02]   | `GeometryMetadata` | mutable class | extends `Metadata`; adds per-attribute-id `AttributeMetadata` |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Draco` — encode/decode
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------ |:------------- |:--------------------------------------- |
-| [01] | `Draco.Decode(byte[] data)` | static decode | returns `DracoPointCloud` or `DracoMesh` |
-| [02] | `Draco.Encode(DracoPointCloud m)` | static encode | default options → `byte[]` |
-| [03] | `Draco.Encode(DracoPointCloud m, DracoEncodeOptions opts)` | static encode | explicit options → `byte[]` |
-| [04] | `Draco.Encode(DracoPointCloud m, DracoEncodeOptions, Stream)` | static encode | writes encoded bytes to stream |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                   |
+| :-----: | :------------------------------------------------------------ | :------------- | :--------------------------------------- |
+|  [01]   | `Draco.Decode(byte[] data)`                                   | static decode  | returns `DracoPointCloud` or `DracoMesh` |
+|  [02]   | `Draco.Encode(DracoPointCloud m)`                             | static encode  | default options → `byte[]`               |
+|  [03]   | `Draco.Encode(DracoPointCloud m, DracoEncodeOptions opts)`    | static encode  | explicit options → `byte[]`              |
+|  [04]   | `Draco.Encode(DracoPointCloud m, DracoEncodeOptions, Stream)` | static encode  | writes encoded bytes to stream           |
 
 [ENTRYPOINT_SCOPE]: `DracoPointCloud` — attribute and metadata management
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------ |:--------------- |:-------------------------------------------------- |
-| [01] | `AddAttribute(PointAttribute pa)` → `int`; `AddAttribute(GeometryAttribute att, bool identityMapping, int numValues)` → `int` | attribute add | the 1-arg `virtual` overload is the canonical add the encode intake calls (pass a `PointAttribute`, it `: GeometryAttribute`); the 3-arg overload sets identity-mapping + value count explicitly; both return the new attribute id |
-| [02] | `Attribute(int attId)` | attribute access | returns `PointAttribute` by id |
-| [03] | `NumPoints` property | point count | get/set number of points in cloud |
-| [04] | `NumAttributes` property | attribute count | number of attributes on the cloud |
-| [05] | `DeduplicateAttributeValues()` | deduplication | removes duplicate attribute values in-place; run before encode to collapse shared values |
-| [06] | `DeduplicatePointIds()` | deduplication | merges duplicate point identities |
-| [07] | `GetNamedAttribute(AttributeType type, int i = 0)` → `PointAttribute` | attribute access | resolves the i-th attribute of a named type (the decode read path); null when the named attribute is absent |
-| [08] | `GetNamedAttributeId(AttributeType type[, int i])` → `int` | attribute access | the id of the named attribute — `>= 0` when present, `< 0` when absent (the presence gate before filling a `GetVertexAccessor`) |
+| [INDEX] | [SURFACE]                                                                                                                     | [ENTRY_FAMILY]   | [RAIL]                                                                                                                                                                                                                             |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `AddAttribute(PointAttribute pa)` → `int`; `AddAttribute(GeometryAttribute att, bool identityMapping, int numValues)` → `int` | attribute add    | the 1-arg `virtual` overload is the canonical add the encode intake calls (pass a `PointAttribute`, it `: GeometryAttribute`); the 3-arg overload sets identity-mapping + value count explicitly; both return the new attribute id |
+|  [02]   | `Attribute(int attId)`                                                                                                        | attribute access | returns `PointAttribute` by id                                                                                                                                                                                                     |
+|  [03]   | `NumPoints` property                                                                                                          | point count      | get/set number of points in cloud                                                                                                                                                                                                  |
+|  [04]   | `NumAttributes` property                                                                                                      | attribute count  | number of attributes on the cloud                                                                                                                                                                                                  |
+|  [05]   | `DeduplicateAttributeValues()`                                                                                                | deduplication    | removes duplicate attribute values in-place; run before encode to collapse shared values                                                                                                                                           |
+|  [06]   | `DeduplicatePointIds()`                                                                                                       | deduplication    | merges duplicate point identities                                                                                                                                                                                                  |
+|  [07]   | `GetNamedAttribute(AttributeType type, int i = 0)` → `PointAttribute`                                                         | attribute access | resolves the i-th attribute of a named type (the decode read path); null when the named attribute is absent                                                                                                                        |
+|  [08]   | `GetNamedAttributeId(AttributeType type[, int i])` → `int`                                                                    | attribute access | the id of the named attribute — `>= 0` when present, `< 0` when absent (the presence gate before filling a `GetVertexAccessor`)                                                                                                    |
 
 [ENTRYPOINT_SCOPE]: `DracoMesh` — face management
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------- |:------------- |:------------------------------------------ |
-| [01] | `NumFaces` property | face count | get/set number of triangular faces |
-| [02] | `Indices` property | raw indices | `IntList` of corner indices (3 per face) |
-| [03] | `AddFace(int[] face)` | face add | appends triangle from 3-element array |
-| [04] | `SetFace(int faceId, int[] face)` | face write | overwrites face; grows list if needed |
-| [05] | `ReadFace(int faceId, int[] face)` | face read | reads triangle indices into provided array |
-| [06] | `ReadFace(int faceId, Span<int> face)` | face read | reads triangle indices into span |
-| [07] | `GetAttributeElementType(int attId)` | attribute meta | returns `MeshAttributeElementType` for attr |
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `NumFaces` property                    | face count     | get/set number of triangular faces          |
+|  [02]   | `Indices` property                     | raw indices    | `IntList` of corner indices (3 per face)    |
+|  [03]   | `AddFace(int[] face)`                  | face add       | appends triangle from 3-element array       |
+|  [04]   | `SetFace(int faceId, int[] face)`      | face write     | overwrites face; grows list if needed       |
+|  [05]   | `ReadFace(int faceId, int[] face)`     | face read      | reads triangle indices into provided array  |
+|  [06]   | `ReadFace(int faceId, Span<int> face)` | face read      | reads triangle indices into span            |
+|  [07]   | `GetAttributeElementType(int attId)`   | attribute meta | returns `MeshAttributeElementType` for attr |
 
 [ENTRYPOINT_SCOPE]: `PointAttribute` — factory and data access
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------- |:------------- |:------------------------------------------------ |
-| [01] | `PointAttribute.Wrap(AttributeType, Span<Vector2>)` | static factory | wraps FLOAT32 2-component buffer |
-| [02] | `PointAttribute.Wrap(AttributeType, Span<Vector3>)` | static factory | wraps FLOAT32 3-component buffer |
-| [03] | `PointAttribute.Wrap(AttributeType, int components, float[])` | static factory | wraps FLOAT32 N-component buffer |
-| [04] | `PointAttribute(AttributeType, DataType, int, bool, int, int, DataBuffer)` | constructor | full descriptor + buffer construction |
-| [05] | `NumUniqueEntries` property | entry count | unique attribute values in backing buffer |
-| [06] | `IdentityMapping` property | mapping mode | `true` = identity mapping; `false` = explicit map |
-| [07] | `GetValueAsVector3(int attIndex)` → `Vector3` | value read | reads the value at an attribute-value index as a `Vector3` (the decode position/normal read) |
-| [08] | `MappedIndex(int pointIndex)` → `int` | mapping lookup | maps a point index to its backing attribute-value index — the explicit-map dereference paired with `GetValueAsVector3` |
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                                                                                                 |
+| :-----: | :------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `PointAttribute.Wrap(AttributeType, Span<Vector2>)`                        | static factory | wraps FLOAT32 2-component buffer                                                                                       |
+|  [02]   | `PointAttribute.Wrap(AttributeType, Span<Vector3>)`                        | static factory | wraps FLOAT32 3-component buffer                                                                                       |
+|  [03]   | `PointAttribute.Wrap(AttributeType, int components, float[])`              | static factory | wraps FLOAT32 N-component buffer                                                                                       |
+|  [04]   | `PointAttribute(AttributeType, DataType, int, bool, int, int, DataBuffer)` | constructor    | full descriptor + buffer construction                                                                                  |
+|  [05]   | `NumUniqueEntries` property                                                | entry count    | unique attribute values in backing buffer                                                                              |
+|  [06]   | `IdentityMapping` property                                                 | mapping mode   | `true` = identity mapping; `false` = explicit map                                                                      |
+|  [07]   | `GetValueAsVector3(int attIndex)` → `Vector3`                              | value read     | reads the value at an attribute-value index as a `Vector3` (the decode position/normal read)                           |
+|  [08]   | `MappedIndex(int pointIndex)` → `int`                                      | mapping lookup | maps a point index to its backing attribute-value index — the explicit-map dereference paired with `GetValueAsVector3` |
 
 [ENTRYPOINT_SCOPE]: `DracoEncodeOptions` — quantization tuning
 - rail: geometry
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:--------------------------- |:------------- |:---------------------------------------------- |
-| [01] | `PositionBits` property | quantization | bits for position attribute (default 11) |
-| [02] | `TextureCoordinateBits` prop | quantization | bits for UV attribute (default 12) |
-| [03] | `NormalBits` property | quantization | bits for normal attribute (default 10) |
-| [04] | `ColorBits` property | quantization | bits for color attribute (default 10) |
-| [05] | `CompressionLevel` property | level select | `DracoCompressionLevel` case |
-| [06] | `PointCloud` property | mode flag | forces point-cloud encoding regardless of faces |
+| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :--------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `PositionBits` property      | quantization   | bits for position attribute (default 11)        |
+|  [02]   | `TextureCoordinateBits` prop | quantization   | bits for UV attribute (default 12)              |
+|  [03]   | `NormalBits` property        | quantization   | bits for normal attribute (default 10)          |
+|  [04]   | `ColorBits` property         | quantization   | bits for color attribute (default 10)           |
+|  [05]   | `CompressionLevel` property  | level select   | `DracoCompressionLevel` case                    |
+|  [06]   | `PointCloud` property        | mode flag      | forces point-cloud encoding regardless of faces |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

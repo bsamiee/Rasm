@@ -5,11 +5,13 @@ Full surface and stacking: `libs/csharp/.api/api-hashing.md` (shared-tier canoni
 ## [01]-[FABRICATION_OVERLAY]
 
 [SINGLE_MINT]:
+
 - `ContentHash.Of` is the ONE mint site for every Fabrication content key; every egress artifact keys through it — `Posting/program` (`CutProgram`), `Nesting/nfp` (Placement/Remnant), `Additive/implicit` (`.cli`/grayscale), `Additive/production` (3MF), `Verify/removal` (`ResidualStock`/`StockSnapshot`), `Documentation/traveler`, `Tooling/magazine`, `Nesting/stock`. The content key is keyed by the `EgressKind` discriminant on `owner#atoms` (thirteen artifact families), federated to the Persistence `ArtifactKind` rows at the content-key boundary.
 - the nesting `Remnant`/`Stock` content address and the `NoFitPolygon.PairKey` precompute memo route through `ContentHash.Of` over their canonical digests; `Stock.Of` hashes the discriminant + ALL dimensions (never area-only), so an identical sheet keys to the same `UInt128`.
-- the durable-row fold over these keys rides the LANDED Persistence artifact index (`Query/cache#ARTIFACT_BLOB_INDEX` — one `ArtifactKind` enrollment row per Fabrication egress family), never a Fabrication-side store.
+- The Persistence artifact index folds these keys into durable rows through one `ArtifactKind` enrollment per Fabrication egress family.
 
 [RAIL_LAW]:
+
 - Package: `System.IO.Hashing` (folder consumption via the kernel `ContentHash.Of`)
 - Owns (folder scope): nothing net-new — the algorithm surface is the shared tier's; this folder consumes the ONE `ContentHash.Of` mint for all content identity
 - Accept: `ContentHash.Of(canonicalBytes) → UInt128` at every egress; the `EgressKind`-keyed content address; the nesting `Remnant`/`Stock`/`PairKey` identities over their canonical digests

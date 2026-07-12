@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU`
+
 - package: `Silk.NET.WebGPU`
 - package: `Silk.NET.WebGPU.Native.WGPU` (native `wgpu_native` runtime, RID-fanned)
 - license: MIT (expression)
@@ -20,6 +21,7 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and device lifecycle owners
+
 - rail: visuals
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY]   | [RAIL]                        |
@@ -32,6 +34,7 @@
 |  [06]   | `Surface`  | native handle   | swapchain present target      |
 
 [PUBLIC_TYPE_SCOPE]: resource and pipeline owners
+
 - rail: visuals
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                    |
@@ -53,61 +56,95 @@
 |  [15]   | `SurfaceTexture`     | struct        | per-frame swapchain image |
 
 [PUBLIC_TYPE_SCOPE]: descriptor and enum value carriers
+
 - rail: visuals
 
-| [INDEX] | [SYMBOL]                                | [KIND]     | [RAIL]                              |
-| :-----: | :-------------------------------------- | :--------- | :---------------------------------- |
-|  [01]   | `InstanceDescriptor`                    | descriptor | instance create options             |
-|  [02]   | `RequestAdapterOptions`                 | descriptor | adapter request (power, surface)    |
-|  [03]   | `DeviceDescriptor`                      | descriptor | device create (limits, features)    |
-|  [04]   | `SurfaceConfiguration`                  | descriptor | swapchain config (format, mode)     |
-|  [05]   | `SurfaceCapabilities`                   | struct     | supported formats/present-modes     |
-|  [06]   | `TextureDescriptor` / `TextureViewDescriptor` | descriptor | texture + view allocation     |
-|  [07]   | `BufferDescriptor`                      | descriptor | buffer allocation                   |
-|  [08]   | `RenderPipelineDescriptor`              | descriptor | raster pipeline create              |
-|  [09]   | `ComputePipelineDescriptor`             | descriptor | compute pipeline create             |
-|  [10]   | `RenderPassDescriptor`                  | descriptor | render pass begin                   |
-|  [11]   | `QuerySetDescriptor`                    | descriptor | timestamp/statistics query set      |
-|  [12]   | `SurfaceDescriptor` + `…FromMetalLayer` / `…FromWindowsHWND` / `…FromXlibWindow` / `…FromWaylandSurface` / `…FromXcbWindow` / `…FromAndroidNativeWindow` | descriptor | per-platform window-handle surface source |
-|  [13]   | `ChainedStruct` / `ChainedStructOut`    | struct     | `next`-chain extension threading    |
-|  [14]   | `PfnRequestAdapterCallback` / `PfnRequestDeviceCallback` | delegate ptr | adapter/device async result |
-|  [15]   | `PfnBufferMapCallback` / `PfnQueueWorkDoneCallback` / `PfnErrorCallback` / `PfnDeviceLostCallback` | delegate ptr | map/work/validation/device-lost |
-|  [16]   | `TextureFormat`                         | enum       | surface/texture pixel format        |
-|  [17]   | `PresentMode`                           | enum       | swapchain present mode              |
-|  [18]   | `BackendType`                           | enum       | D3D12/Vulkan/Metal/OpenGL/WGPU      |
-|  [19]   | `FeatureName` / `WGSLFeatureName`        | enum       | device feature + WGSL feature flags |
-|  [20]   | `QueryType`                             | enum       | `Timestamp` / `Occlusion`           |
+| [INDEX] | [SYMBOL]                                   | [KIND]       | [RAIL]                    |
+| :-----: | :----------------------------------------- | :----------- | :------------------------ |
+|  [01]   | `InstanceDescriptor`                       | descriptor   | instance options          |
+|  [02]   | `RequestAdapterOptions`                    | descriptor   | adapter request           |
+|  [03]   | `DeviceDescriptor`                         | descriptor   | device request            |
+|  [04]   | `SurfaceConfiguration`                     | descriptor   | swapchain configuration   |
+|  [05]   | `SurfaceCapabilities`                      | struct       | surface capabilities      |
+|  [06]   | `TextureDescriptor`                        | descriptor   | texture allocation        |
+|  [07]   | `TextureViewDescriptor`                    | descriptor   | texture-view allocation   |
+|  [08]   | `BufferDescriptor`                         | descriptor   | buffer allocation         |
+|  [09]   | `RenderPipelineDescriptor`                 | descriptor   | raster-pipeline creation  |
+|  [10]   | `ComputePipelineDescriptor`                | descriptor   | compute-pipeline creation |
+|  [11]   | `RenderPassDescriptor`                     | descriptor   | render-pass creation      |
+|  [12]   | `QuerySetDescriptor`                       | descriptor   | query-set creation        |
+|  [13]   | `SurfaceDescriptor`                        | descriptor   | surface source chain      |
+|  [14]   | `SurfaceDescriptorFromMetalLayer`          | descriptor   | Metal surface source      |
+|  [15]   | `SurfaceDescriptorFromWindowsHWND`         | descriptor   | Windows surface source    |
+|  [16]   | `SurfaceDescriptorFromXlibWindow`          | descriptor   | Xlib surface source       |
+|  [17]   | `SurfaceDescriptorFromWaylandSurface`      | descriptor   | Wayland surface source    |
+|  [18]   | `SurfaceDescriptorFromXcbWindow`           | descriptor   | XCB surface source        |
+|  [19]   | `SurfaceDescriptorFromAndroidNativeWindow` | descriptor   | Android surface source    |
+|  [20]   | `ChainedStruct`                            | struct       | input extension chain     |
+|  [21]   | `ChainedStructOut`                         | struct       | output extension chain    |
+|  [22]   | `PfnRequestAdapterCallback`                | delegate ptr | adapter result            |
+|  [23]   | `PfnRequestDeviceCallback`                 | delegate ptr | device result             |
+|  [24]   | `PfnBufferMapCallback`                     | delegate ptr | buffer-map result         |
+|  [25]   | `PfnQueueWorkDoneCallback`                 | delegate ptr | queue-work result         |
+|  [26]   | `PfnErrorCallback`                         | delegate ptr | validation error          |
+|  [27]   | `PfnDeviceLostCallback`                    | delegate ptr | device-lost result        |
+|  [28]   | `TextureFormat`                            | enum         | pixel format              |
+|  [29]   | `PresentMode`                              | enum         | present mode              |
+|  [30]   | `BackendType`                              | enum         | graphics backend          |
+|  [31]   | `FeatureName`                              | enum         | device feature            |
+|  [32]   | `WGSLFeatureName`                          | enum         | WGSL feature              |
+|  [33]   | `QueryType`                                | enum         | query family              |
+
+[DESCRIPTOR_FIELDS]:
+
+- `InstanceDescriptor`: instance creation options.
+- `RequestAdapterOptions`: power preference and compatible surface.
+- `DeviceDescriptor`: requested limits and features.
+- `SurfaceConfiguration`: format and present mode.
+- `SurfaceCapabilities`: supported formats and present modes.
+- `QuerySetDescriptor`: timestamp and pipeline-statistics query sets.
+
+[ENUM_VALUES]:
+
+- `TextureFormat`: surface and texture pixel formats.
+- `PresentMode`: swapchain present modes.
+- `BackendType`: D3D12, Vulkan, Metal, OpenGL, and WGPU.
+- `FeatureName` / `WGSLFeatureName`: device and WGSL feature flags.
+- `QueryType`: `Timestamp` and `Occlusion`.
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: API root and instance creation
+
 - rail: visuals
 
-| [INDEX] | [SURFACE]                                                                                  | [SURFACE_ROOT] | [RAIL]                |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :-------------------- |
-|  [01]   | `WebGPU.GetApi()`                                                                          | `WebGPU`       | API root load         |
-|  [02]   | `CreateInstance(InstanceDescriptor*)`                                                      | `WebGPU`       | instance create       |
-|  [03]   | `InstanceRequestAdapter(Instance*, RequestAdapterOptions*, PfnRequestAdapterCallback, ud)` | `WebGPU`       | adapter request       |
-|  [04]   | `AdapterRequestDevice(Adapter*, DeviceDescriptor*, PfnRequestDeviceCallback, ud)`          | `WebGPU`       | device request        |
-|  [05]   | `DeviceGetQueue(Device*)`                                                                  | `WebGPU`       | queue handle          |
-|  [06]   | `AdapterEnumerateFeatures / AdapterHasFeature / AdapterGetLimits`                          | `WebGPU`       | adapter capability    |
-|  [07]   | `DeviceEnumerateFeatures / DeviceHasFeature / DeviceGetLimits`                             | `WebGPU`       | device capability     |
-|  [08]   | `InstanceProcessEvents(Instance*)`                                                         | `WebGPU`       | standard event pump   |
+| [INDEX] | [SURFACE]                                                                                  | [SURFACE_ROOT] | [RAIL]                 |
+| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :--------------------- |
+|  [01]   | `WebGPU.GetApi()`                                                                          | `WebGPU`       | API root load          |
+|  [02]   | `CreateInstance(InstanceDescriptor*)`                                                      | `WebGPU`       | instance create        |
+|  [03]   | `InstanceRequestAdapter(Instance*, RequestAdapterOptions*, PfnRequestAdapterCallback, ud)` | `WebGPU`       | adapter request        |
+|  [04]   | `AdapterRequestDevice(Adapter*, DeviceDescriptor*, PfnRequestDeviceCallback, ud)`          | `WebGPU`       | device request         |
+|  [05]   | `DeviceGetQueue(Device*)`                                                                  | `WebGPU`       | queue handle           |
+|  [06]   | `AdapterEnumerateFeatures / AdapterHasFeature / AdapterGetLimits`                          | `WebGPU`       | adapter capability     |
+|  [07]   | `DeviceEnumerateFeatures / DeviceHasFeature / DeviceGetLimits`                             | `WebGPU`       | device capability      |
+|  [08]   | `InstanceProcessEvents(Instance*)`                                                         | `WebGPU`       | standard event pump    |
 |  [09]   | `DeviceSetUncapturedErrorCallback / DevicePushErrorScope / DevicePopErrorScope`            | `WebGPU`       | validation error scope |
 
 [ENTRYPOINT_SCOPE]: surface, swapchain, and present
+
 - rail: visuals
 
-| [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT] | [RAIL]                |
-| :-----: | :----------------------------------------------------------------- | :------------- | :-------------------- |
-|  [01]   | `InstanceCreateSurface(Instance*, SurfaceDescriptor*)`            | `WebGPU`       | surface from window    |
-|  [02]   | `SurfaceConfigure(Surface*, SurfaceConfiguration*)`                | `WebGPU`       | swapchain configure   |
-|  [03]   | `SurfaceGetCurrentTexture(Surface*, SurfaceTexture*)`              | `WebGPU`       | acquire frame image   |
-|  [04]   | `TextureCreateView(Texture*, TextureViewDescriptor*)`              | `WebGPU`       | frame view            |
-|  [05]   | `SurfacePresent(Surface*)`                                         | `WebGPU`       | present frame         |
-|  [06]   | `SurfaceGetCapabilities(Surface*, Adapter*, SurfaceCapabilities*)` | `WebGPU`       | format/mode query     |
+| [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT] | [RAIL]              |
+| :-----: | :----------------------------------------------------------------- | :------------- | :------------------ |
+|  [01]   | `InstanceCreateSurface(Instance*, SurfaceDescriptor*)`             | `WebGPU`       | surface from window |
+|  [02]   | `SurfaceConfigure(Surface*, SurfaceConfiguration*)`                | `WebGPU`       | swapchain configure |
+|  [03]   | `SurfaceGetCurrentTexture(Surface*, SurfaceTexture*)`              | `WebGPU`       | acquire frame image |
+|  [04]   | `TextureCreateView(Texture*, TextureViewDescriptor*)`              | `WebGPU`       | frame view          |
+|  [05]   | `SurfacePresent(Surface*)`                                         | `WebGPU`       | present frame       |
+|  [06]   | `SurfaceGetCapabilities(Surface*, Adapter*, SurfaceCapabilities*)` | `WebGPU`       | format/mode query   |
 
 [ENTRYPOINT_SCOPE]: command recording and submission
+
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                                 | [SURFACE_ROOT] | [RAIL]                |
@@ -122,6 +159,7 @@
 |  [08]   | `QueueWriteBuffer / QueueWriteTexture`                                    | `WebGPU`       | host-to-GPU upload    |
 
 [ENTRYPOINT_SCOPE]: resource and pipeline creation
+
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT] | [RAIL]                |
@@ -134,34 +172,51 @@
 |  [06]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`             | `WebGPU`       | bind group            |
 
 [ENTRYPOINT_SCOPE]: timing and pipeline-statistics queries
+
 - rail: evidence
 
-| [INDEX] | [SURFACE]                                                                                  | [SURFACE_ROOT] | [RAIL]                   |
-| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :----------------------- |
-|  [01]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)` (`QueryType.Timestamp` / `Occlusion`) | `WebGPU`       | query-set alloc          |
-|  [02]   | `CommandEncoderWriteTimestamp(CommandEncoder*, QuerySet*, queryIndex)`                     | `WebGPU`       | per-pass timestamp write |
-|  [03]   | `RenderPassTimestampWrites` / `ComputePassTimestampWrites` (begin-descriptor entries)      | `WebGPU`       | pass-boundary timestamp  |
-|  [04]   | `CommandEncoderResolveQuerySet(CommandEncoder*, QuerySet*, first, count, Buffer*, offset)` | `WebGPU`       | resolve to read buffer   |
-|  [05]   | `BufferMapAsync(Buffer*, MapMode, offset, size, PfnBufferMapCallback, ud)` -> `BufferGetMappedRange` -> `BufferUnmap` | `WebGPU` | readback resolved ticks |
-|  [06]   | `QuerySetRelease(QuerySet*)`                                                               | `WebGPU`       | query-set release        |
+The core query set admits `QueryType.Timestamp` and `QueryType.Occlusion`.
+
+| [INDEX] | [SURFACE]                                                                                  | [SURFACE_ROOT] | [RAIL]                 |
+| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :--------------------- |
+|  [01]   | `DeviceCreateQuerySet(Device*, QuerySetDescriptor*)`                                       | `WebGPU`       | query-set allocation   |
+|  [02]   | `CommandEncoderWriteTimestamp(CommandEncoder*, QuerySet*, queryIndex)`                     | `WebGPU`       | per-pass timestamp     |
+|  [03]   | `RenderPassTimestampWrites`                                                                | `WebGPU`       | render-pass timestamp  |
+|  [04]   | `ComputePassTimestampWrites`                                                               | `WebGPU`       | compute-pass timestamp |
+|  [05]   | `CommandEncoderResolveQuerySet(CommandEncoder*, QuerySet*, first, count, Buffer*, offset)` | `WebGPU`       | resolve to read buffer |
+|  [06]   | `BufferMapAsync(Buffer*, MapMode, offset, size, PfnBufferMapCallback, ud)`                 | `WebGPU`       | async readback map     |
+|  [07]   | `BufferGetMappedRange(Buffer*, offset, size)`                                              | `WebGPU`       | resolved-tick access   |
+|  [08]   | `BufferUnmap(Buffer*)`                                                                     | `WebGPU`       | mapped-range release   |
+|  [09]   | `QuerySetRelease(QuerySet*)`                                                               | `WebGPU`       | query-set release      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [WEBGPU_TOPOLOGY]:
+
 - `WebGPU.GetApi()` returns the function-table root; every native call is an instance method on that `WebGPU` object taking raw pointers to descriptor structs — Silk.NET binds the C `webgpu.h` surface directly, so a call site marshals `Span<T>`/`stackalloc` descriptor structs and passes pointers, never a managed wrapper object.
 - The lifecycle is `Instance` -> `Adapter` (async request through a callback) -> `Device` + `Queue` -> resources; the adapter/device requests complete through native callbacks that Silk.NET surfaces as `PfnRequestAdapterCallback`/`PfnRequestDeviceCallback` delegate pointers.
 - `Surface` is created by `InstanceCreateSurface(instance, surfaceDescriptor)` where the `SurfaceDescriptor.NextInChain` carries the platform-source struct for the window handle — `SurfaceDescriptorFromMetalLayer` (a `CAMetalLayer` from `Platforms.MacOS.NSWindow`), `SurfaceDescriptorFromWindowsHWND`, `SurfaceDescriptorFromXlibWindow`/`…FromWaylandSurface`/`…FromXcbWindow`, or `…FromAndroidNativeWindow` — then configured with a `SurfaceConfiguration` (format, present mode, usage, width, height); each frame `SurfaceGetCurrentTexture` yields a `SurfaceTexture` whose `Texture` is viewed, rendered into through a `RenderPassEncoder`, and presented through `SurfacePresent`. The Avalonia path imports the rendered texture through `ICompositionGpuInterop.ImportImage` (`api-avalonia-gpu-interop.md`) rather than presenting a swapchain beside Avalonia's.
 - `BackendType` auto-negotiates D3D12 (Windows), Metal (macOS), Vulkan (Linux), or the in-browser WebGPU target over the `wgpu_native` runtime — the same wgpu surface the archived VelloSharp wrapped, here owned at the binding tier with a live pinnable identity. `AdapterEnumerateFeatures`/`AdapterHasFeature`/`AdapterGetLimits` negotiate the feature/limit set (gating `timestamp-query`) before `AdapterRequestDevice` requests them in `DeviceDescriptor`.
 - WGSL is the shader source for `DeviceCreateShaderModule`; compute shaders dispatch through `ComputePassEncoderDispatchWorkgroups` and raster pipelines draw through `RenderPassEncoderDraw`/`DrawIndexed`, so the meshlet mesh-shader and path-trace compute passes bind to one wgpu pipeline family.
 - Validation rides the error-scope rail: `DeviceSetUncapturedErrorCallback` installs the global `PfnErrorCallback`, and `DevicePushErrorScope`/`DevicePopErrorScope` bracket a suspect operation so a validation/out-of-memory error is a counted `ViewportFault` on the telemetry spine, not a swallowed native abort — the wgpu-native `SetLogCallback` (`api-silk-webgpu-wgpu.md`) routes the lower-level adapter/device-lost stream beside it.
-- A `QuerySet` of `QueryType.Timestamp` records GPU-side wall time at pass boundaries through `CommandEncoderWriteTimestamp` or the `RenderPassTimestampWrites`/`ComputePassTimestampWrites` begin-descriptor entries (on `timestamp-query` feature support), `CommandEncoderResolveQuerySet` copies the resolved nanosecond ticks into a mappable read buffer, and `BufferMapAsync` -> `BufferGetMappedRange` -> `BufferUnmap` reads them back after the wgpu-native `DevicePoll` (`api-silk-webgpu-wgpu.md`) — or the standard `InstanceProcessEvents` — retires the map callback. The resolved per-pass GPU duration is the measured timeline beside the encoder-projected CPU duration, never a busy-wait fence. (Core `QueryType` exposes only `Timestamp`/`Occlusion`; pipeline-statistics is a wgpu-native-only query, not a standard `QueryType` value.)
+
+[TimestampQuery]:
+
+- Admit: `QueryType.Timestamp` requires `timestamp-query`; core `QueryType` also exposes `Occlusion`, while pipeline statistics remains wgpu-native-only.
+- Record: `CommandEncoderWriteTimestamp` or the `RenderPassTimestampWrites`/`ComputePassTimestampWrites` begin-descriptor entries record GPU wall time at pass boundaries.
+- Resolve: `CommandEncoderResolveQuerySet` copies the resolved nanosecond ticks into a mappable read buffer.
+- Read: `BufferMapAsync` -> `BufferGetMappedRange` -> `BufferUnmap` reads the resolved ticks.
+- Retire: the wgpu-native `DevicePoll` (`api-silk-webgpu-wgpu.md`) or the standard `InstanceProcessEvents` retires the map callback.
+- Measure: the resolved per-pass GPU duration is the measured timeline beside the encoder-projected CPU duration, never a busy-wait fence.
 
 [LOCAL_ADMISSION]:
+
 - All native handles (`Instance`, `Adapter`, `Device`, `Queue`, `Surface`, `Buffer`, `Texture`, pipelines, encoders) are released through their matching `XxxRelease`/`XxxDestroy` native call, not `IDisposable` — the owning boundary capsule pairs create-and-release in a `using`-equivalent scoped fold.
 - `Silk.NET.WebGPU.Native.WGPU` supplies the native `wgpu_native` runtime for win-x64/win-arm64/linux-x64/linux-arm64/osx-x64/osx-arm64 — the one native asset this binding P/Invokes. There is no admitted Dawn package; `BackendType` selects D3D12/Vulkan/Metal under `wgpu_native`, and the wgpu-native-only entrypoints (poll, log, indirect multi-draw, push-constants) come from `Silk.NET.WebGPU.Extensions.WGPU` (`api-silk-webgpu-wgpu.md`), a second function-table view over the same runtime.
 - The WebGPU surface integrates with Avalonia 12 through the compositor GPU-interop seam (`api-avalonia-gpu-interop.md`): the wgpu-rendered texture imports into a `CompositionDrawingSurface` through `ICompositionGpuInterop.ImportImage`, never a second swapchain composited beside Avalonia's.
 
 [RAIL_LAW]:
+
 - Package: `Silk.NET.WebGPU` (+ `Silk.NET.WebGPU.Native.WGPU`, with the `Silk.NET.WebGPU.Extensions.WGPU` vendor surface as the second function-table view)
 - Owns: the managed `wgpu_native` binding — instance/adapter/device lifecycle, feature/limit negotiation, surface-from-window-handle and swapchain, buffer/texture/sampler allocation, WGSL shader compile, render/compute pipeline create, command recording, queue submission, error-scope validation, and timestamp query timing for the `Wgpu` `GpuBackend` family.
 - Accept: raw-pointer descriptor calls on the `WebGPU.GetApi()` function-table root; `InstanceCreateSurface` with a platform-source `next` chain; feature/limit query before device request; error-scope-bracketed validation into the receipt sink; native-handle scoped create-and-release pairs at the boundary capsule; texture import into the Avalonia compositor via `ICompositionGpuInterop.ImportImage`.

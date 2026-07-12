@@ -35,9 +35,9 @@ the wire and the massing geometry; it never re-implements the Honeybee physics v
 Every Dragonfly type derives from `OpenAPIGenBaseModel`, so the JSON round-trip, validation,
 duplication, and value equality are uniform across the schema — there is no per-type codec.
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:-------------------- |:----------- |:--------------------------------------------------------------------------------------------------------------- |
-| [01] | `OpenAPIGenBaseModel` | energy-model | `abstract` base (`IEquatable<…>`): `ToJson(bool indented=false)`, static `FromJson(string)`, `Duplicate()`, `IsValid(bool throwException=false)`, `Validate() → IEnumerable<ValidationResult>`, value `Equals`/`GetHashCode`/`==`/`!=`, `ToString(bool detailed)` |
+| [INDEX] | [SYMBOL]              | [RAIL]       | [CAPABILITY]                                                                                                                                                                                                                                                      |
+| :-----: | :-------------------- | :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `OpenAPIGenBaseModel` | energy-model | `abstract` base (`IEquatable<…>`): `ToJson(bool indented=false)`, static `FromJson(string)`, `Duplicate()`, `IsValid(bool throwException=false)`, `Validate() → IEnumerable<ValidationResult>`, value `Equals`/`GetHashCode`/`==`/`!=`, `ToString(bool detailed)` |
 
 [PUBLIC_TYPE_SCOPE]: massing geometry hierarchy
 - namespace: `DragonflySchema`
@@ -48,13 +48,13 @@ set of `Room2D` floor-plates (extruded footprint polygons). `Building.room3ds` a
 boundary/geometry references are HoneybeeSchema types — Dragonfly is the massing wrapper over
 the Honeybee room model.
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:-------------- |:----------- |:------------------------------------------------------------------------------------------------------------------------------------------- |
-| [01] | `Model` | energy-model | root (`IDdBaseModel`,`IModel`): `Identifier`, `Properties` (`ModelProperties`), `Buildings`, `ContextShades`, `Units` (`Units`), `Tolerance`/`AngleTolerance`, `ReferenceVector`, `Version` |
-| [02] | `Building` | energy-model | `UniqueStories` (`List<Story>`), `Room3ds` (`List<HoneybeeSchema.Room>` — full 3D rooms), `Roof` (`RoofSpecification`), `Properties` (`BuildingPropertiesAbridged`) |
-| [03] | `Story` | energy-model | `Room2ds` (`List<Room2D>`), `FloorToFloorHeight`/`FloorHeight` (`AnyOf<Autocalculate,double>`), `Multiplier` (vertical repeat), `Roof`, `StoryType` (`StoryType`) |
-| [04] | `Room2D` | energy-model | floor-plate: `FloorBoundary` (`List<List<double>>`), `FloorHoles`, `FloorHeight`/`FloorToCeilingHeight`, `IsGroundContact`/`IsTopExposed`/`HasFloor`/`HasCeiling`, `…PlenumDepth`, `Zone`, `BoundaryConditions`/`WindowParameters`/`ShadingParameters`/`SkylightParameters` (all `AnyOf<…>`), `AirBoundaries` (`List<bool>`) |
-| [05] | `ContextShade` | energy-model | site context shading geometry (`Face3D`/`Mesh3D` faces) outside the conditioned model |
+| [INDEX] | [SYMBOL]       | [RAIL]       | [CAPABILITY]                                                                                                                                                                                                                                                                                                                 |
+| :-----: | :------------- | :----------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Model`        | energy-model | root (`IDdBaseModel`,`IModel`): `Identifier`, `Properties` (`ModelProperties`), `Buildings`, `ContextShades`, `Units` (`Units`), `Tolerance`/`AngleTolerance`, `ReferenceVector`, `Version`                                                                                                                                  |
+|  [02]   | `Building`     | energy-model | `UniqueStories` (`List<Story>`), `Room3ds` (`List<HoneybeeSchema.Room>` — full 3D rooms), `Roof` (`RoofSpecification`), `Properties` (`BuildingPropertiesAbridged`)                                                                                                                                                          |
+|  [03]   | `Story`        | energy-model | `Room2ds` (`List<Room2D>`), `FloorToFloorHeight`/`FloorHeight` (`AnyOf<Autocalculate,double>`), `Multiplier` (vertical repeat), `Roof`, `StoryType` (`StoryType`)                                                                                                                                                            |
+|  [04]   | `Room2D`       | energy-model | floor-plate: `FloorBoundary` (`List<List<double>>`), `FloorHoles`, `FloorHeight`/`FloorToCeilingHeight`, `IsGroundContact`/`IsTopExposed`/`HasFloor`/`HasCeiling`, `…PlenumDepth`, `Zone`, `BoundaryConditions`/`WindowParameters`/`ShadingParameters`/`SkylightParameters` (all `AnyOf<…>`), `AirBoundaries` (`List<bool>`) |
+|  [05]   | `ContextShade` | energy-model | site context shading geometry (`Face3D`/`Mesh3D` faces) outside the conditioned model                                                                                                                                                                                                                                        |
 
 [PUBLIC_TYPE_SCOPE]: aperture, shading, skylight, roof parameter unions
 - namespace: `DragonflySchema`
@@ -65,12 +65,12 @@ the catalog of ways a wall gets glazed, shaded, and skylit. Each base interface
 (`IWindowParameter`/`IShadingParameter`/`ISkylightParameter`/`IClearstoryParameter`/`IRoof`)
 is the discriminant root.
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:---------------------------------------------- |:----------- |:--------------------------------------------------------------------------------------------------- |
-| [01] | `SingleWindow` / `SimpleWindowArea` / `SimpleWindowRatio` / `RepeatingWindowRatio` / `RectangularWindows` / `DetailedWindows` | energy-model | `WindowParameterBase`/`IWindowParameter` cases — one window placement strategy per `Room2D` wall segment (`SingleWindow(width,height,sillHeight)`, `RepeatingWindowRatio(windowRatio,windowHeight,sillHeight,horizontalSeparation,verticalSeparation)`, …) |
-| [02] | `Overhang` / `ExtrudedBorder` / `LouversByCount` / `LouversByDistance` | energy-model | `LouversBase`/`IShadingParameter` cases — exterior shading device per wall segment |
-| [03] | `GriddedSkylightArea` / `GriddedSkylightRatio` / `DetailedSkylights` | energy-model | `ISkylightParameter` cases — roof glazing on a `Room2D` |
-| [04] | `RoofSpecification` / `DetailedClearstory` | energy-model | `IRoof`/`IClearstoryParameter`: `RoofSpecification(geometry: List<AnyOf<Face3D,Mesh3D>>, clearstoryParameters: List<DetailedClearstory>)` — the per-story roof geometry + clerestory glazing |
+| [INDEX] | [SYMBOL]                                                                                                                      | [RAIL]       | [CAPABILITY]                                                                                                                                                                                                                                               |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :----------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SingleWindow` / `SimpleWindowArea` / `SimpleWindowRatio` / `RepeatingWindowRatio` / `RectangularWindows` / `DetailedWindows` | energy-model | `WindowParameterBase`/`IWindowParameter` cases — one window placement strategy per `Room2D` wall segment (`SingleWindow(width,height,sillHeight)`, `RepeatingWindowRatio(windowRatio,windowHeight,sillHeight,horizontalSeparation,verticalSeparation)`, …) |
+|  [02]   | `Overhang` / `ExtrudedBorder` / `LouversByCount` / `LouversByDistance`                                                        | energy-model | `LouversBase`/`IShadingParameter` cases — exterior shading device per wall segment                                                                                                                                                                         |
+|  [03]   | `GriddedSkylightArea` / `GriddedSkylightRatio` / `DetailedSkylights`                                                          | energy-model | `ISkylightParameter` cases — roof glazing on a `Room2D`                                                                                                                                                                                                    |
+|  [04]   | `RoofSpecification` / `DetailedClearstory`                                                                                    | energy-model | `IRoof`/`IClearstoryParameter`: `RoofSpecification(geometry: List<AnyOf<Face3D,Mesh3D>>, clearstoryParameters: List<DetailedClearstory>)` — the per-story roof geometry + clerestory glazing                                                               |
 
 [PUBLIC_TYPE_SCOPE]: extension properties and Radiance grids
 - namespace: `DragonflySchema`
@@ -80,22 +80,22 @@ The extension-property pattern: every geometry object carries a `*PropertiesAbri
 `.Energy`/`.Radiance` sub-objects reference the model-level library by identifier; the
 model-level `ModelEnergyProperties`/`ModelRadianceProperties` hold the actual (Honeybee) objects.
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:-------------------------------------------------------------- |:----------- |:---------------------------------------------------------------------------------------------------------- |
-| [01] | `ModelProperties` | energy-model | the extension hub: `Energy` (`ModelEnergyProperties`), `Radiance` (`ModelRadianceProperties`), `Doe2` (`ModelDoe2Properties`), `Comparison` (`ModelComparisonProperties`) |
-| [02] | `ModelEnergyProperties` | energy-model | the energy library (all `List<AnyOf<…HoneybeeSchema…>>`): `ConstructionSets`, `Constructions`, `Materials`, `Hvacs`, `Shws`, `ProgramTypes`, `Schedules`, plus the baked `GlobalConstructionSet` default |
-| [03] | `*PropertiesAbridged` (`Building…`/`Story…`/`Room2D…`/`ContextShade…`) | energy-model | per-object property carriers (`.Energy`/`.Radiance`) holding abridged-by-identifier references into the model library |
-| [04] | `RoomGridParameter` / `RoomRadialGridParameter` / `ExteriorFaceGridParameter` / `ExteriorApertureGridParameter` | energy-model | `GridParameterBase`/`IGridpar` cases — Radiance sensor-grid generation parameters on a `Room2D` |
+| [INDEX] | [SYMBOL]                                                                                                        | [RAIL]       | [CAPABILITY]                                                                                                                                                                                             |
+| :-----: | :-------------------------------------------------------------------------------------------------------------- | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ModelProperties`                                                                                               | energy-model | the extension hub: `Energy` (`ModelEnergyProperties`), `Radiance` (`ModelRadianceProperties`), `Doe2` (`ModelDoe2Properties`), `Comparison` (`ModelComparisonProperties`)                                |
+|  [02]   | `ModelEnergyProperties`                                                                                         | energy-model | the energy library (all `List<AnyOf<…HoneybeeSchema…>>`): `ConstructionSets`, `Constructions`, `Materials`, `Hvacs`, `Shws`, `ProgramTypes`, `Schedules`, plus the baked `GlobalConstructionSet` default |
+|  [03]   | `*PropertiesAbridged` (`Building…`/`Story…`/`Room2D…`/`ContextShade…`)                                          | energy-model | per-object property carriers (`.Energy`/`.Radiance`) holding abridged-by-identifier references into the model library                                                                                    |
+|  [04]   | `RoomGridParameter` / `RoomRadialGridParameter` / `ExteriorFaceGridParameter` / `ExteriorApertureGridParameter` | energy-model | `GridParameterBase`/`IGridpar` cases — Radiance sensor-grid generation parameters on a `Room2D`                                                                                                          |
 
 [PUBLIC_TYPE_SCOPE]: enumerations
 - namespace: `DragonflySchema`
 - rail: energy-model
 
-| [INDEX] | [SYMBOL] | [RAIL] | [CAPABILITY] |
-|:-----: |:------------ |:----------- |:----------------------------------------------------------------------------------------------------------------- |
-| [01] | `Units` | energy-model | `Meters`(=1)/`Millimeters`/`Feet`/`Inches`/`Centimeters` — the model unit system (`[EnumMember]` Newtonsoft names) |
-| [02] | `StoryType` | energy-model | `Standard`/`CeilingPlenum`/`FloorPlenum` — the `Story` role |
-| [03] | HVAC equipment-type enums | energy-model | `VAVEquipmentType`/`PSZEquipmentType`/`FCUEquipmentType`/`VRFEquipmentType`/`Vintages`/`EconomizerType`/… — the equipment template vocabulary for the energy HVAC cases |
+| [INDEX] | [SYMBOL]                  | [RAIL]       | [CAPABILITY]                                                                                                                                                            |
+| :-----: | :------------------------ | :----------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Units`                   | energy-model | `Meters`(=1)/`Millimeters`/`Feet`/`Inches`/`Centimeters` — the model unit system (`[EnumMember]` Newtonsoft names)                                                      |
+|  [02]   | `StoryType`               | energy-model | `Standard`/`CeilingPlenum`/`FloorPlenum` — the `Story` role                                                                                                             |
+|  [03]   | HVAC equipment-type enums | energy-model | `VAVEquipmentType`/`PSZEquipmentType`/`FCUEquipmentType`/`VRFEquipmentType`/`Vintages`/`EconomizerType`/… — the equipment template vocabulary for the energy HVAC cases |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -106,13 +106,13 @@ model-level `ModelEnergyProperties`/`ModelRadianceProperties` hold the actual (H
 The codec is the base-class surface — uniform across every schema type. There is no separate
 serializer; `ToJson`/`FromJson` wrap the Newtonsoft fork with the schema's converters.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:------------------------------ |:------------------------------------------------------- |:-------------------------------------------------------------------------------- |
-| [01] | `Model.FromJson` / `<T>.FromJson` | `static (string json) → OpenAPIGenBaseModel?` | parse + validate a DFJSON string into the typed graph (downcast to `Model`); throws on a structurally-invalid model, returns `null` on a `"type"`-discriminator mismatch or failed parse |
-| [02] | `.ToJson` | `(bool indented = false) → string` | serialize any node to DFJSON (Newtonsoft fork) |
-| [03] | `.IsValid` / `.Validate` | `(bool throwException = false) → bool` · `() → IEnumerable<ValidationResult>` | DataAnnotations validation (range/required) — re-gate a built or mutated model (`FromJson` already validates on parse) before handing to Honeybee/OpenStudio |
-| [04] | `.Duplicate` | `() → OpenAPIGenBaseModel` | deep structural copy (the immutable-edit seam) |
-| [05] | `.Equals` / `==` / `GetHashCode` | `(OpenAPIGenBaseModel) → bool` | structural value equality (model diffing / `Comparison` properties) |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                                  | [CAPABILITY]                                                                                                                                                                             |
+| :-----: | :-------------------------------- | :---------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Model.FromJson` / `<T>.FromJson` | `static (string json) → OpenAPIGenBaseModel?`                                 | parse + validate a DFJSON string into the typed graph (downcast to `Model`); throws on a structurally-invalid model, returns `null` on a `"type"`-discriminator mismatch or failed parse |
+|  [02]   | `.ToJson`                         | `(bool indented = false) → string`                                            | serialize any node to DFJSON (Newtonsoft fork)                                                                                                                                           |
+|  [03]   | `.IsValid` / `.Validate`          | `(bool throwException = false) → bool` · `() → IEnumerable<ValidationResult>` | DataAnnotations validation (range/required) — re-gate a built or mutated model (`FromJson` already validates on parse) before handing to Honeybee/OpenStudio                             |
+|  [04]   | `.Duplicate`                      | `() → OpenAPIGenBaseModel`                                                    | deep structural copy (the immutable-edit seam)                                                                                                                                           |
+|  [05]   | `.Equals` / `==` / `GetHashCode`  | `(OpenAPIGenBaseModel) → bool`                                                | structural value equality (model diffing / `Comparison` properties)                                                                                                                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

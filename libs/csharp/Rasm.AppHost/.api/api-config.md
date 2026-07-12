@@ -1,12 +1,11 @@
 # [RASM_APPHOST_API_CONFIG]
 
-`Microsoft.Extensions.Configuration` supplies hierarchical configuration roots, mutable
-configuration managers, sections, provider chains, in-memory sources, stream sources,
-key comparison, and reload tokens.
+`Microsoft.Extensions.Configuration` supplies hierarchical configuration roots, mutable configuration managers, sections, provider chains, in-memory sources, stream sources, key comparison, and reload tokens.
 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Configuration`
+
 - package: `Microsoft.Extensions.Configuration`
 - assembly: `Microsoft.Extensions.Configuration`
 - contract_assembly: `Microsoft.Extensions.Configuration.Abstractions`
@@ -17,6 +16,7 @@ key comparison, and reload tokens.
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: configuration contracts
+
 - rail: configuration
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [RAIL]                  |
@@ -30,6 +30,7 @@ key comparison, and reload tokens.
 |  [07]   | `IConfigurationSource`   | source contract   | provider factory        |
 
 [PUBLIC_TYPE_SCOPE]: configuration implementation family
+
 - rail: configuration
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]       | [RAIL]               |
@@ -48,6 +49,7 @@ key comparison, and reload tokens.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: configuration operations
+
 - rail: configuration
 
 | [INDEX] | [SURFACE]               | [CALL_SHAPE]        | [CAPABILITY]               |
@@ -62,11 +64,17 @@ key comparison, and reload tokens.
 |  [08]   | `AsEnumerable`          | flattening iterator | projects key values        |
 |  [09]   | `Reload`                | reload command      | refreshes configuration    |
 |  [10]   | `OnReload`              | provider signal     | triggers reload token      |
-|  [11]   | `Exists`                | section predicate   | section-presence test (`ConfigurationExtensions.Exists`, true when the section exists and has a value or children) |
+|  [11]   | `Exists`                | section predicate   | tests section presence     |
+
+[EXISTS_PREDICATE]:
+
+- surface: `ConfigurationExtensions.Exists`
+- truth: section exists with a value or children
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONFIGURATION_TOPOLOGY]:
+
 - namespaces: `Microsoft.Extensions.Configuration`, `Microsoft.Extensions.Configuration.Memory`
 - source model: `IConfigurationSource` builds an `IConfigurationProvider`
 - provider contract: `TryGet`, `Set`, `Load`, `GetChildKeys`, `GetReloadToken`
@@ -74,6 +82,7 @@ key comparison, and reload tokens.
 - key model: colon-delimited path segments with provider precedence by source order
 
 [INPUT_TOPOLOGY]:
+
 - chained source: `AddConfiguration` mounts an existing configuration tree
 - memory source: `MemoryConfigurationSource` and `MemoryConfigurationProvider`
 - stream source: `StreamConfigurationSource` and `StreamConfigurationProvider`
@@ -81,12 +90,14 @@ key comparison, and reload tokens.
 - comparison rail: `ConfigurationKeyComparer` sorts numeric and string path segments
 
 [LOCAL_ADMISSION]:
+
 - Configuration sources enter bootstrap composition as ordered inputs.
 - Runtime policy consumes typed projections, not raw configuration sections.
 - Reload tokens trigger policy replacement only through owned state transitions.
 - Mutable configuration is bootstrap material; runtime mutation enters through state transitions.
 
 [RAIL_LAW]:
+
 - Package: `Microsoft.Extensions.Configuration`
 - Owns: runtime configuration trees
 - Accept: configuration enters policy records

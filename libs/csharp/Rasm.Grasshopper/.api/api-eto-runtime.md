@@ -5,6 +5,7 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto`
+
 - package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP)
 - license: BSD-3-Clause
 - assembly: `Eto` (`Eto.dll`)
@@ -15,84 +16,121 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: application dispatch and timers
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                                                                      | [KIND]     | [CAPABILITY]                                                                                                                                                                  |
-| :-----: | :---------------------------------------------------------------------------- | :--------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Application`                                                                 | service    | dispatch root; static `Instance`, `MainForm`/`Windows`/`Name`/`IsUIThread`/`QuitIsSupported`/`CommonModifier`/`AlternateModifier`/`BadgeLabel`/`IsActive`/`UIThreadCheckMode` |
-|  [02]   | `UITimer`                                                                     | timer      | repeating UI-thread tick; `Interval`/`Started`, `Start()`/`Stop()`, `Elapsed`                                                                                                 |
-|  [03]   | `UIThreadCheckMode`                                                           | enum       | none/error/warning policy for off-thread access detection                                                                                                                     |
-|  [04]   | `NotificationEventArgs` / `LocalizeEventArgs` / `UnhandledExceptionEventArgs` | event-args | notification activation, localization, and unhandled-exception payloads                                                                                                       |
+`Application` exposes static `Instance` and the `MainForm`, `Windows`, `Name`, `IsUIThread`, `QuitIsSupported`, `CommonModifier`, `AlternateModifier`, `BadgeLabel`, `IsActive`, and `UIThreadCheckMode` properties. `UITimer` exposes `Interval`, `Started`, `Start()`, `Stop()`, and `Elapsed`.
+
+| [INDEX] | [SYMBOL]                      | [KIND]     | [CAPABILITY]                    |
+| :-----: | :---------------------------- | :--------- | :------------------------------ |
+|  [01]   | `Application`                 | service    | UI-thread dispatch root         |
+|  [02]   | `UITimer`                     | timer      | repeating UI-thread tick        |
+|  [03]   | `UIThreadCheckMode`           | enum       | off-thread access policy        |
+|  [04]   | `NotificationEventArgs`       | event-args | notification activation payload |
+|  [05]   | `LocalizeEventArgs`           | event-args | localization payload            |
+|  [06]   | `UnhandledExceptionEventArgs` | event-args | unhandled-exception payload     |
 
 [PUBLIC_TYPE_SCOPE]: keyboard, mouse, and cursor state
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                                                 | [KIND]      | [CAPABILITY]                                                                                                                                                                     |
-| :-----: | :------------------------------------------------------- | :---------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Keyboard`                                               | input state | live modifiers; static `Modifiers`/`SupportedLockKeys` (`IEnumerable<Keys>`, membership not flags), `IsKeyLocked(Keys)`, `ModifiersChanged`                                      |
-|  [02]   | `Mouse`                                                  | input state | live pointer; static `IsSupported`/`Position` (`PointF`, settable)/`Buttons`                                                                                                     |
-|  [03]   | `Keys` / `MouseButtons`                                  | enum        | modifier/key and button bitmask vocabularies                                                                                                                                     |
-|  [04]   | `Cursor` / `Cursors`                                     | resource    | pointer glyph; `Cursors` static roster (`Default`/`Arrow`/`Crosshair`/`Pointer`/`IBeam`/`Move`/`NotAllowed`/`SizeAll` + eight directional size cursors), `GetCursor(CursorType)` |
-|  [05]   | `MouseEventArgs` / `KeyEventArgs` / `TextInputEventArgs` | event-args  | pointer, key, and composed-text event payloads                                                                                                                                   |
+`Keyboard` exposes static `Modifiers`, `SupportedLockKeys`, `IsKeyLocked(Keys)`, and `ModifiersChanged`; `SupportedLockKeys` is an `IEnumerable<Keys>` membership set rather than flags. `Mouse` exposes static `IsSupported`, settable `Position` as `PointF`, and `Buttons`. `Cursors` exposes `Default`, `Arrow`, `Crosshair`, `Pointer`, `IBeam`, `Move`, `NotAllowed`, `SizeAll`, eight directional size cursors, and `GetCursor(CursorType)`.
+
+| [INDEX] | [SYMBOL]             | [KIND]      | [CAPABILITY]                |
+| :-----: | :------------------- | :---------- | :-------------------------- |
+|  [01]   | `Keyboard`           | input state | live modifier state         |
+|  [02]   | `Mouse`              | input state | live pointer state          |
+|  [03]   | `Keys`               | enum        | modifier-key bitmask        |
+|  [04]   | `MouseButtons`       | enum        | button bitmask              |
+|  [05]   | `Cursor`             | resource    | pointer glyph               |
+|  [06]   | `Cursors`            | static      | pointer-glyph roster        |
+|  [07]   | `MouseEventArgs`     | event-args  | pointer-event payload       |
+|  [08]   | `KeyEventArgs`       | event-args  | key-event payload           |
+|  [09]   | `TextInputEventArgs` | event-args  | composed-text event payload |
 
 [PUBLIC_TYPE_SCOPE]: typed data transfer
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]                        | [KIND]            | [CAPABILITY]                                                                                                                                                                               |
-| :-----: | :------------------------------ | :---------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Clipboard`                     | service           | system clipboard; static `Instance`, `Types`/`ContainsText`/`ContainsHtml`/`ContainsImage`/`ContainsUris`, `Text`/`Html`/`Image`/`Uris`, `Clear()`                                         |
-|  [02]   | `Clipboard` typed access        | service           | `SetData(byte[], type)`/`GetData(type)`, `SetDataStream`/`GetDataStream`, `SetString`/`GetString`, `SetObject`/`GetObject<T>`, `Contains(type)`                                            |
-|  [03]   | `DataObject`                    | payload           | drag/clipboard carrier mirroring the `Clipboard` typed and format accessors; `IDataObject` contract                                                                                        |
-|  [04]   | `DataFormats`                   | constants         | well-known transfer-type identifiers                                                                                                                                                       |
-|  [05]   | `DragEffects` / `DragEventArgs` | enum / event-args | copy/move/link effect mask and drag payload; `Control.DoDragDrop(DataObject, DragEffects[, Image, PointF])` initiates and returns `void` — the settled effect arrives on `Control.DragEnd` |
+`Clipboard` exposes static `Instance`; `Types`, `ContainsText`, `ContainsHtml`, `ContainsImage`, and `ContainsUris`; `Text`, `Html`, `Image`, and `Uris`; and `Clear()`. Its typed access surface comprises `SetData(byte[], type)`, `GetData(type)`, `SetDataStream`, `GetDataStream`, `SetString`, `GetString`, `SetObject`, `GetObject<T>`, and `Contains(type)`. `DataObject` mirrors the typed and format accessors under the `IDataObject` contract. `Control.DoDragDrop(DataObject, DragEffects[, Image, PointF])` initiates a copy, move, or link drag and returns `void`; the settled effect arrives on `Control.DragEnd`.
+
+| [INDEX] | [SYMBOL]        | [KIND]     | [CAPABILITY]                    |
+| :-----: | :-------------- | :--------- | :------------------------------ |
+|  [01]   | `Clipboard`     | service    | typed system transfer           |
+|  [02]   | `DataObject`    | payload    | typed transfer carrier          |
+|  [03]   | `DataFormats`   | constants  | well-known transfer identifiers |
+|  [04]   | `DragEffects`   | enum       | copy-move-link effect mask      |
+|  [05]   | `DragEventArgs` | event-args | drag payload                    |
 
 [PUBLIC_TYPE_SCOPE]: notifications and screen metrics
+
 - rail: native UI
 
-| [INDEX] | [SYMBOL]        | [KIND]   | [CAPABILITY]                                                                                                                                                            |
-| :-----: | :-------------- | :------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Notification`  | service  | OS alert; `Title`/`Message`/`Icon`/`ContentImage`/`UserData` (`string`)/`RequiresTrayIndicator`, `Activated`; `NotificationEventArgs` carries `ID`/`UserData` strings   |
-|  [02]   | `TrayIndicator` | service  | menu-bar item; `Title`/`Image`/`Menu`/`Visible`, `Activated`                                                                                                            |
-|  [03]   | `Screen`        | metrics  | one display; static `PrimaryScreen`/`Screens`, `Bounds`/`WorkingArea`/`DisplayBounds`/`LogicalPixelSize`/`DPI`/`RealDPI`/`Scale`/`RealScale`/`BitsPerPixel`/`IsPrimary` |
-|  [04]   | `SystemColors`  | resource | theme-derived colour roster for host-consistent painting                                                                                                                |
+`Notification` exposes `Title`, `Message`, `Icon`, `ContentImage`, string `UserData`, `RequiresTrayIndicator`, and `Activated`; `NotificationEventArgs` carries string `ID` and `UserData`. `TrayIndicator` exposes `Title`, `Image`, `Menu`, `Visible`, and `Activated`. `Screen` exposes static `PrimaryScreen` and `Screens` plus `Bounds`, `WorkingArea`, `DisplayBounds`, `LogicalPixelSize`, `DPI`, `RealDPI`, `Scale`, `RealScale`, `BitsPerPixel`, and `IsPrimary`.
+
+| [INDEX] | [SYMBOL]        | [KIND]   | [CAPABILITY]                  |
+| :-----: | :-------------- | :------- | :---------------------------- |
+|  [01]   | `Notification`  | service  | operating-system alert        |
+|  [02]   | `TrayIndicator` | service  | menu-bar item                 |
+|  [03]   | `Screen`        | metrics  | per-display density metrics   |
+|  [04]   | `SystemColors`  | resource | host-consistent theme colours |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: application dispatch
+
 - rail: native UI
 
-| [INDEX] | [SURFACE]                                                                                  | [CALL_SHAPE]                                     | [CAPABILITY]                                    |
-| :-----: | :----------------------------------------------------------------------------------------- | :----------------------------------------------- | :---------------------------------------------- |
-|  [01]   | `Application.Invoke`                                                                       | `(Action)` / `<T>(Func<T>)` → `T`                | runs on the UI thread and blocks for the result |
-|  [02]   | `Application.AsyncInvoke`                                                                  | `(Action)`                                       | queues on the UI thread without waiting         |
-|  [03]   | `Application.InvokeAsync`                                                                  | `(Action)` → `Task` / `<T>(Func<T>)` → `Task<T>` | awaitable UI-thread marshal                     |
-|  [04]   | `Application.EnsureUIThread` / `RunIteration`                                              | `()`                                             | thread assertion and one run-loop pump          |
-|  [05]   | `Application.Quit` / `Open` / `Localize`                                                   | `()` / `(string url)` / `(string)` → `string`    | app teardown, URL open, and localization        |
-|  [06]   | `Application.NotificationActivated` / `Initialized` / `Terminating` / `UnhandledException` | event                                            | lifecycle and notification-activation hooks     |
+| [INDEX] | [SURFACE]                             | [RESULT]  | [CAPABILITY]                 |
+| :-----: | :------------------------------------ | :-------- | :--------------------------- |
+|  [01]   | `Application.Invoke(Action)`          | —         | blocking UI-thread dispatch  |
+|  [02]   | `Application.Invoke<T>(Func<T>)`      | `T`       | blocking UI-thread dispatch  |
+|  [03]   | `Application.AsyncInvoke(Action)`     | —         | non-blocking UI-thread queue |
+|  [04]   | `Application.InvokeAsync(Action)`     | `Task`    | awaitable UI-thread dispatch |
+|  [05]   | `Application.InvokeAsync<T>(Func<T>)` | `Task<T>` | awaitable UI-thread dispatch |
+|  [06]   | `Application.EnsureUIThread()`        | —         | UI-thread assertion          |
+|  [07]   | `Application.RunIteration()`          | —         | single run-loop pump         |
+|  [08]   | `Application.Quit()`                  | —         | application teardown         |
+|  [09]   | `Application.Open(string url)`        | —         | URL open                     |
+|  [10]   | `Application.Localize(string)`        | `string`  | localization                 |
+|  [11]   | `Application.NotificationActivated`   | event     | notification activation hook |
+|  [12]   | `Application.Initialized`             | event     | initialization hook          |
+|  [13]   | `Application.Terminating`             | event     | termination hook             |
+|  [14]   | `Application.UnhandledException`      | event     | unhandled-exception hook     |
 
 [ENTRYPOINT_SCOPE]: timer, input, and clipboard
+
 - rail: native UI
 
-| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]                           | [CAPABILITY]                        |
-| :-----: | :------------------------------------------ | :------------------------------------- | :---------------------------------- |
-|  [01]   | `UITimer.Start` / `Stop`                    | `()`                                   | starts and stops the repeating tick |
-|  [02]   | `Keyboard.IsKeyLocked`                      | `(Keys)` → `bool`                      | lock-key state read                 |
-|  [03]   | `Clipboard.SetString` / `GetString`         | `(string, type)` / `(type)` → `string` | typed string transfer               |
-|  [04]   | `Clipboard.SetObject` / `GetObject`         | `(object, type)` / `<T>(type)` → `T`   | typed object transfer               |
-|  [05]   | `Clipboard.SetDataStream` / `GetDataStream` | `(Stream, type)` / `(type)` → `Stream` | raw stream transfer                 |
+| [INDEX] | [SURFACE]                               | [RESULT] | [CAPABILITY]          |
+| :-----: | :-------------------------------------- | :------- | :-------------------- |
+|  [01]   | `UITimer.Start()`                       | —        | starts repeating tick |
+|  [02]   | `UITimer.Stop()`                        | —        | stops repeating tick  |
+|  [03]   | `Keyboard.IsKeyLocked(Keys)`            | `bool`   | lock-key state read   |
+|  [04]   | `Clipboard.SetString(string, type)`     | —        | typed string write    |
+|  [05]   | `Clipboard.GetString(type)`             | `string` | typed string read     |
+|  [06]   | `Clipboard.SetObject(object, type)`     | —        | typed object write    |
+|  [07]   | `Clipboard.GetObject<T>(type)`          | `T`      | typed object read     |
+|  [08]   | `Clipboard.SetDataStream(Stream, type)` | —        | raw stream write      |
+|  [09]   | `Clipboard.GetDataStream(type)`         | `Stream` | raw stream read       |
 
 [ENTRYPOINT_SCOPE]: notification and screen resolution
+
 - rail: native UI
 
-| [INDEX] | [SURFACE]                                   | [CALL_SHAPE]       | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------ | :----------------- | :------------------------------------------------- |
-|  [01]   | `Notification.Show`                         | `(TrayIndicator?)` | posts the alert, optionally through a tray item    |
-|  [02]   | `Screen.PrimaryScreen` / `Screens`          | static get         | primary display and full enumeration               |
-|  [03]   | `Screen.LogicalPixelSize` / `Scale` / `DPI` | get                | logical-pixel and density projection for a display |
+| [INDEX] | [SURFACE]                           | [KIND]     | [CAPABILITY]              |
+| :-----: | :---------------------------------- | :--------- | :------------------------ |
+|  [01]   | `Notification.Show(TrayIndicator?)` | method     | posts optional tray alert |
+|  [02]   | `Screen.PrimaryScreen`              | static get | primary display           |
+|  [03]   | `Screen.Screens`                    | static get | display enumeration       |
+|  [04]   | `Screen.LogicalPixelSize`           | get        | logical-pixel projection  |
+|  [05]   | `Screen.Scale`                      | get        | display scale             |
+|  [06]   | `Screen.DPI`                        | get        | display density           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISPATCH_TOPOLOGY]:
+
 - `Application.Instance` is the one UI-thread seam: `Invoke` blocks for a result, `AsyncInvoke` fire-and-forgets, `InvokeAsync` awaits; a host callback that mutates a control off-thread routes through one of these, never a raw thread hop
 - `UITimer` owns the repeating UI-thread tick; a paint or animation cadence subscribes `Elapsed` and toggles `Started`
 - input state is read live: `Keyboard.Modifiers` and `Mouse.Position`/`Buttons` are ambient reads, distinct from the per-event `MouseEventArgs`/`KeyEventArgs` snapshots a control raises
@@ -100,17 +138,20 @@
 - `Screen` carries the density facts (`LogicalPixelSize`, `Scale`, `DPI`) a panel reads once per paint to place logical geometry into device pixels
 
 [STACKING]:
+
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): a UI-thread result marshal is an `Eff<A>` deferred until `Application.Instance.Invoke(() => eff.Run())`, landing on `Fin<A>`; a clipboard read null-gates through `Optional(Clipboard.Instance.GetString(type)).ToFin(error)`; a repeating `UITimer` cadence drives an `IO<A>` step chain per tick
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the transfer `DataFormats` identifiers project onto a `[SmartEnum<string>]` payload-kind owner carrying its parse/serialize behaviour; `UIThreadCheckMode`, `DragEffects`, and `MouseButtons` are the host enum vocabularies a smart-enum owner wraps where the panel attaches routing
 - `api-eto-forms`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-forms.md`): control invalidation and dialog presentation are the panel-side consumers that marshal through `Application.Instance`
 - `api-macos-native`(`libs/csharp/Rasm.Grasshopper/.api/api-macos-native.md`): `Application.Invoke`, `UITimer`, and `Screen.LogicalPixelSize` are the host-neutral boundary the macOS layer replaces with `CADisplayLink` pacing and `NSScreen` refresh metrics for high-cadence work
 
 [LOCAL_ADMISSION]:
+
 - `Eto.Forms` runtime is host-provided and composed directly — a cross-thread marshal calls `Application.Instance` and a tick uses `UITimer`, never a hand-rolled `SynchronizationContext` capture or `System.Threading.Timer` beside them
 - transfer payloads ride the typed `Clipboard`/`DataObject` accessors keyed by `DataFormats`, never a stringly-parsed blob
 - display density is read from `Screen`, never a hardcoded scale constant
 
 [RAIL_LAW]:
+
 - Package: `Eto`
 - Owns: UI-thread dispatch, timers, live input and cursor state, typed clipboard and drag payloads, notifications, and screen metrics for GH2-hosted panels
 - Accept: cross-thread marshalling, repeating ticks, input and modifier reads, typed data transfer, OS alerts, per-display density resolution

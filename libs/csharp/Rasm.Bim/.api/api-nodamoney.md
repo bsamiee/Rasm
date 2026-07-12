@@ -51,43 +51,43 @@ decimal → Money`) — the seam quantity supplying the multiplier and `Money` t
 - rail: cost
 - note: `Money` is the canonical priced scalar; `FastMoney` is the OACurrency-backed (`long` storage, 4-decimal fixed, `Amount => decimal.FromOACurrency`) performance variant with the SAME operator set plus `long`-typed `*`/`/` overloads (admitted only where a hot inner aggregation needs it and 4-decimal precision suffices, never as a parallel money model). A `CostItem` value is ONE `Money`, never a `(double, string)` pair.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------- |:----------------------- |:-------------------------------------------------------------------- |
-| [01] | `Money` | money value | `readonly struct` over `decimal Amount` + `Currency`; the priced scalar |
-| [02] | `FastMoney` | fast money value | `readonly struct` OACurrency-backed (`long`, 4-decimal fixed) performance variant, same operators + `long` `*`/`/` |
-| [03] | `Currency` | currency identity | `readonly record struct` over ISO 4217 `Code`; `Symbol`/`MinimalAmount`/`NoCurrency` |
-| [04] | `CurrencyInfo` | currency registry record | `record` carrying decimal digits, symbol, English name, minor-unit metadata; the `IFormatProvider`/`ICustomFormatter` for money formatting |
-| [05] | `CurrencyRegistry` | currency registry seam | `static` — `Get`/`TryGet(code/Currency)`, `GetAllCurrencies`, `TryAdd`/`TryRemove(CurrencyInfo)`; the mutable ISO 4217 registry a custom/regional currency registers through |
-| [06] | `MoneyExtensions` | money allocation | `static` — the `Money.Split` extension family (`int shares` / `int[] ratios`, optional `MidpointRounding`) returning `IEnumerable<Money>` |
-| [07] | `NodaMoney.Exchange.ExchangeRate` | FX rate | `readonly record struct` `(BaseCurrency, QuoteCurrency, decimal Rate)`; `Convert(Money)` — lives in `NodaMoney.Exchange` |
-| [08] | `MinorUnit` | minor-unit exponent | `enum: byte` — the decimal-digit exponent of a currency's minor unit |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]            | [RAIL]                                                                                                                                                                       |
+| :-----: | :-------------------------------- | :----------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Money`                           | money value              | `readonly struct` over `decimal Amount` + `Currency`; the priced scalar                                                                                                      |
+|  [02]   | `FastMoney`                       | fast money value         | `readonly struct` OACurrency-backed (`long`, 4-decimal fixed) performance variant, same operators + `long` `*`/`/`                                                           |
+|  [03]   | `Currency`                        | currency identity        | `readonly record struct` over ISO 4217 `Code`; `Symbol`/`MinimalAmount`/`NoCurrency`                                                                                         |
+|  [04]   | `CurrencyInfo`                    | currency registry record | `record` carrying decimal digits, symbol, English name, minor-unit metadata; the `IFormatProvider`/`ICustomFormatter` for money formatting                                   |
+|  [05]   | `CurrencyRegistry`                | currency registry seam   | `static` — `Get`/`TryGet(code/Currency)`, `GetAllCurrencies`, `TryAdd`/`TryRemove(CurrencyInfo)`; the mutable ISO 4217 registry a custom/regional currency registers through |
+|  [06]   | `MoneyExtensions`                 | money allocation         | `static` — the `Money.Split` extension family (`int shares` / `int[] ratios`, optional `MidpointRounding`) returning `IEnumerable<Money>`                                    |
+|  [07]   | `NodaMoney.Exchange.ExchangeRate` | FX rate                  | `readonly record struct` `(BaseCurrency, QuoteCurrency, decimal Rate)`; `Convert(Money)` — lives in `NodaMoney.Exchange`                                                     |
+|  [08]   | `MinorUnit`                       | minor-unit exponent      | `enum: byte` — the decimal-digit exponent of a currency's minor unit                                                                                                         |
 
 [PUBLIC_TYPE_SCOPE]: rounding/precision policy and FX context
 - rail: cost
 - note: the policy types live in `NodaMoney.Context` (a separate `using`). `MoneyContext` is the NEW ambient policy replacing per-`Money` `MidpointRounding`: a thread-current context owns the rounding strategy, the precision, the max scale, and the default currency; `CreateScope` installs one for a `using` block. The default is banker's rounding. The `IRoundingStrategy` contract is `Round(decimal amount, Currency currency, int? decimals)`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:----------------------------------------- |:------------------- |:----------------------------------------------------------------- |
-| [01] | `NodaMoney.Context.MoneyContext` | rounding/precision policy | `sealed record` (`IDisposable`); `RoundingStrategy`/`Precision`/`MaxScale`/`DefaultCurrency`/`EnforceZeroCurrencyMatching`, thread-current + scoped, nested `MoneyContext.ContextScope` |
-| [02] | `NodaMoney.Context.MoneyContextOptions` | policy options | `record` the `Create`/`CreateScope`/`CreateAndSetDefault` configurator mutates |
-| [03] | `NodaMoney.Context.MoneyContextIndex` | context handle | `readonly struct` the `Money` carries to its registered context (internal slot) |
-| [04] | `NodaMoney.Context.IRoundingStrategy` | rounding contract | `Round(decimal, Currency, int?)` — the rounding-policy seam `MoneyContext.RoundingStrategy` exposes |
-| [05] | `NodaMoney.Context.NoRounding` | rounding strategy | `record` — exact, no rounding applied |
-| [06] | `NodaMoney.Context.StandardRounding` | rounding strategy | `record(MidpointRounding Mode = ToEven)` — banker's rounding default |
-| [07] | `NodaMoney.Context.CashDenominationRounding` | rounding strategy | `record(decimal decimals)` — cash rounding to a denomination (e.g. CHF), the "smallest coin" rule |
-| [08] | `Transaction` | transaction POCO | mutable `class` of four properties (`Money Amount`/`ExchangeRate ExchangeRate`/`Money Tax`/`Money Discount`) — a single-transaction convenience carrier, NOT a multi-currency aggregation bag; mixed-currency lossless aggregation is the consumer's per-currency partition (`CostRollup.ByCurrency`), never a `Transaction` |
+| [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY]             | [RAIL]                                                                                                                                                                                                                                                                                                                       |
+| :-----: | :------------------------------------------- | :------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `NodaMoney.Context.MoneyContext`             | rounding/precision policy | `sealed record` (`IDisposable`); `RoundingStrategy`/`Precision`/`MaxScale`/`DefaultCurrency`/`EnforceZeroCurrencyMatching`, thread-current + scoped, nested `MoneyContext.ContextScope`                                                                                                                                      |
+|  [02]   | `NodaMoney.Context.MoneyContextOptions`      | policy options            | `record` the `Create`/`CreateScope`/`CreateAndSetDefault` configurator mutates                                                                                                                                                                                                                                               |
+|  [03]   | `NodaMoney.Context.MoneyContextIndex`        | context handle            | `readonly struct` the `Money` carries to its registered context (internal slot)                                                                                                                                                                                                                                              |
+|  [04]   | `NodaMoney.Context.IRoundingStrategy`        | rounding contract         | `Round(decimal, Currency, int?)` — the rounding-policy seam `MoneyContext.RoundingStrategy` exposes                                                                                                                                                                                                                          |
+|  [05]   | `NodaMoney.Context.NoRounding`               | rounding strategy         | `record` — exact, no rounding applied                                                                                                                                                                                                                                                                                        |
+|  [06]   | `NodaMoney.Context.StandardRounding`         | rounding strategy         | `record(MidpointRounding Mode = ToEven)` — banker's rounding default                                                                                                                                                                                                                                                         |
+|  [07]   | `NodaMoney.Context.CashDenominationRounding` | rounding strategy         | `record(decimal decimals)` — cash rounding to a denomination (e.g. CHF), the "smallest coin" rule                                                                                                                                                                                                                            |
+|  [08]   | `Transaction`                                | transaction POCO          | mutable `class` of four properties (`Money Amount`/`ExchangeRate ExchangeRate`/`Money Tax`/`Money Discount`) — a single-transaction convenience carrier, NOT a multi-currency aggregation bag; mixed-currency lossless aggregation is the consumer's per-currency partition (`CostRollup.ByCurrency`), never a `Transaction` |
 
 [PUBLIC_TYPE_SCOPE]: boundary serialization and failure
 - rail: cost
 - note: the JSON converters and `TypeConverter`s are the boundary-only serdes the wire/persistence seam uses; internal cost code holds the typed `Money`/`Currency`. The exceptions are the package's throwing failure mode the cost rail traps onto `Fin<T>` — domain code never sees them.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:----------------------------- |:----------------- |:---------------------------------------------------------- |
-| [01] | `NodaMoney.Serialization.MoneyJsonConverter` | STJ converter | `JsonConverter<Money>` — the `System.Text.Json` money codec |
-| [02] | `NodaMoney.Serialization.CurrencyJsonConverter` | STJ converter | `JsonConverter<Currency>` — the currency-code codec |
-| [03] | `NodaMoney.Serialization.MoneyTypeConverter` / `CurrencyTypeConverter` | TypeConverter | the `System.ComponentModel` string↔value converters |
-| [04] | `InvalidCurrencyException` | currency failure | thrown on an unknown ISO 4217 code (`FromCode` miss) |
-| [05] | `MoneyContextMismatchException` | currency failure | thrown on a cross-currency op when `EnforceZeroCurrencyMatching` rejects |
+| [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]    | [RAIL]                                                                   |
+| :-----: | :--------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------------- |
+|  [01]   | `NodaMoney.Serialization.MoneyJsonConverter`                           | STJ converter    | `JsonConverter<Money>` — the `System.Text.Json` money codec              |
+|  [02]   | `NodaMoney.Serialization.CurrencyJsonConverter`                        | STJ converter    | `JsonConverter<Currency>` — the currency-code codec                      |
+|  [03]   | `NodaMoney.Serialization.MoneyTypeConverter` / `CurrencyTypeConverter` | TypeConverter    | the `System.ComponentModel` string↔value converters                      |
+|  [04]   | `InvalidCurrencyException`                                             | currency failure | thrown on an unknown ISO 4217 code (`FromCode` miss)                     |
+|  [05]   | `MoneyContextMismatchException`                                        | currency failure | thrown on a cross-currency op when `EnforceZeroCurrencyMatching` rejects |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -95,56 +95,56 @@ decimal → Money`) — the seam quantity supplying the multiplier and `Money` t
 - rail: cost
 - note: a `Money` constructs from a `decimal`/`double`/`long`/`ulong` amount plus a currency `code`/`Currency`/`MoneyContext`; the `ToMinorUnits`/`FromMinorUnits` pair is the integer-penny representation a wire/ledger persists losslessly.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------------------- |:--------------- |:----------------------------------------------- |
-| [01] | `new Money(decimal amount, string code)` | ctor | amount + ISO 4217 code |
-| [02] | `new Money(decimal amount, Currency currency)` | ctor | amount + resolved currency |
-| [03] | `new Money(decimal amount, Currency currency, MoneyContext? context = null)` | ctor | amount + currency + explicit rounding/precision context |
-| [04] | `new Money(double amount, string code)` / `new Money(long amount, string code)` | ctor | foreign-numeric amount intake (double rounds to currency minor unit) |
-| [05] | `Money.FromMinorUnits(long minorUnits, Currency currency)` | minor-unit factory | construct from the integer minor-unit (penny/cent) representation |
-| [06] | `Money.ToMinorUnits()` | minor-unit read | the integer minor-unit value (the lossless wire/ledger form) |
-| [07] | `Money.Amount` / `Money.Currency` | value read | the `decimal` scalar and the `Currency` identity |
-| [08] | `Money.Deconstruct(out decimal amount, out Currency currency)` | deconstruct | pattern-match destructuring |
-| [09] | `Currency.FromCode(string code)` | currency factory | ISO 4217 code → `Currency` (throws `InvalidCurrencyException` on miss) |
-| [10] | `Currency.Code` / `Currency.Symbol` / `Currency.MinimalAmount` | currency read | the code, the display symbol, the smallest representable amount |
-| [11] | `Currency.NoCurrency` | currency anchor | the no-currency sentinel (the `MonetaryAmount.Zero`-equivalent neutral) |
-| [12] | `Money.Euro` / `Money.USDollar` / `Money.PoundSterling` / `Money.Yen` / `Money.Yuan` | currency shortcut | the major-currency `Money` factory (decimal/double/long/ulong overloads) |
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]     | [RAIL]                                                                   |
+| :-----: | :----------------------------------------------------------------------------------- | :----------------- | :----------------------------------------------------------------------- |
+|  [01]   | `new Money(decimal amount, string code)`                                             | ctor               | amount + ISO 4217 code                                                   |
+|  [02]   | `new Money(decimal amount, Currency currency)`                                       | ctor               | amount + resolved currency                                               |
+|  [03]   | `new Money(decimal amount, Currency currency, MoneyContext? context = null)`         | ctor               | amount + currency + explicit rounding/precision context                  |
+|  [04]   | `new Money(double amount, string code)` / `new Money(long amount, string code)`      | ctor               | foreign-numeric amount intake (double rounds to currency minor unit)     |
+|  [05]   | `Money.FromMinorUnits(long minorUnits, Currency currency)`                           | minor-unit factory | construct from the integer minor-unit (penny/cent) representation        |
+|  [06]   | `Money.ToMinorUnits()`                                                               | minor-unit read    | the integer minor-unit value (the lossless wire/ledger form)             |
+|  [07]   | `Money.Amount` / `Money.Currency`                                                    | value read         | the `decimal` scalar and the `Currency` identity                         |
+|  [08]   | `Money.Deconstruct(out decimal amount, out Currency currency)`                       | deconstruct        | pattern-match destructuring                                              |
+|  [09]   | `Currency.FromCode(string code)`                                                     | currency factory   | ISO 4217 code → `Currency` (throws `InvalidCurrencyException` on miss)   |
+|  [10]   | `Currency.Code` / `Currency.Symbol` / `Currency.MinimalAmount`                       | currency read      | the code, the display symbol, the smallest representable amount          |
+|  [11]   | `Currency.NoCurrency`                                                                | currency anchor    | the no-currency sentinel (the `MonetaryAmount.Zero`-equivalent neutral)  |
+|  [12]   | `Money.Euro` / `Money.USDollar` / `Money.PoundSterling` / `Money.Yen` / `Money.Yuan` | currency shortcut  | the major-currency `Money` factory (decimal/double/long/ulong overloads) |
 
 [ENTRYPOINT_SCOPE]: money arithmetic, allocation, and FX
 - rail: cost
 - note: the operator set closes the cost algebra — `Money + Money`, `Money * decimal` (a unit-rate times a takeoff quantity), `Money / decimal` (a per-basis rate), `Money / Money → decimal` (a dimensionless ratio); `Split` is the lossless penny distribution `MonetaryAmount.Scale`-by-ratio cannot do; `ExchangeRate.Convert` is the cross-currency leg.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------------------- |:--------------- |:----------------------------------------------- |
-| [01] | `operator +` / `operator -` | additive | `Money + Money → Money`, `Money + decimal → Money` (same-currency) |
-| [02] | `operator *` (`Money, decimal`) | scaling | `Money * decimal → Money` — unit rate times takeoff quantity |
-| [03] | `operator /` (`Money, decimal`) | scaling | `Money / decimal → Money` — per-basis rate (the `UnitBasis` divide) |
-| [04] | `operator /` (`Money, Money`) | ratio | `Money / Money → decimal` — dimensionless cost ratio |
-| [05] | `operator %` (`Money, Money`) | modulus | `Money % Money → Money` — the allocation remainder |
-| [06] | `Money.Add` / `Subtract` / `Multiply` / `Divide` / `Remainder` (static `in`-ref) | static op | the by-ref static arithmetic the hot fold uses (no boxing) |
-| [07] | `MoneyExtensions.Split(this Money, int shares)` / `Split(int shares, MidpointRounding)` | allocation | extension returning `IEnumerable<Money>` — distribute one `Money` into N equal shares LOSSLESSLY (remainder spread by the rounding rule) |
-| [08] | `MoneyExtensions.Split(this Money, int[] ratios)` / `Split(int[] ratios, MidpointRounding)` | allocation | extension returning `IEnumerable<Money>` — distribute by weighted integer ratios LOSSLESSLY |
-| [09] | `new NodaMoney.Exchange.ExchangeRate(Currency base, Currency quote, decimal rate)` / `(string baseCode, string quoteCode, decimal rate)` / `(…, double rate, int numberOfDecimals = 6)` | FX ctor | the directed FX rate (both `Currency`- and `string`-code legs, `decimal`- and `double`-rate forms) |
-| [10] | `ExchangeRate.Convert(Money money)` | FX convert | reprice a `Money` from the base into the quote currency |
-| [11] | `Money.CompareTo` / `operator <` / `>` / `<=` / `>=` / `Money.Compare(in, in)` | ordering | same-currency comparison (the budget-vs-actual test) |
-| [12] | `Money.MinValue` / `Money.MaxValue` / `Money.AdditiveIdentity` / `Money.MultiplicativeIdentity` | generic-math anchor | `IMinMaxValue`/`IAdditiveIdentity`/`IMultiplicativeIdentity<Money, decimal>` identities for a generic fold |
-| [13] | `Money.Abs` / `IsNegative` / `IsPositive` / `IsZero(in)` / `MinMagnitude` / `MaxMagnitude` | static numeric | the sign/magnitude tests a cost-sign branch (a credit vs a charge) reads, never a hand-written `< 0` on the raw `decimal` |
+| [INDEX] | [SURFACE]                                                                                                                                                                               | [ENTRY_FAMILY]      | [RAIL]                                                                                                                                   |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `operator +` / `operator -`                                                                                                                                                             | additive            | `Money + Money → Money`, `Money + decimal → Money` (same-currency)                                                                       |
+|  [02]   | `operator *` (`Money, decimal`)                                                                                                                                                         | scaling             | `Money * decimal → Money` — unit rate times takeoff quantity                                                                             |
+|  [03]   | `operator /` (`Money, decimal`)                                                                                                                                                         | scaling             | `Money / decimal → Money` — per-basis rate (the `UnitBasis` divide)                                                                      |
+|  [04]   | `operator /` (`Money, Money`)                                                                                                                                                           | ratio               | `Money / Money → decimal` — dimensionless cost ratio                                                                                     |
+|  [05]   | `operator %` (`Money, Money`)                                                                                                                                                           | modulus             | `Money % Money → Money` — the allocation remainder                                                                                       |
+|  [06]   | `Money.Add` / `Subtract` / `Multiply` / `Divide` / `Remainder` (static `in`-ref)                                                                                                        | static op           | the by-ref static arithmetic the hot fold uses (no boxing)                                                                               |
+|  [07]   | `MoneyExtensions.Split(this Money, int shares)` / `Split(int shares, MidpointRounding)`                                                                                                 | allocation          | extension returning `IEnumerable<Money>` — distribute one `Money` into N equal shares LOSSLESSLY (remainder spread by the rounding rule) |
+|  [08]   | `MoneyExtensions.Split(this Money, int[] ratios)` / `Split(int[] ratios, MidpointRounding)`                                                                                             | allocation          | extension returning `IEnumerable<Money>` — distribute by weighted integer ratios LOSSLESSLY                                              |
+|  [09]   | `new NodaMoney.Exchange.ExchangeRate(Currency base, Currency quote, decimal rate)` / `(string baseCode, string quoteCode, decimal rate)` / `(…, double rate, int numberOfDecimals = 6)` | FX ctor             | the directed FX rate (both `Currency`- and `string`-code legs, `decimal`- and `double`-rate forms)                                       |
+|  [10]   | `ExchangeRate.Convert(Money money)`                                                                                                                                                     | FX convert          | reprice a `Money` from the base into the quote currency                                                                                  |
+|  [11]   | `Money.CompareTo` / `operator <` / `>` / `<=` / `>=` / `Money.Compare(in, in)`                                                                                                          | ordering            | same-currency comparison (the budget-vs-actual test)                                                                                     |
+|  [12]   | `Money.MinValue` / `Money.MaxValue` / `Money.AdditiveIdentity` / `Money.MultiplicativeIdentity`                                                                                         | generic-math anchor | `IMinMaxValue`/`IAdditiveIdentity`/`IMultiplicativeIdentity<Money, decimal>` identities for a generic fold                               |
+|  [13]   | `Money.Abs` / `IsNegative` / `IsPositive` / `IsZero(in)` / `MinMagnitude` / `MaxMagnitude`                                                                                              | static numeric      | the sign/magnitude tests a cost-sign branch (a credit vs a charge) reads, never a hand-written `< 0` on the raw `decimal`                |
 
 [ENTRYPOINT_SCOPE]: parse, format, and the rounding/precision context
 - rail: cost
 - note: `Money`/`Currency`/`ExchangeRate` are `IParsable`/`ISpanParsable`/`ISpanFormattable`; the `MoneyContext` is the ambient rounding/precision policy a `using` scope installs so a whole estimate folds under one rounding rule without threading `MidpointRounding` through every call.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------------------- |:--------------- |:----------------------------------------------- |
-| [01] | `Money.Parse(string)` / `Parse(ReadOnlySpan<char>, IFormatProvider?)` | parse | currency-aware money parse |
-| [02] | `Money.TryParse(string?, out Money)` / `TryParse(ReadOnlySpan<char>, IFormatProvider?, out Money)` | try-parse | non-throwing money parse (the boundary intake) |
-| [03] | `Money.ToString(string? format, IFormatProvider?)` / `TryFormat(Span<char>/Span<byte>, …)` | format | culture/format money rendering (UTF-8 span included) |
-| [04] | `ExchangeRate.Parse` / `TryParse` | FX parse | parse a `"USD/EUR "`-style rate string |
-| [05] | `MoneyContext.Create(MoneyContextOptions, string? name)` / `Create(Action<MoneyContextOptions>, string?)` | context build | construct a named rounding/precision policy |
-| [06] | `MoneyContext.CreateScope(MoneyContext)` / `CreateScope(MoneyContextOptions)` / `CreateScope(Action<MoneyContextOptions>)` / `CreateScope(string name)` | context scope | install an ambient context for a `using` block (`IDisposable`) |
-| [07] | `MoneyContext.CreateAndSetDefault(MoneyContextOptions, string?)` / `CreateAndSetDefault(Action<MoneyContextOptions>, string?)` / `MoneyContext.Get(string name)` | context default | set the process-default rounding/precision policy, or look a named context up |
-| [08] | `MoneyContext.CurrentContext` / `DefaultThreadContext` / `ThreadContext` | context read | the thread-current / default rounding policy in force |
-| [09] | `MoneyContext.RoundingStrategy` / `Precision` / `MaxScale` / `DefaultCurrency` / `EnforceZeroCurrencyMatching` | policy read | the active rounding strategy, decimal precision, scale cap, default currency, and zero-currency matching flag |
+| [INDEX] | [SURFACE]                                                                                                                                                        | [ENTRY_FAMILY]  | [RAIL]                                                                                                        |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Money.Parse(string)` / `Parse(ReadOnlySpan<char>, IFormatProvider?)`                                                                                            | parse           | currency-aware money parse                                                                                    |
+|  [02]   | `Money.TryParse(string?, out Money)` / `TryParse(ReadOnlySpan<char>, IFormatProvider?, out Money)`                                                               | try-parse       | non-throwing money parse (the boundary intake)                                                                |
+|  [03]   | `Money.ToString(string? format, IFormatProvider?)` / `TryFormat(Span<char>/Span<byte>, …)`                                                                       | format          | culture/format money rendering (UTF-8 span included)                                                          |
+|  [04]   | `ExchangeRate.Parse` / `TryParse`                                                                                                                                | FX parse        | parse a `"USD/EUR "`-style rate string                                                                        |
+|  [05]   | `MoneyContext.Create(MoneyContextOptions, string? name)` / `Create(Action<MoneyContextOptions>, string?)`                                                        | context build   | construct a named rounding/precision policy                                                                   |
+|  [06]   | `MoneyContext.CreateScope(MoneyContext)` / `CreateScope(MoneyContextOptions)` / `CreateScope(Action<MoneyContextOptions>)` / `CreateScope(string name)`          | context scope   | install an ambient context for a `using` block (`IDisposable`)                                                |
+|  [07]   | `MoneyContext.CreateAndSetDefault(MoneyContextOptions, string?)` / `CreateAndSetDefault(Action<MoneyContextOptions>, string?)` / `MoneyContext.Get(string name)` | context default | set the process-default rounding/precision policy, or look a named context up                                 |
+|  [08]   | `MoneyContext.CurrentContext` / `DefaultThreadContext` / `ThreadContext`                                                                                         | context read    | the thread-current / default rounding policy in force                                                         |
+|  [09]   | `MoneyContext.RoundingStrategy` / `Precision` / `MaxScale` / `DefaultCurrency` / `EnforceZeroCurrencyMatching`                                                   | policy read     | the active rounding strategy, decimal precision, scale cap, default currency, and zero-currency matching flag |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
