@@ -2,18 +2,18 @@
 
 The one public front door's declarative engine: a domain folder exports its `HttpApiGroup` or `RpcGroup` as data, the APP — never this module, never any lib module — assembles exactly one `HttpApi` value and crosses exactly one RPC protocol row with one serialization row at its root, and every secondary surface — the OpenAPI 3.1 document, the served Scalar reference UI, the byte-stable spec artifact, the typed HTTP SDK, the typed RPC caller, the fetch-shaped web handler — projects from that same assembled value so spec, docs, client, and server cannot drift. Auth is declarative into the emitted contract: the `Authn` middleware Tag carries its `HttpApiSecurity` schemes, so the bearer and API-key security requirements land in the OpenAPI document from the same declaration the handler set enforces, and a protected group's handlers receive `Principal` from the requirement channel. Every refusal is one `GateFault` whose reason row carries the fault class and the status probe the `problem` fold reads; the ambient request rows — stamp, tenant, negotiated locale — are `Context.Reference` values any rail reads at zero requirement pressure. The god-contract is structurally impossible because `HttpApiBuilder.group` demands the assembled api value the lib never holds. The module ships on the `./server` exports subpath as `runtime/src/serve/api.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                              | [PUBLIC]              |
-| :-----: | :--------------- | :---------------------------------------------------------------------------------- | :-------------------- |
-|  [01]   | `CONVENTION`     | version-prefix rows, the cursor brand, page-query and page-envelope constructors     | `Convention`          |
-|  [02]   | `GATE_FAULT`     | the reason-discriminated refusal family with class/status/retry rows                 | `GateFault`           |
-|  [03]   | `CURRENT_ROWS`   | ambient stamp/tenant/locale references, locale negotiation, trace continuation       | `Current`             |
-|  [04]   | `ADMISSION_ROWS` | `Principal`, the scheme-threaded `Authn` security middleware, pressure, idempotency  | `Principal`, `Gate`   |
-|  [05]   | `CONTRIBUTION`   | the http and rpc pairing constructors, protocol and codec rosters, upload modality   | `Contribution`        |
-|  [06]   | `EMIT`           | spec artifact, docs stack, derived HTTP and RPC clients, the web-handler edge form   | `Emit`                |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                              | [PUBLIC]            |
+| :-----: | :--------------- | :---------------------------------------------------------------------------------- | :------------------ |
+|  [01]   | `CONVENTION`     | version-prefix rows, the cursor brand, page-query and page-envelope constructors    | `Convention`        |
+|  [02]   | `GATE_FAULT`     | the reason-discriminated refusal family with class/status/retry rows                | `GateFault`         |
+|  [03]   | `CURRENT_ROWS`   | ambient stamp/tenant/locale references, locale negotiation, trace continuation      | `Current`           |
+|  [04]   | `ADMISSION_ROWS` | `Principal`, the scheme-threaded `Authn` security middleware, pressure, idempotency | `Principal`, `Gate` |
+|  [05]   | `CONTRIBUTION`   | the http and rpc pairing constructors, protocol and codec rosters, upload modality  | `Contribution`      |
+|  [06]   | `EMIT`           | spec artifact, docs stack, derived HTTP and RPC clients, the web-handler edge form  | `Emit`              |
 
-## [2]-[CONVENTION]
+## [02]-[CONVENTION]
 
 [CONVENTION]:
 - Owner: `Convention` — the shared surface vocabulary both contribution families speak: the version tuple (`v1`; a new major is one tuple entry every consumer inherits), the opaque `Cursor` brand, the `PageParams` query schema (cursor as `Option`, limit defaulted and ceiling-bounded at the declaration so no handler re-checks bounds), and `Convention.page(item)` — one generic constructor deriving the page envelope for any item schema, so a per-shape page schema cannot exist.
@@ -73,7 +73,7 @@ const Convention: {
 }
 ```
 
-## [3]-[GATE_FAULT]
+## [03]-[GATE_FAULT]
 
 [GATE_FAULT]:
 - Owner: `GateFault` — one `Schema.TaggedError` for every front-door refusal, reason-discriminated with rows carrying the core `class`, the status override, and `retryAfter` evidence where the refusing row measured a window; `get class()` projects the row so `FaultClass.of` classifies any escaped instance, and `get policy()` carries the `{ status }` probe the `problem` ladder reads first.
@@ -116,7 +116,7 @@ class GateFault extends Schema.TaggedError<GateFault>()("GateFault", {
 }
 ```
 
-## [4]-[CURRENT_ROWS]
+## [04]-[CURRENT_ROWS]
 
 [CURRENT_ROWS]:
 - Owner: `Current` — the ambient request rows as `Context.Reference` classes: `Current.Stamp` carries `Option` of the per-request mark (`id`, `at`, tenant, locale), `Current.Tenant` carries `Option` of the tenant key, `Current.Locale` carries the negotiated `Refined.Locale` with the fleet default answering when no request provided one — three rows, each readable from any rail at zero requirement pressure, overridden per request by scoped provision at the route seam.
@@ -196,7 +196,7 @@ const Current: {
 } = { Locale: _Locale, Stamp: _Stamp, Tenant: _Tenant, negotiate: _negotiate, provide: _provide, traced: _traced }
 ```
 
-## [5]-[ADMISSION_ROWS]
+## [05]-[ADMISSION_ROWS]
 
 [ADMISSION_ROWS]:
 - Owner: `Principal` — the one authenticated identity, a `Context.Tag` whose service is the identity record (subject, live session as `Option`, tenant as `Option`, scopes, the `via` discriminant `session | apikey`) so the same name is the requirement a protected handler yields, the type its signatures speak, and the carrier of `Principal.allows` — the single scope probe no authorization read re-derives. `Authn` is the scheme-threaded security middleware: `HttpApiMiddleware.Tag` with `failure: GateFault`, `provides: Principal`, and the `security` record naming `HttpApiSecurity.bearer` plus `HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" })` — declared once, the schemes land in the emitted OpenAPI security requirements AND the implementation is one handler record keyed by scheme receiving the already-decoded credential, so declarative auth and enforced auth are one declaration.
@@ -406,7 +406,7 @@ const Gate = {
 } as const
 ```
 
-## [6]-[CONTRIBUTION]
+## [06]-[CONTRIBUTION]
 
 [CONTRIBUTION]:
 - Owner: `Contribution` — the pairing law as two constructors: `Contribution.http(group, handlers)` pairs an `HttpApiGroup` with its handler builder — a function OF the assembled api, because `HttpApiBuilder.group(api, name, build)` demands the api value only the app holds, the mechanical fact that makes the god-contract impossible; `Contribution.rpc(group, handlers)` pairs an `RpcGroup` with the handler Layer its `toLayer` already built, because RPC handlers bind to the group alone.
@@ -463,7 +463,7 @@ const Contribution: {
 }
 ```
 
-## [7]-[EMIT]
+## [07]-[EMIT]
 
 [EMIT]:
 - Owner: `Emit` — the derivation surface over the app-assembled value, parameterized on it, never importing it. `Emit.artifact` is the canonical spec artifact: `OpenApi.fromApi(api)` serialized with sorted keys and fixed indentation so two emissions of one contract are byte-identical and the contract gate diffs bytes, never re-parses; the `cli` inspect verb and the drift check consume this one member. `Emit.docs(ui)` is the served documentation stack — `HttpApiBuilder.middlewareOpenApi()` (the document route derived from the served api) merged with the reference UI the `ui` row selects (`scalar` → `HttpApiScalar.layer()`, `swagger` → `HttpApiSwagger.layer()`) — one Layer the app root selects; `HttpApiScalar.layerHttpLayerRouter` is the same row route-natively when the api mounts under `route#LAYER_ROUTES`.

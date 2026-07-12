@@ -285,11 +285,11 @@ public static class ArchiveClosure {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]           | [FORM]                                                | [ENTRY]                          |
-| :-----: | :------------------ | :---------------- | :----------------------------------------------------- | :--------------------------------- |
-|  [01]   | topology source     | `GraphSource`     | live session, loaded archive, stored path               | `TopologyFold.Of`                   |
-|  [02]   | folded graph        | `Topology`        | transient `BidirectionalGraph<Guid, SEdge<Guid>>`       | per-ask fold, never stored          |
-|  [03]   | topology questions  | `BlockGraphAsk`   | one union, typed `BlockGraphAnswer` per case            | `BlockGraph.Ask`                    |
-|  [04]   | dependency ordering | `BlockGraph`      | DAG pre-gate + `SourceFirstBidirectionalTopologicalSort`| `BlockGraphAsk.Order`               |
-|  [05]   | cycle grouping      | `BlockGraph`      | `StronglyConnectedComponents` groups over one fold      | `BlockGraphAsk.Cycles`              |
-|  [06]   | archive closure     | `ArchiveClosure`  | visited-set walk, SCC cycle groups, unit evidence       | `Closure(rootPath)`                 |
+| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                                   | [ENTRY]                    |
+| :-----: | :------------------ | :--------------- | :------------------------------------------------------- | :------------------------- |
+|  [01]   | topology source     | `GraphSource`    | live session, loaded archive, stored path                | `TopologyFold.Of`          |
+|  [02]   | folded graph        | `Topology`       | transient `BidirectionalGraph<Guid, SEdge<Guid>>`        | per-ask fold, never stored |
+|  [03]   | topology questions  | `BlockGraphAsk`  | one union, typed `BlockGraphAnswer` per case             | `BlockGraph.Ask`           |
+|  [04]   | dependency ordering | `BlockGraph`     | DAG pre-gate + `SourceFirstBidirectionalTopologicalSort` | `BlockGraphAsk.Order`      |
+|  [05]   | cycle grouping      | `BlockGraph`     | `StronglyConnectedComponents` groups over one fold       | `BlockGraphAsk.Cycles`     |
+|  [06]   | archive closure     | `ArchiveClosure` | visited-set walk, SCC cycle groups, unit evidence        | `Closure(rootPath)`        |

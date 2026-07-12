@@ -6,22 +6,22 @@ The Amazon Bedrock binding onto `@effect/ai`: it resolves the provider-agnostic 
 
 ## [01]-[ASYMMETRY]
 
-| [INDEX] | [COLUMN] | [AMAZON_BEDROCK] | [OPENAI] | [ANTHROPIC] | [GOOGLE] |
-| :-----: | :------ | :-------------- | :------ | :--------- | :------ |
-| [01] | provider id | `"amazon-bedrock"` | openai | anthropic | google |
-| [02] | language model | `AmazonBedrockLanguageModel` (Converse) | Responses | Messages | generateContent |
-| [03] | embedding model | — | curated ×2 | — | raw client |
-| [04] | tokenizer | — | `make({model})` | value | — |
-| [05] | provider-defined tools | 8 ctors / 3 tags (Anthropic-on-Bedrock) | 4 | 5 families | 4 |
-| [06] | telemetry module | — | `OpenAiTelemetry` | — | — |
-| [07] | model-id kind | `BedrockFoundationModelId.Encoded` (91 ids) | enum | 21-id enum | free `string` |
-| [08] | auth | SigV4: `accessKeyId` + `Redacted` secret/session + `region` | apiKey+org/proj | apiKey+version | apiKey |
-| [09] | codec module | hand-written `AmazonBedrockSchema` (66 owners) | OpenAPI `Generated` (~1238) | OpenAPI (341) | OpenAPI (~238) |
-| [10] | stream decode | AWS binary event-stream (`EventStreamEncoding`) | SSE | SSE | SSE |
-| [11] | streaming fold | `ConverseResponseStreamEvent` (11-member) | 49-member | 8-member | response re-emit |
-| [12] | native guardrails | `GuardrailConfiguration` → `GuardrailTraceAssessment` | — | — | `safetyRatings` |
-| [13] | sibling dep | `@effect/ai-anthropic` (`prepareTools`, `BetaCacheControlEphemeral`) | — | upstream | — |
-| [14] | Config transform tag | id **`@effect/ai-google/AmazonBedrockConfig`** (upstream copy-paste bug) | `OpenAiConfig` | `AnthropicConfig` | `GoogleConfig` |
+| [INDEX] | [COLUMN]               | [AMAZON_BEDROCK]                                                         | [OPENAI]                    | [ANTHROPIC]       | [GOOGLE]         |
+| :-----: | :--------------------- | :----------------------------------------------------------------------- | :-------------------------- | :---------------- | :--------------- |
+|  [01]   | provider id            | `"amazon-bedrock"`                                                       | openai                      | anthropic         | google           |
+|  [02]   | language model         | `AmazonBedrockLanguageModel` (Converse)                                  | Responses                   | Messages          | generateContent  |
+|  [03]   | embedding model        | —                                                                        | curated ×2                  | —                 | raw client       |
+|  [04]   | tokenizer              | —                                                                        | `make({model})`             | value             | —                |
+|  [05]   | provider-defined tools | 8 ctors / 3 tags (Anthropic-on-Bedrock)                                  | 4                           | 5 families        | 4                |
+|  [06]   | telemetry module       | —                                                                        | `OpenAiTelemetry`           | —                 | —                |
+|  [07]   | model-id kind          | `BedrockFoundationModelId.Encoded` (91 ids)                              | enum                        | 21-id enum        | free `string`    |
+|  [08]   | auth                   | SigV4: `accessKeyId` + `Redacted` secret/session + `region`              | apiKey+org/proj             | apiKey+version    | apiKey           |
+|  [09]   | codec module           | hand-written `AmazonBedrockSchema` (66 owners)                           | OpenAPI `Generated` (~1238) | OpenAPI (341)     | OpenAPI (~238)   |
+|  [10]   | stream decode          | AWS binary event-stream (`EventStreamEncoding`)                          | SSE                         | SSE               | SSE              |
+|  [11]   | streaming fold         | `ConverseResponseStreamEvent` (11-member)                                | 49-member                   | 8-member          | response re-emit |
+|  [12]   | native guardrails      | `GuardrailConfiguration` → `GuardrailTraceAssessment`                    | —                           | —                 | `safetyRatings`  |
+|  [13]   | sibling dep            | `@effect/ai-anthropic` (`prepareTools`, `BetaCacheControlEphemeral`)     | —                           | upstream          | —                |
+|  [14]   | Config transform tag   | id **`@effect/ai-google/AmazonBedrockConfig`** (upstream copy-paste bug) | `OpenAiConfig`              | `AnthropicConfig` | `GoogleConfig`   |
 
 ## [02]-[CLIENT]
 
@@ -73,22 +73,22 @@ namespace Config { interface Service extends Simplify<Partial<Omit<typeof Conver
 
 The `declare module` augmentations attach an optional `bedrock` key — ONE boundary-hook pattern. `cachePoint` is the caching breakpoint; `FinishPartMetadata.bedrock.trace` carries the full guardrail assessment tree.
 
-| [INDEX] | [AUGMENTS] | [INTERFACES] | [BEDROCK_SLOT] |
-| :-----: | :-------- | :---------- | :------------ |
-| [01] | `Prompt` | `System/User/Assistant/Tool MessageOptions` | `{ cachePoint?: CachePointBlock.Encoded }` |
-| [02] | `Prompt` | `ReasoningPartOptions` | `AmazonBedrockReasoningInfo` |
-| [03] | `Response` | `ReasoningPartMetadata` | `AmazonBedrockReasoningInfo` |
-| [04] | `Response` | `FinishPartMetadata` | `{ trace?: ConverseTrace; usage: { cacheWriteInputTokens? } }` |
+| [INDEX] | [AUGMENTS] | [INTERFACES]                                | [BEDROCK_SLOT]                                                 |
+| :-----: | :--------- | :------------------------------------------ | :------------------------------------------------------------- |
+|  [01]   | `Prompt`   | `System/User/Assistant/Tool MessageOptions` | `{ cachePoint?: CachePointBlock.Encoded }`                     |
+|  [02]   | `Prompt`   | `ReasoningPartOptions`                      | `AmazonBedrockReasoningInfo`                                   |
+|  [03]   | `Response` | `ReasoningPartMetadata`                     | `AmazonBedrockReasoningInfo`                                   |
+|  [04]   | `Response` | `FinishPartMetadata`                        | `{ trace?: ConverseTrace; usage: { cacheWriteInputTokens? } }` |
 
 ## [04]-[TOOL]
 
 `AmazonBedrockTool` exports eight constructors across three tags — the Anthropic-on-Bedrock local tools, each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Anthropic<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, true>` (`requiresHandler:true`; the app runs them). The `cache_control` arg reuses `@effect/ai-anthropic/Generated.BetaCacheControlEphemeral`. Unlike `@effect/ai-anthropic`'s `AnthropicTool`, this module exposes no `ProviderDefinedTools` union, `Coordinate`, or `getProviderDefinedToolName` — only the eight date-suffixed constructors.
 
-| [INDEX] | [TAG] | [CTORS] | [PARAMETERS_AXIS_SUCCESS] |
-| :-----: | :--- | :----- | :----------------------- |
-| [01] | `AnthropicBash` | `AnthropicBash_20241022`, `AnthropicBash_20250124` | `{ command; restart? }` / `String` |
-| [02] | `AnthropicComputerUse` | `AnthropicComputerUse_20241022`, `AnthropicComputerUse_20250124` | `action` literal (5 → 15 verbs) + coordinates / `String` |
-| [03] | `AnthropicTextEditor` | `AnthropicTextEditor_20241022`/`_20250124`/`_20250429`/`_20250728` | `command` literal (5 → 4 verbs) / `Void` |
+| [INDEX] | [TAG]                  | [CTORS]                                                            | [PARAMETERS_AXIS_SUCCESS]                                |
+| :-----: | :--------------------- | :----------------------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `AnthropicBash`        | `AnthropicBash_20241022`, `AnthropicBash_20250124`                 | `{ command; restart? }` / `String`                       |
+|  [02]   | `AnthropicComputerUse` | `AnthropicComputerUse_20241022`, `AnthropicComputerUse_20250124`   | `action` literal (5 → 15 verbs) + coordinates / `String` |
+|  [03]   | `AnthropicTextEditor`  | `AnthropicTextEditor_20241022`/`_20250124`/`_20250429`/`_20250728` | `command` literal (5 → 4 verbs) / `Void`                 |
 
 `failure` is `Schema.Never` on all eight; `ComputerUse`/`TextEditor` carry `cache_control` args, `Bash` carries only `failureMode`. The `args` JSDoc tag is misspelled `@catgory` upstream (no runtime effect).
 

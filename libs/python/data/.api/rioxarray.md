@@ -21,22 +21,22 @@
 
 `open_rasterio` returns a `DataArray`, `Dataset`, or `list[Dataset]`; the `.rio` accessor materializes `RasterArray` on a `DataArray` and `RasterDataset` on a `Dataset`, both subclassing the shared `XRasterBase` CRS/transform/window base. `Convention` selects the metadata encoding for `write_crs`/`write_transform`. `RioXarrayError` is the base failure; `NoDataInBounds`, `MissingCRS`, `OneDimensionalRaster`, and the dimension errors are the typed leaves.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `XRasterBase` | accessor base | shared CRS/transform/bounds/window surface for both accessors |
-| [02] | `RasterArray` | accessor | `DataArray.rio` GIS extension (reproject/clip/to_raster) |
-| [03] | `RasterDataset` | accessor | `Dataset.rio` GIS extension over multi-variable rasters |
-| [04] | `Convention` | enum | `CF`/`ZARR` geospatial metadata encoding selector |
-| [05] | `RioXarrayError` | error (base) | base `RuntimeError` for rioxarray failures |
-| [06] | `NoDataInBounds` | error | clip bounds contain no data |
-| [07] | `MissingCRS` | error | CRS absent from the dataset |
-| [08] | `DimensionError` | error (base) | base for unsupported/malformed spatial dimensions |
-| [09] | `MissingSpatialDimensionError` | error | spatial dimension cannot be found |
-| [10] | `TooManyDimensions` | error | more dimensions than the method supports |
-| [11] | `InvalidDimensionOrder` | error | dimensions are not ordered correctly |
-| [12] | `OneDimensionalRaster` | error | raster collapsed to one dimension |
-| [13] | `SingleVariableDataset` | error | dataset method requires a single variable |
-| [14] | `DimensionMissingCoordinateError` | error | dimension lacks its supporting coordinate |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                        |
+| :-----: | :-------------------------------- | :------------ | :------------------------------------------------------------ |
+|  [01]   | `XRasterBase`                     | accessor base | shared CRS/transform/bounds/window surface for both accessors |
+|  [02]   | `RasterArray`                     | accessor      | `DataArray.rio` GIS extension (reproject/clip/to_raster)      |
+|  [03]   | `RasterDataset`                   | accessor      | `Dataset.rio` GIS extension over multi-variable rasters       |
+|  [04]   | `Convention`                      | enum          | `CF`/`ZARR` geospatial metadata encoding selector             |
+|  [05]   | `RioXarrayError`                  | error (base)  | base `RuntimeError` for rioxarray failures                    |
+|  [06]   | `NoDataInBounds`                  | error         | clip bounds contain no data                                   |
+|  [07]   | `MissingCRS`                      | error         | CRS absent from the dataset                                   |
+|  [08]   | `DimensionError`                  | error (base)  | base for unsupported/malformed spatial dimensions             |
+|  [09]   | `MissingSpatialDimensionError`    | error         | spatial dimension cannot be found                             |
+|  [10]   | `TooManyDimensions`               | error         | more dimensions than the method supports                      |
+|  [11]   | `InvalidDimensionOrder`           | error         | dimensions are not ordered correctly                          |
+|  [12]   | `OneDimensionalRaster`            | error         | raster collapsed to one dimension                             |
+|  [13]   | `SingleVariableDataset`           | error         | dataset method requires a single variable                     |
+|  [14]   | `DimensionMissingCoordinateError` | error         | dimension lacks its supporting coordinate                     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -45,59 +45,59 @@
 
 `open_rasterio` is the read entry; `merge_arrays`/`merge_datasets` mosaic tiles; `set_options` toggles global CF-export and convention policy (context manager or global); `show_versions` prints dependency diagnostics.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `open_rasterio` | `open_rasterio(filename, *, parse_coordinates=None, chunks=None, cache=None, lock=None, masked=False, mask_and_scale=False, variable=None, group=None, default_name=None, decode_times=True, decode_timedelta=None, band_as_variable=False, **open_kwargs) -> Union[Dataset, DataArray, list[Dataset]]` | open a GDAL raster into a georeferenced xarray object |
-| [02] | `merge.merge_arrays` | `merge_arrays(dataarrays, *, bounds=None, res=None, nodata=None, precision=None, method=None, crs=None, parse_coordinates=True) -> DataArray` | mosaic a sequence of `DataArray` tiles |
-| [03] | `merge.merge_datasets` | `merge_datasets(datasets, *, bounds=None, res=None, nodata=None, precision=None, method=None, crs=None) -> Dataset` | mosaic a sequence of `Dataset` tiles |
-| [04] | `set_options` | `set_options(**kwargs)` | set `export_grid_mapping`/`skip_missing_spatial_dims`/`convention` globally or as a context manager |
-| [05] | `show_versions` | `show_versions() -> None` | print rioxarray and dependency versions |
+| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                                                                                                                                                                                                                            | [CAPABILITY]                                                                                        |
+| :-----: | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `open_rasterio`        | `open_rasterio(filename, *, parse_coordinates=None, chunks=None, cache=None, lock=None, masked=False, mask_and_scale=False, variable=None, group=None, default_name=None, decode_times=True, decode_timedelta=None, band_as_variable=False, **open_kwargs) -> Union[Dataset, DataArray, list[Dataset]]` | open a GDAL raster into a georeferenced xarray object                                               |
+|  [02]   | `merge.merge_arrays`   | `merge_arrays(dataarrays, *, bounds=None, res=None, nodata=None, precision=None, method=None, crs=None, parse_coordinates=True) -> DataArray`                                                                                                                                                           | mosaic a sequence of `DataArray` tiles                                                              |
+|  [03]   | `merge.merge_datasets` | `merge_datasets(datasets, *, bounds=None, res=None, nodata=None, precision=None, method=None, crs=None) -> Dataset`                                                                                                                                                                                     | mosaic a sequence of `Dataset` tiles                                                                |
+|  [04]   | `set_options`          | `set_options(**kwargs)`                                                                                                                                                                                                                                                                                 | set `export_grid_mapping`/`skip_missing_spatial_dims`/`convention` globally or as a context manager |
+|  [05]   | `show_versions`        | `show_versions() -> None`                                                                                                                                                                                                                                                                               | print rioxarray and dependency versions                                                             |
 
 [ENTRYPOINT_SCOPE]: `XRasterBase` shared accessor surface
 - rail: geospatial
 
 Both `.rio` accessors inherit CRS/transform metadata read-write, dimension binding, and window/bounds geometry from `XRasterBase`. Write methods carry `inplace` and `convention`; geometry methods read `x_dim`/`y_dim`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `XRasterBase.crs` | property -> `Optional[rasterio.crs.CRS]` | resolved coordinate reference system |
-| [02] | `XRasterBase.set_crs` | `set_crs(input_crs, inplace=True)` | set CRS without writing CF metadata |
-| [03] | `XRasterBase.write_crs` | `write_crs(input_crs=None, grid_mapping_name=None, convention=None, inplace=False)` | write CRS as CF/Zarr grid-mapping metadata |
-| [04] | `XRasterBase.grid_mapping` / `write_grid_mapping` | property -> `str`; `write_grid_mapping(grid_mapping_name='spatial_ref', inplace=False)` | grid-mapping variable name read/write |
-| [05] | `XRasterBase.write_transform` | `write_transform(transform=None, grid_mapping_name=None, convention=None, inplace=False)` | persist the affine transform to metadata |
-| [06] | `XRasterBase.write_coordinate_system` | `write_coordinate_system(inplace=False)` | write CF axis/coordinate-system attrs |
-| [07] | `XRasterBase.transform` | `transform(recalc=False) -> Affine` | affine geotransform |
-| [08] | `XRasterBase.estimate_utm_crs` | `estimate_utm_crs(datum_name='WGS 84') -> rasterio.crs.CRS` | infer the local UTM CRS |
-| [09] | `XRasterBase.set_spatial_dims` | `set_spatial_dims(x_dim, y_dim, inplace=True)` | bind the x/y spatial dimension names |
-| [10] | `XRasterBase.resolution` | `resolution(recalc=False) -> tuple[float, float]` | pixel resolution |
-| [11] | `XRasterBase.bounds` | `bounds(*, recalc=False) -> tuple[float, float, float, float]` | spatial bounding box |
-| [12] | `XRasterBase.transform_bounds` | `transform_bounds(dst_crs, *, densify_pts=21, recalc=False) -> tuple[float, float, float, float]` | reproject the bounding box to another CRS |
-| [13] | `XRasterBase.slice_xy` | `slice_xy(minx, miny, maxx, maxy)` | spatial slice by coordinate box |
-| [14] | `XRasterBase.isel_window` | `isel_window(window, *, pad=False)` | select a rasterio `Window` region |
-| [15] | `XRasterBase.write_gcps` / `get_gcps` | `write_gcps(gcps, gcp_crs, *, grid_mapping_name=None, inplace=False)`; `get_gcps()` | persist / read ground control points |
-| [16] | `XRasterBase.write_rpcs` / `get_rpcs` | `write_rpcs(rpcs, *, grid_mapping_name=None, inplace=False)`; `get_rpcs()` | persist / read `rasterio.rpc.RPC` coefficients |
-| [17] | `XRasterBase.set_attrs` / `update_attrs` / `set_encoding` / `update_encoding` | `(new_attrs \| new_encoding, inplace=False)` | replace/merge CF attrs and encoding |
-| [18] | `XRasterBase.shape` / `width` / `height` / `count` | properties -> `tuple[int,int]` / `int` / `int` / `int` | `(height, width)` shape and band count |
+| [INDEX] | [SURFACE]                                                                     | [CALL_SHAPE]                                                                                      | [CAPABILITY]                                   |
+| :-----: | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------ | :--------------------------------------------- |
+|  [01]   | `XRasterBase.crs`                                                             | property -> `Optional[rasterio.crs.CRS]`                                                          | resolved coordinate reference system           |
+|  [02]   | `XRasterBase.set_crs`                                                         | `set_crs(input_crs, inplace=True)`                                                                | set CRS without writing CF metadata            |
+|  [03]   | `XRasterBase.write_crs`                                                       | `write_crs(input_crs=None, grid_mapping_name=None, convention=None, inplace=False)`               | write CRS as CF/Zarr grid-mapping metadata     |
+|  [04]   | `XRasterBase.grid_mapping` / `write_grid_mapping`                             | property -> `str`; `write_grid_mapping(grid_mapping_name='spatial_ref', inplace=False)`           | grid-mapping variable name read/write          |
+|  [05]   | `XRasterBase.write_transform`                                                 | `write_transform(transform=None, grid_mapping_name=None, convention=None, inplace=False)`         | persist the affine transform to metadata       |
+|  [06]   | `XRasterBase.write_coordinate_system`                                         | `write_coordinate_system(inplace=False)`                                                          | write CF axis/coordinate-system attrs          |
+|  [07]   | `XRasterBase.transform`                                                       | `transform(recalc=False) -> Affine`                                                               | affine geotransform                            |
+|  [08]   | `XRasterBase.estimate_utm_crs`                                                | `estimate_utm_crs(datum_name='WGS 84') -> rasterio.crs.CRS`                                       | infer the local UTM CRS                        |
+|  [09]   | `XRasterBase.set_spatial_dims`                                                | `set_spatial_dims(x_dim, y_dim, inplace=True)`                                                    | bind the x/y spatial dimension names           |
+|  [10]   | `XRasterBase.resolution`                                                      | `resolution(recalc=False) -> tuple[float, float]`                                                 | pixel resolution                               |
+|  [11]   | `XRasterBase.bounds`                                                          | `bounds(*, recalc=False) -> tuple[float, float, float, float]`                                    | spatial bounding box                           |
+|  [12]   | `XRasterBase.transform_bounds`                                                | `transform_bounds(dst_crs, *, densify_pts=21, recalc=False) -> tuple[float, float, float, float]` | reproject the bounding box to another CRS      |
+|  [13]   | `XRasterBase.slice_xy`                                                        | `slice_xy(minx, miny, maxx, maxy)`                                                                | spatial slice by coordinate box                |
+|  [14]   | `XRasterBase.isel_window`                                                     | `isel_window(window, *, pad=False)`                                                               | select a rasterio `Window` region              |
+|  [15]   | `XRasterBase.write_gcps` / `get_gcps`                                         | `write_gcps(gcps, gcp_crs, *, grid_mapping_name=None, inplace=False)`; `get_gcps()`               | persist / read ground control points           |
+|  [16]   | `XRasterBase.write_rpcs` / `get_rpcs`                                         | `write_rpcs(rpcs, *, grid_mapping_name=None, inplace=False)`; `get_rpcs()`                        | persist / read `rasterio.rpc.RPC` coefficients |
+|  [17]   | `XRasterBase.set_attrs` / `update_attrs` / `set_encoding` / `update_encoding` | `(new_attrs \| new_encoding, inplace=False)`                                                      | replace/merge CF attrs and encoding            |
+|  [18]   | `XRasterBase.shape` / `width` / `height` / `count`                            | properties -> `tuple[int,int]` / `int` / `int` / `int`                                            | `(height, width)` shape and band count         |
 
 [ENTRYPOINT_SCOPE]: `RasterArray` / `RasterDataset` raster operations
 - rail: geospatial
 
 The `.rio` accessor methods share signatures across `DataArray` (`RasterArray`) and `Dataset` (`RasterDataset`); the return type tracks the object (`xarray.DataArray` vs `xarray.Dataset`). `nodata`/`encoded_nodata`/`set_nodata`/`write_nodata`/`to_rasterio_dataset` and `pad_xy` are `RasterArray`-only; `vars` is `RasterDataset`-only.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `reproject` | `reproject(dst_crs, *, resolution=None, shape=None, transform=None, resampling=Resampling.nearest, nodata=None, **kwargs)` (`resolution: float \| tuple`, `resampling: Resampling \| str`) | warp to a target CRS/grid |
-| [02] | `reproject_match` | `reproject_match(match_data_array, *, resampling=Resampling.nearest, **reproject_kwargs)` (`match_data_array: DataArray \| Dataset`) | reproject onto another object's grid |
-| [03] | `clip` | `clip(geometries, crs=None, *, all_touched=False, drop=True, invert=False, from_disk=False)` | mask by GeoJSON-like geometries |
-| [04] | `clip_box` | `clip_box(minx, miny, maxx, maxy, *, auto_expand=False, auto_expand_limit=3, crs=None, allow_one_dimensional_raster=False)` | crop to a bounding box |
-| [05] | `pad_box` | `pad_box(minx, miny, maxx, maxy, *, constant_values=None)` | pad to a bounding box with constant fill |
-| [06] | `interpolate_na` | `interpolate_na(method='nearest')`  (`'linear'`/`'nearest'`/`'cubic'`) | fill nodata gaps by interpolation |
-| [07] | `to_raster` | `to_raster(raster_path, *, driver=None, dtype=None, tags=None, windowed=False, recalc_transform=True, lock=None, compute=True, **profile_kwargs) -> None` | write to a GDAL raster (GeoTIFF default) |
-| [08] | `RasterArray.nodata` | property -> `Optional[float]` | decoded nodata value (`DataArray`) |
-| [09] | `RasterArray.write_nodata` | `write_nodata(input_nodata, *, encoded=False, inplace=False) -> xarray.DataArray` | persist nodata to CF attributes |
-| [10] | `RasterArray.pad_xy` | `pad_xy(minx, miny, maxx, maxy, *, constant_values=None) -> xarray.DataArray` | pad x/y to a coordinate box |
-| [11] | `RasterArray.to_rasterio_dataset` | `to_rasterio_dataset() -> Generator[DatasetReader, None, None]` | open the array as an in-memory rasterio dataset |
-| [12] | `RasterDataset.vars` | property -> `list` | non-coordinate variable names |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                                                                                                                                               | [CAPABILITY]                                    |
+| :-----: | :-------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | `reproject`                       | `reproject(dst_crs, *, resolution=None, shape=None, transform=None, resampling=Resampling.nearest, nodata=None, **kwargs)` (`resolution: float \| tuple`, `resampling: Resampling \| str`) | warp to a target CRS/grid                       |
+|  [02]   | `reproject_match`                 | `reproject_match(match_data_array, *, resampling=Resampling.nearest, **reproject_kwargs)` (`match_data_array: DataArray \| Dataset`)                                                       | reproject onto another object's grid            |
+|  [03]   | `clip`                            | `clip(geometries, crs=None, *, all_touched=False, drop=True, invert=False, from_disk=False)`                                                                                               | mask by GeoJSON-like geometries                 |
+|  [04]   | `clip_box`                        | `clip_box(minx, miny, maxx, maxy, *, auto_expand=False, auto_expand_limit=3, crs=None, allow_one_dimensional_raster=False)`                                                                | crop to a bounding box                          |
+|  [05]   | `pad_box`                         | `pad_box(minx, miny, maxx, maxy, *, constant_values=None)`                                                                                                                                 | pad to a bounding box with constant fill        |
+|  [06]   | `interpolate_na`                  | `interpolate_na(method='nearest')`  (`'linear'`/`'nearest'`/`'cubic'`)                                                                                                                     | fill nodata gaps by interpolation               |
+|  [07]   | `to_raster`                       | `to_raster(raster_path, *, driver=None, dtype=None, tags=None, windowed=False, recalc_transform=True, lock=None, compute=True, **profile_kwargs) -> None`                                  | write to a GDAL raster (GeoTIFF default)        |
+|  [08]   | `RasterArray.nodata`              | property -> `Optional[float]`                                                                                                                                                              | decoded nodata value (`DataArray`)              |
+|  [09]   | `RasterArray.write_nodata`        | `write_nodata(input_nodata, *, encoded=False, inplace=False) -> xarray.DataArray`                                                                                                          | persist nodata to CF attributes                 |
+|  [10]   | `RasterArray.pad_xy`              | `pad_xy(minx, miny, maxx, maxy, *, constant_values=None) -> xarray.DataArray`                                                                                                              | pad x/y to a coordinate box                     |
+|  [11]   | `RasterArray.to_rasterio_dataset` | `to_rasterio_dataset() -> Generator[DatasetReader, None, None]`                                                                                                                            | open the array as an in-memory rasterio dataset |
+|  [12]   | `RasterDataset.vars`              | property -> `list`                                                                                                                                                                         | non-coordinate variable names                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

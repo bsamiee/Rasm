@@ -20,27 +20,27 @@
 - rail: token/scale
 - The typed motion axes. `@property` declares each with a syntax and initial value so it animates and inherits correctly; the `enter`/`exit` keyframes read exactly these. The whole animation surface is projecting values onto these six axes (× enter/exit) — this is the collapse point, the reason there are two keyframes and not thirty.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:----------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------------- |
-| [01] | `--tw-enter-opacity` / `--tw-exit-opacity` (`@property`, initial `1`) | opacity axis | `token/scale` — set by `fade-in`/`fade-out`; the `enter`/`exit` keyframe `opacity` |
-| [02] | `--tw-enter-scale` / `--tw-exit-scale` (initial `1`) | scale axis | set by `zoom-in`/`zoom-out`; drives `scale3d(...)` in the keyframe transform |
-| [03] | `--tw-enter-rotate` / `--tw-exit-rotate` (initial `0`) | rotate axis | set by `spin-in`/`spin-out`; drives `rotate(...)` in the keyframe transform |
-| [04] | `--tw-enter-blur` / `--tw-exit-blur` (initial `0`) | blur axis | set by `blur-in`/`blur-out`; drives `filter: blur(...)` |
-| [05] | `--tw-enter-translate-x` / `--tw-exit-translate-x` (initial `0`) | x-translate axis | set by `slide-*-from-left`/`right`/`start`/`end`; `translate3d(x,…)` |
-| [06] | `--tw-enter-translate-y` / `--tw-exit-translate-y` (initial `0`) | y-translate axis | set by `slide-*-from-top`/`bottom`; `translate3d(…,y,…)` |
+| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                |
+| :-----: | :-------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `--tw-enter-opacity` / `--tw-exit-opacity` (`@property`, initial `1`) | opacity axis     | `token/scale` — set by `fade-in`/`fade-out`; the `enter`/`exit` keyframe `opacity` |
+|  [02]   | `--tw-enter-scale` / `--tw-exit-scale` (initial `1`)                  | scale axis       | set by `zoom-in`/`zoom-out`; drives `scale3d(...)` in the keyframe transform       |
+|  [03]   | `--tw-enter-rotate` / `--tw-exit-rotate` (initial `0`)                | rotate axis      | set by `spin-in`/`spin-out`; drives `rotate(...)` in the keyframe transform        |
+|  [04]   | `--tw-enter-blur` / `--tw-exit-blur` (initial `0`)                    | blur axis        | set by `blur-in`/`blur-out`; drives `filter: blur(...)`                            |
+|  [05]   | `--tw-enter-translate-x` / `--tw-exit-translate-x` (initial `0`)      | x-translate axis | set by `slide-*-from-left`/`right`/`start`/`end`; `translate3d(x,…)`               |
+|  [06]   | `--tw-enter-translate-y` / `--tw-exit-translate-y` (initial `0`)      | y-translate axis | set by `slide-*-from-top`/`bottom`; `translate3d(…,y,…)`                           |
 
 [PUBLIC_TYPE_SCOPE]: the timing registers + theme-token scales
 - rail: token/scale
 - The animation timing `@property` axes and the `@theme inline` token scales they draw from. `--animate-in`/`--animate-out` are the master theme animations that become the `animate-in`/`animate-out` utilities; the `--animation-*` and `--percentage-*` scales are the bounded value vocabularies the setter/modifier utilities resolve against.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:----------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------------- |
-| [01] | `--animate-in` / `--animate-out` (`@theme`, = `enter`/`exit` + timing vars) | master animation | become the `animate-in`/`animate-out` utilities; every enter/exit motion binds one |
-| [02] | `--tw-animation-{delay,direction,duration,fill-mode,iteration-count}` (`@property`) | timing axis | set by `delay-*`/`direction-*`/`animation-duration-*`/`fill-mode-*`/`repeat-*`; read by `--animate-in/out` |
-| [03] | `--animate-accordion-down/up` / `--animate-collapsible-down/up` / `--animate-caret-blink` | named animation | `view/primitive` — `animate-accordion-*` reads `--radix-accordion-content-height` (+ bits/reka/kb/ngp fallbacks) |
-| [04] | `--animation-delay-{0,75,100,150,200,300,500,700,1000}` | delay scale | `token/scale` — the `delay-*` value set; arbitrary values via `delay-[…]` |
-| [05] | `--animation-repeat-{0,1,infinite}` / `--animation-direction-{normal,reverse,alternate,alternate-reverse}` / `--animation-fill-mode-{none,forwards,backwards,both}` | timing scale | the `repeat-*`/`direction-*`/`fill-mode-*` value sets |
-| [06] | `--percentage-{0,5,…,100}` / `--percentage-translate-full` | fraction scale | the `fade-*`/`zoom-*` percentage value set (`fade-in-0` → opacity 0, `zoom-in-95` → scale.95) |
+| [INDEX] | [SYMBOL]                                                                                                                                                            | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                                              |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `--animate-in` / `--animate-out` (`@theme`, = `enter`/`exit` + timing vars)                                                                                         | master animation | become the `animate-in`/`animate-out` utilities; every enter/exit motion binds one                               |
+|  [02]   | `--tw-animation-{delay,direction,duration,fill-mode,iteration-count}` (`@property`)                                                                                 | timing axis      | set by `delay-*`/`direction-*`/`animation-duration-*`/`fill-mode-*`/`repeat-*`; read by `--animate-in/out`       |
+|  [03]   | `--animate-accordion-down/up` / `--animate-collapsible-down/up` / `--animate-caret-blink`                                                                           | named animation  | `view/primitive` — `animate-accordion-*` reads `--radix-accordion-content-height` (+ bits/reka/kb/ngp fallbacks) |
+|  [04]   | `--animation-delay-{0,75,100,150,200,300,500,700,1000}`                                                                                                             | delay scale      | `token/scale` — the `delay-*` value set; arbitrary values via `delay-[…]`                                        |
+|  [05]   | `--animation-repeat-{0,1,infinite}` / `--animation-direction-{normal,reverse,alternate,alternate-reverse}` / `--animation-fill-mode-{none,forwards,backwards,both}` | timing scale     | the `repeat-*`/`direction-*`/`fill-mode-*` value sets                                                            |
+|  [06]   | `--percentage-{0,5,…,100}` / `--percentage-translate-full`                                                                                                          | fraction scale   | the `fade-*`/`zoom-*` percentage value set (`fade-in-0` → opacity 0, `zoom-in-95` → scale.95)                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -48,27 +48,27 @@
 - rail: token/scale
 - The class vocabulary a `view`/`token` row writes. `animate-in`/`animate-out` bind the `enter`/`exit` keyframe; each setter family projects one axis. The rosters below are SEED DATA for the one mechanism — `animate-in fade-in-0 zoom-in-95 slide-in-from-top-2` is the composition, and a new motion is a new set of setters, never a new utility mechanism. Every setter has an arbitrary-value `-*` variant (`fade-in-[.3]`, `slide-in-from-top-[10px]`).
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
-| [01] | `animate-in` / `animate-out` | trigger | `view/primitive` — binds `enter`/`exit`; ALWAYS paired with ≥1 axis setter (bare trigger animates nothing) |
-| [02] | `fade-in` / `fade-in-<0..100>` / `fade-out` / `fade-out-*` | opacity setter | `token/scale` — sets `--tw-enter/exit-opacity`; `fade-in-0` is opacity 0→current |
-| [03] | `zoom-in` / `zoom-in-<n>` / `-zoom-in-*` / `zoom-out` / `zoom-out-*` / `-zoom-out-*` | scale setter | sets `--tw-enter/exit-scale`; `zoom-in-95` scales.95→1; negative variant for mirrored scale |
-| [04] | `spin-in` / `spin-in-<deg>` / `-spin-in` / `spin-out` / `spin-out-*` / `-spin-out-*` | rotate setter | sets `--tw-enter/exit-rotate`; default 30deg, arbitrary degrees or ratio-of-360 |
-| [05] | `blur-in` / `blur-in-<n>` / `blur-out` / `blur-out-*` | blur setter | sets `--tw-enter/exit-blur`; default 20px |
-| [06] | `slide-in-from-{top,bottom,left,right,start,end}` (+ `-*`) / `slide-out-to-{…}` | translate setter | sets `--tw-enter/exit-translate-{x,y}`; `start`/`end` are dir-aware (`:dir(ltr/rtl)`) logical edges |
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                        |
+| :-----: | :----------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `animate-in` / `animate-out`                                                         | trigger          | `view/primitive` — binds `enter`/`exit`; ALWAYS paired with ≥1 axis setter (bare trigger animates nothing) |
+|  [02]   | `fade-in` / `fade-in-<0..100>` / `fade-out` / `fade-out-*`                           | opacity setter   | `token/scale` — sets `--tw-enter/exit-opacity`; `fade-in-0` is opacity 0→current                           |
+|  [03]   | `zoom-in` / `zoom-in-<n>` / `-zoom-in-*` / `zoom-out` / `zoom-out-*` / `-zoom-out-*` | scale setter     | sets `--tw-enter/exit-scale`; `zoom-in-95` scales.95→1; negative variant for mirrored scale                |
+|  [04]   | `spin-in` / `spin-in-<deg>` / `-spin-in` / `spin-out` / `spin-out-*` / `-spin-out-*` | rotate setter    | sets `--tw-enter/exit-rotate`; default 30deg, arbitrary degrees or ratio-of-360                            |
+|  [05]   | `blur-in` / `blur-in-<n>` / `blur-out` / `blur-out-*`                                | blur setter      | sets `--tw-enter/exit-blur`; default 20px                                                                  |
+|  [06]   | `slide-in-from-{top,bottom,left,right,start,end}` (+ `-*`) / `slide-out-to-{…}`      | translate setter | sets `--tw-enter/exit-translate-{x,y}`; `start`/`end` are dir-aware (`:dir(ltr/rtl)`) logical edges        |
 
 [ENTRYPOINT_SCOPE]: the timing modifiers + named component animations
 - rail: token/scale
 - The modifiers that shape the bound animation's timing, and the three named animations for stateful components. The timing modifiers set the `--tw-animation-*` axes the master `--animate-in/out` reads; the named animations are complete `--animate-*` theme entries for the accordion/collapsible/caret patterns.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
-| [01] | `animation-duration-<n>` / `delay-<n>` / `repeat-<0\|1\|infinite>` | timing modifier | `token/scale` — duration/delay/iteration; `delay-*` sets `animation-delay` (not `transition-delay`) |
-| [02] | `direction-<normal\|reverse\|alternate\|alternate-reverse>` / `fill-mode-<none\|forwards\|backwards\|both>` | timing modifier | animation-direction + fill-mode; `fill-mode-forwards` holds the exit end-state |
-| [03] | `running` / `paused` / `play-state-*` | play state | `act/gesture` — pause/resume a running animation (scrubbed/gesture-driven motion) |
-| [04] | `animate-accordion-down` / `animate-accordion-up` | named animation | `view/primitive` — accordion height motion; reads `--radix-accordion-content-height` + kit fallbacks |
-| [05] | `animate-collapsible-down` / `animate-collapsible-up` | named animation | `view/primitive` — collapsible/disclosure height motion; reads `--radix-collapsible-content-height` |
-| [06] | `animate-caret-blink` | named animation | `view/compose` — text-cursor blink (`cmdk` input, editable rows) |
+| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                  |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `animation-duration-<n>` / `delay-<n>` / `repeat-<0\|1\|infinite>`                                          | timing modifier | `token/scale` — duration/delay/iteration; `delay-*` sets `animation-delay` (not `transition-delay`)  |
+|  [02]   | `direction-<normal\|reverse\|alternate\|alternate-reverse>` / `fill-mode-<none\|forwards\|backwards\|both>` | timing modifier | animation-direction + fill-mode; `fill-mode-forwards` holds the exit end-state                       |
+|  [03]   | `running` / `paused` / `play-state-*`                                                                       | play state      | `act/gesture` — pause/resume a running animation (scrubbed/gesture-driven motion)                    |
+|  [04]   | `animate-accordion-down` / `animate-accordion-up`                                                           | named animation | `view/primitive` — accordion height motion; reads `--radix-accordion-content-height` + kit fallbacks |
+|  [05]   | `animate-collapsible-down` / `animate-collapsible-up`                                                       | named animation | `view/primitive` — collapsible/disclosure height motion; reads `--radix-collapsible-content-height`  |
+|  [06]   | `animate-caret-blink`                                                                                       | named animation | `view/compose` — text-cursor blink (`cmdk` input, editable rows)                                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

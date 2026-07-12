@@ -136,14 +136,14 @@ public static class EgressPump {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                        | [BINDING]                                                        |
-| :-----: | :---------------- | :--------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | drain source      | `ReplayWindow.DurableOps` past the sink cursor | one windowed read (ledger); presence never enters                |
-|  [02]   | advance law       | contiguous `Persisted` prefix only             | Indeterminate holds; Refused dead-letters and continues          |
-|  [03]   | replay            | the same fold over `DeadLetterRow` keys        | never a second delivery path                                     |
-|  [04]   | wake              | `WaitAsync` on `rasm_outbox` + bounded poll    | NOTIFY is latency; the poll floor owns correctness               |
-|  [05]   | redaction         | `Redact` before envelope construction          | fail-closed `ErasingRedactor`; classified fields never cross raw |
-|  [06]   | receipt floor     | conservation `ValidityClaim.All` fold          | delivered + held + dead == drained, exactly once ([C])           |
+| [INDEX] | [POLICY]      | [VALUE]                                        | [BINDING]                                                        |
+| :-----: | :------------ | :--------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | drain source  | `ReplayWindow.DurableOps` past the sink cursor | one windowed read (ledger); presence never enters                |
+|  [02]   | advance law   | contiguous `Persisted` prefix only             | Indeterminate holds; Refused dead-letters and continues          |
+|  [03]   | replay        | the same fold over `DeadLetterRow` keys        | never a second delivery path                                     |
+|  [04]   | wake          | `WaitAsync` on `rasm_outbox` + bounded poll    | NOTIFY is latency; the poll floor owns correctness               |
+|  [05]   | redaction     | `Redact` before envelope construction          | fail-closed `ErasingRedactor`; classified fields never cross raw |
+|  [06]   | receipt floor | conservation `ValidityClaim.All` fold          | delivered + held + dead == drained, exactly once ([C])           |
 
 ## [03]-[EGRESS_SINK]
 
@@ -240,12 +240,12 @@ public static class Egress {
 }
 ```
 
-| [INDEX] | [SINK]        | [DEDUP / ADVANCE]                                            | [REPLAY ABSORBED BY]                          |
-| :-----: | :------------ | :----------------------------------------------------------- | :--------------------------------------------- |
-|  [01]   | webhook       | `net.request_status = SUCCESS` reconciliation only            | idempotency-key header (receiver-side)          |
-|  [02]   | nats          | JetStream `PubAckResponse` Settle-ack                         | broker dedup window on `Nats-Msg-Id`            |
-|  [03]   | kafka         | `DeliveryResult.Status == Persisted`; `Sealed` = producer txn | idempotent producer + consumer id-dedup / txn   |
-|  [04]   | rabbitmq      | awaited publisher confirm                                     | receiver-side id-dedup on CloudEvents `id`      |
-|  [05]   | pulsar        | `ISend.Send` → `MessageId`                                    | receiver-side id-dedup on CloudEvents `id`      |
-|  [06]   | wire-native   | AppHost `OutboundHop` delivery-honesty verdict                | hop policy (AppHost-owned)                      |
-|  [07]   | redis-stream  | consumer-group `StreamAcknowledge`                            | producer-side `StreamIdempotentId` (at-most-once XADD) |
+| [INDEX] | [SINK]       | [DEDUP_ADVANCE]                                               | [REPLAY_ABSORBED_BY]                                   |
+| :-----: | :----------- | :------------------------------------------------------------ | :----------------------------------------------------- |
+|  [01]   | webhook      | `net.request_status = SUCCESS` reconciliation only            | idempotency-key header (receiver-side)                 |
+|  [02]   | nats         | JetStream `PubAckResponse` Settle-ack                         | broker dedup window on `Nats-Msg-Id`                   |
+|  [03]   | kafka        | `DeliveryResult.Status == Persisted`; `Sealed` = producer txn | idempotent producer + consumer id-dedup / txn          |
+|  [04]   | rabbitmq     | awaited publisher confirm                                     | receiver-side id-dedup on CloudEvents `id`             |
+|  [05]   | pulsar       | `ISend.Send` → `MessageId`                                    | receiver-side id-dedup on CloudEvents `id`             |
+|  [06]   | wire-native  | AppHost `OutboundHop` delivery-honesty verdict                | hop policy (AppHost-owned)                             |
+|  [07]   | redis-stream | consumer-group `StreamAcknowledge`                            | producer-side `StreamIdempotentId` (at-most-once XADD) |

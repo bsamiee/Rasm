@@ -2,16 +2,16 @@
 
 Typed application workloads on the `selfhosted-k8s` arm: one `Workload` tier turns one spec row — a digest-pinned image, a port, the assembled env rows, the profile's scale — into the complete typed resource set: the `ServiceAccount`/`Role`/`RoleBinding` identity cell, the `Deployment` with topology spread and seed-stable zone affinity, the scale row's `PodDisruptionBudget` and `HorizontalPodAutoscaler`, and the `Service`, with derived labels threading selector, template, and service as one correspondence. The page owns the whole runtime-injection seam the old corpus split into its own file: the channel-to-variable key map that is the folder's single env-spelling authority, the one Kubernetes `Secret` holding `DOPPLER_TOKEN`, the container `EnvVar` assembly, and the `doppler run --` entrypoint wrap — a deployed process reads secrets from its environment and nothing else. The runtime lifecycle contract mirrors here structurally: the `_LIFE` anchor carries the drain budget and the probe-route trio the runtime's `Life` owner anchors (`/startupz`, `/readyz`, `/livez`), `terminationGracePeriodSeconds` derives from the drain budget plus a fixed margin, and the same anchor stamps the `RUNTIME_LIFE_DRAIN` env row — one anchor, two projections, so the pod's grace period and the process's drain budget cannot drift. Sizing is a vocabulary table keyed by `StackSpec.profile.scale`; capacity retunes by editing a row, never a manifest. The module is `iac/src/kube/workload.ts`; a new injected fact is one key-map row, a new workload axis is one args field, a batch verb is one `CronJob` member on the same tier.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]       | [OWNS]                                                                  | [PUBLIC]   |
-| :-----: | :-------------- | :----------------------------------------------------------------------- | :--------- |
-|  [01]   | `SIZING_ROWS`   | the scale vocabulary: replicas, requests, limits per profile row         | `Workload` |
-|  [02]   | `LIFE_MIRROR`   | the drain-budget and probe-route anchor mirrored from the runtime plane  | `Workload` |
-|  [03]   | `ENV_ASSEMBLY`  | the key map, the token secret, the env rows, the entrypoint wrap         | `Workload` |
-|  [04]   | `WORKLOAD_TIER` | the typed deployment/service/account set and the cron verb               | `Workload` |
+| :-----: | :-------------- | :---------------------------------------------------------------------- | :--------- |
+|  [01]   | `SIZING_ROWS`   | the scale vocabulary: replicas, requests, limits per profile row        | `Workload` |
+|  [02]   | `LIFE_MIRROR`   | the drain-budget and probe-route anchor mirrored from the runtime plane | `Workload` |
+|  [03]   | `ENV_ASSEMBLY`  | the key map, the token secret, the env rows, the entrypoint wrap        | `Workload` |
+|  [04]   | `WORKLOAD_TIER` | the typed deployment/service/account set and the cron verb              | `Workload` |
 
-## [2]-[SIZING_ROWS]
+## [02]-[SIZING_ROWS]
 
 [SIZING_ROWS]:
 - Owner: the interior `_scale` table keyed by the profile's `dev | standard | fleet` literal — each row carries `replicas`, `requests`, and `limits` as the `core/v1` resource-quantity strings the generated shapes consume, plus the resilience columns the row's posture earns: `disruptionBudget` realizes a `policy/v1.PodDisruptionBudget` and `autoscale` realizes an `autoscaling/v2.HorizontalPodAutoscaler` at construction, so capacity, availability floor, and elasticity retune by editing one row, never a manifest.
@@ -20,7 +20,7 @@ Typed application workloads on the `selfhosted-k8s` arm: one `Workload` tier tur
 - Growth: a new tier is one row; a new sizing axis (a GPU request, an ephemeral-storage bound) is one column every row states.
 - Boundary: what the quantities mean to the scheduler is cluster fact; `StackSpec.profile.scale` selection is the app's.
 
-## [3]-[LIFE_MIRROR]
+## [03]-[LIFE_MIRROR]
 
 [LIFE_MIRROR]:
 - Owner: the `_LIFE` anchor — `drainSeconds` (the runtime `Setting.life.drain` default read as a deploy fact), `margin` (the finalizer headroom the pod grants past the process's own budget), and the `probes` record mirroring the runtime `Life` owner's kind/route anchor: `started → /startupz`, `ready → /readyz`, `live → /livez`; the tier derives `terminationGracePeriodSeconds = drainSeconds + margin` and the three probe blocks from this one anchor, and the `RUNTIME_LIFE_DRAIN` env row stamps the same `drainSeconds` so the process and its pod read one number.
@@ -46,7 +46,7 @@ declare namespace _LIFE {
 }
 ```
 
-## [4]-[ENV_ASSEMBLY]
+## [04]-[ENV_ASSEMBLY]
 
 [ENV_ASSEMBLY]:
 - Owner: the env seam — `_KEYS` is the channel-to-variable map (the one place a `StackOutputs` channel becomes an environment spelling), `Workload.token` provisions the namespace-scoped `core/v1.Secret` carrying `DOPPLER_TOKEN`, `Workload.rows` assembles the container's `EnvVar` list, and `Workload.entrypoint` is the `doppler run --` wrap; pair values are `Input`-typed, so live tier `Output`s (the in-program assembly) and decoded `StackOutputs.Pair` strings (the post-run projection) ride one signature.
@@ -120,7 +120,7 @@ const _rows = (
 const _entrypoint = (command: ReadonlyArray<string>): ReadonlyArray<string> => ["doppler", "run", "--", ...command]
 ```
 
-## [5]-[WORKLOAD_TIER]
+## [05]-[WORKLOAD_TIER]
 
 [WORKLOAD_TIER]:
 - Owner: `Workload` — one constructor builds the full identity cell (`ServiceAccount` always; `rbac/v1.Role` + `RoleBinding` compiled from the `rbac` rule rows when the workload reaches the API, so identity is three typed resources from data, never a bare account), the `Deployment` (selector and template labels derived from one `_labels` projection; the container carrying image, port, env rows, the three `_LIFE` probe blocks, and the scale row's resources; the pod carrying the derived `terminationGracePeriodSeconds`, a hostname `topologySpreadConstraints` row, and — when `zones` arrive — a `RandomShuffle` seed-stable preferred-zone affinity whose ordering survives every `up`), the scale row's `PodDisruptionBudget`/`HorizontalPodAutoscaler` realizations, and the `Service` (the same label selector, port-to-port); the service rides the tier as a readonly field so consumers wire `workload.service.metadata.name` onward, and the assembly members (`token`, `rows`, `entrypoint`, `cron`) ride the class as statics so one import carries the tier and its env seam.

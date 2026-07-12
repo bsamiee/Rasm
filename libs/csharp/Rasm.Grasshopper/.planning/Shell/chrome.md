@@ -390,12 +390,12 @@ flowchart LR
 
 ## [07]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]          | [OWNER]                                        | [KIND]                                             | [RAIL]                            | [CASES] |
-| :-----: | :----------------- | :---------------------------------------------- | :----------------------------------------------------- | :---------------------------------- | :-----: |
-|  [01]   | toolbar items      | `ColourRange` + `BarItemSpec` + `BarMutation` + `BarPass` | four closed `[Union]` families            | fold arms inside the gate         |   19    |
-|  [02]   | input panel        | `PanelControl` + `PanelPlan` + `PanelOp`       | control rows + plan + `[GenerateUnionOps]` verbs   | `Settle → Fin<ChromeReceipt>`     |   11    |
-|  [03]   | tooltips           | `TooltipContent` + `TooltipIntent` + `Painters` | content family + intent + factory rows             | overload dispatch inside the gate |    7    |
-|  [04]   | floating buttons   | `FloatSpec` + `FloatMutation` + `FloatOp`      | spec + mutation + `[GenerateUnionOps]` verbs       | `Settle → Fin<ChromeReceipt>`     |   16    |
-|  [05]   | settlement         | `ChromeIntent` + `ChromeReceipt` + `Chrome`    | one intent union, one receipt union, one gate      | `Apply → Fin<ChromeReceipt>`      |  7+10   |
+| [INDEX] | [CONCERN]        | [OWNER]                                                   | [KIND]                                           | [RAIL]                            | [CASES] |
+| :-----: | :--------------- | :-------------------------------------------------------- | :----------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | toolbar items    | `ColourRange` + `BarItemSpec` + `BarMutation` + `BarPass` | four closed `[Union]` families                   | fold arms inside the gate         |   19    |
+|  [02]   | input panel      | `PanelControl` + `PanelPlan` + `PanelOp`                  | control rows + plan + `[GenerateUnionOps]` verbs | `Settle → Fin<ChromeReceipt>`     |   11    |
+|  [03]   | tooltips         | `TooltipContent` + `TooltipIntent` + `Painters`           | content family + intent + factory rows           | overload dispatch inside the gate |    7    |
+|  [04]   | floating buttons | `FloatSpec` + `FloatMutation` + `FloatOp`                 | spec + mutation + `[GenerateUnionOps]` verbs     | `Settle → Fin<ChromeReceipt>`     |   16    |
+|  [05]   | settlement       | `ChromeIntent` + `ChromeReceipt` + `Chrome`               | one intent union, one receipt union, one gate    | `Apply → Fin<ChromeReceipt>`      |  7+10   |
 
 `EtoDispatch`, `Op`, `Fault`, `Lease<T>`, and `IIcon` are composed upstream owners. Every composed host member is decompile-verified; the deleted phantoms are `InputPanel.FindBar`, the instance `Frame`, `FloatingButtonLayout` (internal), the `FloatingButton` constructor, and the `Position*`/`*Ux`/`AnchorChanged`/`ColourChanged`/`StateChanged` internal members. RESEARCH: the `Nomen`/`BarShortcut` mint shapes and the `BarStyle` value roster — both transport as caller-held values with zero gate impact; the set-ability of `RadioToggle.OnText`/`OffText`/`Optional` and `TextField.Placeholder` — each confirmed-settable member lands as one present-slot `BarMutation` case with the gate unchanged.

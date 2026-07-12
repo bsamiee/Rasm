@@ -19,25 +19,25 @@
 - rail: uncertainty
 - `UFloat is uncertainties.core.AffineScalarFunc` (one object, two names); `ufloat()` returns a `Variable`, and any arithmetic combination returns a derived `AffineScalarFunc`/`UFloat`
 
-| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [ROLE]                                                                |
-| :-----: | :-------------- | :---------------- | :-------------------------------------------------------------------- |
-|  [01]   | `UFloat`        | scalar quantity   | nominal value plus linear uncertainty; public alias of `AffineScalarFunc` |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]     | [ROLE]                                                                            |
+| :-----: | :-------------- | :---------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `UFloat`        | scalar quantity   | nominal value plus linear uncertainty; public alias of `AffineScalarFunc`         |
 |  [02]   | `Variable`      | independent input | `UFloat`/`AffineScalarFunc` subclass with a settable `tag`; what `ufloat` returns |
-|  [03]   | `unumpy.matrix` | uncertain matrix  | NumPy `matrix` subclass of `UFloat` with `.I` uncertainty-propagating inverse |
+|  [03]   | `unumpy.matrix` | uncertain matrix  | NumPy `matrix` subclass of `UFloat` with `.I` uncertainty-propagating inverse     |
 
 [PUBLIC_TYPE_SCOPE]: `UFloat` members
 - rail: uncertainty
 
-| [INDEX] | [MEMBER]              | [KIND]   | [ROLE]                                                          |
-| :-----: | :-------------------- | :------- | :------------------------------------------------------------- |
-|  [01]   | `nominal_value` / `n` | property | central value of the quantity                                  |
-|  [02]   | `std_dev` / `s`       | property | standard deviation; `0` for an exact value                     |
-|  [03]   | `derivatives`         | property | `{Variable: partial}` chain-rule gradient against each source  |
+| [INDEX] | [MEMBER]              | [KIND]   | [ROLE]                                                                                         |
+| :-----: | :-------------------- | :------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `nominal_value` / `n` | property | central value of the quantity                                                                  |
+|  [02]   | `std_dev` / `s`       | property | standard deviation; `0` for an exact value                                                     |
+|  [03]   | `derivatives`         | property | `{Variable: partial}` chain-rule gradient against each source                                  |
 |  [04]   | `error_components()`  | method   | `{Variable: contribution}` per-variable uncertainty split that sums in quadrature to `std_dev` |
-|  [05]   | `std_score(value)`    | method   | deviation of `value` from the nominal in units of `std_dev`    |
-|  [06]   | `format(format_spec)` | method   | shorthand-aware text (`{:.2u}` -> `2.00+/-0.10`, `:S`/`:P`/`:L` styles) |
-|  [07]   | `tag`                 | property | identity label; settable on `Variable`                         |
-|  [08]   | `dtype`               | property | NumPy-object dtype tag enabling `unumpy` array participation   |
+|  [05]   | `std_score(value)`    | method   | deviation of `value` from the nominal in units of `std_dev`                                    |
+|  [06]   | `format(format_spec)` | method   | shorthand-aware text (`{:.2u}` -> `2.00+/-0.10`, `:S`/`:P`/`:L` styles)                        |
+|  [07]   | `tag`                 | property | identity label; settable on `Variable`                                                         |
+|  [08]   | `dtype`               | property | NumPy-object dtype tag enabling `unumpy` array participation                                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -45,44 +45,44 @@
 - rail: uncertainty
 - `correlated_values` / `correlated_values_norm` are the cohort entry: one call reconstructs N correlated `UFloat` from a covariance (or correlation+std) matrix, the polymorphic inverse of `covariance_matrix` / `correlation_matrix`
 
-| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :------------------------------------------------------------------------ | :------------- | :---------------------------------------------- |
-|  [01]   | `ufloat(nominal_value, std_dev=None, tag=None)`                           | construct      | one independent uncertain scalar (`Variable`)   |
-|  [02]   | `ufloat_fromstr(representation, tag=None)`                                | construct      | parse `"x+/-u"` / `"x(u)"` shorthand string     |
-|  [03]   | `correlated_values(nom_values, covariance_mat, tags=None)`                | construct      | `UFloat` cohort from a covariance matrix (e.g. `curve_fit` `pcov`) |
-|  [04]   | `correlated_values_norm(values_with_std_dev, correlation_mat, tags=None)` | construct      | `UFloat` cohort from `(value, std)` pairs + a correlation matrix |
-|  [05]   | `covariance_matrix(nums_with_uncert)`                                     | extract        | covariance matrix across uncertain values       |
-|  [06]   | `correlation_matrix(nums_with_uncert)`                                    | extract        | correlation matrix across uncertain values       |
-|  [07]   | `nominal_value(x)` / `std_dev(x)`                                         | extract        | scalar accessors over any number, uncertain or plain |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                   |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ufloat(nominal_value, std_dev=None, tag=None)`                           | construct      | one independent uncertain scalar (`Variable`)                                                            |
+|  [02]   | `ufloat_fromstr(representation, tag=None)`                                | construct      | parse `"x+/-u"` / `"x(u)"` shorthand string                                                              |
+|  [03]   | `correlated_values(nom_values, covariance_mat, tags=None)`                | construct      | `UFloat` cohort from a covariance matrix (e.g. `curve_fit` `pcov`)                                       |
+|  [04]   | `correlated_values_norm(values_with_std_dev, correlation_mat, tags=None)` | construct      | `UFloat` cohort from `(value, std)` pairs + a correlation matrix                                         |
+|  [05]   | `covariance_matrix(nums_with_uncert)`                                     | extract        | covariance matrix across uncertain values                                                                |
+|  [06]   | `correlation_matrix(nums_with_uncert)`                                    | extract        | correlation matrix across uncertain values                                                               |
+|  [07]   | `nominal_value(x)` / `std_dev(x)`                                         | extract        | scalar accessors over any number, uncertain or plain                                                     |
 |  [08]   | `wrap(f, derivatives_args=None, derivatives_kwargs=None)`                 | adapt          | lift a plain numeric `f` into propagation; supply analytic partials or let them be estimated numerically |
-|  [09]   | `nan_if_exception(f)`                                                     | adapt          | derivative wrapper returning `nan` instead of raising at a singular point |
+|  [09]   | `nan_if_exception(f)`                                                     | adapt          | derivative wrapper returning `nan` instead of raising at a singular point                                |
 
 [ENTRYPOINT_SCOPE]: array and matrix construction (`uncertainties.unumpy`)
 - rail: uncertainty
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :---------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `unumpy.uarray(nominal_values, std_devs=None)`  | construct      | object-dtype `ndarray` of `UFloat` from two arrays |
-|  [02]   | `unumpy.umatrix(nominal_values, std_devs=None)` | construct      | uncertain `unumpy.matrix`                        |
-|  [03]   | `unumpy.nominal_values(arr)`                    | extract        | array of central values (NumPy-ufunc compatible) |
-|  [04]   | `unumpy.std_devs(arr)`                          | extract        | array of standard deviations                     |
-|  [05]   | `unumpy.ulinalg.inv(m)`                         | linalg         | uncertainty-propagating matrix inverse           |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                               |
+| :-----: | :---------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `unumpy.uarray(nominal_values, std_devs=None)`  | construct      | object-dtype `ndarray` of `UFloat` from two arrays   |
+|  [02]   | `unumpy.umatrix(nominal_values, std_devs=None)` | construct      | uncertain `unumpy.matrix`                            |
+|  [03]   | `unumpy.nominal_values(arr)`                    | extract        | array of central values (NumPy-ufunc compatible)     |
+|  [04]   | `unumpy.std_devs(arr)`                          | extract        | array of standard deviations                         |
+|  [05]   | `unumpy.ulinalg.inv(m)`                         | linalg         | uncertainty-propagating matrix inverse               |
 |  [06]   | `unumpy.ulinalg.pinv(m)`                        | linalg         | uncertainty-propagating Moore-Penrose pseudo-inverse |
 
 [ENTRYPOINT_SCOPE]: uncertainty-propagating math (`uncertainties.umath`, `uncertainties.unumpy`)
 - rail: uncertainty
 - `umath` (40 functions) mirrors `math` names; `unumpy` elementwise math mirrors NumPy names (`arccos`/`arcsin`/`arctan`/`arctan2`/`arccosh`/`arctanh`), not the `math` spellings; both dispatch to the plain library when no argument carries uncertainty
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                                          |
-| :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `umath.sqrt` / `exp` / `log` / `log10` / `log1p` / `expm1` | scalar math    | drop-in `math` functions over `UFloat`           |
-|  [02]   | `umath.sin` / `cos` / `tan` / `sinh` / `cosh` / `tanh`     | scalar math    | trigonometric / hyperbolic propagation           |
-|  [03]   | `umath.asin` / `acos` / `atan` / `atan2` / `hypot`         | scalar math    | inverse-trig, two-argument arctangent, Euclidean norm |
-|  [04]   | `umath.asinh` / `acosh` / `atanh` / `pow` / `fabs`         | scalar math    | inverse-hyperbolic, power, absolute value        |
-|  [05]   | `umath.erf` / `erfc` / `gamma` / `lgamma` / `factorial`    | scalar math    | special-function propagation                     |
-|  [06]   | `umath.fsum` / `frexp` / `modf` / `ldexp` / `copysign`     | scalar math    | summation and float decomposition/composition    |
-|  [07]   | `umath.ceil` / `floor` / `trunc` / `fmod` / `degrees` / `radians` | scalar math | rounding, modulus, angle conversion              |
-|  [08]   | `unumpy.exp` / `log` / `sqrt` / `sin` / `arctan2` / `hypot` | array math     | elementwise propagation over `uarray`/`umatrix`  |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :---------------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `umath.sqrt` / `exp` / `log` / `log10` / `log1p` / `expm1`        | scalar math    | drop-in `math` functions over `UFloat`                |
+|  [02]   | `umath.sin` / `cos` / `tan` / `sinh` / `cosh` / `tanh`            | scalar math    | trigonometric / hyperbolic propagation                |
+|  [03]   | `umath.asin` / `acos` / `atan` / `atan2` / `hypot`                | scalar math    | inverse-trig, two-argument arctangent, Euclidean norm |
+|  [04]   | `umath.asinh` / `acosh` / `atanh` / `pow` / `fabs`                | scalar math    | inverse-hyperbolic, power, absolute value             |
+|  [05]   | `umath.erf` / `erfc` / `gamma` / `lgamma` / `factorial`           | scalar math    | special-function propagation                          |
+|  [06]   | `umath.fsum` / `frexp` / `modf` / `ldexp` / `copysign`            | scalar math    | summation and float decomposition/composition         |
+|  [07]   | `umath.ceil` / `floor` / `trunc` / `fmod` / `degrees` / `radians` | scalar math    | rounding, modulus, angle conversion                   |
+|  [08]   | `unumpy.exp` / `log` / `sqrt` / `sin` / `arctan2` / `hypot`       | array math     | elementwise propagation over `uarray`/`umatrix`       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

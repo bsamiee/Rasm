@@ -20,115 +20,115 @@
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [RAIL]                                                            |
-| ------- | ------------------------ | --------------- | ----------------------------------------------------------------- |
-| [01]    | `Nursery`                | task scope      | structured task group; `.start_soon`/`.start`, `.cancel_scope`    |
-| [02]    | `CancelScope`            | scope class     | level-triggered cancellation boundary (`deadline=`/`shield=`)     |
-| [03]    | `TaskStatus`             | `Protocol`      | `.started(value)` readiness signal returned by `nursery.start`    |
-| [04]    | `TASK_STATUS_IGNORED`    | sentinel        | default `task_status` for non-reporting tasks                     |
-| [05]    | `Cancelled`              | `BaseException` | a `CancelScope` fired; never catch bare — re-raises at next yield |
-| [06]    | `TooSlowError`           | exception       | a `fail_after`/`fail_at` deadline elapsed                         |
-| [07]    | `RunFinishedError`       | `RuntimeError`  | `from_thread`/token call after the run finished                   |
-| [08]    | `TrioInternalError`      | exception       | trio invariant violation (bug-class, not a domain fault)          |
-| [09]    | `TrioDeprecationWarning` | `FutureWarning` | deprecated-surface warning category                               |
+| :-----: | :----------------------- | :-------------- | :---------------------------------------------------------------- |
+|  [01]   | `Nursery`                | task scope      | structured task group; `.start_soon`/`.start`, `.cancel_scope`    |
+|  [02]   | `CancelScope`            | scope class     | level-triggered cancellation boundary (`deadline=`/`shield=`)     |
+|  [03]   | `TaskStatus`             | `Protocol`      | `.started(value)` readiness signal returned by `nursery.start`    |
+|  [04]   | `TASK_STATUS_IGNORED`    | sentinel        | default `task_status` for non-reporting tasks                     |
+|  [05]   | `Cancelled`              | `BaseException` | a `CancelScope` fired; never catch bare — re-raises at next yield |
+|  [06]   | `TooSlowError`           | exception       | a `fail_after`/`fail_at` deadline elapsed                         |
+|  [07]   | `RunFinishedError`       | `RuntimeError`  | `from_thread`/token call after the run finished                   |
+|  [08]   | `TrioInternalError`      | exception       | trio invariant violation (bug-class, not a domain fault)          |
+|  [09]   | `TrioDeprecationWarning` | `FutureWarning` | deprecated-surface warning category                               |
 
 [PUBLIC_TYPE_SCOPE]: synchronization primitives and statistics
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                                        |
-| ------- | --------------------------- | ------------- | ------------------------------------------------------------- |
-| [01]    | `Event`                     | event class   | set-once async notification (`.set`/`.is_set`/`.wait`)        |
-| [02]    | `Lock`                      | lock class    | async mutual exclusion; `async with` or `.acquire`/`.release` |
-| [03]    | `StrictFIFOLock`            | lock class    | `Lock` guaranteeing strict first-in-first-out wakeup order    |
-| [04]    | `Semaphore`                 | sema class    | async counting semaphore with optional `max_value`            |
-| [05]    | `Condition`                 | cond class    | async condition variable over a `Lock` (`.notify`/`.wait`)    |
-| [06]    | `CapacityLimiter`           | limiter class | concurrent-slot limiter; `total_tokens` resizable at runtime  |
-| [07]    | `EventStatistics`           | stats record  | event subscriber-count snapshot                               |
-| [08]    | `LockStatistics`            | stats record  | lock holder/waiter snapshot                                   |
-| [09]    | `ConditionStatistics`       | stats record  | condition waiter snapshot                                     |
-| [10]    | `SemaphoreStatistics`       | stats record  | semaphore waiter snapshot                                     |
-| [11]    | `CapacityLimiterStatistics` | stats record  | limiter borrowers/waiters snapshot                            |
+| :-----: | :-------------------------- | :------------ | :------------------------------------------------------------ |
+|  [01]   | `Event`                     | event class   | set-once async notification (`.set`/`.is_set`/`.wait`)        |
+|  [02]   | `Lock`                      | lock class    | async mutual exclusion; `async with` or `.acquire`/`.release` |
+|  [03]   | `StrictFIFOLock`            | lock class    | `Lock` guaranteeing strict first-in-first-out wakeup order    |
+|  [04]   | `Semaphore`                 | sema class    | async counting semaphore with optional `max_value`            |
+|  [05]   | `Condition`                 | cond class    | async condition variable over a `Lock` (`.notify`/`.wait`)    |
+|  [06]   | `CapacityLimiter`           | limiter class | concurrent-slot limiter; `total_tokens` resizable at runtime  |
+|  [07]   | `EventStatistics`           | stats record  | event subscriber-count snapshot                               |
+|  [08]   | `LockStatistics`            | stats record  | lock holder/waiter snapshot                                   |
+|  [09]   | `ConditionStatistics`       | stats record  | condition waiter snapshot                                     |
+|  [10]   | `SemaphoreStatistics`       | stats record  | semaphore waiter snapshot                                     |
+|  [11]   | `CapacityLimiterStatistics` | stats record  | limiter borrowers/waiters snapshot                            |
 
 [PUBLIC_TYPE_SCOPE]: channels and channel statistics
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]  | [RAIL]                                                       |
-| ------- | ------------------------- | -------------- | ------------------------------------------------------------ |
-| [01]    | `MemorySendChannel`       | object channel | clonable send half; `.send`/`.send_nowait`/`.clone`          |
-| [02]    | `MemoryReceiveChannel`    | object channel | clonable receive half; `.receive`/`.receive_nowait`/`.clone` |
-| [03]    | `MemoryChannelStatistics` | stats record   | buffered/sender/receiver snapshot                            |
-| [04]    | `EndOfChannel`            | channel signal | all senders closed (raised by `receive`; ends `async for`)   |
+| :-----: | :------------------------ | :------------- | :----------------------------------------------------------- |
+|  [01]   | `MemorySendChannel`       | object channel | clonable send half; `.send`/`.send_nowait`/`.clone`          |
+|  [02]   | `MemoryReceiveChannel`    | object channel | clonable receive half; `.receive`/`.receive_nowait`/`.clone` |
+|  [03]   | `MemoryChannelStatistics` | stats record   | buffered/sender/receiver snapshot                            |
+|  [04]   | `EndOfChannel`            | channel signal | all senders closed (raised by `receive`; ends `async for`)   |
 
 [PUBLIC_TYPE_SCOPE]: transports — streams, listeners, SSL/DTLS
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [RAIL]                                                      |
-| ------- | ----------------------- | ------------- | ----------------------------------------------------------- |
-| [01]    | `SocketStream`          | byte stream   | TCP/UNIX duplex; `.send_all`/`.receive_some`/`.send_eof`    |
-| [02]    | `SocketListener`        | listener      | single-socket accept loop (`.accept`)                       |
-| [03]    | `StapledStream`         | byte stream   | staple a send + receive half into one half-closeable stream |
-| [04]    | `SSLStream`             | byte stream   | TLS over any `Stream`; `.do_handshake`/`.unwrap`            |
-| [05]    | `SSLListener`           | listener      | TLS-terminating accept loop                                 |
-| [06]    | `DTLSEndpoint`          | datagram TLS  | one UDP socket multiplexing many DTLS peers                 |
-| [07]    | `DTLSChannel`           | datagram TLS  | one DTLS association; `.send`/`.receive`/`.do_handshake`    |
-| [08]    | `DTLSChannelStatistics` | stats record  | DTLS retransmit/record snapshot                             |
-| [09]    | `NeedHandshakeError`    | TLS error     | peer metadata read before the handshake completed           |
+| :-----: | :---------------------- | :------------ | :---------------------------------------------------------- |
+|  [01]   | `SocketStream`          | byte stream   | TCP/UNIX duplex; `.send_all`/`.receive_some`/`.send_eof`    |
+|  [02]   | `SocketListener`        | listener      | single-socket accept loop (`.accept`)                       |
+|  [03]   | `StapledStream`         | byte stream   | staple a send + receive half into one half-closeable stream |
+|  [04]   | `SSLStream`             | byte stream   | TLS over any `Stream`; `.do_handshake`/`.unwrap`            |
+|  [05]   | `SSLListener`           | listener      | TLS-terminating accept loop                                 |
+|  [06]   | `DTLSEndpoint`          | datagram TLS  | one UDP socket multiplexing many DTLS peers                 |
+|  [07]   | `DTLSChannel`           | datagram TLS  | one DTLS association; `.send`/`.receive`/`.do_handshake`    |
+|  [08]   | `DTLSChannelStatistics` | stats record  | DTLS retransmit/record snapshot                             |
+|  [09]   | `NeedHandshakeError`    | TLS error     | peer metadata read before the handshake completed           |
 
 [PUBLIC_TYPE_SCOPE]: subprocess and async filesystem
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]  | [RAIL]                                                                                                              |
-| ------- | ------------- | -------------- | ------------------------------------------------------------------------------------------------------------------- |
-| [01]    | `Process`     | process handle | async subprocess; `.wait`/`.kill`/`.send_signal`, `.stdin`/`.stdout`/`.stderr` stream handles, `.returncode`/`.pid` |
-| [02]    | `Path`        | async path     | `pathlib.Path` mirror; every I/O method awaitable (`.read_bytes`/`.iterdir`/`.stat`/`.open`)                        |
-| [03]    | `PosixPath`   | async path     | POSIX concrete `Path` flavour                                                                                       |
-| [04]    | `WindowsPath` | async path     | Windows concrete `Path` flavour                                                                                     |
+| :-----: | :------------ | :------------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Process`     | process handle | async subprocess; `.wait`/`.kill`/`.send_signal`, `.stdin`/`.stdout`/`.stderr` stream handles, `.returncode`/`.pid` |
+|  [02]   | `Path`        | async path     | `pathlib.Path` mirror; every I/O method awaitable (`.read_bytes`/`.iterdir`/`.stat`/`.open`)                        |
+|  [03]   | `PosixPath`   | async path     | POSIX concrete `Path` flavour                                                                                       |
+|  [04]   | `WindowsPath` | async path     | Windows concrete `Path` flavour                                                                                     |
 
 [PUBLIC_TYPE_SCOPE]: resource and stream error types
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]  | [RAIL]                                      |
-| ------- | --------------------- | -------------- | ------------------------------------------- |
-| [01]    | `ClosedResourceError` | resource error | operation on a locally-closed resource      |
-| [02]    | `BrokenResourceError` | resource error | unrecoverable stream/socket break           |
-| [03]    | `BusyResourceError`   | resource error | two tasks used one non-shareable resource   |
-| [04]    | `WouldBlock`          | sync signal    | non-blocking op would block (`send_nowait`) |
+| :-----: | :-------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `ClosedResourceError` | resource error | operation on a locally-closed resource      |
+|  [02]   | `BrokenResourceError` | resource error | unrecoverable stream/socket break           |
+|  [03]   | `BusyResourceError`   | resource error | two tasks used one non-shareable resource   |
+|  [04]   | `WouldBlock`          | sync signal    | non-blocking op would block (`send_nowait`) |
 
 [PUBLIC_TYPE_SCOPE]: abstract contracts (`trio.abc`)
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]                                                          | [TYPE_FAMILY] | [RAIL]                                                                               |
-| ------- | ----------------------------------------------------------------- | ------------- | ------------------------------------------------------------------------------------ |
-| [01]    | `AsyncResource`                                                   | interface     | `aclose`-capable resource base                                                       |
-| [02]    | `SendStream` / `ReceiveStream` / `Stream` / `HalfCloseableStream` | interface     | half/duplex/half-closeable byte-stream contracts                                     |
-| [03]    | `SendChannel` / `ReceiveChannel` / `Channel`                      | interface     | typed object-channel contracts (generic over item type)                              |
-| [04]    | `Listener`                                                        | interface     | `accept`-loop connection listener                                                    |
-| [05]    | `Clock`                                                           | interface     | pluggable virtual-time clock (`start_clock`/`current_time`/`deadline_to_sleep_time`) |
-| [06]    | `Instrument`                                                      | interface     | run-loop event hook bus (task/step/io-wait callbacks)                                |
-| [07]    | `HostnameResolver`                                                | interface     | overridable async `getaddrinfo`/`getnameinfo` hook                                   |
-| [08]    | `SocketFactory`                                                   | interface     | overridable socket constructor for the network stack                                 |
+| :-----: | :---------------------------------------------------------------- | :------------ | :----------------------------------------------------------------------------------- |
+|  [01]   | `AsyncResource`                                                   | interface     | `aclose`-capable resource base                                                       |
+|  [02]   | `SendStream` / `ReceiveStream` / `Stream` / `HalfCloseableStream` | interface     | half/duplex/half-closeable byte-stream contracts                                     |
+|  [03]   | `SendChannel` / `ReceiveChannel` / `Channel`                      | interface     | typed object-channel contracts (generic over item type)                              |
+|  [04]   | `Listener`                                                        | interface     | `accept`-loop connection listener                                                    |
+|  [05]   | `Clock`                                                           | interface     | pluggable virtual-time clock (`start_clock`/`current_time`/`deadline_to_sleep_time`) |
+|  [06]   | `Instrument`                                                      | interface     | run-loop event hook bus (task/step/io-wait callbacks)                                |
+|  [07]   | `HostnameResolver`                                                | interface     | overridable async `getaddrinfo`/`getnameinfo` hook                                   |
+|  [08]   | `SocketFactory`                                                   | interface     | overridable socket constructor for the network stack                                 |
 
 [PUBLIC_TYPE_SCOPE]: low-level run primitives (`trio.lowlevel`)
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]  | [RAIL]                                                       |
-| ------- | --------------------------------------------------------------------- | -------------- | ------------------------------------------------------------ |
-| [01]    | `Task`                                                                | task handle    | a scheduled trio task (`.name`/`.coro`/`.context`)           |
-| [02]    | `TrioToken`                                                           | loop token     | thread-safe handle to a running loop; `.run_sync_soon`       |
-| [03]    | `RunVar` / `RunVarToken`                                              | run-local var  | per-`run()` `ContextVar` equivalent (`.get`/`.set`/`.reset`) |
-| [04]    | `ParkingLot`                                                          | wait primitive | low-level FIFO wait queue underpinning every sync primitive  |
-| [05]    | `UnboundedQueue`                                                      | queue          | unbounded multi-producer batch queue (`.get_batch_nowait`)   |
-| [06]    | `Abort`                                                               | `Enum`         | `wait_task_rescheduled` abort outcome (`SUCCEEDED`/`FAILED`) |
-| [07]    | `FdStream`                                                            | byte stream    | wrap a POSIX fd (pipe/PTY) as a trio `Stream`                |
-| [08]    | `RunStatistics` / `ParkingLotStatistics` / `UnboundedQueueStatistics` | stats record   | run-loop / parking-lot / queue snapshots                     |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `Task`                                                                | task handle    | a scheduled trio task (`.name`/`.coro`/`.context`)           |
+|  [02]   | `TrioToken`                                                           | loop token     | thread-safe handle to a running loop; `.run_sync_soon`       |
+|  [03]   | `RunVar` / `RunVarToken`                                              | run-local var  | per-`run()` `ContextVar` equivalent (`.get`/`.set`/`.reset`) |
+|  [04]   | `ParkingLot`                                                          | wait primitive | low-level FIFO wait queue underpinning every sync primitive  |
+|  [05]   | `UnboundedQueue`                                                      | queue          | unbounded multi-producer batch queue (`.get_batch_nowait`)   |
+|  [06]   | `Abort`                                                               | `Enum`         | `wait_task_rescheduled` abort outcome (`SUCCEEDED`/`FAILED`) |
+|  [07]   | `FdStream`                                                            | byte stream    | wrap a POSIX fd (pipe/PTY) as a trio `Stream`                |
+|  [08]   | `RunStatistics` / `ParkingLotStatistics` / `UnboundedQueueStatistics` | stats record   | run-loop / parking-lot / queue snapshots                     |
 
 [PUBLIC_TYPE_SCOPE]: testing kit (`trio.testing`)
 - rail: concurrency
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [RAIL]                                                                                                   |
-| ------- | ------------------------------------------ | ------------- | -------------------------------------------------------------------------------------------------------- |
-| [01]    | `MockClock`                                | clock         | virtual clock; `autojump_threshold=0` collapses idle time, `rate` scales speed, `.jump(s)` steps forward |
-| [02]    | `Sequencer`                                | ordering tool | force a deterministic interleaving across tasks (`async with seq(n)`)                                    |
-| [03]    | `MemorySendStream` / `MemoryReceiveStream` | test stream   | in-memory byte stream with injectable `send_all_hook`/`receive_some_hook`                                |
+| :-----: | :----------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `MockClock`                                | clock         | virtual clock; `autojump_threshold=0` collapses idle time, `rate` scales speed, `.jump(s)` steps forward |
+|  [02]   | `Sequencer`                                | ordering tool | force a deterministic interleaving across tasks (`async with seq(n)`)                                    |
+|  [03]   | `MemorySendStream` / `MemoryReceiveStream` | test stream   | in-memory byte stream with injectable `send_all_hook`/`receive_some_hook`                                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -136,93 +136,93 @@
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                                                                                                          | [ENTRY_FAMILY]   | [RAIL]                                                       |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ------------------------------------------------------------ |
-| [01]    | `run(async_fn, *args, clock=None, instruments=(), restrict_keyboard_interrupt_to_checkpoints=False, strict_exception_groups=True)` | event loop entry | run an async main; inject a `Clock` and `Instrument` list    |
-| [02]    | `open_nursery(strict_exception_groups=None)`                                                                                       | task group       | `async with` structured nursery (`start_soon`/`start`)       |
-| [03]    | `current_time()`                                                                                                                   | clock            | the active `Clock`'s monotonic time                          |
-| [04]    | `current_effective_deadline()`                                                                                                     | clock            | nearest active cancel deadline (`-inf` if already cancelled) |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
+|  [01]   | `run(async_fn, *args, clock=None, instruments=(), restrict_keyboard_interrupt_to_checkpoints=False, strict_exception_groups=True)` | event loop entry | run an async main; inject a `Clock` and `Instrument` list    |
+|  [02]   | `open_nursery(strict_exception_groups=None)`                                                                                       | task group       | `async with` structured nursery (`start_soon`/`start`)       |
+|  [03]   | `current_time()`                                                                                                                   | clock            | the active `Clock`'s monotonic time                          |
+|  [04]   | `current_effective_deadline()`                                                                                                     | clock            | nearest active cancel deadline (`-inf` if already cancelled) |
 
 [ENTRYPOINT_SCOPE]: cancel scopes, timeouts, and sleeping
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                                            |
-| ------- | ----------------------------------------- | -------------- | ----------------------------------------------------------------- |
-| [01]    | `fail_after(seconds, *, shield=False)`    | cancel scope   | raise `TooSlowError` on a relative deadline                       |
-| [02]    | `fail_at(deadline, *, shield=False)`      | cancel scope   | raise `TooSlowError` at an absolute `current_time` deadline       |
-| [03]    | `move_on_after(seconds, *, shield=False)` | cancel scope   | silently cancel on a relative deadline (`scope.cancelled_caught`) |
-| [04]    | `move_on_at(deadline, *, shield=False)`   | cancel scope   | silently cancel at an absolute deadline                           |
-| [05]    | `sleep(seconds)`                          | sleep          | sleep for seconds (cancellation checkpoint)                       |
-| [06]    | `sleep_until(deadline)`                   | sleep          | sleep until an absolute `current_time` deadline                   |
-| [07]    | `sleep_forever()`                         | sleep          | sleep until cancelled                                             |
+| :-----: | :---------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `fail_after(seconds, *, shield=False)`    | cancel scope   | raise `TooSlowError` on a relative deadline                       |
+|  [02]   | `fail_at(deadline, *, shield=False)`      | cancel scope   | raise `TooSlowError` at an absolute `current_time` deadline       |
+|  [03]   | `move_on_after(seconds, *, shield=False)` | cancel scope   | silently cancel on a relative deadline (`scope.cancelled_caught`) |
+|  [04]   | `move_on_at(deadline, *, shield=False)`   | cancel scope   | silently cancel at an absolute deadline                           |
+|  [05]   | `sleep(seconds)`                          | sleep          | sleep for seconds (cancellation checkpoint)                       |
+|  [06]   | `sleep_until(deadline)`                   | sleep          | sleep until an absolute `current_time` deadline                   |
+|  [07]   | `sleep_forever()`                         | sleep          | sleep until cancelled                                             |
 
 [ENTRYPOINT_SCOPE]: channels
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                                                 |
-| ------- | ----------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| [01]    | `open_memory_channel[T](max_buffer_size)` | factory        | paired `(MemorySendChannel[T], MemoryReceiveChannel[T])`; subscript for the item type, `math.inf` for an unbounded buffer              |
-| [02]    | `as_safe_channel(fn)`                     | adapter        | turn an `AsyncGenerator` into a background-pumped `ReceiveChannel` context manager (decouples producer cancellation from the consumer) |
+| :-----: | :---------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `open_memory_channel[T](max_buffer_size)` | factory        | paired `(MemorySendChannel[T], MemoryReceiveChannel[T])`; subscript for the item type, `math.inf` for an unbounded buffer              |
+|  [02]   | `as_safe_channel(fn)`                     | adapter        | turn an `AsyncGenerator` into a background-pumped `ReceiveChannel` context manager (decouples producer cancellation from the consumer) |
 
 [ENTRYPOINT_SCOPE]: networking, TLS, and signals
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                                             |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | ---------------------------------------------------------------------------------- |
-| [01]    | `open_tcp_stream(host, port, *, happy_eyeballs_delay=0.25, local_address=None)`                                                                | connect        | TCP `SocketStream`, RFC 6555 dual-stack dialing                                    |
-| [02]    | `open_unix_socket(filename)`                                                                                                                   | connect        | UNIX-domain `SocketStream`                                                         |
-| [03]    | `open_tcp_listeners(port, *, host=None, backlog=None)` / `serve_tcp(handler, port, *, host=None, handler_nursery=None)`                        | listen / serve | build TCP listeners, or accept-loop each connection into `handler` under a nursery |
-| [04]    | `open_ssl_over_tcp_stream(host, port, *, ssl_context=None, https_compatible=False, happy_eyeballs_delay=0.25)`                                 | connect        | TLS `SSLStream` over a fresh TCP dial                                              |
-| [05]    | `open_ssl_over_tcp_listeners(port, ssl_context, *, host=None, https_compatible=False)` / `serve_ssl_over_tcp(handler, port, ssl_context, ...)` | listen / serve | TLS-terminating listeners, or serve each TLS stream into `handler`                 |
-| [06]    | `serve_listeners(handler, listeners, *, handler_nursery=None)`                                                                                 | serve          | accept-loop any `Listener` list, one child task per connection                     |
-| [07]    | `open_signal_receiver(*signals)`                                                                                                               | signals        | `with` → async iterator of received signal numbers                                 |
-| [08]    | `aclose_forcefully(resource)`                                                                                                                  | teardown       | best-effort `aclose` that ignores errors and never blocks                          |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `open_tcp_stream(host, port, *, happy_eyeballs_delay=0.25, local_address=None)`                                                                | connect        | TCP `SocketStream`, RFC 6555 dual-stack dialing                                    |
+|  [02]   | `open_unix_socket(filename)`                                                                                                                   | connect        | UNIX-domain `SocketStream`                                                         |
+|  [03]   | `open_tcp_listeners(port, *, host=None, backlog=None)` / `serve_tcp(handler, port, *, host=None, handler_nursery=None)`                        | listen / serve | build TCP listeners, or accept-loop each connection into `handler` under a nursery |
+|  [04]   | `open_ssl_over_tcp_stream(host, port, *, ssl_context=None, https_compatible=False, happy_eyeballs_delay=0.25)`                                 | connect        | TLS `SSLStream` over a fresh TCP dial                                              |
+|  [05]   | `open_ssl_over_tcp_listeners(port, ssl_context, *, host=None, https_compatible=False)` / `serve_ssl_over_tcp(handler, port, ssl_context, ...)` | listen / serve | TLS-terminating listeners, or serve each TLS stream into `handler`                 |
+|  [06]   | `serve_listeners(handler, listeners, *, handler_nursery=None)`                                                                                 | serve          | accept-loop any `Listener` list, one child task per connection                     |
+|  [07]   | `open_signal_receiver(*signals)`                                                                                                               | signals        | `with` → async iterator of received signal numbers                                 |
+|  [08]   | `aclose_forcefully(resource)`                                                                                                                  | teardown       | best-effort `aclose` that ignores errors and never blocks                          |
 
 [ENTRYPOINT_SCOPE]: file and process I/O
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                                                                                                                 |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| [01]    | `open_file(file, mode='r', ...)`                                                                                                   | file open      | async file handle (thread-offloaded `AsyncIOWrapper`)                                                                                  |
-| [02]    | `wrap_file(file)`                                                                                                                  | file wrap      | wrap an already-open sync file object as async                                                                                         |
-| [03]    | `run_process(command, *, stdin=b'', capture_stdout=False, capture_stderr=False, check=True, deliver_cancel=None, task_status=...)` | process run    | run a subprocess to completion → `subprocess.CompletedProcess`; `task_status.started` yields the live `Process` for mid-run signalling |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `open_file(file, mode='r', ...)`                                                                                                   | file open      | async file handle (thread-offloaded `AsyncIOWrapper`)                                                                                  |
+|  [02]   | `wrap_file(file)`                                                                                                                  | file wrap      | wrap an already-open sync file object as async                                                                                         |
+|  [03]   | `run_process(command, *, stdin=b'', capture_stdout=False, capture_stderr=False, check=True, deliver_cancel=None, task_status=...)` | process run    | run a subprocess to completion → `subprocess.CompletedProcess`; `task_status.started` yields the live `Process` for mid-run signalling |
 
 [ENTRYPOINT_SCOPE]: thread / loop bridge (`trio.to_thread`, `trio.from_thread`)
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY]  | [RAIL]                                                                 |
-| ------- | --------------------------------------------------------------------------------------------------- | --------------- | ---------------------------------------------------------------------- |
-| [01]    | `to_thread.run_sync(sync_fn, *args, thread_name=None, abandon_on_cancel=False, limiter=None)`       | thread dispatch | run a sync callable in a worker thread, `CapacityLimiter`-bounded      |
-| [02]    | `to_thread.current_default_thread_limiter()`                                                        | limiter query   | per-`run` default thread limiter (40 tokens)                           |
-| [03]    | `from_thread.run(afn, *args, trio_token=None)` / `from_thread.run_sync(fn, *args, trio_token=None)` | bridge call     | call async/sync trio code from a worker thread back into the loop      |
-| [04]    | `from_thread.check_cancelled()`                                                                     | bridge query    | raise `Cancelled` in the worker thread if the host scope was cancelled |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------- |
+|  [01]   | `to_thread.run_sync(sync_fn, *args, thread_name=None, abandon_on_cancel=False, limiter=None)`       | thread dispatch | run a sync callable in a worker thread, `CapacityLimiter`-bounded      |
+|  [02]   | `to_thread.current_default_thread_limiter()`                                                        | limiter query   | per-`run` default thread limiter (40 tokens)                           |
+|  [03]   | `from_thread.run(afn, *args, trio_token=None)` / `from_thread.run_sync(fn, *args, trio_token=None)` | bridge call     | call async/sync trio code from a worker thread back into the loop      |
+|  [04]   | `from_thread.check_cancelled()`                                                                     | bridge query    | raise `Cancelled` in the worker thread if the host scope was cancelled |
 
 [ENTRYPOINT_SCOPE]: low-level checkpoints, scheduling, and guest mode (`trio.lowlevel`)
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                                                                                                      | [ENTRY_FAMILY]  | [RAIL]                                                                  |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------- | ----------------------------------------------------------------------- |
-| [01]    | `lowlevel.checkpoint()`                                                                                                        | checkpoint      | unconditional yield + cancellation check                                |
-| [02]    | `lowlevel.checkpoint_if_cancelled()` / `lowlevel.cancel_shielded_checkpoint()`                                                 | checkpoint      | cancel-only check / yield shielded from cancellation                    |
-| [03]    | `lowlevel.current_task()` / `lowlevel.current_root_task()` / `lowlevel.current_trio_token()` / `lowlevel.current_statistics()` | introspection   | running task / root task / loop token / `RunStatistics`                 |
-| [04]    | `lowlevel.spawn_system_task(async_fn, *args, name=None, context=None)`                                                         | scheduling      | spawn a nursery-free, shielded-from-`KeyboardInterrupt` system task     |
-| [05]    | `lowlevel.wait_task_rescheduled(abort_func)` / `lowlevel.reschedule(task, next_send)`                                          | scheduling      | the park/unpark pair every custom async primitive is built on           |
-| [06]    | `lowlevel.wait_readable(fd)` / `lowlevel.wait_writable(fd)` / `lowlevel.notify_closing(fd)`                                    | readiness       | await raw fd/socket readiness; wake waiters before closing              |
-| [07]    | `lowlevel.start_guest_run(async_fn, *args, run_sync_soon_threadsafe=..., done_callback=...)`                                   | guest mode      | interleave a trio run inside a foreign event loop (Qt/asyncio/GUI host) |
-| [08]    | `lowlevel.add_instrument(instrument)` / `lowlevel.remove_instrument(instrument)`                                               | instrumentation | attach/detach an `Instrument` on the live run                           |
-| [09]    | `lowlevel.enable_ki_protection(f)` / `lowlevel.disable_ki_protection(f)`                                                       | KI control      | mark a region (un)protected from `KeyboardInterrupt`                    |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------- |
+|  [01]   | `lowlevel.checkpoint()`                                                                                                        | checkpoint      | unconditional yield + cancellation check                                |
+|  [02]   | `lowlevel.checkpoint_if_cancelled()` / `lowlevel.cancel_shielded_checkpoint()`                                                 | checkpoint      | cancel-only check / yield shielded from cancellation                    |
+|  [03]   | `lowlevel.current_task()` / `lowlevel.current_root_task()` / `lowlevel.current_trio_token()` / `lowlevel.current_statistics()` | introspection   | running task / root task / loop token / `RunStatistics`                 |
+|  [04]   | `lowlevel.spawn_system_task(async_fn, *args, name=None, context=None)`                                                         | scheduling      | spawn a nursery-free, shielded-from-`KeyboardInterrupt` system task     |
+|  [05]   | `lowlevel.wait_task_rescheduled(abort_func)` / `lowlevel.reschedule(task, next_send)`                                          | scheduling      | the park/unpark pair every custom async primitive is built on           |
+|  [06]   | `lowlevel.wait_readable(fd)` / `lowlevel.wait_writable(fd)` / `lowlevel.notify_closing(fd)`                                    | readiness       | await raw fd/socket readiness; wake waiters before closing              |
+|  [07]   | `lowlevel.start_guest_run(async_fn, *args, run_sync_soon_threadsafe=..., done_callback=...)`                                   | guest mode      | interleave a trio run inside a foreign event loop (Qt/asyncio/GUI host) |
+|  [08]   | `lowlevel.add_instrument(instrument)` / `lowlevel.remove_instrument(instrument)`                                               | instrumentation | attach/detach an `Instrument` on the live run                           |
+|  [09]   | `lowlevel.enable_ki_protection(f)` / `lowlevel.disable_ki_protection(f)`                                                       | KI control      | mark a region (un)protected from `KeyboardInterrupt`                    |
 
 [ENTRYPOINT_SCOPE]: deterministic testing (`trio.testing`)
 - rail: concurrency
 
 | [INDEX] | [SURFACE]                                                                                              | [ENTRY_FAMILY] | [RAIL]                                                                    |
-| ------- | ------------------------------------------------------------------------------------------------------ | -------------- | ------------------------------------------------------------------------- |
-| [01]    | `testing.trio_test(fn)`                                                                                | test decorator | run an `async def` test under `trio.run` (pytest-agnostic)                |
-| [02]    | `testing.wait_all_tasks_blocked(cushion=0.0)`                                                          | testing helper | yield until every other task is blocked (deterministic settle)            |
-| [03]    | `testing.assert_checkpoints()` / `testing.assert_no_checkpoints()`                                     | assertion CM   | assert a block does / does not execute a cancellation checkpoint          |
-| [04]    | `testing.memory_stream_pair()` / `testing.lockstep_stream_pair()`                                      | stream factory | bidirectional in-memory / lockstep-synchronised test stream pair          |
-| [05]    | `testing.memory_stream_pump(send, receive, *, max_bytes=None)`                                         | stream pump    | manually shuttle bytes between a `MemorySendStream`/`MemoryReceiveStream` |
-| [06]    | `testing.check_two_way_stream(...)` / `check_one_way_stream(...)` / `check_half_closeable_stream(...)` | conformance    | exhaustive contract test for a custom `Stream` implementation             |
-| [07]    | `testing.open_stream_to_socket_listener(listener)`                                                     | test connect   | dial a `SocketListener` directly without a real network round-trip        |
+| :-----: | :----------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------ |
+|  [01]   | `testing.trio_test(fn)`                                                                                | test decorator | run an `async def` test under `trio.run` (pytest-agnostic)                |
+|  [02]   | `testing.wait_all_tasks_blocked(cushion=0.0)`                                                          | testing helper | yield until every other task is blocked (deterministic settle)            |
+|  [03]   | `testing.assert_checkpoints()` / `testing.assert_no_checkpoints()`                                     | assertion CM   | assert a block does / does not execute a cancellation checkpoint          |
+|  [04]   | `testing.memory_stream_pair()` / `testing.lockstep_stream_pair()`                                      | stream factory | bidirectional in-memory / lockstep-synchronised test stream pair          |
+|  [05]   | `testing.memory_stream_pump(send, receive, *, max_bytes=None)`                                         | stream pump    | manually shuttle bytes between a `MemorySendStream`/`MemoryReceiveStream` |
+|  [06]   | `testing.check_two_way_stream(...)` / `check_one_way_stream(...)` / `check_half_closeable_stream(...)` | conformance    | exhaustive contract test for a custom `Stream` implementation             |
+|  [07]   | `testing.open_stream_to_socket_listener(listener)`                                                     | test connect   | dial a `SocketListener` directly without a real network round-trip        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -20,47 +20,47 @@
 [PUBLIC_TYPE_SCOPE]: servicer family
 - rail: serve
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [RAIL]                                                    |
-| :-----: | :-------------------------------------- | :------------ | :-------------------------------------------------------- |
-|  [01]   | `health.aio.HealthServicer`             | servicer      | asyncio `grpc.aio` health servicer; the runtime default   |
-|  [02]   | `health.HealthServicer`                 | servicer      | threading-backed sync servicer for blocking serve legs    |
-|  [03]   | `health_pb2_grpc.HealthServicer`        | abstract base | generated servicer contract both impls satisfy            |
-|  [04]   | `health_pb2_grpc.HealthStub`            | stub          | client `Check`/`Watch` caller over a channel              |
+| [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [RAIL]                                                  |
+| :-----: | :------------------------------- | :------------ | :------------------------------------------------------ |
+|  [01]   | `health.aio.HealthServicer`      | servicer      | asyncio `grpc.aio` health servicer; the runtime default |
+|  [02]   | `health.HealthServicer`          | servicer      | threading-backed sync servicer for blocking serve legs  |
+|  [03]   | `health_pb2_grpc.HealthServicer` | abstract base | generated servicer contract both impls satisfy          |
+|  [04]   | `health_pb2_grpc.HealthStub`     | stub          | client `Check`/`Watch` caller over a channel            |
 
 [PUBLIC_TYPE_SCOPE]: wire message + status vocabulary
 - rail: serve
 - `health_pb2.HealthCheckResponse.ServingStatus` is the closed status enum the servicer sets and the client reads; the serve leg treats `SERVING`/`NOT_SERVING` as the two live states and never invents a parallel liveness flag.
 
-| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [RAIL]                                                  |
-| :-----: | :----------------------------------------- | :------------ | :------------------------------------------------------ |
-|  [01]   | `health_pb2.HealthCheckRequest`            | message       | `service` string selector (`""` = overall)             |
-|  [02]   | `health_pb2.HealthCheckResponse`           | message       | `status: ServingStatus` reply                          |
-|  [03]   | `health_pb2.HealthCheckResponse.UNKNOWN`   | status = 0    | status not yet determined                              |
-|  [04]   | `health_pb2.HealthCheckResponse.SERVING`   | status = 1    | service is live                                        |
-|  [05]   | `health_pb2.HealthCheckResponse.NOT_SERVING` | status = 2  | service draining or down; the graceful-shutdown flip   |
-|  [06]   | `health_pb2.HealthCheckResponse.SERVICE_UNKNOWN` | status = 3 | `Watch`-only reply for an unregistered service        |
+| [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY] | [RAIL]                                               |
+| :-----: | :----------------------------------------------- | :------------ | :--------------------------------------------------- |
+|  [01]   | `health_pb2.HealthCheckRequest`                  | message       | `service` string selector (`""` = overall)           |
+|  [02]   | `health_pb2.HealthCheckResponse`                 | message       | `status: ServingStatus` reply                        |
+|  [03]   | `health_pb2.HealthCheckResponse.UNKNOWN`         | status = 0    | status not yet determined                            |
+|  [04]   | `health_pb2.HealthCheckResponse.SERVING`         | status = 1    | service is live                                      |
+|  [05]   | `health_pb2.HealthCheckResponse.NOT_SERVING`     | status = 2    | service draining or down; the graceful-shutdown flip |
+|  [06]   | `health_pb2.HealthCheckResponse.SERVICE_UNKNOWN` | status = 3    | `Watch`-only reply for an unregistered service       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: health-key constants
 - rail: serve
 
-| [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [RAIL]                                                       |
-| :-----: | :--------------------------- | :------------- | :----------------------------------------------------------- |
-|  [01]   | `health.SERVICE_NAME`        | constant       | `"grpc.health.v1.Health"` — the health service's own name    |
-|  [02]   | `health.OVERALL_HEALTH`      | constant       | `""` — the empty-string overall-server serving-status key     |
+| [INDEX] | [SURFACE]               | [ENTRY_FAMILY] | [RAIL]                                                    |
+| :-----: | :---------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `health.SERVICE_NAME`   | constant       | `"grpc.health.v1.Health"` — the health service's own name |
+|  [02]   | `health.OVERALL_HEALTH` | constant       | `""` — the empty-string overall-server serving-status key |
 
 [ENTRYPOINT_SCOPE]: async servicer lifecycle
 - rail: serve
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                                              |
-| :-----: | :----------------------------------------------------- | :------------- | :------------------------------------------------------------------ |
-|  [01]   | `health.aio.HealthServicer()`                         | construct      | one servicer instance; no args                                     |
-|  [02]   | `await servicer.set(service: str, status)`            | mutate         | set one service's serving status; ignored after graceful shutdown   |
-|  [03]   | `await servicer.enter_graceful_shutdown()`            | drain          | permanently flip every registered service to `NOT_SERVING`; idempotent, later `set` no-ops |
-|  [04]   | `servicer.Check(request, context)`                    | rpc handler    | unary serving-status reply the client polls                        |
-|  [05]   | `servicer.Watch(request, context)`                    | rpc handler    | streaming status observation yielding on each change               |
-|  [06]   | `health_pb2_grpc.add_HealthServicer_to_server(servicer, server)` | register | attach the servicer to the `grpc.aio.Server` at construction       |
+| [INDEX] | [SURFACE]                                                        | [ENTRY_FAMILY] | [RAIL]                                                                                     |
+| :-----: | :--------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `health.aio.HealthServicer()`                                    | construct      | one servicer instance; no args                                                             |
+|  [02]   | `await servicer.set(service: str, status)`                       | mutate         | set one service's serving status; ignored after graceful shutdown                          |
+|  [03]   | `await servicer.enter_graceful_shutdown()`                       | drain          | permanently flip every registered service to `NOT_SERVING`; idempotent, later `set` no-ops |
+|  [04]   | `servicer.Check(request, context)`                               | rpc handler    | unary serving-status reply the client polls                                                |
+|  [05]   | `servicer.Watch(request, context)`                               | rpc handler    | streaming status observation yielding on each change                                       |
+|  [06]   | `health_pb2_grpc.add_HealthServicer_to_server(servicer, server)` | register       | attach the servicer to the `grpc.aio.Server` at construction                               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

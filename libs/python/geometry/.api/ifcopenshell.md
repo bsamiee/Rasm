@@ -18,25 +18,25 @@
 [PUBLIC_TYPE_SCOPE]: model and entity roots
 - rail: ifc
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `file` | model root | in-memory IFC model with query, mutation, transactions |
-| [02] | `entity_instance` | entity wrapper | attribute/inverse access for one IFC instance |
-| [03] | `sqlite` | model backend | sqlite-backed IFC model for large files |
-| [04] | `stream` | model backend | streamed SPF model with lazy instance access |
-| [05] | `Error` / `SchemaError` | fault | parse and schema-resolution failures |
+| [INDEX] | [SYMBOL]                | [PACKAGE_ROLE] | [CAPABILITY]                                           |
+| :-----: | :---------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `file`                  | model root     | in-memory IFC model with query, mutation, transactions |
+|  [02]   | `entity_instance`       | entity wrapper | attribute/inverse access for one IFC instance          |
+|  [03]   | `sqlite`                | model backend  | sqlite-backed IFC model for large files                |
+|  [04]   | `stream`                | model backend  | streamed SPF model with lazy instance access           |
+|  [05]   | `Error` / `SchemaError` | fault          | parse and schema-resolution failures                   |
 
 [PUBLIC_TYPE_SCOPE]: tessellation types (`ifcopenshell.geom`)
 - rail: ifc
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `geom.settings` | tessellation knobs | deflection/units/UV/output mode knob bag |
-| [02] | `geom.serializer_settings` | serializer knobs | GLB/OBJ/XML serializer configuration |
-| [03] | `geom.iterator` | mesh daemon | multi-threaded whole-model tessellation iterator |
-| [04] | `geom.tree` | spatial index | bounding-box/clash spatial query tree |
-| [05] | `geom.create_shape` result (`Element` / `BRepElement` / `TriangulationElement`) | shape result | per-element shape: `BRepElement` carries an OCC BRep representation, `TriangulationElement` carries a `Triangulation` with verts/faces/normals/materials |
-| [06] | `geom.serializers` | serializer set | GLB/OBJ/XML/SVG mesh serializers |
+| [INDEX] | [SYMBOL]                                                                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                                                                             |
+| :-----: | :------------------------------------------------------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `geom.settings`                                                                 | tessellation knobs | deflection/units/UV/output mode knob bag                                                                                                                 |
+|  [02]   | `geom.serializer_settings`                                                      | serializer knobs   | GLB/OBJ/XML serializer configuration                                                                                                                     |
+|  [03]   | `geom.iterator`                                                                 | mesh daemon        | multi-threaded whole-model tessellation iterator                                                                                                         |
+|  [04]   | `geom.tree`                                                                     | spatial index      | bounding-box/clash spatial query tree                                                                                                                    |
+|  [05]   | `geom.create_shape` result (`Element` / `BRepElement` / `TriangulationElement`) | shape result       | per-element shape: `BRepElement` carries an OCC BRep representation, `TriangulationElement` carries a `Triangulation` with verts/faces/normals/materials |
+|  [06]   | `geom.serializers`                                                              | serializer set     | GLB/OBJ/XML/SVG mesh serializers                                                                                                                         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -45,82 +45,82 @@
 
 `open` returns a `file`, `sqlite`, or `stream` discriminated by `format`/`should_stream`; query rows accept an id, GUID, or type string and return one or many `entity_instance` values.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `ifcopenshell.open` | path plus format/stream policy | open SPF/sqlite/streamed model |
-| [02] | `ifcopenshell.file` | optional schema/path | construct or wrap an in-memory model |
-| [03] | `ifcopenshell.create_entity` | `(type, schema="IFC4", *args, **kwargs)` | construct a standalone entity (schema defaults to `IFC4`) |
-| [04] | `ifcopenshell.schema_by_name` | schema name or version | resolve a schema definition |
-| [05] | `ifcopenshell.guess_format` | path | detect IFC backend format |
-| [06] | `ifcopenshell.register_schema` | `SchemaClass` | register a custom EXPRESS schema |
-| [07] | `file.by_type` | type string | all instances of an entity type |
-| [08] | `file.by_id` | step id | one instance by step id |
-| [09] | `file.by_guid` | GlobalId GUID | one instance by IFC GUID |
-| [10] | `file.create_entity` | type plus attributes | add a new entity to the model |
-| [11] | `file.add` | entity plus copy policy | insert an entity (cross-model copy) |
-| [12] | `file.remove` | entity | delete an entity |
-| [13] | `file.traverse` | `(inst, max_levels=None, breadth_first=False)` | dependent-entity graph walk; `max_levels` is the depth bound (`None`/`-1` = infinite), NOT a `depth` kwarg |
-| [14] | `file.get_inverse` | entity (overloaded) | inverse-referencing instances |
-| [15] | `file.begin_transaction` / `end_transaction` | none | open/close an undoable edit batch; `end_transaction()` takes NO `commit=` arg |
-| [16] | `file.undo` / `redo` / `discard_transaction` | none | step the transaction stack; rollback is `discard_transaction()`/`undo()`, not a commit flag |
-| [17] | `file.write` | `(path, format=None, zipped=False)` | serialize the model |
-| [18] | `file.from_string` | SPF string | parse a model from an in-memory string (static) |
+| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]                                   | [CAPABILITY]                                                                                               |
+| :-----: | :------------------------------------------- | :--------------------------------------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ifcopenshell.open`                          | path plus format/stream policy                 | open SPF/sqlite/streamed model                                                                             |
+|  [02]   | `ifcopenshell.file`                          | optional schema/path                           | construct or wrap an in-memory model                                                                       |
+|  [03]   | `ifcopenshell.create_entity`                 | `(type, schema="IFC4", *args, **kwargs)`       | construct a standalone entity (schema defaults to `IFC4`)                                                  |
+|  [04]   | `ifcopenshell.schema_by_name`                | schema name or version                         | resolve a schema definition                                                                                |
+|  [05]   | `ifcopenshell.guess_format`                  | path                                           | detect IFC backend format                                                                                  |
+|  [06]   | `ifcopenshell.register_schema`               | `SchemaClass`                                  | register a custom EXPRESS schema                                                                           |
+|  [07]   | `file.by_type`                               | type string                                    | all instances of an entity type                                                                            |
+|  [08]   | `file.by_id`                                 | step id                                        | one instance by step id                                                                                    |
+|  [09]   | `file.by_guid`                               | GlobalId GUID                                  | one instance by IFC GUID                                                                                   |
+|  [10]   | `file.create_entity`                         | type plus attributes                           | add a new entity to the model                                                                              |
+|  [11]   | `file.add`                                   | entity plus copy policy                        | insert an entity (cross-model copy)                                                                        |
+|  [12]   | `file.remove`                                | entity                                         | delete an entity                                                                                           |
+|  [13]   | `file.traverse`                              | `(inst, max_levels=None, breadth_first=False)` | dependent-entity graph walk; `max_levels` is the depth bound (`None`/`-1` = infinite), NOT a `depth` kwarg |
+|  [14]   | `file.get_inverse`                           | entity (overloaded)                            | inverse-referencing instances                                                                              |
+|  [15]   | `file.begin_transaction` / `end_transaction` | none                                           | open/close an undoable edit batch; `end_transaction()` takes NO `commit=` arg                              |
+|  [16]   | `file.undo` / `redo` / `discard_transaction` | none                                           | step the transaction stack; rollback is `discard_transaction()`/`undo()`, not a commit flag                |
+|  [17]   | `file.write`                                 | `(path, format=None, zipped=False)`            | serialize the model                                                                                        |
+|  [18]   | `file.from_string`                           | SPF string                                     | parse a model from an in-memory string (static)                                                            |
 
 [ENTRYPOINT_SCOPE]: tessellation and analysis
 - rail: ifc
 
 Tessellation rows consume a `geom.settings` knob bag and a `geom.GEOMETRY_LIBRARY` kernel selector (`opencascade`/`cgal`/`cgal-simple`/`hybrid-cgal-simple-opencascade`).
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `geom.create_shape` | settings plus instance plus kernel | per-element tessellation |
-| [02] | `geom.iterate` | settings plus model plus threads | lazy whole-model mesh generator |
-| [03] | `geom.iterator` | settings plus model plus threads | reusable mesh iterator object |
-| [04] | `geom.serialise` | schema plus shape string | serialize geometry to a format |
-| [05] | `geom.tree` | model plus settings | build a spatial/clash query tree; `geometry_library` defaults to `"opencascade"` |
-| [06] | `guid.new` / `compress` / `expand` / `split` | none or (un)expanded GUID | IFC GUID mint and encode/decode; `compress(uuid, /)`, `expand(guid, /)`, `split(uuid, /)` are positional-only |
-| [07] | `validate.validate` | model plus logger | schema-conformance validation |
+| [INDEX] | [SURFACE]                                    | [CALL_SHAPE]                       | [CAPABILITY]                                                                                                  |
+| :-----: | :------------------------------------------- | :--------------------------------- | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `geom.create_shape`                          | settings plus instance plus kernel | per-element tessellation                                                                                      |
+|  [02]   | `geom.iterate`                               | settings plus model plus threads   | lazy whole-model mesh generator                                                                               |
+|  [03]   | `geom.iterator`                              | settings plus model plus threads   | reusable mesh iterator object                                                                                 |
+|  [04]   | `geom.serialise`                             | schema plus shape string           | serialize geometry to a format                                                                                |
+|  [05]   | `geom.tree`                                  | model plus settings                | build a spatial/clash query tree; `geometry_library` defaults to `"opencascade"`                              |
+|  [06]   | `guid.new` / `compress` / `expand` / `split` | none or (un)expanded GUID          | IFC GUID mint and encode/decode; `compress(uuid, /)`, `expand(guid, /)`, `split(uuid, /)` are positional-only |
+|  [07]   | `validate.validate`                          | model plus logger                  | schema-conformance validation                                                                                 |
 
 [ENTRYPOINT_SCOPE]: `api.run` authoring verb dispatch
 - rail: ifc
 
 `ifcopenshell.api.run(usecase_path, ifc_file=None, should_run_listeners=True, **settings)` is the legacy high-level authoring entry: `usecase_path` is a dotted `module.action` name that routes into the `ifcopenshell.api.<module>.<action>` usecase package, `ifc_file` is the target `ifcopenshell.file`, and `**settings` carry the action's typed arguments. It is one polymorphic dispatcher over a closed module/action vocabulary, never a per-verb authoring function family; adding an authoring operation is one dotted usecase name. In release `api.run(usecase_path, ifc_file=None, should_run_listeners=True, **settings)` is deprecated ("This is deprecated and will be removed in a future version. Do not use this function.") and delegates to `ifcopenshell.api.<module>.<action>(ifc_file, should_run_listeners=…, **settings)` directly — the same closed module/action vocabulary, now the canonical contract. The surrounding surface is `api.extract_docs(module, usecase)` (a TWO-arg introspection over a module name plus a usecase name, NOT a single dotted recipe), `api.wrap_usecase(usecase_path, usecase)`, and the `add_pre_listener`/`add_post_listener`/`remove_pre_listener`/`remove_post_listener`/`remove_all_listeners` registration. The ifc owner composes the direct `module.action` callables; the `api.run` row below documents the equivalent dotted vocabulary. The per-usecase keyword names below are decompile-verified against the `0.8.5` source: each usecase takes the `ifc_file` first-positional then its named arguments, and the `products`/`relating_structure`/`relating_object`/`related_objects`/`relating_type` keyword spellings DIFFER per usecase — they are table-driven per row, never a single generic relating keyword.
 
-| [INDEX] | [USECASE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `root.create_entity(file, ifc_class="IfcBuildingElementProxy", predefined_type=None, name=None)` | `ifc_class`/`predefined_type`/`name` | mint a typed root entity (the canonical create verb) |
-| [02] | `root.remove_product(file, product)` | `product` | remove a product and its dependents |
-| [03] | `root.copy_class(file, product)` | `product` | duplicate an entity within its class |
-| [04] | `attribute.edit_attributes(file, product, attributes)` | `product` plus `attributes` | set direct attribute values |
-| [05] | `geometry.add_representation(file, context, …)` | `context` plus geometry source | attach a shape representation to a product |
-| [06] | `geometry.edit_object_placement(file, product, matrix)` | `product` plus `matrix` | set a product's object placement |
-| [07] | `context.add_context(file, context_type, …)` | `context_type`/`context_identifier` | add a geometric representation context |
-| [08] | `unit.add_si_unit(file, unit_type, prefix=None)` | `unit_type` plus `prefix` | add an SI unit to the project unit assignment |
-| [09] | `unit.assign_unit(file, units=None)` | `units` | assign units to the `IfcProject` |
-| [10] | `pset.add_pset(file, product, name)` | `product` plus `name` | attach a property set, then `pset.edit_pset` |
-| [11] | `spatial.assign_container(file, products, relating_structure)` | `products` (list) plus `relating_structure` | place products in a spatial container |
-| [12] | `aggregate.assign_object(file, products, relating_object)` | `products` (list) plus `relating_object` | aggregate products under a parent |
-| [13] | `material.add_material(file, name=None, category=None)` | `name` plus `category` | create and assign materials |
-| [14] | `type.assign_type(file, related_objects, relating_type)` | `related_objects` (list) plus `relating_type` | assign occurrences to a type |
-| [15] | `cost.calculate_cost_item_resource_value(file, cost_item)` | `cost_item` | roll construction-resource base costs into the item value |
+| [INDEX] | [USECASE]                                                                                        | [CALL_SHAPE]                                  | [CAPABILITY]                                              |
+| :-----: | :----------------------------------------------------------------------------------------------- | :-------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `root.create_entity(file, ifc_class="IfcBuildingElementProxy", predefined_type=None, name=None)` | `ifc_class`/`predefined_type`/`name`          | mint a typed root entity (the canonical create verb)      |
+|  [02]   | `root.remove_product(file, product)`                                                             | `product`                                     | remove a product and its dependents                       |
+|  [03]   | `root.copy_class(file, product)`                                                                 | `product`                                     | duplicate an entity within its class                      |
+|  [04]   | `attribute.edit_attributes(file, product, attributes)`                                           | `product` plus `attributes`                   | set direct attribute values                               |
+|  [05]   | `geometry.add_representation(file, context, …)`                                                  | `context` plus geometry source                | attach a shape representation to a product                |
+|  [06]   | `geometry.edit_object_placement(file, product, matrix)`                                          | `product` plus `matrix`                       | set a product's object placement                          |
+|  [07]   | `context.add_context(file, context_type, …)`                                                     | `context_type`/`context_identifier`           | add a geometric representation context                    |
+|  [08]   | `unit.add_si_unit(file, unit_type, prefix=None)`                                                 | `unit_type` plus `prefix`                     | add an SI unit to the project unit assignment             |
+|  [09]   | `unit.assign_unit(file, units=None)`                                                             | `units`                                       | assign units to the `IfcProject`                          |
+|  [10]   | `pset.add_pset(file, product, name)`                                                             | `product` plus `name`                         | attach a property set, then `pset.edit_pset`              |
+|  [11]   | `spatial.assign_container(file, products, relating_structure)`                                   | `products` (list) plus `relating_structure`   | place products in a spatial container                     |
+|  [12]   | `aggregate.assign_object(file, products, relating_object)`                                       | `products` (list) plus `relating_object`      | aggregate products under a parent                         |
+|  [13]   | `material.add_material(file, name=None, category=None)`                                          | `name` plus `category`                        | create and assign materials                               |
+|  [14]   | `type.assign_type(file, related_objects, relating_type)`                                         | `related_objects` (list) plus `relating_type` | assign occurrences to a type                              |
+|  [15]   | `cost.calculate_cost_item_resource_value(file, cost_item)`                                       | `cost_item`                                   | roll construction-resource base costs into the item value |
 
 [ENTRYPOINT_SCOPE]: `util` analysis namespace
 - rail: ifc
 
 `ifcopenshell.util` is the read-side analysis namespace over a `file`/`entity_instance`; each submodule owns one query concern and returns `entity_instance` values, dicts, or numpy matrices, never a parallel model.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `util.element.get_psets` | element | property and quantity sets as a dict |
-| [02] | `util.element.get_type` | element | the element's type object |
-| [03] | `util.element.get_container` | element | spatial container of an element |
-| [04] | `util.element.get_decomposition` | element | aggregated and contained parts |
-| [05] | `util.placement.get_local_placement` | placement | local placement as a 4x4 numpy matrix |
-| [06] | `util.selector.filter_elements` | model plus query string | selector-grammar element filter |
-| [07] | `util.selector.get_element_value` | element plus query string | a queried attribute/pset value |
-| [08] | `util.unit.calculate_unit_scale` | model | project-to-SI length unit scale factor |
-| [09] | `util.unit.get_project_unit` | model plus unit type | the assigned project unit for a type |
-| [10] | `util.shape.get_vertices` | geometry shape | shape vertices as a numpy array |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]              | [CAPABILITY]                           |
+| :-----: | :----------------------------------- | :------------------------ | :------------------------------------- |
+|  [01]   | `util.element.get_psets`             | element                   | property and quantity sets as a dict   |
+|  [02]   | `util.element.get_type`              | element                   | the element's type object              |
+|  [03]   | `util.element.get_container`         | element                   | spatial container of an element        |
+|  [04]   | `util.element.get_decomposition`     | element                   | aggregated and contained parts         |
+|  [05]   | `util.placement.get_local_placement` | placement                 | local placement as a 4x4 numpy matrix  |
+|  [06]   | `util.selector.filter_elements`      | model plus query string   | selector-grammar element filter        |
+|  [07]   | `util.selector.get_element_value`    | element plus query string | a queried attribute/pset value         |
+|  [08]   | `util.unit.calculate_unit_scale`     | model                     | project-to-SI length unit scale factor |
+|  [09]   | `util.unit.get_project_unit`         | model plus unit type      | the assigned project unit for a type   |
+|  [10]   | `util.shape.get_vertices`            | geometry shape            | shape vertices as a numpy array        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

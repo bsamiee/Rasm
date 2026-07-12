@@ -123,7 +123,7 @@ public sealed record PipelineInputs<TRow>(
 ```
 
 | [INDEX] | [ROW]                | [OPERATORS]             | [POLICY]                                                           |
-| :-----: | -------------------- | ----------------------- | ------------------------------------------------------------------ |
+| :-----: | :------------------- | :---------------------- | :----------------------------------------------------------------- |
 |  [01]   | dynamic-filter       | Filter                  | predicate stream from `Predicates`; pushed value, zero resubscribe |
 |  [02]   | comparative-sort     | Sort                    | comparer stream from `Comparers` for mid-pipeline order            |
 |  [03]   | projection           | Transform               | row models projected from store and receipt shapes                 |
@@ -220,7 +220,7 @@ public static class LiveDataOps {
 ```
 
 | [INDEX] | [ROW]        | [FOLD]                              | [CONSUMER]                                     |
-| :-----: | ------------ | ----------------------------------- | ---------------------------------------------- |
+| :-----: | :----------- | :---------------------------------- | :--------------------------------------------- |
 |  [01]   | count        | Count                               | stat tiles                                     |
 |  [02]   | sum          | Sum                                 | stat tiles                                     |
 |  [03]   | average      | Avg                                 | stat tiles                                     |

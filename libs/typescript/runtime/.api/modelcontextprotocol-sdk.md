@@ -29,18 +29,18 @@ MCP capabilities. `callTool` auto-validates structured output against the tool's
 configured `jsonSchemaValidator`. `setRequestHandler` registers client-side responders (elicitation, sampling,
 roots). `.experimental.tasks` adds streaming/long-running tool execution.
 
-| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
-|:-----: |:-------------------------------- |:-------- |:------------------------------------ |
-| [01] | `Client` | class | MCP client over a `Transport` |
-| [02] | `Client#connect` | method | attach transport + initialize |
-| [03] | `Client#listTools / callTool` | method | discover + invoke server tools |
-| [04] | `Client#listResources / readResource / subscribeResource` | method | resource access + updates |
-| [05] | `Client#listPrompts / getPrompt` | method | server prompt access |
-| [06] | `Client#complete` | method | argument auto-completion |
-| [07] | `Client#getServerCapabilities / getServerVersion / getInstructions` | method | post-init server facts |
-| [08] | `Client#setRequestHandler` | method | client-side elicitation/sampling/roots |
-| [09] | `Client#experimental.tasks` | property | streaming/task tool execution |
-| [10] | `getSupportedElicitationModes` | function | capability-derived elicitation modes |
+| [INDEX] | [SYMBOL]                                                            | [FAMILY] | [CAPABILITY]                           |
+| :-----: | :------------------------------------------------------------------ | :------- | :------------------------------------- |
+|  [01]   | `Client`                                                            | class    | MCP client over a `Transport`          |
+|  [02]   | `Client#connect`                                                    | method   | attach transport + initialize          |
+|  [03]   | `Client#listTools / callTool`                                       | method   | discover + invoke server tools         |
+|  [04]   | `Client#listResources / readResource / subscribeResource`           | method   | resource access + updates              |
+|  [05]   | `Client#listPrompts / getPrompt`                                    | method   | server prompt access                   |
+|  [06]   | `Client#complete`                                                   | method   | argument auto-completion               |
+|  [07]   | `Client#getServerCapabilities / getServerVersion / getInstructions` | method   | post-init server facts                 |
+|  [08]   | `Client#setRequestHandler`                                          | method   | client-side elicitation/sampling/roots |
+|  [09]   | `Client#experimental.tasks`                                         | property | streaming/task tool execution          |
+|  [10]   | `getSupportedElicitationModes`                                      | function | capability-derived elicitation modes   |
 
 ```ts contract
 declare class Client<RequestT extends Request = Request, NotificationT extends Notification = Notification, ResultT extends Result = Result>
@@ -136,16 +136,16 @@ declare class UnauthorizedError extends Error {}
 does not adopt Zod internally: it reads the inferred result types and re-parses each payload through `effect/Schema`
 at the boundary. The tool-annotation hints are the seam onto native `Tool` annotations.
 
-| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------ |:---------- |:------------------------------------ |
-| [01] | `CallToolResultSchema` | Zod schema | tool result (content blocks + `structuredContent`/`isError`) |
-| [02] | `ListToolsResultSchema` | Zod schema | tool roster (inputSchema/outputSchema/annotations) |
-| [03] | `ToolSchema` (annotations) | Zod schema | `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` |
-| [04] | `ReadResourceResultSchema` | Zod schema | resource contents (text/blob) |
-| [05] | `GetPromptResultSchema` | Zod schema | prompt messages |
-| [06] | `JSONRPCMessageSchema` | Zod schema | transport frame |
-| [07] | `ImplementationSchema` / `ClientCapabilitiesSchema` / `ServerCapabilitiesSchema` | Zod schema | handshake facts |
-| [08] | `AjvJsonSchemaValidator` / `CfWorkerJsonSchemaValidator` | class | tool output-schema validators |
+| [INDEX] | [SYMBOL]                                                                         | [FAMILY]   | [CAPABILITY]                                                      |
+| :-----: | :------------------------------------------------------------------------------- | :--------- | :---------------------------------------------------------------- |
+|  [01]   | `CallToolResultSchema`                                                           | Zod schema | tool result (content blocks + `structuredContent`/`isError`)      |
+|  [02]   | `ListToolsResultSchema`                                                          | Zod schema | tool roster (inputSchema/outputSchema/annotations)                |
+|  [03]   | `ToolSchema` (annotations)                                                       | Zod schema | `readOnlyHint`/`destructiveHint`/`idempotentHint`/`openWorldHint` |
+|  [04]   | `ReadResourceResultSchema`                                                       | Zod schema | resource contents (text/blob)                                     |
+|  [05]   | `GetPromptResultSchema`                                                          | Zod schema | prompt messages                                                   |
+|  [06]   | `JSONRPCMessageSchema`                                                           | Zod schema | transport frame                                                   |
+|  [07]   | `ImplementationSchema` / `ClientCapabilitiesSchema` / `ServerCapabilitiesSchema` | Zod schema | handshake facts                                                   |
+|  [08]   | `AjvJsonSchemaValidator` / `CfWorkerJsonSchemaValidator`                         | class      | tool output-schema validators                                     |
 
 ## [06]-[INTEGRATION]
 

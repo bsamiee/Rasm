@@ -380,11 +380,11 @@ public readonly record struct CloudHullResult(Option<Mesh> Mesh, CloudHullReceip
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]        | [OWNER]                | [KIND]                                                        | [RAIL]                                       | [CASES] |
-| :-----: | :-------------------- | :--------------------- | :------------------------------------------------------------ | :------------------------------------------- | :-----: |
-|  [01]   | Cloud modality        | `VectorCloud`          | `[Union]` Ring/Polyline/Cluster, mass as `Option` column       | factories → `Fin<VectorCloud>`               |    3    |
-|  [02]   | Cloud measurement     | `VectorCloudMetric`    | `[SmartEnum<int>]` thirty rows, five row builders              | `Project<TOut> → Fin<TOut>`                  |   30    |
-|  [03]   | Admission evidence    | `CloudAdmissionReceipt`| `IValidityEvidence` receipt + `OriginalToUnique` re-index map  | carried on `ClusterCase`                     |    —    |
-|  [04]   | Covariance/PCA        | `CloudKernel`          | one fold over `stats.md` `SampleMoment` + `matrix.md` eigen    | `CovarianceOf/PrincipalStatsOf → Fin<…>`     |    —    |
-|  [05]   | Hull species          | `CloudHullKind`        | `[SmartEnum<int>]` native convex + Delaunay-filtered concave   | `ComputeHullDetailed → Fin<CloudHullResult>` |    5    |
-|  [06]   | Shape omni-projection | `VectorCloudShape`     | 17-`Option`-column record around the always-present PCA core   | metric row payload                           |    —    |
+| [INDEX] | [AXIS_CONCERN]        | [OWNER]                 | [KIND]                                                        | [RAIL]                                       | [CASES] |
+| :-----: | :-------------------- | :---------------------- | :------------------------------------------------------------ | :------------------------------------------- | :-----: |
+|  [01]   | Cloud modality        | `VectorCloud`           | `[Union]` Ring/Polyline/Cluster, mass as `Option` column      | factories → `Fin<VectorCloud>`               |    3    |
+|  [02]   | Cloud measurement     | `VectorCloudMetric`     | `[SmartEnum<int>]` thirty rows, five row builders             | `Project<TOut> → Fin<TOut>`                  |   30    |
+|  [03]   | Admission evidence    | `CloudAdmissionReceipt` | `IValidityEvidence` receipt + `OriginalToUnique` re-index map | carried on `ClusterCase`                     |    —    |
+|  [04]   | Covariance/PCA        | `CloudKernel`           | one fold over `stats.md` `SampleMoment` + `matrix.md` eigen   | `CovarianceOf/PrincipalStatsOf → Fin<…>`     |    —    |
+|  [05]   | Hull species          | `CloudHullKind`         | `[SmartEnum<int>]` native convex + Delaunay-filtered concave  | `ComputeHullDetailed → Fin<CloudHullResult>` |    5    |
+|  [06]   | Shape omni-projection | `VectorCloudShape`      | 17-`Option`-column record around the always-present PCA core  | metric row payload                           |    —    |

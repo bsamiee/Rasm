@@ -22,56 +22,56 @@
 
 `Image.Image` is the ONE mutable pixel-buffer owner — there is no per-mode or per-format image subtype; the mode is a string row (`RGB`/`RGBA`/`L`/`P`/`CMYK`/`LA`/`I;16`/`F`/`1`) and the format is a registry key, never a parallel reader/writer type. `ImageFile.ImageFile` is the lazy-decode subtype `open` returns (deferred decode + the JPEG `draft` override); every operation module returns or mutates an `Image.Image`.
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Image.Image` | image object | the one mutable pixel buffer with transform/encode/band/stat methods |
-| [02] | `ImageFile.ImageFile` | lazy image | `open`-returned image with deferred decode + `draft` + `get_child_images` |
-| [03] | `ImageDraw.ImageDraw` | draw surface | 2D primitives, multiline/anchored text, measured text, shape paths |
-| [04] | `ImageFont.FreeTypeFont` | font handle | FreeType TrueType/OpenType with variation axes (`set_variation_by_*`) |
-| [05] | `ImageFont.TransposedFont` | rotated font | 90/180/270 + transverse text orientation wrapper |
-| [06] | `ImagePalette.ImagePalette` | palette | indexed (`P`-mode) color palette + `sepia`/`wedge`/`make_*_lut` |
-| [07] | `Image.Exif` | metadata map | mutable EXIF `MutableMapping` (`getexif`); `get_ifd` nested-IFD access |
-| [08] | `ImageStat.Stat` | statistics | per-band `mean`/`median`/`stddev`/`var`/`rms`/`extrema`/`sum`/`count` |
-| [09] | `ImageFilter.Filter` | filter base | convolution/rank/multiband filter base (`MultibandFilter`/`BuiltinFilter`) |
-| [10] | `ImageFilter.Color3DLUT` | 3D LUT | trilinear color-grade table (`Color3DLUT.generate(size, callback)`) |
-| [11] | `ImageMorph.MorphOp` | morphology op | binary L-mode hit-or-miss morphology over a `LutBuilder` pattern LUT |
-| [12] | `ImageCms.ImageCmsProfile` | color profile | ICC profile handle (`tobytes`); the profile-header read owner |
-| [13] | `ImageCms.ImageCmsTransform` | cms transform | prebuilt profile-to-profile transform (`apply`/`apply_in_place`/`point`) |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE] | [CAPABILITY]                                                               |
+| :-----: | :--------------------------- | :------------- | :------------------------------------------------------------------------- |
+|  [01]   | `Image.Image`                | image object   | the one mutable pixel buffer with transform/encode/band/stat methods       |
+|  [02]   | `ImageFile.ImageFile`        | lazy image     | `open`-returned image with deferred decode + `draft` + `get_child_images`  |
+|  [03]   | `ImageDraw.ImageDraw`        | draw surface   | 2D primitives, multiline/anchored text, measured text, shape paths         |
+|  [04]   | `ImageFont.FreeTypeFont`     | font handle    | FreeType TrueType/OpenType with variation axes (`set_variation_by_*`)      |
+|  [05]   | `ImageFont.TransposedFont`   | rotated font   | 90/180/270 + transverse text orientation wrapper                           |
+|  [06]   | `ImagePalette.ImagePalette`  | palette        | indexed (`P`-mode) color palette + `sepia`/`wedge`/`make_*_lut`            |
+|  [07]   | `Image.Exif`                 | metadata map   | mutable EXIF `MutableMapping` (`getexif`); `get_ifd` nested-IFD access     |
+|  [08]   | `ImageStat.Stat`             | statistics     | per-band `mean`/`median`/`stddev`/`var`/`rms`/`extrema`/`sum`/`count`      |
+|  [09]   | `ImageFilter.Filter`         | filter base    | convolution/rank/multiband filter base (`MultibandFilter`/`BuiltinFilter`) |
+|  [10]   | `ImageFilter.Color3DLUT`     | 3D LUT         | trilinear color-grade table (`Color3DLUT.generate(size, callback)`)        |
+|  [11]   | `ImageMorph.MorphOp`         | morphology op  | binary L-mode hit-or-miss morphology over a `LutBuilder` pattern LUT       |
+|  [12]   | `ImageCms.ImageCmsProfile`   | color profile  | ICC profile handle (`tobytes`); the profile-header read owner              |
+|  [13]   | `ImageCms.ImageCmsTransform` | cms transform  | prebuilt profile-to-profile transform (`apply`/`apply_in_place`/`point`)   |
 
 [PUBLIC_TYPE_SCOPE]: codec-plugin extension surface
 - rail: image
 
 The plugin registry is the reason `open`/`save` are single polymorphic factories: format selection is a registered row keyed by header bytes, never a per-format reader type. A new codec is a `PyDecoder`/`PyEncoder` subclass plus a `register_open`/`register_save` row — the artifacts owner composes the built-in plugins and never re-implements decode, but this is the seam a bespoke codec rides.
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `ImageFile.PyDecoder` | decoder base | pure-Python decoder (`decode`/`set_as_raw`/`pulls_fd`) |
-| [02] | `ImageFile.PyEncoder` | encoder base | pure-Python encoder (`encode`/`encode_to_pyfd`/`pushes_fd`) |
-| [03] | `ImageFile.Parser` | incremental | feed-driven progressive decode (`feed`/`image`/`finished`) |
-| [04] | `Image.register_open` / `register_save` / `register_save_all` | registry rows | bind a plugin's accept/factory/save to a format key |
-| [05] | `Image.register_decoder` / `register_encoder` / `register_extension` / `register_mime` | registry rows | bind a codec / extension / MIME to a format |
-| [06] | `ImageMode.getmode` / `ImageMode.ModeDescriptor` | mode registry | resolve a mode string to its band/type/base descriptor |
+| [INDEX] | [SYMBOL]                                                                               | [PACKAGE_ROLE] | [CAPABILITY]                                                |
+| :-----: | :------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------- |
+|  [01]   | `ImageFile.PyDecoder`                                                                  | decoder base   | pure-Python decoder (`decode`/`set_as_raw`/`pulls_fd`)      |
+|  [02]   | `ImageFile.PyEncoder`                                                                  | encoder base   | pure-Python encoder (`encode`/`encode_to_pyfd`/`pushes_fd`) |
+|  [03]   | `ImageFile.Parser`                                                                     | incremental    | feed-driven progressive decode (`feed`/`image`/`finished`)  |
+|  [04]   | `Image.register_open` / `register_save` / `register_save_all`                          | registry rows  | bind a plugin's accept/factory/save to a format key         |
+|  [05]   | `Image.register_decoder` / `register_encoder` / `register_extension` / `register_mime` | registry rows  | bind a codec / extension / MIME to a format                 |
+|  [06]   | `ImageMode.getmode` / `ImageMode.ModeDescriptor`                                       | mode registry  | resolve a mode string to its band/type/base descriptor      |
 
 [PUBLIC_TYPE_SCOPE]: mode/transform enums, profile intents, and the fault family
 - rail: image
 
 The bounded vocabularies the consuming owner keys its arms against — a resample quality selects a `Resampling` member, a quantizer selects a `Quantize` member, an orientation selects a `Transpose` member, a rendering intent selects an `Intent` member. `Dither` carries four members (not two) and `Transpose` seven (the diagonal `TRANSPOSE`/`TRANSVERSE` included).
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [MEMBERS_CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Image.Resampling` | resample enum | `NEAREST`/`BOX`/`BILINEAR`/`HAMMING`/`BICUBIC`/`LANCZOS` |
-| [02] | `Image.Transpose` | transpose enum | `FLIP_LEFT_RIGHT`/`FLIP_TOP_BOTTOM`/`ROTATE_90`/`ROTATE_180`/`ROTATE_270`/`TRANSPOSE`/`TRANSVERSE` |
-| [03] | `Image.Dither` | dither enum | `NONE`/`ORDERED`/`RASTERIZE`/`FLOYDSTEINBERG` |
-| [04] | `Image.Quantize` | quantize enum | `MEDIANCUT`/`MAXCOVERAGE`/`FASTOCTREE`/`LIBIMAGEQUANT` |
-| [05] | `Image.Transform` | transform enum | `AFFINE`/`EXTENT`/`PERSPECTIVE`/`QUAD`/`MESH` |
-| [06] | `Image.Palette` | palette enum | `WEB`/`ADAPTIVE` palette-source selector for `convert` |
-| [07] | `ImageCms.Intent` | cms intent | `PERCEPTUAL`/`RELATIVE_COLORIMETRIC`/`SATURATION`/`ABSOLUTE_COLORIMETRIC` |
-| [08] | `ImageCms.Flags` | cms flags | `SOFTPROOFING`/`GAMUTCHECK`/`BLACKPOINTCOMPENSATION`/`NOWHITEONWHITEFIXUP`/`HIGHRESPRECALC`/… (`IntFlag`) |
-| [09] | `ImageCms.Direction` | cms direction | `INPUT`/`OUTPUT`/`PROOF` (the `isIntentSupported` axis) |
-| [10] | `ImageFont.Layout` | shaping engine | `BASIC` / `RAQM` (HarfBuzz/FriBidi complex-script layout) |
-| [11] | `Image.UnidentifiedImageError` | decode fault | unrecognized image data → the owner's `RasterFault.decode` |
-| [12] | `Image.DecompressionBombError` | safety fault | pixel count exceeds the bomb limit → `RasterFault.bomb` |
-| [13] | `ImageCms.PyCMSError` | cms fault | malformed profile / unsupported transform → folded to `""`/`ManagedFault` |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [MEMBERS_CAPABILITY]                                                                                      |
+| :-----: | :----------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Image.Resampling`             | resample enum  | `NEAREST`/`BOX`/`BILINEAR`/`HAMMING`/`BICUBIC`/`LANCZOS`                                                  |
+|  [02]   | `Image.Transpose`              | transpose enum | `FLIP_LEFT_RIGHT`/`FLIP_TOP_BOTTOM`/`ROTATE_90`/`ROTATE_180`/`ROTATE_270`/`TRANSPOSE`/`TRANSVERSE`        |
+|  [03]   | `Image.Dither`                 | dither enum    | `NONE`/`ORDERED`/`RASTERIZE`/`FLOYDSTEINBERG`                                                             |
+|  [04]   | `Image.Quantize`               | quantize enum  | `MEDIANCUT`/`MAXCOVERAGE`/`FASTOCTREE`/`LIBIMAGEQUANT`                                                    |
+|  [05]   | `Image.Transform`              | transform enum | `AFFINE`/`EXTENT`/`PERSPECTIVE`/`QUAD`/`MESH`                                                             |
+|  [06]   | `Image.Palette`                | palette enum   | `WEB`/`ADAPTIVE` palette-source selector for `convert`                                                    |
+|  [07]   | `ImageCms.Intent`              | cms intent     | `PERCEPTUAL`/`RELATIVE_COLORIMETRIC`/`SATURATION`/`ABSOLUTE_COLORIMETRIC`                                 |
+|  [08]   | `ImageCms.Flags`               | cms flags      | `SOFTPROOFING`/`GAMUTCHECK`/`BLACKPOINTCOMPENSATION`/`NOWHITEONWHITEFIXUP`/`HIGHRESPRECALC`/… (`IntFlag`) |
+|  [09]   | `ImageCms.Direction`           | cms direction  | `INPUT`/`OUTPUT`/`PROOF` (the `isIntentSupported` axis)                                                   |
+|  [10]   | `ImageFont.Layout`             | shaping engine | `BASIC` / `RAQM` (HarfBuzz/FriBidi complex-script layout)                                                 |
+|  [11]   | `Image.UnidentifiedImageError` | decode fault   | unrecognized image data → the owner's `RasterFault.decode`                                                |
+|  [12]   | `Image.DecompressionBombError` | safety fault   | pixel count exceeds the bomb limit → `RasterFault.bomb`                                                   |
+|  [13]   | `ImageCms.PyCMSError`          | cms fault      | malformed profile / unsupported transform → folded to `""`/`ManagedFault`                                 |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -80,90 +80,90 @@ The bounded vocabularies the consuming owner keys its arms against — a resampl
 
 `open` is the single decode factory across every plugin codec (lazy — `load`/`draft`/first pixel access forces decode); `new`/`frombytes`/`frombuffer`/`fromarray`/`fromarrow` cover blank/raw/zero-copy-buffer/NumPy/Arrow sources; `save` keys the codec by extension or explicit `format`. `fromarrow`/`SupportsArrowArrayInterface` is the zero-copy seam from the Arrow-backed data tier; `tobytes`/`frombytes` round-trip raw planes.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Image.open` | `open(fp, mode='r', formats=None) -> ImageFile` | open from path/stream (lazy decode; `formats` restricts the plugin set) |
-| [02] | `Image.new` | `new(mode, size, color=0)` | create a blank image |
-| [03] | `Image.frombytes` / `frombuffer` | `frombytes(mode, size, data, decoder_name='raw', *args)` / `frombuffer(...)` | build from raw bytes / zero-copy buffer view |
-| [04] | `Image.fromarray` / `fromarrow` | `fromarray(obj, mode=None)` / `fromarrow(obj, mode, size)` | build from a NumPy `array_interface` / Arrow `arrow_c_array` source |
-| [05] | `Image.Image.save` | `save(fp, format=None, **params)` | encode to a codec format (`quality`/`optimize`/`compress_level`/`progressive`/`lossless`/`icc_profile`/`exif`/`save_all` kwargs) |
-| [06] | `Image.Image.tobytes` / `frombytes` | `tobytes(encoder_name='raw', *args)` / `frombytes(data, decoder_name='raw', *args)` | encode/decode raw planes in place |
-| [07] | `Image.Image.draft` | `draft(mode, size) -> (mode, (w, h, xs, ys)) \| None` | JPEG decode-scale hint forcing fast lossy downscale-on-load (the JPEG plugin overrides the base method) |
-| [08] | `Image.Image.get_child_images` | `get_child_images() -> list[ImageFile]` | extract embedded thumbnails / multi-resolution sub-images |
-| [09] | `Image.merge` / `composite` / `blend` | `merge(mode, bands)` / `composite(im1, im2, mask)` / `blend(im1, im2, alpha)` | merge single-band images / mask-composite / constant-alpha blend |
+| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                                        | [CAPABILITY]                                                                                                                     |
+| :-----: | :------------------------------------ | :---------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Image.open`                          | `open(fp, mode='r', formats=None) -> ImageFile`                                     | open from path/stream (lazy decode; `formats` restricts the plugin set)                                                          |
+|  [02]   | `Image.new`                           | `new(mode, size, color=0)`                                                          | create a blank image                                                                                                             |
+|  [03]   | `Image.frombytes` / `frombuffer`      | `frombytes(mode, size, data, decoder_name='raw', *args)` / `frombuffer(...)`        | build from raw bytes / zero-copy buffer view                                                                                     |
+|  [04]   | `Image.fromarray` / `fromarrow`       | `fromarray(obj, mode=None)` / `fromarrow(obj, mode, size)`                          | build from a NumPy `array_interface` / Arrow `arrow_c_array` source                                                              |
+|  [05]   | `Image.Image.save`                    | `save(fp, format=None, **params)`                                                   | encode to a codec format (`quality`/`optimize`/`compress_level`/`progressive`/`lossless`/`icc_profile`/`exif`/`save_all` kwargs) |
+|  [06]   | `Image.Image.tobytes` / `frombytes`   | `tobytes(encoder_name='raw', *args)` / `frombytes(data, decoder_name='raw', *args)` | encode/decode raw planes in place                                                                                                |
+|  [07]   | `Image.Image.draft`                   | `draft(mode, size) -> (mode, (w, h, xs, ys)) \| None`                               | JPEG decode-scale hint forcing fast lossy downscale-on-load (the JPEG plugin overrides the base method)                          |
+|  [08]   | `Image.Image.get_child_images`        | `get_child_images() -> list[ImageFile]`                                             | extract embedded thumbnails / multi-resolution sub-images                                                                        |
+|  [09]   | `Image.merge` / `composite` / `blend` | `merge(mode, bands)` / `composite(im1, im2, mask)` / `blend(im1, im2, alpha)`       | merge single-band images / mask-composite / constant-alpha blend                                                                 |
 
 [ENTRYPOINT_SCOPE]: transform, resample, convert, and quantize
 - rail: image
 
 One method per geometric concern, each keyed by a `Resampling`/`Transpose`/`Transform` member — never a parallel resizer. `convert` carries a `matrix` (3×4/4×3 colorspace matrix, e.g. RGB→XYZ) and a `Dither`; `quantize` carries the `Quantize` method + `kmeans` refinement; `reducing_gap` is the two-step high-quality downscale knob shared by `resize`/`thumbnail`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Image.Image.resize` | `resize(size, resample=None, box=None, reducing_gap=None)` | resample to a new size (`box` source-crop; `reducing_gap` two-step) |
-| [02] | `Image.Image.thumbnail` | `thumbnail(size, resample=Resampling.BICUBIC, reducing_gap=2.0)` | shrink to fit a bounding box (in place) |
-| [03] | `Image.Image.reduce` | `reduce(factor, box=None)` | integer-factor box downscale |
-| [04] | `Image.Image.rotate` | `rotate(angle, resample=Resampling.NEAREST, expand=False, center=None, translate=None, fillcolor=None)` | rotate by an arbitrary angle |
-| [05] | `Image.Image.transpose` | `transpose(Transpose member)` | flip / 90°-rotate / diagonal transpose |
-| [06] | `Image.Image.crop` / `paste` | `crop(box)` / `paste(im, box=None, mask=None)` | crop to a rectangle / paste region with optional mask |
-| [07] | `Image.Image.transform` | `transform(size, method, data, resample=Resampling.NEAREST, fill=1, fillcolor=None)` | AFFINE/PERSPECTIVE/QUAD/MESH/EXTENT under one method |
-| [08] | `Image.Image.convert` | `convert(mode=None, matrix=None, dither=None, palette=Palette.WEB, colors=256)` | mode conversion with optional colorspace `matrix` / `Dither` |
-| [09] | `Image.Image.quantize` | `quantize(colors=256, method=None, kmeans=0, palette=None, dither=Dither.FLOYDSTEINBERG)` | palette quantize (median-cut/octree/libimagequant) |
-| [10] | `Image.Image.remap_palette` / `putpalette` / `getpalette` | `remap_palette(dest_map, source_palette=None)` | reindex / set / read the `P`-mode palette |
+| [INDEX] | [SURFACE]                                                 | [CALL_SHAPE]                                                                                            | [CAPABILITY]                                                        |
+| :-----: | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------ |
+|  [01]   | `Image.Image.resize`                                      | `resize(size, resample=None, box=None, reducing_gap=None)`                                              | resample to a new size (`box` source-crop; `reducing_gap` two-step) |
+|  [02]   | `Image.Image.thumbnail`                                   | `thumbnail(size, resample=Resampling.BICUBIC, reducing_gap=2.0)`                                        | shrink to fit a bounding box (in place)                             |
+|  [03]   | `Image.Image.reduce`                                      | `reduce(factor, box=None)`                                                                              | integer-factor box downscale                                        |
+|  [04]   | `Image.Image.rotate`                                      | `rotate(angle, resample=Resampling.NEAREST, expand=False, center=None, translate=None, fillcolor=None)` | rotate by an arbitrary angle                                        |
+|  [05]   | `Image.Image.transpose`                                   | `transpose(Transpose member)`                                                                           | flip / 90°-rotate / diagonal transpose                              |
+|  [06]   | `Image.Image.crop` / `paste`                              | `crop(box)` / `paste(im, box=None, mask=None)`                                                          | crop to a rectangle / paste region with optional mask               |
+|  [07]   | `Image.Image.transform`                                   | `transform(size, method, data, resample=Resampling.NEAREST, fill=1, fillcolor=None)`                    | AFFINE/PERSPECTIVE/QUAD/MESH/EXTENT under one method                |
+|  [08]   | `Image.Image.convert`                                     | `convert(mode=None, matrix=None, dither=None, palette=Palette.WEB, colors=256)`                         | mode conversion with optional colorspace `matrix` / `Dither`        |
+|  [09]   | `Image.Image.quantize`                                    | `quantize(colors=256, method=None, kmeans=0, palette=None, dither=Dither.FLOYDSTEINBERG)`               | palette quantize (median-cut/octree/libimagequant)                  |
+|  [10]   | `Image.Image.remap_palette` / `putpalette` / `getpalette` | `remap_palette(dest_map, source_palette=None)`                                                          | reindex / set / read the `P`-mode palette                           |
 
 [ENTRYPOINT_SCOPE]: band, channel, per-pixel transform, and statistics
 - rail: image
 
 The channel/stat surface the owner keys instead of a NumPy round-trip when a Pillow band op suffices. `split`/`merge`/`getchannel`/`alpha_composite`/`putalpha` own channel composition; `point` is the per-pixel LUT and `ImageMath.lambda_eval`/`unsafe_eval` the multi-band pixel-expression evaluator; `ImageStat.Stat` is the masked statistics owner (NOT an `Image` method — it wraps an image + optional mask); `histogram`/`getextrema`/`entropy`/`getcolors` are the in-image stats.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Image.Image.split` / `getchannel` / `getbands` | `split() -> tuple[Image, ...]` / `getchannel(channel)` | band split / single-band extract / band-name tuple |
-| [02] | `Image.Image.alpha_composite` / `putalpha` | `alpha_composite(im, dest=(0,0), source=(0,0))` / `putalpha(alpha)` | premultiplied over-composite / set the alpha band |
-| [03] | `Image.Image.point` | `point(lut, mode=None)` | per-pixel LUT / callable / `ImagePointHandler` map |
-| [04] | `ImageMath.lambda_eval` / `unsafe_eval` | `lambda_eval(expr_fn, **bands)` / `unsafe_eval(expr_str, **bands)` | multi-band pixel-expression evaluator (band algebra `point` cannot express) |
-| [05] | `Image.eval` | `eval(image, *fns)` | apply a function over every pixel (module-level `point`) |
-| [06] | `ImageStat.Stat` | `Stat(image, mask=None)` → `.mean`/`.median`/`.stddev`/`.var`/`.rms`/`.extrema`/`.sum`/`.count` | masked per-band image statistics |
-| [07] | `Image.Image.histogram` / `getcolors` | `histogram(mask=None, extrema=None)` / `getcolors(maxcolors=256)` | per-band histogram / color-count census |
-| [08] | `Image.Image.getextrema` / `entropy` | `getextrema()` / `entropy(mask=None, extrema=None)` | min/max per band / Shannon entropy |
-| [09] | `Image.Image.seek` / `tell` / `ImageSequence.Iterator` / `all_frames` | `seek(frame)` / `Iterator(im)` / `all_frames(im, func=None)` | multi-frame (GIF/TIFF/APNG/WebP) cursor + iterate |
-| [10] | `Image.Image.getexif` / `getxmp` / `info` | `getexif() -> Exif` / `getxmp() -> dict` | EXIF map / parsed-XMP dict / `info['icc_profile']` raw profile bytes |
+| [INDEX] | [SURFACE]                                                             | [CALL_SHAPE]                                                                                    | [CAPABILITY]                                                                |
+| :-----: | :-------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `Image.Image.split` / `getchannel` / `getbands`                       | `split() -> tuple[Image, ...]` / `getchannel(channel)`                                          | band split / single-band extract / band-name tuple                          |
+|  [02]   | `Image.Image.alpha_composite` / `putalpha`                            | `alpha_composite(im, dest=(0,0), source=(0,0))` / `putalpha(alpha)`                             | premultiplied over-composite / set the alpha band                           |
+|  [03]   | `Image.Image.point`                                                   | `point(lut, mode=None)`                                                                         | per-pixel LUT / callable / `ImagePointHandler` map                          |
+|  [04]   | `ImageMath.lambda_eval` / `unsafe_eval`                               | `lambda_eval(expr_fn, **bands)` / `unsafe_eval(expr_str, **bands)`                              | multi-band pixel-expression evaluator (band algebra `point` cannot express) |
+|  [05]   | `Image.eval`                                                          | `eval(image, *fns)`                                                                             | apply a function over every pixel (module-level `point`)                    |
+|  [06]   | `ImageStat.Stat`                                                      | `Stat(image, mask=None)` → `.mean`/`.median`/`.stddev`/`.var`/`.rms`/`.extrema`/`.sum`/`.count` | masked per-band image statistics                                            |
+|  [07]   | `Image.Image.histogram` / `getcolors`                                 | `histogram(mask=None, extrema=None)` / `getcolors(maxcolors=256)`                               | per-band histogram / color-count census                                     |
+|  [08]   | `Image.Image.getextrema` / `entropy`                                  | `getextrema()` / `entropy(mask=None, extrema=None)`                                             | min/max per band / Shannon entropy                                          |
+|  [09]   | `Image.Image.seek` / `tell` / `ImageSequence.Iterator` / `all_frames` | `seek(frame)` / `Iterator(im)` / `all_frames(im, func=None)`                                    | multi-frame (GIF/TIFF/APNG/WebP) cursor + iterate                           |
+|  [10]   | `Image.Image.getexif` / `getxmp` / `info`                             | `getexif() -> Exif` / `getxmp() -> dict`                                                        | EXIF map / parsed-XMP dict / `info['icc_profile']` raw profile bytes        |
 
 [ENTRYPOINT_SCOPE]: draw, font, operation, filter, and channel-algebra modules
 - rail: image
 
 `ImageDraw`/`ImageFont` own annotation + measured FreeType text (variation axes, complex-script `RAQM` layout, anchored/stroked text); `ImageOps` is the fit/contain/cover/pad/tone/recolor operation family; `ImageFilter` the convolution/rank/3D-LUT family; `ImageEnhance` the tone-adjust factories; `ImageChops` the full blend-mode channel algebra; `ImageMorph` the binary morphology.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `ImageDraw.Draw` | `Draw(im, mode=None) -> ImageDraw` | bind a draw surface to an image |
-| [02] | `ImageDraw.ImageDraw.text` / `multiline_text` | `text(xy, text, fill, font, anchor, spacing, align, direction, features, language, stroke_width, stroke_fill, embedded_color)` | render anchored/stroked/shaped text |
-| [03] | `ImageDraw.ImageDraw.textbbox` / `textlength` / `multiline_textbbox` | `textbbox(xy, text, font, anchor, …, font_size=None)` | measure rendered text extent / advance width |
-| [04] | `ImageDraw.ImageDraw.rounded_rectangle` / `regular_polygon` / `…` | `rounded_rectangle(xy, radius, fill, outline, width, corners)` | rounded rect / regular polygon (also `rectangle`/`ellipse`/`circle`/`line`/`polygon`/`arc`/`chord`/`pieslice`/`bitmap`) |
-| [05] | `ImageDraw.floodfill` | `floodfill(image, xy, value, border=None, thresh=0)` | seed-fill a connected region |
-| [06] | `ImageFont.truetype` / `load_default` | `truetype(font, size=10, index=0, encoding='', layout_engine=None)` / `load_default(size=None)` | load FreeType / built-in font |
-| [07] | `ImageFont.FreeTypeFont.set_variation_by_axes` / `get_variation_axes` / `getmask2` | `set_variation_by_axes([w0, w1, …])` / `getmask2(text, mode, …)` | drive variable-font axes / shape text to a coverage mask + offset |
-| [08] | `ImageOps.fit` / `contain` / `cover` / `pad` | `fit(image, size, method=Resampling.BICUBIC, bleed=0.0, centering=(0.5,0.5))` | fit/contain/cover/pad to a target box (the `FitMode` arms) |
-| [09] | `ImageOps.exif_transpose` / `autocontrast` / `equalize` / `colorize` / `grayscale` / `invert` / `mirror` / `flip` / `posterize` / `solarize` / `expand` / `scale` / `deform` | `exif_transpose(image, in_place=False)` | EXIF-orient + the tone/recolor/geometric op family |
-| [10] | `ImageEnhance.Contrast` | `Contrast(im).enhance(factor)` | adjust contrast (also `Color`/`Brightness`/`Sharpness`) |
-| [11] | `ImageFilter.GaussianBlur` / `UnsharpMask` / `Kernel` / `RankFilter` / `Color3DLUT` | `Image.filter(GaussianBlur(radius))` / `Color3DLUT.generate(size, callback)` | blur/sharpen/NxN-convolve/rank/3D-LUT grade |
-| [12] | `ImageChops.multiply` / `screen` / `overlay` / `soft_light` / `hard_light` / `difference` / `add` / `subtract` / `add_modulo` / `darker` / `lighter` / `logical_and` | `(im1, im2)` | full Porter-Duff/separable blend-mode + binary channel algebra |
-| [13] | `ImageMorph.MorphOp` / `LutBuilder` | `MorphOp(op_name='dilation4').apply(image)` / `LutBuilder(op_name=…).build_lut()` | binary L-mode hit-or-miss morphology over a pattern LUT |
+| [INDEX] | [SURFACE]                                                                                                                                                                    | [CALL_SHAPE]                                                                                                                   | [CAPABILITY]                                                                                                            |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ImageDraw.Draw`                                                                                                                                                             | `Draw(im, mode=None) -> ImageDraw`                                                                                             | bind a draw surface to an image                                                                                         |
+|  [02]   | `ImageDraw.ImageDraw.text` / `multiline_text`                                                                                                                                | `text(xy, text, fill, font, anchor, spacing, align, direction, features, language, stroke_width, stroke_fill, embedded_color)` | render anchored/stroked/shaped text                                                                                     |
+|  [03]   | `ImageDraw.ImageDraw.textbbox` / `textlength` / `multiline_textbbox`                                                                                                         | `textbbox(xy, text, font, anchor, …, font_size=None)`                                                                          | measure rendered text extent / advance width                                                                            |
+|  [04]   | `ImageDraw.ImageDraw.rounded_rectangle` / `regular_polygon` / `…`                                                                                                            | `rounded_rectangle(xy, radius, fill, outline, width, corners)`                                                                 | rounded rect / regular polygon (also `rectangle`/`ellipse`/`circle`/`line`/`polygon`/`arc`/`chord`/`pieslice`/`bitmap`) |
+|  [05]   | `ImageDraw.floodfill`                                                                                                                                                        | `floodfill(image, xy, value, border=None, thresh=0)`                                                                           | seed-fill a connected region                                                                                            |
+|  [06]   | `ImageFont.truetype` / `load_default`                                                                                                                                        | `truetype(font, size=10, index=0, encoding='', layout_engine=None)` / `load_default(size=None)`                                | load FreeType / built-in font                                                                                           |
+|  [07]   | `ImageFont.FreeTypeFont.set_variation_by_axes` / `get_variation_axes` / `getmask2`                                                                                           | `set_variation_by_axes([w0, w1, …])` / `getmask2(text, mode, …)`                                                               | drive variable-font axes / shape text to a coverage mask + offset                                                       |
+|  [08]   | `ImageOps.fit` / `contain` / `cover` / `pad`                                                                                                                                 | `fit(image, size, method=Resampling.BICUBIC, bleed=0.0, centering=(0.5,0.5))`                                                  | fit/contain/cover/pad to a target box (the `FitMode` arms)                                                              |
+|  [09]   | `ImageOps.exif_transpose` / `autocontrast` / `equalize` / `colorize` / `grayscale` / `invert` / `mirror` / `flip` / `posterize` / `solarize` / `expand` / `scale` / `deform` | `exif_transpose(image, in_place=False)`                                                                                        | EXIF-orient + the tone/recolor/geometric op family                                                                      |
+|  [10]   | `ImageEnhance.Contrast`                                                                                                                                                      | `Contrast(im).enhance(factor)`                                                                                                 | adjust contrast (also `Color`/`Brightness`/`Sharpness`)                                                                 |
+|  [11]   | `ImageFilter.GaussianBlur` / `UnsharpMask` / `Kernel` / `RankFilter` / `Color3DLUT`                                                                                          | `Image.filter(GaussianBlur(radius))` / `Color3DLUT.generate(size, callback)`                                                   | blur/sharpen/NxN-convolve/rank/3D-LUT grade                                                                             |
+|  [12]   | `ImageChops.multiply` / `screen` / `overlay` / `soft_light` / `hard_light` / `difference` / `add` / `subtract` / `add_modulo` / `darker` / `lighter` / `logical_and`         | `(im1, im2)`                                                                                                                   | full Porter-Duff/separable blend-mode + binary channel algebra                                                          |
+|  [13]   | `ImageMorph.MorphOp` / `LutBuilder`                                                                                                                                          | `MorphOp(op_name='dilation4').apply(image)` / `LutBuilder(op_name=…).build_lut()`                                              | binary L-mode hit-or-miss morphology over a pattern LUT                                                                 |
 
 [ENTRYPOINT_SCOPE]: ICC color management (soft-proof + profile read) and procedural generators
 - rail: image
 
 `buildTransform`/`applyTransform`/`profileToProfile` are the lcms2 managed-conversion primitives — admitted to the artifacts owner ONLY as the proof/device-link path; the standard device→device managed egress (sRGB↔CMYK with intent + black-point) is pyvips `Image.icc_transform`'s, not this. `buildProofTransform` + `Flags.SOFTPROOFING`/`Flags.GAMUTCHECK` is the soft-proof / gamut-warning transform pyvips has no member for; `ImageCmsProfile` + the `getProfile*` readers are the `exchange/metadata` profile-header read. The `effect_*`/`*_gradient` family seeds procedural rasters for the media-synthesis/test path.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `ImageCms.buildProofTransform` | `buildProofTransform(inputProfile, outputProfile, proofProfile, inMode, outMode, renderingIntent=PERCEPTUAL, proofRenderingIntent=ABSOLUTE_COLORIMETRIC, flags=Flags.SOFTPROOFING)` | soft-proof: simulate the proof (CMYK press) profile on the display + gamut-warning |
-| [02] | `ImageCms.buildTransform` / `applyTransform` | `buildTransform(in, out, inMode, outMode, renderingIntent=PERCEPTUAL, flags=Flags.NONE)` / `applyTransform(im, transform, inPlace=False)` | build/apply a profile-to-profile transform (device-link; NOT the standard managed egress) |
-| [03] | `ImageCms.profileToProfile` | `profileToProfile(im, inputProfile, outputProfile, renderingIntent=PERCEPTUAL, outputMode=None, inPlace=False, flags=Flags.NONE)` | one-shot managed conversion (proof/device-link convenience) |
-| [04] | `ImageCms.ImageCmsProfile` / `getOpenProfile` | `ImageCmsProfile(BytesIO(blob))` / `getOpenProfile(profileFilename)` | parse an ICC profile from bytes/path (the metadata-read entry) |
-| [05] | `ImageCms.getProfileDescription` / `getProfileManufacturer` / `getProfileModel` / `getProfileCopyright` / `getProfileInfo` | `getProfileDescription(profile) -> str` | read the ICC profile header fields (the `exchange/metadata` `_icc` reader) |
-| [06] | `ImageCms.getDefaultIntent` / `isIntentSupported` | `getDefaultIntent(profile) -> int` / `isIntentSupported(profile, intent, Direction.PROOF) -> Literal[-1, 1]` | read default intent / probe an intent for a direction |
-| [07] | `ImageCms.createProfile` / `ImageCmsTransform.apply` | `createProfile('sRGB'\|'LAB'\|'XYZ', colorTemp=0)` / `transform.apply(im, imOut=None)` | synthesize a built-in profile / apply a prebuilt transform |
-| [08] | `Image.linear_gradient` / `radial_gradient` / `effect_noise` / `effect_mandelbrot` / `Image.Image.effect_spread` | `effect_noise(size, sigma)` / `radial_gradient(mode)` | procedural gradient/noise/fractal seed rasters |
+| [INDEX] | [SURFACE]                                                                                                                  | [CALL_SHAPE]                                                                                                                                                                        | [CAPABILITY]                                                                              |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `ImageCms.buildProofTransform`                                                                                             | `buildProofTransform(inputProfile, outputProfile, proofProfile, inMode, outMode, renderingIntent=PERCEPTUAL, proofRenderingIntent=ABSOLUTE_COLORIMETRIC, flags=Flags.SOFTPROOFING)` | soft-proof: simulate the proof (CMYK press) profile on the display + gamut-warning        |
+|  [02]   | `ImageCms.buildTransform` / `applyTransform`                                                                               | `buildTransform(in, out, inMode, outMode, renderingIntent=PERCEPTUAL, flags=Flags.NONE)` / `applyTransform(im, transform, inPlace=False)`                                           | build/apply a profile-to-profile transform (device-link; NOT the standard managed egress) |
+|  [03]   | `ImageCms.profileToProfile`                                                                                                | `profileToProfile(im, inputProfile, outputProfile, renderingIntent=PERCEPTUAL, outputMode=None, inPlace=False, flags=Flags.NONE)`                                                   | one-shot managed conversion (proof/device-link convenience)                               |
+|  [04]   | `ImageCms.ImageCmsProfile` / `getOpenProfile`                                                                              | `ImageCmsProfile(BytesIO(blob))` / `getOpenProfile(profileFilename)`                                                                                                                | parse an ICC profile from bytes/path (the metadata-read entry)                            |
+|  [05]   | `ImageCms.getProfileDescription` / `getProfileManufacturer` / `getProfileModel` / `getProfileCopyright` / `getProfileInfo` | `getProfileDescription(profile) -> str`                                                                                                                                             | read the ICC profile header fields (the `exchange/metadata` `_icc` reader)                |
+|  [06]   | `ImageCms.getDefaultIntent` / `isIntentSupported`                                                                          | `getDefaultIntent(profile) -> int` / `isIntentSupported(profile, intent, Direction.PROOF) -> Literal[-1, 1]`                                                                        | read default intent / probe an intent for a direction                                     |
+|  [07]   | `ImageCms.createProfile` / `ImageCmsTransform.apply`                                                                       | `createProfile('sRGB'\|'LAB'\|'XYZ', colorTemp=0)` / `transform.apply(im, imOut=None)`                                                                                              | synthesize a built-in profile / apply a prebuilt transform                                |
+|  [08]   | `Image.linear_gradient` / `radial_gradient` / `effect_noise` / `effect_mandelbrot` / `Image.Image.effect_spread`           | `effect_noise(size, sigma)` / `radial_gradient(mode)`                                                                                                                               | procedural gradient/noise/fractal seed rasters                                            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

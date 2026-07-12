@@ -22,22 +22,22 @@
 
 `Builder`, `Reader`, `Signer`, `Settings`, and `Context` are all context managers with `close()`/`is_valid` lifecycle (the native handle is released on `close`); `Builder` is single-sign and closes after `sign`; `Reader` is closed after the `with` block; `Signer` is consumed when attached to a `Context`. `C2paError` is the base of the full typed subclass family — `Assertion`, `AssertionNotFound`, `Decoding`, `Encoding`, `FileNotFound`, `Io`, `Json`, `Manifest`, `ManifestNotFound`, `NotSupported`, `Other`, `RemoteManifest`, `ResourceNotFound`, `Signature`, `Verify` — so a single `except C2paError` rail traps the family and per-subclass arms discriminate codec/signature/verify/not-found faults. `C2paSigningAlg`, `C2paDigitalSourceType`, `C2paBuilderIntent`, and `C2paSeekMode` are `IntEnum` vocabularies driving signing, source provenance, manifest intent, and stream-seek mode. `C2paDigitalSourceType` carries the full 19-member IPTC digital-source vocabulary — `EMPTY` (0, the no-source default `set_intent` supplies) plus the eighteen origins `TRAINED_ALGORITHMIC_DATA`, `DIGITAL_CAPTURE`, `COMPUTATIONAL_CAPTURE`, `NEGATIVE_FILM`, `POSITIVE_FILM`, `PRINT`, `HUMAN_EDITS`, `COMPOSITE_WITH_TRAINED_ALGORITHMIC_MEDIA`, `ALGORITHMICALLY_ENHANCED`, `DIGITAL_CREATION`, `DATA_DRIVEN_MEDIA`, `TRAINED_ALGORITHMIC_MEDIA`, `ALGORITHMIC_MEDIA`, `SCREEN_CAPTURE`, `VIRTUAL_RECORDING`, `COMPOSITE`, `COMPOSITE_CAPTURE`, `COMPOSITE_SYNTHETIC` (ordinals 1–18) — so AI-and-capture provenance origin is a single table-driven source-type row, not a parallel manifest field; the `exchange/credential#CREDENTIAL` `DigitalSource` `StrEnum` mirrors these eighteen non-`EMPTY` names exactly so its `_DIGITAL_SOURCE` row derives by `C2paDigitalSourceType[name]` correspondence. `C2paSeekMode` (`START`/`CURRENT`/`END` = 0/1/2) drives the `Stream` seek-callback bridge and is exported but rarely touched by the owner (the `Stream` adapter consumes it internally). `LifecycleState` (`UNINITIALIZED`/`ACTIVE`/`CLOSED`) is the internal `ManagedResource` state machine — NOT re-exported at package scope and never an owner-facing member.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Builder` | resource | manifest authoring + single-use signing into an asset |
-| [02] | `Reader` | resource | manifest-store extraction, parsing, and validation reporting |
-| [03] | `Signer` | resource | COSE signer from `C2paSignerInfo` or callback |
-| [04] | `Stream` | resource | Python stream-to-native `C2paStream` bridge |
-| [05] | `Context` | resource | per-instance settings + signer carrier for `Builder`/`Reader` |
-| [06] | `ContextBuilder` | builder | fluent `with_settings`/`with_signer`/`build` for `Context` |
-| [07] | `Settings` | resource | dot-path / JSON / dict configuration object |
-| [08] | `ContextProvider` | protocol | interface a `Context` implements for `Builder`/`Reader` |
-| [09] | `C2paSignerInfo` | value (ctypes) | `alg`/`sign_cert`/`private_key`/`ta_url` signer configuration |
-| [10] | `C2paSigningAlg` | enum (`IntEnum`) | ES256/ES384/ES512/PS256/PS384/PS512/ED25519 signing algorithm |
-| [11] | `C2paDigitalSourceType` | enum (`IntEnum`) | 19-member IPTC digital-source provenance for `CREATE` intent |
-| [12] | `C2paBuilderIntent` | enum (`IntEnum`) | `CREATE`/`EDIT`/`UPDATE` manifest intent |
-| [13] | `C2paSeekMode` | enum (`IntEnum`) | `START`/`CURRENT`/`END` stream-seek mode for the `Stream` bridge |
-| [14] | `C2paError` | error | base exception with typed subclass attributes |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]    | [RAIL]                                                           |
+| :-----: | :---------------------- | :--------------- | :--------------------------------------------------------------- |
+|  [01]   | `Builder`               | resource         | manifest authoring + single-use signing into an asset            |
+|  [02]   | `Reader`                | resource         | manifest-store extraction, parsing, and validation reporting     |
+|  [03]   | `Signer`                | resource         | COSE signer from `C2paSignerInfo` or callback                    |
+|  [04]   | `Stream`                | resource         | Python stream-to-native `C2paStream` bridge                      |
+|  [05]   | `Context`               | resource         | per-instance settings + signer carrier for `Builder`/`Reader`    |
+|  [06]   | `ContextBuilder`        | builder          | fluent `with_settings`/`with_signer`/`build` for `Context`       |
+|  [07]   | `Settings`              | resource         | dot-path / JSON / dict configuration object                      |
+|  [08]   | `ContextProvider`       | protocol         | interface a `Context` implements for `Builder`/`Reader`          |
+|  [09]   | `C2paSignerInfo`        | value (ctypes)   | `alg`/`sign_cert`/`private_key`/`ta_url` signer configuration    |
+|  [10]   | `C2paSigningAlg`        | enum (`IntEnum`) | ES256/ES384/ES512/PS256/PS384/PS512/ED25519 signing algorithm    |
+|  [11]   | `C2paDigitalSourceType` | enum (`IntEnum`) | 19-member IPTC digital-source provenance for `CREATE` intent     |
+|  [12]   | `C2paBuilderIntent`     | enum (`IntEnum`) | `CREATE`/`EDIT`/`UPDATE` manifest intent                         |
+|  [13]   | `C2paSeekMode`          | enum (`IntEnum`) | `START`/`CURRENT`/`END` stream-seek mode for the `Stream` bridge |
+|  [14]   | `C2paError`             | error            | base exception with typed subclass attributes                    |
 
 [EXPORT_TIERS]: the package public surface (`c2pa.__all__`) is the 15-name set `Builder`, `Reader`, `Signer`, `Stream`, `Settings`, `Context`, `ContextBuilder`, `ContextProvider`, `C2paError`, `C2paSignerInfo`, `C2paSigningAlg`, `C2paDigitalSourceType`, `C2paBuilderIntent`, `sdk_version`, `load_settings` — the owner's `from c2pa import (...)` line draws from this set. The inner `c2pa.c2pa.__all__` additionally exposes `C2paSeekMode`, `format_embeddable`, and `version` (the `importlib.metadata` package-version, distinct from `sdk_version` the native-core version); `create_signer`/`create_signer_from_info`/`ed25519_sign` are module functions on `c2pa.c2pa` not in either `__all__`. The owner reaches the inner-only members through `from c2pa.c2pa import format_embeddable` only when the embeddable-bytes primitive is genuinely needed; the canonical signing/reading path never leaves the `c2pa` public set.
 
@@ -48,74 +48,74 @@
 
 `Builder` is constructed from a JSON manifest definition (string or dict); `from_json` is the named factory and `from_archive` rehydrates a builder from a written archive stream. `sign` discriminates on its first argument: a `Signer` signs explicitly, a `str` format signs with the `Context`'s signer. `sign` is single-use and closes the builder; omitting `dest` buffers the signed asset into an in-memory `BytesIO`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Builder` | `Builder(manifest_json: Any, context: Optional[ContextProvider] = None)` | construct from a JSON manifest definition |
-| [02] | `Builder.from_json` | `from_json(manifest_json: Any, context: Optional[ContextProvider] = None) -> Builder` | named factory from a JSON manifest |
-| [03] | `Builder.from_archive` | `from_archive(stream: Any) -> Builder` | rehydrate a builder from an archive stream |
-| [04] | `Builder.sign` | `sign(signer_or_format: Union[Signer, str], format_or_source: Any = None, source_or_dest: Any = None, dest: Any = None) -> bytes` | sign source into dest, return manifest bytes (single use) |
-| [05] | `Builder.sign_file` | `sign_file(source_path: Union[str, Path], dest_path: Union[str, Path], signer: Optional[Signer] = None) -> bytes` | sign a file path to an output path, return manifest bytes |
-| [06] | `Builder.set_intent` | `set_intent(intent: C2paBuilderIntent, digital_source_type: C2paDigitalSourceType = C2paDigitalSourceType.EMPTY)` | set manifest intent and digital source type |
-| [07] | `Builder.add_ingredient` | `add_ingredient(ingredient_json: Union[str, dict], format: str, source: Any)` | attach a parent/component ingredient from a stream/source |
-| [08] | `Builder.add_ingredient_from_stream` | `add_ingredient_from_stream(ingredient_json: Union[str, dict], format: str, source: Any)` | ingredient-attach row keyed to an open source stream |
-| [09] | `Builder.add_ingredient_from_archive` | `add_ingredient_from_archive(stream: Any) -> None` | rehydrate ingredients from a written ingredient archive stream (single-arg) |
-| [10] | `Builder.write_ingredient_archive` | `write_ingredient_archive(ingredient_id: str, stream: Any) -> None` | serialize an attached ingredient to a reusable archive |
-| [11] | `Builder.add_resource` | `add_resource(uri: str, stream: Any)` | attach a referenced resource by URI |
-| [12] | `Builder.add_action` | `add_action(action_json: Union[str, dict]) -> None` | append a c2pa.actions assertion |
-| [13] | `Builder.set_remote_url` | `set_remote_url(remote_url: str)` | set the remote manifest URL |
-| [14] | `Builder.set_no_embed` | `set_no_embed()` | produce a sidecar (non-embedded) manifest |
-| [15] | `Builder.to_archive` | `to_archive(stream: Any) -> None` | serialize builder state to an archive stream |
-| [16] | `Builder.with_archive` | `with_archive(stream: Any) -> Builder` | rehydrate an existing builder's definition from an archive (instance twin of the `from_archive` classmethod; settings stay from the bound `Context`) |
-| [17] | `Builder.get_supported_mime_types` | `get_supported_mime_types() -> list[str]` | native list of signable MIME types |
+| [INDEX] | [SURFACE]                             | [CALL_SHAPE]                                                                                                                      | [CAPABILITY]                                                                                                                                         |
+| :-----: | :------------------------------------ | :-------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Builder`                             | `Builder(manifest_json: Any, context: Optional[ContextProvider] = None)`                                                          | construct from a JSON manifest definition                                                                                                            |
+|  [02]   | `Builder.from_json`                   | `from_json(manifest_json: Any, context: Optional[ContextProvider] = None) -> Builder`                                             | named factory from a JSON manifest                                                                                                                   |
+|  [03]   | `Builder.from_archive`                | `from_archive(stream: Any) -> Builder`                                                                                            | rehydrate a builder from an archive stream                                                                                                           |
+|  [04]   | `Builder.sign`                        | `sign(signer_or_format: Union[Signer, str], format_or_source: Any = None, source_or_dest: Any = None, dest: Any = None) -> bytes` | sign source into dest, return manifest bytes (single use)                                                                                            |
+|  [05]   | `Builder.sign_file`                   | `sign_file(source_path: Union[str, Path], dest_path: Union[str, Path], signer: Optional[Signer] = None) -> bytes`                 | sign a file path to an output path, return manifest bytes                                                                                            |
+|  [06]   | `Builder.set_intent`                  | `set_intent(intent: C2paBuilderIntent, digital_source_type: C2paDigitalSourceType = C2paDigitalSourceType.EMPTY)`                 | set manifest intent and digital source type                                                                                                          |
+|  [07]   | `Builder.add_ingredient`              | `add_ingredient(ingredient_json: Union[str, dict], format: str, source: Any)`                                                     | attach a parent/component ingredient from a stream/source                                                                                            |
+|  [08]   | `Builder.add_ingredient_from_stream`  | `add_ingredient_from_stream(ingredient_json: Union[str, dict], format: str, source: Any)`                                         | ingredient-attach row keyed to an open source stream                                                                                                 |
+|  [09]   | `Builder.add_ingredient_from_archive` | `add_ingredient_from_archive(stream: Any) -> None`                                                                                | rehydrate ingredients from a written ingredient archive stream (single-arg)                                                                          |
+|  [10]   | `Builder.write_ingredient_archive`    | `write_ingredient_archive(ingredient_id: str, stream: Any) -> None`                                                               | serialize an attached ingredient to a reusable archive                                                                                               |
+|  [11]   | `Builder.add_resource`                | `add_resource(uri: str, stream: Any)`                                                                                             | attach a referenced resource by URI                                                                                                                  |
+|  [12]   | `Builder.add_action`                  | `add_action(action_json: Union[str, dict]) -> None`                                                                               | append a c2pa.actions assertion                                                                                                                      |
+|  [13]   | `Builder.set_remote_url`              | `set_remote_url(remote_url: str)`                                                                                                 | set the remote manifest URL                                                                                                                          |
+|  [14]   | `Builder.set_no_embed`                | `set_no_embed()`                                                                                                                  | produce a sidecar (non-embedded) manifest                                                                                                            |
+|  [15]   | `Builder.to_archive`                  | `to_archive(stream: Any) -> None`                                                                                                 | serialize builder state to an archive stream                                                                                                         |
+|  [16]   | `Builder.with_archive`                | `with_archive(stream: Any) -> Builder`                                                                                            | rehydrate an existing builder's definition from an archive (instance twin of the `from_archive` classmethod; settings stay from the bound `Context`) |
+|  [17]   | `Builder.get_supported_mime_types`    | `get_supported_mime_types() -> list[str]`                                                                                         | native list of signable MIME types                                                                                                                   |
 
 [ENTRYPOINT_SCOPE]: `Reader` extract and validate
 - rail: provenance
 
 `Reader(format_or_path)` reads a manifest store: a sole path argument resolves the MIME type and opens the file, a `(format, stream)` pair reads from an open stream, and a `(format, path)` pair reads a named path. `try_create` is the optional-returning factory that returns `None` instead of raising `C2paError.ManifestNotFound` when an asset carries no Content Credentials. `get_validation_state` reads the manifest-store `validation_state` field; `get_validation_results` reads the `validation_results` object.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Reader` | `Reader(format_or_path: Union[str, Path], stream: Optional[Any] = None, manifest_data: Optional[Any] = None, context: Optional[ContextProvider] = None)` | open a manifest store from a path or stream |
-| [02] | `Reader.try_create` | `try_create(format_or_path: Union[str, Path], stream: Optional[Any] = None, manifest_data: Optional[Any] = None, context: Optional[ContextProvider] = None) -> Optional[Reader]` | open or return `None` when no manifest is present |
-| [03] | `Reader.json` | `json() -> str` | manifest store as a JSON string (cached) |
-| [04] | `Reader.detailed_json` | `detailed_json() -> str` | expanded manifest-store JSON |
-| [05] | `Reader.crjson` | `crjson() -> str` | standardized crJSON; `"{}"` when no credentials |
-| [06] | `Reader.get_validation_state` | `get_validation_state() -> Optional[str]` | overall `validation_state` field of the manifest |
-| [07] | `Reader.get_validation_results` | `get_validation_results() -> Optional[dict]` | detailed `validation_results` object |
-| [08] | `Reader.get_active_manifest` | `get_active_manifest() -> Optional[dict]` | the active manifest dict from the store |
-| [09] | `Reader.get_manifest` | `get_manifest(label: str) -> Optional[dict]` | a manifest dict by label/ID |
-| [10] | `Reader.is_embedded` | `is_embedded() -> bool` | embedded vs remote manifest flag |
-| [11] | `Reader.get_remote_url` | `get_remote_url() -> Optional[str]` | remote manifest URL, or `None` when embedded |
-| [12] | `Reader.resource_to_stream` | `resource_to_stream(uri: str, stream: Any) -> int` | write a referenced resource to a stream |
-| [13] | `Reader.with_fragment` | `with_fragment(format: str, stream: Any, fragment_stream: Any) -> Reader` | read a fragmented-BMFF (DASH/CMAF) init+fragment |
-| [14] | `Reader.get_supported_mime_types` | `get_supported_mime_types() -> list[str]` | native list of readable MIME types |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]                                                                                                                                                                     | [CAPABILITY]                                      |
+| :-----: | :-------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `Reader`                          | `Reader(format_or_path: Union[str, Path], stream: Optional[Any] = None, manifest_data: Optional[Any] = None, context: Optional[ContextProvider] = None)`                         | open a manifest store from a path or stream       |
+|  [02]   | `Reader.try_create`               | `try_create(format_or_path: Union[str, Path], stream: Optional[Any] = None, manifest_data: Optional[Any] = None, context: Optional[ContextProvider] = None) -> Optional[Reader]` | open or return `None` when no manifest is present |
+|  [03]   | `Reader.json`                     | `json() -> str`                                                                                                                                                                  | manifest store as a JSON string (cached)          |
+|  [04]   | `Reader.detailed_json`            | `detailed_json() -> str`                                                                                                                                                         | expanded manifest-store JSON                      |
+|  [05]   | `Reader.crjson`                   | `crjson() -> str`                                                                                                                                                                | standardized crJSON; `"{}"` when no credentials   |
+|  [06]   | `Reader.get_validation_state`     | `get_validation_state() -> Optional[str]`                                                                                                                                        | overall `validation_state` field of the manifest  |
+|  [07]   | `Reader.get_validation_results`   | `get_validation_results() -> Optional[dict]`                                                                                                                                     | detailed `validation_results` object              |
+|  [08]   | `Reader.get_active_manifest`      | `get_active_manifest() -> Optional[dict]`                                                                                                                                        | the active manifest dict from the store           |
+|  [09]   | `Reader.get_manifest`             | `get_manifest(label: str) -> Optional[dict]`                                                                                                                                     | a manifest dict by label/ID                       |
+|  [10]   | `Reader.is_embedded`              | `is_embedded() -> bool`                                                                                                                                                          | embedded vs remote manifest flag                  |
+|  [11]   | `Reader.get_remote_url`           | `get_remote_url() -> Optional[str]`                                                                                                                                              | remote manifest URL, or `None` when embedded      |
+|  [12]   | `Reader.resource_to_stream`       | `resource_to_stream(uri: str, stream: Any) -> int`                                                                                                                               | write a referenced resource to a stream           |
+|  [13]   | `Reader.with_fragment`            | `with_fragment(format: str, stream: Any, fragment_stream: Any) -> Reader`                                                                                                        | read a fragmented-BMFF (DASH/CMAF) init+fragment  |
+|  [14]   | `Reader.get_supported_mime_types` | `get_supported_mime_types() -> list[str]`                                                                                                                                        | native list of readable MIME types                |
 
 [ENTRYPOINT_SCOPE]: signer, settings, and module functions
 - rail: provenance
 
 `Signer.from_info` builds a COSE signer from a populated `C2paSignerInfo`; `Signer.from_callback` builds one from an external signing callback plus algorithm and PEM cert chain. `Settings`/`Context` carry per-instance configuration into `Builder`/`Reader`; module-level `load_settings` is the deprecated thread-local path the `Context` per-instance path supersedes. `sdk_version` returns the underlying `c2pa-rs` core semantic version (`0.89.0` on the installed `c2pa-python 0.36.0`), distinct from `version()` which returns the `c2pa-python` distribution version. `format_embeddable` and `ed25519_sign` are standalone byte primitives — the former rewraps a detached manifest into the embeddable wire form for a given format, the latter is the in-process Ed25519 raw-signature primitive a `from_callback` digest-signer composes. `create_signer`/`create_signer_from_info` are the pre-0.11 deprecated function forms of `Signer.from_callback`/`Signer.from_info` (each emits a `DeprecationWarning` and delegates) — the owner uses the `Signer` classmethods, never these.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Signer.from_info` | `from_info(signer_info: C2paSignerInfo) -> Signer` | signer from cert/key/TSA configuration |
-| [02] | `Signer.from_callback` | `from_callback(callback: Callable[[bytes], bytes], alg: C2paSigningAlg, certs: str, tsa_url: Optional[str] = None) -> Signer` | signer from an external signing callback |
-| [03] | `Signer.reserve_size` | `reserve_size() -> int` | byte size reserved for the signature |
-| [04] | `C2paSignerInfo` | `C2paSignerInfo(alg, sign_cert, private_key, ta_url)` | signer configuration value (`alg` accepts enum/str/bytes) |
-| [05] | `Settings.from_json` | `from_json(json_str: str) -> Settings` | settings from a JSON config string |
-| [06] | `Settings.from_dict` | `from_dict(config: dict) -> Settings` | settings from a config dict |
-| [07] | `Settings.set` | `set(path: str, value: str) -> Settings` | set a dot-notation config value |
-| [08] | `Settings.update` | `update(data: Union[str, dict]) -> Settings` | merge a config dict/JSON string into the settings object |
-| [09] | `Context.from_json` | `from_json(json_str: str, signer: Optional[Signer] = None) -> Context` | context from JSON config plus optional signer |
-| [10] | `Context.from_dict` | `from_dict(config: dict, signer: Optional[Signer] = None) -> Context` | context from a config dict plus optional signer |
-| [11] | `Context.has_signer` | `has_signer() -> bool` | whether the context carries a bound signer |
-| [12] | `Context.builder` | `builder() -> ContextBuilder` | fluent `with_settings`/`with_signer`/`build` |
-| [13] | `load_settings` | `load_settings(settings: Union[str, dict], format: str = "json") -> None` | deprecated thread-local settings load |
-| [14] | `sdk_version` | `sdk_version() -> str` | underlying `c2pa-rs` core semantic version (`0.89.0`) |
-| [15] | `version` | `version() -> str` | `c2pa-python` distribution version (`0.36.0`), distinct from `sdk_version` |
-| [16] | `format_embeddable` | `format_embeddable(format: str, manifest_bytes: bytes) -> tuple[int, bytes]` | rewrap a detached manifest into embeddable wire bytes for `format` (size, bytes) |
-| [17] | `ed25519_sign` | `ed25519_sign(data: bytes, private_key: str) -> bytes` | in-process Ed25519 raw-signature primitive (64-byte sig) for a `from_callback` digest-signer |
-| [18] | `create_signer` | `create_signer(callback, alg: C2paSigningAlg, certs: str, tsa_url=None) -> Signer` | DEPRECATED (pre-0.11); delegates to `Signer.from_callback` — owner uses the classmethod |
-| [19] | `create_signer_from_info` | `create_signer_from_info(signer_info: C2paSignerInfo) -> Signer` | DEPRECATED (pre-0.11); delegates to `Signer.from_info` — owner uses the classmethod |
+| [INDEX] | [SURFACE]                 | [CALL_SHAPE]                                                                                                                  | [CAPABILITY]                                                                                 |
+| :-----: | :------------------------ | :---------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `Signer.from_info`        | `from_info(signer_info: C2paSignerInfo) -> Signer`                                                                            | signer from cert/key/TSA configuration                                                       |
+|  [02]   | `Signer.from_callback`    | `from_callback(callback: Callable[[bytes], bytes], alg: C2paSigningAlg, certs: str, tsa_url: Optional[str] = None) -> Signer` | signer from an external signing callback                                                     |
+|  [03]   | `Signer.reserve_size`     | `reserve_size() -> int`                                                                                                       | byte size reserved for the signature                                                         |
+|  [04]   | `C2paSignerInfo`          | `C2paSignerInfo(alg, sign_cert, private_key, ta_url)`                                                                         | signer configuration value (`alg` accepts enum/str/bytes)                                    |
+|  [05]   | `Settings.from_json`      | `from_json(json_str: str) -> Settings`                                                                                        | settings from a JSON config string                                                           |
+|  [06]   | `Settings.from_dict`      | `from_dict(config: dict) -> Settings`                                                                                         | settings from a config dict                                                                  |
+|  [07]   | `Settings.set`            | `set(path: str, value: str) -> Settings`                                                                                      | set a dot-notation config value                                                              |
+|  [08]   | `Settings.update`         | `update(data: Union[str, dict]) -> Settings`                                                                                  | merge a config dict/JSON string into the settings object                                     |
+|  [09]   | `Context.from_json`       | `from_json(json_str: str, signer: Optional[Signer] = None) -> Context`                                                        | context from JSON config plus optional signer                                                |
+|  [10]   | `Context.from_dict`       | `from_dict(config: dict, signer: Optional[Signer] = None) -> Context`                                                         | context from a config dict plus optional signer                                              |
+|  [11]   | `Context.has_signer`      | `has_signer() -> bool`                                                                                                        | whether the context carries a bound signer                                                   |
+|  [12]   | `Context.builder`         | `builder() -> ContextBuilder`                                                                                                 | fluent `with_settings`/`with_signer`/`build`                                                 |
+|  [13]   | `load_settings`           | `load_settings(settings: Union[str, dict], format: str = "json") -> None`                                                     | deprecated thread-local settings load                                                        |
+|  [14]   | `sdk_version`             | `sdk_version() -> str`                                                                                                        | underlying `c2pa-rs` core semantic version (`0.89.0`)                                        |
+|  [15]   | `version`                 | `version() -> str`                                                                                                            | `c2pa-python` distribution version (`0.36.0`), distinct from `sdk_version`                   |
+|  [16]   | `format_embeddable`       | `format_embeddable(format: str, manifest_bytes: bytes) -> tuple[int, bytes]`                                                  | rewrap a detached manifest into embeddable wire bytes for `format` (size, bytes)             |
+|  [17]   | `ed25519_sign`            | `ed25519_sign(data: bytes, private_key: str) -> bytes`                                                                        | in-process Ed25519 raw-signature primitive (64-byte sig) for a `from_callback` digest-signer |
+|  [18]   | `create_signer`           | `create_signer(callback, alg: C2paSigningAlg, certs: str, tsa_url=None) -> Signer`                                            | DEPRECATED (pre-0.11); delegates to `Signer.from_callback` — owner uses the classmethod      |
+|  [19]   | `create_signer_from_info` | `create_signer_from_info(signer_info: C2paSignerInfo) -> Signer`                                                              | DEPRECATED (pre-0.11); delegates to `Signer.from_info` — owner uses the classmethod          |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

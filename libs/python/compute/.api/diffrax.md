@@ -17,21 +17,21 @@
 [PUBLIC_TYPE_SCOPE]: abstract base protocol
 - rail: differential-equation
 
-| [INDEX] | [SYMBOL]                             | [PACKAGE_ROLE]           | [CAPABILITY]                          |
-| :-----: | :----------------------------------- | :----------------------- | :------------------------------------ |
-|  [01]   | `AbstractSolver`                     | solver base              | root of all solver types              |
-|  [02]   | `AbstractAdaptiveSolver`             | adaptive solver base     | solvers with error estimation         |
-|  [03]   | `AbstractImplicitSolver`             | implicit solver base     | stiff-equation solvers (carry a root_finder) |
-|  [04]   | `AbstractItoSolver`                  | Ito SDE base             | Ito-convention stochastic solvers     |
-|  [05]   | `AbstractStratonovichSolver`         | Stratonovich SDE base    | Stratonovich-convention SDE solvers   |
-|  [06]   | `AbstractTerm`                       | term base                | root of drift/diffusion term types    |
-|  [07]   | `AbstractStepSizeController`         | controller base          | root of step-size controller types    |
-|  [08]   | `AbstractAdaptiveStepSizeController` | adaptive controller base | adaptive step-size controllers        |
-|  [09]   | `AbstractAdjoint`                    | adjoint base             | root of adjoint differentiation modes |
-|  [10]   | `AbstractPath` / `AbstractBrownianPath` | path base             | root of path / Brownian path types    |
-|  [11]   | `AbstractGlobalInterpolation`        | interpolation base       | root of global interpolation types    |
-|  [12]   | `AbstractLocalInterpolation`         | interpolation base       | root of local interpolation types     |
-|  [13]   | `AbstractBrownianIncrement` / `AbstractSpaceTimeLevyArea` / `AbstractSpaceTimeTimeLevyArea` | Levy-area base | root of Brownian increment / Levy-area structures |
+| [INDEX] | [SYMBOL]                                                                                    | [PACKAGE_ROLE]           | [CAPABILITY]                                      |
+| :-----: | :------------------------------------------------------------------------------------------ | :----------------------- | :------------------------------------------------ |
+|  [01]   | `AbstractSolver`                                                                            | solver base              | root of all solver types                          |
+|  [02]   | `AbstractAdaptiveSolver`                                                                    | adaptive solver base     | solvers with error estimation                     |
+|  [03]   | `AbstractImplicitSolver`                                                                    | implicit solver base     | stiff-equation solvers (carry a root_finder)      |
+|  [04]   | `AbstractItoSolver`                                                                         | Ito SDE base             | Ito-convention stochastic solvers                 |
+|  [05]   | `AbstractStratonovichSolver`                                                                | Stratonovich SDE base    | Stratonovich-convention SDE solvers               |
+|  [06]   | `AbstractTerm`                                                                              | term base                | root of drift/diffusion term types                |
+|  [07]   | `AbstractStepSizeController`                                                                | controller base          | root of step-size controller types                |
+|  [08]   | `AbstractAdaptiveStepSizeController`                                                        | adaptive controller base | adaptive step-size controllers                    |
+|  [09]   | `AbstractAdjoint`                                                                           | adjoint base             | root of adjoint differentiation modes             |
+|  [10]   | `AbstractPath` / `AbstractBrownianPath`                                                     | path base                | root of path / Brownian path types                |
+|  [11]   | `AbstractGlobalInterpolation`                                                               | interpolation base       | root of global interpolation types                |
+|  [12]   | `AbstractLocalInterpolation`                                                                | interpolation base       | root of local interpolation types                 |
+|  [13]   | `AbstractBrownianIncrement` / `AbstractSpaceTimeLevyArea` / `AbstractSpaceTimeTimeLevyArea` | Levy-area base           | root of Brownian increment / Levy-area structures |
 
 [PUBLIC_TYPE_SCOPE]: concrete ODE solvers
 - rail: differential-equation
@@ -60,89 +60,89 @@
 
 The high-order SDE solvers (`SPaRK`/`GeneralShARK`/`ShARK`/`SlowRK`/`SEA`/`SRA1`/`ALIGN`/`QUICSORT`/`ShOULD`) require a Brownian path that supplies the matching Levy-area level (e.g. `SpaceTimeLevyArea` or `SpaceTimeTimeLevyArea`); construct `VirtualBrownianTree(..., levy_area=SpaceTimeLevyArea)` to feed them.
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]              | [CAPABILITY]                                   |
-| :-----: | :-------------------------------- | :-------------------------- | :--------------------------------------------- |
-|  [01]   | `EulerHeun`                       | Stratonovich SDE solver     | Euler-Heun, no Levy area                       |
-|  [02]   | `ItoMilstein`                     | Ito SDE solver              | Milstein order 1 Ito                           |
-|  [03]   | `StratonovichMilstein`            | Stratonovich SDE solver     | Milstein order 1 Stratonovich                  |
-|  [04]   | `ReversibleHeun`                  | reversible SDE solver       | reversible Heun for structure-preserving       |
-|  [05]   | `LeapfrogMidpoint`                | SDE solver                  | leapfrog midpoint                              |
-|  [06]   | `SemiImplicitEuler`               | semi-implicit solver        | semi-implicit Euler for separable/stiff SDEs   |
-|  [07]   | `SRA1`                            | additive-noise SDE solver   | strong order 1.5, space-time Levy area         |
-|  [08]   | `ShARK` / `GeneralShARK`          | high-order SDE solver       | strong order 1.5 (additive / general noise), space-time Levy area |
-|  [09]   | `SlowRK`                          | commutative-noise SDE solver| strong order 1.5, space-time-time Levy area    |
-|  [10]   | `SPaRK`                           | general SDE solver          | strong order 1.5 general Runge-Kutta           |
-|  [11]   | `SEA`                             | additive-noise SDE solver   | shifted Euler, weak order, space-time Levy area |
-|  [12]   | `ALIGN` / `ShOULD` / `QUICSORT`   | underdamped Langevin solver | structure-preserving Langevin SDE integrators  |
-|  [13]   | `ControlTerm`                     | SDE term                    | diffusion term driven by a control path        |
-|  [14]   | `WeaklyDiagonalControlTerm`       | SDE term                    | weakly diagonal diffusion term                 |
-|  [15]   | `MultiTerm`                       | term combiner               | combines drift + diffusion terms into one term |
-|  [16]   | `UnderdampedLangevinDriftTerm` / `UnderdampedLangevinDiffusionTerm` | Langevin term | drift/diffusion terms for the Langevin solvers |
-|  [17]   | `VirtualBrownianTree`             | Brownian path               | reproducible Brownian tree with selectable Levy area |
-|  [18]   | `UnsafeBrownianPath`              | Brownian path               | fast non-reproducible path (forward solve only) |
-|  [19]   | `BrownianIncrement` / `SpaceTimeLevyArea` / `SpaceTimeTimeLevyArea` | Levy-area level | increment-only / space-time / space-time-time Levy area |
+| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]               | [CAPABILITY]                                                      |
+| :-----: | :------------------------------------------------------------------ | :--------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `EulerHeun`                                                         | Stratonovich SDE solver      | Euler-Heun, no Levy area                                          |
+|  [02]   | `ItoMilstein`                                                       | Ito SDE solver               | Milstein order 1 Ito                                              |
+|  [03]   | `StratonovichMilstein`                                              | Stratonovich SDE solver      | Milstein order 1 Stratonovich                                     |
+|  [04]   | `ReversibleHeun`                                                    | reversible SDE solver        | reversible Heun for structure-preserving                          |
+|  [05]   | `LeapfrogMidpoint`                                                  | SDE solver                   | leapfrog midpoint                                                 |
+|  [06]   | `SemiImplicitEuler`                                                 | semi-implicit solver         | semi-implicit Euler for separable/stiff SDEs                      |
+|  [07]   | `SRA1`                                                              | additive-noise SDE solver    | strong order 1.5, space-time Levy area                            |
+|  [08]   | `ShARK` / `GeneralShARK`                                            | high-order SDE solver        | strong order 1.5 (additive / general noise), space-time Levy area |
+|  [09]   | `SlowRK`                                                            | commutative-noise SDE solver | strong order 1.5, space-time-time Levy area                       |
+|  [10]   | `SPaRK`                                                             | general SDE solver           | strong order 1.5 general Runge-Kutta                              |
+|  [11]   | `SEA`                                                               | additive-noise SDE solver    | shifted Euler, weak order, space-time Levy area                   |
+|  [12]   | `ALIGN` / `ShOULD` / `QUICSORT`                                     | underdamped Langevin solver  | structure-preserving Langevin SDE integrators                     |
+|  [13]   | `ControlTerm`                                                       | SDE term                     | diffusion term driven by a control path                           |
+|  [14]   | `WeaklyDiagonalControlTerm`                                         | SDE term                     | weakly diagonal diffusion term                                    |
+|  [15]   | `MultiTerm`                                                         | term combiner                | combines drift + diffusion terms into one term                    |
+|  [16]   | `UnderdampedLangevinDriftTerm` / `UnderdampedLangevinDiffusionTerm` | Langevin term                | drift/diffusion terms for the Langevin solvers                    |
+|  [17]   | `VirtualBrownianTree`                                               | Brownian path                | reproducible Brownian tree with selectable Levy area              |
+|  [18]   | `UnsafeBrownianPath`                                                | Brownian path                | fast non-reproducible path (forward solve only)                   |
+|  [19]   | `BrownianIncrement` / `SpaceTimeLevyArea` / `SpaceTimeTimeLevyArea` | Levy-area level              | increment-only / space-time / space-time-time Levy area           |
 
 [PUBLIC_TYPE_SCOPE]: step-size controllers and adjoints
 - rail: differential-equation
 
-| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                             |
-| :-----: | :--------------------------- | :------------------ | :--------------------------------------- |
-|  [01]   | `ConstantStepSize`           | fixed controller    | constant step size                       |
-|  [02]   | `PIDController`              | adaptive controller | PID-based adaptive step size             |
-|  [03]   | `ClipStepSizeController`     | wrapping controller | clips a wrapped controller's steps to a range |
-|  [04]   | `StepTo`                     | fixed controller    | step to specified times                  |
+| [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                                       |
+| :-----: | :--------------------------- | :------------------ | :------------------------------------------------- |
+|  [01]   | `ConstantStepSize`           | fixed controller    | constant step size                                 |
+|  [02]   | `PIDController`              | adaptive controller | PID-based adaptive step size                       |
+|  [03]   | `ClipStepSizeController`     | wrapping controller | clips a wrapped controller's steps to a range      |
+|  [04]   | `StepTo`                     | fixed controller    | step to specified times                            |
 |  [05]   | `RecursiveCheckpointAdjoint` | adjoint             | memory-efficient recursive checkpointing (default) |
-|  [06]   | `DirectAdjoint`              | adjoint             | direct JAX autodiff through the solve    |
-|  [07]   | `BacksolveAdjoint`           | adjoint             | continuous adjoint (backsolve)           |
-|  [08]   | `ImplicitAdjoint`            | adjoint             | implicit-function-theorem adjoint (steady-state) |
-|  [09]   | `ForwardMode`                | adjoint             | forward-mode autodiff through the solve  |
+|  [06]   | `DirectAdjoint`              | adjoint             | direct JAX autodiff through the solve              |
+|  [07]   | `BacksolveAdjoint`           | adjoint             | continuous adjoint (backsolve)                     |
+|  [08]   | `ImplicitAdjoint`            | adjoint             | implicit-function-theorem adjoint (steady-state)   |
+|  [09]   | `ForwardMode`                | adjoint             | forward-mode autodiff through the solve            |
 
 [PUBLIC_TYPE_SCOPE]: solution, save, term, and event types
 - rail: differential-equation
 
 `Event` + `steady_state_event` are the modern event surface; `DiscreteTerminatingEvent` and `SteadyStateEvent` are deprecated and retained only for backward compatibility (static type checkers warn on use).
 
-| [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE] | [CAPABILITY]                                   |
-| :-----: | :------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `Solution`                 | result carrier | `t0`, `t1`, `ts`, `ys`, `interpolation`, `stats`, `result`, `solver_state`, `controller_state`, `made_jump`, `event_mask` |
-|  [02]   | `SaveAt`                   | save spec      | selects which times and fields to save         |
-|  [03]   | `SubSaveAt`                | save spec      | per-subsolve save specification within `SaveAt` |
-|  [04]   | `ODETerm`                  | ODE term       | wraps a vector field callable `f(t, y, args)`  |
-|  [05]   | `Event`                    | event spec     | root-find continuous event(s) with optional `root_finder` |
-|  [06]   | `RESULTS`                  | result enum (`equinox.Enumeration`) | members `successful`, `max_steps_reached`, `dt_min_reached`, `event_occurred`, `max_steps_rejected`, `internal_error`; the same `equinox.Enumeration` base `optimistix`/`lineax` `RESULTS` ride, so `RESULTS.promote(item)` (inheritance-widening, `ValueError` on a same-class member) and `RESULTS.where(pred, a, b)` (branchless `jnp.where` select) are inherited base members, and a member is an `EnumerationItem` exposing only `_value` (int code) and `_enumeration` (no `.name`); a batched `filter_vmap` sweep aggregates the worst-case verdict by `jnp.max` over `solution.result._value` plus the `_name_to_item` name inversion, never `promote` |
-|  [07]   | `DenseInterpolation`       | interpolation  | dense output interpolation                     |
-|  [08]   | `CubicInterpolation`       | interpolation  | cubic Hermite interpolation (CDE control path) |
-|  [09]   | `LinearInterpolation`      | interpolation  | piecewise-linear interpolation (CDE control)   |
-|  [10]   | `DiscreteTerminatingEvent` / `SteadyStateEvent` | event spec (deprecated) | superseded by `Event` + `steady_state_event` |
+| [INDEX] | [SYMBOL]                                        | [PACKAGE_ROLE]                      | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| :-----: | :---------------------------------------------- | :---------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Solution`                                      | result carrier                      | `t0`, `t1`, `ts`, `ys`, `interpolation`, `stats`, `result`, `solver_state`, `controller_state`, `made_jump`, `event_mask`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|  [02]   | `SaveAt`                                        | save spec                           | selects which times and fields to save                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+|  [03]   | `SubSaveAt`                                     | save spec                           | per-subsolve save specification within `SaveAt`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+|  [04]   | `ODETerm`                                       | ODE term                            | wraps a vector field callable `f(t, y, args)`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+|  [05]   | `Event`                                         | event spec                          | root-find continuous event(s) with optional `root_finder`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+|  [06]   | `RESULTS`                                       | result enum (`equinox.Enumeration`) | members `successful`, `max_steps_reached`, `dt_min_reached`, `event_occurred`, `max_steps_rejected`, `internal_error`; the same `equinox.Enumeration` base `optimistix`/`lineax` `RESULTS` ride, so `RESULTS.promote(item)` (inheritance-widening, `ValueError` on a same-class member) and `RESULTS.where(pred, a, b)` (branchless `jnp.where` select) are inherited base members, and a member is an `EnumerationItem` exposing only `_value` (int code) and `_enumeration` (no `.name`); a batched `filter_vmap` sweep aggregates the worst-case verdict by `jnp.max` over `solution.result._value` plus the `_name_to_item` name inversion, never `promote` |
+|  [07]   | `DenseInterpolation`                            | interpolation                       | dense output interpolation                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+|  [08]   | `CubicInterpolation`                            | interpolation                       | cubic Hermite interpolation (CDE control path)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+|  [09]   | `LinearInterpolation`                           | interpolation                       | piecewise-linear interpolation (CDE control)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
+|  [10]   | `DiscreteTerminatingEvent` / `SteadyStateEvent` | event spec (deprecated)             | superseded by `Event` + `steady_state_event`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: primary solve entrypoint
 - rail: differential-equation
 
-| [INDEX] | [SURFACE]                                                                                                             | [ENTRY_FAMILY]   | [RAIL]                                   |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------- |
-|  [01]   | `diffeqsolve(terms, solver, t0, t1, dt0, y0, args=None, *, saveat=SaveAt(t1=True), stepsize_controller=ConstantStepSize(), adjoint=RecursiveCheckpointAdjoint(), event=None, max_steps=4096, throw=True, progress_meter=NoProgressMeter(), solver_state=None, controller_state=None, made_jump=None)` -> `Solution` | ODE/SDE/CDE solve | primary integration entrypoint           |
-|  [02]   | `ODETerm(vector_field)`                                                                                               | term constructor | wraps `f(t, y, args) -> dy`              |
-|  [03]   | `ControlTerm(vector_field, control)` / `MultiTerm(*terms)`                                                            | term constructor | diffusion term over a control path; combine drift+diffusion |
-|  [04]   | `SaveAt(*, t0=False, t1=False, ts=None, steps=False, dense=False, fn=..., subs=None)`                                 | save spec        | configures output storage / dense output |
-|  [05]   | `PIDController(rtol, atol, pcoeff=0, icoeff=1, dcoeff=0, *, dtmin=None, dtmax=None, norm=rms_norm, jump_ts=None, step_ts=None)` | controller init | PID adaptive step-size configuration |
-|  [06]   | `VirtualBrownianTree(t0, t1, tol, shape, key, levy_area=BrownianIncrement)`                                           | path constructor | reproducible Brownian path; `levy_area=SpaceTimeLevyArea`/`SpaceTimeTimeLevyArea` for high-order SDE solvers |
-|  [07]   | `UnsafeBrownianPath(shape, key, levy_area=BrownianIncrement)`                                                         | path constructor | fast forward-only Brownian path          |
-|  [08]   | `Event(cond_fn, root_finder=None)`                                                                                    | event constructor| continuous root-find event(s); `cond_fn(t, y, args, **kw)` |
-|  [09]   | `RecursiveCheckpointAdjoint(checkpoints=None)` / `BacksolveAdjoint(**kwargs)`                                         | adjoint init     | memory-checkpointed / continuous reverse-mode adjoint |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                           | [ENTRY_FAMILY]    | [RAIL]                                                                                                       |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------- | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | `diffeqsolve(terms, solver, t0, t1, dt0, y0, args=None, *, saveat=SaveAt(t1=True), stepsize_controller=ConstantStepSize(), adjoint=RecursiveCheckpointAdjoint(), event=None, max_steps=4096, throw=True, progress_meter=NoProgressMeter(), solver_state=None, controller_state=None, made_jump=None)` -> `Solution` | ODE/SDE/CDE solve | primary integration entrypoint                                                                               |
+|  [02]   | `ODETerm(vector_field)`                                                                                                                                                                                                                                                                                             | term constructor  | wraps `f(t, y, args) -> dy`                                                                                  |
+|  [03]   | `ControlTerm(vector_field, control)` / `MultiTerm(*terms)`                                                                                                                                                                                                                                                          | term constructor  | diffusion term over a control path; combine drift+diffusion                                                  |
+|  [04]   | `SaveAt(*, t0=False, t1=False, ts=None, steps=False, dense=False, fn=..., subs=None)`                                                                                                                                                                                                                               | save spec         | configures output storage / dense output                                                                     |
+|  [05]   | `PIDController(rtol, atol, pcoeff=0, icoeff=1, dcoeff=0, *, dtmin=None, dtmax=None, norm=rms_norm, jump_ts=None, step_ts=None)`                                                                                                                                                                                     | controller init   | PID adaptive step-size configuration                                                                         |
+|  [06]   | `VirtualBrownianTree(t0, t1, tol, shape, key, levy_area=BrownianIncrement)`                                                                                                                                                                                                                                         | path constructor  | reproducible Brownian path; `levy_area=SpaceTimeLevyArea`/`SpaceTimeTimeLevyArea` for high-order SDE solvers |
+|  [07]   | `UnsafeBrownianPath(shape, key, levy_area=BrownianIncrement)`                                                                                                                                                                                                                                                       | path constructor  | fast forward-only Brownian path                                                                              |
+|  [08]   | `Event(cond_fn, root_finder=None)`                                                                                                                                                                                                                                                                                  | event constructor | continuous root-find event(s); `cond_fn(t, y, args, **kw)`                                                   |
+|  [09]   | `RecursiveCheckpointAdjoint(checkpoints=None)` / `BacksolveAdjoint(**kwargs)`                                                                                                                                                                                                                                       | adjoint init      | memory-checkpointed / continuous reverse-mode adjoint                                                        |
 
 [ENTRYPOINT_SCOPE]: interpolation and utility
 - rail: differential-equation
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY]  | [RAIL]                                 |
-| :-----: | :--------------------------------------------------------- | :-------------- | :------------------------------------- |
-|  [01]   | `linear_interpolation(ts, ys, *, replace_nans_at_start=None, fill_forward_nans_at_end=False)` | interpolation | piecewise-linear path interpolation (CDE) |
-|  [02]   | `rectilinear_interpolation(ts, ys, ...)`                   | interpolation   | rectilinear path interpolation         |
-|  [03]   | `backward_hermite_coefficients(ts, ys, ...)`               | CDE preparation | precomputes `CubicInterpolation` control coefficients |
-|  [04]   | `adjoint_rms_seminorm(x)`                                  | norm helper     | RMS seminorm for `BacksolveAdjoint` tolerance |
-|  [05]   | `diffeqsolve(...).result` interrogation via `RESULTS`      | result check    | compare `Solution.result` against `RESULTS` members |
-|  [06]   | `steady_state_event(rtol=None, atol=None, norm=rms_norm)`  | event factory   | builds an `Event` cond_fn detecting steady state |
+| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [RAIL]                                                |
+| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------- |
+|  [01]   | `linear_interpolation(ts, ys, *, replace_nans_at_start=None, fill_forward_nans_at_end=False)` | interpolation   | piecewise-linear path interpolation (CDE)             |
+|  [02]   | `rectilinear_interpolation(ts, ys, ...)`                                                      | interpolation   | rectilinear path interpolation                        |
+|  [03]   | `backward_hermite_coefficients(ts, ys, ...)`                                                  | CDE preparation | precomputes `CubicInterpolation` control coefficients |
+|  [04]   | `adjoint_rms_seminorm(x)`                                                                     | norm helper     | RMS seminorm for `BacksolveAdjoint` tolerance         |
+|  [05]   | `diffeqsolve(...).result` interrogation via `RESULTS`                                         | result check    | compare `Solution.result` against `RESULTS` members   |
+|  [06]   | `steady_state_event(rtol=None, atol=None, norm=rms_norm)`                                     | event factory   | builds an `Event` cond_fn detecting steady state      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

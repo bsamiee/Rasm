@@ -134,7 +134,7 @@ national-context sibling under the same publisher and license.
  super-category `IIdea`/`IBrief`/`ICompetition` refine)
 - the concrete classes live in `VividOrange.Stages` and the national namespaces; each is a constant
  value object (its members are compile-time literals) implementing `IStage` + its category interface
- + `ITaxonomySerializable`, so the roster is a fixed catalogue instantiated once, never data-driven
+ - `ITaxonomySerializable`, so the roster is a fixed catalogue instantiated once, never data-driven
 - `Id` is SCALE-LOCAL and stringly-typed (`"4"`, `"F"`, German `"5"`, Danish `"0"`) — it is NOT a
  cross-scale key; the cross-scale key is the category INTERFACE, so a consumer normalizes by `is
  IConstruction`, never by parsing `Id`

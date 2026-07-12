@@ -278,13 +278,13 @@ flowchart LR
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                            | [KIND]                                                    | [RAIL]                              | [CASES] |
-| :-----: | :------------------ | :--------------------------------- | :--------------------------------------------------------- | :----------------------------------- | :-----: |
-|  [01]   | document minting    | `DocumentTier`                     | `[SmartEnum<int>]` mint rows                              | `Mint → Fin<HostDocument>`          |    3    |
-|  [02]   | keyed state         | `ValueShelf`                       | `[SmartEnum<int>]` facet rows over `KeyedValues`          | `Recall<T> → Fin<T>`                |    1    |
-|  [03]   | lifecycle commands  | `DocumentGate` + `DocumentReceipt` | `[GenerateUnionOps]` `[Union]` + evidence receipt         | `Apply → Fin<DocumentReceipt>`      |    5    |
-|  [04]   | facet projection    | `DocumentScope.Read<TOut>`         | one generic marshalled gate                               | `Read<TOut> → Fin<TOut>`            |    1    |
-|  [05]   | selection sweep     | `SelectionSweep`                   | `[SmartEnum<int>]` delegate rows                          | `Sweep → Unit` (internal)           |    3    |
-|  [06]   | graph transaction   | `GraphTransact` + `TransactReceipt` | `[GenerateUnionOps]` `[Union]` + causal-delta receipt     | `Transact → Fin<TransactReceipt>`   |   18    |
+| [INDEX] | [CONCERN]          | [OWNER]                             | [KIND]                                                | [RAIL]                            | [CASES] |
+| :-----: | :----------------- | :---------------------------------- | :---------------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | document minting   | `DocumentTier`                      | `[SmartEnum<int>]` mint rows                          | `Mint → Fin<HostDocument>`        |    3    |
+|  [02]   | keyed state        | `ValueShelf`                        | `[SmartEnum<int>]` facet rows over `KeyedValues`      | `Recall<T> → Fin<T>`              |    1    |
+|  [03]   | lifecycle commands | `DocumentGate` + `DocumentReceipt`  | `[GenerateUnionOps]` `[Union]` + evidence receipt     | `Apply → Fin<DocumentReceipt>`    |    5    |
+|  [04]   | facet projection   | `DocumentScope.Read<TOut>`          | one generic marshalled gate                           | `Read<TOut> → Fin<TOut>`          |    1    |
+|  [05]   | selection sweep    | `SelectionSweep`                    | `[SmartEnum<int>]` delegate rows                      | `Sweep → Unit` (internal)         |    3    |
+|  [06]   | graph transaction  | `GraphTransact` + `TransactReceipt` | `[GenerateUnionOps]` `[Union]` + causal-delta receipt | `Transact → Fin<TransactReceipt>` |   18    |
 
 `GhSession`, `EtoDispatch`, `UiEvents`, `HistoryLedger.Seal`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners. The census `ObjectScope`/`VisibilityChange`/`SelectionOp`/`ClipboardOp`/`ComposeOp`/`GroupOp`/`DocumentMark`/`DocumentTargetOp`/`DocumentMutation`/`DocumentOp` roster has no successor shape — its capabilities land as the cases and rows above.

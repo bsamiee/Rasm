@@ -2,17 +2,17 @@
 
 The PWA shell plane: the web-app manifest as a typed VALUE the app constructs and the build encodes — never a hand-authored JSON asset — one `Workbox` instance held as a scoped resource owning registration and the update handshake, one `SwLifecycle` cell folded from the Workbox event target as the phase truth every affordance reads, the cache-strategy vocabulary as a closed row table projected type-only onto `workbox-build`'s `RuntimeCaching` shape for the app build to inject, the background-sync replay as one drain fold over `persist#DOMAIN_ROWS`'s `outbox` fed by every wake source at once, and the install/update affordance state as one owned cell. The altitude split is law: `workbox-build` emits the worker ASSET at app build, this module owns its RUNTIME lifecycle — a strategy row authored in the SW source, a raw `navigator.serviceWorker`/`caches` call outside this owner, a second `beforeinstallprompt` listener, or a second replay queue beside the outbox is the named two-owner defect. The update affordance distinguishes a genuine update from a first-install wait through the lifecycle event's own refinement flags, so a fresh install never renders a refresh prompt. The module is `runtime/src/browser/shell.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]                        |
-| :-----: | :---------------- | :------------------------------------------------------------------------ | :------------------------------ |
-|  [01]   | `MANIFEST_VALUE`  | the typed manifest owner and its emitted wire twin                        | `Manifest`                      |
-|  [02]   | `LIFECYCLE_OWNER` | the Workbox resource, the phase cell, the update handshake, the fault     | `Sw`, `SwFault`, `SwLifecycle`  |
-|  [03]   | `CACHE_ROWS`      | the strategy vocabulary, the `RuntimeCaching` projection, the build partial | `Sw.caching`, `Sw.build`      |
-|  [04]   | `REPLAY_DRAIN`    | the outbox enqueue and the merged-wake drain fold                         | `Sw`                            |
-|  [05]   | `INSTALL_OWNER`   | the prompt capture, the stance cell, the ask/refresh affordances          | `Install`, `InstallFault`, `InstallStance` |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                      | [PUBLIC]                                   |
+| :-----: | :---------------- | :-------------------------------------------------------------------------- | :----------------------------------------- |
+|  [01]   | `MANIFEST_VALUE`  | the typed manifest owner and its emitted wire twin                          | `Manifest`                                 |
+|  [02]   | `LIFECYCLE_OWNER` | the Workbox resource, the phase cell, the update handshake, the fault       | `Sw`, `SwFault`, `SwLifecycle`             |
+|  [03]   | `CACHE_ROWS`      | the strategy vocabulary, the `RuntimeCaching` projection, the build partial | `Sw.caching`, `Sw.build`                   |
+|  [04]   | `REPLAY_DRAIN`    | the outbox enqueue and the merged-wake drain fold                           | `Sw`                                       |
+|  [05]   | `INSTALL_OWNER`   | the prompt capture, the stance cell, the ask/refresh affordances            | `Install`, `InstallFault`, `InstallStance` |
 
-## [2]-[MANIFEST_VALUE]
+## [02]-[MANIFEST_VALUE]
 
 [MANIFEST_VALUE]:
 - Owner: `Manifest`, one `Schema.Class` — `name`, `shortName`, `description`, `startUrl`, `scope`, `display` (the closed display-mode literal), `themeColor`/`backgroundColor` (`Option`-carried), and `icons` as a `Schema.NonEmptyArray` of icon rows — with every dialect spelling divergence handled as a field-level `Schema.fromKey` rename, so `shortName` encodes as `short_name`, `startUrl` as `start_url`, and no parallel wire interface exists.
@@ -52,7 +52,7 @@ class Manifest extends Schema.Class<Manifest>("Manifest")({
 }
 ```
 
-## [3]-[LIFECYCLE_OWNER]
+## [03]-[LIFECYCLE_OWNER]
 
 [LIFECYCLE_OWNER]:
 - Owner: `Sw`, one scoped `Effect.Service` built through `Sw.Default(script)` — the `Workbox` instance acquired once over the app's build-emitted worker script and released by a final update check; `phase`, the `SwLifecycle` cell (`Unregistered`/`Installing`/`Installed`/`Waiting { update }`/`Active`/`Reloading`/`Redundant`) advanced only by the bridged event fold and published `Subscribable`, so the fold stays the one writer structurally; `update`, the poll for a fresh worker; `apply`, the update handshake; `reports`, the decoded window-bound message feed; `signal`, the request/response channel into the live worker.
@@ -137,7 +137,7 @@ const _lifecycle = (wb: Workbox): Stream.Stream<_Signal> =>
   )
 ```
 
-## [4]-[CACHE_ROWS]
+## [04]-[CACHE_ROWS]
 
 [CACHE_ROWS]:
 - Owner: the interior `_STRATEGIES` lookup (the four-grade strategy axis onto `workbox-build`'s `StrategyName`) and the `_lanes` route table — `asset` (hashed static assets: cache-first, long retention), `api` (API reads: network-first with a raced timeout and the SW-side replay queue), `band` (media, tiles, GLB and KTX2 byte bands: stale-while-revalidate under an entry cap with partial-content range service) — each row carrying its URL pattern source, retention, raced timeout, replay-queue name, and range posture; `Sw.caching(mark)` projects the table to `ReadonlyArray<RuntimeCaching>` with every cache name stamped by the build fingerprint, and `Sw.build(spec)` projects the build partial — the offline app-shell route, the network-first HTML race, and the cache identity — the app's `injectManifest` config spreads.
@@ -206,7 +206,7 @@ const _build = (spec: { readonly mark: string; readonly shell: string }): {
 })
 ```
 
-## [5]-[REPLAY_DRAIN]
+## [05]-[REPLAY_DRAIN]
 
 [REPLAY_DRAIN]:
 - Owner: the outbox lane on the same service — `queue(band)` appends one durable entry (minted instant plus the caller's already-encoded payload band) into `persist#DOMAIN_ROWS`'s `outbox` domain under a monotonic key; `relayed(relay)` is the single drain fold: every wake source — `Connect.redials`, the worker's `Replayed` reports, and the one-shot `Connect.wake` registration at construction — merges into one stream, each wake drains the outbox atomically and hands every entry to the app-supplied `relay` leg in minted order, and every refused entry re-enqueues in ONE atomic batch write so nothing drops silently and a mid-compensation crash re-enqueues all or none.
@@ -316,7 +316,7 @@ class Sw extends Effect.Service<Sw>()("runtime/browser/Sw", {
 }
 ```
 
-## [6]-[INSTALL_OWNER]
+## [06]-[INSTALL_OWNER]
 
 [INSTALL_OWNER]:
 - Owner: `Install`, one scoped `Effect.Service` over `Sw` — `stance`, the `InstallStance` cell (`Browser`/`Ready`/`Installed`/`Standalone`) published `Subscribable` with its writers interior; `ask`, the install affordance firing the captured prompt and folding the user's choice; `fresh`, the update-available feed derived from the worker's `Waiting` phase gated on its `update` flag; `refresh`, the one update verb delegating to `Sw.apply`.

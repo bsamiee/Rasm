@@ -18,11 +18,11 @@
 [PUBLIC_TYPE_SCOPE]: cloud, index, and result family
 - rail: scan-processing
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]                                                                                  |
-| :-----: | :------------------- | :------------------ | :-------------------------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]       | [CAPABILITY]                                                                                                               |
+| :-----: | :------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `PointCloud`         | point cloud         | `points`/`normals` `Nx4` array views and `covs` `list[4x4]`; `point(i)`/`normal(i)`/`cov(i)` per-index; `size()`/`empty()` |
-|  [02]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search                                              |
-|  [03]   | `RegistrationResult` | registration result | `T_target_source`, `converged`, `iterations`, `num_inliers`, `error`, `H`/`b`                 |
+|  [02]   | `KdTree`             | spatial index       | parallel nearest-neighbor, KNN, and batch search                                                                           |
+|  [03]   | `RegistrationResult` | registration result | `T_target_source`, `converged`, `iterations`, `num_inliers`, `error`, `H`/`b`                                              |
 
 [PUBLIC_TYPE_SCOPE]: voxel map and factor family
 - rail: scan-processing

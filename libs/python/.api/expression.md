@@ -19,69 +19,69 @@
 - rail: functional-core
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]      | [RAIL]                                                  |
-| ------- | ---------------- | ------------------ | ------------------------------------------------------- |
-| [01]    | `Result`         | tagged union       | ok/error discriminant (`Result.Ok`/`Result.Error`)      |
-| [02]    | `Ok`             | result constructor | successful value carrier                                |
-| [03]    | `Error`          | result constructor | failure value carrier                                   |
-| [04]    | `Option`         | tagged union       | some/none discriminant (`Option.Some`/`Option.Nothing`) |
-| [05]    | `Some`           | option constructor | present value carrier                                   |
-| [06]    | `Nothing`        | option singleton   | absent value sentinel                                   |
-| [07]    | `Try`            | try alias          | `Result[T, Exception]` exception-backed result          |
-| [08]    | `Success`        | try constructor    | success case of `Try`                                   |
-| [09]    | `Failure`        | try constructor    | failure case of `Try`                                   |
-| [10]    | `TailCall`       | trampoline carrier | pending tail call                                       |
-| [11]    | `TailCallResult` | trampoline alias   | `T TailCall` (done or pending)                          |
-| [12]    | `EffectError`    | effect failure     | short-circuit signal inside an effect block             |
-| [13]    | `Builder`        | computation expr   | base for generator-driven effect builders               |
+| :-----: | :--------------- | :----------------- | :------------------------------------------------------ |
+|  [01]   | `Result`         | tagged union       | ok/error discriminant (`Result.Ok`/`Result.Error`)      |
+|  [02]   | `Ok`             | result constructor | successful value carrier                                |
+|  [03]   | `Error`          | result constructor | failure value carrier                                   |
+|  [04]   | `Option`         | tagged union       | some/none discriminant (`Option.Some`/`Option.Nothing`) |
+|  [05]   | `Some`           | option constructor | present value carrier                                   |
+|  [06]   | `Nothing`        | option singleton   | absent value sentinel                                   |
+|  [07]   | `Try`            | try alias          | `Result[T, Exception]` exception-backed result          |
+|  [08]   | `Success`        | try constructor    | success case of `Try`                                   |
+|  [09]   | `Failure`        | try constructor    | failure case of `Try`                                   |
+|  [10]   | `TailCall`       | trampoline carrier | pending tail call                                       |
+|  [11]   | `TailCallResult` | trampoline alias   | `T TailCall` (done or pending)                          |
+|  [12]   | `EffectError`    | effect failure     | short-circuit signal inside an effect block             |
+|  [13]   | `Builder`        | computation expr   | base for generator-driven effect builders               |
 
 [PUBLIC_TYPE_SCOPE]: typeclass / capability protocols
 - rail: functional-core
 - structural protocols used as bounds across the combinators; satisfy them to compose with `pipe`, `sort`, and `sum`.
 
 | [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY] | [RAIL]                                   |
-| ------- | ------------------------------------------ | ------------- | ---------------------------------------- |
-| [01]    | `PipeMixin`                                | mixin         | endows `.pipe(*fns)` on any carrier      |
-| [02]    | `SupportsMatch`                            | protocol      | structural-pattern-match capability      |
-| [03]    | `SupportsLessThan` / `SupportsGreaterThan` | protocol      | total-order bound for `Block.sort`       |
-| [04]    | `SupportsSum`                              | protocol      | additive bound for `Block.sum`/`Seq.sum` |
+| :-----: | :----------------------------------------- | :------------ | :--------------------------------------- |
+|  [01]   | `PipeMixin`                                | mixin         | endows `.pipe(*fns)` on any carrier      |
+|  [02]   | `SupportsMatch`                            | protocol      | structural-pattern-match capability      |
+|  [03]   | `SupportsLessThan` / `SupportsGreaterThan` | protocol      | total-order bound for `Block.sort`       |
+|  [04]   | `SupportsSum`                              | protocol      | additive bound for `Block.sum`/`Seq.sum` |
 
 [PUBLIC_TYPE_SCOPE]: tagged-union discriminants
 - rail: functional-core
 
 | [INDEX] | [SYMBOL]                                                                    | [TYPE_FAMILY]   | [RAIL]                                       |
-| ------- | --------------------------------------------------------------------------- | --------------- | -------------------------------------------- |
-| [01]    | `tagged_union(_cls=None, *, frozen=False, repr=True, eq=True, order=False)` | union decorator | discriminated-union class decorator          |
-| [02]    | `tag()`                                                                     | tag field       | declare the union's discriminant tag field   |
-| [03]    | `case()`                                                                    | case field      | declare one union case (payload-typed field) |
+| :-----: | :-------------------------------------------------------------------------- | :-------------- | :------------------------------------------- |
+|  [01]   | `tagged_union(_cls=None, *, frozen=False, repr=True, eq=True, order=False)` | union decorator | discriminated-union class decorator          |
+|  [02]   | `tag()`                                                                     | tag field       | declare the union's discriminant tag field   |
+|  [03]   | `case()`                                                                    | case field      | declare one union case (payload-typed field) |
 
 [PUBLIC_TYPE_SCOPE]: effect builders (`expression.effect`)
 - rail: functional-core
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]    | [RAIL]                                      |
-| ------- | --------------- | ---------------- | ------------------------------------------- |
-| [01]    | `effect.option` | builder instance | option computation block (`@effect.option`) |
-| [02]    | `effect.result` | builder instance | result computation block (`@effect.result`) |
-| [03]    | `effect.seq`    | builder instance | lazy seq computation block                  |
-| [04]    | `effect.try_`   | builder instance | exception-trapping computation block        |
+| :-----: | :-------------- | :--------------- | :------------------------------------------ |
+|  [01]   | `effect.option` | builder instance | option computation block (`@effect.option`) |
+|  [02]   | `effect.result` | builder instance | result computation block (`@effect.result`) |
+|  [03]   | `effect.seq`    | builder instance | lazy seq computation block                  |
+|  [04]   | `effect.try_`   | builder instance | exception-trapping computation block        |
 
 [PUBLIC_TYPE_SCOPE]: persistent collections (`expression.collections`)
 - rail: functional-core
 - immutable, structurally-shared; every update returns a new structure, the original unchanged.
 
 | [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [RAIL]                                  |
-| ------- | ------------ | ----------------- | --------------------------------------- |
-| [01]    | `Block`      | persistent vector | immutable ordered sequence (F# `list`)  |
-| [02]    | `Map`        | persistent map    | immutable ordered key→value AVL map     |
-| [03]    | `Seq`        | lazy sequence     | composable lazy iterator pipeline       |
-| [04]    | `TypedArray` | typed array       | homogeneous fixed-dtype immutable array |
+| :-----: | :----------- | :---------------- | :-------------------------------------- |
+|  [01]   | `Block`      | persistent vector | immutable ordered sequence (F# `list`)  |
+|  [02]   | `Map`        | persistent map    | immutable ordered key→value AVL map     |
+|  [03]   | `Seq`        | lazy sequence     | composable lazy iterator pipeline       |
+|  [04]   | `TypedArray` | typed array       | homogeneous fixed-dtype immutable array |
 
 [PUBLIC_TYPE_SCOPE]: mailbox / actor (`expression.core`)
 - rail: functional-core
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                     |
-| ------- | ------------------- | ------------- | ------------------------------------------ |
-| [01]    | `MailboxProcessor`  | actor class   | async message loop with a serialized inbox |
-| [02]    | `AsyncReplyChannel` | reply handle  | typed actor reply delivery                 |
+| :-----: | :------------------ | :------------ | :----------------------------------------- |
+|  [01]   | `MailboxProcessor`  | actor class   | async message loop with a serialized inbox |
+|  [02]   | `AsyncReplyChannel` | reply handle  | typed actor reply delivery                 |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -89,77 +89,77 @@
 - rail: functional-core
 
 | [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]   | [RAIL]                                                    |
-| ------- | ---------------------------------------------------------------------- | ---------------- | --------------------------------------------------------- |
-| [01]    | `pipe(value, *fns)`                                                    | linear pipeline  | thread a value left-to-right through unary fns            |
-| [02]    | `pipe2(values, /, *fns)` / `pipe3(values, /, *fns)`                    | tuple pipeline   | two/three-argument threaded pipeline                      |
-| [03]    | `compose(*fns)`                                                        | composition      | left-to-right function composition into one callable      |
-| [04]    | `curry(num_args)` / `curry_flip(num_args)` / `curry_flipped(num_args)` | curry decorator  | auto-curry N-arity fn, optionally flipping argument order |
-| [05]    | `flip(fn)`                                                             | combinator       | swap the first two arguments of a binary fn               |
-| [06]    | `identity(value)`                                                      | identity fn      | passthrough                                               |
-| [07]    | `fst(pair)` / `snd(pair)`                                              | tuple projection | first / second element                                    |
-| [08]    | `upcast(value)` / `downcast(value)` / `try_downcast(type_, value)`     | cast helpers     | up/down-cast; `try_downcast` returns `T \| None`          |
+| :-----: | :--------------------------------------------------------------------- | :--------------- | :-------------------------------------------------------- |
+|  [01]   | `pipe(value, *fns)`                                                    | linear pipeline  | thread a value left-to-right through unary fns            |
+|  [02]   | `pipe2(values, /, *fns)` / `pipe3(values, /, *fns)`                    | tuple pipeline   | two/three-argument threaded pipeline                      |
+|  [03]   | `compose(*fns)`                                                        | composition      | left-to-right function composition into one callable      |
+|  [04]   | `curry(num_args)` / `curry_flip(num_args)` / `curry_flipped(num_args)` | curry decorator  | auto-curry N-arity fn, optionally flipping argument order |
+|  [05]   | `flip(fn)`                                                             | combinator       | swap the first two arguments of a binary fn               |
+|  [06]   | `identity(value)`                                                      | identity fn      | passthrough                                               |
+|  [07]   | `fst(pair)` / `snd(pair)`                                              | tuple projection | first / second element                                    |
+|  [08]   | `upcast(value)` / `downcast(value)` / `try_downcast(type_, value)`     | cast helpers     | up/down-cast; `try_downcast` returns `T \| None`          |
 
 [ENTRYPOINT_SCOPE]: option operations (`expression.option` + `Option` methods)
 - rail: functional-core
 
 | [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [RAIL]                                           |
-| ------- | ------------------------------------------------------------------------------------------ | -------------- | ------------------------------------------------ |
-| [01]    | `option.map(mapper)` / `Option.map(mapper)`                                                | functor map    | transform present value                          |
-| [02]    | `option.bind(mapper)` / `Option.bind(mapper)`                                              | monadic bind   | flat-map over option                             |
-| [03]    | `Option.map2(other, mapper)` / `Option.starmap(mapper)`                                    | applicative    | combine two options / spread a tuple value       |
-| [04]    | `option.of_optional(value)` / `Option.of_obj(value)`                                       | constructor    | lift nullable / any object to option             |
-| [05]    | `Option.to_optional()` / `Option.to_list()` / `Option.to_seq()`                            | projection     | lower option to nullable/list/seq                |
-| [06]    | `Option.of_result(result)` / `Option.to_result(error)` / `Option.to_result_with(error_fn)` | conversion     | bridge `Option`↔`Result`                         |
-| [07]    | `Option.default_value(value)` / `Option.default_with(fn)`                                  | fold           | extract with eager / lazy fallback               |
-| [08]    | `Option.filter(predicate)`                                                                 | refinement     | demote `Some` to `Nothing` on a failed predicate |
-| [09]    | `is_some(option)` / `is_none(option)` / `Option.is_some()` / `Option.is_none()`            | type guard     | narrow Some / Nothing branch                     |
-| [10]    | `Option.or_else(if_none)` / `Option.or_else_with(fn)`                                      | fallback       | substitute an alternative option                 |
+| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `option.map(mapper)` / `Option.map(mapper)`                                                | functor map    | transform present value                          |
+|  [02]   | `option.bind(mapper)` / `Option.bind(mapper)`                                              | monadic bind   | flat-map over option                             |
+|  [03]   | `Option.map2(other, mapper)` / `Option.starmap(mapper)`                                    | applicative    | combine two options / spread a tuple value       |
+|  [04]   | `option.of_optional(value)` / `Option.of_obj(value)`                                       | constructor    | lift nullable / any object to option             |
+|  [05]   | `Option.to_optional()` / `Option.to_list()` / `Option.to_seq()`                            | projection     | lower option to nullable/list/seq                |
+|  [06]   | `Option.of_result(result)` / `Option.to_result(error)` / `Option.to_result_with(error_fn)` | conversion     | bridge `Option`↔`Result`                         |
+|  [07]   | `Option.default_value(value)` / `Option.default_with(fn)`                                  | fold           | extract with eager / lazy fallback               |
+|  [08]   | `Option.filter(predicate)`                                                                 | refinement     | demote `Some` to `Nothing` on a failed predicate |
+|  [09]   | `is_some(option)` / `is_none(option)` / `Option.is_some()` / `Option.is_none()`            | type guard     | narrow Some / Nothing branch                     |
+|  [10]   | `Option.or_else(if_none)` / `Option.or_else_with(fn)`                                      | fallback       | substitute an alternative option                 |
 
 [ENTRYPOINT_SCOPE]: result operations (`expression.result` + `Result` methods)
 - rail: functional-core
 
 | [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]  | [RAIL]                                                                                                                                                                                                                  |
-| ------- | ------------------------------------------------------------------------------------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [01]    | `result.map(mapper)` / `Result.map(mapper)`                                          | functor map     | transform ok value                                                                                                                                                                                                      |
-| [02]    | `result.bind(mapper)` / `Result.bind(mapper)`                                        | monadic bind    | flat-map over result                                                                                                                                                                                                    |
-| [03]    | `Result.map2(other, mapper)`                                                         | applicative     | combine two oks, short-circuit on first error                                                                                                                                                                           |
-| [04]    | `result.map_error(mapper)` / `Result.map_error(mapper)`                              | error map       | transform the error branch                                                                                                                                                                                              |
-| [05]    | `Result.default_value(value)` / `Result.default_with(fn)`                            | fold            | extract ok with eager / lazy fallback                                                                                                                                                                                   |
-| [06]    | `Result.of_option(error)` / `Result.of_option_with(error_fn)` / `Result.to_option()` | conversion      | bridge `Result`↔`Option`                                                                                                                                                                                                |
-| [07]    | `Result.filter(predicate, error)` / `Result.filter_with(predicate, error_fn)`        | refinement      | demote `Ok` to `Error` on a failed predicate                                                                                                                                                                            |
-| [08]    | `Result.swap()` / `Result.merge()`                                                   | inversion       | flip ok/error branches / collapse to one type                                                                                                                                                                           |
-| [09]    | `is_ok(result)` / `is_error(result)` / `Result.is_ok()` / `Result.is_error()`        | type guard      | narrow Ok / Error branch                                                                                                                                                                                                |
-| [10]    | `Result.or_else(other)` / `Result.or_else_with(fn)`                                  | fallback        | substitute on error                                                                                                                                                                                                     |
-| [11]    | `extra.result.traverse(fn, lst)`                                                     | ROP sequencing  | `(T -> Result[R, E]) × Block[T] -> Result[Block[R], E]`; short-circuits on the first `Error` — the admitted gate fold over a row set (runtime `execution/recipe#RECIPE` `_staged` engine gate the live consuming fence) |
-| [12]    | `extra.result.sequence(lst)`                                                         | ROP sequencing  | `Block[Result[T, E]] -> Result[Block[T], E]`; the identity-`fn` `traverse`                                                                                                                                              |
-| [13]    | `extra.result.pipeline(*fns)` / `extra.result.catch(exception)`                      | ROP composition | Kleisli composition of `T -> Result` fns / decorator trapping one exception class into `Error`                                                                                                                          |
+| :-----: | :----------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `result.map(mapper)` / `Result.map(mapper)`                                          | functor map     | transform ok value                                                                                                                                                                                                      |
+|  [02]   | `result.bind(mapper)` / `Result.bind(mapper)`                                        | monadic bind    | flat-map over result                                                                                                                                                                                                    |
+|  [03]   | `Result.map2(other, mapper)`                                                         | applicative     | combine two oks, short-circuit on first error                                                                                                                                                                           |
+|  [04]   | `result.map_error(mapper)` / `Result.map_error(mapper)`                              | error map       | transform the error branch                                                                                                                                                                                              |
+|  [05]   | `Result.default_value(value)` / `Result.default_with(fn)`                            | fold            | extract ok with eager / lazy fallback                                                                                                                                                                                   |
+|  [06]   | `Result.of_option(error)` / `Result.of_option_with(error_fn)` / `Result.to_option()` | conversion      | bridge `Result`↔`Option`                                                                                                                                                                                                |
+|  [07]   | `Result.filter(predicate, error)` / `Result.filter_with(predicate, error_fn)`        | refinement      | demote `Ok` to `Error` on a failed predicate                                                                                                                                                                            |
+|  [08]   | `Result.swap()` / `Result.merge()`                                                   | inversion       | flip ok/error branches / collapse to one type                                                                                                                                                                           |
+|  [09]   | `is_ok(result)` / `is_error(result)` / `Result.is_ok()` / `Result.is_error()`        | type guard      | narrow Ok / Error branch                                                                                                                                                                                                |
+|  [10]   | `Result.or_else(other)` / `Result.or_else_with(fn)`                                  | fallback        | substitute on error                                                                                                                                                                                                     |
+|  [11]   | `extra.result.traverse(fn, lst)`                                                     | ROP sequencing  | `(T -> Result[R, E]) × Block[T] -> Result[Block[R], E]`; short-circuits on the first `Error` — the admitted gate fold over a row set (runtime `execution/recipe#RECIPE` `_staged` engine gate the live consuming fence) |
+|  [12]   | `extra.result.sequence(lst)`                                                         | ROP sequencing  | `Block[Result[T, E]] -> Result[Block[T], E]`; the identity-`fn` `traverse`                                                                                                                                              |
+|  [13]   | `extra.result.pipeline(*fns)` / `extra.result.catch(exception)`                      | ROP composition | Kleisli composition of `T -> Result` fns / decorator trapping one exception class into `Error`                                                                                                                          |
 
 [ENTRYPOINT_SCOPE]: persistent collection operations
 - rail: functional-core
 - `Block`/`Map`/`Seq` from `expression.collections`; module-level callables (`block.map`, `seq.filter`, `map.add`) compose under `pipe`; methods mirror them fluently.
 
 | [INDEX] | [SURFACE]                                                                                                                            | [ENTRY_FAMILY]      | [RAIL]                                         |
-| ------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------- | ---------------------------------------------- |
-| [01]    | `Block.of_seq(xs)` / `Block.empty()` / `Block.singleton(x)` / `Block.range(...)`                                                     | constructor         | build a `Block`                                |
-| [02]    | `Block.cons(x)` / `Block.append(other)` / `Block.tail()` / `Block.head()` / `Block.try_head()`                                       | structural          | prepend / concat / decompose                   |
-| [03]    | `Block.map(f)` / `Block.mapi(f)` / `Block.choose(f)` / `Block.collect(f)` / `Block.filter(p)` / `Block.partition(p)`                 | transform           | map/filter-map/flat-map/split                  |
-| [04]    | `Block.fold(folder, state)` / `Block.reduce(reducer)` / `Block.sum()` / `Block.sum_by(f)` / `Block.unfold(gen, seed)`                | reduce              | left fold / reduce / generate                  |
-| [05]    | `Block.sort()` / `Block.sort_with(key)` / `Block.zip(other)` / `Block.take(n)` / `Block.skip(n)`                                     | sequence ops        | ordering / pairing / slicing                   |
-| [06]    | `Map.of_seq(pairs)` / `Map.of_list(pairs)` / `Map.of_block(block)` / `Map.empty()`                                                   | constructor         | build a `Map`                                  |
-| [07]    | `Map.add(k, v)` / `Map.remove(k)` / `Map.change(k, fn)` / `key in map` / `map[key]`                                                  | mutate (persistent) | insert / delete / update / membership / lookup |
-| [08]    | `Map.try_find(k)` / `Map.try_get_value(k)` / `Map.get(k)` / `Map.contains_key(k)`                                                    | lookup              | `Option`-returning and raising lookups         |
-| [09]    | `Map.map(proj)` / `Map.filter(p)` / `Map.fold(f, s)` / `Map.partition(p)` / `Map.keys()` / `Map.values()` / `Map.items()`            | transform           | project / filter / fold / iterate              |
-| [10]    | `Seq.of_iterable(xs)` / `Seq.delay(thunk)` / `Seq.map(f)` / `Seq.filter(p)` / `Seq.collect(f)` / `Seq.scan(f, s)` / `Seq.fold(f, s)` | lazy ops            | lazily-evaluated streaming pipeline            |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :--------------------------------------------- |
+|  [01]   | `Block.of_seq(xs)` / `Block.empty()` / `Block.singleton(x)` / `Block.range(...)`                                                     | constructor         | build a `Block`                                |
+|  [02]   | `Block.cons(x)` / `Block.append(other)` / `Block.tail()` / `Block.head()` / `Block.try_head()`                                       | structural          | prepend / concat / decompose                   |
+|  [03]   | `Block.map(f)` / `Block.mapi(f)` / `Block.choose(f)` / `Block.collect(f)` / `Block.filter(p)` / `Block.partition(p)`                 | transform           | map/filter-map/flat-map/split                  |
+|  [04]   | `Block.fold(folder, state)` / `Block.reduce(reducer)` / `Block.sum()` / `Block.sum_by(f)` / `Block.unfold(gen, seed)`                | reduce              | left fold / reduce / generate                  |
+|  [05]   | `Block.sort()` / `Block.sort_with(key)` / `Block.zip(other)` / `Block.take(n)` / `Block.skip(n)`                                     | sequence ops        | ordering / pairing / slicing                   |
+|  [06]   | `Map.of_seq(pairs)` / `Map.of_list(pairs)` / `Map.of_block(block)` / `Map.empty()`                                                   | constructor         | build a `Map`                                  |
+|  [07]   | `Map.add(k, v)` / `Map.remove(k)` / `Map.change(k, fn)` / `key in map` / `map[key]`                                                  | mutate (persistent) | insert / delete / update / membership / lookup |
+|  [08]   | `Map.try_find(k)` / `Map.try_get_value(k)` / `Map.get(k)` / `Map.contains_key(k)`                                                    | lookup              | `Option`-returning and raising lookups         |
+|  [09]   | `Map.map(proj)` / `Map.filter(p)` / `Map.fold(f, s)` / `Map.partition(p)` / `Map.keys()` / `Map.values()` / `Map.items()`            | transform           | project / filter / fold / iterate              |
+|  [10]   | `Seq.of_iterable(xs)` / `Seq.delay(thunk)` / `Seq.map(f)` / `Seq.filter(p)` / `Seq.collect(f)` / `Seq.scan(f, s)` / `Seq.fold(f, s)` | lazy ops            | lazily-evaluated streaming pipeline            |
 
 [ENTRYPOINT_SCOPE]: tail recursion and effect short-circuit
 - rail: functional-core
 
 | [INDEX] | [SURFACE]                           | [ENTRY_FAMILY]   | [RAIL]                                               |
-| ------- | ----------------------------------- | ---------------- | ---------------------------------------------------- |
-| [01]    | `tailrec(fn)`                       | trampoline wrap  | stack-safe tail recursion                            |
-| [02]    | `tailrec_async(fn)`                 | async trampoline | async stack-safe tail recursion                      |
-| [03]    | `failwith(message)`                 | raise helper     | raise `EffectError` to short-circuit an effect block |
-| [04]    | `default_arg(value, default_value)` | fold             | unwrap an `Option` with a default                    |
+| :-----: | :---------------------------------- | :--------------- | :--------------------------------------------------- |
+|  [01]   | `tailrec(fn)`                       | trampoline wrap  | stack-safe tail recursion                            |
+|  [02]   | `tailrec_async(fn)`                 | async trampoline | async stack-safe tail recursion                      |
+|  [03]   | `failwith(message)`                 | raise helper     | raise `EffectError` to short-circuit an effect block |
+|  [04]   | `default_arg(value, default_value)` | fold             | unwrap an `Option` with a default                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

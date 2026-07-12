@@ -2,14 +2,14 @@
 
 The network edge of the `selfhosted-k8s` arm: one `Traffic` tier sinks the issued certificate triple into the `kubernetes.io/tls` secret, fronts the workload service through the Gateway API — a typed `Gateway` listener terminating TLS on the sink plus one `HTTPRoute` per hostname, generated as committed `crd2pulumi` classes — fences the namespace with the default-deny `NetworkPolicy` the policy pack demands, automates DNS through the external-dns chart row reading the route state, and realizes the exposure as the `Edge` tagged family the provider arm proves on the rail: `Direct` carries the metal address external-dns publishes through the target annotation, `Tunnel` carries the account for the Zero-Trust row. The legacy `networking/v1.Ingress` survives as the fallback row of the `_EDGES` vocabulary for clusters whose controller predates the Gateway class — one table row, never a second code path. Certificate material is not minted here: the CA root and leaf issuance are `operate/secret.md`'s `Certs` pipeline, and this tier receives the issuance capability — the arm injects `Certs.issue` partially applied over its CA and profile, the tier calls it once with the derived hostname, and the `{ key, cert, renewal }` triple lands in the sink — so the material owner and the network edge cannot blur and the hostname exists once. `renewal` re-projects as the tier's rotation watch. A WAF posture is `waf` rows compiled onto one `cloudflare.Ruleset`, per-tenant vanity domains are `vanity` rows compiled onto `CustomHostname`, and one Cloudflare provider constructs per arm from the Doppler fan-in token and threads every record. The module is `iac/src/kube/traffic.ts`; a new exposure mode is one `Edge` case plus its `$match` arm, an mTLS mesh leaf is one more issuance call against the same CA, a WAF rule is one data row.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                   | [PUBLIC]  |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC]  |
 | :-----: | :------------- | :------------------------------------------------------------------------ | :-------- |
 |  [01]   | `EDGE_FAMILY`  | the proven exposure cases, the `_EDGES` api vocabulary, the fence         | `Traffic` |
 |  [02]   | `EDGE_REALIZE` | gateway/route construction, external-dns, tunnel row, WAF and vanity rows | `Traffic` |
 
-## [2]-[EDGE_FAMILY]
+## [02]-[EDGE_FAMILY]
 
 [EDGE_FAMILY]:
 - Owner: `Traffic.Edge`, the `Data.taggedEnum` the provider arm constructs after proving every coordinate on the `DeployFault` rail — `Direct` (domain, zone, the metal address shared with the bootstrap connection) and `Tunnel` (domain, zone, account); the tier receives a proven case and dispatches `$match`, so no constructor throw exists for a spec-derivable value and traffic without an address is unspellable rather than a runtime error.
@@ -84,7 +84,7 @@ const _fenced = (
   }, child)
 ```
 
-## [3]-[EDGE_REALIZE]
+## [03]-[EDGE_REALIZE]
 
 [EDGE_REALIZE]:
 - Law: the gateway is the typed edge — one `gateway.v1.Gateway` under the `_EDGES.gateway.class` GatewayClass carries an HTTPS listener terminating TLS on the sink secret, one `gateway.v1.HTTPRoute` binds the hostname to the workload service backend, and every rendered object is a committed `crd2pulumi` class under full Pulumi diff and CrossGuard visibility; the `ingress` fallback row constructs the same hostname/secret/service triple through `networking/v1.Ingress` and nothing else differs.

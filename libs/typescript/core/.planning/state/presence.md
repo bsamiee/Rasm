@@ -2,15 +2,15 @@
 
 The actor-presence CRDT: the wire-carried op family — `Join` carrying the typed profile and device, `Beat` heartbeats sampling connection quality, `Move` carrying the ephemeral-axes patch (cursor, selection, view, focus, input) as data so every collaborative axis rides ONE op, `Leave` departures — merged per actor into one `Merge.struct` product whose every row is a proven instance: the durable stamps (`joined`/`last`/`gone`) plus one stamped-LWW `Worn` row per axis, so presence converges across feeds and replicas like any lattice and the axis roster grows as product rows, never as op cases. Status is a read-time verdict over a caller-supplied horizon so liveness policy is a value and the fold never reads an ambient clock. A serving edge decodes client frames INTO this family and forwards rosters; the fold below is the only presence authority, one more `fold#PLAN_CONTRACT` plan row every altitude runs unchanged — the browser roster is the fold's in-memory handle, the ordered roster board is the fractional-index lane, and no second presence table exists anywhere. The module is `core/src/state/presence.ts`; a new ephemeral axis is one `Move` patch field plus one product row plus one lift line, a new roster read is one projection member.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                      | [PUBLIC]                                                            |
-| :-----: | :--------------- | :------------------------------------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `OP_FAMILY`      | the brands, the axis vocabularies, and the wire-carried op union | `Presence.Op`                                                            |
-|  [02]   | `STATE_PRODUCT`  | the per-actor axis product instance and the op lift              | `Presence.state`, `Presence.plan`                                        |
-|  [03]   | `ROSTER_READS`   | lease policy, status verdicts, the roster and surface projections | `Presence.status`, `Presence.roster`, `Presence.crowd`, `Presence.Lease` |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                            | [PUBLIC]                                                                 |
+| :-----: | :-------------- | :---------------------------------------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `OP_FAMILY`     | the brands, the axis vocabularies, and the wire-carried op union  | `Presence.Op`                                                            |
+|  [02]   | `STATE_PRODUCT` | the per-actor axis product instance and the op lift               | `Presence.state`, `Presence.plan`                                        |
+|  [03]   | `ROSTER_READS`  | lease policy, status verdicts, the roster and surface projections | `Presence.status`, `Presence.roster`, `Presence.crowd`, `Presence.Lease` |
 
-## [2]-[OP_FAMILY]
+## [02]-[OP_FAMILY]
 
 [OP_FAMILY]:
 - Owner: `Presence.Op` — the wire-carried op family (`Join` with the typed profile and device row, `Beat` heartbeats carrying an optional connection-quality sample, `Move` carrying the ephemeral-axes patch, `Leave` departures), each a tagged struct stamped with `Hlc` and tenant; the interchange codec decodes client frames INTO this family at its own seam, and interior construction composes already-branded parts.
@@ -90,7 +90,7 @@ const _Leave = Schema.TaggedStruct("Leave", {
 const _Op: Schema.Union<[typeof _Join, typeof _Beat, typeof _Move, typeof _Leave]> = Schema.Union(_Join, _Beat, _Move, _Leave)
 ```
 
-## [3]-[STATE_PRODUCT]
+## [03]-[STATE_PRODUCT]
 
 [STATE_PRODUCT]:
 - Owner: `Presence.state` — the per-actor `Merge.struct` product: the durable stamps (`joined` min, `last` max, `gone` optional max) plus one `Worn` axis row apiece for `face`, `device`, `quality`, `cursor`, `selection`, `view`, `focus`, and `input` — every axis one `_worn` generator application (`Merge.optional` over `Merge.max` on the worn stamp), so the eleven-row product's posture derives as the conjunction, the whole instance is convergence-legal by construction, and the axis roster is seed data on one generated instance shape; `Presence.plan` keys by actor, so the presence table is one more replay-maintained fold.
@@ -209,7 +209,7 @@ const _lifted: (op: Presence.Op) => Presence.State = pipe(
 )
 ```
 
-## [4]-[ROSTER_READS]
+## [04]-[ROSTER_READS]
 
 [ROSTER_READS]:
 - Owner: the read family — `status` folds one actor's state against a horizon and a `Lease` policy row (`idle` and `gone` windows as `Duration` values); `roster` maps the verdict across the folded table; `crowd` groups the non-`gone` actors by their sighting surface, the per-surface census a view header binds without walking raw states.

@@ -20,12 +20,12 @@
 [SCHEDULE_SCOPE]: the schedule family — one concern per class, all keyed `organization`/`project`/`stack`
 - rail: cloud-control-plane
 
-| [INDEX] | [SYMBOL] | [SHAPE_MEANING] |
-|:-----: |:------- |:---------------- |
-| [01] | `DriftSchedule` | `{ scheduleCron, autoRemediate? }` — hosted drift detection; `autoRemediate: false` mirrors the local law that a mutating `refresh` is a deliberate choice after reading evidence |
-| [02] | `TtlSchedule` | `{ timestamp, deleteAfterDestroy? }` — stack expiry; the hosted twin of the `Automation.ephemeral` acquire/destroy bracket |
-| [03] | `DeploymentSchedule` | `{ pulumiOperation: PulumiOperation, scheduleCron? XOR timestamp? }` — cron or one-shot runs; `PulumiOperation` is `"update" \| "preview" \| "refresh" \| "destroy"`, the mutating-ledger subset (reconcile stays a local leg) |
-| [04] | `EnvironmentRotationSchedule` | the ESC rotated-secrets cadence row |
+| [INDEX] | [SYMBOL]                      | [SHAPE_MEANING]                                                                                                                                                                                                                |
+| :-----: | :---------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `DriftSchedule`               | `{ scheduleCron, autoRemediate? }` — hosted drift detection; `autoRemediate: false` mirrors the local law that a mutating `refresh` is a deliberate choice after reading evidence                                              |
+|  [02]   | `TtlSchedule`                 | `{ timestamp, deleteAfterDestroy? }` — stack expiry; the hosted twin of the `Automation.ephemeral` acquire/destroy bracket                                                                                                     |
+|  [03]   | `DeploymentSchedule`          | `{ pulumiOperation: PulumiOperation, scheduleCron? XOR timestamp? }` — cron or one-shot runs; `PulumiOperation` is `"update" \| "preview" \| "refresh" \| "destroy"`, the mutating-ledger subset (reconcile stays a local leg) |
+|  [04]   | `EnvironmentRotationSchedule` | the ESC rotated-secrets cadence row                                                                                                                                                                                            |
 
 [SETTINGS_SCOPE]: `DeploymentSettings` — the per-stack execution contract
 - rail: cloud-control-plane
@@ -40,14 +40,14 @@
 [ACCESS_SCOPE]: identity, RBAC, and environment rows
 - rail: cloud-control-plane
 
-| [INDEX] | [FAMILY] | [MEMBERS] |
-|:-----: |:------- |:-------- |
-| [01] | environments | `Environment { organization, project?, name, yaml: Input<Asset \| Archive> }` (outputs `environmentId`, `revision`), `EnvironmentVersionTag` — the declarative twin of the `esc-sdk` writer |
-| [02] | RBAC | `Team`, `TeamStackPermission`, `TeamEnvironmentPermission`, `TeamRoleAssignment`, `OrganizationMember`, `OrganizationRole`, `ApprovalRule` |
-| [03] | tokens | `AccessToken`, `OrgAccessToken`, `TeamAccessToken` + the `buildStackScopedPermissions`/`buildEnvironmentScopedPermissions`/`buildAllowPermissions` scope helpers |
-| [04] | execution | `AgentPool` (self-hosted deploy runners), `OidcIssuer` (federated trust into the org), `TemplateSource` (review-stack/new-project templates) |
-| [05] | governance | `PolicyGroup`, `PolicyPack`, `Stack`, `StackTag`/`StackTags`, `InsightsAccount` |
-| [06] | reads | `getCurrentUser`, `getEnvironment`, `getPolicyPack(s)`, `getOrganizationMember(s)`, `getInsightsAccount(s)` — each with its `*Output` twin |
+| [INDEX] | [FAMILY]     | [MEMBERS]                                                                                                                                                                                   |
+| :-----: | :----------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | environments | `Environment { organization, project?, name, yaml: Input<Asset \| Archive> }` (outputs `environmentId`, `revision`), `EnvironmentVersionTag` — the declarative twin of the `esc-sdk` writer |
+|  [02]   | RBAC         | `Team`, `TeamStackPermission`, `TeamEnvironmentPermission`, `TeamRoleAssignment`, `OrganizationMember`, `OrganizationRole`, `ApprovalRule`                                                  |
+|  [03]   | tokens       | `AccessToken`, `OrgAccessToken`, `TeamAccessToken` + the `buildStackScopedPermissions`/`buildEnvironmentScopedPermissions`/`buildAllowPermissions` scope helpers                            |
+|  [04]   | execution    | `AgentPool` (self-hosted deploy runners), `OidcIssuer` (federated trust into the org), `TemplateSource` (review-stack/new-project templates)                                                |
+|  [05]   | governance   | `PolicyGroup`, `PolicyPack`, `Stack`, `StackTag`/`StackTags`, `InsightsAccount`                                                                                                             |
+|  [06]   | reads        | `getCurrentUser`, `getEnvironment`, `getPolicyPack(s)`, `getOrganizationMember(s)`, `getInsightsAccount(s)` — each with its `*Output` twin                                                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

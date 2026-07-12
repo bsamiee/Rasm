@@ -2,14 +2,14 @@
 
 Framed stream transport is the second half of the branch net plane: where `client` owns request/response egress, this page owns the long-lived byte channels — socket duplex under a closed frame vocabulary, and the server-sent event feed — both backpressured by construction, both typed at the seam. A socket is capability: construction rides `Socket.makeWebSocket` against the `Socket.WebSocketConstructor` Tag the runtime binding satisfies, so one framed transport definition serves every runtime lane, and the frame is a row swap under an unchanged schema seam. The SSE feed owns the full `Sse` codec: `Sse.makeChannel` decodes the `data:`/`event:`/`id:`/`retry:` line protocol as package capability, the reattach cursor advances as a fold and stamps `last-event-id` on reconnect, a `Sse.Retry` frame drives the next reconnect delay, silence folds through the core degradation ladder to pick probe cadence, and `Sse.encoder` is the mirror the serving edge composes so both directions of the dialect have one codec owner. A raw socket listener, a hand `data:`-line parser, and `JSON.stringify` written to a wire are the named defects. The module is `runtime/src/net/channel.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                          | [PUBLIC]  |
-| :-----: | :----------- | :--------------------------------------------------------------------------------- | :-------- |
-|  [01]   | `FRAME_ROWS` | the duplex frame vocabulary — `ndjson \| msgpack` rows fused with one schema seam  | `Duplex`  |
-|  [02]   | `FEED_SEAM`  | the SSE session — codec, cursor fold, Retry-driven reconnect, silence ladder       | `Feed`    |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                                            | [PUBLIC] |
+| :-----: | :----------- | :-------------------------------------------------------------------------------- | :------- |
+|  [01]   | `FRAME_ROWS` | the duplex frame vocabulary — `ndjson \| msgpack` rows fused with one schema seam | `Duplex` |
+|  [02]   | `FEED_SEAM`  | the SSE session — codec, cursor fold, Retry-driven reconnect, silence ladder      | `Feed`   |
 
-## [2]-[FRAME_ROWS]
+## [02]-[FRAME_ROWS]
 
 [FRAME_ROWS]:
 - Owner: `Duplex` — the framed-socket owner. `Duplex.framed(socket, frame, protocol)` lifts a `Socket.Socket` to a typed message channel: `Socket.toChannelWith<E>()` turns the socket into a byte `Channel`, and the frame row's fused combinator — `Ndjson.duplexSchema` (newline-delimited, `NdjsonError`) or `MsgPack.duplexSchema` (length-delimited binary, `MsgPackError`) — owns chunk reassembly and the schema seam in one step, so both directions are decoded values and backpressure is channel-native.
@@ -57,7 +57,7 @@ const _framed = <Send, SendI, Take, TakeI>(
 const Duplex = { framed: _framed } as const
 ```
 
-## [3]-[FEED_SEAM]
+## [03]-[FEED_SEAM]
 
 [FEED_SEAM]:
 - Owner: `Feed` — the server-sent-event ingress port every SSE consumer in the branch shares (`flag#GATE_SERVICE` is the standing consumer; the serving edge composes the same codec's `Sse.encoder` for the mirror side). `Feed.open(origin)` yields the live event stream: the session dials the `feed` client lane (no total budget), reads the response body as bytes, and decodes frames by piping the body through `Sse.makeChannel({ bufferSize })` — `Sse.Event | Sse.Retry` is the closed frame family, so the line protocol is package capability, never a hand parser.

@@ -21,23 +21,23 @@
 
 Each parser is a `<Format>2Ifc` class in its own module; the format is the named class, never a parse-per-format function family on one entry — the scheduling-format vocabulary is the closed parser set the `ScheduleFormat` `StrEnum` selects.
 
-| [INDEX] | [SYMBOL]                          | [MODULE]                | [PACKAGE_ROLE] | [CAPABILITY]                                    |
-| :-----: | :-------------------------------- | :---------------------- | :------------- | :---------------------------------------------- |
-|  [01]   | `MSProject2Ifc`                   | `ifc4d.msproject2ifc`   | parser         | Microsoft Project XML into an IFC work schedule |
-|  [02]   | `P62Ifc`                          | `ifc4d.p62ifc`          | parser         | Primavera P6 XML/XER into an IFC work schedule  |
-|  [03]   | `Asta2Ifc`                        | `ifc4d.asta2ifc`        | parser         | Asta Powerproject into an IFC work schedule     |
-|  [04]   | `Ifc2P6` / `Ifc2MSP`              | `ifc4d.ifc2p6` / `…`    | writer         | IFC work schedule back to P6 XML / MS Project   |
+| [INDEX] | [SYMBOL]             | [MODULE]              | [PACKAGE_ROLE] | [CAPABILITY]                                    |
+| :-----: | :------------------- | :-------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `MSProject2Ifc`      | `ifc4d.msproject2ifc` | parser         | Microsoft Project XML into an IFC work schedule |
+|  [02]   | `P62Ifc`             | `ifc4d.p62ifc`        | parser         | Primavera P6 XML/XER into an IFC work schedule  |
+|  [03]   | `Asta2Ifc`           | `ifc4d.asta2ifc`      | parser         | Asta Powerproject into an IFC work schedule     |
+|  [04]   | `Ifc2P6` / `Ifc2MSP` | `ifc4d.ifc2p6` / `…`  | writer         | IFC work schedule back to P6 XML / MS Project   |
 
 [PUBLIC_TYPE_SCOPE]: parser instance slots
 - rail: 4d-scheduling
 
 The `<Format>2Ifc` parser is configured by assigning instance slots before `execute()`, never positional constructor args; the slots are the parser's mutable input contract.
 
-| [INDEX] | [SLOT]        | [TYPE]                       | [CAPABILITY]                                       |
-| :-----: | :------------ | :--------------------------- | :------------------------------------------------- |
-|  [01]   | `.file`       | `ifcopenshell.file`          | the target model the task tree is populated into   |
-|  [02]   | `.xml`        | source path / parsed document | the schedule-source XML/XER the parser reads        |
-|  [03]   | `.work_plan`  | `IfcWorkPlan` or `None`      | the parent work plan the schedule attaches under   |
+| [INDEX] | [SLOT]       | [TYPE]                        | [CAPABILITY]                                     |
+| :-----: | :----------- | :---------------------------- | :----------------------------------------------- |
+|  [01]   | `.file`      | `ifcopenshell.file`           | the target model the task tree is populated into |
+|  [02]   | `.xml`       | source path / parsed document | the schedule-source XML/XER the parser reads     |
+|  [03]   | `.work_plan` | `IfcWorkPlan` or `None`       | the parent work plan the schedule attaches under |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,12 +46,12 @@ The `<Format>2Ifc` parser is configured by assigning instance slots before `exec
 
 Parser rows construct the class, set the `.file`/`.xml`/`.work_plan` slots, then call `execute()` to populate the task tree; writer rows consume an `ifcopenshell.file` plus a schedule entity.
 
-| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                          | [CAPABILITY]                                 |
-| :-----: | :----------------------------------------- | :------------------------------------ | :------------------------------------------- |
-|  [01]   | `MSProject2Ifc()` then `.file`/`.xml`/`.work_plan` + `.execute()` | slot assignment plus run    | parse MS Project XML, populate the IFC schedule |
-|  [02]   | `P62Ifc()` then slots + `.execute()`       | slot assignment plus run              | parse P6 XML/XER, populate the IFC schedule  |
-|  [03]   | `Asta2Ifc()` then slots + `.execute()`     | slot assignment plus run              | parse Asta Powerproject, populate the schedule |
-|  [04]   | `Ifc2P6().execute()` / `Ifc2MSP().execute()` | model plus schedule plus path       | export the IFC schedule to P6 XML / MS Project |
+| [INDEX] | [SURFACE]                                                         | [CALL_SHAPE]                  | [CAPABILITY]                                    |
+| :-----: | :---------------------------------------------------------------- | :---------------------------- | :---------------------------------------------- |
+|  [01]   | `MSProject2Ifc()` then `.file`/`.xml`/`.work_plan` + `.execute()` | slot assignment plus run      | parse MS Project XML, populate the IFC schedule |
+|  [02]   | `P62Ifc()` then slots + `.execute()`                              | slot assignment plus run      | parse P6 XML/XER, populate the IFC schedule     |
+|  [03]   | `Asta2Ifc()` then slots + `.execute()`                            | slot assignment plus run      | parse Asta Powerproject, populate the schedule  |
+|  [04]   | `Ifc2P6().execute()` / `Ifc2MSP().execute()`                      | model plus schedule plus path | export the IFC schedule to P6 XML / MS Project  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

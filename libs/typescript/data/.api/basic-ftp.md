@@ -15,34 +15,34 @@
 [PUBLIC_TYPE_SCOPE]: the client, dial options, and census facts
 - rail: boundaries
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
-|:-----: |:---------------------------------------------------------------------------------------------------------- |:------------ |:--------------------------------------------------------------- |
-| [01] | `Client` (`new Client(timeout?, { allowSeparateTransferHost?, maxListingBytes? }?)`) | client | one control connection per instance, held as a scoped service |
-| [02] | `AccessOptions` (`host`, `port`, `user`, `password`, `secure: boolean \| "implicit"`, `secureOptions`) | dial row | the whole dial as config data; `secureOptions` = `tls.connect` options |
-| [03] | `FileInfo` (`name`, `type: FileType`, `size`, `rawModifiedAt`, `modifiedAt?`, `permissions?`, `link?`, `uniqueID?`; `isDirectory`/`isFile`/`isSymbolicLink`) | census fact | the listing unit; `FileType` = `Unknown \| File \| Directory \| SymbolicLink` |
-| [04] | `FTPResponse` (`code`, `message`) / `FTPError` (`code`) | receipt/fault | server disposition; `FTPError` leaves the connection usable |
-| [05] | `ProgressInfo` (`name`, `type: "upload" \| "download" \| "list"`, `bytes`, `bytesOverall`) | progress fact | the `trackProgress` stream unit |
-| [06] | `client.ftp` (`FTPContext`: `verbose`, `log(message)`, `encoding`, `tlsOptions`, `ipFamily`) | context | log capture (`log` is an overridable method) and wire tuning |
-| [07] | `client.parseList` (`RawListParser` override) | parser slot | exotic-server listing formats as a policy value, never a fork |
+| [INDEX] | [SYMBOL]                                                                                                                                                     | [TYPE_FAMILY] | [CONSUMER]                                                                    |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `Client` (`new Client(timeout?, { allowSeparateTransferHost?, maxListingBytes? }?)`)                                                                         | client        | one control connection per instance, held as a scoped service                 |
+|  [02]   | `AccessOptions` (`host`, `port`, `user`, `password`, `secure: boolean \| "implicit"`, `secureOptions`)                                                       | dial row      | the whole dial as config data; `secureOptions` = `tls.connect` options        |
+|  [03]   | `FileInfo` (`name`, `type: FileType`, `size`, `rawModifiedAt`, `modifiedAt?`, `permissions?`, `link?`, `uniqueID?`; `isDirectory`/`isFile`/`isSymbolicLink`) | census fact   | the listing unit; `FileType` = `Unknown \| File \| Directory \| SymbolicLink` |
+|  [04]   | `FTPResponse` (`code`, `message`) / `FTPError` (`code`)                                                                                                      | receipt/fault | server disposition; `FTPError` leaves the connection usable                   |
+|  [05]   | `ProgressInfo` (`name`, `type: "upload" \| "download" \| "list"`, `bytes`, `bytesOverall`)                                                                   | progress fact | the `trackProgress` stream unit                                               |
+|  [06]   | `client.ftp` (`FTPContext`: `verbose`, `log(message)`, `encoding`, `tlsOptions`, `ipFamily`)                                                                 | context       | log capture (`log` is an overridable method) and wire tuning                  |
+|  [07]   | `client.parseList` (`RawListParser` override)                                                                                                                | parser slot   | exotic-server listing formats as a policy value, never a fork                 |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: dial, transfer, resume, and census
 - rail: boundaries
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:------------------------------------------------------------------------------------------------ |:------------- |:---------------------------------------------------------------- |
-| [01] | `client.access(options): Promise<FTPResponse>` | dial | connect + TLS + login + defaults in one member; also the re-dial after a closed context |
-| [02] | `client.uploadFrom(source: Readable \| string, toRemotePath, { localStart?, localEndInclusive? }?)` | upload | stream or local path; the slice options are the upload-resume arm |
-| [03] | `client.appendFrom(source, toRemotePath, options?)` | append | continue an interrupted upload at the remote tail |
-| [04] | `client.downloadTo(destination: Writable \| string, fromRemotePath, startAt?)` | download | `startAt` is the positional byte-offset resume arm |
-| [05] | `client.list(path?)` / `client.size(path)` / `client.lastMod(path)` | census | `FileInfo[]` walk source; size + mtime are the poll-diff inputs |
-| [06] | `client.cd` / `cdup` / `pwd` / `ensureDir` / `clearWorkingDir` | navigation | working-directory discipline for tree transfers |
-| [07] | `client.uploadFromDir(localDirPath, remoteDirPath?)` / `client.downloadToDir(localDirPath, remoteDirPath?)` | tree transfer | recursive directory mirror in one member |
-| [08] | `client.rename(srcPath, destPath)` / `remove(path)` / `removeDir(remoteDirPath)` / `removeEmptyDir(path)` | namespace | rename-into-place staging, tree maintenance |
-| [09] | `client.trackProgress(handler?)` | progress | one handler for all transfers; detach by calling with no handler |
-| [10] | `client.send(command)` / `client.features()` | probe | capability probing and escape-hatch verbs |
-| [11] | `client.close()` / `client.closed` | teardown | release arm of the scoped bracket |
+| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY] | [CONSUMER]                                                                              |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `client.access(options): Promise<FTPResponse>`                                                              | dial           | connect + TLS + login + defaults in one member; also the re-dial after a closed context |
+|  [02]   | `client.uploadFrom(source: Readable \| string, toRemotePath, { localStart?, localEndInclusive? }?)`         | upload         | stream or local path; the slice options are the upload-resume arm                       |
+|  [03]   | `client.appendFrom(source, toRemotePath, options?)`                                                         | append         | continue an interrupted upload at the remote tail                                       |
+|  [04]   | `client.downloadTo(destination: Writable \| string, fromRemotePath, startAt?)`                              | download       | `startAt` is the positional byte-offset resume arm                                      |
+|  [05]   | `client.list(path?)` / `client.size(path)` / `client.lastMod(path)`                                         | census         | `FileInfo[]` walk source; size + mtime are the poll-diff inputs                         |
+|  [06]   | `client.cd` / `cdup` / `pwd` / `ensureDir` / `clearWorkingDir`                                              | navigation     | working-directory discipline for tree transfers                                         |
+|  [07]   | `client.uploadFromDir(localDirPath, remoteDirPath?)` / `client.downloadToDir(localDirPath, remoteDirPath?)` | tree transfer  | recursive directory mirror in one member                                                |
+|  [08]   | `client.rename(srcPath, destPath)` / `remove(path)` / `removeDir(remoteDirPath)` / `removeEmptyDir(path)`   | namespace      | rename-into-place staging, tree maintenance                                             |
+|  [09]   | `client.trackProgress(handler?)`                                                                            | progress       | one handler for all transfers; detach by calling with no handler                        |
+|  [10]   | `client.send(command)` / `client.features()`                                                                | probe          | capability probing and escape-hatch verbs                                               |
+|  [11]   | `client.close()` / `client.closed`                                                                          | teardown       | release arm of the scoped bracket                                                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

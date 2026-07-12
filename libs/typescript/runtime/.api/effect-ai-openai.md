@@ -8,18 +8,18 @@ The OpenAI binding onto `@effect/ai`: it resolves the provider-agnostic `Languag
 
 The provider is ONE row with asymmetry columns; a new provider is a row, never a fork. OpenAI's columns against the four admitted siblings (the contrast is the whole point of the table):
 
-| [INDEX] | [COLUMN] | [OPENAI] | [ANTHROPIC] | [GOOGLE] | [BEDROCK] |
-| :-----: | :------ | :------ | :--------- | :------ | :------- |
-| [01] | provider id | `"openai"` | anthropic | google | amazon-bedrock |
-| [02] | language model | `OpenAiLanguageModel` (Responses) | Messages | generateContent | Converse |
-| [03] | embedding model | `OpenAiEmbeddingModel` (batched+dataloader) | — | raw client | — |
-| [04] | tokenizer | `OpenAiTokenizer.make({model})` | value | — | — |
-| [05] | provider-defined tools | 4 (`OpenAiTool`) | 5 families | 4 | 8 (Anthropic-on-Bedrock) |
-| [06] | telemetry module | `OpenAiTelemetry` | — | — | — |
-| [07] | model-id kind | `ChatModel \| ModelIdsResponsesEnum` enum | 21-id enum | free `string` | 91-id enum |
-| [08] | auth | `Redacted` apiKey + org/project | apiKey + version | apiKey | SigV4 keys |
-| [09] | per-request Config tag | `OpenAiLanguageModel/Config` (`strict`, `verbosity`) | +`disableParallelToolCalls` | +`toolConfig` | Converse fields |
-| [10] | streaming fold | `ResponseStreamEvent` (49-member union) | 8-member | response re-emit | 11-member |
+| [INDEX] | [COLUMN]               | [OPENAI]                                             | [ANTHROPIC]                 | [GOOGLE]         | [BEDROCK]                |
+| :-----: | :--------------------- | :--------------------------------------------------- | :-------------------------- | :--------------- | :----------------------- |
+|  [01]   | provider id            | `"openai"`                                           | anthropic                   | google           | amazon-bedrock           |
+|  [02]   | language model         | `OpenAiLanguageModel` (Responses)                    | Messages                    | generateContent  | Converse                 |
+|  [03]   | embedding model        | `OpenAiEmbeddingModel` (batched+dataloader)          | —                           | raw client       | —                        |
+|  [04]   | tokenizer              | `OpenAiTokenizer.make({model})`                      | value                       | —                | —                        |
+|  [05]   | provider-defined tools | 4 (`OpenAiTool`)                                     | 5 families                  | 4                | 8 (Anthropic-on-Bedrock) |
+|  [06]   | telemetry module       | `OpenAiTelemetry`                                    | —                           | —                | —                        |
+|  [07]   | model-id kind          | `ChatModel \| ModelIdsResponsesEnum` enum            | 21-id enum                  | free `string`    | 91-id enum               |
+|  [08]   | auth                   | `Redacted` apiKey + org/project                      | apiKey + version            | apiKey           | SigV4 keys               |
+|  [09]   | per-request Config tag | `OpenAiLanguageModel/Config` (`strict`, `verbosity`) | +`disableParallelToolCalls` | +`toolConfig`    | Converse fields          |
+|  [10]   | streaming fold         | `ResponseStreamEvent` (49-member union)              | 8-member                    | response re-emit | 11-member                |
 
 ## [02]-[CLIENT]
 
@@ -88,16 +88,16 @@ namespace Config {
 
 The module `declare module`-augments `@effect/ai/Prompt` and `@effect/ai/Response` with an optional `openai` key — ONE boundary-hook pattern; internal code reads canonical `@effect/ai` shapes, the edge maps these slots:
 
-| [INDEX] | [AUGMENTS] | [INTERFACES] | [OPENAI_SLOT] |
-| :-----: | :-------- | :---------- | :----------- |
-| [01] | `Prompt` | `FilePartOptions` | `imageDetail?: ImageDetail.Encoded` |
-| [02] | `Prompt` | `ReasoningPartOptions` | `itemId?`, `encryptedContent?` |
-| [03] | `Prompt` | `TextPartOptions`, `ToolCallPartOptions` | `itemId?` |
-| [04] | `Response` | `TextPartMetadata` | `itemId?`, `refusal?` |
-| [05] | `Response` | `TextStartPartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolCallPartMetadata` | `itemId?`, reasoning `encryptedContent?` |
-| [06] | `Response` | `DocumentSourcePartMetadata` | `{ type:"file_citation"; index }` |
-| [07] | `Response` | `UrlSourcePartMetadata` | `{ type:"url_citation"; startIndex; endIndex }` |
-| [08] | `Response` | `FinishPartMetadata` | `serviceTier?: "default"\|"auto"\|"flex"\|"scale"\|"priority"` |
+| [INDEX] | [AUGMENTS] | [INTERFACES]                                                                               | [OPENAI_SLOT]                                                  |
+| :-----: | :--------- | :----------------------------------------------------------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | `Prompt`   | `FilePartOptions`                                                                          | `imageDetail?: ImageDetail.Encoded`                            |
+|  [02]   | `Prompt`   | `ReasoningPartOptions`                                                                     | `itemId?`, `encryptedContent?`                                 |
+|  [03]   | `Prompt`   | `TextPartOptions`, `ToolCallPartOptions`                                                   | `itemId?`                                                      |
+|  [04]   | `Response` | `TextPartMetadata`                                                                         | `itemId?`, `refusal?`                                          |
+|  [05]   | `Response` | `TextStartPartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolCallPartMetadata` | `itemId?`, reasoning `encryptedContent?`                       |
+|  [06]   | `Response` | `DocumentSourcePartMetadata`                                                               | `{ type:"file_citation"; index }`                              |
+|  [07]   | `Response` | `UrlSourcePartMetadata`                                                                    | `{ type:"url_citation"; startIndex; endIndex }`                |
+|  [08]   | `Response` | `FinishPartMetadata`                                                                       | `serviceTier?: "default"\|"auto"\|"flex"\|"scale"\|"priority"` |
 
 ## [04]-[EMBEDDING_MODEL]
 
@@ -132,12 +132,12 @@ declare const layer: (options: { readonly model: string }) => Layer.Layer<Tokeni
 
 `OpenAiTool` exports four provider-executed tool constructors, each ONE instance of the same shape: `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"OpenAi<Name>", { args; parameters; success; failure; failureMode: Mode extends undefined ? "error" : Mode }, false>`. The provider runs them (`requiresHandler=false`); the app collects them with `Toolkit.make(...)` and projects them through `ai/tool.ts`. The four rows:
 
-| [INDEX] | [CTOR] | [TAG] | [ARGS] | [PARAMETERS] | [SUCCESS] |
-| :-----: | :---- | :--- | :---- | :---------- | :------- |
-| [01] | `CodeInterpreter` | `OpenAiCodeInterpreter` | `container: string \| { type:"auto"; file_ids? }` | `{ code: NullOr<String>; container_id }` | `NullOr<Array<CodeInterpreterOutputLogs \| CodeInterpreterOutputImage>>` |
-| [02] | `FileSearch` | `OpenAiFileSearch` | `vector_store_ids`, `max_num_results?`, `ranking_options?`, `filters?` | `Tool.EmptyParams` | `{ status; queries; results? }` (`SchemaClass`) |
-| [03] | `WebSearch` | `OpenAiWebSearch` | `user_location?`, `search_context_size?`, `filters.allowed_domains?` | `{ action: search\|open_page\|find }` | `{ status: WebSearchToolCallStatus }` |
-| [04] | `WebSearchPreview` | `OpenAiWebSearchPreview` | `user_location?`, `search_context_size?` | `{ action: search\|open_page\|find }` | `{ status: WebSearchToolCallStatus }` |
+| [INDEX] | [CTOR]             | [TAG]                    | [ARGS]                                                                 | [PARAMETERS]                             | [SUCCESS]                                                                |
+| :-----: | :----------------- | :----------------------- | :--------------------------------------------------------------------- | :--------------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `CodeInterpreter`  | `OpenAiCodeInterpreter`  | `container: string \| { type:"auto"; file_ids? }`                      | `{ code: NullOr<String>; container_id }` | `NullOr<Array<CodeInterpreterOutputLogs \| CodeInterpreterOutputImage>>` |
+|  [02]   | `FileSearch`       | `OpenAiFileSearch`       | `vector_store_ids`, `max_num_results?`, `ranking_options?`, `filters?` | `Tool.EmptyParams`                       | `{ status; queries; results? }` (`SchemaClass`)                          |
+|  [03]   | `WebSearch`        | `OpenAiWebSearch`        | `user_location?`, `search_context_size?`, `filters.allowed_domains?`   | `{ action: search\|open_page\|find }`    | `{ status: WebSearchToolCallStatus }`                                    |
+|  [04]   | `WebSearchPreview` | `OpenAiWebSearchPreview` | `user_location?`, `search_context_size?`                               | `{ action: search\|open_page\|find }`    | `{ status: WebSearchToolCallStatus }`                                    |
 
 `FileSearch.filters` is the canonical OpenAI filter algebra — a comparison node `{ type:"eq"|"ne"|"gt"|"gte"|"lt"|"lte"; key; value: string|number|boolean|ReadonlyArray<string|number> }` or a compound node `{ type:"and"|"or"; filters: ReadonlyArray<comparison> }`. `failure` is `Schema.Never` on all four; `Mode` threads the failure-routing policy into the static type.
 

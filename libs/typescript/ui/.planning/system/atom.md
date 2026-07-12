@@ -2,18 +2,18 @@
 
 The ONE_FOLD_ONE_BINDING law made code: `@effect-atom` is the single state binding of the folder, and this module owns the whole bridge — one `Store.make` standing the app's Layer graph behind the atom registry with a shared `MemoMap`, one registry policy row, the persisted-atom rows (`Atom.kvs`/`Atom.searchParam` with kernel `Schema` codecs), the `Hydration` SSR handoff pair, the `AtomHttpApi`/`AtomRpc` contract-binding rows with the typed `reactivityKeys` invalidation graph, the derivation plane (selectors, `family`, `debounce`, refresh triggers, the `AtomRef` fine-grained cursor, the live `Subscribable`/`SubscriptionRef` bridge — `Machine` actors included — paged `pull`, stream egress), the write-modality and async-fold laws every view row obeys, and the `History` undo/redo command fold. Components are projection surfaces: they reach the Effect graph only through this bridge — never running effects, never owning Layers, never holding a second copy of domain state in `useState`; derived state is computed, never mirrored. The module is `ui/src/system/atom.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                               | [PUBLIC]  |
-| :-----: | :--------------- | :------------------------------------------------------------------------------------- | :-------- |
-|  [01]   | `STORE_ROOT`     | `Store.make` — the runtime root, registry policy, shared `MemoMap`, persistence rows    | `Store`   |
-|  [02]   | `REMOTE_BINDING` | the `AtomHttpApi`/`AtomRpc` contract-binding rows                                       | —         |
-|  [03]   | `SELECTOR_RAIL`  | projection law — `map`/`mapResult`/`transform`, `family`, `debounce`, reactivity keys   | —         |
-|  [04]   | `LIVE_BRIDGE`    | host-fold ingress (`subscriptionRef`/`subscribable`), paged `pull`, stream egress       | —         |
-|  [05]   | `WRITE_AND_FOLD` | write modality, optimistic reconcile, refresh triggers, the Suspense/boundary rail      | —         |
-|  [06]   | `HISTORY_FOLD`   | the `History` owner — command-vocabulary undo/redo stack over any value atom            | `History` |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                                | [PUBLIC]  |
+| :-----: | :--------------- | :------------------------------------------------------------------------------------ | :-------- |
+|  [01]   | `STORE_ROOT`     | `Store.make` — the runtime root, registry policy, shared `MemoMap`, persistence rows  | `Store`   |
+|  [02]   | `REMOTE_BINDING` | the `AtomHttpApi`/`AtomRpc` contract-binding rows                                     | —         |
+|  [03]   | `SELECTOR_RAIL`  | projection law — `map`/`mapResult`/`transform`, `family`, `debounce`, reactivity keys | —         |
+|  [04]   | `LIVE_BRIDGE`    | host-fold ingress (`subscriptionRef`/`subscribable`), paged `pull`, stream egress     | —         |
+|  [05]   | `WRITE_AND_FOLD` | write modality, optimistic reconcile, refresh triggers, the Suspense/boundary rail    | —         |
+|  [06]   | `HISTORY_FOLD`   | the `History` owner — command-vocabulary undo/redo stack over any value atom          | `History` |
 
-## [2]-[STORE_ROOT]
+## [02]-[STORE_ROOT]
 
 [STORE_ROOT]:
 - Owner: `Store` — one assembled owner: `make({ layer, memoMap? })` builds the `AtomRuntime` through `Atom.context({ memoMap })` so runtime atoms and the host `ManagedRuntime` share one construction of every Layer node; `policy` is the registry row (`defaultIdleTTL`, `timeoutResolution`) the app's `RegistryProvider` spreads.
@@ -55,7 +55,7 @@ const Store: Store.Shape = {
 }
 ```
 
-## [3]-[REMOTE_BINDING]
+## [03]-[REMOTE_BINDING]
 
 [REMOTE_BINDING]:
 - Owner: the contract-binding rows — an app declares `class Api extends AtomHttpApi.Tag<Api>()(id, { api, httpClient, baseUrl })` over its `@effect/platform` `HttpApi` value and `class Rpc extends AtomRpc.Tag<Rpc>()(id, { group, protocol })` over its `@effect/rpc` `RpcGroup`; each endpoint then IS a reactive atom (`.query(group, endpoint, request)` a read `Atom<Result>`, `.mutation(group, endpoint)` a callable `AtomResultFn`) with no query-key registry, no request cache, and no fetch glue. Invalidation is typed: `reactivityKeys` on queries and mutations join the invalidation graph, and `timeToLive` ages a query per row.
@@ -87,7 +87,7 @@ const _roster = Api.query("crew", "list", {
 const _enroll = Api.mutation("crew", "enroll", { reactivityKeys: ["crew"] })
 ```
 
-## [4]-[SELECTOR_RAIL]
+## [04]-[SELECTOR_RAIL]
 
 [SELECTOR_RAIL]:
 - Law: a projection is a derived atom or a hook selector, decided by reach — cross-component projections are `Atom.map(atom, f)` (memoized once in the registry, shared by every reader); component-local slices are the `useAtomValue(atom, selector)` overload (subscription scoped to the slice); the same projection existing as both is a duplicate fold.
@@ -118,7 +118,7 @@ const _pinned = Atom.make(0).pipe(Atom.keepAlive)
 const _cursor = AtomRef.make({ label: "", rank: 0, note: "" })
 ```
 
-## [5]-[LIVE_BRIDGE]
+## [05]-[LIVE_BRIDGE]
 
 [LIVE_BRIDGE]:
 - Law: a host or state fold enters the view plane as an atom, never as a hand subscription — `Atom.subscriptionRef(ref)` binds a `SubscriptionRef` writable, `Atom.subscribable(sub)` binds the read-only `Subscribable` projection, and the component reads through `useAtomValue` like any other node; a `useSyncExternalStore` call outside the atom binding is the named defect.
@@ -149,7 +149,7 @@ const _drained = Atom.toStreamResult(_page)
 const _stage = Atom.subscribable(_actor)
 ```
 
-## [6]-[WRITE_AND_FOLD]
+## [06]-[WRITE_AND_FOLD]
 
 [WRITE_AND_FOLD]:
 - Owner: the modality and fold laws every consumer composes — no code beyond what the package ships, because the law IS the composition: `useAtomValue(atom, selector)` scopes re-render to the projected slice (the selector overload replaces every `useMemo`-over-selector idiom; react-compiler owns the rest); `useAtomSet(atom, { mode })` selects the write shape by value — `"value"` fire-and-forget, `"promise"` awaitable to `Success`, `"promiseExit"` awaitable to `Exit` — one hook, three shapes, never a sibling; `Atom.optimistic`/`Atom.optimisticFn` write the optimistic value and reconcile against the effect's real `Result`; `Atom.refreshOnWindowFocus` and `Atom.withReactivity(keys)` are the refresh triggers.
@@ -180,7 +180,7 @@ const _phase = Atom.map(_quota, (result) =>
 const _draft = Atom.optimistic(Atom.make(0))
 ```
 
-## [7]-[HISTORY_FOLD]
+## [07]-[HISTORY_FOLD]
 
 [HISTORY_FOLD]:
 - Owner: `History` — the undo/redo owner: `History.make(seed, options?)` returns one writable atom whose read is the full `History.State<A>` (`past`/`present`/`future` over `Chunk`) and whose write is the closed command family `History.Op<A>` — `Push` (new present, past capped at `limit`, future cleared), `Undo`, `Redo`, `Clear`; the derived projections `History.present`, `History.undoable`, `History.redoable` are `Atom.map` folds consumers subscribe to individually so a stack mutation re-renders only the affected readers.

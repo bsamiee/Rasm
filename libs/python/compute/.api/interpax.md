@@ -28,15 +28,15 @@
 - rail: interpolation
 - JAX-differentiable, `jit`/`vmap`/`grad`-compatible drop-in replacements for the `scipy.interpolate` spline classes; same constructor and call signatures, evaluated through the JAX-native kernels instead of SciPy. Each is a pytree module: `__call__(x, nu=0, extrapolate=None)` evaluates (`nu` = derivative order), and the calculus methods (`.derivative(nu)`, `.antiderivative(nu)`, `.integrate(a, b)`, `.roots()`) return new spline/PPoly objects or arrays — all differentiable.
 
-| [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE]         | [CAPABILITY]                                                                                  |
-| :-----: | :----------------------------------------------------------- | :--------------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `CubicSpline(x, y, axis=0, bc_type='not-a-knot', extrapolate=None)` | cubic spline       | C2 cubic spline; drop-in for `scipy.interpolate.CubicSpline`                                  |
-|  [02]   | `PchipInterpolator(x, y, axis=0, extrapolate=None)`          | monotonic cubic spline | shape-preserving PCHIP; drop-in for `scipy.interpolate.PchipInterpolator`                      |
-|  [03]   | `Akima1DInterpolator(x, y, axis=0)`                          | Akima spline           | Akima piecewise-cubic; drop-in for `scipy.interpolate.Akima1DInterpolator`                     |
-|  [04]   | `CubicHermiteSpline(x, y, dydx, axis=0, extrapolate=None)`   | Hermite cubic spline   | cubic Hermite from values + derivatives; drop-in for `scipy.interpolate.CubicHermiteSpline`    |
-|  [05]   | `PPoly(c, x, extrapolate=None, axis=0)`                      | piecewise polynomial   | breakpoint/coefficient piecewise polynomial; drop-in for `scipy.interpolate.PPoly`            |
-|  [06]   | `<spline>.derivative(nu=1)` / `.antiderivative(nu=1)`        | spline calculus        | returns a new spline of the differentiated/integrated polynomial                              |
-|  [07]   | `<spline>.integrate(a, b, extrapolate=None)` / `.roots()`    | spline calculus        | definite integral over `[a,b]` / real roots of the piecewise polynomial                       |
+| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]         | [CAPABILITY]                                                                                |
+| :-----: | :------------------------------------------------------------------ | :--------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `CubicSpline(x, y, axis=0, bc_type='not-a-knot', extrapolate=None)` | cubic spline           | C2 cubic spline; drop-in for `scipy.interpolate.CubicSpline`                                |
+|  [02]   | `PchipInterpolator(x, y, axis=0, extrapolate=None)`                 | monotonic cubic spline | shape-preserving PCHIP; drop-in for `scipy.interpolate.PchipInterpolator`                   |
+|  [03]   | `Akima1DInterpolator(x, y, axis=0)`                                 | Akima spline           | Akima piecewise-cubic; drop-in for `scipy.interpolate.Akima1DInterpolator`                  |
+|  [04]   | `CubicHermiteSpline(x, y, dydx, axis=0, extrapolate=None)`          | Hermite cubic spline   | cubic Hermite from values + derivatives; drop-in for `scipy.interpolate.CubicHermiteSpline` |
+|  [05]   | `PPoly(c, x, extrapolate=None, axis=0)`                             | piecewise polynomial   | breakpoint/coefficient piecewise polynomial; drop-in for `scipy.interpolate.PPoly`          |
+|  [06]   | `<spline>.derivative(nu=1)` / `.antiderivative(nu=1)`               | spline calculus        | returns a new spline of the differentiated/integrated polynomial                            |
+|  [07]   | `<spline>.integrate(a, b, extrapolate=None)` / `.roots()`           | spline calculus        | definite integral over `[a,b]` / real roots of the piecewise polynomial                     |
 
 ## [03]-[ENTRYPOINTS]
 

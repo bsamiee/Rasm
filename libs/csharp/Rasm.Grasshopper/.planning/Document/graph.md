@@ -269,13 +269,13 @@ public static partial class GraphScope {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]            | [OWNER]                            | [KIND]                                                  | [RAIL]                          | [CASES] |
-| :-----: | :------------------- | :--------------------------------- | :-------------------------------------------------------- | :-------------------------------- | :-----: |
-|  [01]   | flow direction       | `FlowSide`                         | `[SmartEnum<int>]` search + prune columns               | `Search`/`Prune` (internal)     |    2    |
-|  [02]   | neighbourhood reach  | `GraphReach`                       | `[SmartEnum<int>]` `Connectivity` rows                  | `Find → Seq<ConnectiveObject>`  |    4    |
-|  [03]   | membership roster    | `GraphRoster`                      | `[SmartEnum<int>]` projection rows                      | `Project → GraphAnswer`         |   10    |
-|  [04]   | read intent          | `GraphProbe` + `GraphAnswer`       | `[Union]` request → closed `[Union]` result             | `Ask → Fin<GraphAnswer>`        | 10 + 11 |
-|  [05]   | wire end role        | `WireEndRole` + `WireFreight`      | `[SmartEnum<int>]` `Connections` delegate rows          | `Replace`/`Haul` (internal)     |  2 + 2  |
-|  [06]   | mutation intent      | `GraphMutation` + `MutationReceipt` | `[GenerateUnionOps]` `[Union]` + sealed evidence receipt | `Mutate → Fin<MutationReceipt>` |   13    |
+| [INDEX] | [CONCERN]           | [OWNER]                             | [KIND]                                                   | [RAIL]                          | [CASES] |
+| :-----: | :------------------ | :---------------------------------- | :------------------------------------------------------- | :------------------------------ | :-----: |
+|  [01]   | flow direction      | `FlowSide`                          | `[SmartEnum<int>]` search + prune columns                | `Search`/`Prune` (internal)     |    2    |
+|  [02]   | neighbourhood reach | `GraphReach`                        | `[SmartEnum<int>]` `Connectivity` rows                   | `Find → Seq<ConnectiveObject>`  |    4    |
+|  [03]   | membership roster   | `GraphRoster`                       | `[SmartEnum<int>]` projection rows                       | `Project → GraphAnswer`         |   10    |
+|  [04]   | read intent         | `GraphProbe` + `GraphAnswer`        | `[Union]` request → closed `[Union]` result              | `Ask → Fin<GraphAnswer>`        | 10 + 11 |
+|  [05]   | wire end role       | `WireEndRole` + `WireFreight`       | `[SmartEnum<int>]` `Connections` delegate rows           | `Replace`/`Haul` (internal)     |  2 + 2  |
+|  [06]   | mutation intent     | `GraphMutation` + `MutationReceipt` | `[GenerateUnionOps]` `[Union]` + sealed evidence receipt | `Mutate → Fin<MutationReceipt>` |   13    |
 
 `DocumentScope.Resolve`, `HistoryLedger.Seal`, `Op`, `Fault`, and `ValidityClaim` are composed upstream owners. The census `WireTraversal`/`WireEdit` local graph algorithms and the `WireOp` document half have no successor shape — host `Connectivity`/`ObjectList`/`Connections` absorption is the ruled kill, and the capabilities land as the cases and rows above.

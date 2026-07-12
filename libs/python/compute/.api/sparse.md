@@ -30,15 +30,15 @@
 [PUBLIC_TYPE_SCOPE]: shared array members
 - rail: array
 
-| [INDEX] | [MEMBER_FAMILY]    | [MEMBERS]                                                                                                          |
-| :-----: | :----------------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | properties         | `nnz`, `ndim`, `size`, `dtype`, `density`, `fill_value`, `shape`, `nbytes`, `T`, `mT`, `real`, `imag`, `device`   |
-|  [02]   | densify/convert    | `todense`, `maybe_densify(max_size, min_density)`, `asformat`, `astype`, `to_device`, `from_numpy`, `from_scipy_sparse` |
-|  [03]   | reduction          | `reduce(method, axis, keepdims, **kwargs)`, `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `amax`, `amin`, `all`, `any` |
-|  [04]   | transform          | `reshape`, `transpose`, `swapaxes`, `flatten`, `squeeze`, `clip`, `conj`, `round`/`round_`, `isnan`, `isinf`, `nonzero` |
-|  [05]   | COO-only           | `from_iter`, `linear_loc`, `tocsr`, `tocsc`, `to_scipy_sparse`, `enable_caching`, `copy`                          |
-|  [06]   | GCXS-only          | `from_iter`, `from_coo`, `change_compressed_axes`, `compressed_axes`, `tocoo`, `todok`, `to_scipy_sparse`, `copy` |
-|  [07]   | DOK-only           | `from_coo`, `to_coo` (DOK carries no `to_scipy_sparse`; round-trip DOK->COO->scipy)                               |
+| [INDEX] | [MEMBER_FAMILY] | [MEMBERS]                                                                                                                   |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | properties      | `nnz`, `ndim`, `size`, `dtype`, `density`, `fill_value`, `shape`, `nbytes`, `T`, `mT`, `real`, `imag`, `device`             |
+|  [02]   | densify/convert | `todense`, `maybe_densify(max_size, min_density)`, `asformat`, `astype`, `to_device`, `from_numpy`, `from_scipy_sparse`     |
+|  [03]   | reduction       | `reduce(method, axis, keepdims, **kwargs)`, `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `amax`, `amin`, `all`, `any` |
+|  [04]   | transform       | `reshape`, `transpose`, `swapaxes`, `flatten`, `squeeze`, `clip`, `conj`, `round`/`round_`, `isnan`, `isinf`, `nonzero`     |
+|  [05]   | COO-only        | `from_iter`, `linear_loc`, `tocsr`, `tocsc`, `to_scipy_sparse`, `enable_caching`, `copy`                                    |
+|  [06]   | GCXS-only       | `from_iter`, `from_coo`, `change_compressed_axes`, `compressed_axes`, `tocoo`, `todok`, `to_scipy_sparse`, `copy`           |
+|  [07]   | DOK-only        | `from_coo`, `to_coo` (DOK carries no `to_scipy_sparse`; round-trip DOK->COO->scipy)                                         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,52 +46,52 @@
 - rail: array
 - creation functions accept `format='coo'/'gcxs'/'dok'`; `device` is an Array-API hook only (no GPU backend in the base namespace)
 
-| [INDEX] | [SURFACE]                                                                             | [FAMILY]   | [PRODUCES]            |
-| :-----: | :------------------------------------------------------------------------------------ | :--------- | :-------------------- |
-|  [01]   | `zeros` / `ones` / `empty` / `full(shape, fill_value, ..., format='coo')`             | creation   | constant sparse array |
-|  [02]   | `zeros_like` / `ones_like` / `empty_like` / `full_like(a, ...)`                       | creation   | like-shaped sparse array |
-|  [03]   | `eye(N, M=None, k=0, dtype=float, format='coo')`                                      | creation   | identity              |
-|  [04]   | `random(shape, density=None, nnz=None, format='coo', fill_value=None)`                | creation   | random sparse array   |
-|  [05]   | `asarray(obj, /, *, dtype=None, format=None, copy=False)`                             | conversion | sparse array          |
-|  [06]   | `asCOO(x, name='asCOO', check=True)` \| `as_coo(x, shape=None, fill_value=None)`      | conversion | `COO`                 |
-|  [07]   | `asnumpy(a, dtype=None, order=None)`                                                  | conversion | dense `ndarray`       |
-|  [08]   | `save_npz(filename, matrix, compressed=True)` \| `load_npz(filename)`                 | IO         | `.npz` round-trip     |
+| [INDEX] | [SURFACE]                                                                        | [FAMILY]   | [PRODUCES]               |
+| :-----: | :------------------------------------------------------------------------------- | :--------- | :----------------------- |
+|  [01]   | `zeros` / `ones` / `empty` / `full(shape, fill_value, ..., format='coo')`        | creation   | constant sparse array    |
+|  [02]   | `zeros_like` / `ones_like` / `empty_like` / `full_like(a, ...)`                  | creation   | like-shaped sparse array |
+|  [03]   | `eye(N, M=None, k=0, dtype=float, format='coo')`                                 | creation   | identity                 |
+|  [04]   | `random(shape, density=None, nnz=None, format='coo', fill_value=None)`           | creation   | random sparse array      |
+|  [05]   | `asarray(obj, /, *, dtype=None, format=None, copy=False)`                        | conversion | sparse array             |
+|  [06]   | `asCOO(x, name='asCOO', check=True)` \| `as_coo(x, shape=None, fill_value=None)` | conversion | `COO`                    |
+|  [07]   | `asnumpy(a, dtype=None, order=None)`                                             | conversion | dense `ndarray`          |
+|  [08]   | `save_npz(filename, matrix, compressed=True)` \| `load_npz(filename)`            | IO         | `.npz` round-trip        |
 
 [ENTRYPOINT_SCOPE]: linear algebra and shape
 - rail: array
 
-| [INDEX] | [SURFACE]                                                                                           | [FAMILY]    |
-| :-----: | :-------------------------------------------------------------------------------------------------- | :---------- |
-|  [01]   | `dot(a, b)`, `matmul(a, b)`, `vecdot(x1, x2, /, *, axis=-1)`                                        | matrix mul  |
-|  [02]   | `tensordot(a, b, axes=2, *, return_type=None)`, `einsum(*operands)`                                 | contraction |
-|  [03]   | `kron(a, b)`, `outer(a, b, out=None)`                                                               | products    |
-|  [04]   | `stack(arrays, axis=0)`, `concat(arrays, axis=0)`, `concatenate(arrays, axis=0)`                    | join        |
-|  [05]   | `broadcast_to(x, /, shape)`, `broadcast_arrays(*arrays)`, `expand_dims(x, /, *, axis=0)`            | broadcast   |
-|  [06]   | `reshape(x, /, shape)`, `squeeze(x, /, axis=None)`, `moveaxis(a, source, destination)`              | reshape     |
-|  [07]   | `permute_dims(x, /, axes=None)`, `matrix_transpose(x, /)`, `flip(x, /, *, axis=None)`               | axes        |
-|  [08]   | `roll(a, shift, axis=None)`, `pad(array, pad_width, mode='constant')`, `unstack(x, axis=0)`         | rearrange   |
-|  [09]   | `tile(a, reps)`, `repeat(a, repeats, axis=None)`, `take(x, indices, /, *, axis=None)`               | replicate   |
+| [INDEX] | [SURFACE]                                                                                                          | [FAMILY]        |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :-------------- |
+|  [01]   | `dot(a, b)`, `matmul(a, b)`, `vecdot(x1, x2, /, *, axis=-1)`                                                       | matrix mul      |
+|  [02]   | `tensordot(a, b, axes=2, *, return_type=None)`, `einsum(*operands)`                                                | contraction     |
+|  [03]   | `kron(a, b)`, `outer(a, b, out=None)`                                                                              | products        |
+|  [04]   | `stack(arrays, axis=0)`, `concat(arrays, axis=0)`, `concatenate(arrays, axis=0)`                                   | join            |
+|  [05]   | `broadcast_to(x, /, shape)`, `broadcast_arrays(*arrays)`, `expand_dims(x, /, *, axis=0)`                           | broadcast       |
+|  [06]   | `reshape(x, /, shape)`, `squeeze(x, /, axis=None)`, `moveaxis(a, source, destination)`                             | reshape         |
+|  [07]   | `permute_dims(x, /, axes=None)`, `matrix_transpose(x, /)`, `flip(x, /, *, axis=None)`                              | axes            |
+|  [08]   | `roll(a, shift, axis=None)`, `pad(array, pad_width, mode='constant')`, `unstack(x, axis=0)`                        | rearrange       |
+|  [09]   | `tile(a, reps)`, `repeat(a, repeats, axis=None)`, `take(x, indices, /, *, axis=None)`                              | replicate       |
 |  [10]   | `diagonal(a, offset=0, axis1=0, axis2=1)`, `diagonalize(a, axis=0)`, `triu(x, k=0)`, `tril(x, k=0)`, `argwhere(a)` | diagonal/locate |
 
 [ENTRYPOINT_SCOPE]: element-wise, reduction, and dtype
 - rail: array
 - math, comparison, and bitwise functions follow the NumPy ufunc signature with broadcasting
 
-| [INDEX] | [FAMILY]      | [MEMBERS]                                                                                                                        |
-| :-----: | :------------ | :------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | dispatch      | `elemwise(func, *args, **kwargs)`, `where(condition, x=None, y=None)`                                                            |
+| [INDEX] | [FAMILY]      | [MEMBERS]                                                                                                                                                   |
+| :-----: | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | dispatch      | `elemwise(func, *args, **kwargs)`, `where(condition, x=None, y=None)`                                                                                       |
 |  [02]   | binary ufunc  | `add`, `subtract`, `multiply`, `divide`, `floor_divide`, `remainder`, `pow`, `maximum`, `minimum`, `logaddexp`, `nextafter`, `copysign`, `hypot`, `signbit` |
-|  [03]   | reduction     | `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `all`, `any`, `argmax`, `argmin`, `nonzero`                                   |
-|  [04]   | nan reduction | `nansum`, `nanprod`, `nanmean`, `nanmax`, `nanmin`, `nanreduce(arr, method, identity, axis, keepdims)`                           |
-|  [05]   | math          | `abs`, `sqrt`, `square`, `exp`, `log`, `log2`, `log10`, `log1p`, `expm1`, `sign`, `reciprocal`, `negative`, `positive`           |
-|  [06]   | trig          | `sin`, `cos`, `tan`, `sinh`, `cosh`, `tanh`, `asin`, `acos`, `atan`, `asinh`, `acosh`, `atanh`, `atan2`                          |
-|  [07]   | rounding      | `ceil`, `floor`, `round`, `trunc`                                                                                                |
-|  [08]   | comparison    | `equal`, `not_equal`, `less`, `less_equal`, `greater`, `greater_equal`                                                           |
-|  [09]   | logic         | `logical_and`, `logical_or`, `logical_xor`, `logical_not`, `isfinite`, `isinf`, `isnan`, `isposinf`, `isneginf`                  |
-|  [10]   | bitwise       | `bitwise_and`, `bitwise_or`, `bitwise_xor`, `bitwise_invert`, `bitwise_not`, `bitwise_left_shift`, `bitwise_right_shift`         |
-|  [11]   | sort/search   | `sort(x, /, *, axis=-1, descending=False)`, `unique_values(x)`, `unique_counts(x)`, `diff(x, axis=-1, n=1)`, `interp(x, xp, fp)` |
-|  [12]   | dtype         | `result_type(*arrays_and_dtypes)`, `can_cast(from_, to)`, `isdtype(dtype, kind)`, `astype(x, dtype)`, `finfo`, `iinfo`           |
-|  [13]   | numba backend | `sparse.numba_backend` re-exports the same array classes and operations under Numba JIT dispatch                                 |
+|  [03]   | reduction     | `sum`, `prod`, `mean`, `std`, `var`, `max`, `min`, `all`, `any`, `argmax`, `argmin`, `nonzero`                                                              |
+|  [04]   | nan reduction | `nansum`, `nanprod`, `nanmean`, `nanmax`, `nanmin`, `nanreduce(arr, method, identity, axis, keepdims)`                                                      |
+|  [05]   | math          | `abs`, `sqrt`, `square`, `exp`, `log`, `log2`, `log10`, `log1p`, `expm1`, `sign`, `reciprocal`, `negative`, `positive`                                      |
+|  [06]   | trig          | `sin`, `cos`, `tan`, `sinh`, `cosh`, `tanh`, `asin`, `acos`, `atan`, `asinh`, `acosh`, `atanh`, `atan2`                                                     |
+|  [07]   | rounding      | `ceil`, `floor`, `round`, `trunc`                                                                                                                           |
+|  [08]   | comparison    | `equal`, `not_equal`, `less`, `less_equal`, `greater`, `greater_equal`                                                                                      |
+|  [09]   | logic         | `logical_and`, `logical_or`, `logical_xor`, `logical_not`, `isfinite`, `isinf`, `isnan`, `isposinf`, `isneginf`                                             |
+|  [10]   | bitwise       | `bitwise_and`, `bitwise_or`, `bitwise_xor`, `bitwise_invert`, `bitwise_not`, `bitwise_left_shift`, `bitwise_right_shift`                                    |
+|  [11]   | sort/search   | `sort(x, /, *, axis=-1, descending=False)`, `unique_values(x)`, `unique_counts(x)`, `diff(x, axis=-1, n=1)`, `interp(x, xp, fp)`                            |
+|  [12]   | dtype         | `result_type(*arrays_and_dtypes)`, `can_cast(from_, to)`, `isdtype(dtype, kind)`, `astype(x, dtype)`, `finfo`, `iinfo`                                      |
+|  [13]   | numba backend | `sparse.numba_backend` re-exports the same array classes and operations under Numba JIT dispatch                                                            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

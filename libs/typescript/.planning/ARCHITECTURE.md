@@ -41,14 +41,14 @@ Every C#-minted family decodes exactly once through the core interchange codec r
 
 Dependency flows strictly downward through the waves — W0 `core`, W1 `security`, W2 `data`, W3 `runtime`, W4 `ui`/`iac`. The permitted-edge table is the whole import law:
 
-| [INDEX] | [FROM] | [MAY_IMPORT] | [NOTES] |
-|:-----: |:--------- |:------------------------- |:--------------------------------------------------------------------------------------------------- |
-| [01] | `core` | (nothing) | Runs identically under node, bun, and the browser; imported by every runtime folder |
-| [02] | `security` | `core` | State lives behind port Tags; the folder never imports `data` |
-| [03] | `data` | `core`, `security` | The one direct `data → security` edge: `journal/retain` Shredder + `lane/tenant` ambient TenantScope |
-| [04] | `runtime` | `core`, `security`, `data` | Both process planes; the browser condition is the same package, never a sibling |
-| [05] | `ui` | `core`, `runtime` | `viewer` is a second Nx project inside the folder with the same edge set |
-| [06] | `iac` | `core`, `data` | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`) |
+| [INDEX] | [FROM]     | [MAY_IMPORT]               | [NOTES]                                                                                              |
+| :-----: | :--------- | :------------------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `core`     | (nothing)                  | Runs identically under node, bun, and the browser; imported by every runtime folder                  |
+|  [02]   | `security` | `core`                     | State lives behind port Tags; the folder never imports `data`                                        |
+|  [03]   | `data`     | `core`, `security`         | The one direct `data → security` edge: `journal/retain` Shredder + `lane/tenant` ambient TenantScope |
+|  [04]   | `runtime`  | `core`, `security`, `data` | Both process planes; the browser condition is the same package, never a sibling                      |
+|  [05]   | `ui`       | `core`, `runtime`          | `viewer` is a second Nx project inside the folder with the same edge set                             |
+|  [06]   | `iac`      | `core`, `data`             | Type/value reads only (`DashboardModel`, `Alert`, `Slo.Objective`, `Pg`)                             |
 
 Port satisfaction happens at app composition, never as an upward import:
 - Security's `SessionStore`/`IdentityJournal`/`ClaimStore`/`RelationStore` Tags are satisfied by `data` scope-built Layers.

@@ -586,13 +586,13 @@ flowchart LR
 
 One owner per axis; a variant is a row, a knob is a policy column, and evidence is a typed receipt. The `[RAIL]` column names the one return rail each owner exposes.
 
-| [INDEX] | [CONCERN]           | [OWNER]                      | [KIND]                                                                    | [RAIL]                                          | [CASES] |
-| :-----: | :------------------ | :--------------------------- | :------------------------------------------------------------------------ | :---------------------------------------------- | :-----: |
-|  [01]   | Variant dispatch    | `AlignKind`                  | `[SmartEnum<int>]` + capability columns + `[UseDelegateFromConstructor]` | `AlignDetailed → Fin<AlignmentReceipt>`         |    6    |
-|  [02]   | Solve configuration | `AlignmentPolicy`            | one record, six policy rows, `Default` preset, monadic `Admit`           | `Admit → Fin<AlignmentPolicy>`                  |    —    |
-|  [03]   | Stop vocabulary     | `AlignmentStopKind` + optimizer kind | two `[SmartEnum<int>]` stop rows                                   | pure rows                                       |   3+3   |
-|  [04]   | Evidence            | `AlignmentReceipt` family    | `ValidityClaim.All` receipts + gated `Project<TOut>` projection rows     | `Project<Transform> → Fin<Transform>`           |    3    |
-|  [05]   | Solver body         | `AlignKernel`                | internal static: one outer fold + six inner solves + GICP machinery      | `AlignClouds → Fin<AlignmentReceipt>`           |    —    |
+| [INDEX] | [CONCERN]           | [OWNER]                              | [KIND]                                                                   | [RAIL]                                  | [CASES] |
+| :-----: | :------------------ | :----------------------------------- | :----------------------------------------------------------------------- | :-------------------------------------- | :-----: |
+|  [01]   | Variant dispatch    | `AlignKind`                          | `[SmartEnum<int>]` + capability columns + `[UseDelegateFromConstructor]` | `AlignDetailed → Fin<AlignmentReceipt>` |    6    |
+|  [02]   | Solve configuration | `AlignmentPolicy`                    | one record, six policy rows, `Default` preset, monadic `Admit`           | `Admit → Fin<AlignmentPolicy>`          |    —    |
+|  [03]   | Stop vocabulary     | `AlignmentStopKind` + optimizer kind | two `[SmartEnum<int>]` stop rows                                         | pure rows                               |   3+3   |
+|  [04]   | Evidence            | `AlignmentReceipt` family            | `ValidityClaim.All` receipts + gated `Project<TOut>` projection rows     | `Project<Transform> → Fin<Transform>`   |    3    |
+|  [05]   | Solver body         | `AlignKernel`                        | internal static: one outer fold + six inner solves + GICP machinery      | `AlignClouds → Fin<AlignmentReceipt>`   |    —    |
 
 Pure-managed author-kernel throughout: correspondence rides the `neighbors` substrate, dense solves ride the `matrix` owners, and no member of this page reaches a raw provider surface. Statement kernels (cross-covariance accumulation, linearized-row assembly, the 6×6 Gauss-Newton fold, the packed-upper fused-metric build) are the named exemption — measured numeric hot loops behind `Fin` admission.
 

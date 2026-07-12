@@ -285,7 +285,7 @@ The watchdog spine composes end to end without a watchdog service type: `Run` em
 Consumers register rows, never ports — the registered set at composition:
 
 | [INDEX] | [CONSUMER_ROW]            | [SPEC]                    | [DEADLINE]        | [LEASE]           |
-| :-----: | ------------------------- | ------------------------- | :---------------- | :---------------- |
+| :-----: | :------------------------ | :------------------------ | :---------------- | :---------------- |
 |  [01]   | persistence-maintenance   | config-sourced cron       | consumer-declared | maintenance-lease |
 |  [02]   | support-scheduled-capture | config-sourced cron       | support-window    | none              |
 |  [03]   | bundle-retention-eviction | support-owned cadence row | support-window    | none              |

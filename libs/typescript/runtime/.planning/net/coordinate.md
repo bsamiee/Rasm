@@ -2,15 +2,15 @@
 
 Distributed coordination is one engine-blind port beside the fanout plane: `Accord` owns the mutual-exclusion lease, leader election, and revision-guarded shared state that keep many processes — and many tabs — agreeing without a second store. The engines are rows: the `kv` row rides `@nats-io/kv` revision-CAS over the same `Broker` connection the fanout engine holds — `create` is the claim mint, `update` at a read revision is the only write that can win a race, a leader's seat survives through a marker-TTL heartbeat so a crashed holder expires instead of deadlocking the fleet; the `locks` row rides the browser's own `navigator.locks` arbiter for cross-tab exclusion, where the ledger members honestly answer their absence. Every read is a versioned fact — value plus revision — never a bare value, so compare-and-swap is spellable by construction and last-writer-wins is a deliberate row choice made elsewhere. A polled `get` waiting for absence, a hand lock file, a second dial beside `Broker`, and a fanout topic bent into a mutex are the named defects; the bucket is bounded coordination state, never the system of record. The module ships the `kv` row on the `./server` subpath; the `locks` row is the browser condition. The module is `runtime/src/net/coordinate.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                            | [PUBLIC]               |
-| :-----: | :----------- | :--------------------------------------------------------------------------------- | :--------------------- |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                                             | [PUBLIC]                |
+| :-----: | :----------- | :--------------------------------------------------------------------------------- | :---------------------- |
 |  [01]   | `PORT_SHAPE` | the engine-neutral port — lease, elect, cas, read, watch — the fact and the faults | `Accord`, `AccordFault` |
-|  [02]   | `KV_ROW`     | the distributed engine: claim mint, TTL-heartbeat seat, revision-CAS, watch tail   | `Accord.kv`            |
-|  [03]   | `LOCKS_ROW`  | the browser engine: Web Locks arbiter bridge, honest ledger degradation            | `Accord.locks`         |
+|  [02]   | `KV_ROW`     | the distributed engine: claim mint, TTL-heartbeat seat, revision-CAS, watch tail   | `Accord.kv`             |
+|  [03]   | `LOCKS_ROW`  | the browser engine: Web Locks arbiter bridge, honest ledger degradation            | `Accord.locks`          |
 
-## [2]-[PORT_SHAPE]
+## [02]-[PORT_SHAPE]
 
 [PORT_SHAPE]:
 - Owner: the `Accord` Tag — five members over the coordination name. `lease(name, mode)` is the scoped exclusive hold: the scope opens holding the lock and closing it releases, `mode` selecting `wait` (suspend until granted), `try` (fail `busy` instantly), or `steal` (evict the holder — the operator's recovery arm); `elect(name)` is the scoped seat claim answering `"leader" | "follower"` — a leader keeps the seat alive for the scope's lifetime and a follower composes `watch` to react to succession; `cas(key, expected, next)` writes shared state only when the ledger still holds the expected fact (`Option.none()` is create-if-absent), answering the settled fact; `read(key)` answers the current fact as `Option`; `watch(key)` tails the fact's changes as a stream.
@@ -53,7 +53,7 @@ class Accord extends Context.Tag("runtime/Accord")<Accord, {
 }
 ```
 
-## [3]-[KV_ROW]
+## [03]-[KV_ROW]
 
 [KV_ROW]:
 - Owner: `Accord.kv(bucket)` — the distributed engine over one `Kvm(nc).create(bucket)` bucket riding the shared `Broker` connection. A lease is a `create` claim released by `purge` under the scope bracket: `try` surfaces the claim conflict as `busy`, `wait` parks on the key's `watch` tail and re-claims when a tombstone lands (event-driven, never a polled `get`), `steal` purges then claims. A seat is a marker-TTL claim plus a scoped heartbeat: `elect` claims with `_LEASE.ttl`, a winner forks a scoped refresh that `update`s at the tracked revision every half-TTL so a crashed leader expires by the server's clock and the fleet re-elects off the watch tail — no session daemon, no lock server.
@@ -186,7 +186,7 @@ const _kv = (bucket: string): Layer.Layer<Accord, AccordFault, Broker> =>
   )
 ```
 
-## [4]-[LOCKS_ROW]
+## [04]-[LOCKS_ROW]
 
 [LOCKS_ROW]:
 - Owner: `Accord.locks()` — the browser engine over the origin's own lock arbiter. A lease bridges `navigator.locks.request(name, { mode: "exclusive", ifAvailable, steal }, grant)` to the scope: the grant callback settles a granted `Deferred` and then parks on a release `Deferred` the scope's finalizer resolves, so the platform holds the lock exactly as long as the scope lives and an orphaned hold is unspellable; a `try` miss (the callback receives `null`) folds to `busy`. `elect` is the `try` lease read as a seat — the arbiter's own queue is the succession order, so a follower simply re-elects when its own later request is granted.

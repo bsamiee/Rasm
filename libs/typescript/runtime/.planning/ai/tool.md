@@ -2,17 +2,17 @@
 
 The tool vocabulary and both MCP lanes in one owner: tools are `Schema`-typed data (`Tool.make` declarations collected by `Toolkit.make`, merged by `Toolkit.merge`, handled by `toLayer` — a god-toolkit is structurally impossible because assembly happens at the consumer), the `Safety` partition is the ONE blast-radius admission every generation gate and agent turn consumes, the `Arsenal` ledger types five providers' provider-defined tools as rows of one name-keyed table, and MCP is a duality with a hard boundary: hosting is NATIVE (`McpServer`/`McpSchema` from `@effect/ai` — toolkits, resources, prompts, and elicitation served over stdio or HTTP transports), consumption is the reference SDK's client lane ONLY (`@modelcontextprotocol/sdk` `Client` transcribed at the seam — Promise lifted, Zod results re-parsed through `effect/Schema`, hints graded onto `Safety` — the `./server` subpath has no import site). A remote server's tools enter an app toolkit as ordinary rows, so the language model treats local, provider-defined, and remote tools identically. The module is `runtime/src/ai/tool.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                             | [PUBLIC]  |
-| :-----: | :----------- | :------------------------------------------------------------------------------------ | :-------- |
-|  [01]   | `TOOL_LAW`   | the declaration and assembly law — schemas, failure routing, annotations as hints      | —         |
-|  [02]   | `SAFETY`     | blast-radius classes, posture modes, the fail-closed admission partition               | `Safety`  |
-|  [03]   | `ARSENAL`    | the provider-defined tool ledger — five rosters as one graded table                    | `Arsenal` |
-|  [04]   | `HOST`       | native MCP hosting — toolkit projection, resources, prompts, elicitation, transports   | `Host`    |
-|  [05]   | `REMOTE`     | the SDK client lane — scoped dial, roster projection, capability primitives            | `Remote`  |
+| [INDEX] | [CLUSTER]  | [OWNS]                                                                               | [PUBLIC]  |
+| :-----: | :--------- | :----------------------------------------------------------------------------------- | :-------- |
+|  [01]   | `TOOL_LAW` | the declaration and assembly law — schemas, failure routing, annotations as hints    | —         |
+|  [02]   | `SAFETY`   | blast-radius classes, posture modes, the fail-closed admission partition             | `Safety`  |
+|  [03]   | `ARSENAL`  | the provider-defined tool ledger — five rosters as one graded table                  | `Arsenal` |
+|  [04]   | `HOST`     | native MCP hosting — toolkit projection, resources, prompts, elicitation, transports | `Host`    |
+|  [05]   | `REMOTE`   | the SDK client lane — scoped dial, roster projection, capability primitives          | `Remote`  |
 
-## [2]-[TOOL_LAW]
+## [02]-[TOOL_LAW]
 
 [TOOL_LAW]:
 - Law: a tool is declared once by `Tool.make(name, { description, parameters, success, failure, failureMode, dependencies })` — parameters, success, and failure are `Schema`s, `dependencies` threads `Context.Tag`s into the handler's `R`, and `failureMode` is the routing policy: `"return"` keeps a handler failure inside the tool result so the model self-corrects in-band, `"error"` lifts it onto the effect rail; the mode is chosen per tool by whether the model or the caller owns recovery.
@@ -43,7 +43,7 @@ class ToolFault extends Data.TaggedError("ToolFault")<{
 }
 ```
 
-## [3]-[SAFETY]
+## [03]-[SAFETY]
 
 [SAFETY]:
 - Owner: `Safety` — the assembled admission vocabulary: four blast-radius classes in severity order (`read` — pure observation; `write` — reversible mutation; `spend` — external cost or egress; `destroy` — irreversible loss), three postures (`auto` — the model runs it; `held` — the call emits but a supervisor releases it; `deny` — the tool is invisible to the model), and the mode table crossing them — `autonomous` (read/write auto, spend held, destroy denied), `supervised` (read auto, write/spend held, destroy denied), `locked` (read auto, everything else denied). `Safety.grade(tool)` derives a class from the annotation band — `Destructive` grades `destroy`, absent-`Readonly` grades `write`, `OpenWorld` lifts to `spend` — and an ungraded tool is `destroy`: fail-closed is the default, never a posture.
@@ -90,7 +90,7 @@ const Safety = {
 }
 ```
 
-## [4]-[ARSENAL]
+## [04]-[ARSENAL]
 
 [ARSENAL]:
 - Owner: `Arsenal` — the provider-defined tool ledger: one name-keyed table whose rows carry the constructor, the executing family, and the pre-assigned `Safety` class, so a provider-executed capability (web search, code execution, computer use, file search) is admitted by naming a row and the gate grades it without a hint band — the provider runs it, the ledger prices it. The verified rosters: `OpenAiTool` ships `CodeInterpreter`/`FileSearch`/`WebSearch`/`WebSearchPreview`; `AnthropicTool` ships the Bash/Computer/TextEditor families plus its search rows; Bedrock re-uses the Anthropic tags through its Converse tool config; Google's roster rides its generateContent tool config — every row typed `Tool.ProviderDefined` by its own package, never a local type.
@@ -120,7 +120,7 @@ const Arsenal = {
 }
 ```
 
-## [5]-[HOST]
+## [05]-[HOST]
 
 [HOST]:
 - Owner: `Host` — native MCP hosting: `Host.serve(spec)` merges the capability Layers — `McpServer.toolkit(toolkit)` projecting an app toolkit as MCP tools with the annotation band as hints, `McpServer.resource` rows with typed `McpSchema.param` templates and completion functions, `McpServer.prompt` rows with `Schema`-typed parameters — onto one transport arm: `McpServer.layerStdio({ name, version, stdin, stdout })` for a spawned-server deployment, `McpServer.layerHttp({ name, version, path })` mounted beside the serving plane's routes. Elicitation is first-class: a handler that needs structured operator input mid-call runs `McpServer.elicit({ message, schema })` and the declined arm is the typed `ElicitationDeclined` folded to the tool's failure.
@@ -166,7 +166,7 @@ const _serve = <Tools extends Record<string, Tool.Any>>(spec: Host.Spec<Tools>) 
 const Host = { serve: _serve, confirm: _confirm, artifact: _artifactResource }
 ```
 
-## [6]-[REMOTE]
+## [06]-[REMOTE]
 
 [REMOTE]:
 - Owner: `Remote` — the outbound client lane: `Remote.dial(spec)` acquires the SDK `Client` under `Effect.acquireRelease` (`connect` on acquire, `close` on release — a spawned stdio server or an HTTP session dies with the scope), and every capability is one lifted primitive: `tools` (`listTools` → each remote tool projected into an app-toolkit row — its JSON-Schema `inputSchema` admitted, its hints graded through `Safety.grade`, its handler a `callTool` whose `structuredContent` re-parses through the row's own `effect/Schema`), `read` (`readResource`), `prompt` (`getPrompt`), `complete` (`complete`) — so external servers contribute tools, evidence, and prompt templates through four primitives and the Zod wire never escapes the seam.

@@ -24,39 +24,39 @@
 
 `BlackRendererFont` owns font loading and the COLRv1 paint dispatch (the same object is re-exported from both `blackrenderer.font` and `blackrenderer.render`). `Canvas`/`Surface` are the abstract backend protocols (`Surface.fileExtension` names its output suffix); each concrete `*Surface` is one backend-plus-format pair selected by `getSurfaceClass`. `GlyphInfo` is the shaped-glyph `NamedTuple` `buildGlyphLine` emits. `PaintFormat` is the 32-member COLRv1 paint-graph vocabulary and `CompositeMode` the 28-member Porter-Duff/HSL blend set both decoded in-package. `VarStoreInstancer`/`VarColorLine` resolve COLRv1 `PaintVar*` deltas at a variable-font location. `BackendUnavailableError` is raised (and re-exported from `blackrenderer.render`) when the requested backend module is not importable.
 
-| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]       | [RAIL]                                                      |
-| :-----: | :------------------------------------------------------------- | :------------------ | :---------------------------------------------------------- |
-|  [01]   | `blackrenderer.font.BlackRendererFont`                         | font owner          | font load, COLR/CPAL decode, glyph draw, palette, location  |
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]       | [RAIL]                                                                           |
+| :-----: | :------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------- |
+|  [01]   | `blackrenderer.font.BlackRendererFont`                         | font owner          | font load, COLR/CPAL decode, glyph draw, palette, location                       |
 |  [02]   | `blackrenderer.font.PaintFormat`                               | enum (32 members)   | COLRv1 paint-graph vocabulary (solid/gradient/transform/composite + Var mirrors) |
-|  [03]   | `blackrenderer.font.CompositeMode`                             | enum (28 members)   | COLRv1 blend set (CLEAR/SRC_OVER..XOR/PLUS..HSL_LUMINOSITY) |
-|  [04]   | `blackrenderer.font.VarStoreInstancer`                         | var resolver        | resolve `PaintVar*` deltas at a normalized axis location    |
-|  [05]   | `blackrenderer.render.GlyphInfo`                               | record (NamedTuple) | one shaped glyph: `(name, gid, xAdvance, yAdvance, xOffset, yOffset)` |
-|  [06]   | `blackrenderer.render.BackendUnavailableError`                 | error               | requested backend module is not importable                  |
+|  [03]   | `blackrenderer.font.CompositeMode`                             | enum (28 members)   | COLRv1 blend set (CLEAR/SRC_OVER..XOR/PLUS..HSL_LUMINOSITY)                      |
+|  [04]   | `blackrenderer.font.VarStoreInstancer`                         | var resolver        | resolve `PaintVar*` deltas at a normalized axis location                         |
+|  [05]   | `blackrenderer.render.GlyphInfo`                               | record (NamedTuple) | one shaped glyph: `(name, gid, xAdvance, yAdvance, xOffset, yOffset)`            |
+|  [06]   | `blackrenderer.render.BackendUnavailableError`                 | error               | requested backend module is not importable                                       |
 |  [07]   | `blackrenderer.backends.base.Canvas`                           | abstract protocol   | path build, transform/scale/translate, clip, solid/gradient/rect draw, composite |
-|  [08]   | `blackrenderer.backends.base.Surface`                          | abstract protocol   | `canvas(boundingBox)` context, `saveImage(path)`, `fileExtension` |
-|  [09]   | `blackrenderer.backends.skia.SkiaPixelSurface`                 | surface             | skia PNG raster surface (`.png`)                            |
-|  [10]   | `blackrenderer.backends.skia.SkiaPDFSurface`                   | surface             | skia PDF surface (`.pdf`)                                   |
-|  [11]   | `blackrenderer.backends.skia.SkiaSVGSurface`                   | surface             | skia SVG surface (`.svg`)                                   |
-|  [12]   | `blackrenderer.backends.cairo.CairoPixelSurface`               | surface             | cairo PNG raster surface (`.png`)                           |
-|  [13]   | `blackrenderer.backends.cairo.CairoPDFSurface`                 | surface             | cairo PDF surface (`.pdf`)                                  |
-|  [14]   | `blackrenderer.backends.cairo.CairoSVGSurface`                 | surface             | cairo SVG surface (`.svg`)                                  |
-|  [15]   | `blackrenderer.backends.coregraphics.CoreGraphicsPixelSurface` | surface             | CoreGraphics PNG raster surface (`.png`, macOS)             |
-|  [16]   | `blackrenderer.backends.coregraphics.CoreGraphicsPDFSurface`   | surface             | CoreGraphics PDF surface (`.pdf`, macOS)                    |
-|  [17]   | `blackrenderer.backends.svg.SVGSurface`                        | surface             | pure-Python SVG surface, no native dependency (`.svg`)      |
+|  [08]   | `blackrenderer.backends.base.Surface`                          | abstract protocol   | `canvas(boundingBox)` context, `saveImage(path)`, `fileExtension`                |
+|  [09]   | `blackrenderer.backends.skia.SkiaPixelSurface`                 | surface             | skia PNG raster surface (`.png`)                                                 |
+|  [10]   | `blackrenderer.backends.skia.SkiaPDFSurface`                   | surface             | skia PDF surface (`.pdf`)                                                        |
+|  [11]   | `blackrenderer.backends.skia.SkiaSVGSurface`                   | surface             | skia SVG surface (`.svg`)                                                        |
+|  [12]   | `blackrenderer.backends.cairo.CairoPixelSurface`               | surface             | cairo PNG raster surface (`.png`)                                                |
+|  [13]   | `blackrenderer.backends.cairo.CairoPDFSurface`                 | surface             | cairo PDF surface (`.pdf`)                                                       |
+|  [14]   | `blackrenderer.backends.cairo.CairoSVGSurface`                 | surface             | cairo SVG surface (`.svg`)                                                       |
+|  [15]   | `blackrenderer.backends.coregraphics.CoreGraphicsPixelSurface` | surface             | CoreGraphics PNG raster surface (`.png`, macOS)                                  |
+|  [16]   | `blackrenderer.backends.coregraphics.CoreGraphicsPDFSurface`   | surface             | CoreGraphics PDF surface (`.pdf`, macOS)                                         |
+|  [17]   | `blackrenderer.backends.svg.SVGSurface`                        | surface             | pure-Python SVG surface, no native dependency (`.svg`)                           |
 
 [PUBLIC_TYPE_SCOPE]: COLRv1 paint-graph decode objects (fontTools COLR machinery surfaced in `blackrenderer.font`)
 - rail: rasterize
 
 These are the `fontTools.ttLib.tables.otTables`/`fontTools.misc.transform` COLR-decode symbols re-exported into the `blackrenderer.font` namespace — the owner reads them when it must walk the paint graph itself (clip-box precompute, transform composition, var-stop resolution) instead of letting `drawGlyph` traverse end-to-end. `Paint` is the per-node decoded paint table; `PAINT_NAMES`/`PAINT_VAR_MAPPING` are the format-id lookup tables `PaintFormat` indexes; `ClipBoxFormat` discriminates a static versus variable COLRv1 clip box. They are decode-side reads, never re-implemented blackrenderer types.
 
-| [INDEX] | [SYMBOL]                                            | [TYPE_FAMILY]        | [RAIL]                                                                |
-| :-----: | :-------------------------------------------------- | :------------------- | :------------------------------------------------------------------- |
-|  [01]   | `blackrenderer.font.Paint`                          | COLR paint node      | decoded COLRv1 paint table; `traverse`/`getChildren`/`getTransform`/`computeClipBox`/`iterPaintSubTables`/`getFormatName` (fontTools `otTables.Paint`) |
-|  [02]   | `blackrenderer.font.ClipBoxFormat`                  | enum (`Static`/`Variable`) | COLRv1 `ClipBox` static-versus-variable discriminant            |
-|  [03]   | `blackrenderer.font.PAINT_NAMES`                    | `dict[int, str]` (32) | paint format-id -> `PaintFormat` member name lookup                 |
-|  [04]   | `blackrenderer.font.PAINT_VAR_MAPPING`              | `dict[int, PaintFormat]` (14) | `PaintVar*` format-id -> its non-var `PaintFormat` base       |
-|  [05]   | `blackrenderer.font.Transform` / `blackrenderer.font.Identity` | affine value | `fontTools` 6-tuple affine (`Transform`) and the identity instance (`Identity == [1 0 0 1 0 0]`) the paint-graph transform arms compose |
-|  [06]   | `blackrenderer.font.VarColorLine` / `VarColorStop` / `VarAffine2x3` / `VarTableWrapper` | var-delta wrappers | COLRv1 variable color-line / color-stop / 2x3-affine / table wrappers resolved through `VarStoreInstancer` |
+| [INDEX] | [SYMBOL]                                                                                | [TYPE_FAMILY]                 | [RAIL]                                                                                                                                                 |
+| :-----: | :-------------------------------------------------------------------------------------- | :---------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `blackrenderer.font.Paint`                                                              | COLR paint node               | decoded COLRv1 paint table; `traverse`/`getChildren`/`getTransform`/`computeClipBox`/`iterPaintSubTables`/`getFormatName` (fontTools `otTables.Paint`) |
+|  [02]   | `blackrenderer.font.ClipBoxFormat`                                                      | enum (`Static`/`Variable`)    | COLRv1 `ClipBox` static-versus-variable discriminant                                                                                                   |
+|  [03]   | `blackrenderer.font.PAINT_NAMES`                                                        | `dict[int, str]` (32)         | paint format-id -> `PaintFormat` member name lookup                                                                                                    |
+|  [04]   | `blackrenderer.font.PAINT_VAR_MAPPING`                                                  | `dict[int, PaintFormat]` (14) | `PaintVar*` format-id -> its non-var `PaintFormat` base                                                                                                |
+|  [05]   | `blackrenderer.font.Transform` / `blackrenderer.font.Identity`                          | affine value                  | `fontTools` 6-tuple affine (`Transform`) and the identity instance (`Identity == [1 0 0 1 0 0]`) the paint-graph transform arms compose                |
+|  [06]   | `blackrenderer.font.VarColorLine` / `VarColorStop` / `VarAffine2x3` / `VarTableWrapper` | var-delta wrappers            | COLRv1 variable color-line / color-stop / 2x3-affine / table wrappers resolved through `VarStoreInstancer`                                             |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -69,9 +69,9 @@ These are the `fontTools.ttLib.tables.otTables`/`fontTools.misc.transform` COLR-
 | :-----: | :--------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------- |
 |  [01]   | `render.renderText`          | `renderText(fontPath, textString, outputPath, *, fontSize=250, margin=20, features=None, variations=None, paletteIndex=0, backendName=None, lang=None, script=None)` | shape + rasterize a string to PNG/PDF/SVG            |
 |  [02]   | `render.buildGlyphLine`      | `buildGlyphLine(infos, positions, glyphNames) -> list[GlyphInfo]`                                                                                                    | map HarfBuzz infos/positions to shaped glyph records |
-|  [03]   | `render.calcGlyphLineBounds` | `calcGlyphLineBounds(glyphLine, font) -> tuple \| None`                                                                                                              | union font-unit bounds across a shaped glyph line   |
-|  [04]   | `backends.getSurfaceClass`   | `getSurfaceClass(backendName, imageExtension=None) -> type[Surface] \| None`                                                                                         | resolve concrete surface by backend + extension     |
-|  [05]   | `render.unionRect`           | `unionRect(rect1, rect2)`; `insetRect(rect, dx, dy)`; `offsetRect(rect, dx, dy)`; `scaleRect(rect, x, y)`; `intRect(rect)`                                            | bounds arithmetic for the margin-inset/scale walk    |
+|  [03]   | `render.calcGlyphLineBounds` | `calcGlyphLineBounds(glyphLine, font) -> tuple \| None`                                                                                                              | union font-unit bounds across a shaped glyph line    |
+|  [04]   | `backends.getSurfaceClass`   | `getSurfaceClass(backendName, imageExtension=None) -> type[Surface] \| None`                                                                                         | resolve concrete surface by backend + extension      |
+|  [05]   | `render.unionRect`           | `unionRect(rect1, rect2)`; `insetRect(rect, dx, dy)`; `offsetRect(rect, dx, dy)`; `scaleRect(rect, x, y)`; `intRect(rect)`                                           | bounds arithmetic for the margin-inset/scale walk    |
 |  [06]   | `backends.listBackends`      | `listBackends() -> list[tuple[str, list[str]]]`                                                                                                                      | enumerate registered `(backend, suffixes)` rows      |
 
 [ENTRYPOINT_SCOPE]: `BlackRendererFont` load, decode, and draw
@@ -79,52 +79,52 @@ These are the `fontTools.ttLib.tables.otTables`/`fontTools.misc.transform` COLR-
 
 The font constructor admits either a `path` or a paired `ttFont`+`hbFont` (the `typography/shape#SHAPE` owner takes the paired form, sharing one font-byte buffer across the HarfBuzz shaper and the renderer). `drawGlyph` dispatches COLRv1 (paint graph), then COLRv0 (layer list), then a plain outline — internal arms keyed by glyph membership, never caller-selected. `setLocation` drives variable-font instancing; `getPalette` clamps the palette index. Glyph-name and bounds properties feed the shaping and layout path.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                                         | [CAPABILITY]                                         |
-| :-----: | :----------------------------------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------- |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                                         | [CAPABILITY]                                                                                                     |
+| :-----: | :----------------------------------- | :----------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `BlackRendererFont.__init__`         | `BlackRendererFont(path=None, *, fontNumber=0, lazy=True, ttFont=None, hbFont=None)` | load `COLR`/`CPAL`/`fvar`; decode color glyph tables; both `path` and paired `ttFont`+`hbFont` raise `TypeError` |
-|  [02]   | `BlackRendererFont.drawGlyph`        | `drawGlyph(glyphName, canvas, *, palette=None, textColor=(0, 0, 0, 1))`              | draw one glyph onto a `Canvas` (COLRv1/v0/outline)   |
-|  [03]   | `BlackRendererFont.getGlyphBounds`   | `getGlyphBounds(glyphName) -> tuple \| None`                                         | font-unit bounds (COLRv1 clip box when present)      |
-|  [04]   | `BlackRendererFont.setLocation`      | `setLocation(location)`                                                              | apply variable-font normalized axis location         |
-|  [05]   | `BlackRendererFont.getPalette`       | `getPalette(paletteIndex) -> list \| None`                                           | clamped CPAL palette as RGBA float tuples            |
-|  [06]   | `BlackRendererFont.unitsPerEm`       | property                                                                             | font units-per-em from the HarfBuzz face             |
-|  [07]   | `BlackRendererFont.glyphNames`       | property                                                                             | glyph order from the `TTFont`                        |
-|  [08]   | `BlackRendererFont.colrV0GlyphNames` | property                                                                             | COLRv0 base-glyph names                              |
-|  [09]   | `BlackRendererFont.colrV1GlyphNames` | property                                                                             | COLRv1 base-glyph names                              |
+|  [02]   | `BlackRendererFont.drawGlyph`        | `drawGlyph(glyphName, canvas, *, palette=None, textColor=(0, 0, 0, 1))`              | draw one glyph onto a `Canvas` (COLRv1/v0/outline)                                                               |
+|  [03]   | `BlackRendererFont.getGlyphBounds`   | `getGlyphBounds(glyphName) -> tuple \| None`                                         | font-unit bounds (COLRv1 clip box when present)                                                                  |
+|  [04]   | `BlackRendererFont.setLocation`      | `setLocation(location)`                                                              | apply variable-font normalized axis location                                                                     |
+|  [05]   | `BlackRendererFont.getPalette`       | `getPalette(paletteIndex) -> list \| None`                                           | clamped CPAL palette as RGBA float tuples                                                                        |
+|  [06]   | `BlackRendererFont.unitsPerEm`       | property                                                                             | font units-per-em from the HarfBuzz face                                                                         |
+|  [07]   | `BlackRendererFont.glyphNames`       | property                                                                             | glyph order from the `TTFont`                                                                                    |
+|  [08]   | `BlackRendererFont.colrV0GlyphNames` | property                                                                             | COLRv0 base-glyph names                                                                                          |
+|  [09]   | `BlackRendererFont.colrV1GlyphNames` | property                                                                             | COLRv1 base-glyph names                                                                                          |
 
 [ENTRYPOINT_SCOPE]: `Surface`/`Canvas` backend protocol
 - rail: rasterize
 
 `Surface.canvas(boundingBox)` is the context manager that yields a `Canvas` flipped into font space; `saveImage(path)` writes the accumulated drawing; `fileExtension` is the surface's output suffix (every backend `saveImage` writes only to a real filesystem path via `open(path)`/`os.fspath`, never a file-like — a caller wanting bytes round-trips a `NamedTemporaryFile` keyed off `fileExtension`). `Canvas` is the draw protocol every backend implements: it carries both path- and rect-keyed solid/gradient draw arms (the COLRv1 paint graph fills a clipped path; the `drawRect*` mirror delegates to the `drawPath*` arm for the rect-fill fast path), the affine helpers `transform`/`scale`/`translate`, and the `compositeMode`/`savedState`/`clipPath` state-management context managers. The skia pixel surface accepts an explicit `format` on save.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                                                             | [CAPABILITY]                                        |
-| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `Surface.canvas`                | `canvas(boundingBox)` -> context manager yielding `Canvas`                                                               | open a draw context for `(xMin, yMin, xMax, yMax)`  |
-|  [02]   | `Surface.saveImage`             | `saveImage(path)`                                                                                                        | serialize the drawing to the backend file format    |
-|  [03]   | `Surface.fileExtension`         | property -> `str`                                                                                                        | the surface's output suffix (`.png`/`.pdf`/`.svg`)  |
-|  [04]   | `SkiaPixelSurface.saveImage`    | `saveImage(path, format=skia.kPNG)`                                                                                      | write skia raster image with explicit encode format |
-|  [05]   | `Canvas.newPath`                | `newPath()` -> path pen                                                                                                  | new backend path/pen for outline construction       |
-|  [06]   | `Canvas.drawPathSolid`          | `drawPathSolid(path, color)`; `drawRectSolid(rect, color)`                                                               | fill a path / rect with an RGBA color tuple         |
-|  [07]   | `Canvas.drawPathLinearGradient` | `drawPathLinearGradient(path, colorLine, pt1, pt2, extendMode, gradientTransform)`; `drawRect*` mirror                   | linear COLRv1 gradient fill (path or rect arm)      |
-|  [08]   | `Canvas.drawPathRadialGradient` | `drawPathRadialGradient(path, colorLine, startCenter, startRadius, endCenter, endRadius, extendMode, gradientTransform)`; `drawRect*` mirror | radial gradient fill                  |
-|  [09]   | `Canvas.drawPathSweepGradient`  | `drawPathSweepGradient(path, colorLine, center, startAngle, endAngle, extendMode, gradientTransform)`; `drawRect*` mirror | sweep gradient fill                                |
-|  [10]   | `Canvas.compositeMode`          | `compositeMode(compositeMode)` -> context manager                                                                        | push a COLRv1 `CompositeMode` blend layer           |
-|  [11]   | `Canvas.savedState`             | `savedState()` -> context manager                                                                                        | save/restore transform + clip state                 |
-|  [12]   | `Canvas.transform`              | `transform(transform)`; `scale(sx, sy=None)`; `translate(x, y)`                                                          | concat a 6-tuple affine (or scale/translate) onto the canvas |
-|  [13]   | `Canvas.clipPath`               | `clipPath(path)`                                                                                                         | intersect the clip region with a path               |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                                                                                 | [CAPABILITY]                                                 |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `Surface.canvas`                | `canvas(boundingBox)` -> context manager yielding `Canvas`                                                                                   | open a draw context for `(xMin, yMin, xMax, yMax)`           |
+|  [02]   | `Surface.saveImage`             | `saveImage(path)`                                                                                                                            | serialize the drawing to the backend file format             |
+|  [03]   | `Surface.fileExtension`         | property -> `str`                                                                                                                            | the surface's output suffix (`.png`/`.pdf`/`.svg`)           |
+|  [04]   | `SkiaPixelSurface.saveImage`    | `saveImage(path, format=skia.kPNG)`                                                                                                          | write skia raster image with explicit encode format          |
+|  [05]   | `Canvas.newPath`                | `newPath()` -> path pen                                                                                                                      | new backend path/pen for outline construction                |
+|  [06]   | `Canvas.drawPathSolid`          | `drawPathSolid(path, color)`; `drawRectSolid(rect, color)`                                                                                   | fill a path / rect with an RGBA color tuple                  |
+|  [07]   | `Canvas.drawPathLinearGradient` | `drawPathLinearGradient(path, colorLine, pt1, pt2, extendMode, gradientTransform)`; `drawRect*` mirror                                       | linear COLRv1 gradient fill (path or rect arm)               |
+|  [08]   | `Canvas.drawPathRadialGradient` | `drawPathRadialGradient(path, colorLine, startCenter, startRadius, endCenter, endRadius, extendMode, gradientTransform)`; `drawRect*` mirror | radial gradient fill                                         |
+|  [09]   | `Canvas.drawPathSweepGradient`  | `drawPathSweepGradient(path, colorLine, center, startAngle, endAngle, extendMode, gradientTransform)`; `drawRect*` mirror                    | sweep gradient fill                                          |
+|  [10]   | `Canvas.compositeMode`          | `compositeMode(compositeMode)` -> context manager                                                                                            | push a COLRv1 `CompositeMode` blend layer                    |
+|  [11]   | `Canvas.savedState`             | `savedState()` -> context manager                                                                                                            | save/restore transform + clip state                          |
+|  [12]   | `Canvas.transform`              | `transform(transform)`; `scale(sx, sy=None)`; `translate(x, y)`                                                                              | concat a 6-tuple affine (or scale/translate) onto the canvas |
+|  [13]   | `Canvas.clipPath`               | `clipPath(path)`                                                                                                                             | intersect the clip region with a path                        |
 
 [ENTRYPOINT_SCOPE]: COLRv1 var-instancing + paint-graph decode and the CLI
 - rail: rasterize
 
 `VarStoreInstancer` is the variable-font delta resolver `setLocation` drives: construct it over the font's `ItemVariationStore` and `fvar` axes at a location, then it interpolates COLRv1 `PaintVar*` deltas. `Paint.traverse`/`computeClipBox`/`getTransform` are the decode-side reads for a caller that must precompute a COLRv1 clip box or compose a paint transform without a full `drawGlyph`. `axisValuesToLocation` converts normalized axis values to the location dict the renderer takes. The `__main__` CLI helpers (`parseFeatures`/`parseVariations`) parse the `=value`/`axis=value` argument syntax into the `features`/`variations` dicts `renderText` consumes.
 
-| [INDEX] | [SURFACE]                              | [CALL_SHAPE]                                                                                          | [CAPABILITY]                                        |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------------------------------------------- | :-------------------------------------------------- |
-|  [01]   | `font.VarStoreInstancer.__init__`      | `VarStoreInstancer(varstore, fvar_axes, location={})`                                                 | bind an `ItemVariationStore` + axes at a location   |
-|  [02]   | `VarStoreInstancer.setLocation`        | `setLocation(location)`; `interpolateFromDeltas(varDataIndex, deltas)`                                | re-point the instancer; interpolate a delta set     |
-|  [03]   | `font.axisValuesToLocation`            | `axisValuesToLocation(normalizedAxisValues, axisTags) -> dict`                                        | normalized axis values -> location dict             |
-|  [04]   | `font.Paint.traverse`                  | `traverse(colr, callback)`; `getChildren(colr) -> list[Paint]`; `getFormatName()`                    | walk a decoded COLRv1 paint subgraph                |
-|  [05]   | `font.Paint.computeClipBox`            | `computeClipBox(colr, glyphSet, quantization=1) -> ClipBox \| None`; `getTransform() -> Transform`   | precompute a COLRv1 clip box / paint transform      |
-|  [06]   | `render.parseFeatures` / `parseVariations` | `parseFeatures(src) -> dict`; `parseVariations(string) -> dict` (CLI `blackrenderer.__main__`)   | parse CLI `feature=`/`axis=value` syntax to dicts   |
+| [INDEX] | [SURFACE]                                  | [CALL_SHAPE]                                                                                       | [CAPABILITY]                                      |
+| :-----: | :----------------------------------------- | :------------------------------------------------------------------------------------------------- | :------------------------------------------------ |
+|  [01]   | `font.VarStoreInstancer.__init__`          | `VarStoreInstancer(varstore, fvar_axes, location={})`                                              | bind an `ItemVariationStore` + axes at a location |
+|  [02]   | `VarStoreInstancer.setLocation`            | `setLocation(location)`; `interpolateFromDeltas(varDataIndex, deltas)`                             | re-point the instancer; interpolate a delta set   |
+|  [03]   | `font.axisValuesToLocation`                | `axisValuesToLocation(normalizedAxisValues, axisTags) -> dict`                                     | normalized axis values -> location dict           |
+|  [04]   | `font.Paint.traverse`                      | `traverse(colr, callback)`; `getChildren(colr) -> list[Paint]`; `getFormatName()`                  | walk a decoded COLRv1 paint subgraph              |
+|  [05]   | `font.Paint.computeClipBox`                | `computeClipBox(colr, glyphSet, quantization=1) -> ClipBox \| None`; `getTransform() -> Transform` | precompute a COLRv1 clip box / paint transform    |
+|  [06]   | `render.parseFeatures` / `parseVariations` | `parseFeatures(src) -> dict`; `parseVariations(string) -> dict` (CLI `blackrenderer.__main__`)     | parse CLI `feature=`/`axis=value` syntax to dicts |
 
 ## [04]-[UNIVERSAL_STACK]
 

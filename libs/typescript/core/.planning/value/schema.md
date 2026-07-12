@@ -2,14 +2,14 @@
 
 The decode-once law's type floor: one `Refined` vocabulary owner carries every cross-language branded primitive — Guid-v7, `OrdinalKey`, `JsonPointer`, BCP-47 `Locale` — and one `Ingress` owner carries the decode-budget ceilings plus the budget-gated schema combinator every untrusted seam composes. A raw `string` or `number` never occupies an identity slot past a decode seam: every wire shape, journal event, config read, and message catalog composes these schemas at its own field record, so each brand has exactly one edit site and every folder reads one nominal identity per concept. The module is `core/src/value/schema.ts`; a new cross-language primitive is one interior anchor plus one owner row — never a per-folder re-declaration, never a standalone sibling export.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                  | [PUBLIC]  |
-| :-----: | :--------------- | :-------------------------------------------------------- | :-------- |
-|  [01]   | `REFINED_FLOOR`  | the branded primitive family and its merged type hub      | `Refined` |
-|  [02]   | `INGRESS_CEILING` | decode-budget ceilings and the budget-gated schema seam   | `Ingress` |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                  | [PUBLIC]  |
+| :-----: | :---------------- | :------------------------------------------------------ | :-------- |
+|  [01]   | `REFINED_FLOOR`   | the branded primitive family and its merged type hub    | `Refined` |
+|  [02]   | `INGRESS_CEILING` | decode-budget ceilings and the budget-gated schema seam | `Ingress` |
 
-## [2]-[REFINED_FLOOR]
+## [02]-[REFINED_FLOOR]
 
 [REFINED_FLOOR]:
 - Owner: `Refined`, the assembled brand vocabulary — interior `_`-anchors carry the refinements, the exported owner assembles them under a stated annotation, and the merged `declare namespace Refined` hub serves every branded type off the single import, so `Refined.Guid` is the schema in value position and the branded type in type position.
@@ -58,7 +58,7 @@ const Refined: {
 } = { Guid: _Guid, JsonPointer: _JsonPointer, Locale: _Locale, OrdinalKey: _OrdinalKey }
 ```
 
-## [3]-[INGRESS_CEILING]
+## [03]-[INGRESS_CEILING]
 
 [INGRESS_CEILING]:
 - Owner: `Ingress`, the untrusted-ingress ceiling vocabulary — `floor` is the default budget row, and `bounded(schema, budget?)` composes the depth gate in front of any schema, so a JSON-bomb fails decode as a typed `ParseError` before it exhausts the runtime and the budget is recoverable from the seam declaration.

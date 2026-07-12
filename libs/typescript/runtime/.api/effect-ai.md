@@ -23,19 +23,19 @@ toolkit (`ExtractError`/`ExtractContext`). The `ai/model.ts` guardrail gate wrap
 
 [PUBLIC_TYPE_SCOPE]: generation contract + free functions — rail: ai-core
 
-| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
-|:-----: |:----------------------------------- |:--------------- |:------------------------------------ |
-| [01] | `LanguageModel.LanguageModel` | `Context.Tag` | service tag `"@effect/ai/LanguageModel"` |
-| [02] | `LanguageModel.generateText` | function | text generation (adds Tag to `R`) |
-| [03] | `LanguageModel.generateObject` | function | `Schema`-shaped structured output |
-| [04] | `LanguageModel.streamText` | function | streaming `Response.StreamPart` fold |
-| [05] | `LanguageModel.make` | constructor | build `Service` from provider params |
-| [06] | `LanguageModel.ToolChoice<Tools>` | union | tool-selection policy value |
-| [07] | `LanguageModel.GenerateTextResponse` | class | text receipt (`.text`/`.usage`/…) |
-| [08] | `LanguageModel.GenerateObjectResponse` | class | object receipt (`.value`) |
-| [09] | `LanguageModel.ProviderOptions` | interface | provider-normalized request |
-| [10] | `LanguageModel.ConstructorParams` | interface | provider implementation seam |
-| [11] | `LanguageModel.ExtractError/ExtractContext` | conditional type | toolkit error/context inference |
+| [INDEX] | [SYMBOL]                                    | [FAMILY]         | [CAPABILITY]                             |
+| :-----: | :------------------------------------------ | :--------------- | :--------------------------------------- |
+|  [01]   | `LanguageModel.LanguageModel`               | `Context.Tag`    | service tag `"@effect/ai/LanguageModel"` |
+|  [02]   | `LanguageModel.generateText`                | function         | text generation (adds Tag to `R`)        |
+|  [03]   | `LanguageModel.generateObject`              | function         | `Schema`-shaped structured output        |
+|  [04]   | `LanguageModel.streamText`                  | function         | streaming `Response.StreamPart` fold     |
+|  [05]   | `LanguageModel.make`                        | constructor      | build `Service` from provider params     |
+|  [06]   | `LanguageModel.ToolChoice<Tools>`           | union            | tool-selection policy value              |
+|  [07]   | `LanguageModel.GenerateTextResponse`        | class            | text receipt (`.text`/`.usage`/…)        |
+|  [08]   | `LanguageModel.GenerateObjectResponse`      | class            | object receipt (`.value`)                |
+|  [09]   | `LanguageModel.ProviderOptions`             | interface        | provider-normalized request              |
+|  [10]   | `LanguageModel.ConstructorParams`           | interface        | provider implementation seam             |
+|  [11]   | `LanguageModel.ExtractError/ExtractContext` | conditional type | toolkit error/context inference          |
 
 ```ts contract
 // One options shape drives all three modalities; Tools is inferred from the toolkit.
@@ -117,13 +117,13 @@ choice is a single composition-root layer swap. The row grammar (Client `make`/`
 `HttpClient` requirement, per-request `Config` + `withConfigOverride`, `model()`/`layer()` returning `AiModel.Model<provider,…>`)
 is uniform across all five; the asymmetry lives in the row config, catalogued per page.
 
-| [INDEX] | [PROVIDER] | [CATALOG] | [MODEL_ENTRY] | [EXTRA_ASYMMETRY] |
-| :-----: | :-------- | :------- | :----------- | :--------------- |
-| [01] | OpenAI | `effect-ai-openai.md` | `OpenAiLanguageModel.model`/`.modelWithTokenizer`; `OpenAiEmbeddingModel.model` | embeddings ×2 + `OpenAiTokenizer` + `OpenAiTelemetry` |
-| [02] | Anthropic | `effect-ai-anthropic.md` | `AnthropicLanguageModel.model`/`.modelWithTokenizer` | `AnthropicTokenizer` Layer + `prepareTools` export |
-| [03] | Google (Gemini) | `effect-ai-google.md` | `GoogleLanguageModel.model` | raw-client embeddings/token-count only |
-| [04] | Amazon Bedrock | `effect-ai-amazon-bedrock.md` | `AmazonBedrockLanguageModel.model` | SigV4 creds + native guardrail assessment + Anthropic-on-Bedrock tools |
-| [05] | OpenRouter | `effect-ai-openrouter.md` | `OpenRouterLanguageModel.model` | aggregator provider-routing + per-response cost metadata |
+| [INDEX] | [PROVIDER]      | [CATALOG]                     | [MODEL_ENTRY]                                                                   | [EXTRA_ASYMMETRY]                                                      |
+| :-----: | :-------------- | :---------------------------- | :------------------------------------------------------------------------------ | :--------------------------------------------------------------------- |
+|  [01]   | OpenAI          | `effect-ai-openai.md`         | `OpenAiLanguageModel.model`/`.modelWithTokenizer`; `OpenAiEmbeddingModel.model` | embeddings ×2 + `OpenAiTokenizer` + `OpenAiTelemetry`                  |
+|  [02]   | Anthropic       | `effect-ai-anthropic.md`      | `AnthropicLanguageModel.model`/`.modelWithTokenizer`                            | `AnthropicTokenizer` Layer + `prepareTools` export                     |
+|  [03]   | Google (Gemini) | `effect-ai-google.md`         | `GoogleLanguageModel.model`                                                     | raw-client embeddings/token-count only                                 |
+|  [04]   | Amazon Bedrock  | `effect-ai-amazon-bedrock.md` | `AmazonBedrockLanguageModel.model`                                              | SigV4 creds + native guardrail assessment + Anthropic-on-Bedrock tools |
+|  [05]   | OpenRouter      | `effect-ai-openrouter.md`     | `OpenRouterLanguageModel.model`                                                 | aggregator provider-routing + per-response cost metadata               |
 
 ## [04]-[EMBEDDING_MODEL]
 
@@ -166,21 +166,21 @@ bind handlers; `merge` composes toolkits (later wins). Every provider tool roste
 `GoogleTool`/`AmazonBedrockTool`) is typed `Tool.ProviderDefined<"<Provider><Name>", { …; failureMode }, RequiresHandler>` —
 `ProviderDefined`/`FailureMode`/`Any` are the core brands those catalogs return, never per-provider types.
 
-| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
-|:-----: |:-------------------------- |:----------- |:------------------------------------ |
-| [01] | `Tool.make` | constructor | user tool from Schemas |
-| [02] | `Tool.providerDefined` | constructor | provider-executed tool |
-| [03] | `Tool.fromTaggedRequest` | constructor | `TaggedRequest` -> tool |
-| [04] | `Tool.getJsonSchema` | projection | `JsonSchema7` for the provider wire |
-| [05] | `Tool.Readonly/Destructive/Idempotent/OpenWorld/Title` | annotation | MCP tool hints |
-| [06] | `Tool.isUserDefined/isProviderDefined` | guard | tool discrimination |
-| [07] | `Toolkit.make` | constructor | tool collection as data |
-| [08] | `Toolkit.merge` | combinator | compose toolkits |
-| [09] | `Toolkit#toLayer/toContext` | provision | bind handlers -> `Layer`/`Context` |
-| [10] | `Toolkit.empty` | value | seed / default |
-| [11] | `Tool.ProviderDefined<Name,Cfg,ReqH>` | branded type | the type every provider tool roster returns |
-| [12] | `Tool.FailureMode` | union | `"error" \| "return"` failure-routing policy |
-| [13] | `Tool.Any` | erased bound | `Record<string, Tool.Any>` keys every options/toolkit sig |
+| [INDEX] | [SYMBOL]                                               | [FAMILY]     | [CAPABILITY]                                              |
+| :-----: | :----------------------------------------------------- | :----------- | :-------------------------------------------------------- |
+|  [01]   | `Tool.make`                                            | constructor  | user tool from Schemas                                    |
+|  [02]   | `Tool.providerDefined`                                 | constructor  | provider-executed tool                                    |
+|  [03]   | `Tool.fromTaggedRequest`                               | constructor  | `TaggedRequest` -> tool                                   |
+|  [04]   | `Tool.getJsonSchema`                                   | projection   | `JsonSchema7` for the provider wire                       |
+|  [05]   | `Tool.Readonly/Destructive/Idempotent/OpenWorld/Title` | annotation   | MCP tool hints                                            |
+|  [06]   | `Tool.isUserDefined/isProviderDefined`                 | guard        | tool discrimination                                       |
+|  [07]   | `Toolkit.make`                                         | constructor  | tool collection as data                                   |
+|  [08]   | `Toolkit.merge`                                        | combinator   | compose toolkits                                          |
+|  [09]   | `Toolkit#toLayer/toContext`                            | provision    | bind handlers -> `Layer`/`Context`                        |
+|  [10]   | `Toolkit.empty`                                        | value        | seed / default                                            |
+|  [11]   | `Tool.ProviderDefined<Name,Cfg,ReqH>`                  | branded type | the type every provider tool roster returns               |
+|  [12]   | `Tool.FailureMode`                                     | union        | `"error" \| "return"` failure-routing policy              |
+|  [13]   | `Tool.Any`                                             | erased bound | `Record<string, Tool.Any>` keys every options/toolkit sig |
 
 ```ts contract
 declare const make: <const Name extends string, Params extends Schema.Struct.Fields | EmptyParams = ...,
@@ -253,10 +253,10 @@ Each `Prompt` message/part carries a `ProviderOptions` slot and each `Response` 
 provider-named key (`openai`/`anthropic`/`google`/`bedrock`/`openrouter`) by `declare module`-augmenting the SAME interfaces
 below — the roster every sibling catalog's augmentation table targets. Internal code reads canonical shapes; the edge maps the slots.
 
-| [INDEX] | [MODULE] | [AUGMENTATION_BASE_INTERFACES] | [SLOT_BASE] |
-| :-----: | :------ | :---------------------------- | :--------- |
-| [01] | `@effect/ai/Prompt` | `System`/`User`/`Assistant`/`Tool` `MessageOptions`; `Text`/`Reasoning`/`File`/`ToolCall`/`ToolResult` `PartOptions` | `Prompt.ProviderOptions` |
-| [02] | `@effect/ai/Response` | `Text{,Start,Delta,End}PartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolParams{Start,Delta,End}PartMetadata`, `ToolCall`/`ToolResult` `PartMetadata`, `File`/`DocumentSource`/`UrlSource`/`ResponseMetadata`/`Finish`/`Error` `PartMetadata` | `Response.ProviderMetadata` |
+| [INDEX] | [MODULE]              | [AUGMENTATION_BASE_INTERFACES]                                                                                                                                                                                                                             | [SLOT_BASE]                 |
+| :-----: | :-------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------- |
+|  [01]   | `@effect/ai/Prompt`   | `System`/`User`/`Assistant`/`Tool` `MessageOptions`; `Text`/`Reasoning`/`File`/`ToolCall`/`ToolResult` `PartOptions`                                                                                                                                       | `Prompt.ProviderOptions`    |
+|  [02]   | `@effect/ai/Response` | `Text{,Start,Delta,End}PartMetadata`, `Reasoning{,Start,Delta,End}PartMetadata`, `ToolParams{Start,Delta,End}PartMetadata`, `ToolCall`/`ToolResult` `PartMetadata`, `File`/`DocumentSource`/`UrlSource`/`ResponseMetadata`/`Finish`/`Error` `PartMetadata` | `Response.ProviderMetadata` |
 
 ```ts contract
 // providers augment the interface twin with one optional provider key — the boundary hook, no schema fork:
@@ -321,16 +321,16 @@ declare const make: (o: { readonly tokenize: (content: Prompt.Prompt) => Effect.
 `resource`/`prompt`/`elicit` round out server capability; `McpSchema` is the full MCP wire (Schema.Class-based)
 with typed error subclasses. This is the sole MCP host — `@modelcontextprotocol/sdk` is client-only.
 
-| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------ |:--------- |:------------------------------------ |
-| [01] | `McpServer.toolkit / registerToolkit` | tool | register a `Toolkit` as MCP tools |
-| [02] | `McpServer.layerStdio` | transport | stdio-served server Layer |
-| [03] | `McpServer.layerHttp / layerHttpRouter` | transport | HTTP-served server Layer |
-| [04] | `McpServer.resource / registerResource` | capability | resource + typed-param template |
-| [05] | `McpServer.prompt / registerPrompt` | capability | `Schema`-typed prompt w/ completions |
-| [06] | `McpServer.elicit` | capability | server-requested structured input |
-| [07] | `McpSchema.*` | wire | MCP protocol Schemas + typed errors |
-| [08] | `McpSchema.param` | constructor | typed resource-template parameter |
+| [INDEX] | [SYMBOL]                                | [FAMILY]    | [CAPABILITY]                         |
+| :-----: | :-------------------------------------- | :---------- | :----------------------------------- |
+|  [01]   | `McpServer.toolkit / registerToolkit`   | tool        | register a `Toolkit` as MCP tools    |
+|  [02]   | `McpServer.layerStdio`                  | transport   | stdio-served server Layer            |
+|  [03]   | `McpServer.layerHttp / layerHttpRouter` | transport   | HTTP-served server Layer             |
+|  [04]   | `McpServer.resource / registerResource` | capability  | resource + typed-param template      |
+|  [05]   | `McpServer.prompt / registerPrompt`     | capability  | `Schema`-typed prompt w/ completions |
+|  [06]   | `McpServer.elicit`                      | capability  | server-requested structured input    |
+|  [07]   | `McpSchema.*`                           | wire        | MCP protocol Schemas + typed errors  |
+|  [08]   | `McpSchema.param`                       | constructor | typed resource-template parameter    |
 
 ```ts contract
 declare const toolkit: <Tools extends Record<string, AiTool.Any>>(toolkit: Toolkit.Toolkit<Tools>)

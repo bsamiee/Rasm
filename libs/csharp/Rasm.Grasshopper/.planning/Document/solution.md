@@ -176,12 +176,12 @@ public static partial class SolutionControl {
 
 ## [04]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]            | [OWNER]                                | [KIND]                                              | [RAIL]                                      | [CASES] |
-| :-----: | :------------------- | :-------------------------------------- | :----------------------------------------------------- | :--------------------------------------------- | :-----: |
-|  [01]   | execution commands   | `SolutionCommand` + `SolutionReceipt`  | `[GenerateUnionOps]` `[Union]` + evidence receipt   | `Drive → Fin<SolutionReceipt>`              |    7    |
-|  [02]   | lifecycle watching   | `SolutionControl.Watch`                | six composed event rows, one leased subscription    | `Watch → Fin<Lease<UiSubscription>>`        |    1    |
-|  [03]   | in-flight inspection | `RunPulse`                             | detached evidence over a live `Solution`            | `Probe → Fin<RunPulse>`                     |    1    |
-|  [04]   | completion audit     | `RunEvidence`                          | claim-checked counts and progress                   | `Audit → Fin<RunEvidence>`                  |    1    |
-|  [05]   | phase timeline       | `SolutionTrace`                        | pure fold over captured `UiEvent`s, monotone claim  | `Trace → SolutionTrace`                     |    1    |
+| [INDEX] | [CONCERN]            | [OWNER]                               | [KIND]                                             | [RAIL]                               | [CASES] |
+| :-----: | :------------------- | :------------------------------------ | :------------------------------------------------- | :----------------------------------- | :-----: |
+|  [01]   | execution commands   | `SolutionCommand` + `SolutionReceipt` | `[GenerateUnionOps]` `[Union]` + evidence receipt  | `Drive → Fin<SolutionReceipt>`       |    7    |
+|  [02]   | lifecycle watching   | `SolutionControl.Watch`               | six composed event rows, one leased subscription   | `Watch → Fin<Lease<UiSubscription>>` |    1    |
+|  [03]   | in-flight inspection | `RunPulse`                            | detached evidence over a live `Solution`           | `Probe → Fin<RunPulse>`              |    1    |
+|  [04]   | completion audit     | `RunEvidence`                         | claim-checked counts and progress                  | `Audit → Fin<RunEvidence>`           |    1    |
+|  [05]   | phase timeline       | `SolutionTrace`                       | pure fold over captured `UiEvent`s, monotone claim | `Trace → SolutionTrace`              |    1    |
 
 `DocumentScope.Resolve`, `EtoDispatch`, `UiEvents`, `Op`, `Fault`, `Lease<T>`, and `ValidityClaim` are composed upstream owners. The census's snapshot-only observation — state published with no solution event subscription — has no successor shape: correlation lands as `Watch` plus `Trace` over the events algebra.

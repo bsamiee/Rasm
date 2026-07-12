@@ -2,15 +2,15 @@
 
 The external-signature ingress row: one closed dialect table carries every inbound authenticity convention — symmetric HMAC webhooks and asymmetric ECDSA/RSA partner and attestation signatures in both PKIX-DER and IEEE-P1363 wire forms — and one verify fold runs any dialect over the HELD request octets, so a provider integration is a table row, never a bespoke verifier. The byte-identity law governs the whole page: verification computes over the exact bytes admitted at the edge before any parse, because a re-encoded body respells floats, key order, and escapes and signs a document the provider never sent, and the octets travel onward untouched. The HMAC dialects route `crypt/sign`'s `Crypto.matches` `Mac` probe; the asymmetric dialects route `@oslojs/crypto`'s verify-only public-key surface, with the `PublicKey` tagged family carrying the SEC1/PKIX key-encoding axis and the dialect row carrying the `sigForm` signature-encoding axis, so a partner signing raw `r‖s` P1363 (the JWS ES256 wire form) and a partner shipping SPKI-DER keys both land as rows. Every verify runs under a store-backed `RateLimiter` keyed by dialect and presented key, every reject increments the dialect-tagged `security_verify_reject` counter, and the fold rides its span — inbound-attack telemetry is structural, not optional. `VerifyFault` instantiates the folder fault shape with the guard pair closed in both directions, folding a `crypt/sign` primitive fault to a caller-caused `malformed` at this seam so a bad presented signature is never a 500. Timestamp participation, candidate rotation, and the signed prefix are row grammar; tolerance, keys, and freshness are fold parameters a row cannot weaken, so admitting a dialect is review-free on the security axis. `Intake` is the typed `HttpApiMiddleware` spelling of the held-octets seam the runtime serve wave mounts.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                              | [PUBLIC]      |
-| :-----: | :---------------- | :-------------------------------------------------------------------- | :------------ |
-|  [01]   | `VERIFY_FAULT`    | the folder fault shape and the `crypt/sign` re-spell                  | `VerifyFault` |
-|  [02]   | `DIALECT_TABLE`   | the signing-convention rows and their header parse folds             | `Verify`      |
-|  [03]   | `VERIFY_FOLD`     | the throttled constant-time verify pipeline, `Verified` receipt, key registry, intake middleware | `Verify`, `Intake` |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                                           | [PUBLIC]           |
+| :-----: | :-------------- | :----------------------------------------------------------------------------------------------- | :----------------- |
+|  [01]   | `VERIFY_FAULT`  | the folder fault shape and the `crypt/sign` re-spell                                             | `VerifyFault`      |
+|  [02]   | `DIALECT_TABLE` | the signing-convention rows and their header parse folds                                         | `Verify`           |
+|  [03]   | `VERIFY_FOLD`   | the throttled constant-time verify pipeline, `Verified` receipt, key registry, intake middleware | `Verify`, `Intake` |
 
-## [2]-[VERIFY_FAULT]
+## [02]-[VERIFY_FAULT]
 
 [VERIFY_FAULT]:
 - Owner: `VerifyFault` — the folder fault shape for inbound authenticity: `missing` (required signature header absent), `malformed` (header grammar or signature encoding refused, or a `crypt/sign` primitive fault re-spelled here), `mismatch` (every candidate failed the constant-time compare), `stale` (timestamp outside tolerance), `unknownKey` (no registered key for the presented `kid`/issuer), `throttled` (the per-key verify budget exhausted, class `exhausted` so the edge renders `Retry-After`). Rows carry the core `FaultClass` kind and the guard pair closes the table in both directions.
@@ -65,7 +65,7 @@ class VerifyFault extends Schema.TaggedError<VerifyFault>()("VerifyFault", {
 const _respell = (fault: SignFault): VerifyFault => new VerifyFault({ reason: "malformed", detail: fault.detail })
 ```
 
-## [3]-[DIALECT_TABLE]
+## [03]-[DIALECT_TABLE]
 
 [DIALECT_TABLE]:
 - Owner: `_dialects` — one row per inbound signing convention, each carrying `header` (the signature header, lowercase), `scheme` (`"hmac"` symmetric or `"ecdsa"`/`"rsa-pkcs1"`/`"rsa-pss"` asymmetric), `sigForm` on the ECDSA rows (`"pkix"` DER or `"p1363"` raw `r‖s`), `parse` (header value to the candidate signature set plus the optional epoch-second stamp — `Option`-total, so any grammar refusal is one `malformed`), and `prefix` (the bytes prepended to the payload before signing — the `${t}.` stripe frame, empty elsewhere). The rows: `github` (`sha256=<hex>`, HMAC), `stripe` (`t=<epoch>,v1=<hex>` rotation candidates, HMAC), `hmacHex`/`hmacBase64` (bare digests, HMAC), `ecdsaPkix`/`ecdsaP1363` (`kid=<id>,sig=<base64>` ECDSA in either signature encoding), `rsaPss`/`rsaPkcs1` (`kid=<id>,sig=<base64>` RSA), `attestation` (raw base64 signature over the attestation object, ECDSA PKIX).
@@ -156,7 +156,7 @@ const _dialects = {
 }>
 ```
 
-## [4]-[VERIFY_FOLD]
+## [04]-[VERIFY_FOLD]
 
 [VERIFY_FOLD]:
 - Owner: `Verify` — the assembled owner: `verify` runs a dialect over held octets against a resolved key into a `Verified` receipt under the per-key rate budget, and `PublicKeyStore` is the `Context.Tag` registry the asymmetric dialects resolve a partner or attestation public key from by `kid`. `PublicKey` is the tagged key family — `Ecdsa` carries `bytes`, the pinned `curve`, and the `encoding` axis (`sec1` raw point or `pkix` SPKI-DER), `Rsa` carries `bytes` and its `pkcs1`/`pkix` encoding — and `$match` drives the asymmetric dispatch, so a scheme/key family mismatch is the residue arm, never an if-ladder. `Intake` is the `HttpApiMiddleware` Tag the runtime serve wave implements over the raw request octets before any body parse.

@@ -20,28 +20,28 @@
 - rail: types
 - Each row is a *category* of the closed variant set the plugin registers, grouped as its source groups them; a variant name is what the caller write in `className`, and it selects the matching `data-*` attribute RAC emits. This is a data table fed to one `addVariant` loop, not a hand-written selector per state — a new RAC state is a new row upstream, not a new mechanism.
 
-| [INDEX] | [VARIANT_FAMILY] | [STATE_KIND] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:--------------------------------------------------------------- |
-| [01] | `hover` `focus` `focus-visible` `focus-within` `pressed` `active` `disabled` | interactive | `isHovered`/`isFocused`/`isFocusVisible`/`isPressed`/`isDisabled` — the core interaction styling on every `view/primitive` row |
-| [02] | `selected` `selection-start` `selection-end` `indeterminate` | selection | `isSelected` + range endpoints — list/table/grid item and calendar-cell selection styling |
-| [03] | `open` `expanded` `entering` `exiting` | overlay/motion | `isOpen`/`isExpanded` + transition phases — `entering`/`exiting` pair with `tw-animate-css` for enter/exit |
-| [04] | `required` `invalid` `unavailable` `read-only` `placeholder-shown` `pending` `empty` | field/value | field validity + value states — the `Schema`→aria `FormBinding` surfaces `invalid`/`required` here |
-| [05] | `dragging` `drop-target` `resizing` `allows-dragging` `allows-removing` `allows-sorting` | drag/resize | `isDragging`/`isDropTarget` + capability flags — dnd + column-resize affordance styling |
-| [06] | `has-submenu` `has-child-items` `current` `outside-month` `outside-visible-range` | structural | menu/collection structure + calendar range edges — `current` marks the active nav item |
+| [INDEX] | [VARIANT_FAMILY]                                                                         | [STATE_KIND]   | [CONSUMER_BOUNDARY]                                                                                                            |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `hover` `focus` `focus-visible` `focus-within` `pressed` `active` `disabled`             | interactive    | `isHovered`/`isFocused`/`isFocusVisible`/`isPressed`/`isDisabled` — the core interaction styling on every `view/primitive` row |
+|  [02]   | `selected` `selection-start` `selection-end` `indeterminate`                             | selection      | `isSelected` + range endpoints — list/table/grid item and calendar-cell selection styling                                      |
+|  [03]   | `open` `expanded` `entering` `exiting`                                                   | overlay/motion | `isOpen`/`isExpanded` + transition phases — `entering`/`exiting` pair with `tw-animate-css` for enter/exit                     |
+|  [04]   | `required` `invalid` `unavailable` `read-only` `placeholder-shown` `pending` `empty`     | field/value    | field validity + value states — the `Schema`→aria `FormBinding` surfaces `invalid`/`required` here                             |
+|  [05]   | `dragging` `drop-target` `resizing` `allows-dragging` `allows-removing` `allows-sorting` | drag/resize    | `isDragging`/`isDropTarget` + capability flags — dnd + column-resize affordance styling                                        |
+|  [06]   | `has-submenu` `has-child-items` `current` `outside-month` `outside-visible-range`        | structural     | menu/collection structure + calendar range edges — `current` marks the active nav item                                         |
 
 [PUBLIC_TYPE_SCOPE]: the enum variants — one per RAC render-prop enum, as `name-value`
 - rail: types
 - The enum attributes take a value, so the variant is `name-value` (`placement-bottom`, `orientation-horizontal`); `selection-mode`/`resizable-direction`/`sort-direction` register under the short names `selection`/`resizable`/`sort`. Same one-loop mechanism over a `{ attribute: [values] }` data table.
 
-| [INDEX] | [VARIANT_FAMILY] | [ENUM_KIND] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `placement-{left,right,top,bottom}` | overlay side | `data-placement` on popover/tooltip — arrow + entry-direction styling, paired with `floating-ui` placement |
-| [02] | `orientation-{horizontal,vertical}` | axis | `data-orientation` on tabs/slider/separator/toolbar — axis-dependent layout |
-| [03] | `selection-{single,multiple}` | selection mode | `data-selection-mode` — collection affordance (checkboxes vs highlight) by mode |
-| [04] | `sort-{ascending,descending}` | sort direction | `data-sort-direction` on a table column header — sort-indicator styling |
-| [05] | `resizable-{right,left,both}` | resize dir | `data-resizable-direction` on a resizable table column |
-| [06] | `type-{literal,year,month,day}` | date segment | `data-type` on a date-field segment — per-segment styling in a latent date `view` row |
-| [07] | `layout-{grid,stack}` | collection layout | `data-layout` on a GridList/collection — layout-dependent item styling |
+| [INDEX] | [VARIANT_FAMILY]                    | [ENUM_KIND]       | [CONSUMER_BOUNDARY]                                                                                        |
+| :-----: | :---------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `placement-{left,right,top,bottom}` | overlay side      | `data-placement` on popover/tooltip — arrow + entry-direction styling, paired with `floating-ui` placement |
+|  [02]   | `orientation-{horizontal,vertical}` | axis              | `data-orientation` on tabs/slider/separator/toolbar — axis-dependent layout                                |
+|  [03]   | `selection-{single,multiple}`       | selection mode    | `data-selection-mode` — collection affordance (checkboxes vs highlight) by mode                            |
+|  [04]   | `sort-{ascending,descending}`       | sort direction    | `data-sort-direction` on a table column header — sort-indicator styling                                    |
+|  [05]   | `resizable-{right,left,both}`       | resize dir        | `data-resizable-direction` on a resizable table column                                                     |
+|  [06]   | `type-{literal,year,month,day}`     | date segment      | `data-type` on a date-field segment — per-segment styling in a latent date `view` row                      |
+|  [07]   | `layout-{grid,stack}`               | collection layout | `data-layout` on a GridList/collection — layout-dependent item styling                                     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -49,21 +49,21 @@
 - rail: surfaces-and-dispatch
 - The whole surface is a catalog-bound `@plugin` directive in the folder's Tailwind entry CSS; there is no JS import. The `prefix` option namespaces every variant (`rac-selected:`) when a name does collide with a project convention.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `@plugin "tailwindcss-react-aria-components";` | registration | the `token`/CSS entry — registers all boolean + enum variants; catalog-bound CSS-first, not a JS config array |
-| [02] | `@plugin "tailwindcss-react-aria-components" { prefix: rac; }` | namespaced | prefixes every variant (`rac-selected:`) — only when the unprefixed names collide with an existing convention |
-| [03] | `selected:` / `pressed:` / `placement-bottom:` … applied in `className` | variant use | the composed surface — a variant scopes the utilities after it; stacks with `hover:`/`md:` and flows through `cn` |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                               |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `@plugin "tailwindcss-react-aria-components";`                          | registration   | the `token`/CSS entry — registers all boolean + enum variants; catalog-bound CSS-first, not a JS config array     |
+|  [02]   | `@plugin "tailwindcss-react-aria-components" { prefix: rac; }`          | namespaced     | prefixes every variant (`rac-selected:`) — only when the unprefixed names collide with an existing convention     |
+|  [03]   | `selected:` / `pressed:` / `placement-bottom:` … applied in `className` | variant use    | the composed surface — a variant scopes the utilities after it; stacks with `hover:`/`md:` and flows through `cn` |
 
 [ENTRYPOINT_SCOPE]: the unprefixed native-collapse behavior
 - rail: surfaces-and-dispatch
 - Unprefixed (`prefix: ''`), variants that overlap a native CSS state (`hover`→`:hover`, `focus`→`:focus`, `disabled`/`read-only`/`open`/…) are emitted as a unified `:is()` selector so the variant applies to BOTH a RAC element (`[data-rac][data-hovered]`) and a plain native element (`:not([data-rac]):hover`) — one variant name covers custom and native. `hover` additionally wraps `@media (hover: hover)` to avoid sticky touch styles.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `&:is(:where([data-rac])[data-hovered], :where(:not([data-rac])):hover)` (unprefixed) | native collapse| `hover`/`focus`/`active`/`disabled`/`read-only`/`open`/`expanded` apply to RAC + native; `:where()` keeps specificity at (0,1,0) |
-| [02] | `@media (hover: hover)` wrapper on `hover` | pointer gate | prevents sticky `hover:` styles on touch; still composable with `group-hover:`/`peer-hover:`/`not-hover:` |
-| [03] | `placeholder-shown:` merges `[data-placeholder], :placeholder-shown` | merge selector | applies to both a RAC field and a native input placeholder without a second variant |
+| [INDEX] | [SURFACE]                                                                             | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                                              |
+| :-----: | :------------------------------------------------------------------------------------ | :-------------- | :------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `&:is(:where([data-rac])[data-hovered], :where(:not([data-rac])):hover)` (unprefixed) | native collapse | `hover`/`focus`/`active`/`disabled`/`read-only`/`open`/`expanded` apply to RAC + native; `:where()` keeps specificity at (0,1,0) |
+|  [02]   | `@media (hover: hover)` wrapper on `hover`                                            | pointer gate    | prevents sticky `hover:` styles on touch; still composable with `group-hover:`/`peer-hover:`/`not-hover:`                        |
+|  [03]   | `placeholder-shown:` merges `[data-placeholder], :placeholder-shown`                  | merge selector  | applies to both a RAC field and a native input placeholder without a second variant                                              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

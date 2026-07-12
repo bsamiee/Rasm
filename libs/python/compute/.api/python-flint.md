@@ -35,39 +35,39 @@
 [PUBLIC_TYPE_SCOPE]: modular and finite-field types
 - rail: exact-arithmetic
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]           | [CAPABILITY]                             |
-| :-----: | :---------------- | :---------------------- | :--------------------------------------- |
-|  [01]   | `nmod`            | word-sized modular int  | arithmetic mod a machine-word modulus    |
-|  [02]   | `nmod_mat`        | modular matrix          | dense matrix over `nmod`                 |
-|  [03]   | `nmod_poly`       | modular polynomial      | univariate polynomial over `nmod`        |
-|  [04]   | `nmod_series`     | modular series          | power series over `nmod`                 |
-|  [05]   | `fmpz_mod`        | multiprecision mod int  | arithmetic mod a large-integer modulus   |
-|  [06]   | `fmpz_mod_ctx`    | modulus context         | context object for `fmpz_mod` operations |
-|  [07]   | `fmpz_mod_mat`    | modular matrix          | dense matrix over `fmpz_mod`             |
-|  [08]   | `fmpz_mod_poly`   | modular polynomial      | univariate polynomial over `fmpz_mod`    |
-|  [09]   | `fq_default`          | finite-field element    | element in GF(p^n) with Frobenius/norm                |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]           | [CAPABILITY]                                                                   |
+| :-----: | :-------------------- | :---------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `nmod`                | word-sized modular int  | arithmetic mod a machine-word modulus                                          |
+|  [02]   | `nmod_mat`            | modular matrix          | dense matrix over `nmod`                                                       |
+|  [03]   | `nmod_poly`           | modular polynomial      | univariate polynomial over `nmod`                                              |
+|  [04]   | `nmod_series`         | modular series          | power series over `nmod`                                                       |
+|  [05]   | `fmpz_mod`            | multiprecision mod int  | arithmetic mod a large-integer modulus                                         |
+|  [06]   | `fmpz_mod_ctx`        | modulus context         | context object for `fmpz_mod` operations                                       |
+|  [07]   | `fmpz_mod_mat`        | modular matrix          | dense matrix over `fmpz_mod`                                                   |
+|  [08]   | `fmpz_mod_poly`       | modular polynomial      | univariate polynomial over `fmpz_mod`                                          |
+|  [09]   | `fq_default`          | finite-field element    | element in GF(p^n) with Frobenius/norm                                         |
 |  [10]   | `fq_default_ctx`      | finite-field context    | context for GF(p^n) carrying `characteristic`/`degree`/`gen`/`modulus`/`order` |
-|  [11]   | `fq_default_poly`     | finite-field polynomial | polynomial over `fq_default`                          |
-|  [12]   | `fq_default_poly_ctx` | finite-field poly ctx   | polynomial-ring context bound to a `fq_default_ctx`   |
-|  [13]   | `fmpz_mod_poly_ctx`   | modular poly context    | polynomial-ring context bound to a `fmpz_mod_ctx`     |
+|  [11]   | `fq_default_poly`     | finite-field polynomial | polynomial over `fq_default`                                                   |
+|  [12]   | `fq_default_poly_ctx` | finite-field poly ctx   | polynomial-ring context bound to a `fq_default_ctx`                            |
+|  [13]   | `fmpz_mod_poly_ctx`   | modular poly context    | polynomial-ring context bound to a `fmpz_mod_ctx`                              |
 
 [PUBLIC_TYPE_SCOPE]: multivariate polynomial types
 - rail: exact-arithmetic
 
-| [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [CAPABILITY]                           |
-| :-----: | :--------------- | :------------- | :------------------------------------- |
-|  [01]   | `fmpz_mpoly`         | integer mpoly  | multivariate poly over `fmpz`                                          |
-|  [02]   | `fmpz_mpoly_ctx`     | mpoly context  | variable count, names, and `Ordering` (lex/deglex/degrevlex) for `fmpz` |
-|  [03]   | `fmpz_mpoly_vec`     | mpoly vector   | vector of `fmpz_mpoly` (ideal generator basis, Gröbner input)          |
-|  [04]   | `fmpq_mpoly`         | rational mpoly | multivariate poly over `fmpq`                                          |
-|  [05]   | `fmpq_mpoly_ctx`     | mpoly context  | variable count, names, and `Ordering` for `fmpq`                       |
-|  [06]   | `fmpq_mpoly_vec`     | mpoly vector   | vector of `fmpq_mpoly`                                                  |
-|  [07]   | `nmod_mpoly`         | modular mpoly  | multivariate poly over `nmod`                                          |
-|  [08]   | `nmod_mpoly_ctx`     | mpoly context  | context for `nmod_mpoly`                                               |
-|  [09]   | `nmod_mpoly_vec`     | mpoly vector   | vector of `nmod_mpoly`                                                  |
-|  [10]   | `fmpz_mod_mpoly`     | modular mpoly  | multivariate poly over `fmpz_mod`                                      |
-|  [11]   | `fmpz_mod_mpoly_ctx` | mpoly context  | context for `fmpz_mod_mpoly`                                           |
-|  [12]   | `fmpz_mod_mpoly_vec` | mpoly vector   | vector of `fmpz_mod_mpoly`                                             |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]  | [CAPABILITY]                                                             |
+| :-----: | :------------------- | :------------- | :----------------------------------------------------------------------- |
+|  [01]   | `fmpz_mpoly`         | integer mpoly  | multivariate poly over `fmpz`                                            |
+|  [02]   | `fmpz_mpoly_ctx`     | mpoly context  | variable count, names, and `Ordering` (lex/deglex/degrevlex) for `fmpz`  |
+|  [03]   | `fmpz_mpoly_vec`     | mpoly vector   | vector of `fmpz_mpoly` (ideal generator basis, Gröbner input)            |
+|  [04]   | `fmpq_mpoly`         | rational mpoly | multivariate poly over `fmpq`                                            |
+|  [05]   | `fmpq_mpoly_ctx`     | mpoly context  | variable count, names, and `Ordering` for `fmpq`                         |
+|  [06]   | `fmpq_mpoly_vec`     | mpoly vector   | vector of `fmpq_mpoly`                                                   |
+|  [07]   | `nmod_mpoly`         | modular mpoly  | multivariate poly over `nmod`                                            |
+|  [08]   | `nmod_mpoly_ctx`     | mpoly context  | context for `nmod_mpoly`                                                 |
+|  [09]   | `nmod_mpoly_vec`     | mpoly vector   | vector of `nmod_mpoly`                                                   |
+|  [10]   | `fmpz_mod_mpoly`     | modular mpoly  | multivariate poly over `fmpz_mod`                                        |
+|  [11]   | `fmpz_mod_mpoly_ctx` | mpoly context  | context for `fmpz_mod_mpoly`                                             |
+|  [12]   | `fmpz_mod_mpoly_vec` | mpoly vector   | vector of `fmpz_mod_mpoly`                                               |
 |  [13]   | `Ordering`           | monomial order | enum (`lex`/`deglex`/`degrevlex`) selecting the mpoly-context term order |
 
 [PUBLIC_TYPE_SCOPE]: ball arithmetic types
@@ -98,27 +98,27 @@
 [ENTRYPOINT_SCOPE]: `fmpz` exact integer operations
 - rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [RAIL]                         |
-| :-----: | :--------------------------------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `fmpz(n)` constructor                                      | construction   | from int or string             |
-|  [02]   | `is_prime()` / `is_probable_prime()`                       | predicate      | primality test                 |
-|  [03]   | `factor()` / `factor_smooth()`                             | factorization  | prime factorization            |
-|  [04]   | `gcd(other)` / `lcm(other)`                                | arithmetic     | GCD and LCM                    |
-|  [05]   | `sqrt()` / `isqrt()` / `root(n)`                           | roots          | exact and integer square roots |
-|  [06]   | `fac_ui(n)` / `fib_ui(n)` / `bell_number(n)` / `partitions_p(n)` / `primorial_ui(n)` | combinatorics  | factorial, Fibonacci, Bell, partition count, primorial |
+| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                   |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `fmpz(n)` constructor                                                                         | construction   | from int or string                                       |
+|  [02]   | `is_prime()` / `is_probable_prime()`                                                          | predicate      | primality test                                           |
+|  [03]   | `factor()` / `factor_smooth()`                                                                | factorization  | prime factorization                                      |
+|  [04]   | `gcd(other)` / `lcm(other)`                                                                   | arithmetic     | GCD and LCM                                              |
+|  [05]   | `sqrt()` / `isqrt()` / `root(n)`                                                              | roots          | exact and integer square roots                           |
+|  [06]   | `fac_ui(n)` / `fib_ui(n)` / `bell_number(n)` / `partitions_p(n)` / `primorial_ui(n)`          | combinatorics  | factorial, Fibonacci, Bell, partition count, primorial   |
 |  [07]   | `euler_phi(n)` / `moebius_mu(n)` / `jacobi(a, n)` / `divisor_sigma(n, k)` / `euler_number(n)` | number theory  | Euler totient, Möbius, Jacobi, divisor sum, Euler number |
-|  [08]   | `rising(x, n)` / `stirling_s1(n, k)` / `stirling_s2(n, k)` / `bin_uiui(n, k)` | combinatorics  | rising factorial, Stirling numbers, binomial coefficient |
-|  [09]   | `is_perfect_power()` / `is_square()` / `sqrtmod(p)` / `sqrtrem()` | structure      | perfect-power/square tests, modular and remainder roots |
+|  [08]   | `rising(x, n)` / `stirling_s1(n, k)` / `stirling_s2(n, k)` / `bin_uiui(n, k)`                 | combinatorics  | rising factorial, Stirling numbers, binomial coefficient |
+|  [09]   | `is_perfect_power()` / `is_square()` / `sqrtmod(p)` / `sqrtrem()`                             | structure      | perfect-power/square tests, modular and remainder roots  |
 
 [ENTRYPOINT_SCOPE]: `fmpq` exact rational analytic constants
 - rail: exact-arithmetic
 - `fmpq` exposes exact closed-form sequence values returned as exact rationals; these feed exact-coefficient solver kernels without float rounding.
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                                       |
-| :-----: | :---------------------------------------------- | :------------- | :------------------------------------------- |
-|  [01]   | `fmpq.bernoulli(n)` / `fmpq.harmonic(n)`        | sequences      | exact Bernoulli and harmonic numbers         |
-|  [02]   | `fmpq.dedekind_sum(h, k)`                       | number theory  | exact Dedekind sum                           |
-|  [03]   | `numer()` / `denom()` / `floor()` / `ceil()` / `round()` / `next()` | access | exact numerator/denominator, rounding, Stern-Brocot successor |
+| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                                        |
+| :-----: | :------------------------------------------------------------------ | :------------- | :------------------------------------------------------------ |
+|  [01]   | `fmpq.bernoulli(n)` / `fmpq.harmonic(n)`                            | sequences      | exact Bernoulli and harmonic numbers                          |
+|  [02]   | `fmpq.dedekind_sum(h, k)`                                           | number theory  | exact Dedekind sum                                            |
+|  [03]   | `numer()` / `denom()` / `floor()` / `ceil()` / `round()` / `next()` | access         | exact numerator/denominator, rounding, Stern-Brocot successor |
 
 [ENTRYPOINT_SCOPE]: `fmpz_mat` and `fmpq_mat` matrix operations
 - rail: exact-arithmetic
@@ -135,75 +135,75 @@
 [ENTRYPOINT_SCOPE]: `fmpz_poly` and `fmpq_poly` polynomial operations
 - rail: exact-arithmetic
 
-| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                          |
-| :-----: | :-------------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `factor()` / `factor_squarefree()`                        | factorization  | polynomial factorization        |
-|  [02]   | `gcd(other)` / `resultant(other)`                         | algebra        | GCD and resultant               |
-|  [03]   | `roots()` / `real_roots()` / `complex_roots()`            | root finding   | exact and numerical roots       |
-|  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus       | formal derivative/integral      |
-|  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly     | cyclotomic, Chebyshev, SD       |
-|  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure      | cyclotomic test and compression |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                                                                       |
+| :-----: | :-------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `factor()` / `factor_squarefree()`                        | factorization  | polynomial factorization                                                                                                                                     |
+|  [02]   | `gcd(other)` / `resultant(other)`                         | algebra        | GCD and resultant                                                                                                                                            |
+|  [03]   | `roots()` / `real_roots()` / `complex_roots()`            | root finding   | exact and numerical roots                                                                                                                                    |
+|  [04]   | `derivative()` / `integral()` (fmpq_poly)                 | calculus       | formal derivative/integral                                                                                                                                   |
+|  [05]   | `cyclotomic(n)` / `chebyshev_t(n)` / `swinnerton_dyer(n)` | named poly     | cyclotomic, Chebyshev, SD                                                                                                                                    |
+|  [06]   | `is_cyclotomic()` / `deflate()` / `inflate(n)`            | structure      | cyclotomic test and compression                                                                                                                              |
 |  [07]   | `degree()`                                                | access         | polynomial degree (highest-term exponent, `-1` for the zero poly); the degree the `fmpq_mat.charpoly()`/`minpoly()` result reports as the spectrum dimension |
 
 [ENTRYPOINT_SCOPE]: `arb` and `acb` ball arithmetic operations
 - rail: ball-arithmetic
 
-| [INDEX] | [SURFACE]                                                                              | [ENTRY_FAMILY]   | [RAIL]                                                       |
-| :-----: | :------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
-|  [01]   | `arb(x)` / `arb(x, r)` constructor                                                     | construction     | midpoint or midpoint+radius ball                             |
-|  [02]   | `arb.pi()` / `const_e()` / `const_euler()` / `const_catalan()` / `const_glaisher()` / `const_khinchin()` | constants | certified mathematical constants (static methods on `arb`) |
-|  [03]   | `exp()` / `log()` / `log1p()` / `expm1()` / `sin()` / `cos()` / `sin_cos()` / `tan()` / `sqrt()` / `rsqrt()` / `root(n)` | elementary | certified elementary functions and fused `sin_cos`/`sinh_cosh` |
-|  [04]   | `gamma()` / `lgamma()` / `rgamma()` / `digamma()` / `gamma_lower()` / `gamma_upper()` / `beta_lower()` | special-gamma | gamma family and incomplete gamma/beta with certified bounds |
-|  [05]   | `zeta()` / `polylog()` / `lerch_phi()` (acb) / `barnes_g()` (acb) / `stieltjes()` (acb) | special-zeta     | Riemann/Hurwitz zeta, polylog, Lerch transcendent, Barnes G  |
-|  [06]   | `erf()` / `erfc()` / `erfi()` / `erfinv()` / `erfcinv()` / `fresnel_s()` / `fresnel_c()` | special-error   | error functions, inverse error, Fresnel integrals            |
-|  [07]   | `ei()` / `li()` / `si()` / `ci()` / `shi()` / `chi()` / `expint()`                     | special-integral | exponential/logarithmic/trig/hyperbolic integrals            |
-|  [08]   | `bessel_j(n,z)` / `bessel_y(n,z)` / `bessel_i(n,z)` / `bessel_k(n,z)` / `airy()` / `airy_ai()` / `airy_bi()` / `coulomb()` | special-bessel | Bessel, Airy (with `airy_ai_zero`/`airy_bi_zero`), Coulomb wave |
-|  [09]   | `hypgeom(a,b,z)` / `hypgeom_0f1(a,z)` / `hypgeom_1f1(a,b,z)` / `hypgeom_2f1(a,b,c,z)` / `hypgeom_u(a,b,z)` | special-hypgeom | confluent/Gauss/Tricomi hypergeometric                       |
-|  [10]   | `legendre_p()` / `legendre_q()` / `chebyshev_t()` / `chebyshev_u()` / `hermite_h()` / `laguerre_l()` / `gegenbauer_c()` / `jacobi_p()` | orthogonal-poly | orthogonal-polynomial evaluation at a ball argument          |
-|  [11]   | `lambertw()` / `agm()` / `sinc()` / `sgn()` / `lambertw()`                             | special-misc     | Lambert W, arithmetic-geometric mean, sinc                   |
-|  [12]   | `contains(other)` / `overlaps(other)` / `union(other)` / `intersection(other)` / `mid()` / `rad()` / `is_exact()` / `is_finite()` / `rel_accuracy_bits()` | ball-ops | containment, hull, intersection, ball metadata, accuracy bits |
-|  [13]   | `acb(re, im)` / `real()` / `imag()` / `arg()` / `conjugate()` / `csgn()`               | complex-ops      | complex ball construction, parts, argument, sign             |
-|  [14]   | `acb.elliptic_k()` / `elliptic_e()` / `elliptic_p()` / `elliptic_zeta()` / `elliptic_sigma()` / `elliptic_rf/rg/rj/rc/rd()` | elliptic | complete/incomplete elliptic integrals and Weierstrass functions |
-|  [15]   | `acb.modular_j()` / `modular_eta()` / `modular_lambda()` / `modular_delta()` / `modular_theta()` / `dedekind_eta` | modular | modular forms and Jacobi theta on the complex ball           |
-|  [16]   | `acb.dirichlet_l(s, char)` / `acb.zeta_zero(n)` / `acb.zeta_zeros(n, count)` / `arb.zeta_nzeros(t)` | analytic | Dirichlet L-function, individual and batched Riemann zeta zeros |
-|  [17]   | `arb_mat.solve(b)` / `arb_mat.inv()` / `arb_mat.det()` / `arb_mat.eig()` / `arb_mat.exp()` / `arb_mat.charpoly()` / `arb_mat.dct()` | real-matrix | certified solve, inverse, eigenvalues, matrix exponential, DCT |
-|  [18]   | `acb_mat.eig()` / `acb_mat.solve(b)` / `acb_mat.exp()` / `acb_mat.dft()` / `acb_mat.theta()` | complex-matrix   | certified complex eigenvalues, matrix DFT, Riemann theta on a matrix |
+| [INDEX] | [SURFACE]                                                                                                                                                 | [ENTRY_FAMILY]   | [RAIL]                                                               |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------- |
+|  [01]   | `arb(x)` / `arb(x, r)` constructor                                                                                                                        | construction     | midpoint or midpoint+radius ball                                     |
+|  [02]   | `arb.pi()` / `const_e()` / `const_euler()` / `const_catalan()` / `const_glaisher()` / `const_khinchin()`                                                  | constants        | certified mathematical constants (static methods on `arb`)           |
+|  [03]   | `exp()` / `log()` / `log1p()` / `expm1()` / `sin()` / `cos()` / `sin_cos()` / `tan()` / `sqrt()` / `rsqrt()` / `root(n)`                                  | elementary       | certified elementary functions and fused `sin_cos`/`sinh_cosh`       |
+|  [04]   | `gamma()` / `lgamma()` / `rgamma()` / `digamma()` / `gamma_lower()` / `gamma_upper()` / `beta_lower()`                                                    | special-gamma    | gamma family and incomplete gamma/beta with certified bounds         |
+|  [05]   | `zeta()` / `polylog()` / `lerch_phi()` (acb) / `barnes_g()` (acb) / `stieltjes()` (acb)                                                                   | special-zeta     | Riemann/Hurwitz zeta, polylog, Lerch transcendent, Barnes G          |
+|  [06]   | `erf()` / `erfc()` / `erfi()` / `erfinv()` / `erfcinv()` / `fresnel_s()` / `fresnel_c()`                                                                  | special-error    | error functions, inverse error, Fresnel integrals                    |
+|  [07]   | `ei()` / `li()` / `si()` / `ci()` / `shi()` / `chi()` / `expint()`                                                                                        | special-integral | exponential/logarithmic/trig/hyperbolic integrals                    |
+|  [08]   | `bessel_j(n,z)` / `bessel_y(n,z)` / `bessel_i(n,z)` / `bessel_k(n,z)` / `airy()` / `airy_ai()` / `airy_bi()` / `coulomb()`                                | special-bessel   | Bessel, Airy (with `airy_ai_zero`/`airy_bi_zero`), Coulomb wave      |
+|  [09]   | `hypgeom(a,b,z)` / `hypgeom_0f1(a,z)` / `hypgeom_1f1(a,b,z)` / `hypgeom_2f1(a,b,c,z)` / `hypgeom_u(a,b,z)`                                                | special-hypgeom  | confluent/Gauss/Tricomi hypergeometric                               |
+|  [10]   | `legendre_p()` / `legendre_q()` / `chebyshev_t()` / `chebyshev_u()` / `hermite_h()` / `laguerre_l()` / `gegenbauer_c()` / `jacobi_p()`                    | orthogonal-poly  | orthogonal-polynomial evaluation at a ball argument                  |
+|  [11]   | `lambertw()` / `agm()` / `sinc()` / `sgn()` / `lambertw()`                                                                                                | special-misc     | Lambert W, arithmetic-geometric mean, sinc                           |
+|  [12]   | `contains(other)` / `overlaps(other)` / `union(other)` / `intersection(other)` / `mid()` / `rad()` / `is_exact()` / `is_finite()` / `rel_accuracy_bits()` | ball-ops         | containment, hull, intersection, ball metadata, accuracy bits        |
+|  [13]   | `acb(re, im)` / `real()` / `imag()` / `arg()` / `conjugate()` / `csgn()`                                                                                  | complex-ops      | complex ball construction, parts, argument, sign                     |
+|  [14]   | `acb.elliptic_k()` / `elliptic_e()` / `elliptic_p()` / `elliptic_zeta()` / `elliptic_sigma()` / `elliptic_rf/rg/rj/rc/rd()`                               | elliptic         | complete/incomplete elliptic integrals and Weierstrass functions     |
+|  [15]   | `acb.modular_j()` / `modular_eta()` / `modular_lambda()` / `modular_delta()` / `modular_theta()` / `dedekind_eta`                                         | modular          | modular forms and Jacobi theta on the complex ball                   |
+|  [16]   | `acb.dirichlet_l(s, char)` / `acb.zeta_zero(n)` / `acb.zeta_zeros(n, count)` / `arb.zeta_nzeros(t)`                                                       | analytic         | Dirichlet L-function, individual and batched Riemann zeta zeros      |
+|  [17]   | `arb_mat.solve(b)` / `arb_mat.inv()` / `arb_mat.det()` / `arb_mat.eig()` / `arb_mat.exp()` / `arb_mat.charpoly()` / `arb_mat.dct()`                       | real-matrix      | certified solve, inverse, eigenvalues, matrix exponential, DCT       |
+|  [18]   | `acb_mat.eig()` / `acb_mat.solve(b)` / `acb_mat.exp()` / `acb_mat.dft()` / `acb_mat.theta()`                                                              | complex-matrix   | certified complex eigenvalues, matrix DFT, Riemann theta on a matrix |
 
 [ENTRYPOINT_SCOPE]: context and precision control
 - rail: ball-arithmetic
 
-| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [RAIL]                      |
-| :-----: | :-------------------------------------------- | :------------- | :-------------------------- |
-|  [01]   | `flint.ctx.prec` (get/set)                    | precision      | working bit-precision       |
-|  [02]   | `flint.ctx.dps` (get/set)                     | precision      | decimal digits of precision |
-|  [03]   | `flint.ctx.threads` (get/set)                 | threading      | FLINT thread count          |
-|  [04]   | `flint.ctx.pretty` (get/set)                  | display        | human-readable output mode  |
-|  [05]   | `flint.ctx.unicode` (get/set)                 | display        | Unicode glyphs in `str()` output |
-|  [06]   | `flint.ctx.cap` (get/set)                     | series         | default truncation order (`prec`) for power-series types |
-|  [07]   | `flint.ctx.extraprec(n)` / `flint.ctx.extradps(n)` / `flint.ctx.workprec(n)` / `flint.ctx.workdps(n)` | precision | context-manager scopes that bump bit/decimal precision for a block |
-|  [08]   | `flint.ctx.default()` / `flint.ctx.cleanup()` | lifecycle      | reset to defaults / FLINT thread-local cleanup |
+| [INDEX] | [SURFACE]                                                                                             | [ENTRY_FAMILY] | [RAIL]                                                             |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
+|  [01]   | `flint.ctx.prec` (get/set)                                                                            | precision      | working bit-precision                                              |
+|  [02]   | `flint.ctx.dps` (get/set)                                                                             | precision      | decimal digits of precision                                        |
+|  [03]   | `flint.ctx.threads` (get/set)                                                                         | threading      | FLINT thread count                                                 |
+|  [04]   | `flint.ctx.pretty` (get/set)                                                                          | display        | human-readable output mode                                         |
+|  [05]   | `flint.ctx.unicode` (get/set)                                                                         | display        | Unicode glyphs in `str()` output                                   |
+|  [06]   | `flint.ctx.cap` (get/set)                                                                             | series         | default truncation order (`prec`) for power-series types           |
+|  [07]   | `flint.ctx.extraprec(n)` / `flint.ctx.extradps(n)` / `flint.ctx.workprec(n)` / `flint.ctx.workdps(n)` | precision      | context-manager scopes that bump bit/decimal precision for a block |
+|  [08]   | `flint.ctx.default()` / `flint.ctx.cleanup()`                                                         | lifecycle      | reset to defaults / FLINT thread-local cleanup                     |
 
 [ENTRYPOINT_SCOPE]: power-series (truncated analytic) operations
 - rail: ball-arithmetic
 - `arb_series` / `acb_series` carry the same special-function catalogue as the scalar ball types but evaluated as truncated power series at precision `ctx.cap`; `fmpz_series`/`fmpq_series`/`nmod_series` are the exact/modular truncated series. These own rigorous series composition, reversion, and root finding that a hand-rolled Taylor truncation cannot certify.
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY] | [RAIL]                                                  |
-| :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
-|  [01]   | `arb_series.exp()` / `log()` / `sin_cos()` / `gamma()` / `zeta()` / `erf()` / `bessel`/`airy` family | series-special | certified truncated power-series special functions |
-|  [02]   | `arb_series.derivative()` / `integral()` / `inv()` / `reversion()`  | series-calculus | formal derivative/integral, series inverse, compositional reversion |
-|  [03]   | `arb_series.find_roots()`                                           | series-roots   | rigorous root isolation from a truncated series         |
-|  [04]   | `acb_series.dirichlet_l()` / `polylog()` / `modular_theta()` / `elliptic_p()` | series-analytic | analytic functions as truncated complex power series |
-|  [05]   | `coeffs()` / `length()` / `valuation()` / `prec`                    | series-access  | coefficient list, length, valuation, truncation order   |
+| [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY]  | [RAIL]                                                              |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------ |
+|  [01]   | `arb_series.exp()` / `log()` / `sin_cos()` / `gamma()` / `zeta()` / `erf()` / `bessel`/`airy` family | series-special  | certified truncated power-series special functions                  |
+|  [02]   | `arb_series.derivative()` / `integral()` / `inv()` / `reversion()`                                   | series-calculus | formal derivative/integral, series inverse, compositional reversion |
+|  [03]   | `arb_series.find_roots()`                                                                            | series-roots    | rigorous root isolation from a truncated series                     |
+|  [04]   | `acb_series.dirichlet_l()` / `polylog()` / `modular_theta()` / `elliptic_p()`                        | series-analytic | analytic functions as truncated complex power series                |
+|  [05]   | `coeffs()` / `length()` / `valuation()` / `prec`                                                     | series-access   | coefficient list, length, valuation, truncation order               |
 
 [ENTRYPOINT_SCOPE]: certified evaluation dispatch and analytic helpers
 - rail: ball-arithmetic
 - top-level helpers that adaptively raise working precision until a target accuracy is reached, decoupling the consumer from manual `ctx.prec` retry loops.
 
-| [INDEX] | [SURFACE]                          | [ENTRY_FAMILY] | [RAIL]                                                                 |
-| :-----: | :--------------------------------- | :------------- | :--------------------------------------------------------------------- |
-|  [01]   | `flint.good(func, prec=, maxprec=)` | adaptive-eval  | re-evaluate `func` at rising precision until the result ball is accurate to `ctx.dps`, returning the certified value |
-|  [02]   | `flint.showgood(func, dps=, maxprec=)` | adaptive-display | `good` plus pretty-printing of the certified digits                    |
-|  [03]   | `dirichlet_char.l(s)` / `dirichlet_char.hardy_z(t)` / `dirichlet_group(q)` | analytic | Dirichlet L-function and Hardy Z-function from a character, character-group enumeration |
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY]   | [RAIL]                                                                                                               |
+| :-----: | :------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `flint.good(func, prec=, maxprec=)`                                        | adaptive-eval    | re-evaluate `func` at rising precision until the result ball is accurate to `ctx.dps`, returning the certified value |
+|  [02]   | `flint.showgood(func, dps=, maxprec=)`                                     | adaptive-display | `good` plus pretty-printing of the certified digits                                                                  |
+|  [03]   | `dirichlet_char.l(s)` / `dirichlet_char.hardy_z(t)` / `dirichlet_group(q)` | analytic         | Dirichlet L-function and Hardy Z-function from a character, character-group enumeration                              |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

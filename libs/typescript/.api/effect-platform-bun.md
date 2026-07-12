@@ -18,46 +18,46 @@
 - rail: platform/bun
 - `BunRuntime.runMain` is the Bun `RunMain` instance (identical shape to `BrowserRuntime.runMain`/`NodeRuntime.runMain`). `BunContext.layer` merges the whole Bun platform surface — one context Layer the app root provides, not five separate merges.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------- |:------------- |:--------------------------------------------------------- |
-| [01] | `BunRuntime.runMain` | `RunMain` | Bun boot; `proc/exec/runtime` Bun row, `edge` Bun entry |
-| [02] | `BunContext.BunContext` / `BunContext.layer` | context layer | `CommandExecutor \| FileSystem \| Path \| Terminal \| WorkerManager` aggregate |
-| [03] | `BunFileSystem.layer` / `BunPath.layer` / `layerPosix` / `layerWin32` | platform layer | `FileSystem`/`Path` Tag satisfaction |
-| [04] | `BunTerminal.layer` / `BunTerminal.make` | terminal layer | `edge/cli` interactive terminal |
+| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                            |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `BunRuntime.runMain`                                                  | `RunMain`      | Bun boot; `proc/exec/runtime` Bun row, `edge` Bun entry                        |
+|  [02]   | `BunContext.BunContext` / `BunContext.layer`                          | context layer  | `CommandExecutor \| FileSystem \| Path \| Terminal \| WorkerManager` aggregate |
+|  [03]   | `BunFileSystem.layer` / `BunPath.layer` / `layerPosix` / `layerWin32` | platform layer | `FileSystem`/`Path` Tag satisfaction                                           |
+|  [04]   | `BunTerminal.layer` / `BunTerminal.make`                              | terminal layer | `edge/cli` interactive terminal                                                |
 
 [PUBLIC_TYPE_SCOPE]: HTTP serve + request
 - rail: platform/bun
 - `BunHttpServer` is the `edge/api/serve` Bun row over `Bun.serve`, producing `HttpServer` + `HttpPlatform` + `Etag.Generator` + `BunContext`. `BunMultipart`/`BunHttpServerRequest` handle inbound bodies.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------- |:------------- |:--------------------------------------------------------- |
-| [01] | `BunHttpServer.layer` / `layerServer` / `layerConfig` / `layerContext` / `layerTest` / `make` | server layer | `edge/api/serve` Bun `HttpServer`; `EventLogServer` host |
-| [02] | `BunHttpPlatform.layer` / `BunHttpPlatform.make` | platform layer | file-serving `HttpPlatform` for the server |
-| [03] | `BunHttpServerRequest.toRequest` | request adapter| Bun `Request` from an Effect `HttpServerRequest` |
-| [04] | `BunMultipart.stream` / `BunMultipart.persisted` | multipart | inbound multipart body → stream / persisted files |
+| [INDEX] | [SYMBOL]                                                                                      | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------- |
+|  [01]   | `BunHttpServer.layer` / `layerServer` / `layerConfig` / `layerContext` / `layerTest` / `make` | server layer    | `edge/api/serve` Bun `HttpServer`; `EventLogServer` host |
+|  [02]   | `BunHttpPlatform.layer` / `BunHttpPlatform.make`                                              | platform layer  | file-serving `HttpPlatform` for the server               |
+|  [03]   | `BunHttpServerRequest.toRequest`                                                              | request adapter | Bun `Request` from an Effect `HttpServerRequest`         |
+|  [04]   | `BunMultipart.stream` / `BunMultipart.persisted`                                              | multipart       | inbound multipart body → stream / persisted files        |
 
 [PUBLIC_TYPE_SCOPE]: process exec + worker pools
 - rail: platform/bun
 - `BunCommandExecutor` runs subprocesses; `BunWorker`/`BunWorkerRunner` are the worker-pool client/runner (`proc/exec/process` WorkerRunner pools). Worker spawn is parameterized by a `spawn(id)` factory.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------- |:------------- |:--------------------------------------------------------- |
-| [01] | `BunCommandExecutor.layer` | exec layer | `proc/exec/process` subprocess; satisfies `CommandExecutor` |
-| [02] | `BunWorker.layer` / `layerPlatform` / `layerManager` / `layerWorker` | worker client | `proc/exec/process` worker pools; satisfies `WorkerManager`/`Spawner` |
-| [03] | `BunWorkerRunner.layer` | worker runner | worker-side entrypoint Layer; satisfies `PlatformRunner` |
-| [04] | `BunKeyValueStore.layerFileSystem` | KV layer | `proc/config` file source; satisfies `KeyValueStore` |
+| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                   |
+| :-----: | :------------------------------------------------------------------- | :------------ | :-------------------------------------------------------------------- |
+|  [01]   | `BunCommandExecutor.layer`                                           | exec layer    | `proc/exec/process` subprocess; satisfies `CommandExecutor`           |
+|  [02]   | `BunWorker.layer` / `layerPlatform` / `layerManager` / `layerWorker` | worker client | `proc/exec/process` worker pools; satisfies `WorkerManager`/`Spawner` |
+|  [03]   | `BunWorkerRunner.layer`                                              | worker runner | worker-side entrypoint Layer; satisfies `PlatformRunner`              |
+|  [04]   | `BunKeyValueStore.layerFileSystem`                                   | KV layer      | `proc/config` file source; satisfies `KeyValueStore`                  |
 
 [PUBLIC_TYPE_SCOPE]: socket transport + cluster runner
 - rail: platform/bun
 - `BunSocket`/`BunSocketServer` are the socket transport; `BunClusterHttp`/`BunClusterSocket` are the `@effect/cluster` sharding runners over Bun — the `work/engine` runner entrypoint on the Bun runtime `[R5]`. `BunSink`/`BunStream`/`BunSocketServer` re-export `@effect/platform-node-shared`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------- |:------------- |:--------------------------------------------------------- |
-| [01] | `BunSocket.layerWebSocket` / `layerWebSocketConstructor` | socket layer | `net/client/channel`, EventLog WS sync; satisfies `Socket.WebSocketConstructor` |
-| [02] | `BunSocketServer.*` (`node-shared`) | socket server | inbound socket server |
-| [03] | `BunClusterHttp.layer` / `layerHttpServer` | cluster runner | `work/engine/entity` sharding runner (HTTP transport) `[R5]` |
-| [04] | `BunClusterSocket.layer` | cluster runner | `work/engine/entity` sharding runner (socket transport) |
-| [05] | `BunSink.*` / `BunStream.*` (`node-shared`) | io | file/stream sink + source |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                             |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `BunSocket.layerWebSocket` / `layerWebSocketConstructor` | socket layer   | `net/client/channel`, EventLog WS sync; satisfies `Socket.WebSocketConstructor` |
+|  [02]   | `BunSocketServer.*` (`node-shared`)                      | socket server  | inbound socket server                                                           |
+|  [03]   | `BunClusterHttp.layer` / `layerHttpServer`               | cluster runner | `work/engine/entity` sharding runner (HTTP transport) `[R5]`                    |
+|  [04]   | `BunClusterSocket.layer`                                 | cluster runner | `work/engine/entity` sharding runner (socket transport)                         |
+|  [05]   | `BunSink.*` / `BunStream.*` (`node-shared`)              | io             | file/stream sink + source                                                       |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -65,26 +65,26 @@
 - rail: platform/bun
 - `runMain` boots; `BunHttpServer.layer(options)` serves; `layerConfig` wraps the serve options in `Config.Config.Wrap` for boot-time config; `layerTest` provides an in-process test server + client. The Bun `HttpServer` layer carries `HttpPlatform` + `Etag.Generator` + `BunContext`, so the `edge/api/serve` row needs only this one Layer.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `BunRuntime.runMain(effect, { disableErrorReporting?, disablePrettyLogger?, teardown? })` | boot | `proc/exec/runtime` Bun row; `edge` Bun entry |
-| [02] | `BunHttpServer.layer(options: ServeOptions): Layer<HttpServer \| HttpPlatform \| Etag.Generator \| BunContext>` | server layer | `edge/api/serve` Bun serve row |
-| [03] | `BunHttpServer.layerConfig(Config.Wrap<ServeOptions>)` / `layerTest` / `make(options)` | server layer | boot-config serve; in-process test server+client |
-| [04] | `BunContext.layer` | context layer | the aggregate Bun platform context |
-| [05] | `BunMultipart.stream(request)` / `BunMultipart.persisted(request)` | multipart | inbound multipart handling |
+| [INDEX] | [SURFACE]                                                                                                       | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                              |
+| :-----: | :-------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------- |
+|  [01]   | `BunRuntime.runMain(effect, { disableErrorReporting?, disablePrettyLogger?, teardown? })`                       | boot           | `proc/exec/runtime` Bun row; `edge` Bun entry    |
+|  [02]   | `BunHttpServer.layer(options: ServeOptions): Layer<HttpServer \| HttpPlatform \| Etag.Generator \| BunContext>` | server layer   | `edge/api/serve` Bun serve row                   |
+|  [03]   | `BunHttpServer.layerConfig(Config.Wrap<ServeOptions>)` / `layerTest` / `make(options)`                          | server layer   | boot-config serve; in-process test server+client |
+|  [04]   | `BunContext.layer`                                                                                              | context layer  | the aggregate Bun platform context               |
+|  [05]   | `BunMultipart.stream(request)` / `BunMultipart.persisted(request)`                                              | multipart      | inbound multipart handling                       |
 
 [ENTRYPOINT_SCOPE]: process exec + worker pools + cluster
 - rail: platform/bun
 - `BunCommandExecutor.layer` + `BunWorker.layer(spawn)` back `proc/exec/process`. `BunClusterHttp.layer({ transport, serialization?, clientOnly?, storage? })` is the `@effect/cluster` sharding runner — one runner, transport/serialization/storage as policy values.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `BunCommandExecutor.layer: Layer<CommandExecutor, never, FileSystem>` | exec layer | `proc/exec/process` subprocess execution |
-| [02] | `BunWorker.layer(spawn: (id: number) => Worker): Layer<WorkerManager \| Spawner>` | worker client | `proc/exec/process` WorkerRunner pools |
-| [03] | `BunKeyValueStore.layerFileSystem(directory: string)` | KV layer | `proc/config` filesystem KV; `EventLog` identity backing |
-| [04] | `BunSocket.layerWebSocket(url, opts?)` / `layerWebSocketConstructor` | socket layer | `EventLogRemote.layerWebSocket` WS constructor |
-| [05] | `BunClusterHttp.layer({ transport: "http" \| "websocket", serialization?: "msgpack" \| "ndjson", clientOnly?, storage?: "local" \| "sql" \| "byo" })` | cluster runner | `work/engine` sharding runner `[R5]` |
-| [06] | `BunClusterHttp.layerHttpServer` / `BunClusterSocket.layer(opts)` | cluster runner | HTTP-server-hosted / socket-transport runner |
+| [INDEX] | [SURFACE]                                                                                                                                             | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                      |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------- |
+|  [01]   | `BunCommandExecutor.layer: Layer<CommandExecutor, never, FileSystem>`                                                                                 | exec layer     | `proc/exec/process` subprocess execution                 |
+|  [02]   | `BunWorker.layer(spawn: (id: number) => Worker): Layer<WorkerManager \| Spawner>`                                                                     | worker client  | `proc/exec/process` WorkerRunner pools                   |
+|  [03]   | `BunKeyValueStore.layerFileSystem(directory: string)`                                                                                                 | KV layer       | `proc/config` filesystem KV; `EventLog` identity backing |
+|  [04]   | `BunSocket.layerWebSocket(url, opts?)` / `layerWebSocketConstructor`                                                                                  | socket layer   | `EventLogRemote.layerWebSocket` WS constructor           |
+|  [05]   | `BunClusterHttp.layer({ transport: "http" \| "websocket", serialization?: "msgpack" \| "ndjson", clientOnly?, storage?: "local" \| "sql" \| "byo" })` | cluster runner | `work/engine` sharding runner `[R5]`                     |
+|  [06]   | `BunClusterHttp.layerHttpServer` / `BunClusterSocket.layer(opts)`                                                                                     | cluster runner | HTTP-server-hosted / socket-transport runner             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1029,16 +1029,16 @@ flowchart LR
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]             | [OWNER]                                  | [KIND]                                                              | [RAIL]                                             | [CASES] |
-| :-----: | :-------------------- | :--------------------------------------- | :------------------------------------------------------------------ | :-------------------------------------------------- | :-----: |
-|  [01]   | Distance fields       | `GeodesicKernel` heat/MCF arms + cache probes | cache-memoized per-vertex solves over `dec` scaffold + `matrix` factors | `HeatGeodesicAt → Fin<double>`                      |    —    |
-|  [02]   | Exact wavefront       | `GeodesicWindow`/`WindowField` + `PropagateWindows` | pure-scalar MMP wavefront, policy-budgeted, census-carrying, memoized per `WindowFieldKey` | `PropagateWindows → WindowPropagation` (total)      |    —    |
-|  [03]   | Geodesic tracer       | `WalkChart` + `GeodesicWalkMode` + `ExpTrace`/`BvpTrace` | ONE unfold kernel, three seats (IVP/BVP/overlay)                  | `BacktraceGeodesicToSource → Option<BvpTrace>`      |    2    |
-|  [04]   | Trace policies        | `GeodesicTracePolicy` + `WindowPropagationPolicy` | policy records, `Default` presets, monadic `Of`                    | `Of → Fin<policy>`                                  |    —    |
-|  [05]   | Stop vocabulary       | `GeodesicStopKind`                        | `[SmartEnum<int>]` terminal partition                               | pure rows                                           |    3    |
-|  [06]   | Transport + log maps  | `TangentLogMapAlgorithm` + transport arms | generated three-arm `Switch`, Func-form lazy dispatch               | `TangentLogMapAt → Fin<TangentLogMapResult>`        |    3    |
-|  [07]   | Evidence              | `TangentLogMapReceipt`/`Result`           | `ValidityClaim.All` fold + declared path-law gate                   | gated `Fin` projection                              |    —    |
-|  [08]   | Sampling substrate    | `MeshProbe` + `FrameBundle`               | ONE closest-face interpolation owner + ONE weak-keyed tangent-frame owner | `ScalarOn/VectorOn/ComplexBlend → Fin<T>`     |    —    |
+| [INDEX] | [CONCERN]            | [OWNER]                                                  | [KIND]                                                                                     | [RAIL]                                         | [CASES] |
+| :-----: | :------------------- | :------------------------------------------------------- | :----------------------------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
+|  [01]   | Distance fields      | `GeodesicKernel` heat/MCF arms + cache probes            | cache-memoized per-vertex solves over `dec` scaffold + `matrix` factors                    | `HeatGeodesicAt → Fin<double>`                 |    —    |
+|  [02]   | Exact wavefront      | `GeodesicWindow`/`WindowField` + `PropagateWindows`      | pure-scalar MMP wavefront, policy-budgeted, census-carrying, memoized per `WindowFieldKey` | `PropagateWindows → WindowPropagation` (total) |    —    |
+|  [03]   | Geodesic tracer      | `WalkChart` + `GeodesicWalkMode` + `ExpTrace`/`BvpTrace` | ONE unfold kernel, three seats (IVP/BVP/overlay)                                           | `BacktraceGeodesicToSource → Option<BvpTrace>` |    2    |
+|  [04]   | Trace policies       | `GeodesicTracePolicy` + `WindowPropagationPolicy`        | policy records, `Default` presets, monadic `Of`                                            | `Of → Fin<policy>`                             |    —    |
+|  [05]   | Stop vocabulary      | `GeodesicStopKind`                                       | `[SmartEnum<int>]` terminal partition                                                      | pure rows                                      |    3    |
+|  [06]   | Transport + log maps | `TangentLogMapAlgorithm` + transport arms                | generated three-arm `Switch`, Func-form lazy dispatch                                      | `TangentLogMapAt → Fin<TangentLogMapResult>`   |    3    |
+|  [07]   | Evidence             | `TangentLogMapReceipt`/`Result`                          | `ValidityClaim.All` fold + declared path-law gate                                          | gated `Fin` projection                         |    —    |
+|  [08]   | Sampling substrate   | `MeshProbe` + `FrameBundle`                              | ONE closest-face interpolation owner + ONE weak-keyed tangent-frame owner                  | `ScalarOn/VectorOn/ComplexBlend → Fin<T>`      |    —    |
 
 The wavefront, walk, and strip loops are the named statement-kernel exemption: pure-scalar hot loops over detached intrinsic geometry, admitted through `Fin` at every entry, with no host state touched past the `IntrinsicMesh` freeze boundary.
 

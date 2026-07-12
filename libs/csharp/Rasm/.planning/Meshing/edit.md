@@ -318,8 +318,8 @@ The corpus-wide store-mutability and arena-concurrency contract. Every mutable g
 
 One arena, one policy row, one kernel family. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]  | [OWNER]       | [KIND]                                                                                                       | [RAIL]                                              | [CASES] |
-| :-----: | :-------------- | :------------ | :------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------- | :-----: |
-|  [01]   | Arena policy    | `ArenaPolicy` | `record` policy row — capacity seed · weld-tolerance knob · parallel floor                                    | value (composed by healing/arrangement policies)    |    —    |
-|  [02]   | Build arena     | `MeshEdit`    | `sealed class` single-writer pooled SoA — one polymorphic `Of` (space \| soup) + mutation verbs + dirty bitsets + partition-disjoint `Parallel` + freeze | `ToSpace(Context, Op?) → Fin<MeshSpace>` (the ONE rail) |    2    |
-|  [03]   | Arena kernels   | `Kernels`     | static primitive family — union-find tolerance-grid weld (idempotent, in-place) + exact quad-diagonal gate     | total (mutates the arena; no rail)                  |    2    |
+| [INDEX] | [AXIS_CONCERN] | [OWNER]       | [KIND]                                                                                                                                                   | [RAIL]                                                  | [CASES] |
+| :-----: | :------------- | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------ | :-----: |
+|  [01]   | Arena policy   | `ArenaPolicy` | `record` policy row — capacity seed · weld-tolerance knob · parallel floor                                                                               | value (composed by healing/arrangement policies)        |    —    |
+|  [02]   | Build arena    | `MeshEdit`    | `sealed class` single-writer pooled SoA — one polymorphic `Of` (space \| soup) + mutation verbs + dirty bitsets + partition-disjoint `Parallel` + freeze | `ToSpace(Context, Op?) → Fin<MeshSpace>` (the ONE rail) |    2    |
+|  [03]   | Arena kernels  | `Kernels`     | static primitive family — union-find tolerance-grid weld (idempotent, in-place) + exact quad-diagonal gate                                               | total (mutates the arena; no rail)                      |    2    |

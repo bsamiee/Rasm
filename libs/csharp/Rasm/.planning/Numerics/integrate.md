@@ -515,9 +515,9 @@ public abstract partial record FieldIntegrator {
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]                          | [KIND]                                                          | [CASES] |
-| :-----: | :------------------ | :-------------------------------- | :--------------------------------------------------------------- | :-----: |
-|  [01]   | Integrator rows     | `IntegratorKind`                 | `[SmartEnum<int>]` — the tableau IS the row                     |    9    |
-|  [02]   | Coefficient carrier | `ButcherTableau` + `ButcherMomentReceipt` | order-condition-validated record + `ValidityClaim.All` receipt |    1    |
-|  [03]   | Continuous extension | `DenseOutputCoefficientFamily` · `DenseOutputReceipt` · `ButcherDenseOutput` | exact-rational tables + moment-fit fallback via `matrix.md`     |    3    |
-|  [04]   | Step algebra        | `IntegrationModule<TState,TDelta>` (THE `Combine`) · `StepControl` · `FieldIntegrator` · `IntegrationStep` · `DenseOutputSpan` | carrier-generic policy records + `[Union]` stepper              |   2·2   |
+| [INDEX] | [AXIS_CONCERN]       | [OWNER]                                                                                                                        | [KIND]                                                         | [CASES] |
+| :-----: | :------------------- | :----------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------- | :-----: |
+|  [01]   | Integrator rows      | `IntegratorKind`                                                                                                               | `[SmartEnum<int>]` — the tableau IS the row                    |    9    |
+|  [02]   | Coefficient carrier  | `ButcherTableau` + `ButcherMomentReceipt`                                                                                      | order-condition-validated record + `ValidityClaim.All` receipt |    1    |
+|  [03]   | Continuous extension | `DenseOutputCoefficientFamily` · `DenseOutputReceipt` · `ButcherDenseOutput`                                                   | exact-rational tables + moment-fit fallback via `matrix.md`    |    3    |
+|  [04]   | Step algebra         | `IntegrationModule<TState,TDelta>` (THE `Combine`) · `StepControl` · `FieldIntegrator` · `IntegrationStep` · `DenseOutputSpan` | carrier-generic policy records + `[Union]` stepper             |   2·2   |

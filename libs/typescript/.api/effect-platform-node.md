@@ -17,56 +17,56 @@
 [PUBLIC_TYPE_SCOPE]: process entry, aggregate context, and HTTP-client dispatch
 - rail: system-apis
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
-|:-----: |:---------------------------------------------- |:-------------- |:--------------------------------------------------------------- |
-| [01] | `NodeContext.layer` | context layer | `host` — one `Layer` binding `FileSystem`+`Path`+`CommandExecutor`+`Terminal`+`Worker` |
-| [02] | `NodeHttpClient.Dispatcher` / `NodeHttpClient.HttpAgent` | pool Tags | `runtime/src/net/client.ts` — undici connection-pool / keep-alive agent behind `HttpClient` |
-| [03] | `NodeHttpServer` (server `Layer` factory) | server binding | `edge/serve` — binds `HttpServer` to a `node:http` listener |
-| [04] | `Undici` (re-export of `undici`) | raw client | escape hatch for a raw undici request; domain code stays on `HttpClient` |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]  | [CONSUMER]                                                                                  |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `NodeContext.layer`                                      | context layer  | `host` — one `Layer` binding `FileSystem`+`Path`+`CommandExecutor`+`Terminal`+`Worker`      |
+|  [02]   | `NodeHttpClient.Dispatcher` / `NodeHttpClient.HttpAgent` | pool Tags      | `runtime/src/net/client.ts` — undici connection-pool / keep-alive agent behind `HttpClient` |
+|  [03]   | `NodeHttpServer` (server `Layer` factory)                | server binding | `edge/serve` — binds `HttpServer` to a `node:http` listener                                 |
+|  [04]   | `Undici` (re-export of `undici`)                         | raw client     | escape hatch for a raw undici request; domain code stays on `HttpClient`                    |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: process runtime and aggregate context
 - rail: system-apis
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:--------------------------------------------------------------------- |:-------------- |:---------------------------------------------------------- |
-| [01] | `NodeRuntime.runMain(effect, { disableErrorReporting?, teardown? })` | run-main | `runtime/src/proc/exec.ts` — the Node `Effect.runFork` edge; drains on `SIGINT`/`SIGTERM` |
-| [02] | `NodeContext.layer` | context layer | provided at the app root under every node service — fs, path, command, terminal, worker |
-| [03] | `NodeFileSystem.layer` / `NodePath.layer` / `NodePath.layerPosix` | single binding | when a folder needs one contract without the full `NodeContext` aggregate |
-| [04] | `NodeCommandExecutor.layer` / `NodeTerminal.layer` | exec / tty | `runtime/src/proc/exec.ts` subprocess execution; `edge/cli` interactive terminal |
+| [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY] | [CONSUMER]                                                                                |
+| :-----: | :------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------- |
+|  [01]   | `NodeRuntime.runMain(effect, { disableErrorReporting?, teardown? })` | run-main       | `runtime/src/proc/exec.ts` — the Node `Effect.runFork` edge; drains on `SIGINT`/`SIGTERM` |
+|  [02]   | `NodeContext.layer`                                                  | context layer  | provided at the app root under every node service — fs, path, command, terminal, worker   |
+|  [03]   | `NodeFileSystem.layer` / `NodePath.layer` / `NodePath.layerPosix`    | single binding | when a folder needs one contract without the full `NodeContext` aggregate                 |
+|  [04]   | `NodeCommandExecutor.layer` / `NodeTerminal.layer`                   | exec / tty     | `runtime/src/proc/exec.ts` subprocess execution; `edge/cli` interactive terminal          |
 
 [ENTRYPOINT_SCOPE]: HTTP client and server bindings
 - rail: boundaries
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:-------------------------------------------------------------------------------- |:-------------- |:---------------------------------------------------------- |
-| [01] | `NodeHttpClient.layerUndici` / `.layer` / `.layerWithoutAgent` | client layer | `runtime/src/net/client.ts` — the undici-backed `HttpClient` (HTTP/2, pooling) |
-| [02] | `NodeHttpClient.dispatcherLayer` / `.dispatcherLayerGlobal` / `.makeDispatcher` | dispatcher | tune the undici `Dispatcher` (connections, pipelining, TLS) under the client |
-| [03] | `NodeHttpServer.layer(createServer, listenOptions)` / `.layerConfig(createServer, config)` | server layer | `edge/serve` — bind `HttpServer` to a `node:http` server; `layerConfig` reads host/port from `Config` |
-| [04] | `NodeHttpServer.layerTest` / `NodeHttpServer.makeHandler` | test / handler | kit-driven in-process server specs; a raw `IncomingMessage => ServerResponse` handler |
-| [05] | `NodeHttpServerRequest.toIncomingMessage` / `.toServerResponse` | node interop | `edge` — reach the raw `node:http` objects at the boundary (streaming, upgrade) |
+| [INDEX] | [SURFACE]                                                                                  | [ENTRY_FAMILY] | [CONSUMER]                                                                                            |
+| :-----: | :----------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `NodeHttpClient.layerUndici` / `.layer` / `.layerWithoutAgent`                             | client layer   | `runtime/src/net/client.ts` — the undici-backed `HttpClient` (HTTP/2, pooling)                        |
+|  [02]   | `NodeHttpClient.dispatcherLayer` / `.dispatcherLayerGlobal` / `.makeDispatcher`            | dispatcher     | tune the undici `Dispatcher` (connections, pipelining, TLS) under the client                          |
+|  [03]   | `NodeHttpServer.layer(createServer, listenOptions)` / `.layerConfig(createServer, config)` | server layer   | `edge/serve` — bind `HttpServer` to a `node:http` server; `layerConfig` reads host/port from `Config` |
+|  [04]   | `NodeHttpServer.layerTest` / `NodeHttpServer.makeHandler`                                  | test / handler | kit-driven in-process server specs; a raw `IncomingMessage => ServerResponse` handler                 |
+|  [05]   | `NodeHttpServerRequest.toIncomingMessage` / `.toServerResponse`                            | node interop   | `edge` — reach the raw `node:http` objects at the boundary (streaming, upgrade)                       |
 
 [ENTRYPOINT_SCOPE]: sockets, workers, and stream bridges
 - rail: system-apis
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:-------------------------------------------------------------------------------- |:-------------- |:---------------------------------------------------------- |
-| [01] | `NodeSocket.layerWebSocket(url)` / `NodeSocketServer.layer` / `.layerWebSocket` | socket | `runtime/src/net/channel.ts` — `ws`-backed WebSocket client/server behind `Socket`/`SocketServer` |
-| [02] | `NodeWorker.layer(spawn)` / `.layerManager` / `.layerPlatform` | worker pool | `proc/worker` — worker-thread pool binding for `Worker.makePoolSerialized` |
-| [03] | `NodeWorkerRunner.layer` | worker runner | the worker-thread entrypoint side of a `WorkerRunner` handler |
-| [04] | `NodeStream.fromReadable` / `.toReadable` / `.pipeThroughDuplex` / `.stdin` / `.stdout` | stream bridge | `runtime/src/proc/exec.ts` — Node `Readable`/`Duplex` ⇄ Effect `Stream`; process stdio |
-| [05] | `NodeSink.fromWritable` / `NodeSink.stdout` / `NodeSink.stderr` | sink bridge | write an Effect `Stream` into a Node `Writable`; CLI/process output |
-| [06] | `NodeKeyValueStore.layerFileSystem(dir)` | kv layer | `store/lane` — filesystem-backed `KeyValueStore` binding on node |
+| [INDEX] | [SURFACE]                                                                               | [ENTRY_FAMILY] | [CONSUMER]                                                                                        |
+| :-----: | :-------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `NodeSocket.layerWebSocket(url)` / `NodeSocketServer.layer` / `.layerWebSocket`         | socket         | `runtime/src/net/channel.ts` — `ws`-backed WebSocket client/server behind `Socket`/`SocketServer` |
+|  [02]   | `NodeWorker.layer(spawn)` / `.layerManager` / `.layerPlatform`                          | worker pool    | `proc/worker` — worker-thread pool binding for `Worker.makePoolSerialized`                        |
+|  [03]   | `NodeWorkerRunner.layer`                                                                | worker runner  | the worker-thread entrypoint side of a `WorkerRunner` handler                                     |
+|  [04]   | `NodeStream.fromReadable` / `.toReadable` / `.pipeThroughDuplex` / `.stdin` / `.stdout` | stream bridge  | `runtime/src/proc/exec.ts` — Node `Readable`/`Duplex` ⇄ Effect `Stream`; process stdio            |
+|  [05]   | `NodeSink.fromWritable` / `NodeSink.stdout` / `NodeSink.stderr`                         | sink bridge    | write an Effect `Stream` into a Node `Writable`; CLI/process output                               |
+|  [06]   | `NodeKeyValueStore.layerFileSystem(dir)`                                                | kv layer       | `store/lane` — filesystem-backed `KeyValueStore` binding on node                                  |
 
 [ENTRYPOINT_SCOPE]: cluster transports and runner discovery
 - rail: system-apis
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:----------------------------------------------------------------------- |:-------------- |:---------------------------------------------------------- |
-| [01] | `NodeClusterHttp.layer` / `NodeClusterHttp.layerHttpServer` | cluster http | `work/engine` — HTTP transport for `@effect/cluster` entity messaging |
-| [02] | `NodeClusterSocket.layer` / `NodeClusterSocket.layerDispatcherK8s` | cluster socket | `work/engine` — socket transport + the K8s pod-discovery dispatcher |
-| [03] | `NodeClusterSocket.layerK8sHttpClient` | discovery | `work/engine/entity.ts` — the K8s runner-discovery client (discovery only, never provisioning) |
+| [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [CONSUMER]                                                                                     |
+| :-----: | :----------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `NodeClusterHttp.layer` / `NodeClusterHttp.layerHttpServer`        | cluster http   | `work/engine` — HTTP transport for `@effect/cluster` entity messaging                          |
+|  [02]   | `NodeClusterSocket.layer` / `NodeClusterSocket.layerDispatcherK8s` | cluster socket | `work/engine` — socket transport + the K8s pod-discovery dispatcher                            |
+|  [03]   | `NodeClusterSocket.layerK8sHttpClient`                             | discovery      | `work/engine/entity.ts` — the K8s runner-discovery client (discovery only, never provisioning) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

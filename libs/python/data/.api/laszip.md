@@ -21,13 +21,13 @@
 
 `LasUnZipper` and `LasZipper` are the streaming LAZ codecs `laspy` constructs around a source/destination file object; `LasZipDll` drives the per-point read/write path exposing `LasZipHeader` and `LasZipPoint` by reference. `LaszipError` is raised on any LASzip codec failure (stream open, chunk overflow, malformed header).
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [RAIL]                                                                                |
-| :-----: | :------------- | :------------ | :------------------------------------------------------------------------------------ |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY] | [RAIL]                                                                                 |
+| :-----: | :------------- | :------------ | :------------------------------------------------------------------------------------- |
 |  [01]   | `LasUnZipper`  | stream codec  | LAZ decompressor over a source file object; `decompress_into`/`seek`/`header`          |
 |  [02]   | `LasZipper`    | stream codec  | LAZ compressor over a destination file object; `compress`/`done`/`header`              |
 |  [03]   | `LasZipDll`    | per-point IO  | per-point reader/writer exposing `LasZipHeader`/`LasZipPoint` by reference             |
 |  [04]   | `LasZipHeader` | record        | mutable LAS header; `point_data_format`/`point_data_record_length`/scale/offset/extent |
-|  [05]   | `LasZipPoint`  | record        | mutable LAS point record (legacy and extended fields)                                 |
+|  [05]   | `LasZipPoint`  | record        | mutable LAS point record (legacy and extended fields)                                  |
 |  [06]   | `LaszipError`  | error         | LASzip codec failure raised across stream open, chunk overflow, malformed header       |
 
 ## [03]-[ENTRYPOINTS]

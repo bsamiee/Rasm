@@ -2,16 +2,16 @@
 
 The program shapes of the deploy plane in one page: `StackSpec` is the decoded value an app supplies to deploy — the closed arm union with its promotion-tier column, the capability profile with its tenancy and compute axes, region/domain/zone coordinates, the backend selector, the Doppler ref, the rotation epoch — and the coordinates-never-material law makes every spec value loggable, diffable, and receipt-safe. `Connection` is the one owner of the SSH coordinate product: host, user, and port decode once and the `ssh` projection is the only spelling of the daemon URL, so no arm hand-builds `ssh://` strings. `Tier` is the one boundary adapter over Pulumi's class-based resource model: every grouped concern is a `Tier` subclass under the `rasm:iac:` token scope with one inherited option fold and one terminal output registration, so the resource DAG is recoverable from the tier tree alone. `StackOutputs` is the typed exit — every value a deployed stack publishes decodes once through one `Schema.Class` of `Option`-carried planes, the secret-refusal gate holds the raw `OutputMap` at this seam, and `pairsOf` is the single channel-flatten owner both the decoded getter and the in-program live-`Output` assembly ride, parameterized on the value renderer, so the `<plane>.<field>` spelling exists exactly once. The `sharding` plane is the sole value crossing back into the runtime graph — `work`'s `ShardingConfig.layerFromEnv` reads the env rows those channels populate — so the deploy plane and the runtime meet at the process boundary and never import each other. The module is `iac/src/program/spec.ts`; a new cloud is one arm entry plus one tier row, a new deployment axis is one profile field with its default, a new published plane is one `Option` field whose channels derive from the field record with nothing else to edit.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                              | [PUBLIC]       |
-| :-----: | :--------------- | :------------------------------------------------------------------ | :------------- |
-|  [01]   | `ARM_VOCABULARY` | the closed arm tuple, the promotion-tier column, the derived unions | `StackSpec`    |
-|  [02]   | `SPEC_OWNER`     | the app-supplied value: coordinates, profile, tenancy, defaults     | `StackSpec`    |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC]       |
+| :-----: | :--------------- | :------------------------------------------------------------------- | :------------- |
+|  [01]   | `ARM_VOCABULARY` | the closed arm tuple, the promotion-tier column, the derived unions  | `StackSpec`    |
+|  [02]   | `SPEC_OWNER`     | the app-supplied value: coordinates, profile, tenancy, defaults      | `StackSpec`    |
 |  [03]   | `TIER_BASE`      | the abstract component owner: token scope, option fold, seal, roster | `Tier`         |
-|  [04]   | `OUTPUT_PLANES`  | the decoded exit, the secret gate, the one channel-flatten owner    | `StackOutputs` |
+|  [04]   | `OUTPUT_PLANES`  | the decoded exit, the secret gate, the one channel-flatten owner     | `StackOutputs` |
 
-## [2]-[ARM_VOCABULARY]
+## [02]-[ARM_VOCABULARY]
 
 [ARM_VOCABULARY]:
 - Owner: the interior `_arms` key tuple plus the `_tiers` column — order, iteration, and the non-empty `Schema.Literal` spread are tuple facts stated once; `StackSpec.Arm` derives on the interior anchor, `StackSpec.arms`/`StackSpec.tiers` ride the class as statics, and the arm roster has one edit site branch-wide.
@@ -19,7 +19,7 @@ The program shapes of the deploy plane in one page: `StackSpec` is the decoded v
 - Growth: a new cloud is one `_arms` entry plus one `_tiers` row — the provider record, the equivalence map, and the `Schema.Literal` admission all break at compile time until their rows land.
 - Boundary: which resources an arm composes and which program body runs are `provider.md`'s record and map.
 
-## [3]-[SPEC_OWNER]
+## [03]-[SPEC_OWNER]
 
 [SPEC_OWNER]:
 - Owner: `StackSpec`, one `Schema.Class` — `name` (a DNS-safe stack slug brand), `app` (the core `AppKey` brand composed as `AppIdentity.fields.app`, so app identity has one spelling branch-wide), `target` (the arm literal), `backend` (`self-managed` gates the local drift sweep and ephemeral bracket; `cloud` gates the `operate/cloud.md` control plane and the `RemoteWorkspace` execution row), the coordinate options (`region` for prepared clouds, `domain`/`zone` for the traffic rows, `project` for the gcp project scope, `account` for the Cloudflare account scope, `connection` for the selfhosted bootstrap, `image` for the app workload ref), the `doppler` project/config ref, the `epoch` rotation trigger, and the `profile` capability record.
@@ -140,7 +140,7 @@ declare namespace StackSpec {
 }
 ```
 
-## [4]-[TIER_BASE]
+## [04]-[TIER_BASE]
 
 [TIER_BASE]:
 - Owner: `Tier`, the abstract `pulumi.ComponentResource` subclass every grouped concern extends — the constructor stamps the type token `rasm:iac:<Kind>`, `child(overrides?)` folds `{ parent: this }` into per-resource overrides through `pulumi.mergeOptions` so ownership is inherited and never restated, and `seal(outputs)` is the mandatory terminal `registerOutputs` call.
@@ -168,7 +168,7 @@ abstract class Tier extends pulumi.ComponentResource {
 }
 ```
 
-## [5]-[OUTPUT_PLANES]
+## [05]-[OUTPUT_PLANES]
 
 [OUTPUT_PLANES]:
 - Owner: `StackOutputs`, one `Schema.Class` of `Option`-carried plane records — `ingress` (public hostname), `data` (host, port, database, role), `object` (endpoint, bucket), `fanout` (the NATS websocket origin), `otlp` (collector ingest endpoint), `grafana` (board URL), `sharding` (runner endpoint), `deploy` (the time-ordered `RandomUuid7` deployment identity) — each an inline `Schema.Struct` block because no plane has a second consumer shape; the arm that realizes a plane returns its keys from the `PulumiFn`, and absence means the arm did not realize it.

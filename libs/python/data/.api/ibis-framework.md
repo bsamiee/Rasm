@@ -81,7 +81,7 @@
 
 The primary surface: every method returns a new `Table` (lazy expression node), so transforms chain. Column references use `t.col`, `t["col"]`, or the deferred `_.col`.
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                            |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                           |
 | :-----: | :--------------------------------------------------------- | :------------- | :----------------------------------------------------- |
 |  [01]   | `Table.select(*exprs, **named)`                            | projection     | choose/derive columns (accepts selectors and deferred) |
 |  [02]   | `Table.mutate(*exprs, **named)`                            | projection     | add/replace columns, keeping existing ones             |
@@ -106,35 +106,35 @@ The primary surface: every method returns a new `Table` (lazy expression node), 
 
 Column methods are dtype-discriminated (`ibis.expr.types`): numeric, string, temporal, array, struct, map, and geospatial columns each carry their own namespace; the shared core is below.
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]  | [CAPABILITY]                                  |
-| :-----: | :-------------------------------------------------------------- | :-------------- | :-------------------------------------------- |
-|  [01]   | `Column.cast(type)` / `.try_cast(type)`                         | type            | strict / null-on-failure cast                 |
-|  [02]   | `Column.over(window)`                                           | window          | evaluate analytic expr over a window frame    |
-|  [03]   | `Column.cases((cond, val), ..., else_=)` / `.substitute(...)`   | conditional     | per-column CASE / value remap                 |
-|  [04]   | `Column.fill_null(v)` / `.nullif(v)` / `.coalesce(*args)`       | null handling   | null fill / null-if / first non-null          |
-|  [05]   | `Column.isin(values)` / `.notin(values)` / `.between(lo, hi)`   | membership      | set membership / range predicate              |
-|  [06]   | `Column.sum/mean/min/max/std/var()`                             | aggregate       | standard reductions                           |
-|  [07]   | `Column.count()` / `.nunique()` / `.approx_nunique()`           | aggregate       | exact and HLL-approximate cardinality         |
-|  [08]   | `Column.quantile(q)` / `.approx_median()` / `.arbitrary()`      | aggregate       | quantile, approx median, any-value            |
-|  [09]   | `Column.collect()` / `.group_concat(sep)`                       | aggregate       | gather to array / string-join group           |
-|  [10]   | `Column.lag(n)` / `.lead(n)` / `.first()` / `.last()`           | window          | offset and frame-edge analytic functions      |
-|  [11]   | `Column.cumsum()` / `.cummax()` / `.cummin()` / `.cummean()`    | window          | cumulative aggregates                         |
-|  [12]   | `Column.bucket(buckets, ...)` / `.histogram(nbins)`             | binning         | discretize into buckets / histogram bins      |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------- |
+|  [01]   | `Column.cast(type)` / `.try_cast(type)`                       | type           | strict / null-on-failure cast              |
+|  [02]   | `Column.over(window)`                                         | window         | evaluate analytic expr over a window frame |
+|  [03]   | `Column.cases((cond, val), ..., else_=)` / `.substitute(...)` | conditional    | per-column CASE / value remap              |
+|  [04]   | `Column.fill_null(v)` / `.nullif(v)` / `.coalesce(*args)`     | null handling  | null fill / null-if / first non-null       |
+|  [05]   | `Column.isin(values)` / `.notin(values)` / `.between(lo, hi)` | membership     | set membership / range predicate           |
+|  [06]   | `Column.sum/mean/min/max/std/var()`                           | aggregate      | standard reductions                        |
+|  [07]   | `Column.count()` / `.nunique()` / `.approx_nunique()`         | aggregate      | exact and HLL-approximate cardinality      |
+|  [08]   | `Column.quantile(q)` / `.approx_median()` / `.arbitrary()`    | aggregate      | quantile, approx median, any-value         |
+|  [09]   | `Column.collect()` / `.group_concat(sep)`                     | aggregate      | gather to array / string-join group        |
+|  [10]   | `Column.lag(n)` / `.lead(n)` / `.first()` / `.last()`         | window         | offset and frame-edge analytic functions   |
+|  [11]   | `Column.cumsum()` / `.cummax()` / `.cummin()` / `.cummean()`  | window         | cumulative aggregates                      |
+|  [12]   | `Column.bucket(buckets, ...)` / `.histogram(nbins)`           | binning        | discretize into buckets / histogram bins   |
 
 [ENTRYPOINT_SCOPE]: selectors and user-defined functions
 - rail: query
 
 `ibis.selectors` (`import ibis.selectors as s`) resolves column sets inside `select`/`mutate`/`agg`; UDFs register Python/PyArrow/pandas callables as expressions.
 
-| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                       |
-| :-----: | :--------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `s.numeric()` / `s.of_type(t)` / `s.matches(regex)`        | selector       | select by dtype / regex name match                 |
-|  [02]   | `s.startswith(p)` / `s.endswith(s)` / `s.contains(sub)`    | selector       | select by name affix                               |
-|  [03]   | `s.cols(*names)` / `s.all()` / `s.none()` / `s.index[...]` | selector       | explicit / all / none / positional column set      |
-|  [04]   | `s.across(selector, func, names=)`                         | selector       | apply one expr template across a column set        |
-|  [05]   | `s.if_any(...)` / `s.if_all(...)` / `s.where(predicate)`   | selector       | predicate-combined column selection                |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------------- | :------------- | :---------------------------------------------------- |
+|  [01]   | `s.numeric()` / `s.of_type(t)` / `s.matches(regex)`        | selector       | select by dtype / regex name match                    |
+|  [02]   | `s.startswith(p)` / `s.endswith(s)` / `s.contains(sub)`    | selector       | select by name affix                                  |
+|  [03]   | `s.cols(*names)` / `s.all()` / `s.none()` / `s.index[...]` | selector       | explicit / all / none / positional column set         |
+|  [04]   | `s.across(selector, func, names=)`                         | selector       | apply one expr template across a column set           |
+|  [05]   | `s.if_any(...)` / `s.if_all(...)` / `s.where(predicate)`   | selector       | predicate-combined column selection                   |
 |  [06]   | `@ibis.udf.scalar.python` / `.pyarrow` / `.pandas`         | scalar UDF     | register a row-wise scalar function (typed signature) |
-|  [07]   | `@ibis.udf.scalar.builtin` / `@ibis.udf.agg.builtin`       | builtin UDF    | bind a backend-native scalar/aggregate function    |
+|  [07]   | `@ibis.udf.scalar.builtin` / `@ibis.udf.agg.builtin`       | builtin UDF    | bind a backend-native scalar/aggregate function       |
 
 [ENTRYPOINT_SCOPE]: analytic and window functions
 - rail: query
@@ -194,24 +194,24 @@ Column methods are dtype-discriminated (`ibis.expr.types`): numeric, string, tem
 
 Execution methods exist both on `Expr`/`Table` (delegating to the bound backend) and on `BaseBackend`. The 25 backends (`ibis.duckdb` default, `sqlite`, `postgres`, `mysql`, `mssql`, `oracle`, `polars`, `datafusion`, `clickhouse`, `snowflake`, `bigquery`, `databricks`, `trino`, `pyspark`, `flink`, `risingwave`, `impala`, `druid`, `exasol`, `athena`, `singlestoredb`) are submodules; `ibis.connect(uri)` selects one.
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [CAPABILITY]                              |
-| :-----: | :----------------------------------------------------- | :------------- | :---------------------------------------- |
-|  [01]   | `Expr.execute(*, limit='default', params)`             | execution      | run expression, return pandas frame       |
-|  [02]   | `Expr.to_pandas(...)` / `.to_polars(...)`              | execution      | execute and return pandas / Polars frame  |
-|  [03]   | `Expr.to_pyarrow(...)`                                 | execution      | execute and return a PyArrow `Table`      |
-|  [04]   | `Expr.to_pyarrow_batches(*, chunk_size, ...)`          | streaming      | stream a PyArrow `RecordBatchReader`      |
-|  [05]   | `Expr.to_torch(...)` / `.to_parquet(path, ...)`        | execution/IO   | tensor dict / write result to Parquet     |
-|  [06]   | `Expr.to_csv(path, ...)` / `.to_delta(path, ...)`      | IO export      | write result to CSV / Delta Lake          |
-|  [07]   | `BaseBackend.compile(expr, limit, params, ...)`        | compilation    | compile to backend SQL string             |
-|  [08]   | `BaseBackend.sql(query, schema=None)`                  | SQL escape     | wrap a raw SQL string as a `Table`        |
-|  [09]   | `BaseBackend.table(name, database)`                    | table access   | reference backend table by name           |
-|  [10]   | `BaseBackend.list_tables(like, database)`              | catalog        | list available tables                     |
-|  [11]   | `BaseBackend.create_table(name, obj, schema, temp, overwrite, ...)` | DDL | create table from expression / data    |
-|  [12]   | `BaseBackend.create_view(name, obj, ...)` / `.drop_table(name, force)` | DDL | create view / drop table             |
-|  [13]   | `BaseBackend.insert(name, obj, ...)` / `.raw_sql(query)` | DML/escape   | append rows / execute raw SQL on the connection |
-|  [14]   | `BaseBackend.con`                                      | native handle  | the backend's native driver connection (the DuckDB backend's `con` IS a `DuckDBPyConnection`, the handle a `duckdb-substrait` round-trip drives `install_extension`/`get_substrait` off) |
-|  [15]   | `ibis.duckdb.connect(database=':memory:', *, ...)`     | default backend | the no-required-arg DuckDB backend accessor (`ibis.duckdb.connect()` opens an in-memory DuckDB backend); each `ibis.<backend>` submodule exposes its own `connect()` |
-|  [16]   | `BaseBackend.disconnect()`                             | connection     | close the connection to the backend (`-> None`); the release counterpart to `connect`/`duckdb.connect`, the handle a `try`/`finally` resource bracket releases on every exit, also closing the native `BaseBackend.con` |
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]  | [CAPABILITY]                                                                                                                                                                                                            |
+| :-----: | :--------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Expr.execute(*, limit='default', params)`                             | execution       | run expression, return pandas frame                                                                                                                                                                                     |
+|  [02]   | `Expr.to_pandas(...)` / `.to_polars(...)`                              | execution       | execute and return pandas / Polars frame                                                                                                                                                                                |
+|  [03]   | `Expr.to_pyarrow(...)`                                                 | execution       | execute and return a PyArrow `Table`                                                                                                                                                                                    |
+|  [04]   | `Expr.to_pyarrow_batches(*, chunk_size, ...)`                          | streaming       | stream a PyArrow `RecordBatchReader`                                                                                                                                                                                    |
+|  [05]   | `Expr.to_torch(...)` / `.to_parquet(path, ...)`                        | execution/IO    | tensor dict / write result to Parquet                                                                                                                                                                                   |
+|  [06]   | `Expr.to_csv(path, ...)` / `.to_delta(path, ...)`                      | IO export       | write result to CSV / Delta Lake                                                                                                                                                                                        |
+|  [07]   | `BaseBackend.compile(expr, limit, params, ...)`                        | compilation     | compile to backend SQL string                                                                                                                                                                                           |
+|  [08]   | `BaseBackend.sql(query, schema=None)`                                  | SQL escape      | wrap a raw SQL string as a `Table`                                                                                                                                                                                      |
+|  [09]   | `BaseBackend.table(name, database)`                                    | table access    | reference backend table by name                                                                                                                                                                                         |
+|  [10]   | `BaseBackend.list_tables(like, database)`                              | catalog         | list available tables                                                                                                                                                                                                   |
+|  [11]   | `BaseBackend.create_table(name, obj, schema, temp, overwrite, ...)`    | DDL             | create table from expression / data                                                                                                                                                                                     |
+|  [12]   | `BaseBackend.create_view(name, obj, ...)` / `.drop_table(name, force)` | DDL             | create view / drop table                                                                                                                                                                                                |
+|  [13]   | `BaseBackend.insert(name, obj, ...)` / `.raw_sql(query)`               | DML/escape      | append rows / execute raw SQL on the connection                                                                                                                                                                         |
+|  [14]   | `BaseBackend.con`                                                      | native handle   | the backend's native driver connection (the DuckDB backend's `con` IS a `DuckDBPyConnection`, the handle a `duckdb-substrait` round-trip drives `install_extension`/`get_substrait` off)                                |
+|  [15]   | `ibis.duckdb.connect(database=':memory:', *, ...)`                     | default backend | the no-required-arg DuckDB backend accessor (`ibis.duckdb.connect()` opens an in-memory DuckDB backend); each `ibis.<backend>` submodule exposes its own `connect()`                                                    |
+|  [16]   | `BaseBackend.disconnect()`                                             | connection      | close the connection to the backend (`-> None`); the release counterpart to `connect`/`duckdb.connect`, the handle a `try`/`finally` resource bracket releases on every exit, also closing the native `BaseBackend.con` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

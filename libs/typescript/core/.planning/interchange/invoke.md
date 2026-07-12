@@ -2,16 +2,16 @@
 
 The capability plane of the interchange: both directions of the command contract under one page. Outbound — `CapabilityDescriptor`, the content-keyed command-shape identity admitted once at bind time through the plane's parity gate; `Dial`, the invocation service whose protocol axis (`connect` | `connect-http` | `grpc-web`) is a Config-decoded policy record over three lane rows — the two `@connectrpc/connect-web` fetch factories plus the Effect-native `./protocol-connect` transport assembled over the platform `HttpClient`, so the dense lane inherits the shared net-client retry/proxy/pooling/tracing posture with no fetch hop — and whose lane ladder is one `ExecutionPlan` value so transport failover is a policy ladder, never a recovery cascade; the Effect lifts wire fiber interruption to the call's `AbortSignal`, stamp W3C trace headers per call, charge a typed `ContextValues` carrier per call from the `Dial.Ambient` reference under the plane's own `ContextKey` vocabulary, and fold every caught value through the total `ConnectError` reconstruction into the codec `FaultDetail`; retry rides the `value` `Budget` schedules class-gated through the fault's own classification, with the row's `attempt`/`total` deadlines layered below and above the retry per the rails budget geometry, and every bound method and gateway dispatch emits through the plane's observability transformers — the span with the winning lane stamped, the fault frequency, and the `Exit`-folded outcome counter on every modality, the latency timer on the unary and gateway lanes — named by `observe/convention` rows. Inbound — `Gateway`, the verb dispatch over decoded `CommandPayload` verbs under the availability gate typed against `state` evidence, with the support-capture verb as one row delivering to the `SupportIntake` port, and `duplex`, the typed command/outcome channel whose frame row is a vocabulary lookup over the fused codec transformers — `MsgPack.duplexSchema`, `Ndjson.duplexSchema`, `Ndjson.duplexSchemaString` — each row owning the socket lift its frame demands, one stage from socket to typed duplex under an unchanged asymmetric schema seam. The module is `core/src/interchange/invoke.ts`; a fourth protocol is one lane row, a new verb is one handler row in the app's table, and a per-method retry posture is one budget row at the bind call.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                  | [PUBLIC]                     |
-| :-----: | :----------------- | :------------------------------------------------------------------------ | :--------------------------- |
-|  [01]   | `TRANSPORT_FAULT`  | the total `ConnectError` fold into the codec fault vocabulary             | `Transport`                  |
-|  [02]   | `DIAL_AXIS`        | the Config policy record, the three-lane table, the failover plan, the ambient context, the lifts | `Dial` |
-|  [03]   | `CAPABILITY_BIND`  | descriptor admission, the kind-total SDK derivation, budget geometry, the invoke telemetry seam | `Capability` |
-|  [04]   | `COMMAND_GATEWAY`  | verb dispatch, the availability gate, support capture, the duplex channel | `Gateway`, `SupportIntake`   |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                                            | [PUBLIC]                   |
+| :-----: | :---------------- | :------------------------------------------------------------------------------------------------ | :------------------------- |
+|  [01]   | `TRANSPORT_FAULT` | the total `ConnectError` fold into the codec fault vocabulary                                     | `Transport`                |
+|  [02]   | `DIAL_AXIS`       | the Config policy record, the three-lane table, the failover plan, the ambient context, the lifts | `Dial`                     |
+|  [03]   | `CAPABILITY_BIND` | descriptor admission, the kind-total SDK derivation, budget geometry, the invoke telemetry seam   | `Capability`               |
+|  [04]   | `COMMAND_GATEWAY` | verb dispatch, the availability gate, support capture, the duplex channel                         | `Gateway`, `SupportIntake` |
 
-## [2]-[TRANSPORT_FAULT]
+## [02]-[TRANSPORT_FAULT]
 
 [TRANSPORT_FAULT]:
 - Owner: `Transport`, the transport-fault fold — `fault(caught)` normalizes any caught value through `ConnectError.from`, maps the closed sixteen-value `Code` enum through the codec `Hops` projection, resolves every server-attached detail through `findDetails(Proto.registry)` so the whole registered detail vocabulary decodes in one call, reconstructs the codec `FaultDetail` from the `FaultDetailWire` member with the local edge hop appended, and `expired(surface, detail)` mints the locally-originated deadline fault the budget timeouts consume — so the error channel is one reconstructed wire fault end to end and no `ConnectError`, bare code, or raw `try`/`catch` reaches domain flow.
@@ -60,7 +60,7 @@ const Transport: {
 }
 ```
 
-## [3]-[DIAL_AXIS]
+## [03]-[DIAL_AXIS]
 
 [DIAL_AXIS]:
 - Owner: `Dial`, the invocation service — `Dial.Config` is the Schema the composition root decodes (protocol lanes in failover order, `baseUrl`, `useBinaryFormat`, `timeoutMs`); the Layer factory takes the decoded policy plus the `fetch` and `interceptors` seam values the root builds, yields the platform `HttpClient` and the ambient runtime, constructs one `Transport` per configured lane by vocabulary lookup over the three-row lane table, and exposes `client(service)` (the lane-keyed prebuilt `createClient` record), `plan` (the `ExecutionPlan` ladder over the `Lane` Tag), and the two lifts `unary`/`stream`.
@@ -226,7 +226,7 @@ class Dial extends Effect.Service<Dial>()("@rasm/ts/core/Dial", {
 }
 ```
 
-## [4]-[CAPABILITY_BIND]
+## [04]-[CAPABILITY_BIND]
 
 [CAPABILITY_BIND]:
 - Owner: `Capability` — `CapabilityDescriptor`, the decoded capability identity (name, qualified service name, the content key of the command shape, the mint instant) with `admit` comparing the runtime-shipped key against the build pin through the codec parity gate; `Sdk<T>`, the mapped type computing every method's Effect signature from the promise `Client<T>`; and `bind`, the kind-total fold walking `service.methods` by `methodKind` under the failover plan, wrapping each method through the `Dial` lifts with per-method `Budget` geometry and the plane's observability transformers.
@@ -403,7 +403,7 @@ const Capability: {
 }
 ```
 
-## [5]-[COMMAND_GATEWAY]
+## [05]-[COMMAND_GATEWAY]
 
 [COMMAND_GATEWAY]:
 - Owner: `Gateway`, the inbound half of the capability plane — `CommandPayload`, the decoded command class (verb, body carriage, tenant, `Hlc` stamp); the `Effect.Service` whose Layer factory takes the app's verb row table so the gateway is one generic dispatch and a verb set is data; `Dispatched`, the Granted/Refused outcome family carrying the `state` verdict whole; `AvailabilityGate`, the port this page declares and the app root satisfies from `state`-fed evidence; `SupportCapture` with its receipt and the `SupportIntake` port as the support verb's delivery; and `duplex`, the typed command/outcome channel whose frame row is a `_frames` vocabulary lookup over the fused `duplexSchema` transformers.

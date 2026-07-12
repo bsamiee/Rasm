@@ -18,10 +18,10 @@
 
 `MeterProvider` is the meter factory; every axis — resource, views, readers — is a `MeterProviderOptions` field, never a subclass. Under the effect facade the provider is constructed by `Metrics.layer`, so a telemetry consumer supplies the reader and views, not the provider.
 
-| [INDEX] | [SYMBOL] | [KIND] | [CONSUMER_BOUNDARY] |
-|:-----: |:--------------------------- |:------------ |:------------------------------------------------------------- |
-| [01] | `MeterProvider` | class | `implements IMeterProvider`; `getMeter`/`shutdown`/`forceFlush` |
-| [02] | `MeterProviderOptions` | interface | `resource?`/`views?: ViewOptions[]`/`readers?: IMetricReader[]` |
+| [INDEX] | [SYMBOL]               | [KIND]    | [CONSUMER_BOUNDARY]                                             |
+| :-----: | :--------------------- | :-------- | :-------------------------------------------------------------- |
+|  [01]   | `MeterProvider`        | class     | `implements IMeterProvider`; `getMeter`/`shutdown`/`forceFlush` |
+|  [02]   | `MeterProviderOptions` | interface | `resource?`/`views?: ViewOptions[]`/`readers?: IMetricReader[]` |
 
 ```ts contract
 interface MeterProviderOptions {
@@ -42,19 +42,19 @@ declare class MeterProvider implements IMeterProvider {
 
 Two parameterized surfaces. `MetricReader` (abstract) owns pull-collection + the per-instrument-type selector policy; `PeriodicExportingMetricReader` is the production row that pulls on an interval and pushes to a `PushMetricExporter`. `PushMetricExporter` owns format/transport; `Console`/`InMemory` are the built-in rows, the OTLP-HTTP sibling the production one. The three selectors are `(InstrumentType) => X` pure policy functions with `DEFAULT_*` constants — a bespoke temporality/aggregation/cardinality policy is a selector value, never a reader subclass. `MetricProducer` is the pull-source a reader collects from.
 
-| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
-|:-----: |:---------------------------------------- |:------------------ |:--------------------------------------------------------------- |
-| [01] | `MetricReader` / `IMetricReader` | abstract class / interface | pull-collect + `selectAggregation`/`selectAggregationTemporality`/`selectCardinalityLimit` |
-| [02] | `MetricReaderOptions` | interface | the three selectors + `metricProducers?` + `otelComponentType?` |
-| [03] | `PeriodicExportingMetricReader` | class | interval pull → push; the production reader row |
-| [04] | `PeriodicExportingMetricReaderOptions` | type | `exporter` + `exportIntervalMillis?` + per-instrument `cardinalityLimits?` |
-| [05] | `PushMetricExporter` | interface | `export(ResourceMetrics, cb)` + optional temporality/aggregation selectors |
-| [06] | `ConsoleMetricExporter` | class | stdout diagnostics; `constructor({ temporalitySelector? })` |
-| [07] | `InMemoryMetricExporter` | class | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)` — the kit-driven spec lane |
-| [08] | `MetricProducer` / `MetricCollectOptions` | interface | external pull-source; `collect({ timeoutMillis? })` |
-| [09] | `AggregationSelector` / `AggregationTemporalitySelector` | type | `(InstrumentType) => AggregationOption` / `=> AggregationTemporality` |
-| [10] | `AggregationTemporality` | enum | `DELTA` / `CUMULATIVE` |
-| [11] | `TimeoutError` | class | thrown on collection/flush deadline; collection continues |
+| [INDEX] | [SYMBOL]                                                 | [KIND]                     | [CAPABILITY_BOUNDARY]                                                                      |
+| :-----: | :------------------------------------------------------- | :------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `MetricReader` / `IMetricReader`                         | abstract class / interface | pull-collect + `selectAggregation`/`selectAggregationTemporality`/`selectCardinalityLimit` |
+|  [02]   | `MetricReaderOptions`                                    | interface                  | the three selectors + `metricProducers?` + `otelComponentType?`                            |
+|  [03]   | `PeriodicExportingMetricReader`                          | class                      | interval pull → push; the production reader row                                            |
+|  [04]   | `PeriodicExportingMetricReaderOptions`                   | type                       | `exporter` + `exportIntervalMillis?` + per-instrument `cardinalityLimits?`                 |
+|  [05]   | `PushMetricExporter`                                     | interface                  | `export(ResourceMetrics, cb)` + optional temporality/aggregation selectors                 |
+|  [06]   | `ConsoleMetricExporter`                                  | class                      | stdout diagnostics; `constructor({ temporalitySelector? })`                                |
+|  [07]   | `InMemoryMetricExporter`                                 | class                      | `getMetrics()`/`reset()`; `constructor(AggregationTemporality)` — the kit-driven spec lane |
+|  [08]   | `MetricProducer` / `MetricCollectOptions`                | interface                  | external pull-source; `collect({ timeoutMillis? })`                                        |
+|  [09]   | `AggregationSelector` / `AggregationTemporalitySelector` | type                       | `(InstrumentType) => AggregationOption` / `=> AggregationTemporality`                      |
+|  [10]   | `AggregationTemporality`                                 | enum                       | `DELTA` / `CUMULATIVE`                                                                     |
+|  [11]   | `TimeoutError`                                           | class                      | thrown on collection/flush deadline; collection continues                                  |
 
 ```ts contract
 type PeriodicExportingMetricReaderOptions = {
@@ -83,13 +83,13 @@ declare const DEFAULT_AGGREGATION_TEMPORALITY_SELECTOR: AggregationTemporalitySe
 
 A `View` reshapes matched instruments (rename, drop, re-aggregate, cap cardinality, filter attributes) before export; it is declared as a `ViewOptions` object on `MeterProviderOptions.views` (the `View` class is internal). `AggregationOption` is a discriminated union keyed on `AggregationType` — the six variants are ROWS, and a bespoke histogram bucketing is an option-object value, never a new class. `IAttributesProcessor` is the cardinality-control interface; `createAllowList`/`createDenyList` are its parameterized constructors.
 
-| [INDEX] | [SYMBOL] | [KIND] | [SELECTS_PRODUCES] |
-|:-----: |:---------------------------------------- |:------------------ |:-------------------------------------------------------------- |
-| [01] | `ViewOptions` | type | instrument matchers (`instrumentName`/`instrumentType`/`meterName`) + reshaping |
-| [02] | `AggregationType` | enum | `DEFAULT`/`DROP`/`SUM`/`LAST_VALUE`/`EXPLICIT_BUCKET_HISTOGRAM`/`EXPONENTIAL_HISTOGRAM` |
-| [03] | `AggregationOption` | discriminated union | `{ type: AggregationType; options? }` — one shape per aggregation |
-| [04] | `IAttributesProcessor` | interface | `process(attrs, ctx?) => Attributes` — cardinality control |
-| [05] | `createAllowListAttributesProcessor` / `createDenyListAttributesProcessor` | fn | allow/deny attribute-key sets — the parameterized constructors |
+| [INDEX] | [SYMBOL]                                                                   | [KIND]              | [SELECTS_PRODUCES]                                                                      |
+| :-----: | :------------------------------------------------------------------------- | :------------------ | :-------------------------------------------------------------------------------------- |
+|  [01]   | `ViewOptions`                                                              | type                | instrument matchers (`instrumentName`/`instrumentType`/`meterName`) + reshaping         |
+|  [02]   | `AggregationType`                                                          | enum                | `DEFAULT`/`DROP`/`SUM`/`LAST_VALUE`/`EXPLICIT_BUCKET_HISTOGRAM`/`EXPONENTIAL_HISTOGRAM` |
+|  [03]   | `AggregationOption`                                                        | discriminated union | `{ type: AggregationType; options? }` — one shape per aggregation                       |
+|  [04]   | `IAttributesProcessor`                                                     | interface           | `process(attrs, ctx?) => Attributes` — cardinality control                              |
+|  [05]   | `createAllowListAttributesProcessor` / `createDenyListAttributesProcessor` | fn                  | allow/deny attribute-key sets — the parameterized constructors                          |
 
 ```ts contract
 type ViewOptions = {
@@ -112,15 +112,15 @@ interface IAttributesProcessor { process: (incoming: Attributes, context?: Conte
 
 The wire shape the exporter receives. `MetricData` is ONE discriminated union keyed on `dataPointType`; `DataPoint<T>` is the parameterized point (`T = number | Histogram | ExponentialHistogram`). The collection tree is `ResourceMetrics → ScopeMetrics[] → MetricData[]` — one shape, never a per-instrument struct. `InstrumentType` (seven rows) and `DataPointType` are the discriminants every selector and exporter key on.
 
-| [INDEX] | [SYMBOL] | [KIND] | [SHAPE] |
-|:-----: |:---------------------------------------- |:------------------ |:-------------------------------------------------------------- |
-| [01] | `InstrumentType` | enum | `COUNTER`/`GAUGE`/`HISTOGRAM`/`UP_DOWN_COUNTER`/`OBSERVABLE_*` |
-| [02] | `DataPointType` | enum | `SUM`/`GAUGE`/`HISTOGRAM`/`EXPONENTIAL_HISTOGRAM` |
-| [03] | `MetricData` | discriminated union | `Sum`/`Gauge`/`Histogram`/`ExponentialHistogram` metric data |
-| [04] | `DataPoint<T>` | interface | `{ startTime, endTime, attributes, value: T }` |
-| [05] | `Sum` / `LastValue` / `Histogram` / `ExponentialHistogram` | type | the aggregated point-value shapes |
-| [06] | `MetricDescriptor` | interface | `{ name, description, unit, valueType }` |
-| [07] | `ResourceMetrics` / `ScopeMetrics` / `CollectionResult` | interface | the collection tree + `{ resourceMetrics, errors[] }` |
+| [INDEX] | [SYMBOL]                                                   | [KIND]              | [SHAPE]                                                        |
+| :-----: | :--------------------------------------------------------- | :------------------ | :------------------------------------------------------------- |
+|  [01]   | `InstrumentType`                                           | enum                | `COUNTER`/`GAUGE`/`HISTOGRAM`/`UP_DOWN_COUNTER`/`OBSERVABLE_*` |
+|  [02]   | `DataPointType`                                            | enum                | `SUM`/`GAUGE`/`HISTOGRAM`/`EXPONENTIAL_HISTOGRAM`              |
+|  [03]   | `MetricData`                                               | discriminated union | `Sum`/`Gauge`/`Histogram`/`ExponentialHistogram` metric data   |
+|  [04]   | `DataPoint<T>`                                             | interface           | `{ startTime, endTime, attributes, value: T }`                 |
+|  [05]   | `Sum` / `LastValue` / `Histogram` / `ExponentialHistogram` | type                | the aggregated point-value shapes                              |
+|  [06]   | `MetricDescriptor`                                         | interface           | `{ name, description, unit, valueType }`                       |
+|  [07]   | `ResourceMetrics` / `ScopeMetrics` / `CollectionResult`    | interface           | the collection tree + `{ resourceMetrics, errors[] }`          |
 
 ```ts contract
 type MetricData = SumMetricData | GaugeMetricData | HistogramMetricData | ExponentialHistogramMetricData   // keyed on dataPointType

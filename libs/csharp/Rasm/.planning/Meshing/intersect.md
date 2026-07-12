@@ -673,14 +673,14 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]          | [KIND]                                                                                              | [RAIL]                                              | [CASES] |
-| :-----: | :----------------- | :--------------- | :--------------------------------------------------------------------------------------------------- | :---------------------------------------------------- | :-----: |
-|  [01]   | Intersection       | `IntersectOp`    | `[Union]` seven cases folded by ONE `Apply` with `Op?` threading                                    | `Intersection.Apply → Fin<IntersectResult>`          |    7    |
-|  [1a]   | Primitive kinds    | `PrimitiveKind`  | `[SmartEnum<string>]` — the 2424 fault payload vocabulary, minted here                              | payload row (faults compose it)                      |    5    |
-|  [1b]   | Operation kind     | `IntersectKind`  | `[SmartEnum<string>]` + `A`/`B` primitive-pair columns                                              | discriminant (fault payload derives from the row)    |    7    |
-|  [1c]   | Crossing carrier   | `Crossing`       | `Implicit` defining-entity construction + `CrossKey` integer merge key                              | carrier (`Round()` at emission only)                 |    —    |
-|  [1d]   | Chain arena        | `CrossingStore`  | single-writer arena (classified-key intern · exact value unification · segments) + `Freeze → CrossLattice` | frozen projection                             |    —    |
-|  [1e]   | Result             | `IntersectResult`| `[Union]` `Points`/`Segments`/`Chains(Walked, Lattice)` — typed open chains, oriented closed loops  | carrier                                              |    3    |
+| [INDEX] | [AXIS_CONCERN]   | [OWNER]           | [KIND]                                                                                                     | [RAIL]                                            | [CASES] |
+| :-----: | :--------------- | :---------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------------------------ | :-----: |
+|  [01]   | Intersection     | `IntersectOp`     | `[Union]` seven cases folded by ONE `Apply` with `Op?` threading                                           | `Intersection.Apply → Fin<IntersectResult>`       |    7    |
+|  [1a]   | Primitive kinds  | `PrimitiveKind`   | `[SmartEnum<string>]` — the 2424 fault payload vocabulary, minted here                                     | payload row (faults compose it)                   |    5    |
+|  [1b]   | Operation kind   | `IntersectKind`   | `[SmartEnum<string>]` + `A`/`B` primitive-pair columns                                                     | discriminant (fault payload derives from the row) |    7    |
+|  [1c]   | Crossing carrier | `Crossing`        | `Implicit` defining-entity construction + `CrossKey` integer merge key                                     | carrier (`Round()` at emission only)              |    —    |
+|  [1d]   | Chain arena      | `CrossingStore`   | single-writer arena (classified-key intern · exact value unification · segments) + `Freeze → CrossLattice` | frozen projection                                 |    —    |
+|  [1e]   | Result           | `IntersectResult` | `[Union]` `Points`/`Segments`/`Chains(Walked, Lattice)` — typed open chains, oriented closed loops         | carrier                                           |    3    |
 
 The exact ordering machinery of the prior fence (`Expansion OrderKey` + `Fraction RationalKey` + rounded `Site`) is DEAD: connectivity derives from integer `CrossKey` equality, ordering where still needed (ray hits, coplanar sweeps, multi-crossing constraints) routes the landed `Predicate.Compare` order key, and the one materialization is `Implicit.Round()` at emission.
 

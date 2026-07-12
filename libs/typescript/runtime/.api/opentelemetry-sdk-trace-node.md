@@ -18,11 +18,11 @@
 
 The only symbol this leg adds over base. `NodeTracerConfig` is a pure alias of `TracerConfig` — no node-specific config axis; the node-ness is entirely in `register()`, whose `SDKRegistrationConfig` selects the global context manager and propagator. Passing `null` for either skips that global install; `undefined` takes the node default.
 
-| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
-|:-----: |:--------------------------- |:------------- |:------------------------------------------------------------------- |
-| [01] | `NodeTracerProvider` | class | `extends BasicTracerProvider`; `register()` installs the node globals |
-| [02] | `NodeTracerConfig` | type alias | `= TracerConfig` — no node-specific field |
-| [03] | `SDKRegistrationConfig` | interface (re-export) | `register()` arg — `{ propagator?, contextManager? }` |
+| [INDEX] | [SYMBOL]                | [KIND]                | [CAPABILITY_BOUNDARY]                                                 |
+| :-----: | :---------------------- | :-------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `NodeTracerProvider`    | class                 | `extends BasicTracerProvider`; `register()` installs the node globals |
+|  [02]   | `NodeTracerConfig`      | type alias            | `= TracerConfig` — no node-specific field                             |
+|  [03]   | `SDKRegistrationConfig` | interface (re-export) | `register()` arg — `{ propagator?, contextManager? }`                 |
 
 ```ts contract
 declare class NodeTracerProvider extends BasicTracerProvider {

@@ -23,12 +23,12 @@
 
 `python-bidi` is a function surface, not a type surface: `get_display` returns the same kind it was given (`str` in -> `str` out, `bytes` in -> `bytes` out re-encoded with `encoding`), so there is no wrapper value object to allocate. The only carried value is the paragraph base level as a plain `int` (`0` LTR / `1` RTL). The `StrOrBytes = str | bytes` alias (defined in both `bidi.wrapper` and `bidi.algorithm`) is the input/output union; `base_dir` is a 2-member string vocabulary (`'L'`/`'R'`) the boundary lifts into a closed direction value rather than threading a raw character.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `StrOrBytes` | input/output union | `str \| bytes` — the `get_display` argument and return; `bytes` is decoded with `encoding` on entry and re-encoded on exit, `str` passes through unencoded |
-| [02] | base level (`int`) | direction value | `get_base_level` return — `0` LTR / `1` RTL for the first paragraph; the boundary lifts it into the closed paragraph-direction value the `BIDI` arm keys on |
-| [03] | `base_dir` (`'L'`/`'R'`) | direction override | the optional override that pins the resolved base level instead of computing it from the first strong character; a 2-member string vocabulary, never a free string |
-| [04] | storage (`dict`) | reference engine state | `bidi.algorithm.get_empty_storage()` return — the mutable `{'base_level','base_dir','chars','runs'}` carrier every pure-Python stage function reads and mutates; reference/diagnostic use only, never the native production path |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]          | [CAPABILITY]                                                                                                                                                                                                                     |
+| :-----: | :----------------------- | :--------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `StrOrBytes`             | input/output union     | `str \| bytes` — the `get_display` argument and return; `bytes` is decoded with `encoding` on entry and re-encoded on exit, `str` passes through unencoded                                                                       |
+|  [02]   | base level (`int`)       | direction value        | `get_base_level` return — `0` LTR / `1` RTL for the first paragraph; the boundary lifts it into the closed paragraph-direction value the `BIDI` arm keys on                                                                      |
+|  [03]   | `base_dir` (`'L'`/`'R'`) | direction override     | the optional override that pins the resolved base level instead of computing it from the first strong character; a 2-member string vocabulary, never a free string                                                               |
+|  [04]   | storage (`dict`)         | reference engine state | `bidi.algorithm.get_empty_storage()` return — the mutable `{'base_level','base_dir','chars','runs'}` carrier every pure-Python stage function reads and mutates; reference/diagnostic use only, never the native production path |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -37,45 +37,45 @@
 
 `get_display` is the one reorder entry — it accepts `str` or `bytes`, runs the UAX#9 algorithm over the Rust core (`get_display_inner(text, base_dir, debug)`), and returns the visually-reordered text in the same kind. `base_dir='L'`/`'R'` overrides the auto-computed paragraph direction (the override the `BIDI` arm sets when the document layout already fixes the column direction), and `debug=True` returns the Rust `BidiInfo` resolution dump (the `original_classes`/levels trace as a formatted string) instead of the reordered string for a diagnostic pass. `get_base_level` probes the first paragraph's resolved direction without reordering, so the arm can decide direction once and pass it down to shaping.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `get_display` | `get_display(str_or_bytes: StrOrBytes, encoding: str = 'utf-8', base_dir: str \| None = None, debug: bool = False) -> StrOrBytes` | UAX#9 reorder logical -> visual order (the gated `BIDI` arm; native Rust path) |
-| [02] | `get_base_level` | `get_base_level(text: str) -> int` | first-paragraph base direction (`0` LTR / `1` RTL) without reordering |
-| [03] | `bidi.bidi.get_display_inner` | `get_display_inner(text: str, base_dir: str \| None, debug: bool) -> str` | the native PyO3 reorder `get_display` wraps; always `str`-in/`str`-out (the wrapper owns the `bytes` decode/re-encode), never called directly by the owner |
-| [04] | `bidi.bidi.get_base_level_inner` | `get_base_level_inner(text: str) -> int` | the native PyO3 base-level probe `get_base_level` wraps |
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                                                                      | [CAPABILITY]                                                                                                                                               |
+| :-----: | :------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `get_display`                    | `get_display(str_or_bytes: StrOrBytes, encoding: str = 'utf-8', base_dir: str \| None = None, debug: bool = False) -> StrOrBytes` | UAX#9 reorder logical -> visual order (the gated `BIDI` arm; native Rust path)                                                                             |
+|  [02]   | `get_base_level`                 | `get_base_level(text: str) -> int`                                                                                                | first-paragraph base direction (`0` LTR / `1` RTL) without reordering                                                                                      |
+|  [03]   | `bidi.bidi.get_display_inner`    | `get_display_inner(text: str, base_dir: str \| None, debug: bool) -> str`                                                         | the native PyO3 reorder `get_display` wraps; always `str`-in/`str`-out (the wrapper owns the `bytes` decode/re-encode), never called directly by the owner |
+|  [04]   | `bidi.bidi.get_base_level_inner` | `get_base_level_inner(text: str) -> int`                                                                                          | the native PyO3 base-level probe `get_base_level` wraps                                                                                                    |
 
 [ENTRYPOINT_SCOPE]: pure-Python reference engine and stage pipeline (`bidi.algorithm`)
 - rail: text-shaping
 
 `bidi.algorithm` is the pure-Python reference implementation of the SAME public surface (`get_display`/`get_base_level`, plus the `upper_is_rtl` debug knob the native binding ignores) PLUS the full UAX#9 stage pipeline as separately-callable functions over a `get_empty_storage()` dict — the diagnostic/test path, NOT the gated production binding. The stage functions run in fixed UAX#9 order (`explicit_embed_and_overrides` -> `resolve_weak_types` -> `resolve_neutral_types` -> `resolve_implicit_levels` -> `reorder_resolved_levels` -> `apply_mirroring`); `get_embedding_levels` drives that pipeline and fills the storage `chars`/`runs`; `debug_storage` dumps it. The owner reaches this module only to surface the embedding-level array / level-run partition as receipt evidence or to QA the native reorder against the reference; it never substitutes for `get_display` on the production path.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `bidi.algorithm.get_display` | `get_display(str_or_bytes, encoding='utf-8', upper_is_rtl=False, base_dir=None, debug=False) -> StrOrBytes` | pure-Python reference reorder; adds the `upper_is_rtl` debug knob (uppercase Latin treated as strong RTL) |
-| [02] | `bidi.algorithm.get_base_level` | `get_base_level(text, upper_is_rtl=False) -> int` | pure-Python first-paragraph base level |
-| [03] | `bidi.algorithm.get_empty_storage` | `get_empty_storage() -> dict` | allocate the `{'base_level','base_dir','chars','runs'}` storage every stage function reads/mutates |
-| [04] | `bidi.algorithm.get_embedding_levels` | `get_embedding_levels(text, storage, upper_is_rtl=False, debug=False)` | seed `storage['chars']` with per-character `{ch,type,orig}` records and run the type-mapping pass that the stage pipeline resolves |
-| [05] | `bidi.algorithm.explicit_embed_and_overrides` | `explicit_embed_and_overrides(storage, debug=False)` | UAX#9 X1-X9: resolve explicit embeddings/overrides, push the directional-status stack, drop removed control types |
-| [06] | `bidi.algorithm.resolve_weak_types` | `resolve_weak_types(storage, debug=False)` | UAX#9 W1-W7: resolve NSM/EN/ES/ET/AN/CS weak types within each level run |
-| [07] | `bidi.algorithm.resolve_neutral_types` | `resolve_neutral_types(storage, debug)` | UAX#9 N0-N2: resolve neutral and isolate-formatting types to L/R by surrounding strong context |
-| [08] | `bidi.algorithm.resolve_implicit_levels` | `resolve_implicit_levels(storage, debug)` | UAX#9 I1-I2: raise embedding levels by resolved type (the per-character level array) |
-| [09] | `bidi.algorithm.reorder_resolved_levels` | `reorder_resolved_levels(storage, debug)` | UAX#9 L1-L2: reverse contiguous level runs highest-to-lowest into visual order |
-| [10] | `bidi.algorithm.apply_mirroring` | `apply_mirroring(storage, debug)` | UAX#9 L4: swap mirrored characters (brackets/quotes) in RTL runs via the `MIRRORED` table |
-| [11] | `bidi.algorithm.calc_level_runs` | `calc_level_runs(storage)` | partition the resolved char stream into same-level runs (the directional-run decomposition) |
-| [12] | `bidi.algorithm.reverse_contiguous_sequence` | `reverse_contiguous_sequence(chars, line_start, line_end, highest_level, lowest_odd_level)` | the in-place level-run reversal primitive `reorder_resolved_levels` folds over |
-| [13] | `bidi.algorithm.debug_storage` | `debug_storage(storage, base_info=False, chars=True, runs=False)` | dump the internal bidi storage (base info / characters / level runs) for a diagnostic trace |
+| [INDEX] | [SURFACE]                                     | [CALL_SHAPE]                                                                                                | [CAPABILITY]                                                                                                                       |
+| :-----: | :-------------------------------------------- | :---------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `bidi.algorithm.get_display`                  | `get_display(str_or_bytes, encoding='utf-8', upper_is_rtl=False, base_dir=None, debug=False) -> StrOrBytes` | pure-Python reference reorder; adds the `upper_is_rtl` debug knob (uppercase Latin treated as strong RTL)                          |
+|  [02]   | `bidi.algorithm.get_base_level`               | `get_base_level(text, upper_is_rtl=False) -> int`                                                           | pure-Python first-paragraph base level                                                                                             |
+|  [03]   | `bidi.algorithm.get_empty_storage`            | `get_empty_storage() -> dict`                                                                               | allocate the `{'base_level','base_dir','chars','runs'}` storage every stage function reads/mutates                                 |
+|  [04]   | `bidi.algorithm.get_embedding_levels`         | `get_embedding_levels(text, storage, upper_is_rtl=False, debug=False)`                                      | seed `storage['chars']` with per-character `{ch,type,orig}` records and run the type-mapping pass that the stage pipeline resolves |
+|  [05]   | `bidi.algorithm.explicit_embed_and_overrides` | `explicit_embed_and_overrides(storage, debug=False)`                                                        | UAX#9 X1-X9: resolve explicit embeddings/overrides, push the directional-status stack, drop removed control types                  |
+|  [06]   | `bidi.algorithm.resolve_weak_types`           | `resolve_weak_types(storage, debug=False)`                                                                  | UAX#9 W1-W7: resolve NSM/EN/ES/ET/AN/CS weak types within each level run                                                           |
+|  [07]   | `bidi.algorithm.resolve_neutral_types`        | `resolve_neutral_types(storage, debug)`                                                                     | UAX#9 N0-N2: resolve neutral and isolate-formatting types to L/R by surrounding strong context                                     |
+|  [08]   | `bidi.algorithm.resolve_implicit_levels`      | `resolve_implicit_levels(storage, debug)`                                                                   | UAX#9 I1-I2: raise embedding levels by resolved type (the per-character level array)                                               |
+|  [09]   | `bidi.algorithm.reorder_resolved_levels`      | `reorder_resolved_levels(storage, debug)`                                                                   | UAX#9 L1-L2: reverse contiguous level runs highest-to-lowest into visual order                                                     |
+|  [10]   | `bidi.algorithm.apply_mirroring`              | `apply_mirroring(storage, debug)`                                                                           | UAX#9 L4: swap mirrored characters (brackets/quotes) in RTL runs via the `MIRRORED` table                                          |
+|  [11]   | `bidi.algorithm.calc_level_runs`              | `calc_level_runs(storage)`                                                                                  | partition the resolved char stream into same-level runs (the directional-run decomposition)                                        |
+|  [12]   | `bidi.algorithm.reverse_contiguous_sequence`  | `reverse_contiguous_sequence(chars, line_start, line_end, highest_level, lowest_odd_level)`                 | the in-place level-run reversal primitive `reorder_resolved_levels` folds over                                                     |
+|  [13]   | `bidi.algorithm.debug_storage`                | `debug_storage(storage, base_info=False, chars=True, runs=False)`                                           | dump the internal bidi storage (base info / characters / level runs) for a diagnostic trace                                        |
 
 [ENTRYPOINT_SCOPE]: UCD data tables and the mirroring pairing
 - rail: text-shaping
 
 These are the module-level data the reference engine folds over — the production native path carries its own copies inside the Rust crate, so the owner reads these only as reference constants (e.g. to surface the explicit-level ceiling as a validation bound, or to resolve a mirrored-bracket pair without re-running the algorithm).
 
-| [INDEX] | [SURFACE] | [SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `bidi.mirror.MIRRORED` (`bidi.algorithm.MIRRORED` re-export) | `dict[str, str]`, 362 entries | the UAX BidiMirroring pairing table (`'(' -> ')'`, `'༺' -> '༻'`, ...); the L4 mirror lookup, consumable directly for a single mirrored-pair resolution |
-| [02] | `bidi.algorithm.PARAGRAPH_LEVELS` | `{'L': 0, 'AL': 1, 'R': 1}` | strong-type -> base-level map; how `base_dir`/first-strong resolves to `0`/`1` |
-| [03] | `bidi.algorithm.EXPLICIT_LEVEL_LIMIT` | `62` | the UAX#9 maximum explicit embedding depth — a validation ceiling for explicit-level input |
-| [04] | `bidi.algorithm.X2_X5_MAPPINGS` / `X6_IGNORED` / `X9_REMOVED` | `dict` / `list` / `list` | the explicit-formatting control vocabularies (`RLE`/`LRE`/`RLO`/`LRO`/`PDF`/`BN`/`B`) the X-rules push, ignore, and remove |
+| [INDEX] | [SURFACE]                                                     | [SHAPE]                       | [CAPABILITY]                                                                                                                                           |
+| :-----: | :------------------------------------------------------------ | :---------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `bidi.mirror.MIRRORED` (`bidi.algorithm.MIRRORED` re-export)  | `dict[str, str]`, 362 entries | the UAX BidiMirroring pairing table (`'(' -> ')'`, `'༺' -> '༻'`, ...); the L4 mirror lookup, consumable directly for a single mirrored-pair resolution |
+|  [02]   | `bidi.algorithm.PARAGRAPH_LEVELS`                             | `{'L': 0, 'AL': 1, 'R': 1}`   | strong-type -> base-level map; how `base_dir`/first-strong resolves to `0`/`1`                                                                         |
+|  [03]   | `bidi.algorithm.EXPLICIT_LEVEL_LIMIT`                         | `62`                          | the UAX#9 maximum explicit embedding depth — a validation ceiling for explicit-level input                                                             |
+|  [04]   | `bidi.algorithm.X2_X5_MAPPINGS` / `X6_IGNORED` / `X9_REMOVED` | `dict` / `list` / `list`      | the explicit-formatting control vocabularies (`RLE`/`LRE`/`RLO`/`LRO`/`PDF`/`BN`/`B`) the X-rules push, ignore, and remove                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

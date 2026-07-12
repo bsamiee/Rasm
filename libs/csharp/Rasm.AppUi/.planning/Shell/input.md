@@ -71,7 +71,7 @@ public static class BehaviorRail {
 ```
 
 | [INDEX] | [ROW]          | [SURFACE]                    | [KNOB]        | [TIMING_ROW] |
-| :-----: | -------------- | ---------------------------- | ------------- | :----------: |
+| :-----: | :------------- | :--------------------------- | :------------ | :----------: |
 |  [01]   | routed-event   | `RoutedEventTriggerBehavior` | `RoutedEvent` |      —       |
 |  [02]   | data           | `DataTriggerBehavior`        | `Binding`     |      —       |
 |  [03]   | multi-data     | `MultiDataTriggerBehavior`   | `Conditions`  |      —       |
@@ -115,7 +115,7 @@ public sealed record PanZoomRow(
 ```
 
 | [INDEX] | [GESTURE]       | [ROUTE]                                               | [CONSEQUENCE]                                                                       |
-| :-----: | --------------- | ----------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| :-----: | :-------------- | :---------------------------------------------------- | :---------------------------------------------------------------------------------- |
 |  [01]   | tap             | `TappedEventTrigger`                                  | primary intent action fires                                                         |
 |  [02]   | double-tap      | `DoubleTappedEventTrigger`                            | canvas rows route through `DoubleClickZoomMode`                                     |
 |  [03]   | press-hold      | `HoldingGestureTrigger`                               | context intent raise                                                                |
@@ -323,12 +323,12 @@ public static class InputDrivers {
 }
 ```
 
-| [INDEX] | [DRIVER]   | [SDK]                   | [ENUMERATE]                              | [SAMPLE_SOURCE]                                 | [NORMALIZE]                |
-| :-----: | ---------- | ----------------------- | ---------------------------------------- | ----------------------------------------------- | -------------------------- |
-|  [01]   | SpaceMouse | `HidSharp`              | `DeviceList.Local.GetHidDevices(vid,pid)` | `DeviceItemInputParser.GetValue`/`DataValue`    | `GetScaledValue(-1, 1)`    |
-|  [02]   | Controller | `Silk.NET.Input`        | `IView.CreateInput().Gamepads`           | `IGamepad.Thumbsticks`/`Triggers`/`Buttons`     | `Deadzone.Apply` + `[-1,1]` |
-|  [03]   | Haptic     | `Silk.NET.SDL`          | `Sdl.NumHaptics` + `HapticOpenFromJoystick` | `HapticQuery` capability + `GameControllerRumble` | output-only normalized      |
-|  [04]   | MIDI       | `Melanchall.DryWetMidi` | `InputDevice.GetAll`/`GetByName`          | `ControlChangeEvent`/`NoteOnEvent` (`EventReceived`) | `SevenBitNumber / 127`   |
+| [INDEX] | [DRIVER]   | [SDK]                   | [ENUMERATE]                                 | [SAMPLE_SOURCE]                                      | [NORMALIZE]                 |
+| :-----: | :--------- | :---------------------- | :------------------------------------------ | :--------------------------------------------------- | :-------------------------- |
+|  [01]   | SpaceMouse | `HidSharp`              | `DeviceList.Local.GetHidDevices(vid,pid)`   | `DeviceItemInputParser.GetValue`/`DataValue`         | `GetScaledValue(-1, 1)`     |
+|  [02]   | Controller | `Silk.NET.Input`        | `IView.CreateInput().Gamepads`              | `IGamepad.Thumbsticks`/`Triggers`/`Buttons`          | `Deadzone.Apply` + `[-1,1]` |
+|  [03]   | Haptic     | `Silk.NET.SDL`          | `Sdl.NumHaptics` + `HapticOpenFromJoystick` | `HapticQuery` capability + `GameControllerRumble`    | output-only normalized      |
+|  [04]   | MIDI       | `Melanchall.DryWetMidi` | `InputDevice.GetAll`/`GetByName`            | `ControlChangeEvent`/`NoteOnEvent` (`EventReceived`) | `SevenBitNumber / 127`      |
 
 ## [08]-[RESEARCH]
 

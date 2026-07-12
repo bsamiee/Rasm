@@ -2,18 +2,18 @@
 
 The one `GlobalId` mark plane: a single `HashSet<GlobalId>` selection atom written through a closed op vocabulary — `Replace`, `Add`, `Toggle`, `Subtract`, `Clear` — with every pick pipeline (deck async picking, three ray-casting, maplibre feature query, turf lasso) resolving its native hit into `GlobalId` values through the ONE decode surface (`BcfViewpoint.GlobalId`, `core/interchange/codec#LANDING_WIRE`) BEFORE the fold, so the set never holds a backend-shaped object. The set is the single truth every echo projects from — deck highlight, maplibre feature-state, grid row selection, and viewport reveal all read the same atom, undoable by riding `system/atom#HISTORY_FOLD`. On the same plane ride the BCF issue marks: `BcfTopic`/`BcfViewpoint` arrive decoded from `csharp:Rasm.Bim`'s mints, topic pins project through the pure anchor seam, viewpoint restore is one fold minting a `Camera.Intent` plus a `Selection.Op` with resolved/missing anchor evidence, and the topic board renders lifecycle vocabularies through keyed tone tables. A missing anchor is re-location evidence, never a fault, and this module authors no BCF value — writes are app egress through wire encode. The module is `ui/viewer/src/mark.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                     | [PUBLIC]    |
-| :-----: | :------------------ | :----------------------------------------------------------------------------- | :---------- |
-|  [01]   | `SELECTION_FOLD`    | the `GlobalId` set atom, the closed op vocabulary, the History ride             | `Selection` |
-|  [02]   | `PICK_PIPES`        | native-hit → `GlobalId` resolution per backend — point, marquee, lasso          | `Selection` |
-|  [03]   | `ECHO_ROWS`         | the projections — GPU highlight, feature-state, grid selection, reveal          | `Selection` |
-|  [04]   | `ANCHOR_PINS`       | topic pins — world anchors projected to screen, per-surface DOM anchoring       | `Mark`      |
-|  [05]   | `VIEWPOINT_RESTORE` | the viewpoint → camera-intent + selection-op fold with anchor evidence          | `Mark`      |
-|  [06]   | `TOPIC_BOARD`       | lifecycle tone vocabularies, board rows, the write-egress boundary              | `Mark`      |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                    | [PUBLIC]    |
+| :-----: | :------------------ | :------------------------------------------------------------------------ | :---------- |
+|  [01]   | `SELECTION_FOLD`    | the `GlobalId` set atom, the closed op vocabulary, the History ride       | `Selection` |
+|  [02]   | `PICK_PIPES`        | native-hit → `GlobalId` resolution per backend — point, marquee, lasso    | `Selection` |
+|  [03]   | `ECHO_ROWS`         | the projections — GPU highlight, feature-state, grid selection, reveal    | `Selection` |
+|  [04]   | `ANCHOR_PINS`       | topic pins — world anchors projected to screen, per-surface DOM anchoring | `Mark`      |
+|  [05]   | `VIEWPOINT_RESTORE` | the viewpoint → camera-intent + selection-op fold with anchor evidence    | `Mark`      |
+|  [06]   | `TOPIC_BOARD`       | lifecycle tone vocabularies, board rows, the write-egress boundary        | `Mark`      |
 
-## [2]-[SELECTION_FOLD]
+## [02]-[SELECTION_FOLD]
 
 [SELECTION_FOLD]:
 - Owner: `Selection` — the op-driven fold: `Selection.Op` is a closed `Data.taggedEnum` and `Selection.step(set, op)` the total fold, each arm one `HashSet` combinator; the live atom is `History.make(HashSet.empty())` so undo/redo is construction — writes mint `History.Op.Push` over the stepped set and the `present` projection feeds every consumer.
@@ -53,7 +53,7 @@ const _step = (set: Selection.Set, op: Selection.Op): Selection.Set =>
   })
 ```
 
-## [3]-[PICK_PIPES]
+## [03]-[PICK_PIPES]
 
 [PICK_PIPES]:
 - Law: every pipe resolves to `GlobalId` at its own seam through the one `_decode` — deck: `pickObjectsAsync({ x, y, width, height, maxObjects })` (the WebGPU-safe async pair; the deprecated sync mirrors never appear) yields `PickingInfo` whose `object` is a GeoArrow row proxy or a feature, and the pipe reads the id member and decodes; three: `Raycaster.setFromCamera` + `intersectObjects` over the residency graph, resolving hit nodes through `scene`'s graft ledger to content keys, then key → `GlobalId` through the element index the app composes from the decoded `ElementGraph`; maplibre: `queryRenderedFeatures(pointOrBox)` reading the feature's id property — one resolution law, three seams.
@@ -96,7 +96,7 @@ const _marquee = (
   )
 ```
 
-## [4]-[ECHO_ROWS]
+## [04]-[ECHO_ROWS]
 
 [ECHO_ROWS]:
 - Law: echoes are projections, never stores — deck layers read the set through a `DataFilterExtension` category or a color accessor keyed by membership (with `updateTriggers` naming the set's version); the batched scene arm flips `setVisibleAt`/tint rows through `scene#DRAW_COLLAPSE`; maplibre echoes through `setFeatureState(feature, { selected })` diffed against the previous set (enter/leave computed by `HashSet.difference` both ways); the grid's row selection (`view/table`) derives keyed by the same `GlobalId` strings and writes back through the same ops — one fold, many mirrors.
@@ -142,7 +142,7 @@ const Selection: Selection.Shape = {
 }
 ```
 
-## [5]-[ANCHOR_PINS]
+## [05]-[ANCHOR_PINS]
 
 [ANCHOR_PINS]:
 - Owner: `Mark.pin` — the pin projection: each open topic's primary viewpoint yields a world anchor (the viewpoint camera target, or the first resolvable selection element's centroid), projected per camera settle through `Camera.anchor` (the pure viewport math on geo surfaces) or the live `map.project` seam; pins render as DOM anchors — a maplibre `Marker` on map surfaces, a floating-ui `VirtualElement` whose `getBoundingClientRect` wraps the projected point on scene surfaces — one pin mechanism per surface class, chosen by the surface row, never stacked.
@@ -182,7 +182,7 @@ const _pin = (
   }))
 ```
 
-## [6]-[VIEWPOINT_RESTORE]
+## [06]-[VIEWPOINT_RESTORE]
 
 [VIEWPOINT_RESTORE]:
 - Owner: `Mark.restore(viewpoint, resident, millis)` — one fold, two outputs and one receipt: the camera block (position/direction/up/fieldOfView — consume-only carriage per the wire law) mints one `Camera.Intent.LookAt` — eye from the position rows, target from position plus direction, the ease duration as the caller's policy — that every surface class dispatches through `Camera.drive`; the `selection` array mints `Selection.Op.Replace`; and the anchor receipt reports which ids resolved against the live model — the partial-failure evidence the operator reads.
@@ -221,7 +221,7 @@ const _restore = (
   )
 ```
 
-## [7]-[TOPIC_BOARD]
+## [07]-[TOPIC_BOARD]
 
 [TOPIC_BOARD]:
 - Owner: `Mark.tone` — the lifecycle styling vocabulary: one `as const` table keyed by the wire's closed `status` axis carrying tone plus glyph rows (a `LucideIcon` per status — icon-as-identity), with `priority` as the second axis feeding a recipe variant; the board renders topics as roster-law list rows (`system/primitive#ROSTER_LAW`), comment threads at full depth from the decoded topic, and stamps through `Format.instant` (`system/intl`).

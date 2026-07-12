@@ -18,11 +18,11 @@
 [PUBLIC_TYPE_SCOPE]: selective registration and the interaction event details
 - rail: view/chart
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------ |:--------------- |:--------------------------------------------------------------------------------- |
-| [01] | `register(...plugin_names: string[]): void` | selective entry | narrows the registered roster to named charts when a build carries only a subset; the bare import registers all |
-| [02] | `PerspectiveSelectDetail` | event detail | the `detail` payload of chart selection events — pairs with the viewer's click/select seam |
-| [03] | `PerspectiveClickDetail` (type) | event detail | the click event `detail` shape — row values and config under the pointer |
+| [INDEX] | [SYMBOL]                                    | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                             |
+| :-----: | :------------------------------------------ | :-------------- | :-------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `register(...plugin_names: string[]): void` | selective entry | narrows the registered roster to named charts when a build carries only a subset; the bare import registers all |
+|  [02]   | `PerspectiveSelectDetail`                   | event detail    | the `detail` payload of chart selection events — pairs with the viewer's click/select seam                      |
+|  [03]   | `PerspectiveClickDetail` (type)             | event detail    | the click event `detail` shape — row values and config under the pointer                                        |
 
 ## [03]-[INTEGRATION]
 

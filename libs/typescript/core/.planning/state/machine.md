@@ -2,15 +2,15 @@
 
 The statechart owner: a closed transition system is data — one `Transition.Spec` whose `nodes` table declares the state tree (atomic, compound, parallel, final, history — declaration order IS document order and document order is the determinism law) and whose `rows` carry guarded, internally-or-externally-domained, ordered-emit transitions — and one compile at `Transition.spec` precomputes the tree algebra (ancestor chains, entry completion, LCCA, the final-state census), derives the configuration schema from the node vocabulary, and mints the serializable `@effect/experimental` `Machine` exactly once, so `boot` and `restore` only run the actor and never recompile. The same compiled value drives three altitudes: the pure macrostep fold (`step` drains eventless and raised internal signals to stability under a bounded-microstep fuel row), the batch and stream drivers (`drive` through `Array.mapAccum`, `trace` through `Stream.mapAccum`), and the booted actor — one state on one fiber, phase-keyed watchdogs and node-scoped invoke fibers armed by the entered/exited wave with completions folded through the node's `finalize` row before the done signal fires, history carried inside machine state so `snapshot`/`restore` transports it durably for free, the actor's own `Subscribable` state binding view atoms, and a derived fact stream as the inspection hook a consumer taps without the machine forking anything. The flat Mealy table is the degenerate case — a depth-one tree with a singleton configuration. THE ALTITUDE RULING: `Machine` is the in-process serializable actor, and serializability is forced rather than asserted — `snapshot`/`restore` and the `sendUnknown` wire admission exist only on the schema-carried `Machine.serializable` list, so the schemaless `Machine.procedures` altitude would forfeit exactly the durability these laws demand; a machine whose steps demand durable-execution replay, activity memoization, compensation, or cross-process sharding is the runtime branch's workflow altitude, and promoting a transition system there re-homes the spec, never re-shapes it. The module is `core/src/state/machine.ts`; a new state is a node row, a new transition is a table row, a new deadline is a watch row, a new child activity is an invoke row.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                          | [PUBLIC]                          |
-| :-----: | :----------------- | :------------------------------------------------------------------------------ | :-------------------------------- |
-|  [01]   | `STATECHART_TABLE` | the node/row/config vocabulary and the one-shot compile with static tree facts   | `Transition.Spec`, `Transition.spec` |
-|  [02]   | `MACROSTEP_FOLD`   | selection, conflict removal, exit/entry algebra, the fuel-bounded macrostep      | `Transition.drive`, `Transition.trace` |
-|  [03]   | `ACTOR`            | boot, restore, wire admission, arming, the subscribable state and fact stream    | compiled `boot`/`restore`          |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                         | [PUBLIC]                               |
+| :-----: | :----------------- | :----------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `STATECHART_TABLE` | the node/row/config vocabulary and the one-shot compile with static tree facts | `Transition.Spec`, `Transition.spec`   |
+|  [02]   | `MACROSTEP_FOLD`   | selection, conflict removal, exit/entry algebra, the fuel-bounded macrostep    | `Transition.drive`, `Transition.trace` |
+|  [03]   | `ACTOR`            | boot, restore, wire admission, arming, the subscribable state and fact stream  | compiled `boot`/`restore`              |
 
-## [2]-[STATECHART_TABLE]
+## [02]-[STATECHART_TABLE]
 
 [STATECHART_TABLE]:
 - Owner: `Transition.Spec<Id, S, V, X>` — the machine as one value: `name`, `nodes` (the kind-discriminated state tree; declaration order is SCXML document order), `rows` (the transition matrix in document order), the `signal`/`verdict` literal schemas, the `extended` schema plus `seed` (guard-readable extended state, snapshot-serializable), `fuel` (the bounded-microstep row that makes every macrostep terminate), `traced` (actor span emission as a definition fact), `recover` (the defect re-initialization `Schedule`). `Transition.spec` compiles it once into `Transition.Compiled` — static tree facts, the derived configuration schema, the origin configuration, the pure `step`, and the pre-minted machine with its request classes — so booting then restoring one spec never re-mints request-class identities.
@@ -190,7 +190,7 @@ const _facts = <Id extends string, S extends string, V extends string, X>(
 }
 ```
 
-## [3]-[MACROSTEP_FOLD]
+## [03]-[MACROSTEP_FOLD]
 
 [MACROSTEP_FOLD]:
 - Owner: the macrostep algebra — selection walks each active leaf in document order through itself then its ancestors and takes the first row whose `on` and guard match (inner-first preemption, document-order priority); conflict removal keeps the earlier-selected transition when exit sets intersect (SCXML optimal transition set); the exit-set domain is one `_exits` computation selection and the microstep both read; the microstep exits innermost-first, records history before exit actions run, applies `assign`, emits the transition program, and enters outermost-first with compound defaults, parallel expansion, and history dereference; entering a `final` node raises `done.state.${parent}` onto the internal queue, and when that completion puts every region of a parallel grandparent into a final state — the `finalized` tree fact, SCXML `isInFinalState` — `done.state.${parallel}` follows in the same microstep.
@@ -330,7 +330,7 @@ const _macro = <Id extends string, S extends string, V extends string, X>(
 }
 ```
 
-## [4]-[ACTOR]
+## [04]-[ACTOR]
 
 [ACTOR]:
 - Owner: the compiled `boot`/`restore` — `Machine.makeSerializable({ state, input }, initialize)` over the derived configuration schema, one `Feed` request carrying a signal-plane member, one `Poll` request reading the configuration, and one private `Finalize` request `Machine.serializable.addPrivate` seals off the wire — three procedures minted ONCE inside `Transition.spec`; the actor surface exposes `feed` (typed), `feedUnknown` (the wire-arriving lane — a socket-decoded frame admits through the machine's own schemas via `sendUnknown`, answers the schema-encoded `Schema.ExitEncoded` outcome a socket forwards verbatim, and a forged request fails as `ParseError`), `config` (the rail-side read), `state` (the actor IS a `Subscribable` of configuration — view atoms bind it directly), `facts` (the inspection stream), and `freeze`.

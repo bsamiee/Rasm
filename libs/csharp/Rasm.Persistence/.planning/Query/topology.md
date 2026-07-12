@@ -105,13 +105,13 @@ public static class GraphTopology {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | default topology    | in-process QuikGraph view              | AGE demoted to optional self-hosted (`H5`)                |
+| [INDEX] | [POLICY]            | [VALUE]                                 | [BINDING]                                                        |
+| :-----: | :------------------ | :-------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | default topology    | in-process QuikGraph view               | AGE demoted to optional self-hosted (`H5`)                       |
 |  [02]   | incidence index     | seam-frozen `graph.EdgesAt` (read-only) | NEVER re-derived here; a second index is the deleted form (`H3`) |
-|  [03]   | filtered view owner | the kind-filtered `TypedEdge` view     | the one structure the seam `SEdge` view cannot express    |
-|  [04]   | edge filter         | `EdgeFilter` row + admit predicate     | the seam `IsContainment`; never an inline re-derived `is` |
-|  [05]   | memo key            | `ContentAddress.OfGraph` (seam hasher) | a `GraphDelta` invalidates; never a second hasher         |
+|  [03]   | filtered view owner | the kind-filtered `TypedEdge` view      | the one structure the seam `SEdge` view cannot express           |
+|  [04]   | edge filter         | `EdgeFilter` row + admit predicate      | the seam `IsContainment`; never an inline re-derived `is`        |
+|  [05]   | memo key            | `ContentAddress.OfGraph` (seam hasher)  | a `GraphDelta` invalidates; never a second hasher                |
 
 ## [03]-[TRAVERSAL]
 
@@ -314,16 +314,16 @@ public static class Traversals {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | algorithm owner     | QuikGraph `AlgorithmExtensions` facade | never a hand-rolled walk or recursive CTE                 |
-|  [02]   | dispatch            | the generated `query.Switch(...)`      | exhaustive at compile time; no runtime-silent `_` arm     |
-|  [03]   | absent root         | `Rooted` (one endpoint) / `Paired` (both ends) → `TopologyFault.RootAbsent` | a typed fault, never a silent `ElementSet.Empty`/`Route`/`Common(None)` |
-|  [04]   | result shape        | `ElementSet`-compatible key set        | a topology result composes with the selection algebra     |
-|  [05]   | cycle detection     | one `StronglyConnectedComponents` probe | shared by `Cycles`/`Order`; never recomputed per arm      |
-|  [06]   | void resolution     | first-class `Resolve` query case       | the `READ_ROUTING` correctness query has an in-process owner |
-|  [07]   | nearest container   | `IsDirectedAcyclicGraph`-gated `OfflineLeastCommonAncestor` over the `Spatial` tree | rooted-tree contract enforced — `Cyclic` railed, never an arbitrary ancestor; `Contain`+`Aggregate`, never stranded at a storey |
-|  [08]   | shortest path       | `ShortestPathsDijkstra` unit weights   | no node coordinate here; the geometry-weighted A* is the `pgrouting` lane's |
-|  [09]   | spatial walks       | the `Spatial` filter (`Contain`∪`Aggregate`) | ancestry/descent/LCA/anchors climb the full tree; `Containment` stays the narrow placement edge |
-|  [10]   | connection adjacency| `OutEdges` ∪ `InEdges` over `Connection` | symmetric — an undirected join reads both sides, never out-only |
-|  [11]   | placement / members | the narrow `Containment` / `Assignment` filters | `Placement` is the one containing storey, `Members` the group reverse read; both filter rows live |
+| [INDEX] | [POLICY]             | [VALUE]                                                                             | [BINDING]                                                                                                                       |
+| :-----: | :------------------- | :---------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | algorithm owner      | QuikGraph `AlgorithmExtensions` facade                                              | never a hand-rolled walk or recursive CTE                                                                                       |
+|  [02]   | dispatch             | the generated `query.Switch(...)`                                                   | exhaustive at compile time; no runtime-silent `_` arm                                                                           |
+|  [03]   | absent root          | `Rooted` (one endpoint) / `Paired` (both ends) → `TopologyFault.RootAbsent`         | a typed fault, never a silent `ElementSet.Empty`/`Route`/`Common(None)`                                                         |
+|  [04]   | result shape         | `ElementSet`-compatible key set                                                     | a topology result composes with the selection algebra                                                                           |
+|  [05]   | cycle detection      | one `StronglyConnectedComponents` probe                                             | shared by `Cycles`/`Order`; never recomputed per arm                                                                            |
+|  [06]   | void resolution      | first-class `Resolve` query case                                                    | the `READ_ROUTING` correctness query has an in-process owner                                                                    |
+|  [07]   | nearest container    | `IsDirectedAcyclicGraph`-gated `OfflineLeastCommonAncestor` over the `Spatial` tree | rooted-tree contract enforced — `Cyclic` railed, never an arbitrary ancestor; `Contain`+`Aggregate`, never stranded at a storey |
+|  [08]   | shortest path        | `ShortestPathsDijkstra` unit weights                                                | no node coordinate here; the geometry-weighted A* is the `pgrouting` lane's                                                     |
+|  [09]   | spatial walks        | the `Spatial` filter (`Contain`∪`Aggregate`)                                        | ancestry/descent/LCA/anchors climb the full tree; `Containment` stays the narrow placement edge                                 |
+|  [10]   | connection adjacency | `OutEdges` ∪ `InEdges` over `Connection`                                            | symmetric — an undirected join reads both sides, never out-only                                                                 |
+|  [11]   | placement / members  | the narrow `Containment` / `Assignment` filters                                     | `Placement` is the one containing storey, `Members` the group reverse read; both filter rows live                               |

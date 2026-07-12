@@ -2,19 +2,19 @@
 
 The remote-origin filesystem plane: ONE origin-addressed surface owning every non-local byte tree — SFTP and SSH-exec over the in-process `ssh2` root, FTP/FTPS over `basic-ftp`, WebDAV over `webdav`, the object plane reached as the `s3:` row — with capability flags as data so every polymorphic operation degrades by row, never by fork. An `Origin` value carries scheme, coordinate, and path; its scheme selects the backend row; the row's flags decide whether a copy is server-side or read-then-write, whether a watch pushes or polls, whether a transfer resumes by rsync delta, byte offset, or parallel chunks. Two transfer engines share one policy surface: the in-process ssh2 lane (boundary-adapted callbacks, `NodeStream`/`NodeSink` channel lifts) and the external `rsync`/`scp`/`ssh` binaries as `@effect/platform` `Command` processes. Connections pool through `lane/cache.md`'s bounded origin row; every remote read feeds the SAME content-addressed intake fold as local disk, so a cloud project grows zero new addressing vocabulary; the sync engine persists listings and reconciles deltas with resume and recover, and remote watch is a strategy row beside the local chokidar arm.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                              |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                                |
 | :-----: | :----------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `ORIGIN_ROWS`      | the `Origin` class, the scheme capability-flag table, the reason-discriminated fault    |
-|  [02]   | `SESSION_ROWS`     | the tagged session family, the per-scheme scoped brackets, the pooled origin reuse      |
-|  [03]   | `OP_SURFACE`       | the polymorphic verb set — stat/list/read/write/copy/move/remove/mkdir, flag degrade    |
-|  [04]   | `TRANSFER_ENGINES` | the resume policy rows — rsync delta, offset, chunked-parallel — and the intake fold    |
-|  [05]   | `SYNC_ENGINE`      | persisted listings, comparator rows, the diff-apply-recover fold                        |
-|  [06]   | `WATCH_ROWS`       | the watch strategy rows — local settle-guard, ssh exec-push, universal poll             |
-|  [07]   | `EXEC`             | remote command execution — typed channels, exit disposition, the local `Command` twin   |
+|  [01]   | `ORIGIN_ROWS`      | the `Origin` class, the scheme capability-flag table, the reason-discriminated fault  |
+|  [02]   | `SESSION_ROWS`     | the tagged session family, the per-scheme scoped brackets, the pooled origin reuse    |
+|  [03]   | `OP_SURFACE`       | the polymorphic verb set — stat/list/read/write/copy/move/remove/mkdir, flag degrade  |
+|  [04]   | `TRANSFER_ENGINES` | the resume policy rows — rsync delta, offset, chunked-parallel — and the intake fold  |
+|  [05]   | `SYNC_ENGINE`      | persisted listings, comparator rows, the diff-apply-recover fold                      |
+|  [06]   | `WATCH_ROWS`       | the watch strategy rows — local settle-guard, ssh exec-push, universal poll           |
+|  [07]   | `EXEC`             | remote command execution — typed channels, exit disposition, the local `Command` twin |
 
-## [2]-[ORIGIN_ROWS]
+## [02]-[ORIGIN_ROWS]
 
 - Owner: `Origin` — one `Schema.Class` whose `scheme` field selects the backend row, with `Origin.parse` decoding a URI string through one fused codec; the `_SCHEMES` capability-flag table (the rclone backend model: server-side copy/move, streaming put, change notify, exec, offset resume, parallel transfer, locks); `RemoteFault` — the one reason-discriminated fault of the plane.
 - Packages: `effect` (`Schema`, `Data`, `Either`, `ParseResult`).
@@ -99,7 +99,7 @@ class Origin extends Schema.Class<Origin>("Origin")({
 }
 ```
 
-## [3]-[SESSION_ROWS]
+## [03]-[SESSION_ROWS]
 
 - Owner: `Session` — one closed `Data.taggedEnum` family (`Ssh | Ftp | Dav | Bucket | Local`) every op narrows through `$match`, so a client cast is unspellable; the per-scheme session brackets — the ssh2 connect-on-`ready`/`end()`-on-release bracket with the SFTP subsystem lift, the `basic-ftp` `access` dial, the `webdav` client mint — `_session`, the one scheme-dispatched acquire; and `Remote.sessions`, the bounded pooled reuse over `lane/cache.md`'s `CacheLane.origins` keyed by the structural `OriginKey` whose `scheme` field selects the bracket from the key alone.
 - Packages: `ssh2` (`Client` — `connect`, `sftp`, `end`; events `ready`/`error`; config auth/trust/keepalive rows; `sock` jump-host injection); `basic-ftp` (`Client`, `access`, `close`); `webdav` (`createClient`, `AuthType`); `lane/cache.md` (`CacheLane.origins`, `OriginKey`); `effect` (`Effect`, `Data`, `Redacted`, `Scope`).
@@ -218,7 +218,7 @@ const _sessions = (auth: (key: OriginKey) => Remote.Auth) =>
     ))
 ```
 
-## [4]-[OP_SURFACE]
+## [04]-[OP_SURFACE]
 
 - Owner: the polymorphic verb set — `stat`, `list`, `read` (→ backpressured `Stream`), `write` (← `Sink`, offset-positioned when resuming), `copy`, `move`, `remove`, `mkdir` — each ONE entry dispatching through `Session.$match` with flag-driven degrade arms; and `Remote.intake`, the content-addressed landing that runs any remote read through the SAME identity fold as local disk.
 - Packages: `@effect/platform-node` (`NodeStream.fromReadable`, `NodeSink.fromWritable` — the only stream seams); `ssh2` (SFTP `stat`, `readdir`, `createReadStream`, `createWriteStream`, `rename`, `unlink`, `mkdir`, `rmdir`); `webdav` (`stat`, `getDirectoryContents`, `createReadStream`, `createWriteStream`, `copyFile`, `moveFile`, `deleteFile`, `createDirectory`); `basic-ftp` (`list`, `size`, `lastMod`, `downloadTo`, `uploadFrom`, `appendFrom`, `rename`, `remove`, `removeDir`, `ensureDir`); `@aws-sdk/client-s3` (`paginateListObjectsV2` — the bucket census walk); `object/stream.md` (`Rail.bytes`, `Rail.chunked`, `Rail.identity`, `Rail.range`), `object/store.md` (`ObjectStore`).
@@ -560,7 +560,7 @@ const _intake = (origin: Origin, session: Remote.Session, retention: Retain.Clas
   })
 ```
 
-## [5]-[TRANSFER_ENGINES]
+## [05]-[TRANSFER_ENGINES]
 
 - Owner: the `_ENGINES` policy rows — `rsyncDelta` (the preferred resumable/delta lane over the external binary), `sftpOffset` (byte-offset resume from the target's `stat` size into a positioned write), `chunkedParallel` (`fastGet`/`fastPut` with the mined tuning defaults), `ftpOffset` (`startAt`/`appendFrom` arithmetic riding the same offset arm), `davRange` (ranged read resume, the same arm) — and `Remote.transfer(from, to, policy?)`, the one end-to-end move whose engine selection is flag-derived data and whose `step` hook feeds the fact stream's meter row.
 - Packages: `@effect/platform` (`Command.make`, `Command.exitCode` — the external `rsync`/`scp`/`ssh` engine; `stdin: Sink`/`stdout: Stream` process shape); `ssh2` (SFTP `fastGet`/`fastPut` — `concurrency`/`chunkSize`/`step`; `stat`, `open`, `read`, `write`, `close`); `basic-ftp` (`downloadTo(destination, path, startAt)`, `appendFrom`, `uploadFrom` slice options).
@@ -647,7 +647,7 @@ const _transfer = (
 }
 ```
 
-## [6]-[SYNC_ENGINE]
+## [06]-[SYNC_ENGINE]
 
 - Owner: the bisync fold — persisted per-side listings in the `sync_listing` relation, the `_COMPARE` comparator rows (`sizeModtime` default, `checksum`, `sizeOnly`), the per-side delta census, the reconcile fold producing typed `SyncAction` rows, apply-through-`transfer`, and resync recovery after interrupt.
 - Packages: `@effect/sql` (`SqlSchema`, `sql.insert`); `lane/capability.md` (`Capability.Ensure` — the listing relation rides the same DDL split); `journal/append.md` (`Journal.Version` — the number-or-string codec the BIGINT `bytes` column decodes through on the spine wire); composition over `[4]`/`[5]` values.
@@ -790,7 +790,7 @@ const _sync = (pair: string, left: Remote.End, right: Remote.End, comparator: Re
   })
 ```
 
-## [7]-[WATCH_ROWS]
+## [07]-[WATCH_ROWS]
 
 - Owner: the watch strategy rows — `local` (the chokidar settle-guarded intake arm `object/file.md` owns; it never dispatches here), `execPush` (`inotifywait -m -r` over an ssh exec channel, the lowest-latency remote arm), `poll` (`Schedule`-driven census diff, the universal default) — and `Remote.watch(origin, session, strategy?)` dispatching on `origin.flags.exec`.
 - Packages: `ssh2` (`exec` — the push channel); `@effect/platform-node` (`NodeStream.fromReadable`); `effect` (`Stream.splitLines`, `Schedule`, `HashMap`); the local intake arm delegates to `object/file.md`'s `Disk.watch`.
@@ -860,7 +860,7 @@ const _watch = (
 }
 ```
 
-## [8]-[EXEC]
+## [08]-[EXEC]
 
 - Owner: `Remote.exec` — command execution as ONE typed surface over the session family: the ssh2 exec channel with `stdout`/`stderr` as backpressured `Stream`s, `stdin` as a `Sink`, `exit` as a typed effect resolved from the channel's `exit` event; the `Local` arm rides `@effect/platform` `Command.start` so host tooling answers the identical `Executed` shape; every other row refuses typed per its `exec` flag.
 - Packages: `ssh2` (`exec` — channel `Duplex`, `exit` event); `@effect/platform-node` (`NodeStream.fromReadable`, `NodeSink.fromWritable`); `@effect/platform` (`Command.make`, `Command.start` — the local arm's process shape).

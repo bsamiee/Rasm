@@ -24,19 +24,19 @@ local-first cache lane, never the record of truth (that is the data journal behi
 
 [PUBLIC_TYPE_SCOPE]: single-key and batch operations — rail: persist-kv
 
-| [INDEX] | [SYMBOL] | [ARITY] | [ATOMICITY] | [CONSUMER] |
-|:-----: |:--------- |:------------- |:----------------------- |:---------------------------------- |
-| [01] | `get` | single read | single tx | cache hit lookup |
-| [02] | `getMany` | batch read | single tx | prefetch / hydration |
-| [03] | `set` | single write | single tx | cache write |
-| [04] | `setMany` | batch write | atomic (all-or-none) | bulk hydrate / sync replay |
-| [05] | `update` | read-mod-write | atomic RMW | counter / queue mutation |
-| [06] | `del` | single delete | single tx | eviction |
-| [07] | `delMany` | batch delete | atomic | bulk eviction |
-| [08] | `clear` | store wipe | single tx | cache reset |
-| [09] | `keys` | key scan | single tx | queue enumeration |
-| [10] | `values` | value scan | single tx | background-sync replay body |
-| [11] | `entries` | pair scan | single tx | full-store export |
+| [INDEX] | [SYMBOL]  | [ARITY]        | [ATOMICITY]          | [CONSUMER]                  |
+| :-----: | :-------- | :------------- | :------------------- | :-------------------------- |
+|  [01]   | `get`     | single read    | single tx            | cache hit lookup            |
+|  [02]   | `getMany` | batch read     | single tx            | prefetch / hydration        |
+|  [03]   | `set`     | single write   | single tx            | cache write                 |
+|  [04]   | `setMany` | batch write    | atomic (all-or-none) | bulk hydrate / sync replay  |
+|  [05]   | `update`  | read-mod-write | atomic RMW           | counter / queue mutation    |
+|  [06]   | `del`     | single delete  | single tx            | eviction                    |
+|  [07]   | `delMany` | batch delete   | atomic               | bulk eviction               |
+|  [08]   | `clear`   | store wipe     | single tx            | cache reset                 |
+|  [09]   | `keys`    | key scan       | single tx            | queue enumeration           |
+|  [10]   | `values`  | value scan     | single tx            | background-sync replay body |
+|  [11]   | `entries` | pair scan      | single tx            | full-store export           |
 
 ```ts contract
 // Every op takes an optional UseStore; omitted => the default keyval-store/keyval store.

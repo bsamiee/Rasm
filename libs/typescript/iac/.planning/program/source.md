@@ -2,14 +2,14 @@
 
 The bootstrap-axis legs the estate stands on before and after a deploy: `Source` provisions the source-control shell — repository, branch law, the deployment-environment gates whose names align with the `StackSpec.doppler.config` axis so the Doppler mirror, the GitHub gate, and the stack speak ONE environment vocabulary, deploy keys whose private halves never leave the `tls` owner, the webhook seam a deploy-triggering endpoint subscribes through, and non-secret Actions variables — and `Source.distribute` converges a built static frontend into the arm's object cell through the synced-folder dialect record, so the UI folder's build product lands behind the arm's DNS/CDN rows with zero new plumbing. Secret VALUES never route through this page: the `secretssync.GithubActions` mirror (`operate/secret.md` `_MIRRORS`) writes FROM the canonical config INTO the `RepositoryEnvironment` shells this page mints — this page owns the shells, the mirror owns the filling — and `ActionsVariable` rows carry only configuration that is not secret material. One branch-law owner per repo: `RepositoryRuleset` is the rules-engine spelling, and a legacy-protection twin beside it is the split the family forbids. The module is `iac/src/program/source.ts`; a new gated environment is one row sharing the doppler-config spelling, a new distribution target is one `_FOLDERS` dialect row, a new pipeline variable is one `variables` entry.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                             | [PUBLIC] |
-| :-----: | :--------------- | :------------------------------------------------------------------ | :------- |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC] |
+| :-----: | :--------------- | :------------------------------------------------------------------- | :------- |
 |  [01]   | `SOURCE_CONTROL` | repo, branch law, environment gates, deploy keys, webhook, variables | `Source` |
-|  [02]   | `DISTRIBUTION`   | the synced-folder dialect record over the arms' object cells        | `Source` |
+|  [02]   | `DISTRIBUTION`   | the synced-folder dialect record over the arms' object cells         | `Source` |
 
-## [2]-[SOURCE_CONTROL]
+## [02]-[SOURCE_CONTROL]
 
 [SOURCE_CONTROL]:
 - Owner: `Source` — one `github.Provider` per owner scope constructed from the `GITHUB_TOKEN` fan-in read, one `Repository` (a pre-existing repo adopts through the `import` resource option so its settings become plan-managed; the class `get` is a read-only reference, never the management path), one `RepositoryRuleset` carrying the branch law, one `RepositoryEnvironment` per environments row with reviewer and self-review gates plus a branch-pattern `RepositoryEnvironmentDeploymentPolicy`, one `RepositoryDeployKey` binding a `tls.PrivateKey.publicKeyOpenssh` (read-only posture by default; the private half stays in the entropy owner), one `RepositoryWebhook` whose `configuration.secret` binds a Doppler-generated entry the receiving endpoint verifies, and `ActionsVariable` rows for non-secret pipeline configuration.
@@ -113,7 +113,7 @@ class Source extends Tier {
 }
 ```
 
-## [3]-[DISTRIBUTION]
+## [03]-[DISTRIBUTION]
 
 [DISTRIBUTION]:
 - Law: the bucket is the arm's object cell, the folder is its content — `_FOLDERS` is the dialect record keyed by the arms whose object cells the synced-folder component reaches: the `aws` row converges onto `aws.s3.BucketV2.bucket`, the `gcp` row onto `gcp.storage.Bucket.name`; the component never creates a bucket, cloud credentials thread through the arm's one provider seam via `opts.providers`, and the `cloudflare` arm's static distribution stays its own `PagesProject`/R2 rows — no R2 dialect exists here and none is faked through the S3 row.

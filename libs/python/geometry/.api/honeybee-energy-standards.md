@@ -23,15 +23,15 @@
 - rail: energy-modeling
 - The entire surface is the on-disk JSON tree honeybee-energy scans; there are no classes, functions, or path constants (unlike `honeybee-standards`, which exposes two path constants — this package exposes none, only the docstring module). The data is organized by domain and ASHRAE vintage.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `constructions/` | data folder | 1039 standard opaque/window constructions + their materials (abridged JSON) |
-| [02] | `constructionsets/` | data folder | 256 construction sets across 8 vintage files (`pre_1980`/`1980_2004`/`2004`/`2007`/`2010`/`2013`/`2016`/`2019`), keyed by climate zone + vintage |
-| [03] | `programtypes/` | data folder | 1845 program types (DOE-prototype whole-building + ASHRAE space-by-space), abridged JSON |
-| [04] | `programtypes_registry/` | data folder | per-vintage registry indices (`<vintage>_registry.json`) mapping building type -> program-type identifier (the `building_program_type_by_identifier` backing) |
-| [05] | `schedules/schedule.json` | data file | 3347 standard schedules (the ruleset/fixed-interval profiles the programs reference) |
-| [06] | `building_mix.json` | data file | whole-building program-mix weights (space-type fractions per building type) |
-| [07] | `hvac_registry.json` | data file | the standard HVAC template registry keyed by vintage/efficiency |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                                                                                                  |
+| :-----: | :------------------------ | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `constructions/`          | data folder   | 1039 standard opaque/window constructions + their materials (abridged JSON)                                                                                   |
+|  [02]   | `constructionsets/`       | data folder   | 256 construction sets across 8 vintage files (`pre_1980`/`1980_2004`/`2004`/`2007`/`2010`/`2013`/`2016`/`2019`), keyed by climate zone + vintage              |
+|  [03]   | `programtypes/`           | data folder   | 1845 program types (DOE-prototype whole-building + ASHRAE space-by-space), abridged JSON                                                                      |
+|  [04]   | `programtypes_registry/`  | data folder   | per-vintage registry indices (`<vintage>_registry.json`) mapping building type -> program-type identifier (the `building_program_type_by_identifier` backing) |
+|  [05]   | `schedules/schedule.json` | data file     | 3347 standard schedules (the ruleset/fixed-interval profiles the programs reference)                                                                          |
+|  [06]   | `building_mix.json`       | data file     | whole-building program-mix weights (space-type fractions per building type)                                                                                   |
+|  [07]   | `hvac_registry.json`      | data file     | the standard HVAC template registry keyed by vintage/efficiency                                                                                               |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -39,14 +39,14 @@
 - rail: energy-modeling
 - The package has no callable entry points; its "entry points" are the JSON data shape and the `folders.standards_extension_folders` location `honeybee-energy.lib` reads. The owner accesses everything below via the `honeybee-energy` `lib.*_by_identifier` loaders, never by opening these files — the same single access path `honeybee-standards` uses.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | install location = `honeybee_energy.config.folders.standards_extension_folders` (`~/ladybug_tools/resources/standards/honeybee_energy_standards`) | filesystem folder | the directory `honeybee_energy.lib._load*` scans at import to merge this library onto the defaults floor |
-| [02] | `honeybee_energy.lib.programtypes.program_type_by_identifier(identifier)` | identifier string | resolve any loaded program type (defaults + this extension) by id |
-| [03] | `honeybee_energy.lib.programtypes.building_program_type_by_identifier(building_type)` | building type | resolve a whole-building DOE-prototype program (REQUIRES this extension; absent on the bare floor) |
-| [04] | `honeybee_energy.lib.constructionsets.construction_set_by_identifier(identifier)` | identifier string | resolve a climate-zone/vintage construction set (the ASHRAE 90.1 sets ship here) |
-| [05] | `honeybee_energy.lib.constructions.opaque_construction_by_identifier` / `window_construction_by_identifier` | identifier string | resolve a standard construction by id |
-| [06] | `honeybee_energy.lib.schedules.schedule_by_identifier(identifier)` | identifier string | resolve a standard schedule by id |
+| [INDEX] | [SURFACE]                                                                                                                                         | [CALL_SHAPE]      | [CAPABILITY]                                                                                             |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | install location = `honeybee_energy.config.folders.standards_extension_folders` (`~/ladybug_tools/resources/standards/honeybee_energy_standards`) | filesystem folder | the directory `honeybee_energy.lib._load*` scans at import to merge this library onto the defaults floor |
+|  [02]   | `honeybee_energy.lib.programtypes.program_type_by_identifier(identifier)`                                                                         | identifier string | resolve any loaded program type (defaults + this extension) by id                                        |
+|  [03]   | `honeybee_energy.lib.programtypes.building_program_type_by_identifier(building_type)`                                                             | building type     | resolve a whole-building DOE-prototype program (REQUIRES this extension; absent on the bare floor)       |
+|  [04]   | `honeybee_energy.lib.constructionsets.construction_set_by_identifier(identifier)`                                                                 | identifier string | resolve a climate-zone/vintage construction set (the ASHRAE 90.1 sets ship here)                         |
+|  [05]   | `honeybee_energy.lib.constructions.opaque_construction_by_identifier` / `window_construction_by_identifier`                                       | identifier string | resolve a standard construction by id                                                                    |
+|  [06]   | `honeybee_energy.lib.schedules.schedule_by_identifier(identifier)`                                                                                | identifier string | resolve a standard schedule by id                                                                        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -17,36 +17,36 @@
 [PUBLIC_TYPE_SCOPE]: array, device, and sharding types
 - rail: accelerator
 
-| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]    | [CAPABILITY]                                                                 |
-| :-----: | :---------------------------------- | :--------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `Array`                             | array type       | unified on-device array type (`jax.Array`); the leaf every sibling carries  |
-|  [02]   | `ShapeDtypeStruct(shape, dtype)`    | shape spec       | abstract shape/dtype for `eval_shape`/`make_jaxpr` and `pure_callback` decl |
-|  [03]   | `Device`                            | device handle    | a single addressable XLA device                                             |
-|  [04]   | `Sharding`                          | sharding base    | abstract base for `NamedSharding`/`PositionalSharding`/`SingleDeviceShard.` |
-|  [05]   | `NamedSharding(mesh, spec)`         | sharding spec    | mesh-and-partition-spec array sharding                                      |
-|  [06]   | `P` / `PartitionSpec`               | partition spec   | partition spec for `shard_map` and `NamedSharding`                          |
-|  [07]   | `Shard`                             | shard view       | one device's slice of a global array (`.device`, `.data`, `.index`)         |
-|  [08]   | `custom_jvp(fun, nondiff_argnums)`  | custom-rule type | forward-mode rule object; bind via `@f.defjvp` / `f.defjvps(*tangent_outs)` |
-|  [09]   | `custom_vjp(fun, nondiff_argnums)`  | custom-rule type | reverse-mode rule object; bind via `@f.defvjp(fwd, bwd)`                     |
-|  [10]   | `Tracer`                            | trace value      | the abstract value flowing through a transform; never `bool()`/`.item()`-ed |
-|  [11]   | `dtypes.canonicalize_dtype(dtype)`  | dtype policy     | resolves a dtype under the active x32/x64 precision mode                     |
+| [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [CAPABILITY]                                                                |
+| :-----: | :--------------------------------- | :--------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `Array`                            | array type       | unified on-device array type (`jax.Array`); the leaf every sibling carries  |
+|  [02]   | `ShapeDtypeStruct(shape, dtype)`   | shape spec       | abstract shape/dtype for `eval_shape`/`make_jaxpr` and `pure_callback` decl |
+|  [03]   | `Device`                           | device handle    | a single addressable XLA device                                             |
+|  [04]   | `Sharding`                         | sharding base    | abstract base for `NamedSharding`/`PositionalSharding`/`SingleDeviceShard.` |
+|  [05]   | `NamedSharding(mesh, spec)`        | sharding spec    | mesh-and-partition-spec array sharding                                      |
+|  [06]   | `P` / `PartitionSpec`              | partition spec   | partition spec for `shard_map` and `NamedSharding`                          |
+|  [07]   | `Shard`                            | shard view       | one device's slice of a global array (`.device`, `.data`, `.index`)         |
+|  [08]   | `custom_jvp(fun, nondiff_argnums)` | custom-rule type | forward-mode rule object; bind via `@f.defjvp` / `f.defjvps(*tangent_outs)` |
+|  [09]   | `custom_vjp(fun, nondiff_argnums)` | custom-rule type | reverse-mode rule object; bind via `@f.defvjp(fwd, bwd)`                    |
+|  [10]   | `Tracer`                           | trace value      | the abstract value flowing through a transform; never `bool()`/`.item()`-ed |
+|  [11]   | `dtypes.canonicalize_dtype(dtype)` | dtype policy     | resolves a dtype under the active x32/x64 precision mode                    |
 
 [PUBLIC_TYPE_SCOPE]: submodule namespaces
 - rail: accelerator
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]    | [CAPABILITY]                                                          |
-| :-----: | :--------------------- | :--------------- | :------------------------------------------------------------------- |
-|  [01]   | `jax.numpy` (`jnp`)    | array namespace  | NumPy-compatible array API on XLA; the array constructor every sibling reads |
-|  [02]   | `jax.lax`              | primitive ops    | low-level XLA primitives, control flow, and lowered linear algebra   |
-|  [03]   | `jax.random`           | PRNG namespace   | splittable counter-based random generation                           |
-|  [04]   | `jax.nn`               | NN primitives    | activations (`relu`, `gelu`, `softmax`, `softplus`) and `nn.initializers` |
-|  [05]   | `jax.scipy`            | SciPy on XLA     | XLA-backed subset of SciPy (`linalg`, `optimize`, `special`, `stats`) |
-|  [06]   | `jax.tree_util`        | pytree ops       | pytree flatten, map, leaves, structure, and node registration        |
-|  [07]   | `jax.sharding`         | sharding API     | `Mesh`, `Sharding`, `NamedSharding`, and `PartitionSpec`             |
-|  [08]   | `jax.debug`            | side-effect ops  | `print`/`callback`/`breakpoint` legal inside `jit`/`grad`/`vmap`     |
-|  [09]   | `jax.config`           | runtime config   | `update("jax_enable_x64", ...)`, `jax_default_matmul_precision`, etc. |
-|  [10]   | `jax.experimental.ode` | ODE staging      | `odeint` (legacy ODE); production ODE solves route to `diffrax`      |
-|  [11]   | `jax.experimental.sparse` | sparse staging | `BCOO`/`BCSR` sparse arrays and sparsified transforms                |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]   | [CAPABILITY]                                                                 |
+| :-----: | :------------------------ | :-------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `jax.numpy` (`jnp`)       | array namespace | NumPy-compatible array API on XLA; the array constructor every sibling reads |
+|  [02]   | `jax.lax`                 | primitive ops   | low-level XLA primitives, control flow, and lowered linear algebra           |
+|  [03]   | `jax.random`              | PRNG namespace  | splittable counter-based random generation                                   |
+|  [04]   | `jax.nn`                  | NN primitives   | activations (`relu`, `gelu`, `softmax`, `softplus`) and `nn.initializers`    |
+|  [05]   | `jax.scipy`               | SciPy on XLA    | XLA-backed subset of SciPy (`linalg`, `optimize`, `special`, `stats`)        |
+|  [06]   | `jax.tree_util`           | pytree ops      | pytree flatten, map, leaves, structure, and node registration                |
+|  [07]   | `jax.sharding`            | sharding API    | `Mesh`, `Sharding`, `NamedSharding`, and `PartitionSpec`                     |
+|  [08]   | `jax.debug`               | side-effect ops | `print`/`callback`/`breakpoint` legal inside `jit`/`grad`/`vmap`             |
+|  [09]   | `jax.config`              | runtime config  | `update("jax_enable_x64", ...)`, `jax_default_matmul_precision`, etc.        |
+|  [10]   | `jax.experimental.ode`    | ODE staging     | `odeint` (legacy ODE); production ODE solves route to `diffrax`              |
+|  [11]   | `jax.experimental.sparse` | sparse staging  | `BCOO`/`BCSR` sparse arrays and sparsified transforms                        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -85,72 +85,72 @@
 [ENTRYPOINT_SCOPE]: device placement, PRNG, and control flow
 - rail: accelerator
 
-| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]  | [CAPABILITY]                            |
-| :-----: | :------------------------------------------------ | :-------------- | :-------------------------------------- |
-|  [01]   | `device_put(x, device=None, *, donate=False)`     | placement       | move an array to a device or sharding   |
-|  [02]   | `device_get(x)`                                   | placement       | copy an array back to host NumPy        |
-|  [03]   | `block_until_ready(x)`                            | synchronization | block until async computation completes |
-|  [04]   | `devices(backend=None)` / `device_count(backend)` | discovery       | enumerate and count addressable devices |
-|  [05]   | `random.key(seed)` / `random.PRNGKey(seed)`       | PRNG key        | construct a splittable PRNG key         |
-|  [06]   | `random.split(key, num=2)`                        | PRNG split      | derive independent subkeys              |
-|  [07]   | `random.normal(key, shape, dtype)`                | PRNG sample     | standard-normal samples                 |
-|  [08]   | `lax.scan(f, init, xs, length, reverse, unroll)`  | control flow    | compiled loop with carried state        |
-|  [09]   | `lax.fori_loop(lower, upper, body_fun, init_val)` | control flow    | compiled counted loop                   |
-|  [10]   | `lax.cond(pred, true_fun, false_fun, *operands)`  | control flow    | compiled conditional branch             |
-|  [11]   | `lax.while_loop(cond_fun, body_fun, init_val)`    | control flow    | compiled while loop                     |
-|  [12]   | `lax.associative_scan(fn, elems, reverse, axis)`  | control flow    | parallel-prefix (log-depth) scan        |
-|  [13]   | `lax.switch(index, branches, *operands)`          | control flow    | compiled n-way branch by integer index  |
-|  [14]   | `lax.stop_gradient(x)`                            | autodiff barrier | identity forward, zero cotangent        |
-|  [15]   | `lax.linalg.{cholesky,qr,svd,eigh,lu}`            | dense linalg    | XLA-lowered factorizations behind solves |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]   | [CAPABILITY]                             |
+| :-----: | :------------------------------------------------ | :--------------- | :--------------------------------------- |
+|  [01]   | `device_put(x, device=None, *, donate=False)`     | placement        | move an array to a device or sharding    |
+|  [02]   | `device_get(x)`                                   | placement        | copy an array back to host NumPy         |
+|  [03]   | `block_until_ready(x)`                            | synchronization  | block until async computation completes  |
+|  [04]   | `devices(backend=None)` / `device_count(backend)` | discovery        | enumerate and count addressable devices  |
+|  [05]   | `random.key(seed)` / `random.PRNGKey(seed)`       | PRNG key         | construct a splittable PRNG key          |
+|  [06]   | `random.split(key, num=2)`                        | PRNG split       | derive independent subkeys               |
+|  [07]   | `random.normal(key, shape, dtype)`                | PRNG sample      | standard-normal samples                  |
+|  [08]   | `lax.scan(f, init, xs, length, reverse, unroll)`  | control flow     | compiled loop with carried state         |
+|  [09]   | `lax.fori_loop(lower, upper, body_fun, init_val)` | control flow     | compiled counted loop                    |
+|  [10]   | `lax.cond(pred, true_fun, false_fun, *operands)`  | control flow     | compiled conditional branch              |
+|  [11]   | `lax.while_loop(cond_fun, body_fun, init_val)`    | control flow     | compiled while loop                      |
+|  [12]   | `lax.associative_scan(fn, elems, reverse, axis)`  | control flow     | parallel-prefix (log-depth) scan         |
+|  [13]   | `lax.switch(index, branches, *operands)`          | control flow     | compiled n-way branch by integer index   |
+|  [14]   | `lax.stop_gradient(x)`                            | autodiff barrier | identity forward, zero cotangent         |
+|  [15]   | `lax.linalg.{cholesky,qr,svd,eigh,lu}`            | dense linalg     | XLA-lowered factorizations behind solves |
 
 [ENTRYPOINT_SCOPE]: `jax.numpy` array construction, predicates, and reductions
 - rail: accelerator
 - the array constructor surface every sibling carrier is built from; arrays are immutable, so writes go through `x.at[idx].set/add/mul(v)`. `jnp.asarray` is the canonical host->device adoption boundary; `isfinite`/`isnan` are the finiteness predicates a solver/receipt rail reads to gate divergence. `jnp.float64` is the explicit double-precision dtype handed to `asarray`/`ShapeDtypeStruct` once `config.update("jax_enable_x64", True)` is set (the x32 default truncates it).
 
-| [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]   | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
-|  [01]   | `numpy.asarray(x, dtype=None)` / `array(...)`      | adoption         | adopt host/NumPy data to a device `Array` under active precision |
-|  [02]   | `numpy.isfinite(x)` / `isnan(x)` / `isinf(x)`      | predicate        | element-wise finiteness mask; the divergence/finiteness gate |
-|  [03]   | `numpy.diagonal(a, offset=0, axis1=0, axis2=1)`    | extraction       | diagonal of a matrix/batched matrix (Hessian-diag, trace prep) |
-|  [04]   | `numpy.where(cond, x, y)` / `clip(a, min, max)`    | selection        | branchless select / clamp inside a traced kernel             |
-|  [05]   | `numpy.einsum(subscripts, *operands)`              | contraction      | named-index tensor contraction lowered to XLA dot-general    |
-|  [06]   | `numpy.linalg.{solve,lstsq,norm,cholesky,svd,eigh}`| dense linalg     | NumPy-API linear algebra; `lineax` owns the iterative/structured path |
-|  [07]   | `numpy.max(a, axis=None, keepdims=False)` / `sum(a, axis=None)` / `argmin(a, axis=None)` | reduction | worst-case / total / index reductions over a traced array (verdict-code fold, residual total, candidate-index select); the `jnp` reduction replaces Python `max`/`sum`/`float()` over a `Tracer`, which raise inside a transform |
+| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                                                                                                     |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `numpy.asarray(x, dtype=None)` / `array(...)`                                            | adoption       | adopt host/NumPy data to a device `Array` under active precision                                                                                                                                                                 |
+|  [02]   | `numpy.isfinite(x)` / `isnan(x)` / `isinf(x)`                                            | predicate      | element-wise finiteness mask; the divergence/finiteness gate                                                                                                                                                                     |
+|  [03]   | `numpy.diagonal(a, offset=0, axis1=0, axis2=1)`                                          | extraction     | diagonal of a matrix/batched matrix (Hessian-diag, trace prep)                                                                                                                                                                   |
+|  [04]   | `numpy.where(cond, x, y)` / `clip(a, min, max)`                                          | selection      | branchless select / clamp inside a traced kernel                                                                                                                                                                                 |
+|  [05]   | `numpy.einsum(subscripts, *operands)`                                                    | contraction    | named-index tensor contraction lowered to XLA dot-general                                                                                                                                                                        |
+|  [06]   | `numpy.linalg.{solve,lstsq,norm,cholesky,svd,eigh}`                                      | dense linalg   | NumPy-API linear algebra; `lineax` owns the iterative/structured path                                                                                                                                                            |
+|  [07]   | `numpy.max(a, axis=None, keepdims=False)` / `sum(a, axis=None)` / `argmin(a, axis=None)` | reduction      | worst-case / total / index reductions over a traced array (verdict-code fold, residual total, candidate-index select); the `jnp` reduction replaces Python `max`/`sum`/`float()` over a `Tracer`, which raise inside a transform |
 
 [ENTRYPOINT_SCOPE]: pytree operations (`jax.tree_util`)
 - rail: accelerator
 - every sibling carrier (`equinox.Module`, `diffrax`/`optimistix`/`lineax` solver states, `optax.OptState`) is a registered pytree; these are the flatten/map/leaf operations that walk and reconstruct those carriers. `tree_leaves` is the canonical "all array leaves of a model/state" extraction the receipt and finiteness rails fold over.
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]   | [CAPABILITY]                                                  |
-| :-----: | :-------------------------------------------------------------- | :--------------- | :----------------------------------------------------------- |
-|  [01]   | `tree_util.tree_map(f, tree, *rest)`                            | pytree map       | map a function over the leaves of one-or-more aligned trees  |
-|  [02]   | `tree_util.tree_leaves(tree, is_leaf=None)`                     | pytree extract   | flat list of leaves in deterministic order (fold/finiteness scan source) |
-|  [03]   | `tree_util.tree_structure(tree)` / `tree_flatten(tree)`         | pytree split     | `PyTreeDef` (+ leaves) for structure-preserving reconstruction |
-|  [04]   | `tree_util.tree_unflatten(treedef, leaves)`                     | pytree rebuild   | rebuild a tree from a `PyTreeDef` and a leaf list            |
-|  [05]   | `tree_util.tree_reduce(f, tree, initializer)`                   | pytree fold      | fold a binary op over all leaves (norm/sum receipts)         |
-|  [06]   | `tree_util.register_pytree_node(cls, flatten, unflatten)`       | registration     | register a custom carrier as a pytree node                   |
-|  [07]   | `tree_util.Partial(fun, *args, **kwargs)`                       | pytree closure   | pytree-compatible partial application (traceable closure)    |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                                             |
+| :-----: | :-------------------------------------------------------- | :------------- | :----------------------------------------------------------------------- |
+|  [01]   | `tree_util.tree_map(f, tree, *rest)`                      | pytree map     | map a function over the leaves of one-or-more aligned trees              |
+|  [02]   | `tree_util.tree_leaves(tree, is_leaf=None)`               | pytree extract | flat list of leaves in deterministic order (fold/finiteness scan source) |
+|  [03]   | `tree_util.tree_structure(tree)` / `tree_flatten(tree)`   | pytree split   | `PyTreeDef` (+ leaves) for structure-preserving reconstruction           |
+|  [04]   | `tree_util.tree_unflatten(treedef, leaves)`               | pytree rebuild | rebuild a tree from a `PyTreeDef` and a leaf list                        |
+|  [05]   | `tree_util.tree_reduce(f, tree, initializer)`             | pytree fold    | fold a binary op over all leaves (norm/sum receipts)                     |
+|  [06]   | `tree_util.register_pytree_node(cls, flatten, unflatten)` | registration   | register a custom carrier as a pytree node                               |
+|  [07]   | `tree_util.Partial(fun, *args, **kwargs)`                 | pytree closure | pytree-compatible partial application (traceable closure)                |
 
 [ENTRYPOINT_SCOPE]: neural-net and SciPy mirrors (`jax.nn`, `jax.scipy`)
 - rail: accelerator
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]   | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------- | :--------------- | :---------------------------------------------------- |
-|  [01]   | `nn.{relu,gelu,sigmoid,softmax,log_softmax,softplus}`| activation       | differentiable activations for `equinox.nn` layers    |
-|  [02]   | `nn.initializers.{glorot_normal,he_normal,orthogonal}`| init             | parameter initializers seeded by a PRNG key           |
-|  [03]   | `scipy.linalg.{solve,cho_factor,cho_solve,expm}`     | dense linalg     | SciPy-API factorizations on XLA                       |
-|  [04]   | `scipy.optimize.minimize(fun, x0, method='BFGS')`    | optimize         | basic minimize; production routes to `optimistix`     |
-|  [05]   | `scipy.special.{gammaln,logsumexp,erf}` / `scipy.stats`| special/stats   | special functions and log-densities (`numpyro` priors)|
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------------ | :------------- | :----------------------------------------------------- |
+|  [01]   | `nn.{relu,gelu,sigmoid,softmax,log_softmax,softplus}`   | activation     | differentiable activations for `equinox.nn` layers     |
+|  [02]   | `nn.initializers.{glorot_normal,he_normal,orthogonal}`  | init           | parameter initializers seeded by a PRNG key            |
+|  [03]   | `scipy.linalg.{solve,cho_factor,cho_solve,expm}`        | dense linalg   | SciPy-API factorizations on XLA                        |
+|  [04]   | `scipy.optimize.minimize(fun, x0, method='BFGS')`       | optimize       | basic minimize; production routes to `optimistix`      |
+|  [05]   | `scipy.special.{gammaln,logsumexp,erf}` / `scipy.stats` | special/stats  | special functions and log-densities (`numpyro` priors) |
 
 [ENTRYPOINT_SCOPE]: side effects, configuration, and sharding context
 - rail: accelerator
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]   | [CAPABILITY]                                          |
-| :-----: | :--------------------------------------------------- | :--------------- | :---------------------------------------------------- |
-|  [01]   | `debug.print(fmt, *args)` / `debug.callback(cb, *a)` | traced side effect | print/callback legal inside `jit`/`grad`/`vmap`      |
-|  [02]   | `config.update("jax_enable_x64", True)`              | precision        | promote the rail to float64 (double-precision solves) |
-|  [03]   | `sharding.Mesh(devices, axis_names)`                 | device mesh      | named device mesh for `NamedSharding`/`shard_map`     |
-|  [04]   | `make_mesh(axis_shapes, axis_names)`                 | device mesh      | construct a `Mesh` from axis shapes/names             |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]     | [CAPABILITY]                                          |
+| :-----: | :--------------------------------------------------- | :----------------- | :---------------------------------------------------- |
+|  [01]   | `debug.print(fmt, *args)` / `debug.callback(cb, *a)` | traced side effect | print/callback legal inside `jit`/`grad`/`vmap`       |
+|  [02]   | `config.update("jax_enable_x64", True)`              | precision          | promote the rail to float64 (double-precision solves) |
+|  [03]   | `sharding.Mesh(devices, axis_names)`                 | device mesh        | named device mesh for `NamedSharding`/`shard_map`     |
+|  [04]   | `make_mesh(axis_shapes, axis_names)`                 | device mesh        | construct a `Mesh` from axis shapes/names             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

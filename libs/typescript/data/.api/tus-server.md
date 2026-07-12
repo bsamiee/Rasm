@@ -19,20 +19,20 @@
 - rail: object/stream
 - `ServerOptions` is one options record: routing (`path`, `generateUrl`, `getFileIdFromRequest`), naming (`namingFunction`), bounds (`maxSize`), lifecycle hooks, and the `locker` guarding concurrent PATCHes on one upload. The constructor takes `WithOptional<ServerOptions, "locker"> & { datastore }` — the locker defaults, the datastore is mandatory.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
-| [01] | `Server` (`constructor({ datastore, path, ... })`) | server | `object/stream` — one instance per staging band, held as a scoped service |
-| [02] | `ServerOptions.path` / `.relativeLocation` / `.respectForwardedHeaders` | routing | the mount route; proxy-aware `Location` derivation |
-| [03] | `ServerOptions.maxSize` (`number \| (req, uploadId) => number`) | bound | the admission ceiling — a per-request function reads the caller's quota |
-| [04] | `ServerOptions.namingFunction(req, metadata)` / `.generateUrl` / `.getFileIdFromRequest` | identity | upload-id mint — the rail names uploads into its staging band |
-| [05] | `ServerOptions.onUploadCreate(req, upload)` → `{ metadata? }` | hook | admission seam — metadata validation/enrichment before the store creates |
-| [06] | `ServerOptions.onUploadFinish(req, upload)` → `{ status_code?, headers?, body? }` | hook | the finalize seam — the content-address fold runs here, its receipt rides the reply |
-| [07] | `ServerOptions.onIncomingRequest(req, uploadId)` / `.onResponseError` | hook | per-request gate (auth handoff) and error-mapping observation |
-| [08] | `ServerOptions.locker` / `MemoryLocker` / `Locker` | lock | exclusive PATCH access per upload; single-node default is `MemoryLocker` |
-| [09] | `ServerOptions.lockDrainTimeout` / `.disableTerminationForFinishedUploads` / `.postReceiveInterval` | policy | lock-cleanup budget; DELETE posture; progress-event cadence |
-| [10] | `Upload` (`id`, `size?`, `offset`, `metadata?`, `storage?`, `creation_date?`, `sizeIsDeferred`) | model | the upload record every hook and event receives |
-| [11] | `DataStore` (abstract: `create`/`write`/`getUpload`/`remove`/`declareUploadLength`/`deleteExpired`) | store contract | the storage port `@tus/s3-store` implements |
-| [12] | `EVENTS` (`POST_CREATE`/`POST_RECEIVE`/`POST_FINISH`/`POST_TERMINATE`) | events | EventEmitter lifecycle taps beside the hook seams |
+| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                                 |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `Server` (`constructor({ datastore, path, ... })`)                                                  | server         | `object/stream` — one instance per staging band, held as a scoped service           |
+|  [02]   | `ServerOptions.path` / `.relativeLocation` / `.respectForwardedHeaders`                             | routing        | the mount route; proxy-aware `Location` derivation                                  |
+|  [03]   | `ServerOptions.maxSize` (`number \| (req, uploadId) => number`)                                     | bound          | the admission ceiling — a per-request function reads the caller's quota             |
+|  [04]   | `ServerOptions.namingFunction(req, metadata)` / `.generateUrl` / `.getFileIdFromRequest`            | identity       | upload-id mint — the rail names uploads into its staging band                       |
+|  [05]   | `ServerOptions.onUploadCreate(req, upload)` → `{ metadata? }`                                       | hook           | admission seam — metadata validation/enrichment before the store creates            |
+|  [06]   | `ServerOptions.onUploadFinish(req, upload)` → `{ status_code?, headers?, body? }`                   | hook           | the finalize seam — the content-address fold runs here, its receipt rides the reply |
+|  [07]   | `ServerOptions.onIncomingRequest(req, uploadId)` / `.onResponseError`                               | hook           | per-request gate (auth handoff) and error-mapping observation                       |
+|  [08]   | `ServerOptions.locker` / `MemoryLocker` / `Locker`                                                  | lock           | exclusive PATCH access per upload; single-node default is `MemoryLocker`            |
+|  [09]   | `ServerOptions.lockDrainTimeout` / `.disableTerminationForFinishedUploads` / `.postReceiveInterval` | policy         | lock-cleanup budget; DELETE posture; progress-event cadence                         |
+|  [10]   | `Upload` (`id`, `size?`, `offset`, `metadata?`, `storage?`, `creation_date?`, `sizeIsDeferred`)     | model          | the upload record every hook and event receives                                     |
+|  [11]   | `DataStore` (abstract: `create`/`write`/`getUpload`/`remove`/`declareUploadLength`/`deleteExpired`) | store contract | the storage port `@tus/s3-store` implements                                         |
+|  [12]   | `EVENTS` (`POST_CREATE`/`POST_RECEIVE`/`POST_FINISH`/`POST_TERMINATE`)                              | events         | EventEmitter lifecycle taps beside the hook seams                                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -40,13 +40,13 @@
 - rail: object/stream
 - The server is a scoped resource whose dispatch members lift per call; the hooks are where the rail's own folds attach, so tus internals stay invisible past this seam.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `new Server({ datastore: new S3Store(...), path, onUploadFinish, namingFunction, maxSize })` | construct | one staging-band server; hooks close over the rail's folds |
-| [02] | `server.handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void>` | node dispatch | the node serving row mounts this under its route |
-| [03] | `server.handleWeb(req: Request): Promise<Response>` | fetch dispatch | Bun/Workers/`toWebHandler` runtimes — one server, both shapes |
-| [04] | `server.cleanUpExpiredUploads(): Promise<number>` | maintenance | scheduled sweep of expired staging uploads; pairs with the store's `expirationPeriodInMilliseconds` |
-| [05] | `server.on(EVENTS.POST_FINISH, (req, res, upload) => ...)` | event tap | observability beside the finish hook — never the finalize seam itself |
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                 |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `new Server({ datastore: new S3Store(...), path, onUploadFinish, namingFunction, maxSize })` | construct      | one staging-band server; hooks close over the rail's folds                                          |
+|  [02]   | `server.handle(req: http.IncomingMessage, res: http.ServerResponse): Promise<void>`          | node dispatch  | the node serving row mounts this under its route                                                    |
+|  [03]   | `server.handleWeb(req: Request): Promise<Response>`                                          | fetch dispatch | Bun/Workers/`toWebHandler` runtimes — one server, both shapes                                       |
+|  [04]   | `server.cleanUpExpiredUploads(): Promise<number>`                                            | maintenance    | scheduled sweep of expired staging uploads; pairs with the store's `expirationPeriodInMilliseconds` |
+|  [05]   | `server.on(EVENTS.POST_FINISH, (req, res, upload) => ...)`                                   | event tap      | observability beside the finish hook — never the finalize seam itself                               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

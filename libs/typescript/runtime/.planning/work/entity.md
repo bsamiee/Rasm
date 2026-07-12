@@ -2,16 +2,16 @@
 
 The durable-actor plane: a cluster entity is an `@effect/rpc` `RpcGroup` given sharded, per-id, single-writer identity, and this page owns everything that gives it that identity — the `WorkClass` service-class vocabulary every work surface prices itself against, the `Actor` mint that binds a protocol to fenced bounds and durability annotations, the `Mailbox` durable-message port over the data wave's `SqlClient` with the one `ClusterError → FaultClass` bridge, and the `Grid` topology assembly — leaderless sharding over `RunnerStorage` advisory locks, K8s runner health, the runner entry rows, the cluster singleton, and the workflow-engine bridge `flow` runs on. Sharding has no manager election: runners acquire, refresh, and release shard locks against storage, so the topology is a table of peers and a runner death is a lock expiry, never a coordinator failover. `work` composes `MessageStorage` and `SqlClient` as Tags satisfied at the app root from the data wave's `Stores` scopes; no SQL driver import is spellable here. The module ships on the `./server` exports subpath as `runtime/src/work/entity.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                              | [PUBLIC]     |
-| :-----: | :------------ | :----------------------------------------------------------------------------------- | :----------- |
-|  [01]   | `WORK_CLASS`  | the one service-class row table — concurrency, mailbox, idle, budget, priority        | `WorkClass`  |
-|  [02]   | `ACTOR_MINT`  | the entity mint: protocol, fenced bounds, durability annotations, client, exposure    | `Actor`      |
-|  [03]   | `MAILBOX`     | the durable-message port, dedup receipt, the `ClusterError → FaultClass` bridge       | `Mailbox`    |
-|  [04]   | `GRID`        | leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge | `Grid`       |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                                                | [PUBLIC]    |
+| :-----: | :----------- | :------------------------------------------------------------------------------------ | :---------- |
+|  [01]   | `WORK_CLASS` | the one service-class row table — concurrency, mailbox, idle, budget, priority        | `WorkClass` |
+|  [02]   | `ACTOR_MINT` | the entity mint: protocol, fenced bounds, durability annotations, client, exposure    | `Actor`     |
+|  [03]   | `MAILBOX`    | the durable-message port, dedup receipt, the `ClusterError → FaultClass` bridge       | `Mailbox`   |
+|  [04]   | `GRID`       | leaderless topology, runner health, entry rows, singleton, the workflow-engine bridge | `Grid`      |
 
-## [2]-[WORK_CLASS]
+## [02]-[WORK_CLASS]
 
 [WORK_CLASS]:
 - Owner: `WorkClass`, the assembled service-class vocabulary — an interior key tuple in urgency order, a row table carrying the five axes every work surface reads, and the exported owner assembling rows, `kinds`, and `schema` under a `typeof`-derived stated annotation. Three rows ride the floor: `interactive` (a session-shaped actor: serialized handling, small mailbox, long residency, `pulse` budget, urgency 0), `steady` (an operational actor: bounded parallel handling, mid mailbox, `lease` budget, urgency 50), `bulk` (batch drains: wide handling, deep mailbox, short residency, `bulk` budget, urgency 100).
@@ -66,7 +66,7 @@ const WorkClass: WorkClass.Shape = {
 }
 ```
 
-## [3]-[ACTOR_MINT]
+## [03]-[ACTOR_MINT]
 
 [ACTOR_MINT]:
 - Owner: `Actor` — the one entity mint: `Actor.Spec` binds a name, a Schema-typed `RpcGroup` protocol, a `WorkClass` kind, and the tenant partition, and `Actor.make(spec)` compiles it — `Entity.fromRpcGroup` declares the actor, `annotateRpcs(ClusterSchema.Persisted, true)` marks every message durable-and-replayed, `annotateRpcs(ClusterSchema.ShardGroup, …)` partitions ids by the tenant key prefix so one tenant's saturation never crowds another's shard set, and `toLayer(handlers, bounds)` registers the exhaustively checked handler map under the class row's fence. The mint returns the registered `Layer`, the typed per-id `client`, and the two wire projections.
@@ -120,7 +120,7 @@ const _expose = <Type extends string, Rpcs extends RpcGroup.Any>(entity: Entity.
 const Actor = { make: _make, expose: _expose }
 ```
 
-## [4]-[MAILBOX]
+## [04]-[MAILBOX]
 
 [MAILBOX]:
 - Owner: `Mailbox` — the durable-message port composition and its fault fold. `SqlMessageStorage.layer` persists every `Persisted` message on the `SqlClient` Tag the app root satisfies from the data wave's `Stores` scopes; `Snowflake.layerGenerator` mints the monotonic message identity dedup keys on; `MessageStorage.layerMemory` is the single-node/spec tier and `layerNoop` the ephemeral tier — three tier rows behind one Tag, selected at the root.
@@ -161,7 +161,7 @@ const Mailbox = {
 }
 ```
 
-## [5]-[GRID]
+## [05]-[GRID]
 
 [GRID]:
 - Owner: `Grid` — the topology assembly: `ShardingConfig.layerFromEnv` reads runner address, weight, shard groups, and lock intervals from the environment the deploy plane stamps (the `iac` StackOutputs → `ShardingConfig` shape seam, resolved through `Setting` rows, never a bare env read); `SqlRunnerStorage.layer` is the leaderless rebalancing substrate — runners acquire, refresh, and release shard advisory locks against storage under `shardLockRefreshInterval`/`shardLockExpiration`, so no manager, election, or coordinator exists; `RunnerHealth` is a kind row (`k8s` pod discovery over `K8sHttpClient`, `ping` for flat topologies, `noop` for single-node); and the runner entry is a `Runtime`-row selection — `NodeClusterHttp.layer`/`NodeClusterSocket.layer` with the Bun peers `BunClusterHttp.layer`/`BunClusterSocket.layer` are `@effect/platform-node`/`-bun` binding-tier modules (the frozen `@effect/cluster-node` family stays unadmitted), one options record (`transport`, `serialization: "msgpack"`, `storage: "sql"`, `runnerHealth`) — composed by the boot module beside the row's platform context, single-node degrading to the local-storage entry with `Mailbox.tier("memory")`.

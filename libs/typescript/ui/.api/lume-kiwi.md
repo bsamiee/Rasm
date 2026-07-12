@@ -18,15 +18,15 @@
 - rail: viewer/panel/layout
 - The value algebra is built bottom-up: a `Variable` is a named cell; `plus`/`minus`/`multiply`/`divide` fold `Variable`s and constants into an `Expression` (linear terms + constant, RHS implicitly zero); a `Constraint` pairs an `Expression` with an `Operator` and a `Strength`; the `Solver` holds the tableau and re-solves incrementally. Strength is a numeric algebra, not a fixed enum: `Strength.create(strong, medium, weak, weight?)` produces any symbolic strength and the four named constants are seed rows of that algebra.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------------- |:----------------- |:---------------------------------------------------------------- |
-| [01] | `Variable(name?)` — `name`/`setName`, `value`, `plus`/`minus`/`multiply`/`divide` | value cell | one wire layout variable; `value()` is the solved position read back |
-| [02] | `Expression(...args)` — args `number \| Variable \| Expression \| [coeff, Variable\|Expression]` | linear form | wire term-list folded to `Σ coeff·var + const`; RHS implicitly zero |
-| [03] | `Operator` — `Le = 0` / `Ge = 1` / `Eq = 2` | relation enum | the wire constraint's relational operator (`<=` / `>=` / `==`) |
-| [04] | `Constraint(expr, op, rhs?, strength?)` — `expression`/`op`/`strength` | equation | one decoded wire constraint row; `strength` defaults to `Strength.required` |
-| [05] | `Strength.create(a, b, c, w?)` / `required` / `strong` / `medium` / `weak` | strength algebra | symbolic strength as a `(strong, medium, weak, weight)` fold; named values are seed rows |
-| [06] | `Solver` — `maxIterations` (default `10000`), the constraint + edit surface | tableau solver | the one re-solve engine; `maxIterations` bounds pathological programs |
-| [07] | `IMap<T,U>` / `createMap` (id-keyed) | internal map | solver-internal id-indexed associative store; not a consumer surface |
+| [INDEX] | [SYMBOL]                                                                                         | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                      |
+| :-----: | :----------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Variable(name?)` — `name`/`setName`, `value`, `plus`/`minus`/`multiply`/`divide`                | value cell       | one wire layout variable; `value()` is the solved position read back                     |
+|  [02]   | `Expression(...args)` — args `number \| Variable \| Expression \| [coeff, Variable\|Expression]` | linear form      | wire term-list folded to `Σ coeff·var + const`; RHS implicitly zero                      |
+|  [03]   | `Operator` — `Le = 0` / `Ge = 1` / `Eq = 2`                                                      | relation enum    | the wire constraint's relational operator (`<=` / `>=` / `==`)                           |
+|  [04]   | `Constraint(expr, op, rhs?, strength?)` — `expression`/`op`/`strength`                           | equation         | one decoded wire constraint row; `strength` defaults to `Strength.required`              |
+|  [05]   | `Strength.create(a, b, c, w?)` / `required` / `strong` / `medium` / `weak`                       | strength algebra | symbolic strength as a `(strong, medium, weak, weight)` fold; named values are seed rows |
+|  [06]   | `Solver` — `maxIterations` (default `10000`), the constraint + edit surface                      | tableau solver   | the one re-solve engine; `maxIterations` bounds pathological programs                    |
+|  [07]   | `IMap<T,U>` / `createMap` (id-keyed)                                                             | internal map     | solver-internal id-indexed associative store; not a consumer surface                     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -34,16 +34,16 @@
 - rail: viewer/panel/layout
 - The panel builds the algebra in the wire program's order, then drives the solver. Two constraint entrypoints exist and are equivalent: `new Constraint(...)` + `solver.addConstraint(c)`, or `solver.createConstraint(lhs, op, rhs, strength?)` which constructs and adds in one call. Edit variables model live drag: register with a sub-required strength, `suggestValue` per frame, `updateVariables` to re-solve.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------------------------------- |:-------------- |:---------------------------------------------------------------- |
-| [01] | `new Variable(name)` per wire variable, in wire order | build vars | one `Variable` per decoded wire cell; names mirror the C# program |
-| [02] | `v.multiply(coeff).plus(other)…` / `new Expression([coeff, v], …, const)` | build expr | fold the wire term-list into the constraint LHS |
-| [03] | `Strength.create(a, b, c, w?)` / `Strength.required\|strong\|medium\|weak` | resolve strength | map the wire strength field to the exact numeric strength |
-| [04] | `solver.createConstraint(lhs, op, rhs, strength?)` → `Constraint` | add constraint | construct-and-add in wire order; equivalent to `new Constraint`+`addConstraint` |
-| [05] | `solver.addConstraint(c)` / `removeConstraint(c)` / `hasConstraint(c)` / `getConstraints()` | mutate set | incremental add/remove; `hasConstraint` guards idempotent replay |
-| [06] | `solver.addEditVariable(v, strength)` / `removeEditVariable(v)` / `hasEditVariable(v)` | edit register | live-drag variables; `strength` MUST be `< Strength.required` |
-| [07] | `solver.suggestValue(v, value)` then `solver.updateVariables()` | suggest + solve | per-frame drag target then incremental re-solve of the tableau |
-| [08] | `v.value()` after `updateVariables()` | read position | the solved coordinate the panel binds; the seam-verified output |
+| [INDEX] | [SURFACE]                                                                                   | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                             |
+| :-----: | :------------------------------------------------------------------------------------------ | :--------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `new Variable(name)` per wire variable, in wire order                                       | build vars       | one `Variable` per decoded wire cell; names mirror the C# program               |
+|  [02]   | `v.multiply(coeff).plus(other)…` / `new Expression([coeff, v], …, const)`                   | build expr       | fold the wire term-list into the constraint LHS                                 |
+|  [03]   | `Strength.create(a, b, c, w?)` / `Strength.required\|strong\|medium\|weak`                  | resolve strength | map the wire strength field to the exact numeric strength                       |
+|  [04]   | `solver.createConstraint(lhs, op, rhs, strength?)` → `Constraint`                           | add constraint   | construct-and-add in wire order; equivalent to `new Constraint`+`addConstraint` |
+|  [05]   | `solver.addConstraint(c)` / `removeConstraint(c)` / `hasConstraint(c)` / `getConstraints()` | mutate set       | incremental add/remove; `hasConstraint` guards idempotent replay                |
+|  [06]   | `solver.addEditVariable(v, strength)` / `removeEditVariable(v)` / `hasEditVariable(v)`      | edit register    | live-drag variables; `strength` MUST be `< Strength.required`                   |
+|  [07]   | `solver.suggestValue(v, value)` then `solver.updateVariables()`                             | suggest + solve  | per-frame drag target then incremental re-solve of the tableau                  |
+|  [08]   | `v.value()` after `updateVariables()`                                                       | read position    | the solved coordinate the panel binds; the seam-verified output                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

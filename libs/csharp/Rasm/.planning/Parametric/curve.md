@@ -290,15 +290,15 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]    | [OWNER]                          | [KIND]                                                                            | [RAIL]                                   | [CASES] |
-| :-----: | :---------------- | :------------------------------- | :--------------------------------------------------------------------------------- | :--------------------------------------- | :-----: |
-|  [01]   | Curve op algebra  | `ParametricOp` + `Parametric`    | `[Union]` eight request cases folded by ONE `Apply`                               | `Apply → Fin<ParametricResult>`          |    8    |
-|  [1a]   | Result carrier    | `ParametricResult`               | `[Union]` typed results; `StationField` the SoA wire, `Offsets`/`Refit` evidence-bearing | carrier (drained at the consumer) |    8    |
-|  [1b]   | Division rules    | `DivideRule`                     | `[Union]` count/capped/equalized/chord — rule DATA the one `Stationize` kernel reads | payload                                |    4    |
-|  [1c]   | Measure address   | `MeasureProbe`                   | `[Union]` whole/parameter/point                                                    | payload                                  |    3    |
-|  [1d]   | Crossing targets  | `IntersectTarget`                | `[Union]` planar curve/section; the SSI triple stays host-deferred                 | payload                                  |    2    |
-|  [1e]   | Policy rows       | `StationPlan`/`RefinePolicy`     | window + inversion-table floor · shared deviation-refinement row                   | values (`IValidityEvidence`)             |    —    |
-|  [1f]   | Region delegation | `Parametric.Fill`                | ring sampling → `PlanarOverlay` — delegation, never a local fill                   | `Fill → Fin<ArrangementResult>`          |    —    |
+| [INDEX] | [AXIS_CONCERN]    | [OWNER]                       | [KIND]                                                                                   | [RAIL]                            | [CASES] |
+| :-----: | :---------------- | :---------------------------- | :--------------------------------------------------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | Curve op algebra  | `ParametricOp` + `Parametric` | `[Union]` eight request cases folded by ONE `Apply`                                      | `Apply → Fin<ParametricResult>`   |    8    |
+|  [1a]   | Result carrier    | `ParametricResult`            | `[Union]` typed results; `StationField` the SoA wire, `Offsets`/`Refit` evidence-bearing | carrier (drained at the consumer) |    8    |
+|  [1b]   | Division rules    | `DivideRule`                  | `[Union]` count/capped/equalized/chord — rule DATA the one `Stationize` kernel reads     | payload                           |    4    |
+|  [1c]   | Measure address   | `MeasureProbe`                | `[Union]` whole/parameter/point                                                          | payload                           |    3    |
+|  [1d]   | Crossing targets  | `IntersectTarget`             | `[Union]` planar curve/section; the SSI triple stays host-deferred                       | payload                           |    2    |
+|  [1e]   | Policy rows       | `StationPlan`/`RefinePolicy`  | window + inversion-table floor · shared deviation-refinement row                         | values (`IValidityEvidence`)      |    —    |
+|  [1f]   | Region delegation | `Parametric.Fill`             | ring sampling → `PlanarOverlay` — delegation, never a local fill                         | `Fill → Fin<ArrangementResult>`   |    —    |
 
 The `Apply` fold, `Stationize`, `StationsOf`, the `Offset` refinement fold, and the `Fill` delegation carry real composed bodies; `ArcTargets`, `InvertByTable`, `OffsetLocus`, the deviation probes, `TrimLoops`, `SectionOf`, and `CrossingsOf` are signature-pinned kernels whose contracts the `[04]` cards fix. Every body composes the vendored engine members and the exact lattice — no textbook arithmetic is local.
 

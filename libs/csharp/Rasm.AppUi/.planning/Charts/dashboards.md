@@ -256,7 +256,7 @@ public sealed record BoardState(
 ```
 
 | [INDEX] | [FEED_ROW]             | [SOURCE_CASE]        | [WINDOW] | [BUCKETS] | [CADENCE] |
-| :-----: | ---------------------- | -------------------- | :------: | :-------: | :-------: |
+| :-----: | :--------------------- | :------------------- | :------: | :-------: | :-------: |
 |  [01]   | compute-receipt-stream | ComputeReceiptStream |  120 s   |    512    |  250 ms   |
 |  [02]   | persistence-analytical | PersistenceQuery     |   none   |     0     |    1 s    |
 |  [03]   | host-document-events   | HostDocumentEvents   |  300 s   |    256    |  500 ms   |
@@ -488,7 +488,7 @@ public sealed class CrossFilter {
 ```
 
 | [INDEX] | [DASHBOARD_ROW]   | [TILES]                      | [FEEDS]                                         |
-| :-----: | ----------------- | ---------------------------- | ----------------------------------------------- |
+| :-----: | :---------------- | :--------------------------- | :---------------------------------------------- |
 |  [01]   | benchmark         | column + box + stat          | persistence-analytical                          |
 |  [02]   | activity-timeline | step-line + heat + table     | compute-receipt-stream + persistence-analytical |
 |  [03]   | analytical-flow   | sankey + treemap + waterfall | persistence-analytical                          |

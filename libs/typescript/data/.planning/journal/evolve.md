@@ -2,16 +2,16 @@
 
 Schema evolution without migrations and its read accelerator in one owner: every persisted payload carries the `eventVersion` its author stamped, reads lift it to the current shape through a total per-tag step chain — array-indexed so completeness is a construction fact — before one decode through the live family proves the landing, and the snapshot store is nothing but that same lift applied to a latest-per-stream projection row. The raw log is never rewritten; a new event shape is one step appended plus the bumped `latest`, a state reshape is one step on the snapshot's single-shape chain, and every journal read, projection lane, and hydrate fold inherits the lift through the one plan value. A snapshot is always discardable evidence, never truth — dropping the table costs a replay, nothing more — and the monotonic upsert guard makes concurrent snapshotters harmless without coordination.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                        |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                          |
 | :-----: | :----------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `CHAIN_VOCABULARY` | the raw envelope, the step chain, construction-checked completeness              |
-|  [02]   | `PLAN_FOLD`        | `Upcast.plan` for tagged families, `Upcast.chain` for single shapes, the decode  |
-|  [03]   | `SNAPSHOT_ROW`     | the snapshot-as-projection ensure, the bound save/load, the monotonic upsert     |
-|  [04]   | `HYDRATE`          | the cadence policy row and the snapshot-plus-tail recovery fold                  |
+|  [01]   | `CHAIN_VOCABULARY` | the raw envelope, the step chain, construction-checked completeness             |
+|  [02]   | `PLAN_FOLD`        | `Upcast.plan` for tagged families, `Upcast.chain` for single shapes, the decode |
+|  [03]   | `SNAPSHOT_ROW`     | the snapshot-as-projection ensure, the bound save/load, the monotonic upsert    |
+|  [04]   | `HYDRATE`          | the cadence policy row and the snapshot-plus-tail recovery fold                 |
 
-## [2]-[CHAIN_VOCABULARY]
+## [02]-[CHAIN_VOCABULARY]
 
 - Owner: `Upcast.Raw` — the `{tag, version, payload}` envelope every persisted row projects into before lifting; `Upcast.Chain` — `{latest, steps}` where `steps[i]` lifts version `i + 1` to `i + 2` over the encoded shape.
 - Packages: `effect` (types only at this altitude).
@@ -53,7 +53,7 @@ const _sized = (tag: string, chain: Upcast.Chain): Upcast.Chain => {
 }
 ```
 
-## [3]-[PLAN_FOLD]
+## [03]-[PLAN_FOLD]
 
 - Owner: `Upcast` — `plan(family, roster)` binds a tagged event family to its chains; `chain(shape, spec)` is the single-shape twin the snapshot row keys by `snapshot_schema_version`; both return decode folds that lift then prove; `Upcast.Column` is the one fused JSON-column codec folder-wide (parse-if-string and decode are ONE schema, never a bare `JSON.parse` beside a decode), and `Upcast.json(shape)` composes it with any owning shape for typed column reads.
 - Packages: `effect` (`Effect`, `Array`, `Option`, `Record`, `Schema`, `ParseResult`).
@@ -119,7 +119,7 @@ const Upcast = {
 } as const
 ```
 
-## [4]-[SNAPSHOT_ROW]
+## [04]-[SNAPSHOT_ROW]
 
 - Owner: `Snapshot.of(spec)` — binds one state schema plus its `Upcast.Lift` and yields `{ save, load }` over the neutral `SqlClient`; the `journal_snapshot` ensure row with its latest-only primary key.
 - Packages: `effect` (`Effect`, `Option`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema` — the load decodes through a `Result` schema whose `body` field is `Upcast.Column`, so no snapshot cell is ever hand-coerced); the monotonic upsert is one dialect-shared statement because both engines carry the same `ON CONFLICT … DO UPDATE … WHERE` form.
@@ -210,7 +210,7 @@ const _load = <S, I>(spec: Snapshot.Spec<S, I>) =>
     })
 ```
 
-## [5]-[HYDRATE]
+## [05]-[HYDRATE]
 
 - Owner: the `due` cadence fold plus `hydrate` — snapshot-plus-tail is one load: the option folds to a seed and a `from` window, the journal read stream folds the tail.
 - Packages: `effect` (`Stream`); `journal/append.md` (`Journal.of(...).read`).

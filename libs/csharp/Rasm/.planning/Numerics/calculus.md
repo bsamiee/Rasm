@@ -318,10 +318,10 @@ internal static class FieldNoise {
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]         | [OWNER]                                          | [KIND]                                                       | [CASES] |
-| :-----: | :--------------------- | :------------------------------------------------ | :------------------------------------------------------------ | :-----: |
-|  [01]   | Differential operators | `Nabla`                                          | sampler-generic central-difference stencil (one `SampleAxes`) |    8    |
+| [INDEX] | [AXIS_CONCERN]         | [OWNER]                                              | [KIND]                                                                             | [CASES] |
+| :-----: | :--------------------- | :--------------------------------------------------- | :--------------------------------------------------------------------------------- | :-----: |
+|  [01]   | Differential operators | `Nabla`                                              | sampler-generic central-difference stencil (one `SampleAxes`)                      |    8    |
 |  [02]   | Kernel profiles        | `KernelKind` + `KernelProfile`/`KernelProfileStatus` | `[SmartEnum<int>]` rows with value + two derivative columns + `DerivativeSupremum` |    6    |
-|  [03]   | Reconstruction weights | `WeightKernelFamily`                             | `[SmartEnum<int>]` with `Interpolating` capability column     |    5    |
-|  [04]   | Radial decay           | `Falloff`                                        | `[Union]` incl. the metric-sampler anisotropic case; `SlopeBound` column per case |    6    |
-|  [05]   | Noise lattices         | `FieldNoise`                                     | deterministic Perlin/simplex/Worley over the canonical table  |    4    |
+|  [03]   | Reconstruction weights | `WeightKernelFamily`                                 | `[SmartEnum<int>]` with `Interpolating` capability column                          |    5    |
+|  [04]   | Radial decay           | `Falloff`                                            | `[Union]` incl. the metric-sampler anisotropic case; `SlopeBound` column per case  |    6    |
+|  [05]   | Noise lattices         | `FieldNoise`                                         | deterministic Perlin/simplex/Worley over the canonical table                       |    4    |

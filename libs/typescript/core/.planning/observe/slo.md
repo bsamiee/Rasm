@@ -2,16 +2,16 @@
 
 SLO is algebra, not config, and alerting is its total derivation: an `Objective` is a typed policy value — an SLI over `Convention` metric rows, a target ratio, a compliance window — the multi-window multi-burn-rate discipline is one closed `_BURN` table whose four rows carry severity, long/short window pair, burn factor, and budget share, and `Alert.of` derives one compilation-ready spec per burn row with zero re-decided thresholds. The `Sli` family covers the four-kind SRE taxonomy — event ratio, latency threshold, saturation share, freshness age — and every case states its own breach predicate as data, so the one sampled shape (`breaching` over `total`) feeds one error-rate fold regardless of kind. Every downstream artifact is a projection over these values: `Slo.evaluate` folds window readings into a fired/quiet verdict, `Slo.budget` computes the error-budget arithmetic, `board#PACKS` renders the same rows as breach-rate panels and firing annotations, and `iac` compiles the specs into provider alert rules — so a threshold change is one row edit that moves the runtime verdict, the alerts, and the dashboards in a single diff. Evaluation is pure and source-agnostic: readings arrive as sampled error rates, and who sampled them (a board query, a rule engine, a runtime probe over metric snapshots) is the caller's seam. Delivery is out of scope by law — a spec says WHAT fires and HOW urgent, and the notification transport is the deploy plane's routing concern. The module is `core/src/observe/slo.ts`; a hand-authored alert rule beside this derivation is the drift defect the total function exists to kill.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]     | [OWNS]                                                                    |
-| :-----: | :------------ | :--------------------------------------------------------------------------- |
-|  [01]   | `OBJECTIVE`   | the `Objective` policy value, the four-kind `Sli` family, the sample fold    |
-|  [02]   | `BURN_ROWS`   | the multi-window multi-burn-rate table and its derivations                   |
-|  [03]   | `ALGEBRA`     | burn/budget arithmetic and the windowed verdict fold                         |
-|  [04]   | `ALERT_SPECS` | the severity routing rows and the `Objective -> specs` total derivation      |
+| :-----: | :------------ | :------------------------------------------------------------------------ |
+|  [01]   | `OBJECTIVE`   | the `Objective` policy value, the four-kind `Sli` family, the sample fold |
+|  [02]   | `BURN_ROWS`   | the multi-window multi-burn-rate table and its derivations                |
+|  [03]   | `ALGEBRA`     | burn/budget arithmetic and the windowed verdict fold                      |
+|  [04]   | `ALERT_SPECS` | the severity routing rows and the `Objective -> specs` total derivation   |
 
-## [2]-[OBJECTIVE]
+## [02]-[OBJECTIVE]
 
 [OBJECTIVE]:
 - Owner: the `Sli` closed family and the `Objective` row — `Sli` is a process-local `Data.taggedEnum` with four cases: `Ratio` (good-events metric over total-events metric), `Latency` (a duration metric against a ceiling, with the display quantile the panels headline), `Saturation` (a utilization metric against a share ceiling), and `Freshness` (an age metric against a staleness horizon); `Objective` binds one `Sli` to a `target` ratio and a compliance `window`.
@@ -52,7 +52,7 @@ declare namespace Slo {
 }
 ```
 
-## [3]-[BURN_ROWS]
+## [03]-[BURN_ROWS]
 
 [BURN_ROWS]:
 - Owner: the `_BURN` table — the standing multi-window multi-burn-rate discipline as four rows: two paging pairs (2% of budget in 1h at 14.4x burn over 5m/1h windows; 5% in 6h at 6x over 30m/6h) and two ticketing pairs (10% in 1d at 3x over 2h/1d; 10% in 3d at 1x over 6h/3d); each row carries `severity`, `long`, `short`, `factor`, and `spend`.
@@ -83,7 +83,7 @@ declare namespace Slo {
 }
 ```
 
-## [4]-[ALGEBRA]
+## [04]-[ALGEBRA]
 
 [ALGEBRA]:
 - Owner: the assembled `Slo` export — the burn table spread in, the arithmetic members, and the verdict fold under one name with companion types on the merged hub.
@@ -155,7 +155,7 @@ const Slo: {
 }
 ```
 
-## [5]-[ALERT_SPECS]
+## [05]-[ALERT_SPECS]
 
 [ALERT_SPECS]:
 - Owner: the `_severity` routing table and the assembled `Alert` export — one severity row per posture (`urgency`: page interrupts a human now, ticket enters the queue; `hold`: how long the condition holds before the spec counts as firing — page rows fire immediately because the short window already debounces, ticket rows hold to suppress flappy toil; `tone`: the one severity-to-tone correspondence, riding annotations and threshold steps alike so no dashboard re-declares it) and `Alert.of` as the one derivation: one spec per burn row, total by construction because the burn table is closed, so every objective yields exactly the four-row discipline.

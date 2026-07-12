@@ -2,16 +2,16 @@
 
 The Schema-driven form plane: one kernel `Schema` owns wire decode AND live field validity — projected through `Schema.standardSchemaV1` (the package surface used directly; a forwarding wrapper is the named defect) into the standard-schema validator RAC fields consume — decode failures land in `FormValidationContext` keyed by field path so server faults and live validation share one error shape, and the submit round-trip awaits the store. The field roster is the full RAC family set bound as rows: text/number, date/time over `@internationalized/date`, color over RAC color state, gauges and toggles — each row one schema field bound to one RAC field, with the tw-rac `invalid:`/`required:` variants styling validity with zero JS branching. No form library, no per-field `useState`, no parallel validator. The module is `ui/src/view/form.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                              | [PUBLIC] |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                 | [PUBLIC] |
 | :-----: | :--------------- | :--------------------------------------------------------------------- | :------- |
-|  [01]   | `SCHEMA_BINDING` | the Schema→aria validation seam and the one error-shape fold            | `Form`   |
-|  [02]   | `FIELD_ROSTER`   | the field-family rows and their kernel-scalar commit seams              | —        |
-|  [03]   | `SUBMIT_TRIP`    | the store-awaited action, pending state, reset, refusal reconciliation  | `Form`   |
-|  [04]   | `DRAFT_CURSORS`  | field-grain re-render over one draft atom                               | —        |
+|  [01]   | `SCHEMA_BINDING` | the Schema→aria validation seam and the one error-shape fold           | `Form`   |
+|  [02]   | `FIELD_ROSTER`   | the field-family rows and their kernel-scalar commit seams             | —        |
+|  [03]   | `SUBMIT_TRIP`    | the store-awaited action, pending state, reset, refusal reconciliation | `Form`   |
+|  [04]   | `DRAFT_CURSORS`  | field-grain re-render over one draft atom                              | —        |
 
-## [2]-[SCHEMA_BINDING]
+## [02]-[SCHEMA_BINDING]
 
 [SCHEMA_BINDING]:
 - Owner: `Form` — the Schema→aria binding: `Form.standard(schema)` projects the owning kernel field Schema through `Schema.standardSchemaV1` into the validator RAC fields consume; `Form.errors(schema)` folds a full-payload decode (`errors: "all"`, `ArrayFormatter` at the terminal reporting edge only) into the path-keyed error record `FormValidationContext` injects; `validationBehavior: "aria"` marks invalid via ARIA without blocking native submit, and `FieldError` renders the `ValidationResult`.
@@ -41,7 +41,7 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
     })
 ```
 
-## [3]-[FIELD_ROSTER]
+## [03]-[FIELD_ROSTER]
 
 [FIELD_ROSTER]:
 - Law: a field kind is one RAC field row bound to its schema field — `TextField`/`NumberField` for scalars, `SearchField` for query drafts, `Checkbox`/`Switch`/`RadioGroup` for toggles and choices, `Slider` for bounded magnitudes, `Select`/`ComboBox` for vocabularies (option matching through `system/intl`'s `useFilter`), `DateField`/`TimeField`/`DatePicker`/`DateRangePicker` for temporal input, `ColorField`/`ColorPicker` for color input; every row styles through `system/primitive` recipes and the `invalid:`/`required:`/`disabled:` variants.
@@ -50,7 +50,7 @@ const _errors = <A, I>(schema: Schema.Schema<A, I>) =>
 - Law: gauges are output, fields are input — `Meter`/`ProgressBar` render atom-derived readings and take no schema field; a disabled field standing in for a reading is the named defect.
 - Boundary: the roster composition pattern (`Xxx`/`XxxContext`/`XxxStateContext`, `Provider` values) is `system/primitive#ROSTER_LAW`'s; this page owns only the schema-field-to-row binding.
 
-## [4]-[SUBMIT_TRIP]
+## [04]-[SUBMIT_TRIP]
 
 [SUBMIT_TRIP]:
 - Owner: the submit round-trip riding `Form` — the action writes through `useAtomSet(mutation, { mode: "promise" })` inside `startTransition`; pending state reads `useFormStatus` (the row's submit affordance disables and spins from it, never from a local flag); a successful action resets through `requestFormReset`; refusal reconciles the optimistic write, and the fault set projects into `FormValidationContext` by field path through `Form.errors`' shape so a server refusal renders exactly like a live validation failure.
@@ -91,7 +91,7 @@ const _submit = (write: Submit.Write, form: HTMLFormElement, sink: (errors: Form
     })
 ```
 
-## [5]-[DRAFT_CURSORS]
+## [05]-[DRAFT_CURSORS]
 
 [DRAFT_CURSORS]:
 - Law: a large form draft is one `AtomRef` root, each field a cursor — `AtomRef.make(seed)` mints the draft, `useAtomRefProp(ref, key)` derives the per-field child so an edited field re-renders alone, and `useAtomRefPropValue(ref, key)` is the read-only projection for summary rows; a per-field atom family for one draft, or a whole-draft subscription per field, restates the cursor law (`system/atom#SELECTOR_RAIL` owns the cursor primitive).

@@ -2,15 +2,15 @@
 
 Observability realization as one page in two sequential tiers: `Lgtm` installs the LGTM distribution (Loki, Grafana, Tempo, Mimir) and the OpenTelemetry collector as two `helm.v4.Chart` rows with typed value objects — upstream charts as typed values, zero authored YAML, provenance-verified when a keyring asset rides the pins — and centralizes the one fact every consumer needs, the endpoint projections in two role planes, exposing the rendered child set for policy and discovery reads; `Boards` consumes exactly what `Lgtm` produces and applies the core observe plane's identity-derived outputs whole: one folder per app, one `oss.DataSource` row per query-plane URL, one `oss.Dashboard` per encoded `DashboardModel`, the `Alert.Spec` burn-rate compile realized as `alerting.RuleGroup` rules over the multiwindow SLI expression with severity-routed `ContactPoint`/`NotificationPolicy` delivery, `slo.Slo` rows compiled from the suite's own objectives, one `oss.Organization` per tenant, and the `oss.ServiceAccount`/`ServiceAccountToken` machine identity minted for out-of-graph automation. The board is code and the UI is drift: `storeDashboardSha256: true` diffs dashboards by content hash, and the provider carries the transient-fault posture as data (`retries`, `retryStatusCodes`, `retryWait`). The collector is the one ingest seam: workloads learn only the collector endpoint through the env row, backends re-plumb with zero app edits, and `Boards` binds query URLs that re-point every board when a backend moves. The module is `iac/src/operate/observe.ts`; a new backend is one chart row plus its endpoint projections, a new dashboard is one more encoded model, a new alert is upstream spec data compiled by the same fold, a new severity route is one contacts row.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]             | [OWNS]                                                        | [PUBLIC] |
+| [INDEX] | [CLUSTER]             | [OWNS]                                                         | [PUBLIC] |
 | :-----: | :-------------------- | :------------------------------------------------------------- | :------- |
 |  [01]   | `CHART_ROWS`          | the LGTM and collector chart rows with typed values            | `Lgtm`   |
 |  [02]   | `ENDPOINT_PROJECTION` | the service-DNS projections every consumer binds               | `Lgtm`   |
 |  [03]   | `BOARD_APPLY`         | provider, folder, sources, dashboards, alert/SLO compile, RBAC | `Boards` |
 
-## [2]-[CHART_ROWS]
+## [02]-[CHART_ROWS]
 
 [CHART_ROWS]:
 - Owner: `Lgtm` — the `_charts` vocabulary carries both rows (`lgtm`: the `lgtm-distributed` chart from the Grafana repo; `collector`: `opentelemetry-collector` from the OpenTelemetry repo), versions arrive as pinned args, and the tier constructs both under one namespace with the collector's exporters aimed at the LGTM services by `Output`-woven URLs; the lgtm chart's rendered child set rides the tier as `rendered` so CrossGuard stack validation and chart-emitted-resource discovery read real render evidence, never chart-name guesses.
@@ -108,7 +108,7 @@ class Lgtm extends Tier {
 }
 ```
 
-## [3]-[ENDPOINT_PROJECTION]
+## [03]-[ENDPOINT_PROJECTION]
 
 [ENDPOINT_PROJECTION]:
 - Law: endpoints are one projection in two role planes — `_urls(release, namespace)` derives every backend address from the release name and namespace under the pinned chart's service-naming convention, with `ingest` rows carrying each backend's write path (Loki OTLP, Tempo OTLP, Mimir remote-write) for the collector exporters and `query` rows carrying each backend's read API for the Grafana data sources — one backend, two roles, never one URL doing both jobs; a chart bump that renames a service or moves a path edits exactly these rows, and no consumer ever spells a service DNS.
@@ -132,7 +132,7 @@ const _urls = (release: string, namespace: pulumi.Input<string>): Lgtm.Urls => (
 })
 ```
 
-## [4]-[BOARD_APPLY]
+## [04]-[BOARD_APPLY]
 
 [BOARD_APPLY]:
 - Owner: `Boards` — the tier-constructed `grafana.Provider` (`url` from `Lgtm.urls.grafana`, `auth` as the `user:password` form woven from the Doppler read, the transient-fault posture as data — `retries`, `retryStatusCodes`, `retryWait` — and `storeDashboardSha256: true` so dashboard drift diffs by hash instead of full JSON) and the apply fold: one `oss.Folder` roots the app's boards (uid slugged from the spec's app key), `_SOURCES` maps backend rows onto `oss.DataSource` constructions from the `Lgtm` query URLs, each encoded `DashboardModel` becomes one `oss.Dashboard` under the folder, `_alerted` compiles the `Alert.Spec` rows into one `alerting.RuleGroup` plus severity-routed delivery, `_slos` compiles the suite's objectives into `slo.Slo` rows, tenant organizations realize per `spec.tenants` slug, and the machine identity mints once.

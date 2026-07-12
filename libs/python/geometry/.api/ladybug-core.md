@@ -23,39 +23,39 @@
 
 The boundary readers and the time model. `EPW` is the canonical weather source; `Wea` is its solar-radiation projection; `STAT`/`DDY` carry design conditions. All carry `from_dict`/`to_dict`.
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]                                                          |
-| :-----: | :---------------- | :-------------- | :------------------------------------------------------------------- |
-|  [01]   | `epw.EPW`         | weather file    | full EnergyPlus weather file; 40+ climate fields as `DataCollection`s, `is_leap_year`/`location` header facts, design-day extraction, `to_wea`/`to_ddy` |
-|  [02]   | `wea.Wea`         | solar radiation | direct/diffuse/global irradiance; 8 factory constructors, analysis-period filtering, `directional_irradiance` |
-|  [03]   | `stat.STAT` / `ddy.DDY` / `designday.DesignDay` | design conditions | `.stat`/`.ddy` design-day and climate-summary readers |
-|  [04]   | `location.Location` | site            | latitude/longitude/elevation/time_zone/meridian; `from_idf`/`to_idf` |
-|  [05]   | `analysisperiod.AnalysisPeriod` | time window | start/end month-day-hour + timestep; `hoys`/`datetimes`/`moys`; the filter selector |
-|  [06]   | `dt.DateTime`     | instant         | `datetime` subclass with hour-of-year (`hoy`/`int_hoy`) and `moy` addressing |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]     | [CAPABILITY]                                                                                                                                            |
+| :-----: | :---------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `epw.EPW`                                       | weather file      | full EnergyPlus weather file; 40+ climate fields as `DataCollection`s, `is_leap_year`/`location` header facts, design-day extraction, `to_wea`/`to_ddy` |
+|  [02]   | `wea.Wea`                                       | solar radiation   | direct/diffuse/global irradiance; 8 factory constructors, analysis-period filtering, `directional_irradiance`                                           |
+|  [03]   | `stat.STAT` / `ddy.DDY` / `designday.DesignDay` | design conditions | `.stat`/`.ddy` design-day and climate-summary readers                                                                                                   |
+|  [04]   | `location.Location`                             | site              | latitude/longitude/elevation/time_zone/meridian; `from_idf`/`to_idf`                                                                                    |
+|  [05]   | `analysisperiod.AnalysisPeriod`                 | time window       | start/end month-day-hour + timestep; `hoys`/`datetimes`/`moys`; the filter selector                                                                     |
+|  [06]   | `dt.DateTime`                                   | instant           | `datetime` subclass with hour-of-year (`hoy`/`int_hoy`) and `moy` addressing                                                                            |
 
 [PUBLIC_TYPE_SCOPE]: data-collection family and header (`ladybug.datacollection`)
 - rail: energy / climate
 
 One polymorphic time-series concept across resolution and mutability; the resolution is the class, not a parallel statistics ladder. Every collection pairs `values` with a `Header` carrying `data_type`/`unit`/`analysis_period`/`metadata`.
 
-| [INDEX] | [SYMBOL]                                  | [TYPE_FAMILY]   | [CAPABILITY]                                              |
-| :-----: | :---------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `HourlyContinuousCollection`              | hourly dense    | gap-free hourly series aligned to an annual `AnalysisPeriod` |
-|  [02]   | `HourlyDiscontinuousCollection`           | hourly sparse   | filtered hourly series carrying explicit `datetimes`     |
-|  [03]   | `MonthlyCollection` / `DailyCollection` / `MonthlyPerHourCollection` | aggregated | coarser-resolution series with the matching filter axis  |
-|  [04]   | `*Immutable` (5 mirrors, `datacollectionimmutable`) | frozen | read-only mirrors via `to_immutable()`; `to_mutable()` returns |
-|  [05]   | `header.Header`                           | series schema   | `(data_type, unit, analysis_period, metadata)`; `to_csv_strings`/`to_tuple` |
+| [INDEX] | [SYMBOL]                                                             | [TYPE_FAMILY] | [CAPABILITY]                                                                |
+| :-----: | :------------------------------------------------------------------- | :------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `HourlyContinuousCollection`                                         | hourly dense  | gap-free hourly series aligned to an annual `AnalysisPeriod`                |
+|  [02]   | `HourlyDiscontinuousCollection`                                      | hourly sparse | filtered hourly series carrying explicit `datetimes`                        |
+|  [03]   | `MonthlyCollection` / `DailyCollection` / `MonthlyPerHourCollection` | aggregated    | coarser-resolution series with the matching filter axis                     |
+|  [04]   | `*Immutable` (5 mirrors, `datacollectionimmutable`)                  | frozen        | read-only mirrors via `to_immutable()`; `to_mutable()` returns              |
+|  [05]   | `header.Header`                                                      | series schema | `(data_type, unit, analysis_period, metadata)`; `to_csv_strings`/`to_tuple` |
 
 [PUBLIC_TYPE_SCOPE]: unit registry, solar, output, and visualization
 - rail: energy / climate
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]   | [CAPABILITY]                                              |
-| :-----: | :-------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `datatype.base.DataTypeBase` (+ `TYPESDICT`/`UNITS`/`TYPES`) | unit type | 102-type registry (`Temperature`, `Energy`, `Power`, ...); `to_unit`/`to_ip`/`to_si`, `is_unit_acceptable` |
-|  [02]   | `sunpath.Sunpath` / `sunpath.Sun` | solar geometry  | sun position, sunrise/sunset, analemma; emits `ladybug_geometry` vectors/arcs |
-|  [03]   | `sql.SQLiteResult`                | E+ output       | EnergyPlus `.sql` reader; `data_collections_by_output_name`, `tabular_data_by_name`, sizing |
-|  [04]   | `legend.Legend` / `color.Color`/`Colorset` / `graphic.GraphicContainer` | visualization | legend/colorset/graphic-frame composition over collections |
-|  [05]   | `compass.Compass` / `hourlyplot.HourlyPlot` / `monthlychart.MonthlyChart` / `psychchart.PsychrometricChart` / `windrose.WindRose` / `windprofile.WindProfile` | chart | analysis charts emitting `ladybug_geometry` mesh/polyline geometry |
-|  [06]   | `viewsphere.ViewSphere` / `solarenvelope.SolarEnvelope` / `climatezone` | analysis | view-factor patches, solar-envelope geometry, ASHRAE climate-zone classification |
+| [INDEX] | [SYMBOL]                                                                                                                                                      | [TYPE_FAMILY]  | [CAPABILITY]                                                                                               |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `datatype.base.DataTypeBase` (+ `TYPESDICT`/`UNITS`/`TYPES`)                                                                                                  | unit type      | 102-type registry (`Temperature`, `Energy`, `Power`, ...); `to_unit`/`to_ip`/`to_si`, `is_unit_acceptable` |
+|  [02]   | `sunpath.Sunpath` / `sunpath.Sun`                                                                                                                             | solar geometry | sun position, sunrise/sunset, analemma; emits `ladybug_geometry` vectors/arcs                              |
+|  [03]   | `sql.SQLiteResult`                                                                                                                                            | E+ output      | EnergyPlus `.sql` reader; `data_collections_by_output_name`, `tabular_data_by_name`, sizing                |
+|  [04]   | `legend.Legend` / `color.Color`/`Colorset` / `graphic.GraphicContainer`                                                                                       | visualization  | legend/colorset/graphic-frame composition over collections                                                 |
+|  [05]   | `compass.Compass` / `hourlyplot.HourlyPlot` / `monthlychart.MonthlyChart` / `psychchart.PsychrometricChart` / `windrose.WindRose` / `windprofile.WindProfile` | chart          | analysis charts emitting `ladybug_geometry` mesh/polyline geometry                                         |
+|  [06]   | `viewsphere.ViewSphere` / `solarenvelope.SolarEnvelope` / `climatezone`                                                                                       | analysis       | view-factor patches, solar-envelope geometry, ASHRAE climate-zone classification                           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -64,57 +64,57 @@ One polymorphic time-series concept across resolution and mutability; the resolu
 
 `EPW` exposes every climate field as a lazily-loaded `DataCollection` property; `Wea` is the solar projection with eight named factory constructors (the constructor is the source kind, never a parallel reader class). Both round-trip through `from_dict`/`to_dict` and serialize to their file strings.
 
-| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]            | [CAPABILITY]                                                |
-| :-----: | :-------------------------------------------------------------------- | :---------------------- | :--------------------------------------------------------- |
-|  [01]   | `EPW(file_path)` / `EPW.from_file_string(s)` / `EPW.from_dict(d)`     | path / string / dict    | parse a weather file (or its serialized form)              |
-|  [02]   | `EPW.dry_bulb_temperature` / `.relative_humidity` / `.direct_normal_radiation` / `.wind_speed` / (40+) | property | each climate field as an `HourlyContinuousCollection`       |
-|  [03]   | `EPW.location` / `EPW.heating_design_condition_dictionary` / `.monthly_ground_temperature` | property | site `Location`, ASHRAE design conditions, ground temps    |
-|  [04]   | `EPW.to_wea(...)` / `EPW.to_ddy(percentile)` / `EPW.approximate_design_day(...)` / `EPW.best_available_design_days()` | none/percentile | derive `Wea`, `DDY`, and design days from the weather file |
-|  [05]   | `EPW.convert_to_ip()` / `convert_to_si()` / `EPW.save(file_path)` / `to_file_string()` | none / path | unit flip; persist the weather file                        |
-|  [06]   | `Wea.from_epw_file(epw_file, timestep=1)` / `from_ashrae_clear_sky(...)` / `from_ashrae_revised_clear_sky(...)` / `from_stat_file(...)` / `from_zhang_huang_solar(...)` | source + timestep | construct solar radiation by named source                  |
-|  [07]   | `Wea.directional_irradiance(altitude, azimuth, ...)` / `Wea.filter_by_analysis_period(p)` / `Wea.estimate_illuminance_components(...)` | angles / period | directional irradiance, period filtering, illuminance      |
+| [INDEX] | [SURFACE]                                                                                                                                                               | [CALL_SHAPE]         | [CAPABILITY]                                               |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :--------------------------------------------------------- |
+|  [01]   | `EPW(file_path)` / `EPW.from_file_string(s)` / `EPW.from_dict(d)`                                                                                                       | path / string / dict | parse a weather file (or its serialized form)              |
+|  [02]   | `EPW.dry_bulb_temperature` / `.relative_humidity` / `.direct_normal_radiation` / `.wind_speed` / (40+)                                                                  | property             | each climate field as an `HourlyContinuousCollection`      |
+|  [03]   | `EPW.location` / `EPW.heating_design_condition_dictionary` / `.monthly_ground_temperature`                                                                              | property             | site `Location`, ASHRAE design conditions, ground temps    |
+|  [04]   | `EPW.to_wea(...)` / `EPW.to_ddy(percentile)` / `EPW.approximate_design_day(...)` / `EPW.best_available_design_days()`                                                   | none/percentile      | derive `Wea`, `DDY`, and design days from the weather file |
+|  [05]   | `EPW.convert_to_ip()` / `convert_to_si()` / `EPW.save(file_path)` / `to_file_string()`                                                                                  | none / path          | unit flip; persist the weather file                        |
+|  [06]   | `Wea.from_epw_file(epw_file, timestep=1)` / `from_ashrae_clear_sky(...)` / `from_ashrae_revised_clear_sky(...)` / `from_stat_file(...)` / `from_zhang_huang_solar(...)` | source + timestep    | construct solar radiation by named source                  |
+|  [07]   | `Wea.directional_irradiance(altitude, azimuth, ...)` / `Wea.filter_by_analysis_period(p)` / `Wea.estimate_illuminance_components(...)`                                  | angles / period      | directional irradiance, period filtering, illuminance      |
 
 [ENTRYPOINT_SCOPE]: data-collection algebra (`ladybug.datacollection`)
 - rail: energy / climate
 
 One polymorphic time-series with a filter axis, a group/aggregate axis, a statistics axis, and a unit axis. The `filter_by_conditional_statement` argument is a string DSL (`'a > 25'`); the static `compute_function_aligned`/`pattern_from_collections_and_statement` operate across aligned collections. The resolution-specific methods (`group_by_month`, `average_monthly`, `percentile_daily`) live on the matching class.
 
-| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]              | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------------------ | :------------------------ | :--------------------------------------------------- |
-|  [01]   | `coll.filter_by_analysis_period(period)` / `filter_by_hoys(hoys)` / `filter_by_moys(moys)` | `AnalysisPeriod` / hoys | window the series; hourly returns a discontinuous collection |
-|  [02]   | `coll.filter_by_conditional_statement(statement)` / `filter_by_pattern(pattern)` / `filter_by_range(...)` | `'a > 25'` / bool mask | DSL/mask/range filtering                              |
-|  [03]   | `coll.group_by_month()` / `group_by_day()` / `group_by_month_per_hour()`         | none                      | dict of sub-series keyed by period                   |
-|  [04]   | `coll.average_monthly()` / `total_monthly()` / `average_monthly_per_hour()` / `percentile(pct)` / `percentile_monthly(pct)` | none / percentile | resolution-aware aggregation and percentile          |
-|  [05]   | `coll.to_unit(unit)` / `to_ip()` / `to_si()` / `convert_to_unit(unit)` / `aggregate_by_area(area, area_unit)` | unit / none | unit conversion and area normalization               |
-|  [06]   | `coll.to_immutable()` / `to_mutable()` / `to_discontinuous()` / `get_aligned_collection(value, data_type, unit)` | none / value | mutability + alignment transforms                    |
-|  [07]   | `Collection.histogram(values, bins, key=None)` / `linspace(...)` / `arange(...)` (static) | values + bins | numpy-free statistics helpers shared across the family |
-|  [08]   | `Collection.compute_function_aligned(funct, data_collections, data_type, unit)` (static) | fn + aligned colls | apply a scalar function element-wise across aligned collections (the comfort-collection compute primitive) |
-|  [09]   | `Collection.filter_collections_by_statement(collections, statement)` / `pattern_from_collections_and_statement(...)` (static) | colls + DSL | cross-collection conditional filter and shared boolean pattern |
+| [INDEX] | [SURFACE]                                                                                                                     | [CALL_SHAPE]            | [CAPABILITY]                                                                                               |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `coll.filter_by_analysis_period(period)` / `filter_by_hoys(hoys)` / `filter_by_moys(moys)`                                    | `AnalysisPeriod` / hoys | window the series; hourly returns a discontinuous collection                                               |
+|  [02]   | `coll.filter_by_conditional_statement(statement)` / `filter_by_pattern(pattern)` / `filter_by_range(...)`                     | `'a > 25'` / bool mask  | DSL/mask/range filtering                                                                                   |
+|  [03]   | `coll.group_by_month()` / `group_by_day()` / `group_by_month_per_hour()`                                                      | none                    | dict of sub-series keyed by period                                                                         |
+|  [04]   | `coll.average_monthly()` / `total_monthly()` / `average_monthly_per_hour()` / `percentile(pct)` / `percentile_monthly(pct)`   | none / percentile       | resolution-aware aggregation and percentile                                                                |
+|  [05]   | `coll.to_unit(unit)` / `to_ip()` / `to_si()` / `convert_to_unit(unit)` / `aggregate_by_area(area, area_unit)`                 | unit / none             | unit conversion and area normalization                                                                     |
+|  [06]   | `coll.to_immutable()` / `to_mutable()` / `to_discontinuous()` / `get_aligned_collection(value, data_type, unit)`              | none / value            | mutability + alignment transforms                                                                          |
+|  [07]   | `Collection.histogram(values, bins, key=None)` / `linspace(...)` / `arange(...)` (static)                                     | values + bins           | numpy-free statistics helpers shared across the family                                                     |
+|  [08]   | `Collection.compute_function_aligned(funct, data_collections, data_type, unit)` (static)                                      | fn + aligned colls      | apply a scalar function element-wise across aligned collections (the comfort-collection compute primitive) |
+|  [09]   | `Collection.filter_collections_by_statement(collections, statement)` / `pattern_from_collections_and_statement(...)` (static) | colls + DSL             | cross-collection conditional filter and shared boolean pattern                                             |
 
 [ENTRYPOINT_SCOPE]: unit registry, solar, and EnergyPlus output (`datatype`, `sunpath`, `sql`)
 - rail: energy / climate
 
-| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]              | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------------------ | :------------------------ | :--------------------------------------------------- |
-|  [01]   | `datatype.TYPESDICT[name]` / `datatype.UNITS[type]` / `datatype.TYPES`           | type name / type          | the 102-entry unit-type registry (lookup, not a class ladder) |
-|  [02]   | `DataTypeBase.to_unit(values, unit, from_unit)` / `to_ip(values, from_unit)` / `to_si(...)` / `is_unit_acceptable(unit)` | values + units | unit conversion + validation owned by the data type  |
-|  [03]   | `Sunpath.from_location(location, north_angle=0, ...)` / `Sunpath(latitude, longitude, ...)` | `Location` / coords | construct the solar calculator                       |
-|  [04]   | `Sunpath.calculate_sun_from_hoy(hoy, is_solar_time=False)` / `calculate_sun(month, day, hour)` / `calculate_sunrise_sunset(...)` | time | `Sun` with `altitude`/`azimuth`/`sun_vector` (a `Vector3D`) |
-|  [05]   | `Sunpath.day_arc3d(...)` / `hourly_analemma_polyline3d(...)` / `analemma_suns(...)` | time            | analemma/day-path geometry as `ladybug_geometry` arcs/polylines |
-|  [06]   | `SQLiteResult(file_path)` / `.data_collections_by_output_name(output_name)` / `.tabular_data_by_name(...)` / `.available_outputs` | E+ `.sql` path | read EnergyPlus results back into `DataCollection`s   |
+| [INDEX] | [SURFACE]                                                                                                                         | [CALL_SHAPE]        | [CAPABILITY]                                                    |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------- | :------------------ | :-------------------------------------------------------------- |
+|  [01]   | `datatype.TYPESDICT[name]` / `datatype.UNITS[type]` / `datatype.TYPES`                                                            | type name / type    | the 102-entry unit-type registry (lookup, not a class ladder)   |
+|  [02]   | `DataTypeBase.to_unit(values, unit, from_unit)` / `to_ip(values, from_unit)` / `to_si(...)` / `is_unit_acceptable(unit)`          | values + units      | unit conversion + validation owned by the data type             |
+|  [03]   | `Sunpath.from_location(location, north_angle=0, ...)` / `Sunpath(latitude, longitude, ...)`                                       | `Location` / coords | construct the solar calculator                                  |
+|  [04]   | `Sunpath.calculate_sun_from_hoy(hoy, is_solar_time=False)` / `calculate_sun(month, day, hour)` / `calculate_sunrise_sunset(...)`  | time                | `Sun` with `altitude`/`azimuth`/`sun_vector` (a `Vector3D`)     |
+|  [05]   | `Sunpath.day_arc3d(...)` / `hourly_analemma_polyline3d(...)` / `analemma_suns(...)`                                               | time                | analemma/day-path geometry as `ladybug_geometry` arcs/polylines |
+|  [06]   | `SQLiteResult(file_path)` / `.data_collections_by_output_name(output_name)` / `.tabular_data_by_name(...)` / `.available_outputs` | E+ `.sql` path      | read EnergyPlus results back into `DataCollection`s             |
 
 [ENTRYPOINT_SCOPE]: psychrometric and sky numeric kernels (`psychrometrics`, `skymodel`)
 - rail: energy / climate
 
 Pure scalar numeric functions (radians/SI in, SI out) that vectorize cleanly; the comfort and radiation owners compose them. The conversion is the named function, never a stateful object.
 
-| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]              | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------------------ | :------------------------ | :--------------------------------------------------- |
+| [INDEX] | [SURFACE]                                                                                                                                                           | [CALL_SHAPE]   | [CAPABILITY]                                             |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------------- |
 |  [01]   | `psychrometrics.humid_ratio_from_db_rh(db_temp, rel_humid, b_press=101325)` / `enthalpy_from_db_hr(...)` / `wet_bulb_from_db_rh(...)` / `dew_point_from_db_rh(...)` | scalar climate | psychrometric conversions among db/rh/hr/wb/dpt/enthalpy |
-|  [02]   | `psychrometrics.saturated_vapor_pressure(t_kelvin)`                              | temperature               | saturation vapor pressure                            |
-|  [03]   | `skymodel.ashrae_clear_sky(altitudes, month, sky_clearness=1)` / `ashrae_revised_clear_sky(...)` / `zhang_huang_solar(...)` | solar inputs | clear-sky and empirical irradiance models            |
-|  [04]   | `skymodel.dirint(...)` / `disc(...)` / `estimate_illuminance_from_irradiance(...)` / `calc_sky_temperature(horiz_ir, ...)` | irradiance | DNI decomposition, illuminance, sky temperature      |
-|  [05]   | `skymodel.get_relative_airmass(altitude)` / `get_extra_radiation(doy)` / `clearness_index(...)` | solar geometry | airmass, extraterrestrial radiation, clearness index |
+|  [02]   | `psychrometrics.saturated_vapor_pressure(t_kelvin)`                                                                                                                 | temperature    | saturation vapor pressure                                |
+|  [03]   | `skymodel.ashrae_clear_sky(altitudes, month, sky_clearness=1)` / `ashrae_revised_clear_sky(...)` / `zhang_huang_solar(...)`                                         | solar inputs   | clear-sky and empirical irradiance models                |
+|  [04]   | `skymodel.dirint(...)` / `disc(...)` / `estimate_illuminance_from_irradiance(...)` / `calc_sky_temperature(horiz_ir, ...)`                                          | irradiance     | DNI decomposition, illuminance, sky temperature          |
+|  [05]   | `skymodel.get_relative_airmass(altitude)` / `get_extra_radiation(doy)` / `clearness_index(...)`                                                                     | solar geometry | airmass, extraterrestrial radiation, clearness index     |
 
 ## [04]-[INTEGRATION_PATTERNS]
 

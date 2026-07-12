@@ -554,11 +554,11 @@ internal sealed class TransformGetter(Func<RhinoViewport, Point3d, Transform> ca
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]           | [FORM]                                             | [ENTRY]                          |
-| :-----: | :------------------- | :---------------- | :--------------------------------------------------- | :-------------------------------- |
-|  [01]   | payload vocabulary   | `Acquired`        | one union, typed per-row evidence                     | `AcquiredReceipt.Payload`          |
-|  [02]   | outcome discriminant | `AcquireTerminal` | value / cancelled / nothing / exit                    | `AcquiredReceipt.Terminal`         |
-|  [03]   | request algebra      | `Acquire`         | one record, per-row slot admission                    | `Acquisition.Get`                  |
-|  [04]   | point constraints    | `PointConstraint` | one union over the native constraint family           | `Apply(getter, key)`               |
-|  [05]   | modality matrix      | `InputKind`       | rows with `Custom`/`Grants` columns and `Run` delegate | `Run(context)`                     |
-|  [06]   | acquisition entry    | `Acquisition`     | `Acquire` demand, internalized option loop            | `Get(session, request)`            |
+| [INDEX] | [CONCERN]            | [OWNER]           | [FORM]                                                 | [ENTRY]                    |
+| :-----: | :------------------- | :---------------- | :----------------------------------------------------- | :------------------------- |
+|  [01]   | payload vocabulary   | `Acquired`        | one union, typed per-row evidence                      | `AcquiredReceipt.Payload`  |
+|  [02]   | outcome discriminant | `AcquireTerminal` | value / cancelled / nothing / exit                     | `AcquiredReceipt.Terminal` |
+|  [03]   | request algebra      | `Acquire`         | one record, per-row slot admission                     | `Acquisition.Get`          |
+|  [04]   | point constraints    | `PointConstraint` | one union over the native constraint family            | `Apply(getter, key)`       |
+|  [05]   | modality matrix      | `InputKind`       | rows with `Custom`/`Grants` columns and `Run` delegate | `Run(context)`             |
+|  [06]   | acquisition entry    | `Acquisition`     | `Acquire` demand, internalized option loop             | `Get(session, request)`    |

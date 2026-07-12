@@ -23,12 +23,12 @@
 - rail: selfhosted-docker
 - One shape owns all 13 resources; a new one is a row on this pattern, never a new mechanism. Construction is `new X(name, XArgs, opts?)`; `opts` is the universal `pulumi.CustomResourceOptions` seam (`provider`/`dependsOn`/`parent`/`protect`/`ignoreChanges`/`import`, `.api/pulumi-pulumi.md`). Adoption of daemon-existing objects is `static get`; every output prop is an `Output<T>` mirror of the corresponding arg.
 
-| [INDEX] | [MEMBER] | [SHAPE_BOUNDARY] |
-|:-----: |:------- |:----------------- |
-| [01] | `new X(name, XArgs, opts?)` | construct any resource; `XArgs` fields are `Input<T>` |
-| [02] | `X.get(name, id, XState?, opts?)` | adopt an existing daemon object by id into the graph |
-| [03] | `X.isInstance(obj)` | multi-SDK-safe type guard `obj is X` |
-| [04] | `x.<prop>: Output<T>` | resolved output mirror of each arg; thread via `.apply`/`pulumi.all` |
+| [INDEX] | [MEMBER]                          | [SHAPE_BOUNDARY]                                                     |
+| :-----: | :-------------------------------- | :------------------------------------------------------------------- |
+|  [01]   | `new X(name, XArgs, opts?)`       | construct any resource; `XArgs` fields are `Input<T>`                |
+|  [02]   | `X.get(name, id, XState?, opts?)` | adopt an existing daemon object by id into the graph                 |
+|  [03]   | `X.isInstance(obj)`               | multi-SDK-safe type guard `obj is X`                                 |
+|  [04]   | `x.<prop>: Output<T>`             | resolved output mirror of each arg; thread via `.apply`/`pulumi.all` |
 
 ## [03]-[RESOURCE_FAMILIES]
 
@@ -36,34 +36,34 @@
 - rail: selfhosted-docker
 - `Image` (RETIRED — prefer `@pulumi/docker-build.Image`, `.api/pulumi-docker-build.md`) runs a build then pushes to `registry`, emitting an immutable `repoDigest` — the value downstream resources pin, never a mutable tag. `RegistryImage`/`RemoteImage` are the push-metadata / pull complements; `Tag`/`BuildxBuilder` manage tagging and the buildx builder instance — these registry/tag resources stay `@pulumi/docker`-owned, only the `Image` BUILD role moves to `docker-build`.
 
-| [INDEX] | [SYMBOL] | [KEY_ARGS_OUTPUTS] |
-|:-----: |:------- |:------------------- |
-| [01] | `Image` | `{ imageName, build?: DockerBuild, registry?: Registry, skipPush?, buildOnPreview? }` → `repoDigest`/`imageName`/`registryServer`/`baseImageName` |
-| [02] | `types.input.DockerBuild` | `context`/`dockerfile`/`args`/`cacheFrom: CacheFrom`/`target`/`platform`/`network`/`addHosts`/`builderVersion` |
-| [03] | `types.input.Registry` | `server`/`username`/`password` (bind a `doppler` secret Output) |
-| [04] | `RegistryImage` / `RemoteImage` | push registry metadata / pull a remote image into daemon state |
-| [05] | `Tag` / `BuildxBuilder` | re-tag an image / manage a buildx builder instance |
+| [INDEX] | [SYMBOL]                        | [KEY_ARGS_OUTPUTS]                                                                                                                                |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Image`                         | `{ imageName, build?: DockerBuild, registry?: Registry, skipPush?, buildOnPreview? }` → `repoDigest`/`imageName`/`registryServer`/`baseImageName` |
+|  [02]   | `types.input.DockerBuild`       | `context`/`dockerfile`/`args`/`cacheFrom: CacheFrom`/`target`/`platform`/`network`/`addHosts`/`builderVersion`                                    |
+|  [03]   | `types.input.Registry`          | `server`/`username`/`password` (bind a `doppler` secret Output)                                                                                   |
+|  [04]   | `RegistryImage` / `RemoteImage` | push registry metadata / pull a remote image into daemon state                                                                                    |
+|  [05]   | `Tag` / `BuildxBuilder`         | re-tag an image / manage a buildx builder instance                                                                                                |
 
 [RUNTIME_SCOPE]: container runtime
 - rail: selfhosted-docker
 - The service-equivalence workloads of the selfhosted-docker arm. `Container` is the deep runtime surface — pin its `image` to an `Image.repoDigest`; wire `networksAdvanced` to a `Network`, `mounts`/`volumes` to a `Volume`.
 
-| [INDEX] | [SYMBOL] | [KEY_ARGS] |
-|:-----: |:------- |:--------- |
-| [01] | `Container` | `image`, `ports: ContainerPort[]`, `envs: string[]` (`KEY=VALUE` rows), `mounts`/`volumes`, `networksAdvanced`, `restart`/`maxRetryCount`, `healthcheck`, `command`/`entrypoints`, `gpus`/`devices`/`capabilities`, `memory`/`cpus`, `labels` |
-| [02] | `Network` | `driver`, `ipamConfigs`/`ipamDriver`, `attachable`, `internal`, `ingress`, `options`, `labels` → `name: Output<string>` |
-| [03] | `Volume` | `driver`/`driverOpts`, `cluster`, `labels` → `name: Output<string>` |
-| [04] | nested arg records | `ContainerPort { internal (required), external?, ip?, protocol? }`; `ContainerNetworksAdvanced { name (required — bind `Network.name`), aliases?, ipv4Address?, driverOpts? }`; `ContainerVolume { volumeName? (bind `Volume.name`), containerPath?, hostPath?, readOnly?, fromContainer? }`; `ContainerMount { target (required), type (required), source?, readOnly?, bindOptions?, volumeOptions?, tmpfsOptions? }` |
+| [INDEX] | [SYMBOL]           | [KEY_ARGS]                                                                                                                                                                                                                                                                                                                                                                                                             |
+| :-----: | :----------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Container`        | `image`, `ports: ContainerPort[]`, `envs: string[]` (`KEY=VALUE` rows), `mounts`/`volumes`, `networksAdvanced`, `restart`/`maxRetryCount`, `healthcheck`, `command`/`entrypoints`, `gpus`/`devices`/`capabilities`, `memory`/`cpus`, `labels`                                                                                                                                                                          |
+|  [02]   | `Network`          | `driver`, `ipamConfigs`/`ipamDriver`, `attachable`, `internal`, `ingress`, `options`, `labels` → `name: Output<string>`                                                                                                                                                                                                                                                                                                |
+|  [03]   | `Volume`           | `driver`/`driverOpts`, `cluster`, `labels` → `name: Output<string>`                                                                                                                                                                                                                                                                                                                                                    |
+|  [04]   | nested arg records | `ContainerPort { internal (required), external?, ip?, protocol? }`; `ContainerNetworksAdvanced { name (required — bind `Network.name`), aliases?, ipv4Address?, driverOpts? }`; `ContainerVolume { volumeName? (bind `Volume.name`), containerPath?, hostPath?, readOnly?, fromContainer? }`; `ContainerMount { target (required), type (required), source?, readOnly?, bindOptions?, volumeOptions?, tmpfsOptions? }` |
 
 [SWARM_SCOPE]: swarm-mode services
 - rail: selfhosted-docker
 - Replicated/global swarm workloads with rolling `updateConfig`/`rollbackConfig` and `endpointSpec` publish. `ServiceConfig`/`Secret` inject config and secret material (bind `Secret.data` to a `doppler`-sourced Output).
 
-| [INDEX] | [SYMBOL] | [KEY_ARGS] |
-|:-----: |:------- |:--------- |
-| [01] | `Service` | `taskSpec`, `mode`, `endpointSpec`, `updateConfig`/`rollbackConfig`, `convergeConfig`, `auth`, `labels` |
-| [02] | `ServiceConfig` / `Secret` | `data`/`dataRaw`, `labels` — swarm config / secret material |
-| [03] | `Plugin` | managed engine plugin (`enabled`, `grantAllPermissions`, `envs`) |
+| [INDEX] | [SYMBOL]                   | [KEY_ARGS]                                                                                              |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Service`                  | `taskSpec`, `mode`, `endpointSpec`, `updateConfig`/`rollbackConfig`, `convergeConfig`, `auth`, `labels` |
+|  [02]   | `ServiceConfig` / `Secret` | `data`/`dataRaw`, `labels` — swarm config / secret material                                             |
+|  [03]   | `Plugin`                   | managed engine plugin (`enabled`, `grantAllPermissions`, `envs`)                                        |
 
 ## [04]-[DATA_SOURCES]
 
@@ -71,14 +71,14 @@
 - rail: selfhosted-docker
 - Every read exposes both `getX(args, InvokeOptions?): Promise<GetXResult>` (eager, for an `async` inline program) and `getXOutput(args, InvokeOutputOptions?): Output<GetXResult>` (graph-threaded). Choose `getXOutput` when the fact feeds a resource `Input`; never re-derive existing daemon state by shelling out.
 
-| [INDEX] | [PAIR] | [READS] |
-|:-----: |:----- |:------ |
-| [01] | `getLogs` / `getLogsOutput` | container log lines |
-| [02] | `getNetwork` / `getNetworkOutput` | an existing network (id/driver/ipam/scope) |
-| [03] | `getPlugin` / `getPluginOutput` | an installed plugin |
-| [04] | `getRegistryImage` / `…Output` | registry image digest/metadata |
-| [05] | `getRegistryImageManifests` / `…Output` | multi-arch manifest list |
-| [06] | `getRemoteImage` / `…Output` | a pulled remote image's repo digest |
+| [INDEX] | [PAIR]                                  | [READS]                                    |
+| :-----: | :-------------------------------------- | :----------------------------------------- |
+|  [01]   | `getLogs` / `getLogsOutput`             | container log lines                        |
+|  [02]   | `getNetwork` / `getNetworkOutput`       | an existing network (id/driver/ipam/scope) |
+|  [03]   | `getPlugin` / `getPluginOutput`         | an installed plugin                        |
+|  [04]   | `getRegistryImage` / `…Output`          | registry image digest/metadata             |
+|  [05]   | `getRegistryImageManifests` / `…Output` | multi-arch manifest list                   |
+|  [06]   | `getRemoteImage` / `…Output`            | a pulled remote image's repo digest        |
 
 ## [05]-[PROVIDER]
 
@@ -86,13 +86,13 @@
 - rail: selfhosted-docker
 - The dispatch arm constructs ONE `Provider` and passes it to every resource via `opts.provider`. `host` selects the daemon: a local socket, `tcp://host:2376` with `caMaterial`/`certMaterial`/`keyMaterial`, or `ssh://user@vps` with `sshOpts` — the same VPS `@pulumi/command` bootstrapped. `registryAuth` authenticates image pushes; `config.*` mirrors these as ambient vars.
 
-| [INDEX] | [FIELD] | [TYPE] | [MEANING] |
-|:-----: |:------ |:----- |:-------- |
-| [01] | `host` | `Input<string>` | daemon endpoint (`unix://` / `tcp://` / `ssh://`) |
-| [02] | `sshOpts` | `Input<string[]>` | extra `ssh` args for an `ssh://` host |
-| [03] | `caMaterial` / `certMaterial` / `keyMaterial` / `certPath` | `Input<string>` | mutual-TLS material for a `tcp://` daemon |
-| [04] | `registryAuth` | `Input<ProviderRegistryAuth[]>` | per-registry push credentials |
-| [05] | `context` / `disableDockerDaemonCheck` | `Input<string>` / `Input<boolean>` | Docker CLI context / skip the reachability probe |
+| [INDEX] | [FIELD]                                                    | [TYPE]                             | [MEANING]                                         |
+| :-----: | :--------------------------------------------------------- | :--------------------------------- | :------------------------------------------------ |
+|  [01]   | `host`                                                     | `Input<string>`                    | daemon endpoint (`unix://` / `tcp://` / `ssh://`) |
+|  [02]   | `sshOpts`                                                  | `Input<string[]>`                  | extra `ssh` args for an `ssh://` host             |
+|  [03]   | `caMaterial` / `certMaterial` / `keyMaterial` / `certPath` | `Input<string>`                    | mutual-TLS material for a `tcp://` daemon         |
+|  [04]   | `registryAuth`                                             | `Input<ProviderRegistryAuth[]>`    | per-registry push credentials                     |
+|  [05]   | `context` / `disableDockerDaemonCheck`                     | `Input<string>` / `Input<boolean>` | Docker CLI context / skip the reachability probe  |
 
 ## [06]-[IMPLEMENTATION_LAW]
 

@@ -257,11 +257,11 @@ public static class Picks {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]       | [FORM]                                                | [ENTRY]                        |
-| :-----: | :------------------ | :------------ | :----------------------------------------------------- | :------------------------------ |
-|  [01]   | selection evidence  | `PickCapture` | eager snapshot inside the reference window              | `Picks.Capture`                  |
-|  [02]   | part payloads       | `Picked`      | one union, typed cases, geometry projection             | `Picks.Part` / `Geometry`        |
-|  [03]   | capability contract | `PartKind`    | rows with typed `Project(ObjRef)` delegate columns      | `Project(reference)`             |
-|  [04]   | pick configuration  | `PickPolicy`  | one host policy value over `PickContext`                | `Picks.Execute`                  |
-|  [05]   | custody retention   | `Picks`       | detach onto `GeometryHandle` via the crossing           | `Retain(part, key)`              |
-|  [06]   | measured re-entry   | `Picks`       | frozen `Analyze`/`AnalysisQuery`/`Env` contract         | `Measured<TOut>`                 |
+| [INDEX] | [CONCERN]           | [OWNER]       | [FORM]                                             | [ENTRY]                   |
+| :-----: | :------------------ | :------------ | :------------------------------------------------- | :------------------------ |
+|  [01]   | selection evidence  | `PickCapture` | eager snapshot inside the reference window         | `Picks.Capture`           |
+|  [02]   | part payloads       | `Picked`      | one union, typed cases, geometry projection        | `Picks.Part` / `Geometry` |
+|  [03]   | capability contract | `PartKind`    | rows with typed `Project(ObjRef)` delegate columns | `Project(reference)`      |
+|  [04]   | pick configuration  | `PickPolicy`  | one host policy value over `PickContext`           | `Picks.Execute`           |
+|  [05]   | custody retention   | `Picks`       | detach onto `GeometryHandle` via the crossing      | `Retain(part, key)`       |
+|  [06]   | measured re-entry   | `Picks`       | frozen `Analyze`/`AnalysisQuery`/`Env` contract    | `Measured<TOut>`          |

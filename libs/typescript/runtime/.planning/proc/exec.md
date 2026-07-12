@@ -2,15 +2,15 @@
 
 The process substrate: a runtime is a row, a bun swap is a Layer selection in the app root, and a child process is a declarative value. The keyed `node | bun` binding table carries the full surface a process needs — the `runMain` boot edge, the aggregate platform context, the HTTP client and server bindings, the worker pool and runner bindings, the filesystem key-value binding — every member satisfying the same abstract `@effect/platform` Tags, so every service types against the contract and only the boot module reads a row. Subprocess execution is one `Proc.Spec` record — command, arguments, environment, pipeline stages, budget, capture modality — with one entry whose return follows the capture shape, plus the scoped live-handle modality for interactive children. Signals are structural, never handled: process-level `SIGINT`/`SIGTERM` drain is the row's `runMain` fact, and a child's teardown is the executor's bracket — a budget expiry interrupts the fiber and the interrupt kills the child, so no kill call, signal listener, or orphan process is spellable. The module ships on the `./server` subpath — browser resolution never reaches a row. The module is `runtime/src/proc/exec.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                             | [PUBLIC]           |
-| :-----: | :------------- | :----------------------------------------------------------------------------------- | :----------------- |
-|  [01]   | `RUNTIME_ROWS` | the keyed `node \| bun` binding table — one row owns every runtime-specific member   | `Runtime`          |
-|  [02]   | `ROOT_SELECT`  | the boot law: one `main` per process, `Layer.launch` vs `ManagedRuntime`, the fence  | `Runtime`          |
-|  [03]   | `COMMAND_SPEC` | the `Proc.Spec` record, capture-polymorphic entry, live handle, exit/budget faults   | `Proc`, `ExecFault` |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                              | [PUBLIC]            |
+| :-----: | :------------- | :---------------------------------------------------------------------------------- | :------------------ |
+|  [01]   | `RUNTIME_ROWS` | the keyed `node \| bun` binding table — one row owns every runtime-specific member  | `Runtime`           |
+|  [02]   | `ROOT_SELECT`  | the boot law: one `main` per process, `Layer.launch` vs `ManagedRuntime`, the fence | `Runtime`           |
+|  [03]   | `COMMAND_SPEC` | the `Proc.Spec` record, capture-polymorphic entry, live handle, exit/budget faults  | `Proc`, `ExecFault` |
 
-## [2]-[RUNTIME_ROWS]
+## [02]-[RUNTIME_ROWS]
 
 [RUNTIME_ROWS]:
 - Owner: `Runtime` — one bare `as const` row table keyed `node | bun`, companion types riding its merged hub; each row carries `main` (the `RunMain` boot edge — `NodeRuntime.runMain` / `BunRuntime.runMain`, one shared shape derived as `typeof NodeRuntime.runMain`), `context` (the aggregate binding: `NodeContext.layer` / `BunContext.layer` satisfying `CommandExecutor | FileSystem | Path | Terminal | WorkerManager` in one Layer), `client` (`NodeHttpClient.layerUndici` with connection pooling / `FetchHttpClient.layer` on bun), `serve` (a bind-parameterized `HttpServer` Layer over `node:http` `createServer` / `Bun.serve`), `worker` (the spawn-factory pool binding `NodeWorker.layer` / `BunWorker.layer`), `runner` (the worker-side `PlatformRunner`: `NodeWorkerRunner.layer` / `BunWorkerRunner.layer`), and `kv` (`NodeKeyValueStore.layerFileSystem` / `BunKeyValueStore.layerFileSystem`); the row is the only site that names a binding package, and every consumer yields the abstract Tag.
@@ -76,7 +76,7 @@ declare namespace Runtime {
 }
 ```
 
-## [3]-[ROOT_SELECT]
+## [03]-[ROOT_SELECT]
 
 [ROOT_SELECT]:
 - Owner: the boot law the row feeds — exactly one `main` call per process, in one boot module that exports nothing: a process whose whole life is the graph boots `row.main(Layer.launch(root))` — build, suspend, teardown as interruption, finalizers drained on `SIGINT`/`SIGTERM`; a graph carrying registered drain steps parks through `life#PHASE_SPINE`'s `parked` entry instead of bare `Layer.launch` — the same one-`main` law with the drain fold owning the interrupt; a host that calls in repeatedly holds `ManagedRuntime.make(root)` and chains `dispose`; several runtimes in one process share acquisitions through one `Layer.makeMemoMap` handed to each `ManagedRuntime.make(root, memo)`; a worker entry is a boot module under the same law: `WorkerRunner.launch(protocolLayer)` run beneath `row.runner` (`worker#RUNNER_BOOT`).
@@ -98,7 +98,7 @@ const _host: ManagedRuntime.ManagedRuntime<HttpClient.HttpClient, never> = Manag
 const _halted = (): Promise<void> => _host.dispose()
 ```
 
-## [4]-[COMMAND_SPEC]
+## [04]-[COMMAND_SPEC]
 
 [COMMAND_SPEC]:
 - Owner: `Proc` — spec-driven subprocess execution. `Proc.Spec` carries `command`, `args`, `env`, `feed` (pipeline stages folded through `Command.pipeTo`), `budget`, and `demand` (the expected exit code); `Proc.run` is the one entry, its capture modality discriminated by the spec's own `capture` field: absent yields the `Proc.Receipt` (exit code plus elapsed), `"text"` yields captured stdout, `"stream"` yields the live byte stream; `Proc.open` is the interactive modality — a scoped acquisition of the executor's live `Process` handle for a long-lived child a caller feeds and reads (the compute-host case), released by scope close as interruption; a `runText`/`runStream`/`spawn` sibling family is the deleted spelling.

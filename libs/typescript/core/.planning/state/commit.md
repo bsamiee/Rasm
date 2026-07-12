@@ -2,14 +2,14 @@
 
 The commit-graph anti-entropy owner: `Commit` — the content-keyed commit class carrying its parents, causal vector, stamp, and author — with the branch head shape and the Merkle summary machinery riding it as statics, so the whole commit-graph vocabulary travels one import and the interchange decode seam targets one owner family. The commit/branch/Merkle wire shapes C# mints at its persistence version plane decode INTO these owners, and the interior speaks exactly this vocabulary with zero TS re-mints. Merkle comparison is a tier-descent fold that touches only the buckets whose digests differ — comparison cost proportional to the divergence — and summary construction is one bottom-up fold delegating every tier digest to the `value/contentKey` mint, so building and comparing summaries share one identity and one fanout law. The module is `core/src/state/commit.ts`; a deeper anti-entropy question is a field row on the summary plus a projection, never a second summary shape.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                              | [PUBLIC]                                        |
-| :-----: | :--------------- | :-------------------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | `SUMMARY_MINT`   | the Merkle shape, tier construction over the content mint, divergence | interior `_Merkle`, `_summarize`, `_diverges`         |
-|  [02]   | `COMMIT_OWNER`   | the commit class assembling shapes, orders, and the summary algebra   | `Commit`                                              |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                | [PUBLIC]                                      |
+| :-----: | :------------- | :-------------------------------------------------------------------- | :-------------------------------------------- |
+|  [01]   | `SUMMARY_MINT` | the Merkle shape, tier construction over the content mint, divergence | interior `_Merkle`, `_summarize`, `_diverges` |
+|  [02]   | `COMMIT_OWNER` | the commit class assembling shapes, orders, and the summary algebra   | `Commit`                                      |
 
-## [2]-[SUMMARY_MINT]
+## [02]-[SUMMARY_MINT]
 
 [SUMMARY_MINT]:
 - Owner: the summary machinery — `_Merkle` states digest tiers over a declared fanout, `_summarize` builds the tiers bottom-up from the leaf keys, and `_diverges` descends from the root tier keeping only child buckets under diverging parents, so comparison cost is proportional to the divergence and equal roots answer in one row — the anti-entropy read the sync protocol consumes.
@@ -69,7 +69,7 @@ const _diverges = (self: typeof _Merkle.Type, that: typeof _Merkle.Type): Readon
       )
 ```
 
-## [3]-[COMMIT_OWNER]
+## [03]-[COMMIT_OWNER]
 
 [COMMIT_OWNER]:
 - Owner: `Commit` — the content-keyed commit class (`key`, `parents`, `vector`, `stamp`, `author`) assembling the branch shape, the summary schema, the mint, the divergence fold, and the stamp order as statics — one decoded shape for the whole version plane, one import for every consumer.

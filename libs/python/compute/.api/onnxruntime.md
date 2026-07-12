@@ -17,18 +17,18 @@
 [PUBLIC_TYPE_SCOPE]: session and value types
 - rail: model
 
-| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]  | [CAPABILITY]                                                              |
-| :-----: | :----------------------------- | :-------------- | :------------------------------------------------------------------------ |
-|  [01]   | `onnxruntime.InferenceSession` | session root    | loads and runs a model over selected execution providers; accepts a path, bytes, or serialized `ModelProto` |
-|  [02]   | `onnxruntime.SessionOptions`   | session policy  | `graph_optimization_level`, `intra_op_num_threads`, `inter_op_num_threads`, `execution_mode`, `enable_profiling`, `optimized_model_filepath`, `add_session_config_entry(k,v)`, `register_custom_ops_library(path)`, `add_free_dimension_override_by_name` |
-|  [03]   | `onnxruntime.RunOptions`       | run policy      | `log_severity_level`, `terminate`, `add_run_config_entry(k,v)`, `active_adapters` (LoRA `AdapterFormat`) |
-|  [04]   | `onnxruntime.NodeArg`          | io descriptor   | named input/output exposing `name`, `type` (ONNX type string), `shape` (with `None`/`str` for symbolic dims) |
-|  [05]   | `onnxruntime.OrtValue`         | value carrier   | native typed tensor with `numpy()`, `shape()`, `data_type()`, `device_name()`, `is_tensor()`, `element_type()` |
-|  [06]   | `onnxruntime.IOBinding`        | io binder       | binds pre-allocated device inputs/outputs to a session for zero host-copy runs |
-|  [07]   | `onnxruntime.ModelMetadata`    | metadata record | `producer_name`, `domain`, `version`, `graph_name`, `description`, `custom_metadata_map` |
-|  [08]   | `onnxruntime.ModelCompiler`    | aot compiler    | compiles a model to an EP-specific optimized artifact (EP-context cache) |
-|  [09]   | `onnxruntime.OrtDevice` / `OrtMemoryInfo` | device descriptor | device/allocator handles for `IOBinding` and `OrtValue` placement |
-|  [10]   | `onnxruntime.SparseTensor`     | sparse value    | COO/CSR/block-sparse tensor value (`sparse_coo_from_numpy`, `sparse_csr_from_numpy`) |
+| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                                                                                                                                                                              |
+| :-----: | :---------------------------------------- | :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `onnxruntime.InferenceSession`            | session root      | loads and runs a model over selected execution providers; accepts a path, bytes, or serialized `ModelProto`                                                                                                                                               |
+|  [02]   | `onnxruntime.SessionOptions`              | session policy    | `graph_optimization_level`, `intra_op_num_threads`, `inter_op_num_threads`, `execution_mode`, `enable_profiling`, `optimized_model_filepath`, `add_session_config_entry(k,v)`, `register_custom_ops_library(path)`, `add_free_dimension_override_by_name` |
+|  [03]   | `onnxruntime.RunOptions`                  | run policy        | `log_severity_level`, `terminate`, `add_run_config_entry(k,v)`, `active_adapters` (LoRA `AdapterFormat`)                                                                                                                                                  |
+|  [04]   | `onnxruntime.NodeArg`                     | io descriptor     | named input/output exposing `name`, `type` (ONNX type string), `shape` (with `None`/`str` for symbolic dims)                                                                                                                                              |
+|  [05]   | `onnxruntime.OrtValue`                    | value carrier     | native typed tensor with `numpy()`, `shape()`, `data_type()`, `device_name()`, `is_tensor()`, `element_type()`                                                                                                                                            |
+|  [06]   | `onnxruntime.IOBinding`                   | io binder         | binds pre-allocated device inputs/outputs to a session for zero host-copy runs                                                                                                                                                                            |
+|  [07]   | `onnxruntime.ModelMetadata`               | metadata record   | `producer_name`, `domain`, `version`, `graph_name`, `description`, `custom_metadata_map`                                                                                                                                                                  |
+|  [08]   | `onnxruntime.ModelCompiler`               | aot compiler      | compiles a model to an EP-specific optimized artifact (EP-context cache)                                                                                                                                                                                  |
+|  [09]   | `onnxruntime.OrtDevice` / `OrtMemoryInfo` | device descriptor | device/allocator handles for `IOBinding` and `OrtValue` placement                                                                                                                                                                                         |
+|  [10]   | `onnxruntime.SparseTensor`                | sparse value      | COO/CSR/block-sparse tensor value (`sparse_coo_from_numpy`, `sparse_csr_from_numpy`)                                                                                                                                                                      |
 
 [PUBLIC_TYPE_SCOPE]: option enums
 - rail: model
@@ -61,18 +61,18 @@
 [ENTRYPOINT_SCOPE]: value construction and runtime queries
 - rail: model
 
-| [INDEX] | [SURFACE]                                                                             | [ENTRY_FAMILY] | [CAPABILITY]                                      |
-| :-----: | :------------------------------------------------------------------------------------ | :------------- | :------------------------------------------------ |
-|  [01]   | `OrtValue.ortvalue_from_numpy(arr, device_type, device_id)`                           | value build    | builds a native `OrtValue` from a NumPy array     |
-|  [02]   | `OrtValue.ortvalue_from_shape_and_type(shape, element_type, ...)`                     | value build    | allocates an uninitialized device value           |
-|  [03]   | `OrtValue.numpy()`                                                                    | value read     | copies a native value back to a NumPy array       |
-|  [04]   | `IOBinding.bind_input(name, device_type, device_id, element_type, shape, buffer_ptr)` | binding        | binds a device input buffer                       |
-|  [05]   | `IOBinding.bind_output(name, ...)` / `copy_outputs_to_cpu()`                          | binding        | binds outputs and retrieves results to CPU        |
-|  [06]   | `get_available_providers()` / `get_all_providers()`                                   | provider query | lists installed and known execution providers (`CPUExecutionProvider`, `CUDAExecutionProvider`, `CoreMLExecutionProvider`, `TensorrtExecutionProvider`, ...) |
-|  [07]   | `get_device()`                                                                        | device query   | returns the build's primary device string (`CPU`/`GPU`) |
-|  [08]   | `set_default_logger_severity(level)` / `set_default_logger_verbosity(level)`          | logging        | sets the global runtime log severity/verbosity    |
-|  [09]   | `preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)`                       | dll preload    | preloads CUDA/cuDNN shared libraries before session creation |
-|  [10]   | `ModelCompiler(session_options, input_model_path_or_bytes, embed_compiled_data_into_model=False, ...).compile_to_file(output_path)` | aot compile | compiles a model to an EP-context optimized on-disk artifact |
+| [INDEX] | [SURFACE]                                                                                                                           | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                                 |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `OrtValue.ortvalue_from_numpy(arr, device_type, device_id)`                                                                         | value build    | builds a native `OrtValue` from a NumPy array                                                                                                                |
+|  [02]   | `OrtValue.ortvalue_from_shape_and_type(shape, element_type, ...)`                                                                   | value build    | allocates an uninitialized device value                                                                                                                      |
+|  [03]   | `OrtValue.numpy()`                                                                                                                  | value read     | copies a native value back to a NumPy array                                                                                                                  |
+|  [04]   | `IOBinding.bind_input(name, device_type, device_id, element_type, shape, buffer_ptr)`                                               | binding        | binds a device input buffer                                                                                                                                  |
+|  [05]   | `IOBinding.bind_output(name, ...)` / `copy_outputs_to_cpu()`                                                                        | binding        | binds outputs and retrieves results to CPU                                                                                                                   |
+|  [06]   | `get_available_providers()` / `get_all_providers()`                                                                                 | provider query | lists installed and known execution providers (`CPUExecutionProvider`, `CUDAExecutionProvider`, `CoreMLExecutionProvider`, `TensorrtExecutionProvider`, ...) |
+|  [07]   | `get_device()`                                                                                                                      | device query   | returns the build's primary device string (`CPU`/`GPU`)                                                                                                      |
+|  [08]   | `set_default_logger_severity(level)` / `set_default_logger_verbosity(level)`                                                        | logging        | sets the global runtime log severity/verbosity                                                                                                               |
+|  [09]   | `preload_dlls(cuda=True, cudnn=True, msvc=True, directory=None)`                                                                    | dll preload    | preloads CUDA/cuDNN shared libraries before session creation                                                                                                 |
+|  [10]   | `ModelCompiler(session_options, input_model_path_or_bytes, embed_compiled_data_into_model=False, ...).compile_to_file(output_path)` | aot compile    | compiles a model to an EP-context optimized on-disk artifact                                                                                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -2,16 +2,16 @@
 
 Dashboards are data derived from identity, and the pack library is the same owner's dispatch: `DashboardModel` is one `Schema.Class` — deterministic uid slugged from the `AppIdentity`, a closed panel family as tagged rows, template variables, alert annotations, refresh and range defaults, the shelf-layout fold, and the pack record dispatched through one generic indexed call — and `Query` is the typed expression algebra panels are built from, a closed recursive family whose aggregation operators, windowed functions, and binary operators are vocabulary rows rather than named cases, rendered to the metric-backend dialect by one fold, so no panel ever carries a hand-assembled query string. The model is the emission contract: it encodes through its own schema (`typeof DashboardModel.Encoded` is what `iac` applies through its grafana provider), panels carry the threshold steps, legends, and units a provider row needs so `iac` invents nothing, and every pack is a total function from `AppIdentity` plus a typed payload — the later-wave signal owners hand their vocabulary rows IN as payload data, so this floor renders thresholds it never declares and a threshold, metric name, or burn-row change upstream re-renders every affected pack with zero edits here. A per-app dashboard file is unspellable: the only way to obtain a dashboard is a total function of identity. The module is `core/src/observe/board.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                                  |
-| :-----: | :-------- | :-------------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER] | [OWNS]                                                                               |
+| :-----: | :-------- | :----------------------------------------------------------------------------------- |
 |  [01]   | `QUERY`   | the typed expression family, its fn/op/agg vocabularies, the one dialect-render fold |
-|  [02]   | `PANEL`   | the closed panel row family and the shelf-layout grid fold                  |
-|  [03]   | `MODEL`   | the `DashboardModel` owner: identity-derived uid, variables, annotations    |
-|  [04]   | `PACKS`   | the pane builders, the payload map, the pack record, dispatch, and suite    |
+|  [02]   | `PANEL`   | the closed panel row family and the shelf-layout grid fold                           |
+|  [03]   | `MODEL`   | the `DashboardModel` owner: identity-derived uid, variables, annotations             |
+|  [04]   | `PACKS`   | the pane builders, the payload map, the pack record, dispatch, and suite             |
 
-## [2]-[QUERY]
+## [02]-[QUERY]
 
 [QUERY]:
 - Owner: the `Query` closed family — `Instant` (a labeled series selector), `Windowed` (a range function over an operand: `rate`, `increase`, `delta`, `avg_over_time`, `max_over_time`, `min_over_time` as `_FNS` vocabulary rows), `Quantile` (histogram quantile over a windowed rate, fused because it carries the `le`-aggregation contract), `Aggregate` (an aggregation operator with a group-by label set: `sum`, `avg`, `min`, `max`, `count` as `_AGG` rows), `Binary` (arithmetic and bool-comparison operators as `_OPS` rows), and `Const` (a scalar literal) — recursive where composition demands it, with `Query.render` as the one total fold to the PromQL-dialect string. A function or operator is a vocabulary row, never a case: the case set is the GRAMMAR of the dialect, the row sets are its function space, so the algebra generates the expression space instead of enumerating it.
@@ -94,7 +94,7 @@ const Query: Data.TaggedEnum.Constructor<Query> & { readonly render: (query: Que
 }
 ```
 
-## [3]-[PANEL]
+## [03]-[PANEL]
 
 [PANEL]:
 - Owner: the closed panel family — `Timeseries`, `Stat`, `Gauge`, `Heatmap`, `Logs`, `Table`, `Geomap`, `Nodes` as `Schema.TaggedStruct` rows joined by one `Schema.Union` — every row carrying `title`, its rendered `expr` set, its `span` (grid units of a 24-column row), and its row-specific evidence: `ceiling` and threshold `steps` on gauges, `steps` and `unit` on stats and timeseries, `legend` on the series-bearing rows, `filter` on logs, the paired `nodes`/`edges` queries on the node-graph row.
@@ -164,7 +164,7 @@ const Panel: Schema.Union<[
 type Panel = typeof Panel.Type
 ```
 
-## [4]-[MODEL]
+## [04]-[MODEL]
 
 [MODEL]:
 - Owner: `DashboardModel` — uid (a slug brand derived, never supplied), `title`, the identity record (the same `Convention.identity` projection every signal stamps, so a dashboard is greppable by the attributes its panels query), `tags`, the tenant template `variables` row, `annotations` derived from `slo#ALERT_SPECS` specs (slug plus tone), the `refresh` cadence and `since` range defaults (emission facts with owner-fixed defaults, so `iac` reads them off the encoded model), and the `panels` array.
@@ -251,7 +251,7 @@ declare namespace DashboardModel {
 }
 ```
 
-## [5]-[PACKS]
+## [05]-[PACKS]
 
 [PACKS]:
 - Owner: the interior `_pane` builders and the `_PACKS` handler record dispatched by `DashboardModel.pack` — the payload map types each pack's input, the mapped handler contract turns a missing pack into a compile error at the record, and the one generic indexed dispatch keeps the payload following the kind.

@@ -2,17 +2,17 @@
 
 Document egress as one folded spec: a report is a `Report.Spec` value — column contract, style rows, furniture, format policy — rendered by one entry that dispatches on the format row into three engine arms over the SAME decoded rows: `xlsx` on the exceljs constant-memory streaming writer, `pdf` on the jsPDF measured-paging fold, `csv` on the papaparse serializer with its streaming duplex — and one `bundle` container fold on jszip for multi-artifact archives. The engines are mutation-heavy and Promise-or-sync; the boundary law is fixed once: builds run inside one `Effect` fold, the mutable document never crosses the rail, every Promise terminal lifts through `Effect.tryPromise` onto the one `ReportFault` family, and the unbounded arms stream — the xlsx writer commits rows, the CSV duplex pipes — so their memory is constant regardless of row count, while the pdf arm is a bounded-set fold by the engine's own in-memory document model and an oversized pdf routes to the worker offload. Bytes are reproducible by construction (pinned creation instants, fixed compression) so an artifact's content key is stable, a re-render under an equal spec dedupes against the artifact index, and a report activity replay regenerates identical bytes. Variation is vocabulary, never code: a new report is a spec value, a new look is a style row, a new output is a format-row arm. The module is node-lane egress on the `./server` exports subpath as `runtime/src/work/report.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                          | [PUBLIC]       |
-| :-----: | :----------- | :---------------------------------------------------------------------------------- | :------------- |
-|  [01]   | `SPEC_FOLD`  | the report spec, the format policy row, the one render dispatch, byte identity       | `Report`       |
-|  [02]   | `XLSX_ARM`   | the streaming workbook writer and the full style/rule/validation vocabularies         | `Report`       |
-|  [03]   | `PDF_ARM`    | measured paging, native tables, metadata/encryption, furniture registration           | `Report`       |
-|  [04]   | `CSV_ARM`    | serializer with formula defense, the node streaming duplex, decoded ingress           | `Report`       |
-|  [05]   | `BUNDLE`     | the archive container — streaming egress, progress receipt, guarded ingress           | `Report`       |
+| [INDEX] | [CLUSTER]   | [OWNS]                                                                         | [PUBLIC] |
+| :-----: | :---------- | :----------------------------------------------------------------------------- | :------- |
+|  [01]   | `SPEC_FOLD` | the report spec, the format policy row, the one render dispatch, byte identity | `Report` |
+|  [02]   | `XLSX_ARM`  | the streaming workbook writer and the full style/rule/validation vocabularies  | `Report` |
+|  [03]   | `PDF_ARM`   | measured paging, native tables, metadata/encryption, furniture registration    | `Report` |
+|  [04]   | `CSV_ARM`   | serializer with formula defense, the node streaming duplex, decoded ingress    | `Report` |
+|  [05]   | `BUNDLE`    | the archive container — streaming egress, progress receipt, guarded ingress    | `Report` |
 
-## [2]-[SPEC_FOLD]
+## [02]-[SPEC_FOLD]
 
 [SPEC_FOLD]:
 - Owner: `Report.Spec` — the whole parameterization: `columns` (header, key, width, per-column style row and optional totals function), `style` (the named style table cells reference), `rules` (conditional-format rows the xlsx arm applies as data), `guards` (data-validation rows), `furniture` (title, brand image bytes, footer band — rendered by every arm in its own idiom), `protect` (the sheet/document protection row with `Redacted` passwords), and `format` (`"csv" | "xlsx" | "pdf"`). `Report.render(spec, rows)` is the ONE entry: it dispatches on the format row, drains the row `Stream` through the selected arm, and answers the artifact bytes with their size and row-count receipt.
@@ -102,7 +102,7 @@ const _render = <A, R>(
   )
 ```
 
-## [3]-[XLSX_ARM]
+## [03]-[XLSX_ARM]
 
 [XLSX_ARM]:
 - Owner: the constant-memory spreadsheet arm — `new ExcelJS.stream.xlsx.WorkbookWriter({ stream, useStyles: true, useSharedStrings: false })` acquired under `Effect.acquireRelease` with `workbook.commit()` as the terminal, the row stream drained through `worksheet.addRow(projected).commit()` so a million-row report never materializes. The full formatting vocabulary applies as data before the drain: `worksheet.columns` from the spec's column contract, the named style table onto column `style`, every `rules` row through `worksheet.addConditionalFormatting`, every `guards` row onto its column cells' `dataValidation`, a native `worksheet.addTable` with per-column `totalsRowFunction` when any column declares totals, `workbook.addImage` + `worksheet.addImage` for the brand band, and `worksheet.protect(Redacted.value(password), options)` when the protection row is present.
@@ -154,7 +154,7 @@ const _xlsx = <A, R>(spec: Report.Spec<A>, rows: Stream.Stream<A, never, R>) =>
   )
 ```
 
-## [4]-[PDF_ARM]
+## [04]-[PDF_ARM]
 
 [PDF_ARM]:
 - Owner: the measured-paging PDF arm — one `new jsPDF({ unit: "pt", compress: true, encryption })` built and emitted inside one synchronous fold: `setDocumentProperties` stamps title and creator from the spec, `setCreationDate(new Date(0))` pins the instant so equal rows produce identical bytes, the brand band lands once through `addImage` with an `alias` so a repeated logo embeds one object, the column contract renders through the native `doc.table(x, y, data, headers, config)` structured-table primitive with `printHeaders` — never a hand-rolled `splitTextToSize`/`addPage` cursor loop for tabular content — and free-text sections page through the measured fold (`getTextDimensions` against `internal.pageSize.getHeight()`). `doc.outline.add` builds the section bookmark tree, and `output("arraybuffer")` is the single boundary crossing.
@@ -228,7 +228,7 @@ const _pdf = <A, R>(
   })
 ```
 
-## [5]-[CSV_ARM]
+## [05]-[CSV_ARM]
 
 [CSV_ARM]:
 - Owner: the CSV codec arm — egress through `Papa.unparse({ fields, data }, { escapeFormulae: true, newline: "\n" })` for bounded row sets, and through the `Papa.parse(Papa.NODE_STREAM_INPUT)` duplex for unbounded ones, so the CSV arm streams under the same memory law as the spreadsheet arm and a multi-gigabyte export never holds one string. Ingress is the same polymorphic `parse` — the string arm synchronously, `result.errors` lifted before `result.data` is read, every row decoded by the caller's Schema, `dynamicTyping` refused so typing authority never forks.
@@ -267,7 +267,7 @@ const _joined = (chunks: ReadonlyArray<Uint8Array>): Uint8Array => {
 }
 ```
 
-## [6]-[BUNDLE]
+## [06]-[BUNDLE]
 
 [BUNDLE]:
 - Owner: the archive container — `Report.bundle(entries)` folds named artifacts into one `JSZip` tree with per-entry compression policy (`STORE` for already-compressed formats, `DEFLATE` level 6 for text), fixed entry dates for byte stability, and STREAMING egress: `generateInternalStream({ type: "uint8array", streamFiles: true })` bridged through `Stream.async` on its `data`/`end`/`error` events, so an open-ended bundle never buffers — the `onUpdate` metadata (`percent`, `currentFile`) folds into a progress gauge as it flows. The bounded convenience form is `generateAsync` behind the same entry, selected by the caller's size knowledge, never a second surface.

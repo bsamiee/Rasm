@@ -45,17 +45,17 @@ Frozen law; the `tests/contracts` corpus drivers (TS readers in `tests/typescrip
 
 ## [07]-[EXTENSION_RECIPES]
 
-| [INDEX] | [NEW_CHANGE] | [OWNER_SURFACE] | [SHAPE_OF_THE_EDIT] |
-|:-----: |:-------------- |:--------------------------------------------- |:------------------------------------------------------ |
-| [01] | event type | the app's `Schema.TaggedClass` family | one tagged case + its upcast step |
-| [02] | event version | `data/journal/evolve` upcast chains | one version step; the log is never rewritten |
-| [03] | wire family | `core/interchange/codec` registry | one census row + one landing row |
-| [04] | projection | `data/read/fold` lane rows | one lane row at its staleness budget |
-| [05] | retrieval lane | `data/read/search` roster | one lane row (FTS, trigram, phonetic, fuzzy, semantic) |
-| [06] | pg capability | `data/lane/postgres` matrix + `iac/kube` image | one probe row + one image fact |
-| [07] | retention class | `data/journal/retain` policy table | one class row |
-| [08] | fold consumer | `core/state/fold` plan instances | one op-vocabulary instance |
-| [09] | tenancy shape | `data/lane/tenant` cases | one scope case — isolation never forks |
-| [10] | fanout engine | `runtime/net/pubsub` engine rows | one engine row; the port stays engine-blind |
-| [11] | coordination engine | `runtime/net/coordinate` engine rows | one engine row on the `Accord` port; reads stay versioned |
-| [12] | dashboard pack | `core/observe/board` pack rows | one pack row realized by `iac/operate/observe` |
+| [INDEX] | [NEW_CHANGE]        | [OWNER_SURFACE]                                | [SHAPE_OF_THE_EDIT]                                       |
+| :-----: | :------------------ | :--------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | event type          | the app's `Schema.TaggedClass` family          | one tagged case + its upcast step                         |
+|  [02]   | event version       | `data/journal/evolve` upcast chains            | one version step; the log is never rewritten              |
+|  [03]   | wire family         | `core/interchange/codec` registry              | one census row + one landing row                          |
+|  [04]   | projection          | `data/read/fold` lane rows                     | one lane row at its staleness budget                      |
+|  [05]   | retrieval lane      | `data/read/search` roster                      | one lane row (FTS, trigram, phonetic, fuzzy, semantic)    |
+|  [06]   | pg capability       | `data/lane/postgres` matrix + `iac/kube` image | one probe row + one image fact                            |
+|  [07]   | retention class     | `data/journal/retain` policy table             | one class row                                             |
+|  [08]   | fold consumer       | `core/state/fold` plan instances               | one op-vocabulary instance                                |
+|  [09]   | tenancy shape       | `data/lane/tenant` cases                       | one scope case — isolation never forks                    |
+|  [10]   | fanout engine       | `runtime/net/pubsub` engine rows               | one engine row; the port stays engine-blind               |
+|  [11]   | coordination engine | `runtime/net/coordinate` engine rows           | one engine row on the `Accord` port; reads stay versioned |
+|  [12]   | dashboard pack      | `core/observe/board` pack rows                 | one pack row realized by `iac/operate/observe`            |

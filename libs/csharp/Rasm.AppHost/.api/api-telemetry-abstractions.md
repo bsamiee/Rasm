@@ -94,31 +94,31 @@
 
 [BUFFERING_RUNTIME]:
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| [INDEX] | [SURFACE]      | [CALL_SHAPE]          | [CAPABILITY]                |
 | :-----: | :------------- | :-------------------- | :-------------------------- |
-| [01] | `TryEnqueue` | buffered log entry | buffers a log record |
-| [02] | `Flush` | buffer command | replays buffered records |
-| [03] | `ShouldSample` | `in LogEntry<TState>` | per-entry sampling decision |
+|  [01]   | `TryEnqueue`   | buffered log entry    | buffers a log record        |
+|  [02]   | `Flush`        | buffer command        | replays buffered records    |
+|  [03]   | `ShouldSample` | `in LogEntry<TState>` | per-entry sampling decision |
 
 [LATENCY_RUNTIME]:
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]     | [CAPABILITY]                  |
 | :-----: | :------------------- | :--------------- | :---------------------------- |
-| [01] | `GetCheckpointToken` | name lookup | resolves checkpoint token |
-| [02] | `GetMeasureToken` | name lookup | resolves measure token |
-| [03] | `GetTagToken` | name lookup | resolves tag token |
-| [04] | `AddCheckpoint` | checkpoint token | records a latency checkpoint |
-| [05] | `AddMeasure` | token plus value | accumulates a latency measure |
-| [06] | `RecordMeasure` | token plus value | sets a latency measure |
-| [07] | `SetTag` | token plus value | tags the latency context |
-| [08] | `Freeze` | context command | seals latency data for export |
+|  [01]   | `GetCheckpointToken` | name lookup      | resolves checkpoint token     |
+|  [02]   | `GetMeasureToken`    | name lookup      | resolves measure token        |
+|  [03]   | `GetTagToken`        | name lookup      | resolves tag token            |
+|  [04]   | `AddCheckpoint`      | checkpoint token | records a latency checkpoint  |
+|  [05]   | `AddMeasure`         | token plus value | accumulates a latency measure |
+|  [06]   | `RecordMeasure`      | token plus value | sets a latency measure        |
+|  [07]   | `SetTag`             | token plus value | tags the latency context      |
+|  [08]   | `Freeze`             | context command  | seals latency data for export |
 
 [REQUEST_METADATA_RUNTIME]:
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
+| [INDEX] | [SURFACE]                         | [CALL_SHAPE]         | [CAPABILITY]                        |
 | :-----: | :-------------------------------- | :------------------- | :---------------------------------- |
-| [01] | `SetRequestMetadata` | context mutation | sets outgoing request route |
-| [02] | `AddDownstreamDependencyMetadata` | service registration | registers dependency route metadata |
+|  [01]   | `SetRequestMetadata`              | context mutation     | sets outgoing request route         |
+|  [02]   | `AddDownstreamDependencyMetadata` | service registration | registers dependency route metadata |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

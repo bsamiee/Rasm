@@ -2,17 +2,17 @@
 
 The serving assembly: routes are Layers under `HttpLayerRouter` — the app-assembled `HttpApi` mounts through `addHttpApi` beside raw routes, foreign realtime protocols mount through the `Mount` port fold, the resumable-upload rail mounts its tus dispatchers, the health trio serves the probe anchor, the webhook intake holds raw octets for signature verification, and the auth ceremonies lift the security wave's redirect and passkey round-trips into HTTP — all under ONE seam: mark mint, ambient provision, trace continuation, the shield header table, and the respondable net composed once as middleware so no handler, group, or app root re-states the cross-cutting stack and the served app's error channel is `never`. Host and header dispatch across several apps is `HttpMultiplex` rows; static assets serve with fingerprint-immutable cache rows, traversal refusal, and the `Etag.Generator` the runtime server Layer already carries. The engine is never named here — `HttpLayerRouter.serve` demands the `HttpServer` the boot module provides from `exec#RUNTIME_ROWS`, so a runtime change is a row selection at the root and the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same route Layers. The module ships on the `./server` exports subpath as `runtime/src/serve/route.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                          | [PUBLIC]   |
-| :-----: | :-------------- | :-------------------------------------------------------------------------------- | :--------- |
-|  [01]   | `SEAM_ROWS`     | the one middleware composition: mark, ambient rows, trace, shield, respondable net | `Seam`     |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                             | [PUBLIC]           |
+| :-----: | :-------------- | :--------------------------------------------------------------------------------- | :----------------- |
+|  [01]   | `SEAM_ROWS`     | the one middleware composition: mark, ambient rows, trace, shield, respondable net | `Seam`             |
 |  [02]   | `LAYER_ROUTES`  | api/docs/health/tus/mount route Layers, the webhook intake row                     | `Router`, `Intake` |
-|  [03]   | `CEREMONY_ROWS` | oauth redirect pair, webauthn enroll/assert, refresh/logout, cookie application    | `Ceremony` |
-|  [04]   | `ASSET_ROWS`    | the SPA/static fold: fingerprint predicate, cache-header table, traversal refusal  | `Router`   |
-|  [05]   | `SERVE_FOLD`    | multiplex rows, the serve Layer, the web-handler twin                              | `Router`   |
+|  [03]   | `CEREMONY_ROWS` | oauth redirect pair, webauthn enroll/assert, refresh/logout, cookie application    | `Ceremony`         |
+|  [04]   | `ASSET_ROWS`    | the SPA/static fold: fingerprint predicate, cache-header table, traversal refusal  | `Router`           |
+|  [05]   | `SERVE_FOLD`    | multiplex rows, the serve Layer, the web-handler twin                              | `Router`           |
 
-## [2]-[SEAM_ROWS]
+## [02]-[SEAM_ROWS]
 
 [SEAM_ROWS]:
 - Owner: `Seam` — the one cross-cutting composition, attached exactly once through `HttpLayerRouter.middleware`: `Seam.guard(app)` mints the request mark (id, instant, negotiated locale from the `accept-language` header against the ambient fallback), provides the three `Current` rows in one scoped provision, continues the W3C trace through `Current.traced` over the request headers, folds every escaping cause through `Problem.net` — self-rendering first, total ladder as the floor — and stamps the shield table on every response; the served app's error channel is `never` by construction.
@@ -67,7 +67,7 @@ const _guard = <E, R>(
 const Seam = { guard: _guard, shield: _SHIELD } as const
 ```
 
-## [3]-[LAYER_ROUTES]
+## [03]-[LAYER_ROUTES]
 
 [LAYER_ROUTES]:
 - Owner: `Router` — the route-Layer vocabulary the app root merges: `Router.api(api)` mounts the assembled `HttpApi` through `HttpLayerRouter.addHttpApi(api, { openapiPath })` with `HttpApiScalar.layerHttpLayerRouter` beside it so the derived document and the reference UI ride the same router; `Router.rpc(group, prefix)` mounts a contributed RPC group beside the raw routes through `RpcServer.toHttpApp(group)` — the `HttpApp` value form, so one router serves api, RPC, and raw rows without a second server; `Router.health` mounts the probe trio from `life#PROBE_ROUTES`'s anchor — `Life.route(kind)` is the path, `Life.report(kind)` the body encoded through the `Life.Report` schema, `pass`/`warn` encode 200 and `fail` encodes 503, so the path and the verdict never exist twice; `Router.mounts` folds `Effect.serviceOption(Mount)` and mounts the provided foreign-protocol app at its prefix — presence-as-data, an unwired port serves nothing and never crashes.
@@ -124,7 +124,7 @@ const _intake = (spec: Intake.Spec): Layer.Layer<never, never, Verify | HttpLaye
 const Intake = { of: _intake } as const
 ```
 
-## [4]-[CEREMONY_ROWS]
+## [04]-[CEREMONY_ROWS]
 
 [CEREMONY_ROWS]:
 - Owner: `Ceremony` — the HTTP lift of the security wave's authentication round-trips, four route pairs under one prefix: `authorize` redirects to `OAuth.authorize`'s minted URL (302, the state stash already held); `callback` decodes the provider's `code`/`state` query, exchanges through `OAuth.callback` into a `TokenPair`, and lands the session as cookies; `enroll`/`assert` serve the webauthn halves — the options POST returns the RP-minted challenge JSON, the finish POST verifies through `WebAuthn.enrollFinish`/`assertFinish` and lands the session; `refresh` rotates through `Token.refresh` reading the path-scoped refresh cookie; `logout` revokes and writes the clearing set.
@@ -217,7 +217,7 @@ const _ceremony = (base: `/${string}`) =>
 const Ceremony = { of: _ceremony, cookied: _cookied } as const
 ```
 
-## [5]-[ASSET_ROWS]
+## [05]-[ASSET_ROWS]
 
 [ASSET_ROWS]:
 - Owner: `Router.assets` — the SPA/static row as one request fold: resolve the request path under the asset root through the `Path` capability, serve the file when it exists, fall back to the SPA entry for every path-shaped miss (client-rendered routes hydrate from one entry), and stamp the cache row the fingerprint predicate selects.
@@ -261,7 +261,7 @@ const _assets = (options: { readonly root: string; readonly entry: string }): Ef
   })
 ```
 
-## [6]-[SERVE_FOLD]
+## [06]-[SERVE_FOLD]
 
 [SERVE_FOLD]:
 - Owner: the serve law — the app root merges its route Layers (`Router.api`, `Router.health`, ceremonies, intake rows, rail mounts, the asset route, `Router.mounts`), attaches `Seam.guard` through `HttpLayerRouter.middleware` once, and launches `HttpLayerRouter.serve` — a Layer whose `HttpServer` requirement the boot module satisfies from `exec#RUNTIME_ROWS`'s `serve` member, so node-versus-bun is a row selection and this module names no binding; the fetch-shaped twin is `HttpLayerRouter.toWebHandler` over the same merged Layers for edge runtimes, and a process whose whole life is the server parks through `life#PHASE_SPINE`'s boot law.

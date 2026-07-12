@@ -2,16 +2,16 @@
 
 The design-token authority as TWO exports: `Theme` — OKLCH color computed in `colorjs.io` (perceptually-even ramps, gamut-fit, APCA contrast-gated at decode), the dimension vocabulary as its `Scale` sub-plane (one `--spacing` multiplier, a modular type scale with paired line-heights, radius/easing/shadow/z/breakpoint rows), and the theme stamp seam — plus `cn`, the folder's one class rail (`extendTailwindMerge` taught every custom group, over the `clsx` fold). Every token emits as Tailwind v4 `@theme` namespace rows through one CSS fold. Theme selection is a `data-theme` attribute the `@custom-variant` selectors read; no component branches on theme in JS, hardcodes a color, writes a raw pixel, or imports `clsx`/`twMerge` beside the one rail. The decoded color object feeds two sinks — the CSS custom-property plane here and the viewer render space through `Theme.linear` — so token color and rendered color are one color-space artifact. Motion class-row vocabulary lives at `system/act#MOTION_ROWS`; this page teaches the motion class GROUPS to the one merge table as data so those rows resolve conflicts deterministically. The module is `ui/src/system/token.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                           | [PUBLIC]      |
-| :-----: | :---------------- | :-------------------------------------------------------------------------------- | :------------ |
-|  [01]   | `COLOR_AUTHORITY` | the `Theme.Color` decode brand, ramp/contrast algebra, and the `@theme` CSS fold   | `Theme`       |
-|  [02]   | `CLASS_RAIL`      | the one `cn` composer — `extendTailwindMerge` over `clsx`, group table as data     | `cn`          |
-|  [03]   | `SCALE_TABLES`    | `Theme.Scale` — spacing/text/radius/ease/shadow/z/breakpoint rows and emission     | `Theme`       |
-|  [04]   | `THEME_SWITCH`    | the theme vocabulary, the `data-theme` stamp seam, and the persisted-theme law     | `Theme`       |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                           | [PUBLIC] |
+| :-----: | :---------------- | :------------------------------------------------------------------------------- | :------- |
+|  [01]   | `COLOR_AUTHORITY` | the `Theme.Color` decode brand, ramp/contrast algebra, and the `@theme` CSS fold | `Theme`  |
+|  [02]   | `CLASS_RAIL`      | the one `cn` composer — `extendTailwindMerge` over `clsx`, group table as data   | `cn`     |
+|  [03]   | `SCALE_TABLES`    | `Theme.Scale` — spacing/text/radius/ease/shadow/z/breakpoint rows and emission   | `Theme`  |
+|  [04]   | `THEME_SWITCH`    | the theme vocabulary, the `data-theme` stamp seam, and the persisted-theme law   | `Theme`  |
 
-## [2]-[COLOR_AUTHORITY]
+## [02]-[COLOR_AUTHORITY]
 
 [COLOR_AUTHORITY]:
 - Owner: `Theme` — one assembled owner: the `Color` transform (CSS color string ⇄ `PlainColorObject`, non-throwing via `tryColor`, `ParseError` on a malformed token), the `pair` refinement factory (foreground/background pairs APCA-gated at decode, floor a policy row), the `ramp` fold (`steps` in OKLCH, ΔE-bounded, gamut-fit through `toGamutCSS`), the `linear` projection (the render-space triple the viewer material plane ingests), and the `css` emission fold turning any token row table into `@theme` declaration text.
@@ -77,7 +77,7 @@ const _css = (namespace: string, rows: Record.ReadonlyRecord<string, string>): s
   `@theme {\n${Record.collect(rows, (key, value) => `  --${namespace}${key === "" ? "" : `-${key}`}: ${value};`).join("\n")}\n}`
 ```
 
-## [3]-[CLASS_RAIL]
+## [03]-[CLASS_RAIL]
 
 [CLASS_RAIL]:
 - Owner: `cn` — the folder's ONE class composer: `clsx` folds conditional inputs, one `extendTailwindMerge` instance resolves last-wins conflicts, and the extension table teaches it every custom group — the project `@theme` color scale and the `tw-animate-css` motion groups (`fade`/`zoom`/`spin`/`blur`/`slide` setters, `animation-duration`/`delay`/`repeat` modifiers) — so a `cva` variant, a `tailwindcss-react-aria-components` state variant, and a caller override all collapse to the intended winner.
@@ -122,7 +122,7 @@ const _merge = extendTailwindMerge({
 const cn = (...inputs: ReadonlyArray<ClassValue>): string => _merge(clsx(inputs))
 ```
 
-## [4]-[SCALE_TABLES]
+## [04]-[SCALE_TABLES]
 
 [SCALE_TABLES]:
 - Owner: `Theme.Scale` — the dimension sub-plane of the one token authority, seven interior anchors: `_spacing` (the single multiplier — a density change is this one token, never a scale rewrite), `_text` (step → `{ size, leading }` pairs, each emitting the `--text-*` + `--text-*--line-height` twin), `_radius`, `_ease` (easing curves as cubic-bezier rows — `system/act` motion and the overlay `useTransitionStyles` phases consume them), `_shadow` (the elevation ramp), `_z` (the stacking ladder — overlay, sheet, palette, toast, cursor ranks as data), and `_breakpoint`; `Theme.Scale.css()` folds all of them through the one `_css` emission into the `@theme` declarations the build stylesheet inlines.
@@ -196,7 +196,7 @@ const _Scale: {
 }
 ```
 
-## [5]-[THEME_SWITCH]
+## [05]-[THEME_SWITCH]
 
 [THEME_SWITCH]:
 - Owner: the theme vocabulary and its stamp seam riding `Theme`: `Theme.kinds` (the closed `as const` tuple — `light`, `dark`, `system`), `Theme.Kind` derived from it, and `Theme.stamp(kind)` — the one `documentElement.dataset` write, an `Effect.sync` boundary row resolving `system` through the `prefers-color-scheme` media query at stamp time.

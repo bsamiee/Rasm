@@ -19,31 +19,31 @@
 - rail: sign/crypto
 - `HashAlgorithm` is the single collapse point: `new (): Hash` — a zero-arg constructor yielding a streaming `Hash`. `HMAC`, RSA-PSS, and every `SHA*` class are instances of this one interface, so algorithm choice is a *value*, not a parallel call family.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------- |:--------------- |:------------------------------------------------------------ |
-| [01] | `Hash { blockSize; size; update(data); digest(): Uint8Array }` | streaming digest | the incremental digest contract; `HMAC` wraps two of them |
-| [02] | `HashAlgorithm { new (): Hash }` | algorithm value | the polymorphic key — passed to `HMAC`/`hmac`/RSA-PSS as a row |
+| [INDEX] | [SYMBOL]                                                       | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                            |
+| :-----: | :------------------------------------------------------------- | :--------------- | :------------------------------------------------------------- |
+|  [01]   | `Hash { blockSize; size; update(data); digest(): Uint8Array }` | streaming digest | the incremental digest contract; `HMAC` wraps two of them      |
+|  [02]   | `HashAlgorithm { new (): Hash }`                               | algorithm value  | the polymorphic key — passed to `HMAC`/`hmac`/RSA-PSS as a row |
 
 [PUBLIC_TYPE_SCOPE]: `/hmac` `/subtle` `/random` — the three primitives `sign/crypto` actually exports as rows
 - rail: sign/crypto
 - `HMAC` is the webhook-signing owner; `constantTimeEqual` is the NON-argon2 fixed-length token/digest/signature equality owner (`session/token` opaque-token + refresh compare, decoded ECDSA/RSA signature compare) — a stored `@node-rs/argon2` credential digest is checked by argon2's own constant-time `verify`, never re-compared here; `RandomReader` is the entropy port the caller satisfies with WebCrypto.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------ |:------------- |:---------------------------------------------------------------- |
-| [01] | `HMAC` (class: `constructor(Algorithm, key)` / `update` / `digest`) | MAC stream | streaming webhook body MAC; `sign/crypto` HMAC row |
-| [02] | `constantTimeEqual(a, b): boolean` | timing-safe eq | `session/token` opaque-token + refresh compare, decoded signature compare; NEVER an `@node-rs/argon2` credential digest (argon2 `verify` owns that) |
-| [03] | `RandomReader { read(bytes: Uint catalogArray): void }` | entropy port | satisfied by WebCrypto `crypto.getRandomValues`; never owns entropy |
+| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                                                                 |
+| :-----: | :------------------------------------------------------------------ | :------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `HMAC` (class: `constructor(Algorithm, key)` / `update` / `digest`) | MAC stream     | streaming webhook body MAC; `sign/crypto` HMAC row                                                                                                  |
+|  [02]   | `constantTimeEqual(a, b): boolean`                                  | timing-safe eq | `session/token` opaque-token + refresh compare, decoded signature compare; NEVER an `@node-rs/argon2` credential digest (argon2 `verify` owns that) |
+|  [03]   | `RandomReader { read(bytes: Uint catalogArray): void }`             | entropy port   | satisfied by WebCrypto `crypto.getRandomValues`; never owns entropy                                                                                 |
 
 [PUBLIC_TYPE_SCOPE]: `/ecdsa` `/rsa` — verify-only public-key material (decode + verify, never sign)
 - rail: sign/crypto
 - Public-key *verification* only: decode a SEC1/PKIX/PKCS1 key or IEEE-P1363/PKIX signature, then `verify*`. There is no private key, no signing, no key generation — token *signing* is `jose` (`.api/jose.md`, `sign/jwt`); this is the row for verifying an externally-issued ECDSA/RSA signature (e.g. an attestation or a partner webhook).
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:----------------------------------------------------------------------------------- |:------------- |:--------------------------------------------------------- |
-| [01] | `verifyECDSASignature(pub, hash, sig)` / `ECDSAPublicKey(curve, x, y)` / `ECDSASignature(r, s)` / `decodeSEC1ECDSAPublicKey(curve, sec1)` / `decodePKIXECDSAPublicKey(der, curves)` / `decodePKIXECDSASignature(der)` / `decodeIEEEP1363ECDSASignature(curve, raw)` | ECDSA verify | external ECDSA signature verify; SEC1/PKIX/IEEE-P1363 codecs |
-| [02] | `ECDSANamedCurve` + `p256`/`p384`/`p521` (NIST) / `secp256k1`…`secp521r1` (SEC) values | curve roster | curve is a value row passed to the decoders, never a call family |
-| [03] | `verifyRSASSAPKCS1v15Signature(pub, hashOID, hash, sig)` / `verifyRSASSASignature(pub, hashAlg, mgf1Hash, saltLength, hash, sig)` / `RSAPublicKey(n, e)` | RSA verify | external RSA verify — PKCS1-catalog-bound takes the hash OID; PSS is `verifyRSASSASignature` taking the `HashAlgorithm` class, MGF1 hash class, and salt length |
-| [04] | `decodePKCS1RSAPublicKey` / `decodePKIXRSAPublicKey` / `SHA256ObjectIdentifier` (+ `SHA1`/`SHA224`/`SHA384`/`SHA512` OIDs) | key + OID codec | PKCS1/PKIX key decode; the hash-OID constants (capitalized `SHA<n>ObjectIdentifier`) for PKCS1-catalog-bound |
+| [INDEX] | [SYMBOL]                                                                                                                                                                                                                                                            | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                                                                             |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `verifyECDSASignature(pub, hash, sig)` / `ECDSAPublicKey(curve, x, y)` / `ECDSASignature(r, s)` / `decodeSEC1ECDSAPublicKey(curve, sec1)` / `decodePKIXECDSAPublicKey(der, curves)` / `decodePKIXECDSASignature(der)` / `decodeIEEEP1363ECDSASignature(curve, raw)` | ECDSA verify    | external ECDSA signature verify; SEC1/PKIX/IEEE-P1363 codecs                                                                                                    |
+|  [02]   | `ECDSANamedCurve` + `p256`/`p384`/`p521` (NIST) / `secp256k1`…`secp521r1` (SEC) values                                                                                                                                                                              | curve roster    | curve is a value row passed to the decoders, never a call family                                                                                                |
+|  [03]   | `verifyRSASSAPKCS1v15Signature(pub, hashOID, hash, sig)` / `verifyRSASSASignature(pub, hashAlg, mgf1Hash, saltLength, hash, sig)` / `RSAPublicKey(n, e)`                                                                                                            | RSA verify      | external RSA verify — PKCS1-catalog-bound takes the hash OID; PSS is `verifyRSASSASignature` taking the `HashAlgorithm` class, MGF1 hash class, and salt length |
+|  [04]   | `decodePKCS1RSAPublicKey` / `decodePKIXRSAPublicKey` / `SHA256ObjectIdentifier` (+ `SHA1`/`SHA224`/`SHA384`/`SHA512` OIDs)                                                                                                                                          | key + OID codec | PKCS1/PKIX key decode; the hash-OID constants (capitalized `SHA<n>ObjectIdentifier`) for PKCS1-catalog-bound                                                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -51,29 +51,29 @@
 - rail: sign/crypto
 - `hmac(Algorithm, key, message)` is the one-shot; the `HMAC` class is its streaming mirror for chunked bodies. Both take the `HashAlgorithm` value — `SHA256` is the row, a `SHA512` webhook is the same call with a different value.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------- |:------------- |:------------------------------------------------------- |
-| [01] | `hmac(Algorithm: HashAlgorithm, key: Uint8Array, message: Uint8Array): Uint8Array` | MAC one-shot | `sign/crypto` webhook signature over a buffered body |
-| [02] | `new HMAC(Algorithm, key)` → `.update(chunk)` → `.digest()` | MAC stream | chunked/streamed body MAC without buffering |
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                  |
+| :-----: | :--------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `hmac(Algorithm: HashAlgorithm, key: Uint8Array, message: Uint8Array): Uint8Array` | MAC one-shot   | `sign/crypto` webhook signature over a buffered body |
+|  [02]   | `new HMAC(Algorithm, key)` → `.update(chunk)` → `.digest()`                        | MAC stream     | chunked/streamed body MAC without buffering          |
 
 [ENTRYPOINT_SCOPE]: digest roster — one `digest(algorithm, data)` fold over the `HashAlgorithm` value set
 - rail: sign/crypto
 - Every hash is a `sha*(data): Uint8Array` one-shot plus a `SHA*` streaming class implementing `Hash`. Do not enumerate a call per algorithm — the algorithm is the parameter; the table is the *value set* one polymorphic digest fold ranges over. SHAKE128/256 are extendable-output (XOF): the digest length is an argument.
 
-| [INDEX] | [SUBPATH] | [VALUE_SET] | [CONSUMER_BOUNDARY] |
-|:-----: |:--------------------- |:---------------------------------------------------------------------- |:---------------------------------------------------- |
-| [01] | `/sha1` | `sha1` / `SHA1` (retired interop only — HOTP OID, never new digests) | RFC-4226 interop OID; not a new-material digest |
-| [02] | `/sha2` | `sha256` `sha384` `sha512` `sha224` `sha512_224` `sha512_256` (+ `SHA*`) | default digest family; `SHA256` the HMAC/webhook value |
-| [03] | `/sha3` | `sha3_224/256/384/512` (+ `SHA3_*`) · `shake128/256(size, data)` (XOF) | SHA-3 + variable-length XOF (key-derivation length as arg) |
+| [INDEX] | [SUBPATH] | [VALUE_SET]                                                              | [CONSUMER_BOUNDARY]                                        |
+| :-----: | :-------- | :----------------------------------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `/sha1`   | `sha1` / `SHA1` (retired interop only — HOTP OID, never new digests)     | RFC-4226 interop OID; not a new-material digest            |
+|  [02]   | `/sha2`   | `sha256` `sha384` `sha512` `sha224` `sha512_224` `sha512_256` (+ `SHA*`) | default digest family; `SHA256` the HMAC/webhook value     |
+|  [03]   | `/sha3`   | `sha3_224/256/384/512` (+ `SHA3_*`) · `shake128/256(size, data)` (XOF)   | SHA-3 + variable-length XOF (key-derivation length as arg) |
 
 [ENTRYPOINT_SCOPE]: `/random` — CSPRNG-port derivations, entropy supplied by the caller
 - rail: sign/crypto
 - The `RandomReader` port inverts entropy ownership: these functions never touch a system RNG — they consume the `read(bytes)` the caller wires to WebCrypto. `generateRandomString` is the recovery/backup-code + API-key-body generator over a bounded alphabet.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------------------------- |:------------- |:------------------------------------------------------- |
-| [01] | `generateRandomString(random: RandomReader, alphabet: string, length: number): string` | token mint | `authn/apikey` body, `authn/otp` recovery/backup codes |
-| [02] | `generateRandomInteger(random, max: bigint)` / `generateRandomIntegerNumber(random, max)` | bounded int | unbiased bounded index (alphabet selection, jitter) |
+| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                    |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------- |
+|  [01]   | `generateRandomString(random: RandomReader, alphabet: string, length: number): string`    | token mint     | `authn/apikey` body, `authn/otp` recovery/backup codes |
+|  [02]   | `generateRandomInteger(random, max: bigint)` / `generateRandomIntegerNumber(random, max)` | bounded int    | unbiased bounded index (alphabet selection, jitter)    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

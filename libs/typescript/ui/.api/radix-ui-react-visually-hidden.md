@@ -15,11 +15,11 @@
 
 Three exports: the component (and its `Root` alias), its props type, and the reusable clip-style constant. The clip technique — not `display:none`/`visibility:hidden` — is what keeps the node readable by assistive tech.
 
-| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
-|:-----: |:----------------------------- |:--------- |:------------------------------------------------------------------------- |
-| [01] | `VisuallyHidden` (= `Root`) | component | ForwardRef `<span>` with the clip styles; `asChild` clips a passed child |
-| [02] | `VisuallyHiddenProps` | type | `ComponentPropsWithoutRef<typeof Primitive.span>` — every span prop + `asChild` |
-| [03] | `VISUALLY_HIDDEN_STYLES` | const | the frozen clip-style object, reusable on any element without the component |
+| [INDEX] | [SYMBOL]                    | [KIND]    | [CAPABILITY_BOUNDARY]                                                           |
+| :-----: | :-------------------------- | :-------- | :------------------------------------------------------------------------------ |
+|  [01]   | `VisuallyHidden` (= `Root`) | component | ForwardRef `<span>` with the clip styles; `asChild` clips a passed child        |
+|  [02]   | `VisuallyHiddenProps`       | type      | `ComponentPropsWithoutRef<typeof Primitive.span>` — every span prop + `asChild` |
+|  [03]   | `VISUALLY_HIDDEN_STYLES`    | const     | the frozen clip-style object, reusable on any element without the component     |
 
 ```ts contract
 // The reusable constant — the exact SR-only clip rule; apply to any element's `style`, a cva base, or a bespoke region.

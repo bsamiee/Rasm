@@ -2,17 +2,17 @@
 
 The analytical lane: columnar vectorized throughput as a guarantee distinct from transactional durability, owned by one engine-row table and two scoped engine wraps. DuckDB embedded is the default row — node in services and CLI, wasm pushing compute to the browser over range-read Parquet — with analytics-in-OLTP riding the spine's `analytics` grant and ClickHouse admitted only past the crisp distributed trigger. Arrow is the ONE columnar wire: every result crossing an engine seam travels as a Table in memory or IPC on the wire, and the OLAP lane never rides the OLTP transaction — journal facts replicate in, verdicts flow out, nothing folds back as authority. The engines are boundary kernels: promise APIs lifted through typed acquire-release wraps, never a second query paradigm inside the folder.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                          |
-| :-----: | :------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `ENGINE_ROWS`  | the four-row decision table — guarantee, storage, ceiling, trigger per engine          |
-|  [02]   | `EMBEDDED`     | the scoped DuckDB wraps — node instance/session, wasm worker engine, statement lift    |
-|  [03]   | `LAKE_ROWS`    | the table-format and attachment rows — DuckLake, object-store Parquet, spine ATTACH    |
-|  [04]   | `CLICKHOUSE`   | the at-scale driver row and its ingestion surface                                      |
-|  [05]   | `ARROW_WIRE`   | the one columnar interchange — Table, IPC both directions, batch streaming             |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                              |
+| :-----: | :------------ | :---------------------------------------------------------------------------------- |
+|  [01]   | `ENGINE_ROWS` | the four-row decision table — guarantee, storage, ceiling, trigger per engine       |
+|  [02]   | `EMBEDDED`    | the scoped DuckDB wraps — node instance/session, wasm worker engine, statement lift |
+|  [03]   | `LAKE_ROWS`   | the table-format and attachment rows — DuckLake, object-store Parquet, spine ATTACH |
+|  [04]   | `CLICKHOUSE`  | the at-scale driver row and its ingestion surface                                   |
+|  [05]   | `ARROW_WIRE`  | the one columnar interchange — Table, IPC both directions, batch streaming          |
 
-## [2]-[ENGINE_ROWS]
+## [02]-[ENGINE_ROWS]
 
 - Owner: the `_engines` anchor — one row per engine profile carrying its guarantee, storage posture, and scale ceiling; the escalation trigger is data on the row, so an admission argument reads the table instead of relitigating the lane.
 - Packages: none — the rows are decision facts.
@@ -61,7 +61,7 @@ declare namespace Olap {
 }
 ```
 
-## [3]-[EMBEDDED]
+## [03]-[EMBEDDED]
 
 - Owner: the two scoped engine wraps — `Olap.node(path, config?)` acquiring a `DuckDBInstance` and leasing sessions under `Scope`, and `Olap.wasm(bundles)` instantiating the worker-resident `AsyncDuckDB` — plus `Olap.query`, the one statement entry over a leased session whose modality is the read geometry: `rows` materializes bounded results, `drain` streams a large-but-bounded result through streaming-mode execution, `window` serves the bounded first window; every geometry rides the `_governed` resilience bracket. RESEARCH: the reader-continuation pair (`readUntil`/`done` on `DuckDBResultReader`) stays uncatalogued — the truly unbounded incremental fence settles on it; until then unbounded egress pages by keyset predicate or rides Arrow batch streaming.
 - Packages: `@duckdb/node-api` (`DuckDBInstance.create`, `instance.closeSync`, `instance.connect`, `connection.disconnectSync`, `connection.runAndReadAll`, `connection.streamAndReadAll`, `connection.streamAndReadUntil`, `connection.prepare`); `@duckdb/duckdb-wasm` (`selectBundle`, `AsyncDuckDB`, `ConsoleLogger`, `db.instantiate`, `db.connect`, `conn.query`, `conn.send`, `db.registerFileURL`, `DuckDBDataProtocol`); `effect` (`Effect`, `Scope`, `Stream`, `Data`, `Schedule`, `Duration`).
@@ -158,7 +158,7 @@ const _query = (connection: Awaited<ReturnType<DuckDBInstance["connect"]>>, gate
 }
 ```
 
-## [4]-[LAKE_ROWS]
+## [04]-[LAKE_ROWS]
 
 - Owner: the attachment and table-format rows — the statements that bind the embedded engine to the object plane, the pg spine, and the lake catalog; each is data (a statement mint over `Olap.query`), never a new engine surface.
 - Packages: none beyond `[3]`'s — the rows are SQL forms.
@@ -191,7 +191,7 @@ const _lakeSource = (db: wasm.AsyncDuckDB, name: string, key: ContentKey) =>
     ))
 ```
 
-## [5]-[CLICKHOUSE]
+## [05]-[CLICKHOUSE]
 
 - Owner: the at-scale driver row — the `ClickhouseClient` Layer mints, the three members the ingestion path composes (streamed `insertQuery`, command-mode `asCommand`, typed `param` fragments), and `Olap.ingest` — the quota-governed ingestion seam every replication stream rides; per-query settings scope through the fiber.
 - Packages: `@effect/sql-clickhouse` (`ClickhouseClient.layer`, `ClickhouseClient.layerConfig`, `insertQuery`, `asCommand`, `param`, `withClickhouseSettings`); `@effect/experimental` (`RateLimiter.makeWithRateLimiter`, `RateLimiter.layerStoreMemory` — the store-backed distributed limiter surviving multi-replica ingestion); `effect` (`Config`, `Redacted`).
@@ -222,7 +222,7 @@ const _ingest = (app: AppIdentity.Key) =>
       limit({ ..._INGEST_QUOTA, key: `olap:ingest:${app}` })(work))
 ```
 
-## [6]-[ARROW_WIRE]
+## [06]-[ARROW_WIRE]
 
 - Owner: the one columnar interchange — decode and encode at the lane seams, batch streaming for bounded memory, and the two wasm ingest members that close the loop.
 - Packages: `apache-arrow` (`tableFromIPC`, `tableToIPC`, `RecordBatchReader`, `Table`); `@duckdb/duckdb-wasm` (`conn.insertArrowTable`, `conn.insertArrowFromIPCStream`).

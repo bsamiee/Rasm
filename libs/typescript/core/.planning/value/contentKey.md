@@ -2,16 +2,16 @@
 
 The one content identity of the branch and the digest engine beneath it: `ContentKey` is the `XxHash128` seed-zero digest branded at the canonical `:x32` spelling — 32 lowercase hex characters in the big-endian layout the C# `System.IO.Hashing.XxHash128` seed-0 mint persists — and `Digest` is the ONE hasher surface, a width-parameterized row table whose `content` row is that mint, whose sibling rows carry the short trace address and the wire checksum, and whose session and keyed modalities ride the same compiled state machines. Exactly three sites delegate to the content mint — `interchange/frame` reassembly, the runtime browser fetch worker, and the data object store — and a second mint, a second content-address notion, or a non-zero seed is the named cross-language drift defect. The hasher's hex is already the canonical spelling — `hash-wasm` and the C# mint render the digest in the same big-endian order, proven by the frozen corpus vector both mints hash to — so no byte-order step exists anywhere on the key path, and bit-parity is asserted against the frozen `CANONICAL_BYTE_IDENTITY` and `MATERIAL_LAYER_GOLDEN` corpora by the `tests/contracts` drivers. The module is `core/src/value/contentKey.ts` — the only cataloguing and import site of `hash-wasm` in the branch.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                             | [PUBLIC]     |
-| :-----: | :------------------ | :------------------------------------------------------------------ | :----------- |
-|  [01]   | `KEY_BRAND`         | the `:x32` branded schema and its sixteen-byte binary twin          | `ContentKey` |
-|  [02]   | `DIGEST_TABLE`      | the width-row vocabulary, memoized compiles, the polymorphic mint   | `Digest`     |
-|  [03]   | `RESUMABLE_SESSION` | the save/load checkpoint algebra over one shared compiled hasher    | `Digest`     |
-|  [04]   | `SEALED_DIGEST`     | the keyed authentication mint and its `Seal` brand                  | `Digest`     |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                            | [PUBLIC]     |
+| :-----: | :------------------ | :---------------------------------------------------------------- | :----------- |
+|  [01]   | `KEY_BRAND`         | the `:x32` branded schema and its sixteen-byte binary twin        | `ContentKey` |
+|  [02]   | `DIGEST_TABLE`      | the width-row vocabulary, memoized compiles, the polymorphic mint | `Digest`     |
+|  [03]   | `RESUMABLE_SESSION` | the save/load checkpoint algebra over one shared compiled hasher  | `Digest`     |
+|  [04]   | `SEALED_DIGEST`     | the keyed authentication mint and its `Seal` brand                | `Digest`     |
 
-## [2]-[KEY_BRAND]
+## [02]-[KEY_BRAND]
 
 [KEY_BRAND]:
 - Owner: `ContentKey`, a same-name schema-plus-type pair — the const is the branded schema every field record composes (`Schema.Struct({ key: ContentKey })`), the type is the branded string every signature speaks, and one import serves both planes.
@@ -21,7 +21,7 @@ The one content identity of the branch and the digest engine beneath it: `Conten
 - Boundary: the data object store aliases its object key as a type alias over this brand, never a re-brand; a second brand over the same digest forks container identity.
 - Packages: `effect` (`Schema`, `Encoding`, `ParseResult`).
 
-## [3]-[DIGEST_TABLE]
+## [03]-[DIGEST_TABLE]
 
 [DIGEST_TABLE]:
 - Owner: `Digest`, the assembled hasher vocabulary — the interior row table carries each width row's factory and key brand as two columns of one row, so `Digest.Key<K>` derives by indexed access over the row's `key` column and the factory-to-brand correspondence has exactly one edit site; the exported owner assembles the binary twin, the mint, the session algebra, and the keyed mint under a stated annotation, and the roster is seed data on one parameterized pattern — a new digest width is one row carrying both columns, never a new surface.
@@ -35,7 +35,7 @@ The one content identity of the branch and the digest engine beneath it: `Conten
 - Boundary: delegates import `Digest` and compare; they never import `hash-wasm`, never re-hash for parity claims (byte-level corpus equality only), and their mismatch faults are their own folder rails.
 - Packages: `hash-wasm` (`createXXHash128`, `createXXHash64`, `createCRC32`, `createBLAKE3`, `IHasher`); `effect` (`Effect`, `GlobalValue`, `Predicate`, `Redacted`, `Schema`).
 
-## [4]-[RESUMABLE_SESSION]
+## [04]-[RESUMABLE_SESSION]
 
 [RESUMABLE_SESSION]:
 - Owner: the session algebra on `Digest` — `session(kind, saved?)` opens a fresh checkpoint or resumes a saved one, `absorb(session, chunk)` advances it, `finish(session)` seals it into the row's branded key — and a session is an immutable value `{ kind, state }` whose `state` is the `IHasher.save()` snapshot, so chunks arriving over time, interleaved mints, and cross-await streaming all share the one compiled hasher instead of constructing a private machine per mint.
@@ -45,7 +45,7 @@ The one content identity of the branch and the digest engine beneath it: `Conten
 - Growth: a windowed rolling digest is one consumer fold over `absorb`/`finish`; no session variant lands here.
 - Boundary: which stream a session folds over, its chunk sizing, and its backpressure are the consuming rail's geometry; this owner fixes the checkpoint algebra only.
 
-## [5]-[SEALED_DIGEST]
+## [05]-[SEALED_DIGEST]
 
 [SEALED_DIGEST]:
 - Owner: `Digest.mac`, the keyed authentication mint — `createBLAKE3(256, key)` over the sealed 32-byte key, walking the same payload modalities as `mint` and landing the 64-hex `Seal` brand — the wire-auth digest a frame or capability descriptor carries beside its content key.

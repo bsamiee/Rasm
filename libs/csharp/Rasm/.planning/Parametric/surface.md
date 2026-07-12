@@ -257,14 +257,14 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]                        | [KIND]                                                                                | [RAIL]                             | [CASES] |
-| :-----: | :------------------ | :----------------------------- | :------------------------------------------------------------------------------------ | :---------------------------------- | :-----: |
-|  [01]   | Surface op algebra  | `SurfaceOp` + `Surfaces`       | `[Union]` six request cases folded by ONE `Apply`                                     | `Apply → Fin<SurfaceResult>`       |    6    |
-|  [1a]   | Result carrier      | `SurfaceResult`                | `[Union]` typed results; `UvTessellation` THE tier seam, `GeodesicField`/`CurvatureField` SoA wires | carrier (drained at the consumer) | 6 |
-|  [1b]   | Grid rules          | `TessellateRule`               | `[Union]` fixed/curvature-weighted STRUCTURED lattices                                | payload                            |    2    |
-|  [1c]   | Isoline rules       | `IsolineRule`                  | `[Union]` even/at-knot/explicit rows                                                  | payload                            |    3    |
-|  [1d]   | Distance grade      | `GeodesicGrade`                | `[SmartEnum<string>]` heat/exact lane rows                                            | discriminant                       |    2    |
-|  [1e]   | Policy rows         | `GeodesicPlan`/`PullbackPolicy`| sources+levels+grade · dense floor + seed grid + G7 knobs                             | values (`IValidityEvidence`)       |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                         | [KIND]                                                                                              | [RAIL]                            | [CASES] |
+| :-----: | :----------------- | :------------------------------ | :-------------------------------------------------------------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | Surface op algebra | `SurfaceOp` + `Surfaces`        | `[Union]` six request cases folded by ONE `Apply`                                                   | `Apply → Fin<SurfaceResult>`      |    6    |
+|  [1a]   | Result carrier     | `SurfaceResult`                 | `[Union]` typed results; `UvTessellation` THE tier seam, `GeodesicField`/`CurvatureField` SoA wires | carrier (drained at the consumer) |    6    |
+|  [1b]   | Grid rules         | `TessellateRule`                | `[Union]` fixed/curvature-weighted STRUCTURED lattices                                              | payload                           |    2    |
+|  [1c]   | Isoline rules      | `IsolineRule`                   | `[Union]` even/at-knot/explicit rows                                                                | payload                           |    3    |
+|  [1d]   | Distance grade     | `GeodesicGrade`                 | `[SmartEnum<string>]` heat/exact lane rows                                                          | discriminant                      |    2    |
+|  [1e]   | Policy rows        | `GeodesicPlan`/`PullbackPolicy` | sources+levels+grade · dense floor + seed grid + G7 knobs                                           | values (`IValidityEvidence`)      |    —    |
 
 The `Apply` fold, `TessellateOf`, `IsolinesOf`, the `NormalOffset` bounded fold, `CurvatureOf`'s area integral, and both pullback routes carry real composed bodies; `Lattice`, `CellTriangles`, `IsoRows`, `VertexDistances`, `ChainContours`, `GrevilleGrid`, `OffsetFit`, `SweepCurvature`, and `SeedGrid` are signature-pinned kernels whose contracts the `[04]` cards fix. Every body composes the vendored engine, the landed distance machinery, and the arena freeze — no evaluation arithmetic is local.
 

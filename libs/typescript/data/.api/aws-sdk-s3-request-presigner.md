@@ -18,23 +18,23 @@
 - rail: store/object
 - `getSignedUrl` is the entry the store uses; `RequestPresigningArguments` parameterizes the TTL and the signed/hoisted header sets — every presign axis is a policy value, not a code path.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
-| [01] | `getSignedUrl(client, command, options?): Promise<string>` | presign entry | `object/presign` — one mint over any `S3Client` + command |
-| [02] | `RequestPresigningArguments.expiresIn` (`number`, seconds) | TTL | the capability-token lifetime; a `Config` fact, default-bounded |
-| [03] | `RequestPresigningArguments.signableHeaders`/`unsignableHeaders` (`Set<string>`) | signed set | pin SSE-C / content-type into the signature; exclude volatile headers |
-| [04] | `RequestPresigningArguments.hoistableHeaders`/`unhoistableHeaders` (`Set<string>`) | query hoist | hoist `Response*` overrides into the URL query for browser GET; signing scope (`region`/`service`) inherited from the client |
+| [INDEX] | [SYMBOL]                                                                           | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                          |
+| :-----: | :--------------------------------------------------------------------------------- | :------------ | :--------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `getSignedUrl(client, command, options?): Promise<string>`                         | presign entry | `object/presign` — one mint over any `S3Client` + command                                                                    |
+|  [02]   | `RequestPresigningArguments.expiresIn` (`number`, seconds)                         | TTL           | the capability-token lifetime; a `Config` fact, default-bounded                                                              |
+|  [03]   | `RequestPresigningArguments.signableHeaders`/`unsignableHeaders` (`Set<string>`)   | signed set    | pin SSE-C / content-type into the signature; exclude volatile headers                                                        |
+|  [04]   | `RequestPresigningArguments.hoistableHeaders`/`unhoistableHeaders` (`Set<string>`) | query hoist   | hoist `Response*` overrides into the URL query for browser GET; signing scope (`region`/`service`) inherited from the client |
 
 [PUBLIC_TYPE_SCOPE]: the lower-level presigner
 - rail: store/object
 - `getSignedUrl` composes `S3RequestPresigner`; the class is the reusable signer when the store presigns a hand-built `HttpRequest` or supplies credentials explicitly (rotation, delegated STS).
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
-| [01] | `S3RequestPresigner` (`constructor(options)`) | signer | reusable signer; `getSignedUrl` builds one per call from the client config |
-| [02] | `S3RequestPresigner.presign(request, args?): Promise<IHttpRequest>` | presign | sign a built `HttpRequest`; the signed request → URL |
-| [03] | `S3RequestPresigner.presignWithCredentials(request, credentials, args?): Promise<IHttpRequest>` | presign | explicit-credential presign (rotation / delegated STS) |
-| [04] | `S3RequestPresignerOptions` (`PartialBy<SignatureV4MultiRegionInit, "service" \| "uriEscapePath"> & { signingName? }`) | options | region/credentials/sha256 init inherited from the client config |
+| [INDEX] | [SYMBOL]                                                                                                               | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                        |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------- |
+|  [01]   | `S3RequestPresigner` (`constructor(options)`)                                                                          | signer        | reusable signer; `getSignedUrl` builds one per call from the client config |
+|  [02]   | `S3RequestPresigner.presign(request, args?): Promise<IHttpRequest>`                                                    | presign       | sign a built `HttpRequest`; the signed request → URL                       |
+|  [03]   | `S3RequestPresigner.presignWithCredentials(request, credentials, args?): Promise<IHttpRequest>`                        | presign       | explicit-credential presign (rotation / delegated STS)                     |
+|  [04]   | `S3RequestPresignerOptions` (`PartialBy<SignatureV4MultiRegionInit, "service" \| "uriEscapePath"> & { signingName? }`) | options       | region/credentials/sha256 init inherited from the client config            |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -42,13 +42,13 @@
 - rail: store/object
 - One `getSignedUrl` mints any operation; the command value discriminates. The `Promise` becomes a typed `{ url, expiresAt }` so the edge never inspects a raw string.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:------------------------------------------------------- |
-| [01] | `Effect.tryPromise(() => getSignedUrl(client, command, { expiresIn }))` → `{ url, expiresAt }` | mint | `object/presign` — the typed presign row |
-| [02] | `getSignedUrl(client, new PutObjectCommand({ Key, IfNoneMatch: "*", ChecksumSHA256 }), { expiresIn })` | upload URL | browser-direct conditional-put upload token |
-| [03] | `getSignedUrl(client, new GetObjectCommand({ Key, ResponseContentDisposition }), { expiresIn, hoistableHeaders })` | download URL | browser-direct download with hoisted response overrides |
-| [04] | `getSignedUrl(client, new UploadPartCommand({ UploadId, PartNumber }), { expiresIn })` | part URL | multipart browser-direct part upload token |
-| [05] | `Config.integer("PRESIGN_TTL_SECONDS")` → `expiresIn` | TTL config | `host/config` — the token lifetime, never a literal |
+| [INDEX] | [SURFACE]                                                                                                          | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                     |
+| :-----: | :----------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `Effect.tryPromise(() => getSignedUrl(client, command, { expiresIn }))` → `{ url, expiresAt }`                     | mint           | `object/presign` — the typed presign row                |
+|  [02]   | `getSignedUrl(client, new PutObjectCommand({ Key, IfNoneMatch: "*", ChecksumSHA256 }), { expiresIn })`             | upload URL     | browser-direct conditional-put upload token             |
+|  [03]   | `getSignedUrl(client, new GetObjectCommand({ Key, ResponseContentDisposition }), { expiresIn, hoistableHeaders })` | download URL   | browser-direct download with hoisted response overrides |
+|  [04]   | `getSignedUrl(client, new UploadPartCommand({ UploadId, PartNumber }), { expiresIn })`                             | part URL       | multipart browser-direct part upload token              |
+|  [05]   | `Config.integer("PRESIGN_TTL_SECONDS")` → `expiresIn`                                                              | TTL config     | `host/config` — the token lifetime, never a literal     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

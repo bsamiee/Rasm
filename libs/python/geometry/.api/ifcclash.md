@@ -19,81 +19,81 @@
 [PUBLIC_TYPE_SCOPE]: clash configuration family
 - rail: clash-detection
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Clasher` | detection engine | runs clash pipeline against configured sets |
-| [02] | `ClashSettings` | settings carrier | `logger` and `output` path configuration |
-| [03] | `ClashSet` | TypedDict | named pair of `ClashSource` lists with mode |
-| [04] | `ClashSource` | TypedDict | `file` path + optional `selector` + `mode` |
+| [INDEX] | [SYMBOL]        | [TYPE_FAMILY]    | [RAIL]                                      |
+| :-----: | :-------------- | :--------------- | :------------------------------------------ |
+|  [01]   | `Clasher`       | detection engine | runs clash pipeline against configured sets |
+|  [02]   | `ClashSettings` | settings carrier | `logger` and `output` path configuration    |
+|  [03]   | `ClashSet`      | TypedDict        | named pair of `ClashSource` lists with mode |
+|  [04]   | `ClashSource`   | TypedDict        | `file` path + optional `selector` + `mode`  |
 
 [PUBLIC_TYPE_SCOPE]: result family
 - rail: clash-detection output
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `ClashResult` | TypedDict | pair of GUIDs, IFC classes, names, type, points, distance |
-| [02] | `ClashGroup` | TypedDict | spatially clustered `dict[str, entity_instance]` |
+| [INDEX] | [SYMBOL]      | [TYPE_FAMILY] | [RAIL]                                                    |
+| :-----: | :------------ | :------------ | :-------------------------------------------------------- |
+|  [01]   | `ClashResult` | TypedDict     | pair of GUIDs, IFC classes, names, type, points, distance |
+|  [02]   | `ClashGroup`  | TypedDict     | spatially clustered `dict[str, entity_instance]`          |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Clasher lifecycle
 - rail: clash-detection
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Clasher(settings: ClashSettings)` | constructor | bind engine to settings |
-| [02] | `Clasher.clash_sets: list[ClashSet]` | input slot | the configured `ClashSet` list `clash()` iterates; results accumulate back into each set's `clashes` map in place |
-| [03] | `Clasher.load_ifc(path: str) -> ifcopenshell.file` | loader | open and cache IFC file (skipped when `ClashSource.ifc` carries a pre-loaded model) |
-| [04] | `Clasher.add_collision_objects(...)` | setup | register OpenCASCADE collision objects via `ifcopenshell.geom.tree` |
-| [05] | `Clasher.clash() -> None` | runner | execute all `clash_sets`, populating each `ClashSet['clashes']` |
-| [06] | `Clasher.process_clash_set(clash_set: ClashSet) -> None` | runner | execute one clash set |
-| [07] | `Clasher.smart_group_clashes(clash_sets, max_clustering_distance: float)` | grouper | spatially cluster clashes; writes the per-clash cluster handle into the clash-set internal state |
-| [08] | `Clasher.create_group(...)` | grouper | create a `ClashGroup` |
-| [09] | `Clasher.export() -> None` | exporter | write results to `ClashSettings.output` |
-| [10] | `Clasher.export_json() -> None` | exporter | write JSON clash report |
-| [11] | `Clasher.export_bcfxml() -> None` | exporter | write BCF issue archive (requires `bcf` + `ifcopenshell`) |
-| [12] | `Clasher.get_viewpoint_snapshot(...)` | exporter | capture viewpoint image for BCF issue |
+| [INDEX] | [SURFACE]                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                                                            |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Clasher(settings: ClashSettings)`                                        | constructor    | bind engine to settings                                                                                           |
+|  [02]   | `Clasher.clash_sets: list[ClashSet]`                                      | input slot     | the configured `ClashSet` list `clash()` iterates; results accumulate back into each set's `clashes` map in place |
+|  [03]   | `Clasher.load_ifc(path: str) -> ifcopenshell.file`                        | loader         | open and cache IFC file (skipped when `ClashSource.ifc` carries a pre-loaded model)                               |
+|  [04]   | `Clasher.add_collision_objects(...)`                                      | setup          | register OpenCASCADE collision objects via `ifcopenshell.geom.tree`                                               |
+|  [05]   | `Clasher.clash() -> None`                                                 | runner         | execute all `clash_sets`, populating each `ClashSet['clashes']`                                                   |
+|  [06]   | `Clasher.process_clash_set(clash_set: ClashSet) -> None`                  | runner         | execute one clash set                                                                                             |
+|  [07]   | `Clasher.smart_group_clashes(clash_sets, max_clustering_distance: float)` | grouper        | spatially cluster clashes; writes the per-clash cluster handle into the clash-set internal state                  |
+|  [08]   | `Clasher.create_group(...)`                                               | grouper        | create a `ClashGroup`                                                                                             |
+|  [09]   | `Clasher.export() -> None`                                                | exporter       | write results to `ClashSettings.output`                                                                           |
+|  [10]   | `Clasher.export_json() -> None`                                           | exporter       | write JSON clash report                                                                                           |
+|  [11]   | `Clasher.export_bcfxml() -> None`                                         | exporter       | write BCF issue archive (requires `bcf` + `ifcopenshell`)                                                         |
+|  [12]   | `Clasher.get_viewpoint_snapshot(...)`                                     | exporter       | capture viewpoint image for BCF issue                                                                             |
 
 [ENTRYPOINT_SCOPE]: ClashSet schema
 - rail: clash-detection configuration
 
-| [INDEX] | [FIELD] | [TYPE] | [REQUIRED] |
-| --- | --- | --- | --- |
-| [01] | `name` | `str` | [Y] |
-| [02] | `a` | `list[ClashSource]` | [Y] |
-| [03] | `b` | `list[ClashSource]` | [N] |
-| [04] | `mode` | `'intersection' \| 'collision' \| 'clearance'` | [Y] |
-| [05] | `tolerance` | `float` | [N] |
-| [06] | `clearance` | `float` | [N] |
-| [07] | `check_all` | `bool` | [N] |
-| [08] | `allow_touching` | `bool` | [N] |
-| [09] | `clashes` | `dict[str, ClashResult]` | [N] |
+| [INDEX] | [FIELD]          | [TYPE]                                         | [REQUIRED] |
+| :-----: | :--------------- | :--------------------------------------------- | :--------- |
+|  [01]   | `name`           | `str`                                          | [Y]        |
+|  [02]   | `a`              | `list[ClashSource]`                            | [Y]        |
+|  [03]   | `b`              | `list[ClashSource]`                            | [N]        |
+|  [04]   | `mode`           | `'intersection' \| 'collision' \| 'clearance'` | [Y]        |
+|  [05]   | `tolerance`      | `float`                                        | [N]        |
+|  [06]   | `clearance`      | `float`                                        | [N]        |
+|  [07]   | `check_all`      | `bool`                                         | [N]        |
+|  [08]   | `allow_touching` | `bool`                                         | [N]        |
+|  [09]   | `clashes`        | `dict[str, ClashResult]`                       | [N]        |
 
 [ENTRYPOINT_SCOPE]: ClashSource schema
 - rail: clash-detection configuration
 
-| [INDEX] | [FIELD] | [TYPE] | [REQUIRED] |
-| --- | --- | --- | --- |
-| [01] | `file` | `str` | [Y] |
-| [02] | `mode` | `'a' \| 'e' \| 'i'` | [N] |
-| [03] | `selector` | `str` | [N] |
-| [04] | `ifc` | `ifcopenshell.file` | [N] |
+| [INDEX] | [FIELD]    | [TYPE]              | [REQUIRED] |
+| :-----: | :--------- | :------------------ | :--------- |
+|  [01]   | `file`     | `str`               | [Y]        |
+|  [02]   | `mode`     | `'a' \| 'e' \| 'i'` | [N]        |
+|  [03]   | `selector` | `str`               | [N]        |
+|  [04]   | `ifc`      | `ifcopenshell.file` | [N]        |
 
 [ENTRYPOINT_SCOPE]: ClashResult schema
 - rail: clash-detection output
 
-| [INDEX] | [FIELD] | [TYPE] |
-| --- | --- | --- |
-| [01] | `a_global_id` | `str` |
-| [02] | `b_global_id` | `str` |
-| [03] | `a_ifc_class` | `str` |
-| [04] | `b_ifc_class` | `str` |
-| [05] | `a_name` | `str` |
-| [06] | `b_name` | `str` |
-| [07] | `type` | `ifcopenshell.geom.main.ClashType` |
-| [08] | `p1` | `list[float]` |
-| [09] | `p2` | `list[float]` |
-| [10] | `distance` | `float` |
+| [INDEX] | [FIELD]       | [TYPE]                             |
+| :-----: | :------------ | :--------------------------------- |
+|  [01]   | `a_global_id` | `str`                              |
+|  [02]   | `b_global_id` | `str`                              |
+|  [03]   | `a_ifc_class` | `str`                              |
+|  [04]   | `b_ifc_class` | `str`                              |
+|  [05]   | `a_name`      | `str`                              |
+|  [06]   | `b_name`      | `str`                              |
+|  [07]   | `type`        | `ifcopenshell.geom.main.ClashType` |
+|  [08]   | `p1`          | `list[float]`                      |
+|  [09]   | `p2`          | `list[float]`                      |
+|  [10]   | `distance`    | `float`                            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

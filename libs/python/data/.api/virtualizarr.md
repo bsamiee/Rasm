@@ -20,78 +20,78 @@
 
 The manifest model is a three-level stack: a `ChunkManifest` maps chunk keys to `{path, offset, length}` `ChunkEntry` dicts; a `ManifestArray` wraps one manifest plus zarr-v3 `ArrayV3Metadata` as an Array-API-conformant lazy array; a `ManifestGroup` collects named `ManifestArray`s and a `ManifestStore` exposes that group as a zarr-v3 `Store` (the read path that `to_virtual_dataset` consumes).
 
-| [INDEX] | [SYMBOL]                                  | [PACKAGE_ROLE]   | [CAPABILITY]                                                            |
-| :-----: | :---------------------------------------- | :--------------- | :--------------------------------------------------------------------- |
-|  [01]   | `virtualizarr.manifests.ChunkEntry`       | reference dict   | one chunk's `{path, offset, length}`; `dict`-subclass, `with_validation` |
-|  [02]   | `virtualizarr.manifests.ChunkManifest`    | chunk index      | map of chunk keys to `ChunkEntry`; structured-array store, path rewrite |
-|  [03]   | `virtualizarr.manifests.ManifestArray`    | virtual array    | Array-API lazy array of chunk refs over a `ChunkManifest` + metadata   |
-|  [04]   | `virtualizarr.manifests.ManifestGroup`    | manifest group   | named `ManifestArray`s plus group attrs under one zarr group           |
-|  [05]   | `virtualizarr.manifests.ManifestStore`    | zarr read store  | zarr-v3 `Store` over a `ManifestGroup`; the `to_virtual_dataset` source |
+| [INDEX] | [SYMBOL]                               | [PACKAGE_ROLE]  | [CAPABILITY]                                                             |
+| :-----: | :------------------------------------- | :-------------- | :----------------------------------------------------------------------- |
+|  [01]   | `virtualizarr.manifests.ChunkEntry`    | reference dict  | one chunk's `{path, offset, length}`; `dict`-subclass, `with_validation` |
+|  [02]   | `virtualizarr.manifests.ChunkManifest` | chunk index     | map of chunk keys to `ChunkEntry`; structured-array store, path rewrite  |
+|  [03]   | `virtualizarr.manifests.ManifestArray` | virtual array   | Array-API lazy array of chunk refs over a `ChunkManifest` + metadata     |
+|  [04]   | `virtualizarr.manifests.ManifestGroup` | manifest group  | named `ManifestArray`s plus group attrs under one zarr group             |
+|  [05]   | `virtualizarr.manifests.ManifestStore` | zarr read store | zarr-v3 `Store` over a `ManifestGroup`; the `to_virtual_dataset` source  |
 
 [PUBLIC_TYPE_SCOPE]: `ManifestArray` Array-API surface
 - rail: virtual-dataset
 
 `ManifestArray` is Array-API-conformant: it carries zarr-v3 metadata and supports dtype cast, path rewrite, and lift to an xarray `Variable` without materializing bytes. The owner reads its shape/chunks/dtype for receipts and lifts it with `to_virtual_variable`.
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE] | [CAPABILITY]                                       |
-| :-----: | :-------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `ManifestArray.manifest`          | property       | underlying `ChunkManifest`                         |
-|  [02]   | `ManifestArray.metadata`          | property       | zarr-v3 `ArrayV3Metadata` (dtype/chunks/codecs/fill) |
-|  [03]   | `ManifestArray.shape`             | property       | array shape tuple                                  |
-|  [04]   | `ManifestArray.chunks`            | property       | chunk shape tuple                                  |
-|  [05]   | `ManifestArray.dtype`             | property       | array dtype                                        |
-|  [06]   | `ManifestArray.ndim`              | property       | dimension count                                    |
-|  [07]   | `ManifestArray.size`              | property       | logical element count                              |
-|  [08]   | `ManifestArray.nbytes_virtual`    | property       | summed reference byte length (manifest weight)     |
-|  [09]   | `ManifestArray.astype(dtype, /, *, copy=True)` | cast | dtype-cast view returning a new `ManifestArray`    |
-|  [10]   | `ManifestArray.rename_paths(new)` | mutate         | copy with rewritten chunk paths (`str` or `Callable[[str], str]`) |
-|  [11]   | `ManifestArray.to_virtual_variable()` | lift       | xarray `Variable` wrapping the manifest array      |
+| [INDEX] | [SYMBOL]                                       | [PACKAGE_ROLE] | [CAPABILITY]                                                      |
+| :-----: | :--------------------------------------------- | :------------- | :---------------------------------------------------------------- |
+|  [01]   | `ManifestArray.manifest`                       | property       | underlying `ChunkManifest`                                        |
+|  [02]   | `ManifestArray.metadata`                       | property       | zarr-v3 `ArrayV3Metadata` (dtype/chunks/codecs/fill)              |
+|  [03]   | `ManifestArray.shape`                          | property       | array shape tuple                                                 |
+|  [04]   | `ManifestArray.chunks`                         | property       | chunk shape tuple                                                 |
+|  [05]   | `ManifestArray.dtype`                          | property       | array dtype                                                       |
+|  [06]   | `ManifestArray.ndim`                           | property       | dimension count                                                   |
+|  [07]   | `ManifestArray.size`                           | property       | logical element count                                             |
+|  [08]   | `ManifestArray.nbytes_virtual`                 | property       | summed reference byte length (manifest weight)                    |
+|  [09]   | `ManifestArray.astype(dtype, /, *, copy=True)` | cast           | dtype-cast view returning a new `ManifestArray`                   |
+|  [10]   | `ManifestArray.rename_paths(new)`              | mutate         | copy with rewritten chunk paths (`str` or `Callable[[str], str]`) |
+|  [11]   | `ManifestArray.to_virtual_variable()`          | lift           | xarray `Variable` wrapping the manifest array                     |
 
 [PUBLIC_TYPE_SCOPE]: `ChunkManifest` construction and iteration
 - rail: virtual-dataset
 
 `ChunkManifest(entries, shape=None, separator='.')` builds from a `{chunk_key: {path, offset, length}}` dict; `from_arrays` builds from parallel `paths`/`offsets`/`lengths` NumPy arrays (the parser fast path). Iteration yields only populated references.
 
-| [INDEX] | [SYMBOL]                                            | [PACKAGE_ROLE] | [CAPABILITY]                                          |
-| :-----: | :-------------------------------------------------- | :------------- | :---------------------------------------------------- |
-|  [01]   | `ChunkManifest.from_arrays(*, paths, offsets, lengths)` | factory    | build a manifest from parallel reference arrays       |
-|  [02]   | `ChunkManifest.dict()`                              | export         | nested `{chunk_key: ChunkEntry}` dict                 |
-|  [03]   | `ChunkManifest.get_entry(key)`                      | lookup         | `ChunkEntry` for one chunk key                        |
-|  [04]   | `ChunkManifest.iter_refs()` / `iter_nonempty_paths()` | iterate      | populated `(key, entry)` / path iteration             |
-|  [05]   | `ChunkManifest.rename_paths(new)`                   | mutate         | copy with rewritten paths                             |
-|  [06]   | `ChunkManifest.nbytes`                              | property       | manifest in-memory weight                             |
-|  [07]   | `ChunkManifest.shape_chunk_grid` / `ndim_chunk_grid` | property      | chunk-grid shape / rank                               |
+| [INDEX] | [SYMBOL]                                                | [PACKAGE_ROLE] | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------ | :------------- | :---------------------------------------------- |
+|  [01]   | `ChunkManifest.from_arrays(*, paths, offsets, lengths)` | factory        | build a manifest from parallel reference arrays |
+|  [02]   | `ChunkManifest.dict()`                                  | export         | nested `{chunk_key: ChunkEntry}` dict           |
+|  [03]   | `ChunkManifest.get_entry(key)`                          | lookup         | `ChunkEntry` for one chunk key                  |
+|  [04]   | `ChunkManifest.iter_refs()` / `iter_nonempty_paths()`   | iterate        | populated `(key, entry)` / path iteration       |
+|  [05]   | `ChunkManifest.rename_paths(new)`                       | mutate         | copy with rewritten paths                       |
+|  [06]   | `ChunkManifest.nbytes`                                  | property       | manifest in-memory weight                       |
+|  [07]   | `ChunkManifest.shape_chunk_grid` / `ndim_chunk_grid`    | property       | chunk-grid shape / rank                         |
 
 [PUBLIC_TYPE_SCOPE]: parsers
 - rail: virtual-dataset
 
 Each `Parser` is a runtime-checkable `Protocol`: `__call__(url: str, registry: ObjectStoreRegistry) -> ManifestStore`. Construct a parser with its format options, then pass the instance (not a string) to `open_virtual_dataset`; the parser fans the URL through the registry-resolved object store and emits the `ManifestStore`.
 
-| [INDEX] | [SYMBOL]                                                                                              | [PACKAGE_ROLE] | [CAPABILITY]                     |
-| :-----: | :---------------------------------------------------------------------------------------------------- | :------------- | :------------------------------- |
-|  [01]   | `parsers.HDFParser(group=None, drop_variables=None, reader_factory=BlockStoreReader)`                 | parser         | HDF5 and NetCDF4 files           |
-|  [02]   | `parsers.NetCDF3Parser(group=None, skip_variables=None, reader_options=None)`                         | parser         | classic NetCDF3 files            |
-|  [03]   | `parsers.ZarrParser(group=None, skip_variables=None)`                                                 | parser         | Zarr v2/v3 stores                |
-|  [04]   | `parsers.DMRPPParser(group=None, skip_variables=None)`                                                | parser         | NASA DMR++ sidecar files         |
-|  [05]   | `parsers.FITSParser(group=None, skip_variables=None, reader_options=None)`                            | parser         | FITS astronomical image files    |
-|  [06]   | `parsers.KerchunkJSONParser(group=None, fs_root=None, skip_variables=None)`                           | parser         | kerchunk JSON reference files    |
-|  [07]   | `parsers.KerchunkParquetParser(group=None, fs_root=None, skip_variables=None, reader_options=None)`   | parser         | kerchunk Parquet reference files |
-|  [08]   | `parsers.IcechunkParser(*, branch=None, tag=None, snapshot_id=None, group=None, skip_variables=None, batch_size=100000)` | parser | Icechunk snapshot read |
+| [INDEX] | [SYMBOL]                                                                                                                 | [PACKAGE_ROLE] | [CAPABILITY]                     |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `parsers.HDFParser(group=None, drop_variables=None, reader_factory=BlockStoreReader)`                                    | parser         | HDF5 and NetCDF4 files           |
+|  [02]   | `parsers.NetCDF3Parser(group=None, skip_variables=None, reader_options=None)`                                            | parser         | classic NetCDF3 files            |
+|  [03]   | `parsers.ZarrParser(group=None, skip_variables=None)`                                                                    | parser         | Zarr v2/v3 stores                |
+|  [04]   | `parsers.DMRPPParser(group=None, skip_variables=None)`                                                                   | parser         | NASA DMR++ sidecar files         |
+|  [05]   | `parsers.FITSParser(group=None, skip_variables=None, reader_options=None)`                                               | parser         | FITS astronomical image files    |
+|  [06]   | `parsers.KerchunkJSONParser(group=None, fs_root=None, skip_variables=None)`                                              | parser         | kerchunk JSON reference files    |
+|  [07]   | `parsers.KerchunkParquetParser(group=None, fs_root=None, skip_variables=None, reader_options=None)`                      | parser         | kerchunk Parquet reference files |
+|  [08]   | `parsers.IcechunkParser(*, branch=None, tag=None, snapshot_id=None, group=None, skip_variables=None, batch_size=100000)` | parser         | Icechunk snapshot read           |
 
 [PUBLIC_TYPE_SCOPE]: registry, executors, codecs
 - rail: virtual-dataset
 
 `ObjectStoreRegistry` is the canonical scheme->store map; import it from `obspec_utils.registry` (the `virtualizarr` re-export is deprecated). The `parallel` module ships concrete executors for `open_virtual_mfdataset`. The `codecs` module bridges zarr-v2 and zarr-v3 codec configs, the boundary that lets a v2 source manifest write a v3 store.
 
-| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE] | [CAPABILITY]                                           |
-| :-----: | :------------------------------------------------------------------ | :------------- | :----------------------------------------------------- |
-|  [01]   | `obspec_utils.registry.ObjectStoreRegistry(stores=None)`            | registry       | scheme->`obstore` map; `register(url, store)` / `resolve(url) -> (store, path)` |
-|  [02]   | `virtualizarr.parallel.SerialExecutor`                              | executor       | in-process serial mfdataset combine                    |
-|  [03]   | `virtualizarr.parallel.DaskDelayedExecutor`                         | executor       | `dask.delayed` parallel combine                        |
-|  [04]   | `virtualizarr.parallel.LithopsEagerFunctionExecutor`                | executor       | serverless (Lithops) parallel combine                  |
-|  [05]   | `virtualizarr.parallel.get_executor(parallel)`                      | dispatch       | resolve `'dask'`/`'lithops'`/`False`/`type[Executor]` to an executor |
-|  [06]   | `virtualizarr.codecs.convert_to_codec_pipeline(...)` / `get_codecs` | codec bridge   | build/extract a zarr-v3 `CodecPipeline` from manifest metadata |
-|  [07]   | `virtualizarr.codecs.zarr_codec_config_to_v3` / `zarr_codec_config_to_v2` | codec bridge | convert zarr codec configs between v2 and v3            |
+| [INDEX] | [SYMBOL]                                                                  | [PACKAGE_ROLE] | [CAPABILITY]                                                                    |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `obspec_utils.registry.ObjectStoreRegistry(stores=None)`                  | registry       | scheme->`obstore` map; `register(url, store)` / `resolve(url) -> (store, path)` |
+|  [02]   | `virtualizarr.parallel.SerialExecutor`                                    | executor       | in-process serial mfdataset combine                                             |
+|  [03]   | `virtualizarr.parallel.DaskDelayedExecutor`                               | executor       | `dask.delayed` parallel combine                                                 |
+|  [04]   | `virtualizarr.parallel.LithopsEagerFunctionExecutor`                      | executor       | serverless (Lithops) parallel combine                                           |
+|  [05]   | `virtualizarr.parallel.get_executor(parallel)`                            | dispatch       | resolve `'dask'`/`'lithops'`/`False`/`type[Executor]` to an executor            |
+|  [06]   | `virtualizarr.codecs.convert_to_codec_pipeline(...)` / `get_codecs`       | codec bridge   | build/extract a zarr-v3 `CodecPipeline` from manifest metadata                  |
+|  [07]   | `virtualizarr.codecs.zarr_codec_config_to_v3` / `zarr_codec_config_to_v2` | codec bridge   | convert zarr codec configs between v2 and v3                                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -100,26 +100,26 @@ Each `Parser` is a runtime-checkable `Protocol`: `__call__(url: str, registry: O
 
 `url`/`urls`, `registry`, and `parser` are the three required positionals; `loadable_variables` selects the variables read eagerly (everything else stays a `ManifestArray`), and `decode_times` toggles CF time decoding. `open_virtual_mfdataset` adds the full `xarray.combine_*` vocabulary plus a `parallel` executor selector.
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                                            | [ENTRY_FAMILY] | [RAIL]                     |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------- |
-|  [01]   | `open_virtual_dataset(url, registry, parser, drop_variables=None, loadable_variables=None, decode_times=None) -> xr.Dataset`                                                                                          | open           | single virtual dataset     |
-|  [02]   | `open_virtual_datatree(url, registry, parser, *, loadable_variables=None, decode_times=None) -> xr.DataTree`                                                                                                          | open           | virtual data tree          |
-|  [03]   | `open_virtual_mfdataset(urls, registry, parser, concat_dim=None, compat='no_conflicts', preprocess=None, data_vars='all', coords='different', combine='by_coords', parallel=False, join='outer', attrs_file=None, combine_attrs='override', **kwargs) -> xr.Dataset` | open | multi-file virtual dataset |
-|  [04]   | `ManifestStore.to_virtual_dataset(group='', loadable_variables=None, decode_times=None) -> xr.Dataset`                                                                                                                | lift           | manifest store -> dataset  |
-|  [05]   | `ManifestStore.to_virtual_datatree(group='', *, loadable_variables=None, decode_times=None) -> xr.DataTree`                                                                                                           | lift           | manifest store -> datatree |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                            | [ENTRY_FAMILY] | [RAIL]                     |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------- |
+|  [01]   | `open_virtual_dataset(url, registry, parser, drop_variables=None, loadable_variables=None, decode_times=None) -> xr.Dataset`                                                                                                                                         | open           | single virtual dataset     |
+|  [02]   | `open_virtual_datatree(url, registry, parser, *, loadable_variables=None, decode_times=None) -> xr.DataTree`                                                                                                                                                         | open           | virtual data tree          |
+|  [03]   | `open_virtual_mfdataset(urls, registry, parser, concat_dim=None, compat='no_conflicts', preprocess=None, data_vars='all', coords='different', combine='by_coords', parallel=False, join='outer', attrs_file=None, combine_attrs='override', **kwargs) -> xr.Dataset` | open           | multi-file virtual dataset |
+|  [04]   | `ManifestStore.to_virtual_dataset(group='', loadable_variables=None, decode_times=None) -> xr.Dataset`                                                                                                                                                               | lift           | manifest store -> dataset  |
+|  [05]   | `ManifestStore.to_virtual_datatree(group='', *, loadable_variables=None, decode_times=None) -> xr.DataTree`                                                                                                                                                          | lift           | manifest store -> datatree |
 
 [ENTRYPOINT_SCOPE]: `virtualize` accessor exports
 - rail: virtual-dataset
 
 The accessor is registered on the `virtualize` name; `ds.virtualize.to_icechunk(...)` and `ds.virtualize.to_kerchunk(...)` are the only write surfaces. There is no accessor `to_zarr` (writing real bytes is out of scope); `to_icechunk` writes virtual chunk references into an `IcechunkStore`, `to_kerchunk` emits a reference document.
 
-| [INDEX] | [SURFACE]                                                                                                              | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `ds.virtualize.to_icechunk(store, *, group=None, append_dim=None, region=None, validate_containers=True, last_updated_at=None) -> None` | export | write references to Icechunk |
-|  [02]   | `ds.virtualize.to_kerchunk(filepath=None, format='dict', record_size=100000, categorical_threshold=10) -> KerchunkStoreRefs \| None` | export | write/return kerchunk references |
-|  [03]   | `ds.virtualize.rename_paths(new) -> xr.Dataset`                                                                        | mutate         | rewrite chunk reference paths |
-|  [04]   | `ds.virtualize.nbytes`                                                                                                 | metadata       | virtual dataset reference size |
-|  [05]   | `dt.virtualize.to_icechunk(store, *, write_inherited_coords=False, validate_containers=True, last_updated_at=None, **kwargs) -> None` | export | write data tree to Icechunk |
+| [INDEX] | [SURFACE]                                                                                                                               | [ENTRY_FAMILY] | [RAIL]                           |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `ds.virtualize.to_icechunk(store, *, group=None, append_dim=None, region=None, validate_containers=True, last_updated_at=None) -> None` | export         | write references to Icechunk     |
+|  [02]   | `ds.virtualize.to_kerchunk(filepath=None, format='dict', record_size=100000, categorical_threshold=10) -> KerchunkStoreRefs \| None`    | export         | write/return kerchunk references |
+|  [03]   | `ds.virtualize.rename_paths(new) -> xr.Dataset`                                                                                         | mutate         | rewrite chunk reference paths    |
+|  [04]   | `ds.virtualize.nbytes`                                                                                                                  | metadata       | virtual dataset reference size   |
+|  [05]   | `dt.virtualize.to_icechunk(store, *, write_inherited_coords=False, validate_containers=True, last_updated_at=None, **kwargs) -> None`   | export         | write data tree to Icechunk      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

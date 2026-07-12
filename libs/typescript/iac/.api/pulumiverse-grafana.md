@@ -14,10 +14,10 @@
 
 One `Provider` (a `pulumi.ProviderResource`) carries the full auth surface; every resource either rides package-wide config or takes an explicit `Provider` via `opts.provider`. The `auth` token is Doppler-sourced (`secret/doppler`), passed as a `pulumi.Input<string>` — never inline.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY_BOUNDARY] |
-|:-----: |:----------------- |:-------------------- |:--------------------------------------------------------- |
-| [01] | `Provider` | `pulumi.ProviderResource` | explicit provider instance for fine-grained auth |
-| [02] | `ProviderArgs` | interface | the full auth/endpoint bag — all `pulumi.Input<…>` |
+| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]             | [CAPABILITY_BOUNDARY]                              |
+| :-----: | :------------- | :------------------------ | :------------------------------------------------- |
+|  [01]   | `Provider`     | `pulumi.ProviderResource` | explicit provider instance for fine-grained auth   |
+|  [02]   | `ProviderArgs` | interface                 | the full auth/endpoint bag — all `pulumi.Input<…>` |
 
 ```ts contract
 import * as pulumi from "@pulumi/pulumi"
@@ -66,22 +66,22 @@ export declare function getDashboard(args?: GetDashboardArgs, opts?: pulumi.Invo
 
 18 resource namespaces + `types` + the `Provider`. SEED DATA on the [02] pattern; the telemetry consumer touches `oss`, `alerting`, and `slo` — the rest are prepared rows a future capability finalizes.
 
-| [INDEX] | [NAMESPACE] | [CONSUMED_BY_TELEMETRY] | [OWNS] |
-|:-----: |:--------------------- |:----------------------: |:------------------------------------------------------------- |
-| [01] | `oss` | ● boards | `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `SsoSettings`, `Annotation` + `get*` |
-| [02] | `alerting` | ● alerts | `RuleGroup` (`RuleGroupArgs { folderUid (required), intervalSeconds (required), rules (required), name?, orgId?, disableProvenance? }`), `ContactPoint` (`name` + one array per channel: `emails`, `slacks`, `webhooks`, …), `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1` |
-| [03] | `slo` | ● SLOs | `Slo` + `getSlos` |
-| [04] | `cloud` | prepared | Grafana Cloud stacks, access policies, plugins |
-| [05] | `machinelearning` | prepared | ML jobs, holidays, outlier detectors |
-| [06] | `oncall` | prepared | schedules, escalation chains, integrations |
-| [07] | `syntheticmonitoring` | prepared | probes, checks |
-| [08] | `cloudprovider` | prepared | AWS/Azure/GCP CloudWatch scrape jobs |
-| [09] | `connections` | prepared | metrics endpoints, collector configs |
-| [10] | `fleetmanagement` | prepared | collector fleet pipelines |
-| [11] | `frontendobservability`| prepared | RUM apps |
-| [12] | `k6` | prepared | load-test projects (mirrors the `tests/typescript/e2e` k6 lane) |
-| [13] | `apps` · `assert` · `assistant` · `enterprise` · `experimental` · `config` | prepared | app/enterprise/overlay resource rows |
-| [14] | `types` | — | shared input/output interface library |
+| [INDEX] | [NAMESPACE]                                                                | [CONSUMED_BY_TELEMETRY] | [OWNS]                                                                                                                                                                                                                                                                                                                                              |
+| :-----: | :------------------------------------------------------------------------- | :---------------------: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `oss`                                                                      |        ● boards         | `Dashboard` (`DashboardArgs { configJson (required), folder?, message?, orgId?, overwrite? }`), `DashboardPublic`, `Folder`, `DataSource`, `DataSourceConfig`, `LibraryPanel`, `Playlist`, `Organization`, `Team`, `User`, `ServiceAccount`, `ServiceAccountToken`, `SsoSettings`, `Annotation` + `get*`                                            |
+|  [02]   | `alerting`                                                                 |        ● alerts         | `RuleGroup` (`RuleGroupArgs { folderUid (required), intervalSeconds (required), rules (required), name?, orgId?, disableProvenance? }`), `ContactPoint` (`name` + one array per channel: `emails`, `slacks`, `webhooks`, …), `NotificationPolicy`, `MuteTiming`, `MessageTemplate`, `AlertEnrichment`, `AlertRuleV0Alpha1`, `RecordingRuleV0Alpha1` |
+|  [03]   | `slo`                                                                      |         ● SLOs          | `Slo` + `getSlos`                                                                                                                                                                                                                                                                                                                                   |
+|  [04]   | `cloud`                                                                    |        prepared         | Grafana Cloud stacks, access policies, plugins                                                                                                                                                                                                                                                                                                      |
+|  [05]   | `machinelearning`                                                          |        prepared         | ML jobs, holidays, outlier detectors                                                                                                                                                                                                                                                                                                                |
+|  [06]   | `oncall`                                                                   |        prepared         | schedules, escalation chains, integrations                                                                                                                                                                                                                                                                                                          |
+|  [07]   | `syntheticmonitoring`                                                      |        prepared         | probes, checks                                                                                                                                                                                                                                                                                                                                      |
+|  [08]   | `cloudprovider`                                                            |        prepared         | AWS/Azure/GCP CloudWatch scrape jobs                                                                                                                                                                                                                                                                                                                |
+|  [09]   | `connections`                                                              |        prepared         | metrics endpoints, collector configs                                                                                                                                                                                                                                                                                                                |
+|  [10]   | `fleetmanagement`                                                          |        prepared         | collector fleet pipelines                                                                                                                                                                                                                                                                                                                           |
+|  [11]   | `frontendobservability`                                                    |        prepared         | RUM apps                                                                                                                                                                                                                                                                                                                                            |
+|  [12]   | `k6`                                                                       |        prepared         | load-test projects (mirrors the `tests/typescript/e2e` k6 lane)                                                                                                                                                                                                                                                                                     |
+|  [13]   | `apps` · `assert` · `assistant` · `enterprise` · `experimental` · `config` |        prepared         | app/enterprise/overlay resource rows                                                                                                                                                                                                                                                                                                                |
+|  [14]   | `types`                                                                    |            —            | shared input/output interface library                                                                                                                                                                                                                                                                                                               |
 
 ## [04]-[INTEGRATION]
 

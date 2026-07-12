@@ -2,18 +2,18 @@
 
 The ONE write owner of the record of truth: journal, outbox, and idempotency ledger as a single atomic surface. Streams are keyed `(app, tenant, aggregate)` as one `StreamKey` value, events are closed `Schema.TaggedClass` families with `eventVersion` stamped from the evolve plan at write, and optimistic concurrency is an `Occ` value checked under a per-stream advisory transaction lock with the unique `(stream, version)` constraint as the structural backstop. `Journal.of(spec)` binds a family once and yields the whole bound surface — `append`, `head`, `read`, and `publish`, where publish composes the `(xmax = 0)` ledger claim, the OCC append, the outbox insert, the inline projection slots, and the ledger settle into ONE commit: replays return the stored receipt, deliverable rows become facts atomically with the events they announce, and the NOTIFY wake plus the reactivity stamp fire only when the commit lands. The same statements run the pg spine and every sqlite profile through the dialect arms; this page owns queue-as-data — the relay claim and completion statements the work plane drains through its `SqlClient` port — while execution semantics stay across that seam.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                          |
-| :-----: | :------------------ | :------------------------------------------------------------------------------- |
-|  [01]   | `STREAM_VOCABULARY` | `StreamKey`, the event-family contract, the persisted row models, the ensure rows  |
-|  [02]   | `APPEND_SURFACE`    | `Occ`, the locked OCC append, `VersionConflict`, the receipt, the bulk lane        |
-|  [03]   | `LEDGER_CLAIM`      | the idempotency ledger — key brand, `(xmax = 0)` claim, replay receipt             |
-|  [04]   | `ATOMIC_PUBLISH`    | the one publish transaction — claim, append, outbox, slots, settle, wake           |
-|  [05]   | `READ_SURFACE`      | `head` and the windowed `read` stream lifted through the evolve plan               |
-|  [06]   | `RELAY_ROWS`        | the deliverable model, the SKIP-LOCKED claim/complete pair, the overlay bindings   |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                            |
+| :-----: | :------------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `STREAM_VOCABULARY` | `StreamKey`, the event-family contract, the persisted row models, the ensure rows |
+|  [02]   | `APPEND_SURFACE`    | `Occ`, the locked OCC append, `VersionConflict`, the receipt, the bulk lane       |
+|  [03]   | `LEDGER_CLAIM`      | the idempotency ledger — key brand, `(xmax = 0)` claim, replay receipt            |
+|  [04]   | `ATOMIC_PUBLISH`    | the one publish transaction — claim, append, outbox, slots, settle, wake          |
+|  [05]   | `READ_SURFACE`      | `head` and the windowed `read` stream lifted through the evolve plan              |
+|  [06]   | `RELAY_ROWS`        | the deliverable model, the SKIP-LOCKED claim/complete pair, the overlay bindings  |
 
-## [2]-[STREAM_VOCABULARY]
+## [02]-[STREAM_VOCABULARY]
 
 - Owner: `StreamKey` — one `Schema.Class` whose fields are the core identity brands plus the aggregate brand-in-field; the interior `_Row` model typing the persisted event row; the journal ensure rows the provisioning plane applies and `lane/capability.md` proves.
 - Packages: `effect` (`Schema`); `@effect/sql` (`Model`); `@rasm/ts/core` (`AppIdentity`, `TenantContext`).
@@ -74,7 +74,7 @@ const _journalDdl: Capability.Ensure = {
 }
 ```
 
-## [3]-[APPEND_SURFACE]
+## [03]-[APPEND_SURFACE]
 
 - Owner: `Occ` — the tagged concurrency expectation; `VersionConflict` — the one domain fault of the write path; `Journal.Sequence` — the bigint sequence codec; `_append` — the locked OCC insert every write funnels through, whose `RETURNING` carries the landed global sequences into the receipt.
 - Packages: `effect` (`Effect`, `Array`, `Data`, `Schema`); `@effect/sql` (`SqlClient`, `SqlSchema`, `sql.insert`, `sql.onDialectOrElse`, `sql.reserve`, `SqlError`).
@@ -192,7 +192,7 @@ const _append = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
       ))
 ```
 
-## [4]-[LEDGER_CLAIM]
+## [04]-[LEDGER_CLAIM]
 
 - Owner: the `idempotency_ledger` ensure row, the `IdempotencyKey` brand, and `_claim` — the one statement that inserts-or-touches and reports first-writer truth plus the stored receipt in a single round trip; `_settle` writes the receipt after the append succeeds.
 - Packages: `@effect/sql` (`sql.insert`, `sql.onDialectOrElse`); `effect` (`Option`, `Schema`).
@@ -275,7 +275,7 @@ const _ledgerDdl: Capability.Ensure = {
 }
 ```
 
-## [5]-[ATOMIC_PUBLISH]
+## [05]-[ATOMIC_PUBLISH]
 
 - Owner: `bound.publish(intent)` — the one write entry apps and edges call; everything the commit must carry is a field of `Journal.Intent`, and the inline projection slots arrive as values, never as imports.
 - Packages: `effect` (`Effect`, `Option`); `@effect/sql` (`sql.withTransaction`); `@effect/sql-pg` (`PgClient.notify` — the wake, spine only, read as an optional service).
@@ -377,7 +377,7 @@ const _publish = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
       ))
 ```
 
-## [6]-[READ_SURFACE]
+## [06]-[READ_SURFACE]
 
 - Owner: the bound `head` and `read` members — `read` is a backpressured statement stream lifted row-by-row through the evolve plan into live family values.
 - Packages: `effect` (`Stream`); `@effect/sql` (`Statement.stream` over the backpressured cursor).
@@ -410,7 +410,7 @@ const _read = <A extends Journal.Event, I>(spec: Journal.Spec<A, I>) =>
     )
 ```
 
-## [7]-[RELAY_ROWS]
+## [07]-[RELAY_ROWS]
 
 - Owner: the `outbox` ensure row, the `_Deliverable` model, the two statements the work drain composes — `Journal.claimBatch` (SKIP LOCKED with attempts increment) and `Journal.complete` — the wake channel name, the EventLog overlay bindings, and the assembled `Journal` export.
 - Packages: `@effect/sql` (`Model`, `sql.in`, `SqlEventJournal`, `SqlEventLogServer`).

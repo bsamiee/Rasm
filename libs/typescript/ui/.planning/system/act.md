@@ -2,18 +2,18 @@
 
 The one motion-and-interaction owner across five planes: `react-aria` owns every DISCRETE accessible interaction — press, hover-intent, focus, keyboard, cross-input-normalized events, focus scoping — `@use-gesture/react` owns every CONTINUOUS analog gesture — drag deltas, pinch scale/rotate, wheel zoom, swipe momentum — the `Motion` vocabulary owns element enter/exit motion as named class-row compositions over `tw-animate-css`'s one keyframe mechanism, the `Motion` physical plane owns springs, motion values, scroll linkage, layout morphs, and exit choreography over the `motion` engine, and `Transition` owns document-level motion as a three-tier ladder — native `startViewTransition`, `animateView` spring physics, canary `<ViewTransition>` — with a total degrade chain to bare `flushSync`. Five planes, one page, so motion authority never fractures: a discrete press routed through a pointer handler, a raw DOM listener where a hook exists, a second gesture hook stacked on one element, a bespoke `@keyframes` an axis row expresses, a second scroll-animation engine beside `useScroll`, or a per-element JS lifecycle where an `entering:`/`exiting:` variant suffices — each is the named defect. The module is `ui/src/system/act.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                              | [PUBLIC]     |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                                | [PUBLIC]     |
 | :-----: | :------------------ | :------------------------------------------------------------------------------------ | :----------- |
-|  [01]   | `CLASS_DIVISION`    | the discrete/continuous ownership law and the composition rules on shared elements     | —            |
-|  [02]   | `DISCRETE_ROWS`     | the react-aria interaction/focus hook composition every view row binds through         | `Gesture`    |
-|  [03]   | `CONTINUOUS_OWNER`  | the tree-shaken camera/free-drag recognizer factory over `@use-gesture`                | `Gesture`    |
-|  [04]   | `MOTION_ROWS`       | the named enter/exit composition vocabulary over the tw-animate axis mechanism         | `Motion`     |
-|  [05]   | `CONTINUOUS_MOTION` | the physical plane — springs, motion values, scroll linkage, morphs, presence, policy  | `Motion`     |
-|  [06]   | `DOCUMENT_RAIL`     | the three-tier document-transition ladder, the `<Activity>` row, the degrade chain     | `Transition` |
+|  [01]   | `CLASS_DIVISION`    | the discrete/continuous ownership law and the composition rules on shared elements    | —            |
+|  [02]   | `DISCRETE_ROWS`     | the react-aria interaction/focus hook composition every view row binds through        | `Gesture`    |
+|  [03]   | `CONTINUOUS_OWNER`  | the tree-shaken camera/free-drag recognizer factory over `@use-gesture`               | `Gesture`    |
+|  [04]   | `MOTION_ROWS`       | the named enter/exit composition vocabulary over the tw-animate axis mechanism        | `Motion`     |
+|  [05]   | `CONTINUOUS_MOTION` | the physical plane — springs, motion values, scroll linkage, morphs, presence, policy | `Motion`     |
+|  [06]   | `DOCUMENT_RAIL`     | the three-tier document-transition ladder, the `<Activity>` row, the degrade chain    | `Transition` |
 
-## [2]-[CLASS_DIVISION]
+## [02]-[CLASS_DIVISION]
 
 [CLASS_DIVISION]:
 - Law: react-aria owns discrete — `usePress`/`useHover`/`useLongPress`/`useKeyboard`/`useMove` emit `PressEvent`/`HoverEvent`/`MoveEvent` normalized across mouse, touch, pen, keyboard, and virtual cursors; this page never binds a raw `onClick`/`onPointerDown` where a hook covers the interaction, and `on*` prop TYPES stay the `@types/react` `EventHandler` aliases while behavior sources from the hooks.
@@ -23,7 +23,7 @@ The one motion-and-interaction owner across five planes: `react-aria` owns every
 - Law: one surface, one motion owner — a RAC overlay animating through a `Motion` class row never also mounts `AnimatePresence` around the same element; a surface graduates from class rows to the physical plane when it needs physics, interruption, values, or layout, never both on one property.
 - Boundary: which widget owns which state is `system/primitive`'s spine; the camera atoms a gesture writes are the viewer projection plane's.
 
-## [3]-[DISCRETE_ROWS]
+## [03]-[DISCRETE_ROWS]
 
 [DISCRETE_ROWS]:
 - Owner: `Gesture.useDiscrete(options)` — the composed discrete bundle: `usePress` + `useHover` + `useKeyboard` + `useFocusRing` merged through one `mergeProps` fold into a single spreadable prop record plus the state flags a recipe styles; the `use` prefix is load-bearing — the member composes hooks, so rules-of-hooks and the compiler's inference both key on it.
@@ -50,7 +50,7 @@ const _useDiscrete = (options: Gesture.DiscreteOptions): Gesture.DiscreteBundle 
 }
 ```
 
-## [4]-[CONTINUOUS_OWNER]
+## [04]-[CONTINUOUS_OWNER]
 
 [CONTINUOUS_OWNER]:
 - Owner: `Gesture.useCanvas(options)` — the continuous recognizer factory: composes ONE tree-shaken `useGesture` variant (`createUseGesture([dragAction, pinchAction, wheelAction])` — only the engines the viewer uses bundle) bound imperatively to the canvas ref with `eventOptions: { passive: false }` and `preventDefault: true`, the ONLY binding that can block page scroll on wheel/touch; drag pans, pinch zooms-and-rotates around `origin`, wheel zooms with `pinchOnWheel` folding ctrl+wheel into the pinch engine.
@@ -129,7 +129,7 @@ const Gesture: Gesture.Shape = {
 }
 ```
 
-## [5]-[MOTION_ROWS]
+## [05]-[MOTION_ROWS]
 
 [MOTION_ROWS]:
 - Owner: the `Motion` class-row vocabulary: one `as const satisfies Record<string, Motion.Row>` table whose rows compose `tw-animate-css`'s single mechanism — `animate-in`/`animate-out` trigger + axis setters (`fade-*`, `zoom-*`, `slide-*`, `blur-*`, `spin-*`) + timing modifiers (`animation-duration-*`, `delay-*`, `fill-mode-*`) — into enter/exit class pairs keyed by surface concept (`overlay`, `sheet`, `palette`, `toast`, `panel`). Every row leads with `motion-reduce:animate-none` so reduced motion is a construction fact.
@@ -173,7 +173,7 @@ const _rows = {
 } as const satisfies Record<Motion.Kind, Motion.Row>
 ```
 
-## [6]-[CONTINUOUS_MOTION]
+## [06]-[CONTINUOUS_MOTION]
 
 [CONTINUOUS_MOTION]:
 - Owner: the `Motion` physical plane riding the same owner as the class rows — springs, motion values, scroll linkage, layout morphs, presence, and subtree policy over the `motion` engine: `Motion.springs` is the spring policy vocabulary (`snap`/`glide`/`bounce` rows — stiffness/damping/mass as data, the physical alternative to `Theme.Scale.ease` cubic-beziers for interruptible motion), `Motion.useFollow(target, kind?)` springs a render-free `MotionValue` toward atom-derived targets (viewer camera-follow readouts, panel drag numerics — bound `style={{ x }}`, React never re-renders per frame), `Motion.useReveal(target)` is the folder's ONE scroll-animation engine (`useScroll` progress + `useTransform` derivation — a second `ScrollTimeline` engine is the named defect), and `Motion.useSettle(value, commit)` is the sanctioned MotionValue→atom bridge (`useMotionValueEvent` on `animationComplete` — a `MotionValue` mirrored into an atom or `useState` is the render-thrash defect).
@@ -238,7 +238,7 @@ const Motion: Motion.Shape = {
 }
 ```
 
-## [7]-[DOCUMENT_RAIL]
+## [07]-[DOCUMENT_RAIL]
 
 [DOCUMENT_RAIL]:
 - Owner: `Transition` — one entrypoint owning the three-tier document ladder: `Transition.run(commit, options?)` gates on capability (`document.startViewTransition` present) and motion budget (`prefers-reduced-motion`), wraps the state commit in `flushSync` inside the transition callback so the DOM the browser snapshots is the post-commit DOM, and selects the tier from the options value — no `spring` row runs the native floor, a `spring` row upgrades to `animateView(update, { interrupt })`, the typed spring layer whose `"wait"`/`"immediate"` interruption policy the native API lacks; absent the API or under reduced motion the commit runs bare — the caller never branches.

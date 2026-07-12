@@ -350,8 +350,11 @@ _FAULTS: Final[tuple[type[BaseException], ...]] = (RuntimeError, ValueError, Key
 _NS: Final[str] = "https://rasm.dev/schema/iso19650/transmittal"
 _SCHEMATRON_NS: Final[str] = "http://purl.oclc.org/dsdl/schematron"
 # the mandated ISO 19650 transmittal-record header fields — the ONE required-field row the owned record
+
 # Schematron derives one non-empty `sch:assert` per, so a record dropping or blanking a mandated field fails
+
 # conformance (folded onto `TransmittalEvidence.record_valid`) rather than shipping an incomplete legal issue.
+
 _REQUIRED_RECORD: Final[tuple[str, ...]] = ("number", "issuingParty", "recipient", "purpose")
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

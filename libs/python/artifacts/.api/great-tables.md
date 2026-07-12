@@ -19,161 +19,161 @@
 [PUBLIC_TYPE_SCOPE]: table builder
 - rail: tables
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `GT` | table builder | `(data, rowname_col, groupname_col, auto_align, id, locale)` — fluent table construction root |
+| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY]                                                                                  |
+| :-----: | :------- | :------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `GT`     | table builder  | `(data, rowname_col, groupname_col, auto_align, id, locale)` — fluent table construction root |
 
 [PUBLIC_TYPE_SCOPE]: location selectors (`great_tables.loc`)
 - rail: tables
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `loc.body` | body cells | `(columns, rows, mask)` — select data cells by column/row/mask |
-| [02] | `loc.column_labels` | column label cells | `(columns)` — select column label header cells |
-| [03] | `loc.column_header` | column header | `()` — entire column header area |
-| [04] | `loc.spanner_labels` | spanner label cells | `(ids)` — select spanner label cells by id |
-| [05] | `loc.stub` | row stub cells | `(rows)` — select stub (row label) cells |
-| [06] | `loc.stubhead` | stubhead cell | `()` — select the stubhead label cell |
-| [07] | `loc.row_group` | row group label | `(rows)` — select row group label cells |
-| [08] | `loc.row_groups` | row group region | `(rows)` — select whole row-group regions |
-| [09] | `loc.header` | header region | `()` — full header area |
-| [10] | `loc.title` | title cell | `()` — the table title cell |
-| [11] | `loc.subtitle` | subtitle cell | `()` — the subtitle cell |
-| [12] | `loc.footer` | footer region | `()` — full footer area |
-| [13] | `loc.source_notes` | source note cells | `()` — select source note cells |
-| [14] | `loc.grand_summary` | grand summary rows | `(columns, rows, mask)` — select grand summary row cells |
-| [15] | `loc.grand_summary_stub` | grand summary stub | `(rows)` — select grand summary stub cells |
-| [16] | `loc.summary` | group summary rows | `(groups, columns, rows)` — select group-summary row cells |
-| [17] | `loc.summary_stub` | group summary stub | `(groups, rows)` — select group-summary stub cells |
+| [INDEX] | [SYMBOL]                 | [PACKAGE_ROLE]      | [CAPABILITY]                                                   |
+| :-----: | :----------------------- | :------------------ | :------------------------------------------------------------- |
+|  [01]   | `loc.body`               | body cells          | `(columns, rows, mask)` — select data cells by column/row/mask |
+|  [02]   | `loc.column_labels`      | column label cells  | `(columns)` — select column label header cells                 |
+|  [03]   | `loc.column_header`      | column header       | `()` — entire column header area                               |
+|  [04]   | `loc.spanner_labels`     | spanner label cells | `(ids)` — select spanner label cells by id                     |
+|  [05]   | `loc.stub`               | row stub cells      | `(rows)` — select stub (row label) cells                       |
+|  [06]   | `loc.stubhead`           | stubhead cell       | `()` — select the stubhead label cell                          |
+|  [07]   | `loc.row_group`          | row group label     | `(rows)` — select row group label cells                        |
+|  [08]   | `loc.row_groups`         | row group region    | `(rows)` — select whole row-group regions                      |
+|  [09]   | `loc.header`             | header region       | `()` — full header area                                        |
+|  [10]   | `loc.title`              | title cell          | `()` — the table title cell                                    |
+|  [11]   | `loc.subtitle`           | subtitle cell       | `()` — the subtitle cell                                       |
+|  [12]   | `loc.footer`             | footer region       | `()` — full footer area                                        |
+|  [13]   | `loc.source_notes`       | source note cells   | `()` — select source note cells                                |
+|  [14]   | `loc.grand_summary`      | grand summary rows  | `(columns, rows, mask)` — select grand summary row cells       |
+|  [15]   | `loc.grand_summary_stub` | grand summary stub  | `(rows)` — select grand summary stub cells                     |
+|  [16]   | `loc.summary`            | group summary rows  | `(groups, columns, rows)` — select group-summary row cells     |
+|  [17]   | `loc.summary_stub`       | group summary stub  | `(groups, rows)` — select group-summary stub cells             |
 
 [PUBLIC_TYPE_SCOPE]: cell style constructors (`great_tables.style`)
 - rail: tables
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `style.text` | text style | `(color, font, size, align, v_align, style, weight, stretch, decorate, transform, whitespace)` |
-| [02] | `style.fill` | fill style | `(color)` — background color, accepts a `ColumnExpr` for data-driven fill |
-| [03] | `style.borders` | border style | `(sides, color, style, weight)` |
-| [04] | `style.css` | raw CSS | `(rule)` — arbitrary CSS property injection |
+| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE] | [CAPABILITY]                                                                                   |
+| :-----: | :-------------- | :------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `style.text`    | text style     | `(color, font, size, align, v_align, style, weight, stretch, decorate, transform, whitespace)` |
+|  [02]   | `style.fill`    | fill style     | `(color)` — background color, accepts a `ColumnExpr` for data-driven fill                      |
+|  [03]   | `style.borders` | border style   | `(sides, color, style, weight)`                                                                |
+|  [04]   | `style.css`     | raw CSS        | `(rule)` — arbitrary CSS property injection                                                    |
 
 [PUBLIC_TYPE_SCOPE]: top-level helpers (`great_tables`)
 - rail: tables
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `nanoplot_options` | nanoplot config | returns the `options` dict for `fmt_nanoplot` (point/line/bar/area/reference) |
-| [02] | `define_units` | unit grammar | parses a units string into a renderable units object for `fmt_units` |
-| [03] | `from_column` | column-driven arg | binds a styling/format argument to a column's per-row values |
-| [04] | `google_font` | font import | a Google Font reference for `opt_table_font(font=...)` |
-| [05] | `md` / `html` | rich text markers | wrap a string as Markdown (`Md`) or raw HTML (`Html`) for labels, source notes, and rich-text cells |
-| [06] | `px` / `pct` | dimension helpers | pixel and percent dimension values for widths and sizes |
-| [07] | `system_fonts` | font stack | `system_fonts(name='system-ui') -> list[str]` — a named `FontStackName` stack for `opt_table_font(stack=...)` |
-| [08] | `vals` | standalone format | `vals.fmt_*` apply format logic outside a `GT` chain over a `pl.Series`/list, returning `list[str]`; the `vals` module exposes `fmt_number`, `fmt_integer`, `fmt_currency`, `fmt_percent`, `fmt_scientific`, `fmt_engineering`, `fmt_partsper`, `fmt_bytes`, `fmt_roman`, `fmt_date`, `fmt_time`, `fmt_duration`, `fmt_image`, `fmt_markdown` — `fmt_units`/`fmt_datetime`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_nanoplot` stay `GT`-only |
-| [09] | `LETTERS` / `letters` | mark alphabets | nullary functions `LETTERS() -> list[str]` / `letters() -> list[str]` returning the uppercase/lowercase A–Z sequence for `opt_footnote_marks(marks=...)` |
-| [10] | `random_id` | id minter | `random_id(n=10) -> str` — a random table id for `GT(id=...)` / `with_id` |
-| [11] | `quarto` | quarto bridge | `quarto.is_quarto_render() -> bool` — detects a Quarto render so the table can disable post-processing via `tab_options(quarto_disable_processing=...)` |
+| [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| :-----: | :-------------------- | :---------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `nanoplot_options`    | nanoplot config   | returns the `options` dict for `fmt_nanoplot` (point/line/bar/area/reference)                                                                                                                                                                                                                                                                                                                                                           |
+|  [02]   | `define_units`        | unit grammar      | parses a units string into a renderable units object for `fmt_units`                                                                                                                                                                                                                                                                                                                                                                    |
+|  [03]   | `from_column`         | column-driven arg | binds a styling/format argument to a column's per-row values                                                                                                                                                                                                                                                                                                                                                                            |
+|  [04]   | `google_font`         | font import       | a Google Font reference for `opt_table_font(font=...)`                                                                                                                                                                                                                                                                                                                                                                                  |
+|  [05]   | `md` / `html`         | rich text markers | wrap a string as Markdown (`Md`) or raw HTML (`Html`) for labels, source notes, and rich-text cells                                                                                                                                                                                                                                                                                                                                     |
+|  [06]   | `px` / `pct`          | dimension helpers | pixel and percent dimension values for widths and sizes                                                                                                                                                                                                                                                                                                                                                                                 |
+|  [07]   | `system_fonts`        | font stack        | `system_fonts(name='system-ui') -> list[str]` — a named `FontStackName` stack for `opt_table_font(stack=...)`                                                                                                                                                                                                                                                                                                                           |
+|  [08]   | `vals`                | standalone format | `vals.fmt_*` apply format logic outside a `GT` chain over a `pl.Series`/list, returning `list[str]`; the `vals` module exposes `fmt_number`, `fmt_integer`, `fmt_currency`, `fmt_percent`, `fmt_scientific`, `fmt_engineering`, `fmt_partsper`, `fmt_bytes`, `fmt_roman`, `fmt_date`, `fmt_time`, `fmt_duration`, `fmt_image`, `fmt_markdown` — `fmt_units`/`fmt_datetime`/`fmt_tf`/`fmt_flag`/`fmt_icon`/`fmt_nanoplot` stay `GT`-only |
+|  [09]   | `LETTERS` / `letters` | mark alphabets    | nullary functions `LETTERS() -> list[str]` / `letters() -> list[str]` returning the uppercase/lowercase A–Z sequence for `opt_footnote_marks(marks=...)`                                                                                                                                                                                                                                                                                |
+|  [10]   | `random_id`           | id minter         | `random_id(n=10) -> str` — a random table id for `GT(id=...)` / `with_id`                                                                                                                                                                                                                                                                                                                                                               |
+|  [11]   | `quarto`              | quarto bridge     | `quarto.is_quarto_render() -> bool` — detects a Quarto render so the table can disable post-processing via `tab_options(quarto_disable_processing=...)`                                                                                                                                                                                                                                                                                 |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: construction and structure
 - rail: tables
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `GT(data, rowname_col, groupname_col, auto_align, id, locale)` | builder init | create a GT from a Polars/Pandas DataFrame or dict |
-| [02] | `GT.tab_header(title, subtitle, preheader)` | header | set title, subtitle, and optional preheader |
-| [03] | `GT.tab_stub(rowname_col, groupname_col)` | stub | set row name and group name columns |
-| [04] | `GT.tab_stubhead(label)` | stubhead | label the stub column header |
-| [05] | `GT.tab_spanner(label, columns, spanners, level, id, gather, replace)` | column spanner | group columns under a spanning label |
-| [06] | `GT.tab_spanner_delim(delim, columns, split, limit, reverse)` | spanner split | derive spanners by splitting column names on a delim |
-| [07] | `GT.tab_source_note(source_note)` | source note | append a source note to the footer |
-| [08] | `GT.tab_footnote(footnote, locations, placement='auto')` | footnote | attach an auto-marked footnote at `loc.*` target(s) (`placement` ∈ `{'auto','left','right'}`) |
+| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY] | [CAPABILITY]                                                                                  |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------- |
+|  [01]   | `GT(data, rowname_col, groupname_col, auto_align, id, locale)`         | builder init   | create a GT from a Polars/Pandas DataFrame or dict                                            |
+|  [02]   | `GT.tab_header(title, subtitle, preheader)`                            | header         | set title, subtitle, and optional preheader                                                   |
+|  [03]   | `GT.tab_stub(rowname_col, groupname_col)`                              | stub           | set row name and group name columns                                                           |
+|  [04]   | `GT.tab_stubhead(label)`                                               | stubhead       | label the stub column header                                                                  |
+|  [05]   | `GT.tab_spanner(label, columns, spanners, level, id, gather, replace)` | column spanner | group columns under a spanning label                                                          |
+|  [06]   | `GT.tab_spanner_delim(delim, columns, split, limit, reverse)`          | spanner split  | derive spanners by splitting column names on a delim                                          |
+|  [07]   | `GT.tab_source_note(source_note)`                                      | source note    | append a source note to the footer                                                            |
+|  [08]   | `GT.tab_footnote(footnote, locations, placement='auto')`               | footnote       | attach an auto-marked footnote at `loc.*` target(s) (`placement` ∈ `{'auto','left','right'}`) |
 
 [ENTRYPOINT_SCOPE]: column operations
 - rail: tables
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `GT.cols_label(cases, **kwargs)` | column rename | set display labels for columns |
-| [02] | `GT.cols_label_with(columns, fn)` | label function | derive each label from the column id |
-| [03] | `GT.cols_label_rotate(columns, dir, align, padding)` | label rotate | render rotated column labels |
-| [04] | `GT.cols_align(align, columns)` | alignment | `'left'` / `'center'` / `'right'` |
-| [05] | `GT.cols_move(columns, after)` | column reorder | move columns after a named column |
-| [06] | `GT.cols_move_to_start(columns)` / `GT.cols_move_to_end(columns)` | column anchor | move columns to the start or end |
-| [07] | `GT.cols_hide(columns)` / `GT.cols_unhide(columns)` | column hide | suppress or restore selected columns |
-| [08] | `GT.cols_width(cases=None, **kwargs)` | column width | set explicit pixel/percent widths (`cases` dict or kwargs) |
-| [09] | `GT.cols_merge(columns, hide_columns, rows, pattern)` | column merge | merge multiple columns into one display cell via a `pattern` template |
-| [10] | `GT.cols_reorder(columns)` | column reorder | reorder all columns to the given explicit order |
-| [11] | `GT.cols_merge_range(col_begin, col_end, rows, sep=None, autohide=True, locale)` | range merge | merge a begin/end column pair into a dash range |
-| [12] | `GT.cols_merge_uncert(col_val, col_uncert, rows, sep=' +/- ', autohide=True)` | uncertainty merge | merge a value/uncertainty column pair |
-| [13] | `GT.cols_merge_n_pct(col_n, col_pct, rows, autohide=True)` | n-pct merge | merge a count/percent column pair |
+| [INDEX] | [SURFACE]                                                                        | [ENTRY_FAMILY]    | [CAPABILITY]                                                          |
+| :-----: | :------------------------------------------------------------------------------- | :---------------- | :-------------------------------------------------------------------- |
+|  [01]   | `GT.cols_label(cases, **kwargs)`                                                 | column rename     | set display labels for columns                                        |
+|  [02]   | `GT.cols_label_with(columns, fn)`                                                | label function    | derive each label from the column id                                  |
+|  [03]   | `GT.cols_label_rotate(columns, dir, align, padding)`                             | label rotate      | render rotated column labels                                          |
+|  [04]   | `GT.cols_align(align, columns)`                                                  | alignment         | `'left'` / `'center'` / `'right'`                                     |
+|  [05]   | `GT.cols_move(columns, after)`                                                   | column reorder    | move columns after a named column                                     |
+|  [06]   | `GT.cols_move_to_start(columns)` / `GT.cols_move_to_end(columns)`                | column anchor     | move columns to the start or end                                      |
+|  [07]   | `GT.cols_hide(columns)` / `GT.cols_unhide(columns)`                              | column hide       | suppress or restore selected columns                                  |
+|  [08]   | `GT.cols_width(cases=None, **kwargs)`                                            | column width      | set explicit pixel/percent widths (`cases` dict or kwargs)            |
+|  [09]   | `GT.cols_merge(columns, hide_columns, rows, pattern)`                            | column merge      | merge multiple columns into one display cell via a `pattern` template |
+|  [10]   | `GT.cols_reorder(columns)`                                                       | column reorder    | reorder all columns to the given explicit order                       |
+|  [11]   | `GT.cols_merge_range(col_begin, col_end, rows, sep=None, autohide=True, locale)` | range merge       | merge a begin/end column pair into a dash range                       |
+|  [12]   | `GT.cols_merge_uncert(col_val, col_uncert, rows, sep=' +/- ', autohide=True)`    | uncertainty merge | merge a value/uncertainty column pair                                 |
+|  [13]   | `GT.cols_merge_n_pct(col_n, col_pct, rows, autohide=True)`                       | n-pct merge       | merge a count/percent column pair                                     |
 
 [ENTRYPOINT_SCOPE]: cell formatting and substitution
 - rail: tables
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `GT.fmt(fns, columns, rows, is_substitution)` | custom format | arbitrary format function over selected cells |
-| [02] | `GT.fmt_number(columns, rows, decimals, n_sigfig, compact, …, locale)` | numeric format | locale-aware number with separators, sign, compaction |
-| [03] | `GT.fmt_integer(columns, rows, use_seps, compact, …, locale)` | integer format | integer with separators, sign, and compaction |
-| [04] | `GT.fmt_currency(columns, rows, currency, use_subunits, …, locale)` | currency format | currency symbol, subunits, and locale placement |
-| [05] | `GT.fmt_percent(columns, rows, decimals, scale_values, …, locale)` | percent format | percentage with optional auto-scaling |
-| [06] | `GT.fmt_scientific(columns, rows, decimals, exp_style, …, locale)` | scientific format | `x10n` or E-notation with mantissa/exponent control |
-| [07] | `GT.fmt_engineering(columns, rows, decimals, n_sigfig, exp_style, …)` | engineering format | power-of-three exponent notation |
-| [08] | `GT.fmt_units(columns, rows, pattern='{x}')` | units format | render a units-notation string with super/subscripts |
-| [09] | `GT.fmt_bytes(columns, rows, standard='decimal', decimals, incl_space, …, locale)` | bytes format | decimal or binary byte units |
-| [10] | `GT.fmt_roman(columns, rows, case='upper', pattern)` | roman format | render integers as Roman numerals |
-| [11] | `GT.fmt_date(columns, rows, date_style='iso', pattern, locale)` | date format | ISO and locale date style tokens |
-| [12] | `GT.fmt_datetime(columns, rows, date_style='iso', time_style='iso', format_str, sep, …)` | datetime format | combined date-time with optional `format_str` |
-| [13] | `GT.fmt_time(columns, rows, time_style='iso', pattern, locale)` | time format | ISO and locale time style tokens |
-| [14] | `GT.fmt_tf(columns, rows, tf_style='true-false', pattern, true_val, false_val, na_val, colors)` | boolean format | render booleans as labels or symbols with colors |
-| [15] | `GT.fmt_flag(columns, rows, height='1em', sep, use_title)` | flag cells | render country-code flags |
-| [16] | `GT.fmt_icon(columns, rows, height, sep, stroke_color, stroke_width, fill_color, fill_alpha, margin_left, margin_right, …)` | icon cells | render Font Awesome icons |
-| [17] | `GT.fmt_image(columns, rows, height, width, sep, path, file_pattern='{}', encode=True)` | image cells | embed image paths or base64-encoded images |
-| [18] | `GT.fmt_markdown(columns, rows)` | markdown cells | render Markdown in cell content |
-| [19] | `GT.fmt_nanoplot(columns, rows, plot_type='line', plot_height='2em', missing_vals='gap', autoscale, reference_line, reference_area, expand_x, expand_y, options)` | nanoplot cells | inline SVG sparkline/bar chart per cell (`missing_vals` default `"gap"` ∈ `{"marker","gap","zero","remove"}`; `expand_x`/`expand_y` are `list[int \| float]`) |
-| [20] | `GT.sub_missing(columns, rows, missing_text)` | missing sub | substitute a glyph for missing values |
-| [21] | `GT.sub_zero(columns, rows, zero_text='nil')` | zero sub | substitute text for zeros |
-| [22] | `GT.sub_small_vals(columns, rows, threshold=0.01, small_pattern, sign='+')` | small sub | substitute a pattern for values below `threshold` |
-| [23] | `GT.sub_large_vals(columns, rows, threshold=1e12, large_pattern='>={x}', sign='+')` | large sub | substitute a pattern for values above `threshold` |
-| [24] | `GT.sub_values(columns, rows, values, pattern, fn, replacement)` | value sub | substitute by explicit `values`, a predicate `fn`, or a `pattern` |
-| [25] | `GT.fmt_partsper(columns, rows, to_units='per-mille', symbol='auto', decimals=2, scale_values, …, locale)` | parts-per format | per-mille/ppm/ppb/ppt notation (`to_units` ∈ `{'per-mille','per-myriad','pcm','ppm','ppb','ppt'}`) |
-| [26] | `GT.fmt_duration(columns, rows, input_units, output_units, duration_style='narrow', trim_zero_units=True, max_output_units, …, locale)` | duration format | humanized time duration across unit fields |
+| [INDEX] | [SURFACE]                                                                                                                                                         | [ENTRY_FAMILY]     | [CAPABILITY]                                                                                                                                                  |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `GT.fmt(fns, columns, rows, is_substitution)`                                                                                                                     | custom format      | arbitrary format function over selected cells                                                                                                                 |
+|  [02]   | `GT.fmt_number(columns, rows, decimals, n_sigfig, compact, …, locale)`                                                                                            | numeric format     | locale-aware number with separators, sign, compaction                                                                                                         |
+|  [03]   | `GT.fmt_integer(columns, rows, use_seps, compact, …, locale)`                                                                                                     | integer format     | integer with separators, sign, and compaction                                                                                                                 |
+|  [04]   | `GT.fmt_currency(columns, rows, currency, use_subunits, …, locale)`                                                                                               | currency format    | currency symbol, subunits, and locale placement                                                                                                               |
+|  [05]   | `GT.fmt_percent(columns, rows, decimals, scale_values, …, locale)`                                                                                                | percent format     | percentage with optional auto-scaling                                                                                                                         |
+|  [06]   | `GT.fmt_scientific(columns, rows, decimals, exp_style, …, locale)`                                                                                                | scientific format  | `x10n` or E-notation with mantissa/exponent control                                                                                                           |
+|  [07]   | `GT.fmt_engineering(columns, rows, decimals, n_sigfig, exp_style, …)`                                                                                             | engineering format | power-of-three exponent notation                                                                                                                              |
+|  [08]   | `GT.fmt_units(columns, rows, pattern='{x}')`                                                                                                                      | units format       | render a units-notation string with super/subscripts                                                                                                          |
+|  [09]   | `GT.fmt_bytes(columns, rows, standard='decimal', decimals, incl_space, …, locale)`                                                                                | bytes format       | decimal or binary byte units                                                                                                                                  |
+|  [10]   | `GT.fmt_roman(columns, rows, case='upper', pattern)`                                                                                                              | roman format       | render integers as Roman numerals                                                                                                                             |
+|  [11]   | `GT.fmt_date(columns, rows, date_style='iso', pattern, locale)`                                                                                                   | date format        | ISO and locale date style tokens                                                                                                                              |
+|  [12]   | `GT.fmt_datetime(columns, rows, date_style='iso', time_style='iso', format_str, sep, …)`                                                                          | datetime format    | combined date-time with optional `format_str`                                                                                                                 |
+|  [13]   | `GT.fmt_time(columns, rows, time_style='iso', pattern, locale)`                                                                                                   | time format        | ISO and locale time style tokens                                                                                                                              |
+|  [14]   | `GT.fmt_tf(columns, rows, tf_style='true-false', pattern, true_val, false_val, na_val, colors)`                                                                   | boolean format     | render booleans as labels or symbols with colors                                                                                                              |
+|  [15]   | `GT.fmt_flag(columns, rows, height='1em', sep, use_title)`                                                                                                        | flag cells         | render country-code flags                                                                                                                                     |
+|  [16]   | `GT.fmt_icon(columns, rows, height, sep, stroke_color, stroke_width, fill_color, fill_alpha, margin_left, margin_right, …)`                                       | icon cells         | render Font Awesome icons                                                                                                                                     |
+|  [17]   | `GT.fmt_image(columns, rows, height, width, sep, path, file_pattern='{}', encode=True)`                                                                           | image cells        | embed image paths or base64-encoded images                                                                                                                    |
+|  [18]   | `GT.fmt_markdown(columns, rows)`                                                                                                                                  | markdown cells     | render Markdown in cell content                                                                                                                               |
+|  [19]   | `GT.fmt_nanoplot(columns, rows, plot_type='line', plot_height='2em', missing_vals='gap', autoscale, reference_line, reference_area, expand_x, expand_y, options)` | nanoplot cells     | inline SVG sparkline/bar chart per cell (`missing_vals` default `"gap"` ∈ `{"marker","gap","zero","remove"}`; `expand_x`/`expand_y` are `list[int \| float]`) |
+|  [20]   | `GT.sub_missing(columns, rows, missing_text)`                                                                                                                     | missing sub        | substitute a glyph for missing values                                                                                                                         |
+|  [21]   | `GT.sub_zero(columns, rows, zero_text='nil')`                                                                                                                     | zero sub           | substitute text for zeros                                                                                                                                     |
+|  [22]   | `GT.sub_small_vals(columns, rows, threshold=0.01, small_pattern, sign='+')`                                                                                       | small sub          | substitute a pattern for values below `threshold`                                                                                                             |
+|  [23]   | `GT.sub_large_vals(columns, rows, threshold=1e12, large_pattern='>={x}', sign='+')`                                                                               | large sub          | substitute a pattern for values above `threshold`                                                                                                             |
+|  [24]   | `GT.sub_values(columns, rows, values, pattern, fn, replacement)`                                                                                                  | value sub          | substitute by explicit `values`, a predicate `fn`, or a `pattern`                                                                                             |
+|  [25]   | `GT.fmt_partsper(columns, rows, to_units='per-mille', symbol='auto', decimals=2, scale_values, …, locale)`                                                        | parts-per format   | per-mille/ppm/ppb/ppt notation (`to_units` ∈ `{'per-mille','per-myriad','pcm','ppm','ppb','ppt'}`)                                                            |
+|  [26]   | `GT.fmt_duration(columns, rows, input_units, output_units, duration_style='narrow', trim_zero_units=True, max_output_units, …, locale)`                           | duration format    | humanized time duration across unit fields                                                                                                                    |
 
 [ENTRYPOINT_SCOPE]: cell-text transform, style, color, summary, and export
 - rail: tables
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `GT.tab_style(style, locations)` | cell style | apply `style.*` objects to `loc.*` targets (`style`/`locations` accept a single value or a list) |
-| [02] | `GT.data_color(columns, rows, palette, domain, na_color, alpha, reverse, autocolor_text=True, truncate)` | colour scale | background colouring by value with auto-text contrast |
-| [03] | `GT.grand_summary_rows(*, fns, fmt, columns, side='bottom', missing_text='---')` | grand summary | aggregate rows appended across all row groups (`fns` keyword-only; a non-`None` `columns` raises `NotImplementedError`) |
-| [04] | `GT.row_group_order(groups)` | group order | set the explicit row-group display order |
-| [05] | `GT.opt_stylize(style=1, color='blue', add_row_striping=True)` | theme preset | apply one of six numbered style presets (`1`–`6`) with a base color |
-| [06] | `GT.opt_row_striping(row_striping=True)` | striping | toggle zebra row striping |
-| [07] | `GT.opt_table_font(font, stack, weight, style, add)` | table font | set the font family or a named `FontStackName` stack |
-| [08] | `GT.opt_align_table_header(align)` | header align | align the title/subtitle block |
-| [09] | `GT.opt_all_caps(all_caps, locations)` | all-caps | uppercase column labels, stub, and row-group text |
-| [10] | `GT.opt_vertical_padding(scale)` / `GT.opt_horizontal_padding(scale)` | padding | scale cell padding |
-| [11] | `GT.opt_table_outline(style, width, color)` | outline | draw a table outline |
-| [12] | `GT.opt_footnote_marks(marks='numbers')` | footnote marks | choose the footnote mark sequence (`'numbers'`, `letters()`, symbols) |
-| [13] | `GT.opt_css(css, add, allow_duplicates)` | raw CSS | inject raw CSS at the table level |
-| [14] | `GT.tab_options(**kwargs)` | theme options | the low-level per-keyword theme surface beneath the `opt_*` rows (incl. `quarto_disable_processing`) |
-| [15] | `GT.render(context: str) -> str` | HTML render | the core HTML renderer keyed by `context` (`'html'`); `as_raw_html` wraps it |
-| [16] | `GT.as_raw_html(inline_css=False, make_page=False, all_important=False) -> str` | HTML emit | render the table as an HTML string; `inline_css` for email-safe markup |
-| [17] | `GT.as_latex(use_longtable=False, tbl_pos=None) -> str` | LaTeX emit | render the table as a LaTeX string |
-| [18] | `GT.write_raw_html(filename, encoding='utf-8', inline_css=False, newline=None, make_page=False, all_important=False) -> None` | HTML file | write the HTML rendering to a file |
-| [19] | `GT.save(file, selector='table', scale=1.0, expand=5, web_driver='chrome', window_size=(6000,6000), debug_port=None, encoding='utf-8') -> GTSelf` | file export | export to PNG/PDF/SVG via a headless `WebDrivers` (chrome/safari/firefox/edge) or a `webdriver.Remote`; returns `GTSelf` for chaining |
-| [20] | `GT.show(target='auto')` | interactive show | display in notebook or browser (`'auto'`/`'notebook'`/`'browser'`) |
-| [21] | `GT.pipe(func, *args, **kwargs)` | pipe | thread the `GT` through a `GT -> GT` function |
-| [22] | `GT.from_data(data, rowname_col, groupname_col, auto_align=True, id, locale)` | builder (functional) | the function-style constructor mirroring `GT(...)` for pipeline-first authoring |
-| [23] | `GT.with_id(id)` / `GT.with_locale(locale)` | identity | set the table id or locale after construction |
-| [24] | `GT.summary_rows(*, fns, fmt, columns, groups, side='bottom', missing_text='---')` | group summary | aggregate rows per row-group (the `groups` axis); `fns` keyword-only, a non-`None` `columns` raises `NotImplementedError` |
-| [25] | `GT.text_transform(locations, fn)` | cell transform | apply a `str -> str` function to rendered cell text at `loc.*` |
-| [26] | `GT.text_case_when(*cases, default, locations)` | cell transform | rewrite cell text by `(predicate, replacement)` cases |
-| [27] | `GT.text_case_match(*cases, default, replace='all', locations)` | cell transform | rewrite cell text by `(match, replacement)` cases (`match` is `str \| list[str]`, `replace` ∈ `{'all','partial'}`) |
-| [28] | `GT.text_replace(pattern, replacement, locations)` | cell transform | substring/regex replacement over cell text |
-| [29] | `GT.gtsave(file, selector='table', expand=5, zoom=2.0, delay=0.2, vwidth=992, vheight=744) -> GT` | static image | the alternate static-image saver (distinct kwargs from `save`) |
+| [INDEX] | [SURFACE]                                                                                                                                         | [ENTRY_FAMILY]       | [CAPABILITY]                                                                                                                          |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `GT.tab_style(style, locations)`                                                                                                                  | cell style           | apply `style.*` objects to `loc.*` targets (`style`/`locations` accept a single value or a list)                                      |
+|  [02]   | `GT.data_color(columns, rows, palette, domain, na_color, alpha, reverse, autocolor_text=True, truncate)`                                          | colour scale         | background colouring by value with auto-text contrast                                                                                 |
+|  [03]   | `GT.grand_summary_rows(*, fns, fmt, columns, side='bottom', missing_text='---')`                                                                  | grand summary        | aggregate rows appended across all row groups (`fns` keyword-only; a non-`None` `columns` raises `NotImplementedError`)               |
+|  [04]   | `GT.row_group_order(groups)`                                                                                                                      | group order          | set the explicit row-group display order                                                                                              |
+|  [05]   | `GT.opt_stylize(style=1, color='blue', add_row_striping=True)`                                                                                    | theme preset         | apply one of six numbered style presets (`1`–`6`) with a base color                                                                   |
+|  [06]   | `GT.opt_row_striping(row_striping=True)`                                                                                                          | striping             | toggle zebra row striping                                                                                                             |
+|  [07]   | `GT.opt_table_font(font, stack, weight, style, add)`                                                                                              | table font           | set the font family or a named `FontStackName` stack                                                                                  |
+|  [08]   | `GT.opt_align_table_header(align)`                                                                                                                | header align         | align the title/subtitle block                                                                                                        |
+|  [09]   | `GT.opt_all_caps(all_caps, locations)`                                                                                                            | all-caps             | uppercase column labels, stub, and row-group text                                                                                     |
+|  [10]   | `GT.opt_vertical_padding(scale)` / `GT.opt_horizontal_padding(scale)`                                                                             | padding              | scale cell padding                                                                                                                    |
+|  [11]   | `GT.opt_table_outline(style, width, color)`                                                                                                       | outline              | draw a table outline                                                                                                                  |
+|  [12]   | `GT.opt_footnote_marks(marks='numbers')`                                                                                                          | footnote marks       | choose the footnote mark sequence (`'numbers'`, `letters()`, symbols)                                                                 |
+|  [13]   | `GT.opt_css(css, add, allow_duplicates)`                                                                                                          | raw CSS              | inject raw CSS at the table level                                                                                                     |
+|  [14]   | `GT.tab_options(**kwargs)`                                                                                                                        | theme options        | the low-level per-keyword theme surface beneath the `opt_*` rows (incl. `quarto_disable_processing`)                                  |
+|  [15]   | `GT.render(context: str) -> str`                                                                                                                  | HTML render          | the core HTML renderer keyed by `context` (`'html'`); `as_raw_html` wraps it                                                          |
+|  [16]   | `GT.as_raw_html(inline_css=False, make_page=False, all_important=False) -> str`                                                                   | HTML emit            | render the table as an HTML string; `inline_css` for email-safe markup                                                                |
+|  [17]   | `GT.as_latex(use_longtable=False, tbl_pos=None) -> str`                                                                                           | LaTeX emit           | render the table as a LaTeX string                                                                                                    |
+|  [18]   | `GT.write_raw_html(filename, encoding='utf-8', inline_css=False, newline=None, make_page=False, all_important=False) -> None`                     | HTML file            | write the HTML rendering to a file                                                                                                    |
+|  [19]   | `GT.save(file, selector='table', scale=1.0, expand=5, web_driver='chrome', window_size=(6000,6000), debug_port=None, encoding='utf-8') -> GTSelf` | file export          | export to PNG/PDF/SVG via a headless `WebDrivers` (chrome/safari/firefox/edge) or a `webdriver.Remote`; returns `GTSelf` for chaining |
+|  [20]   | `GT.show(target='auto')`                                                                                                                          | interactive show     | display in notebook or browser (`'auto'`/`'notebook'`/`'browser'`)                                                                    |
+|  [21]   | `GT.pipe(func, *args, **kwargs)`                                                                                                                  | pipe                 | thread the `GT` through a `GT -> GT` function                                                                                         |
+|  [22]   | `GT.from_data(data, rowname_col, groupname_col, auto_align=True, id, locale)`                                                                     | builder (functional) | the function-style constructor mirroring `GT(...)` for pipeline-first authoring                                                       |
+|  [23]   | `GT.with_id(id)` / `GT.with_locale(locale)`                                                                                                       | identity             | set the table id or locale after construction                                                                                         |
+|  [24]   | `GT.summary_rows(*, fns, fmt, columns, groups, side='bottom', missing_text='---')`                                                                | group summary        | aggregate rows per row-group (the `groups` axis); `fns` keyword-only, a non-`None` `columns` raises `NotImplementedError`             |
+|  [25]   | `GT.text_transform(locations, fn)`                                                                                                                | cell transform       | apply a `str -> str` function to rendered cell text at `loc.*`                                                                        |
+|  [26]   | `GT.text_case_when(*cases, default, locations)`                                                                                                   | cell transform       | rewrite cell text by `(predicate, replacement)` cases                                                                                 |
+|  [27]   | `GT.text_case_match(*cases, default, replace='all', locations)`                                                                                   | cell transform       | rewrite cell text by `(match, replacement)` cases (`match` is `str \| list[str]`, `replace` ∈ `{'all','partial'}`)                    |
+|  [28]   | `GT.text_replace(pattern, replacement, locations)`                                                                                                | cell transform       | substring/regex replacement over cell text                                                                                            |
+|  [29]   | `GT.gtsave(file, selector='table', expand=5, zoom=2.0, delay=0.2, vwidth=992, vheight=744) -> GT`                                                 | static image         | the alternate static-image saver (distinct kwargs from `save`)                                                                        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -2,16 +2,16 @@
 
 The browser boot plane: one `BrowserRuntime.runMain` call boots the document — a second boot in the same document is the named defect, and the decode-worker entry is its own thread's boot under the same law — and `AppSpec` is the budget VALUE every app constructs before anything runs: the core `AppIdentity` it boots as, the feed rows it drives, and the numeric ceilings the folder's layer factories consume at composition. A host that calls in repeatedly — the view atom bridge, a web-component mount, a foreign SDK callback registry — holds the one `ManagedRuntime` handle minted beside the boot over the same layer references and one shared `Layer.MemoMap`, so the document graph and the call-in graph hold the same acquisitions and a per-call graph rebuild is unspellable. The page also owns the ambient host-signal plane — connectivity, visibility, network profile, and permission state live in exactly one owned cell or feed advanced only by its owned event fold, so every consumer reads the cell and never the navigator — and the Web-API capability roster (`Clipboard`, `Geolocation`, `Permissions`) the root merges so `ui`-declared ports resolve to platform Layers at composition. The render posture is law here: client-rendered PWA plus build-time prerender rows own the SEO surface, `Boot.hydrated` hands the prerendered document to the app's mount, and a streaming-SSR server runtime is the named non-goal. The module is `runtime/src/browser/boot.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]     |
-| :-----: | :---------------- | :------------------------------------------------------------------------- | :----------- |
-|  [01]   | `BUDGET_VALUE`    | the `AppSpec` shape — identity, feed rows, ceilings                        | `AppSpec`    |
-|  [02]   | `SINGLE_BOOT`     | the one `runMain` seam, the spec Tag, the call-in handle, the hydration read | `Boot`       |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                        | [PUBLIC]     |
+| :-----: | :---------------- | :---------------------------------------------------------------------------- | :----------- |
+|  [01]   | `BUDGET_VALUE`    | the `AppSpec` shape — identity, feed rows, ceilings                           | `AppSpec`    |
+|  [02]   | `SINGLE_BOOT`     | the one `runMain` seam, the spec Tag, the call-in handle, the hydration read  | `Boot`       |
 |  [03]   | `SIGNAL_CELLS`    | the seeded cells, their owned folds, the derived edges, wake, permission feed | `Connect`    |
-|  [04]   | `CAPABILITY_ROWS` | the Web-API service roster the root merges                                 | `Capability` |
+|  [04]   | `CAPABILITY_ROWS` | the Web-API service roster the root merges                                    | `Capability` |
 
-## [2]-[BUDGET_VALUE]
+## [02]-[BUDGET_VALUE]
 
 [BUDGET_VALUE]:
 - Owner: `AppSpec`, one `Schema.Class` — `identity` (the core `AppIdentity` composed as a field at full depth, so every identity dimension — app key, tenancy, namespace, build, instance, host fingerprint, environment, ring, region — arrives proven), `feeds` (the app's feed rows: a name plus the `net/client` lane it dials on — the budget is countable, named, and lane-typed), and `ceilings` (the numeric budget the composition root threads into factories: `workers` into `fetch#WIRE_PROTOCOL`'s pool layer, `settle` into `route#ADMISSION_FOLD`'s guard, `outbox` as the soft depth `shell#REPLAY_DRAIN` honors).
@@ -57,7 +57,7 @@ declare namespace AppSpec {
 }
 ```
 
-## [3]-[SINGLE_BOOT]
+## [03]-[SINGLE_BOOT]
 
 [SINGLE_BOOT]:
 - Owner: `Boot`, one `Context.Tag` class — the Tag itself is the spec slot, so a service that earns a budget read writes `yield* Boot` with zero second hop; `Boot.main(spec, root, app)`, the one `BrowserRuntime.runMain` seam riding it as a static: the app effect annotated with the identity stamp, the spec provided beneath the app-selected root, and the requirement channel pinned to `never` at this line — an unwired Tag fails here at compile time, the wiring proof; `Boot.handle(spec, root)`, the `ManagedRuntime` the imperative call-in seams hold; `Boot.hydrated`, the prerender handoff read.
@@ -96,7 +96,7 @@ class Boot extends Context.Tag("runtime/browser/AppSpec")<Boot, AppSpec>() {
 }
 ```
 
-## [4]-[SIGNAL_CELLS]
+## [04]-[SIGNAL_CELLS]
 
 [SIGNAL_CELLS]:
 - Owner: `Connect`, one scoped `Effect.Service` — `online: SubscriptionRef<boolean>` seeded from `navigator.onLine` and advanced only by the merged `online`/`offline` window-event fold; `visible` seeded from `document.visibilityState` and advanced only by the `visibilitychange` fold; `profile: SubscriptionRef<Option<Connect.Profile>>` seeded and advanced from the experimental `navigator.connection` surface, `Option.none` where the host ships none; the derived edges — `redials` (the offline-to-online rising edge `shell#REPLAY_DRAIN` drains on), `hidden` (the visibility falling edge flush folds fire on); `wake(tag)`, the `SyncManager` background-wake registration; `granted(name)`, the permission-state feed over the native `PermissionStatus` change target.
@@ -207,7 +207,7 @@ class Connect extends Effect.Service<Connect>()("runtime/browser/Connect", {
 }) {}
 ```
 
-## [5]-[CAPABILITY_ROWS]
+## [05]-[CAPABILITY_ROWS]
 
 [CAPABILITY_ROWS]:
 - Owner: `Capability`, the Web-API service roster — one merged Layer satisfying the `Clipboard.Clipboard`, `Geolocation.Geolocation`, and `Permissions.Permissions` Tags with the platform's browser implementations, composed into the app root beside the transport rows `fetch#BINDING_ROWS` carries.

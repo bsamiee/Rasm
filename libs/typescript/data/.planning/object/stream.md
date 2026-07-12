@@ -2,17 +2,17 @@
 
 The ONE resumable content-addressed rail: large payloads move in bounded chunks, resume after any failure at verified offsets, and prove integrity end to end with a single identity from first byte to durable key. Ingress is pull-based Web Streams lifted BYOB into `Stream<Uint8Array>`; the chunk stage is content-defined cutting (FastCDC — an owned wasm surface over the maintained Rust crate, because every published JS binding is stale) minting per-chunk sub-keys that are children of the object `ContentKey` under the same digest algebra; the identity fold is the core digest session absorbed chunk by chunk in bounded memory, so the client-computed address, the store-verified checksum, and the core key are one value. Resume is the tus protocol — `@tus/server` over `@tus/s3-store` maps `Upload-Offset` onto S3 multipart parts into a staging band — and finalize re-homes staged bytes onto their content key through the object plane's conditional legs, where 412 closes the loop as the idempotent already-present noop. Reads mirror ingest: ranged streaming with structural staleness immunity, because a content key cannot change under a resumed range.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                          |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                             |
 | :-----: | :-------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `BYTE_INGRESS`  | the BYOB lift, the bounded form-data seam, backpressure law                          |
-|  [02]   | `CHUNK_STAGE`   | the owned FastCDC wasm surface, chunk receipts, sub-key identity                     |
-|  [03]   | `IDENTITY_FOLD` | the incremental digest session, the one-identity law, checkpointed resume state      |
-|  [04]   | `RESUME_RAIL`   | the tus server over the S3 staging store, hooks, finalize re-home, protocol growth   |
-|  [05]   | `RANGE_READS`   | ranged resumable reads over content and staging bands                                |
+|  [01]   | `BYTE_INGRESS`  | the BYOB lift, the bounded form-data seam, backpressure law                        |
+|  [02]   | `CHUNK_STAGE`   | the owned FastCDC wasm surface, chunk receipts, sub-key identity                   |
+|  [03]   | `IDENTITY_FOLD` | the incremental digest session, the one-identity law, checkpointed resume state    |
+|  [04]   | `RESUME_RAIL`   | the tus server over the S3 staging store, hooks, finalize re-home, protocol growth |
+|  [05]   | `RANGE_READS`   | ranged resumable reads over content and staging bands                              |
 
-## [2]-[BYTE_INGRESS]
+## [02]-[BYTE_INGRESS]
 
 - Owner: the ingress lifts — `Rail.bytes` over any `ReadableStream<Uint8Array>` through the BYOB reader, and `Rail.form(schema)` — the typed and bounded multipart seam for direct HTTP ingest — one pull geometry whose demand propagates upstream so a fast producer throttles to the slow consumer with order and completeness preserved.
 - Packages: `effect` (`Stream.fromReadableStreamByob`, `Stream.fromReadableStream`); `@effect/platform` (`Multipart` — `schemaPersisted`, `withLimits`, `toPersisted`, `HttpApiSchema.Multipart` typed endpoints).
@@ -49,7 +49,7 @@ const _form = <A, I extends Partial<Multipart.Persisted>>(shape: Schema.Schema<A
     )
 ```
 
-## [3]-[CHUNK_STAGE]
+## [03]-[CHUNK_STAGE]
 
 - Owner: the content-defined chunk stage — `Rail.chunked`, a stream transform re-cutting the byte flow at Gear-hash boundaries so an insert or delete re-aligns cut points and versioned payloads dedup maximally — and the `ChunkMark` receipt carrying each chunk's span and sub-key.
 - Packages: the owned FastCDC wasm surface (a `wasm-pack` build of the maintained Rust `fastcdc` crate, normalized-chunking v2020, held as a folder-owned artifact behind a capability Tag per the wasm boundary law — every published JS/wasm npm binding is years stale and refused); `@rasm/ts/core` (`Digest` — the sub-key mint); `effect` (`Stream`, `Chunk`).
@@ -89,7 +89,7 @@ const _chunked = (bytes: Stream.Stream<Uint8Array, ObjectFault>, policy: Rail.Cu
   )
 ```
 
-## [4]-[IDENTITY_FOLD]
+## [04]-[IDENTITY_FOLD]
 
 - Owner: `Rail.identity` — the incremental fold from a chunked flow to the object `ContentKey` in bounded memory — and the checkpointed resume state: the digest session's saved snapshot travels with the tus offset, so a resumed upload continues its identity fold from the verified byte instead of re-reading the prefix.
 - Packages: `@rasm/ts/core` (`Digest.session`, `Digest.absorb`, `Digest.finish` — the checkpoint algebra over one compiled hasher); `effect` (`Stream`, `Effect`).
@@ -118,7 +118,7 @@ const _identity = (flow: Stream.Stream<{ readonly chunk: Uint8Array; readonly ma
   })
 ```
 
-## [5]-[RESUME_RAIL]
+## [05]-[RESUME_RAIL]
 
 - Owner: the tus assembly — the staging `S3Store`, the `Server` with its hook seams, the finalize re-home, and the staging groom — plus the protocol growth row: the IETF resumable-upload draft swaps in on RFC with identical offset/complete semantics and zero store or hook edits.
 - Packages: `@tus/server` (`Server`, `EVENTS`, `MemoryLocker`); `@tus/s3-store` (`S3Store`); `@aws-sdk/lib-storage` (through `object/store.md`'s `putKeyed` — the streaming conditional re-home); `effect` (`Effect`, `Layer`, `Schedule`).
@@ -223,7 +223,7 @@ const _rail = (spec: Rail.Spec) =>
   })
 ```
 
-## [6]-[RANGE_READS]
+## [06]-[RANGE_READS]
 
 - Owner: the resumable read family — `Rail.range(key, span)` streaming a byte window of a content object, and the staging-band probe pair that resumes an interrupted serve.
 - Packages: `@aws-sdk/client-s3` (`GetObjectCommand` `Range`/`PartNumber`, `HeadObjectCommand`); `effect` (`Stream`).

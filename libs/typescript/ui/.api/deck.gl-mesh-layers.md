@@ -18,24 +18,24 @@
 [TYPE_SCOPE]: two primitive `Layer` subclasses instancing a 3D asset — one arbitrary mesh (`SimpleMeshLayer`) or a full glTF scenegraph (`ScenegraphLayer`) — over N anchor positions; both are generic over the row type `DataT`.
 - `SimpleMeshLayer` uploads one `mesh` and draws it per data object, mixing a per-object `getColor` with vertex colors (or a `texture`), with `wireframe` + a PBR `material`; `ScenegraphLayer` resolves a `scenegraph` glTF, walks its node hierarchy, and drives per-node `_animations` under a `_lighting: 'flat'|'pbr'` path with optional `_imageBasedLightingEnvironment`. `ScenegraphLayer.onFirstDraw` is the visibility signal `Tile3DLayer` reads to safely deselect a parent tile mid-transition.
 
-| [INDEX] | [SYMBOL] | [DISTINCTIVE_SURFACE] | [CONSUMER_BOUNDARY] |
-|:-----: |:------- |:-------------------- |:-------------------- |
-| [01] | `SimpleMeshLayer<DataT>` | `mesh: string\|Mesh\|Promise<Mesh>\|null` (`Mesh = Geometry\|{attributes:MeshAttributes,indices?}\|MeshAttributes`), `texture?`, `textureParameters?: SamplerProps`, `getColor`, `wireframe`, `material`, `sizeScale`, `_instanced` | one arbitrary mesh instanced N ways; BIM element extrusions, markers, `Tile3DLayer` mesh tiles |
-| [02] | `ScenegraphLayer<DataT>` | `scenegraph` (glTF url/parsed), `getScene?`, `getAnimator?`, `_animations`, `_lighting:'flat'\|'pbr'`, `_imageBasedLightingEnvironment: PBREnvironment\|fn`, `onFirstDraw`, `sizeScale`, `sizeMinPixels`/`sizeMaxPixels` | a full glTF scene instanced N ways; `Tile3DLayer` scenegraph tiles, animated 3D assets |
+| [INDEX] | [SYMBOL]                 | [DISTINCTIVE_SURFACE]                                                                                                                                                                                                               | [CONSUMER_BOUNDARY]                                                                            |
+| :-----: | :----------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `SimpleMeshLayer<DataT>` | `mesh: string\|Mesh\|Promise<Mesh>\|null` (`Mesh = Geometry\|{attributes:MeshAttributes,indices?}\|MeshAttributes`), `texture?`, `textureParameters?: SamplerProps`, `getColor`, `wireframe`, `material`, `sizeScale`, `_instanced` | one arbitrary mesh instanced N ways; BIM element extrusions, markers, `Tile3DLayer` mesh tiles |
+|  [02]   | `ScenegraphLayer<DataT>` | `scenegraph` (glTF url/parsed), `getScene?`, `getAnimator?`, `_animations`, `_lighting:'flat'\|'pbr'`, `_imageBasedLightingEnvironment: PBREnvironment\|fn`, `onFirstDraw`, `sizeScale`, `sizeMinPixels`/`sizeMaxPixels`            | a full glTF scene instanced N ways; `Tile3DLayer` scenegraph tiles, animated 3D assets         |
 
 ## [03]-[INSTANCE_TRANSFORM_FAMILY]
 
 [TYPE_SCOPE]: the shared placement axis both layers inherit — one anchor accessor plus an orientation/scale/translation triple (or a single matrix override) and a size multiplier; identical semantics across both layers, never re-derived per layer.
 - `getTransformMatrix` is mutually exclusive with the triple: when supplied it overrides `getOrientation`/`getScale`/`getTranslation`. Each accessor is a core `Accessor<In,Out>` (uniform value or per-object function) memoized by `updateTriggers` exactly like any layer accessor.
 
-| [INDEX] | [SYMBOL] | [TYPE] | [ROLE] |
-|:-----: |:------- |:----- |:----- |
-| [01] | `getPosition` | `Accessor<DataT, Position>` | the world anchor each instance is placed at |
-| [02] | `getOrientation` | `Accessor<DataT, [pitch,yaw,roll]>` (degrees, Euler) | per-instance rotation |
-| [03] | `getScale` / `getTranslation` | `Accessor<DataT, [x,y,z]>` (translation in meters) | per-instance scale + offset from anchor |
-| [04] | `getTransformMatrix` | `Accessor<DataT, number[]>` (4×4) | full transform; OVERRIDES orientation/scale/translation |
-| [05] | `sizeScale` | `number` (default 1) | global multiplier over every instance |
-| [06] | `getColor` | `Accessor<DataT, Color>` | per-instance tint mixed with vertex colors (ignored when `texture` set) |
+| [INDEX] | [SYMBOL]                      | [TYPE]                                               | [ROLE]                                                                  |
+| :-----: | :---------------------------- | :--------------------------------------------------- | :---------------------------------------------------------------------- |
+|  [01]   | `getPosition`                 | `Accessor<DataT, Position>`                          | the world anchor each instance is placed at                             |
+|  [02]   | `getOrientation`              | `Accessor<DataT, [pitch,yaw,roll]>` (degrees, Euler) | per-instance rotation                                                   |
+|  [03]   | `getScale` / `getTranslation` | `Accessor<DataT, [x,y,z]>` (translation in meters)   | per-instance scale + offset from anchor                                 |
+|  [04]   | `getTransformMatrix`          | `Accessor<DataT, number[]>` (4×4)                    | full transform; OVERRIDES orientation/scale/translation                 |
+|  [05]   | `sizeScale`                   | `number` (default 1)                                 | global multiplier over every instance                                   |
+|  [06]   | `getColor`                    | `Accessor<DataT, Color>`                             | per-instance tint mixed with vertex colors (ignored when `texture` set) |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

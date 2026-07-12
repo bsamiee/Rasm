@@ -2,16 +2,16 @@
 
 The reassembly rail of the interchange plane: multi-part payloads from the compute runtime arrive as content-keyed, ordinal-positioned frames; reassembly is one keyed Mealy fold over the frame stream under the `value` ingress budget — frame count by `Stream.take`, assembled bytes by a running per-artifact ceiling — the held bands stream-verify through the one `Parity` combinator before the join allocates, the proven octets join in a single allocation, and the verified receipt travels beside its bytes. Three planes ride the rail: `ArtifactFrame`, the format-agnostic reassembly-and-verify fold; `GeometryFrame`, the GLB control plane — payload envelope, encoding vocabulary, tensor rows, the zero-copy typed-array windows over verified octets, and the `joined` content-key rendezvous marrying envelopes to their verified artifacts; `Residency`, the manifest-replace/delta-evolve protocol whose polymorphic ledger fold IS the fetch plan the runtime transport schedules against. Every coordinate is a verbatim `ContentKey`, so the ledger, the artifact receipts, and the viewer scene keys speak one identity. The module is `core/src/interchange/frame.ts`; a frame envelope axis is one field mirroring the C# emit, a new encoding or residency state is one literal row, and a new tensor dtype is one vocabulary row.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                     | [PUBLIC]        |
-| :-----: | :---------------- | :------------------------------------------------------------------------- | :-------------- |
-|  [01]   | `FRAME_PROTOCOL`  | the frame shape, the budgeted keyed reassembly fold, sequence evidence      | `ArtifactFrame` |
-|  [02]   | `KEY_VERIFY`      | the single-allocation join, the delegated verify, the artifact receipt     | `ArtifactFrame` |
-|  [03]   | `GEOMETRY_PLANE`  | the GLB envelope, encoding and tensor vocabularies, zero-copy views        | `GeometryFrame` |
-|  [04]   | `RESIDENCY_LEDGER`| the state vocabulary, manifest/delta envelope, the one ledger fold         | `Residency`     |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                 | [PUBLIC]        |
+| :-----: | :----------------- | :--------------------------------------------------------------------- | :-------------- |
+|  [01]   | `FRAME_PROTOCOL`   | the frame shape, the budgeted keyed reassembly fold, sequence evidence | `ArtifactFrame` |
+|  [02]   | `KEY_VERIFY`       | the single-allocation join, the delegated verify, the artifact receipt | `ArtifactFrame` |
+|  [03]   | `GEOMETRY_PLANE`   | the GLB envelope, encoding and tensor vocabularies, zero-copy views    | `GeometryFrame` |
+|  [04]   | `RESIDENCY_LEDGER` | the state vocabulary, manifest/delta envelope, the one ledger fold     | `Residency`     |
 
-## [2]-[FRAME_PROTOCOL]
+## [02]-[FRAME_PROTOCOL]
 
 [FRAME_PROTOCOL]:
 - Owner: `Frame`, the decoded frame class — declared artifact key, dense ordinal, total count, held band — and `_gathered`, the keyed Mealy fold threading per-artifact assembly state through the stream: completion is `ordinal + 1 === total`, interleaving across artifacts is legal because state keys by artifact, and every abnormality emits typed evidence through the plane's shared vocabulary.
@@ -91,7 +91,7 @@ const _gathered = (budget: Ingress.Shape) => (state: _State, frame: Frame): read
   })
 ```
 
-## [3]-[KEY_VERIFY]
+## [03]-[KEY_VERIFY]
 
 [KEY_VERIFY]:
 - Owner: `ArtifactFrame`, the assembled owner — the marked-kernel byte join, the delegated verify, and `reassembled`, the one stream surface turning a budgeted frame feed into verified artifacts; `Artifact` is the receipt class carrying key, extent, and frame count beside the assembled octets.
@@ -156,7 +156,7 @@ const ArtifactFrame: {
 }
 ```
 
-## [4]-[GEOMETRY_PLANE]
+## [04]-[GEOMETRY_PLANE]
 
 [GEOMETRY_PLANE]:
 - Owner: `GeometryFrame`, the GLB control plane — mesh content key, LOD ordinal, the closed `encoding` vocabulary (`glb`, `draco`, `meshopt`), the tensor row set (semantic, dtype, shape, offset, stride), the artifact coordinate binding the envelope to its verified octets, and `joined`, the content-key rendezvous fold; `_views` is the dtype-to-constructor vocabulary the `view` and `extent` statics read.
@@ -255,7 +255,7 @@ declare namespace GeometryFrame {
 }
 ```
 
-## [5]-[RESIDENCY_LEDGER]
+## [05]-[RESIDENCY_LEDGER]
 
 [RESIDENCY_LEDGER]:
 - Owner: `Residency`, the residency protocol — the closed `state` vocabulary (`resident`, `pending`, `evicted`), the `Manifest` class (mesh rows keyed by content key with LOD and extent), the `Delta` class (one row's transition, declared over `_Row.fields` so transition and ledger row are one field record), the shape-discriminated envelope union both arrive on — the two arms share no field record, so the union decode selects structurally with no `kind` column — and `folded`, the one polymorphic ledger fold discriminating on the arrival value: a `Manifest` REPLACES the ledger whole, a `Delta` evolves it.

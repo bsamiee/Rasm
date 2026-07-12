@@ -2,15 +2,15 @@
 
 Leased-secret custody: one `DopplerSDK` client built behind a `Layer.scoped`, of which exactly four surfaces are admitted — `secrets.download` (the leased env-set fetch), `secrets.get`/`secrets.names` (the targeted single-secret read and the name census a partial refresh rides), `dynamicSecrets.issueLease`/`revokeLease` (the explicit dynamic-lease lifecycle), and `auth.me`/`auth.revoke` (the boot liveness probe and the credential-rotation retirement). The projects/configs/integrations administration roster is out of scope: a runtime folder that reached for it re-implements Doppler administration, which belongs to the deploy plane. TTL leasing is Doppler-side (`dynamicSecretsTtlSec`): the custodian refetches on a spaced cadence under the lease window, with an inner jittered-exponential retry gated on `FaultClass.retryable` re-driving a transient fault inside the tick and a per-call deadline bounding every SDK promise; an `effect` `Cache` collapses concurrent refetches of the one `(project, config)` coordinate to a single in-flight download. Rotation republishes through a `SubscriptionRef` — an observed set change increments `security_secret_rotation` and writes the audit log line — and `changes` is the feed the composition root's `Reloadable.auto` row consumes to rebuild `Jwt.Default(keyset)` without a graph teardown. Every fetched value is `Redacted` from the first decode, the `DOPPLER_TOKEN` is a `Config.redacted`, and fetched key material leaves this page only as the core `Credential` landing — `credential` folds a named PEM/JWK value into the sealed carrier `crypt/sign`'s `Material.admit` terminates, so the folder has one admission path for wire-carried and fetched keys alike. `SecretFault` instantiates the folder fault shape with the guard pair closed in both directions: the 39 `BaseHTTPError` status subclasses collapse to one reason family whose rows carry the core `FaultClass` kind.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                              | [PUBLIC]      |
-| :-----: | :---------------- | :-------------------------------------------------------------------- | :------------ |
-|  [01]   | `SECRET_FAULT`    | the `statusCode`-folded reason family over the problem-detail carrier | `SecretFault` |
-|  [02]   | `LEASED_CUSTODY`  | the scoped client, rotation feed, partial refresh, lease lifecycle    | `Secret`      |
-|  [03]   | `KEY_HANDOFF`     | the fetched-material fold into the core `Credential` landing          | `Secret`      |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                | [PUBLIC]      |
+| :-----: | :--------------- | :-------------------------------------------------------------------- | :------------ |
+|  [01]   | `SECRET_FAULT`   | the `statusCode`-folded reason family over the problem-detail carrier | `SecretFault` |
+|  [02]   | `LEASED_CUSTODY` | the scoped client, rotation feed, partial refresh, lease lifecycle    | `Secret`      |
+|  [03]   | `KEY_HANDOFF`    | the fetched-material fold into the core `Credential` landing          | `Secret`      |
 
-## [2]-[SECRET_FAULT]
+## [02]-[SECRET_FAULT]
 
 [SECRET_FAULT]:
 - Owner: `SecretFault` — the folder fault shape instantiated over the Doppler axis: `credential` (401/403 — the service token is dead), `missing` (404 or an absent name), `rateLimit` (429), `transient` (5xx, network throws, and a per-call deadline), `lease` (lease issue/revoke refused). Rows carry the core `FaultClass` kind; the refresh loop's inner retry and the compiled branch `Budget` schedules gate on `FaultClass.retryable`, so the `rateLimit`/`transient` arms re-drive and the `credential` arm never does.
@@ -74,7 +74,7 @@ const _set = (raw: unknown): Effect.Effect<SecretSet, SecretFault> =>
   )
 ```
 
-## [3]-[LEASED_CUSTODY]
+## [03]-[LEASED_CUSTODY]
 
 [LEASED_CUSTODY]:
 - Owner: `Secret` — a `Layer.scoped` service holding one client, publishing the current set through a `SubscriptionRef`, refreshing on a spaced cadence under the lease window, and revoking every issued lease in an `addFinalizer`. `get` reads the current cell; `probe` is the targeted single-secret read that refreshes one name without a full download; `names` is the census a partial-refresh planner diffs against the held set; `changes` is the rotation feed; `lease` issues and registers a revocable handle; `revoke` is the immediate arm; `retire` calls `auth.revoke` on credential rotation so a superseded service token dies server-side.
@@ -164,7 +164,7 @@ class Secret extends Effect.Service<Secret>()("security/crypt/Secret", {
 }) {}
 ```
 
-## [4]-[KEY_HANDOFF]
+## [04]-[KEY_HANDOFF]
 
 [KEY_HANDOFF]:
 - Owner: `credential` — the fold from a named fetched value into the core `Credential` landing: the PEM/JWK string stays `Redacted`, the `fingerprint` is `Crypto.fingerprint` over the sealed material, and the validity window spans the current instant to the configured rotation horizon. The result is the exact carrier `crypt/sign`'s `Material.admit` terminates, so fetched and wire-carried keys share one admission path and `Credential.rotated` compares sealed across refreshes.

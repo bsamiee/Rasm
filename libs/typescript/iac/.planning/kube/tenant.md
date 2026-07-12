@@ -2,14 +2,14 @@
 
 Tenant isolation on the `selfhosted-k8s` arm as one tier over one dispatch: `Tenants` realizes the spec's tenancy mode through the `_MODES` handler record — `namespace` installs Capsule once and mints one typed `Tenant` CR per tenant slug (policy-governed soft isolation: RBAC, `NetworkPolicy`, and `ResourceQuota` propagation over vanilla namespaces at the highest density), `vcluster` realizes one virtual control plane per tenant (hard isolation for the untrusted or external tenant that needs its own API surface, CRDs, and version skew) — so escalating a tenant's isolation is a spec delta the record interprets, never a second program body. The Capsule classes are committed `crd2pulumi` output; the vcluster row is one chart per tenant. The cross-stack seam rides the same page: `Tenants.platform` wraps `StackReference` so a tenant stack reads the platform stack's published planes (`getOutput`/`requireOutput` over the same `StackOutputs` channel vocabulary), which is how a tenant-per-stack estate composes against one shared platform stack without either importing the other. The data-plane escalation this page's modes pair with is `kube/data.md`'s `_TENANCY` record (`shared-rls`/`db-per-tenant`/`cluster-per-tenant`), tenant secret access is `operate/secret.md`'s `_ACCESS` rows, tenant boards are `operate/observe.md`'s per-tenant organizations, and tenant vanity hostnames are `kube/traffic.md`'s `vanity` rows — one tenancy axis, five owners reading it. The module is `iac/src/kube/tenant.ts`; a new isolation mode is one `_MODES` row, a new tenant is one spec slug.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                        | [PUBLIC]  |
-| :-----: | :--------------- | :-------------------------------------------------------------- | :-------- |
-|  [01]   | `ISOLATION_MODES`| the mode dispatch: Capsule tenancy rows, vcluster planes        | `Tenants` |
-|  [02]   | `PLATFORM_SEAM`  | the cross-stack read: platform outputs into tenant programs     | `Tenants` |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                      | [PUBLIC]  |
+| :-----: | :---------------- | :---------------------------------------------------------- | :-------- |
+|  [01]   | `ISOLATION_MODES` | the mode dispatch: Capsule tenancy rows, vcluster planes    | `Tenants` |
+|  [02]   | `PLATFORM_SEAM`   | the cross-stack read: platform outputs into tenant programs | `Tenants` |
 
-## [2]-[ISOLATION_MODES]
+## [02]-[ISOLATION_MODES]
 
 [ISOLATION_MODES]:
 - Owner: `Tenants` — the `_MODES` record keyed by the escalated tenancy modes (`single` never reaches this tier; the arm gates construction), exhaustive by mapped annotation so a new mode literal in the spec fails compilation here until its row lands; the `namespace` row installs the Capsule chart once (`skipCrds: false`) and folds one `Tenant` CR per slug — owner binding to the tenant's group identity, a namespace quota, and Capsule's propagated `NetworkPolicy`/`ResourceQuota` governance riding the CR's typed spec; the `vcluster` row mints one namespace per tenant and realizes one `helm.v4.Chart` inside it, each a full virtual control plane whose kubeconfig egresses through the chart's own secret convention; both rows receive the tier's option fold as a scope callback, so ownership threads without a public option surface.
@@ -92,7 +92,7 @@ class Tenants extends Tier {
 }
 ```
 
-## [3]-[PLATFORM_SEAM]
+## [03]-[PLATFORM_SEAM]
 
 [PLATFORM_SEAM]:
 - Owner: `Tenants.platform` — the one `StackReference` wrap for the multi-stack estate: a tenant stack's program calls `Tenants.platform(qualified)` and reads the platform stack's published planes through `output(channel)` (`Option`-shaped absence) or `require(channel)` (fail-loud), where `channel` is the same `<plane>.<field>` spelling `StackOutputs.pairsOf` mints — the cross-stack vocabulary and the env vocabulary are one vocabulary, so a platform rename breaks both consumers at one spelling.

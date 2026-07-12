@@ -184,12 +184,12 @@ public static class Authority {
 }
 ```
 
-| [INDEX] | [POLICY]              | [VALUE]                                  | [BINDING]                                                  |
-| :-----: | :-------------------- | :---------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | authority model       | `GrantSet` frozen-set algebra            | `[Flags]` enum is the deleted form; `Admin` value-derived superuser |
-|  [02]   | hash boundary         | `[SetEquality]` hashes to 0              | a `GrantSet` never keys a map; subject strings key the fold |
-|  [03]   | precedence            | deny-over-allow, `Without` last          | explicit deny defeats every inherited/role allow           |
-|  [04]   | inheritance           | `AclScope.Parent` ladder invariant       | mis-stacked chain → `ScopeMismatch`, never a silent grant  |
-|  [05]   | branch gate           | same `GrantSet` under `AclScope.Branch`  | `Version/commits#Movable` composes `Admit`; no second enum |
-|  [06]   | audit diff            | `Shift` over `Inequalities` Added/Removed | typed `AclShift` rows into the attested ledger            |
-|  [07]   | fault band            | NONE — total algebra                     | store-tier failures rail `IdentityFault` 8340              |
+| [INDEX] | [POLICY]        | [VALUE]                                   | [BINDING]                                                           |
+| :-----: | :-------------- | :---------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | authority model | `GrantSet` frozen-set algebra             | `[Flags]` enum is the deleted form; `Admin` value-derived superuser |
+|  [02]   | hash boundary   | `[SetEquality]` hashes to 0               | a `GrantSet` never keys a map; subject strings key the fold         |
+|  [03]   | precedence      | deny-over-allow, `Without` last           | explicit deny defeats every inherited/role allow                    |
+|  [04]   | inheritance     | `AclScope.Parent` ladder invariant        | mis-stacked chain → `ScopeMismatch`, never a silent grant           |
+|  [05]   | branch gate     | same `GrantSet` under `AclScope.Branch`   | `Version/commits#Movable` composes `Admit`; no second enum          |
+|  [06]   | audit diff      | `Shift` over `Inequalities` Added/Removed | typed `AclShift` rows into the attested ledger                      |
+|  [07]   | fault band      | NONE — total algebra                      | store-tier failures rail `IdentityFault` 8340                       |

@@ -22,44 +22,44 @@
 
 `TOMLDocument` is the round-trip container `parse`/`document` mint — a `Container` subclass preserving the full source style. `Container` is the dict-like body owner shared by `TOMLDocument`, `Table`, and `InlineTable`; `OutOfOrderTableProxy` is the read-through view `Container.item(key)` returns when a table's sub-sections are split across the source (e.g. `[a]` … `[b]` … `[a.c]`) — `unwrap()` flattens it to one plain `dict`, so the lens `unwrap()` ingress never sees a non-dict where a table is expected. The `items` module carries the styled-value vocabulary: container items (`Table`/`AoT`/`Array`/`InlineTable`), scalar items (`Integer`/`Float`/`Bool`/`String`/`Date`/`Time`/`DateTime`), key items (`Key`/`SingleKey`/`DottedKey`), trivia (`Comment`/`Whitespace`/`Trivia`), and the `StringType`/`KeyType` style enums. Every styled value descends from `Item`; a programmatic edit mutates these in place so trivia survives.
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]    | [CAPABILITY]                                                                    |
-| :-----: | :-------------------------------- | :---------------- | :----------------------------------------------------------------------------- |
-|  [01]   | `TOMLDocument`                    | document root     | a parsed/built TOML document preserving style (a `Container` subclass)          |
-|  [02]   | `container.Container`             | body owner        | dict-like `body`/`add`/`append`/`remove`/`item`/`last_item`/`unwrap`/`as_string` shared by document and tables |
-|  [03]   | `container.OutOfOrderTableProxy`  | split-table view  | read-through proxy `Container.item(key)` returns for source-split table sections; `unwrap()` flattens to one `dict` |
-|  [04]   | `items.Item`                      | item base         | the base of every styled value (`trivia`/`value`/`unwrap`/`as_string`/`comment`/`indent`/`discriminant`) |
-|  [05]   | `items.Table`                     | table item        | a `[table]` preserving comments/order (`AbstractTable`; `append`/`indent`/`is_super_table`)     |
-|  [06]   | `items.AoT`                       | array-of-tables   | an `[[array]]` of tables (`body` list of `Table`, `insert`)                     |
-|  [07]   | `items.Array`                     | array item        | a styled array (`multiline`/`add_line`/`item`/`insert`/`clear`, multiline-capable) |
-|  [08]   | `items.InlineTable`               | inline table      | a `{ }` inline table (`AbstractTable`; `append`)                               |
-|  [09]   | `items.Integer/Float/Bool/String` | scalar items      | styled scalars preserving raw spelling; `String.from_raw(value, type_, escape)` / `String.type` |
-|  [10]   | `items.Date/Time/DateTime`        | temporal items    | styled RFC-3339 temporals subclassing `date`/`time`/`datetime`; `replace`/`astimezone` keep style |
-|  [11]   | `items.Key/SingleKey/DottedKey`   | key items         | styled bare/quoted/dotted keys; `is_dotted`/`is_multi`/`concat`/`as_string`     |
-|  [12]   | `items.Comment/Whitespace/Trivia` | trivia items      | comment, whitespace (`is_fixed`), and the per-item `Trivia(indent, comment_ws, comment, trail)` carrier |
-|  [13]   | `items.StringType` / `items.KeyType` | style enums    | `StringType.{SLB,SLL,MLB,MLL}` (single/multi-line basic/literal) with `select`/`toggle`/`is_multiline`; `KeyType.{Bare,Basic,Literal}` |
-|  [14]   | `items.Null`                      | absent marker     | the styled absent/removed-item sentinel                                         |
-|  [15]   | `items.CUSTOM_ENCODERS`           | encoder registry  | the runtime `list` of registered value encoders `item()` consults (typed by the `TYPE_CHECKING`-only `Encoder` protocol `(value, /) -> Item`) |
+| [INDEX] | [SYMBOL]                             | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                                                                  |
+| :-----: | :----------------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `TOMLDocument`                       | document root    | a parsed/built TOML document preserving style (a `Container` subclass)                                                                        |
+|  [02]   | `container.Container`                | body owner       | dict-like `body`/`add`/`append`/`remove`/`item`/`last_item`/`unwrap`/`as_string` shared by document and tables                                |
+|  [03]   | `container.OutOfOrderTableProxy`     | split-table view | read-through proxy `Container.item(key)` returns for source-split table sections; `unwrap()` flattens to one `dict`                           |
+|  [04]   | `items.Item`                         | item base        | the base of every styled value (`trivia`/`value`/`unwrap`/`as_string`/`comment`/`indent`/`discriminant`)                                      |
+|  [05]   | `items.Table`                        | table item       | a `[table]` preserving comments/order (`AbstractTable`; `append`/`indent`/`is_super_table`)                                                   |
+|  [06]   | `items.AoT`                          | array-of-tables  | an `[[array]]` of tables (`body` list of `Table`, `insert`)                                                                                   |
+|  [07]   | `items.Array`                        | array item       | a styled array (`multiline`/`add_line`/`item`/`insert`/`clear`, multiline-capable)                                                            |
+|  [08]   | `items.InlineTable`                  | inline table     | a `{ }` inline table (`AbstractTable`; `append`)                                                                                              |
+|  [09]   | `items.Integer/Float/Bool/String`    | scalar items     | styled scalars preserving raw spelling; `String.from_raw(value, type_, escape)` / `String.type`                                               |
+|  [10]   | `items.Date/Time/DateTime`           | temporal items   | styled RFC-3339 temporals subclassing `date`/`time`/`datetime`; `replace`/`astimezone` keep style                                             |
+|  [11]   | `items.Key/SingleKey/DottedKey`      | key items        | styled bare/quoted/dotted keys; `is_dotted`/`is_multi`/`concat`/`as_string`                                                                   |
+|  [12]   | `items.Comment/Whitespace/Trivia`    | trivia items     | comment, whitespace (`is_fixed`), and the per-item `Trivia(indent, comment_ws, comment, trail)` carrier                                       |
+|  [13]   | `items.StringType` / `items.KeyType` | style enums      | `StringType.{SLB,SLL,MLB,MLL}` (single/multi-line basic/literal) with `select`/`toggle`/`is_multiline`; `KeyType.{Bare,Basic,Literal}`        |
+|  [14]   | `items.Null`                         | absent marker    | the styled absent/removed-item sentinel                                                                                                       |
+|  [15]   | `items.CUSTOM_ENCODERS`              | encoder registry | the runtime `list` of registered value encoders `item()` consults (typed by the `TYPE_CHECKING`-only `Encoder` protocol `(value, /) -> Item`) |
 
 [PUBLIC_TYPE_SCOPE]: faults
 - rail: structured documents — `tomlkit.exceptions`
 
 `exceptions.TOMLKitError(Exception)` is the single root. `ParseError(ValueError, TOMLKitError)` is the malformed-source base carrying `line`/`col` and is the parent of every grammar fault. The container/convert faults descend from `TOMLKitError` directly: `NonExistentKey(KeyError, TOMLKitError)`, `KeyAlreadyPresent(TOMLKitError)`, `ConvertError(TypeError, ValueError, TOMLKitError)`, `InvalidStringError(ValueError, TOMLKitError)`. One `except TOMLKitError` catches all; `except ParseError` catches only grammar faults and gives positional `line`/`col`.
 
-| [INDEX] | [SYMBOL]                                     | [PACKAGE_ROLE]  | [CAPABILITY]                                              |
-| :-----: | :------------------------------------------- | :-------------- | :------------------------------------------------------- |
-|  [01]   | `exceptions.TOMLKitError`                    | engine root     | base of every tomlkit failure (`Exception`)              |
-|  [02]   | `exceptions.ParseError`                      | parse base      | `ValueError + TOMLKitError`; malformed TOML carrying `line`/`col` |
-|  [03]   | `exceptions.UnexpectedCharError`             | parse fault     | unexpected character during parse                        |
-|  [04]   | `exceptions.UnexpectedEofError`              | parse fault     | premature end of source                                  |
-|  [05]   | `exceptions.EmptyKeyError` / `EmptyTableNameError` | parse fault | empty key / empty table name                         |
-|  [06]   | `exceptions.InvalidNumberError` / `InvalidNumberOrDateError` | parse fault | malformed number / number-or-date literal     |
-|  [07]   | `exceptions.InvalidDateError` / `InvalidTimeError` / `InvalidDateTimeError` | parse fault | malformed temporal literal               |
-|  [08]   | `exceptions.InvalidCharInStringError` / `InvalidControlChar` / `InvalidUnicodeValueError` | parse fault | malformed string content       |
-|  [09]   | `exceptions.MixedArrayTypesError`            | parse fault     | heterogeneous array element types                        |
-|  [10]   | `exceptions.NonExistentKey`                  | access fault    | `KeyError + TOMLKitError`; missing key on read           |
-|  [11]   | `exceptions.KeyAlreadyPresent`               | edit fault      | duplicate-key insert                                     |
-|  [12]   | `exceptions.ConvertError`                    | build fault     | `TypeError + ValueError + TOMLKitError`; un-encodable value (also the contract a custom `Encoder` raises) |
-|  [13]   | `exceptions.InvalidStringError`              | build fault     | `ValueError + TOMLKitError`; invalid styled-string request |
+| [INDEX] | [SYMBOL]                                                                                  | [PACKAGE_ROLE] | [CAPABILITY]                                                                                              |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------- |
+|  [01]   | `exceptions.TOMLKitError`                                                                 | engine root    | base of every tomlkit failure (`Exception`)                                                               |
+|  [02]   | `exceptions.ParseError`                                                                   | parse base     | `ValueError + TOMLKitError`; malformed TOML carrying `line`/`col`                                         |
+|  [03]   | `exceptions.UnexpectedCharError`                                                          | parse fault    | unexpected character during parse                                                                         |
+|  [04]   | `exceptions.UnexpectedEofError`                                                           | parse fault    | premature end of source                                                                                   |
+|  [05]   | `exceptions.EmptyKeyError` / `EmptyTableNameError`                                        | parse fault    | empty key / empty table name                                                                              |
+|  [06]   | `exceptions.InvalidNumberError` / `InvalidNumberOrDateError`                              | parse fault    | malformed number / number-or-date literal                                                                 |
+|  [07]   | `exceptions.InvalidDateError` / `InvalidTimeError` / `InvalidDateTimeError`               | parse fault    | malformed temporal literal                                                                                |
+|  [08]   | `exceptions.InvalidCharInStringError` / `InvalidControlChar` / `InvalidUnicodeValueError` | parse fault    | malformed string content                                                                                  |
+|  [09]   | `exceptions.MixedArrayTypesError`                                                         | parse fault    | heterogeneous array element types                                                                         |
+|  [10]   | `exceptions.NonExistentKey`                                                               | access fault   | `KeyError + TOMLKitError`; missing key on read                                                            |
+|  [11]   | `exceptions.KeyAlreadyPresent`                                                            | edit fault     | duplicate-key insert                                                                                      |
+|  [12]   | `exceptions.ConvertError`                                                                 | build fault    | `TypeError + ValueError + TOMLKitError`; un-encodable value (also the contract a custom `Encoder` raises) |
+|  [13]   | `exceptions.InvalidStringError`                                                           | build fault    | `ValueError + TOMLKitError`; invalid styled-string request                                                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -68,54 +68,54 @@
 
 `parse`/`loads` accept `str | bytes` and return a `TOMLDocument`; `load(fp)` reads a text/binary file object; `dumps`/`dump` emit with an optional `sort_keys` policy (the deterministic-bytes lever for a content-addressed pipeline). `dumps` accepts any `Mapping` — a plain `dict` from `msgspec.to_builtins` dumps directly, never requiring a pre-built styled tree. `document()` mints an empty container; `register_encoder`/`unregister_encoder` install/remove a custom value encoder appended to the module-level `CUSTOM_ENCODERS` list that `item(value)` consults.
 
-| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                     | [CAPABILITY]                                       |
-| :-----: | :------------------- | :-------------------------------------------------------------- | :------------------------------------------------- |
-|  [01]   | `parse`              | `parse(string: str \| bytes) -> TOMLDocument`                   | parse TOML source                                  |
-|  [02]   | `loads`              | `loads(string: str \| bytes) -> TOMLDocument`                   | parse (alias of `parse`)                           |
-|  [03]   | `load`               | `load(fp: IO[str] \| IO[bytes]) -> TOMLDocument`                | parse from a file object                           |
-|  [04]   | `dumps`              | `dumps(data: Mapping[str, Any], sort_keys: bool=False) -> str`  | serialize to a string; `sort_keys=True` for deterministic bytes |
-|  [05]   | `dump`               | `dump(data: Mapping[str, Any], fp: IO[str], *, sort_keys=False) -> None` | serialize to a file object                |
-|  [06]   | `document`           | `document() -> TOMLDocument`                                    | build an empty document                            |
-|  [07]   | `register_encoder`   | `register_encoder(encoder: E) -> E`                             | append a custom value encoder to `CUSTOM_ENCODERS` (decorator-usable) |
-|  [08]   | `unregister_encoder` | `unregister_encoder(encoder: Encoder) -> None`                 | remove a previously registered encoder (suppresses `ValueError` if absent) |
+| [INDEX] | [SURFACE]            | [CALL_SHAPE]                                                             | [CAPABILITY]                                                               |
+| :-----: | :------------------- | :----------------------------------------------------------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `parse`              | `parse(string: str \| bytes) -> TOMLDocument`                            | parse TOML source                                                          |
+|  [02]   | `loads`              | `loads(string: str \| bytes) -> TOMLDocument`                            | parse (alias of `parse`)                                                   |
+|  [03]   | `load`               | `load(fp: IO[str] \| IO[bytes]) -> TOMLDocument`                         | parse from a file object                                                   |
+|  [04]   | `dumps`              | `dumps(data: Mapping[str, Any], sort_keys: bool=False) -> str`           | serialize to a string; `sort_keys=True` for deterministic bytes            |
+|  [05]   | `dump`               | `dump(data: Mapping[str, Any], fp: IO[str], *, sort_keys=False) -> None` | serialize to a file object                                                 |
+|  [06]   | `document`           | `document() -> TOMLDocument`                                             | build an empty document                                                    |
+|  [07]   | `register_encoder`   | `register_encoder(encoder: E) -> E`                                      | append a custom value encoder to `CUSTOM_ENCODERS` (decorator-usable)      |
+|  [08]   | `unregister_encoder` | `unregister_encoder(encoder: Encoder) -> None`                           | remove a previously registered encoder (suppresses `ValueError` if absent) |
 
 [ENTRYPOINT_SCOPE]: item factories
 - rail: structured documents
 
 The container, key, scalar, and trivia factories are the single styled-build row set; a programmatic edit composes them so comments/whitespace/quoting survive. `item(value)` is the polymorphic wrap — it discriminates on the Python value shape through a fixed precedence (`Item` passthrough -> `bool` -> `int` -> `float` -> `dict` -> `list`/`tuple` -> `date`/`time`/`datetime` -> registered `CUSTOM_ENCODERS`), so a `dict` becomes `Table` (or `InlineTable` under an array/inline parent), a `list` of all-`dict` under a table/no parent becomes `AoT` else `Array`, and there is no per-type build family to call. `_sort_keys=True` sorts nested-`dict` keys during the wrap. The bare factories below are the explicit constructors for a styled edit that needs a specific item kind.
 
-| [INDEX] | [SURFACE]                                      | [CALL_SHAPE]                                                                  | [CAPABILITY]                                  |
-| :-----: | :--------------------------------------------- | :--------------------------------------------------------------------------- | :-------------------------------------------- |
-|  [01]   | `item`                                         | `item(value: Any, _parent=None, _sort_keys=False) -> Item`                   | polymorphic wrap (discriminates on shape; consults `CUSTOM_ENCODERS`) |
-|  [02]   | `value`                                        | `value(raw: str) -> Item`                                                    | parse a single TOML value expression          |
-|  [03]   | `key_value`                                    | `key_value(src: str) -> tuple[Key, Item]`                                    | parse a `key = value` pair                     |
-|  [04]   | `table`                                        | `table(is_super_table: bool \| None=None) -> Table`                          | build a table (super-table flag)               |
-|  [05]   | `aot`                                          | `aot() -> AoT`                                                               | build an array-of-tables                       |
-|  [06]   | `array`                                        | `array(raw: str='[]') -> Array`                                              | build an array from raw text                   |
-|  [07]   | `inline_table`                                 | `inline_table() -> InlineTable`                                             | build an inline table                          |
-|  [08]   | `key`                                          | `key(k: str \| Iterable[str]) -> Key`                                        | build a styled bare key (`str`) or dotted key (`Iterable[str]`) |
-|  [09]   | `integer` / `float_` / `boolean`              | `integer(raw: str \| int)` / `float_(raw: str \| float)` / `boolean(raw: str \| bool)` | build styled scalar items            |
-|  [10]   | `string`                                       | `string(raw: str, *, literal=False, multiline=False, escape=True) -> String` | build a styled string (literal/multiline) |
-|  [11]   | `date` / `time` / `datetime`                  | `date(raw: str)` / `time(raw: str)` / `datetime(raw: str)`                   | build styled RFC-3339 temporal items           |
-|  [12]   | `comment` / `nl` / `ws`                       | `comment(string: str)` / `nl()` / `ws(src: str)`                            | build trivia items (`nl()` is `ws("\n")`)      |
+| [INDEX] | [SURFACE]                        | [CALL_SHAPE]                                                                           | [CAPABILITY]                                                          |
+| :-----: | :------------------------------- | :------------------------------------------------------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `item`                           | `item(value: Any, _parent=None, _sort_keys=False) -> Item`                             | polymorphic wrap (discriminates on shape; consults `CUSTOM_ENCODERS`) |
+|  [02]   | `value`                          | `value(raw: str) -> Item`                                                              | parse a single TOML value expression                                  |
+|  [03]   | `key_value`                      | `key_value(src: str) -> tuple[Key, Item]`                                              | parse a `key = value` pair                                            |
+|  [04]   | `table`                          | `table(is_super_table: bool \| None=None) -> Table`                                    | build a table (super-table flag)                                      |
+|  [05]   | `aot`                            | `aot() -> AoT`                                                                         | build an array-of-tables                                              |
+|  [06]   | `array`                          | `array(raw: str='[]') -> Array`                                                        | build an array from raw text                                          |
+|  [07]   | `inline_table`                   | `inline_table() -> InlineTable`                                                        | build an inline table                                                 |
+|  [08]   | `key`                            | `key(k: str \| Iterable[str]) -> Key`                                                  | build a styled bare key (`str`) or dotted key (`Iterable[str]`)       |
+|  [09]   | `integer` / `float_` / `boolean` | `integer(raw: str \| int)` / `float_(raw: str \| float)` / `boolean(raw: str \| bool)` | build styled scalar items                                             |
+|  [10]   | `string`                         | `string(raw: str, *, literal=False, multiline=False, escape=True) -> String`           | build a styled string (literal/multiline)                             |
+|  [11]   | `date` / `time` / `datetime`     | `date(raw: str)` / `time(raw: str)` / `datetime(raw: str)`                             | build styled RFC-3339 temporal items                                  |
+|  [12]   | `comment` / `nl` / `ws`          | `comment(string: str)` / `nl()` / `ws(src: str)`                                       | build trivia items (`nl()` is `ws("\n")`)                             |
 
 [ENTRYPOINT_SCOPE]: container edit and round-trip
 - rail: structured documents — `Container` / `TOMLDocument` / styled-item methods
 
 `TOMLDocument` and the container items expose a dict-like edit surface plus the style-bearing methods. `as_string()` re-emits the styled source; `unwrap()` projects to plain Python values (lossy — drops trivia, flattens `OutOfOrderTableProxy`, keeps `datetime`/`date`/`time` as stdlib temporals); `Array.add_line`/`multiline` and `Table.add`/`indent`/`is_super_table` control emission style.
 
-| [INDEX] | [SURFACE]                                              | [CAPABILITY]                                                |
-| :-----: | :----------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `Container.as_string()` / `Item.as_string()`           | re-emit the exact styled source string (document, table, array, scalar) |
-|  [02]   | `Container.unwrap()` / `Item.unwrap()`                 | project to plain `dict`/`list`/scalar (drops style/trivia; flattens split tables; stdlib temporals) |
-|  [03]   | `Container.body`                                        | the ordered `list[tuple[Key \| None, Item]]` backing the document (keyless rows are trivia) |
-|  [04]   | `Container.add(key, item)` / `append` / `setdefault`   | style-preserving insert/merge                              |
-|  [05]   | `Container.remove(key)` / `item(key)` / `last_item()`  | style-preserving delete; keyed fetch (may return `OutOfOrderTableProxy`); last inserted item |
-|  [06]   | `Array.add_line(*items, indent, comment, add_comma, newline)` / `Array.multiline(bool)` | append a styled line / toggle multiline emission |
-|  [07]   | `Array.item(index)` / `Array.insert(pos, value)` / `Array.clear()` | indexed array item access and mutation         |
-|  [08]   | `Table.append(key, item)` / `Table.indent(n)` / `Table.is_super_table()` | table insert, indentation, super-table query |
-|  [09]   | `AoT.body` / `AoT.insert(index, value)`                | the `list[Table]` backing the array-of-tables; positional table insert |
-|  [10]   | `Item.trivia` / `Item.comment(text)` / `Item.indent(n)` | per-item trivia access and mutation                       |
+| [INDEX] | [SURFACE]                                                                               | [CAPABILITY]                                                                                        |
+| :-----: | :-------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `Container.as_string()` / `Item.as_string()`                                            | re-emit the exact styled source string (document, table, array, scalar)                             |
+|  [02]   | `Container.unwrap()` / `Item.unwrap()`                                                  | project to plain `dict`/`list`/scalar (drops style/trivia; flattens split tables; stdlib temporals) |
+|  [03]   | `Container.body`                                                                        | the ordered `list[tuple[Key \| None, Item]]` backing the document (keyless rows are trivia)         |
+|  [04]   | `Container.add(key, item)` / `append` / `setdefault`                                    | style-preserving insert/merge                                                                       |
+|  [05]   | `Container.remove(key)` / `item(key)` / `last_item()`                                   | style-preserving delete; keyed fetch (may return `OutOfOrderTableProxy`); last inserted item        |
+|  [06]   | `Array.add_line(*items, indent, comment, add_comma, newline)` / `Array.multiline(bool)` | append a styled line / toggle multiline emission                                                    |
+|  [07]   | `Array.item(index)` / `Array.insert(pos, value)` / `Array.clear()`                      | indexed array item access and mutation                                                              |
+|  [08]   | `Table.append(key, item)` / `Table.indent(n)` / `Table.is_super_table()`                | table insert, indentation, super-table query                                                        |
+|  [09]   | `AoT.body` / `AoT.insert(index, value)`                                                 | the `list[Table]` backing the array-of-tables; positional table insert                              |
+|  [10]   | `Item.trivia` / `Item.comment(text)` / `Item.indent(n)`                                 | per-item trivia access and mutation                                                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

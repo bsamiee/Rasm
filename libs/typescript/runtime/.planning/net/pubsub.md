@@ -2,17 +2,17 @@
 
 Fanout and replay are one port with engines as rows: `Fanout` is the broadcast plane the branch composes wherever every subscriber must see every value — live evidence mirrors, presence, cross-process invalidation, large-binary handoff — with an in-process row over the effect `PubSub` replay window, a browser cross-tab row bridging the same cells over `BroadcastChannel`, and a `jetstream` row over NATS for genuine cross-process fanout, bounded replay, dedup, and chunked blob passing. The guarantee ledger is data: at-least-once handler consumption on a durable explicit-ack consumer with ack-after-success, poison termination, and long-handler heartbeats; exactly-once publish inside a duplicate-detection window keyed by the producer's content-derived `msgID`; double-ack confirmation where a topic row demands it; replay anchored by sequence or instant on an ordered consumer that carries no ack surface at all — each a row the jetstream engine upholds and the lighter rows honestly degrade, so selecting an engine is a Layer choice at the root and the degradation is readable off one table. The stream is NEVER the system of record: retention bounds every topic, replay is a warm-up and recovery window, and a consumer needing full history reads the data wave's journal. The NATS server's durability posture — fsync interval hardening, replica quorum — is a deployment fact the deploy plane owns. The module ships on the `./server` subpath for the jetstream row; the local row is runtime-neutral and the tab row is the browser condition. The module is `runtime/src/net/pubsub.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                              | [PUBLIC]                |
-| :-----: | :-------------- | :---------------------------------------------------------------------------------- | :---------------------- |
-|  [01]   | `TOPIC_ROWS`    | the topic policy vocabulary: subject, retention, replay, ack posture, redelivery    | `Fanout`                |
-|  [02]   | `PORT_SHAPE`    | the engine-neutral port — publish, subscribe, consume, replay, stash, haul — faults | `Fanout`, `FanoutFault` |
-|  [03]   | `LOCAL_ROW`     | the in-process engine over `PubSub` replay plus the in-process blob shelf           | `Fanout.local`          |
-|  [04]   | `TAB_ROW`       | the browser cross-tab engine — `BroadcastChannel` bridge decorating the local cells | `Fanout.tab`            |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                              | [PUBLIC]                     |
+| :-----: | :-------------- | :---------------------------------------------------------------------------------- | :--------------------------- |
+|  [01]   | `TOPIC_ROWS`    | the topic policy vocabulary: subject, retention, replay, ack posture, redelivery    | `Fanout`                     |
+|  [02]   | `PORT_SHAPE`    | the engine-neutral port — publish, subscribe, consume, replay, stash, haul — faults | `Fanout`, `FanoutFault`      |
+|  [03]   | `LOCAL_ROW`     | the in-process engine over `PubSub` replay plus the in-process blob shelf           | `Fanout.local`               |
+|  [04]   | `TAB_ROW`       | the browser cross-tab engine — `BroadcastChannel` bridge decorating the local cells | `Fanout.tab`                 |
 |  [05]   | `JETSTREAM_ROW` | the NATS engine: ordered vs durable lanes, dedup, double-ack, heartbeat, blob store | `Fanout.jetstream`, `Broker` |
 
-## [2]-[TOPIC_ROWS]
+## [02]-[TOPIC_ROWS]
 
 [TOPIC_ROWS]:
 - Owner: the topic policy row — `subject` (the wire address), `retention` (the stream age bound — the never-system-of-record ceiling), `replay` (the warm-up window a late subscriber receives), `ack` (`"fire" | "double"` — whether consumption confirms the acknowledgement itself), `wait` (the ack deadline the durable lane declares as `ack_wait` and halves into the long-handler heartbeat cadence), and `attempts` (the redelivery ceiling declared as `max_deliver` — beyond it the server parks the message); the dedup window reads `Setting.fanout.dedup` and the blob chunk size `Setting.fanout.chunk`, so topic policy is root data and the engine reads rows, never knobs.
@@ -58,7 +58,7 @@ declare namespace Fanout {
 const _Anchor = Data.taggedEnum<Fanout.Anchor>()
 ```
 
-## [3]-[PORT_SHAPE]
+## [03]-[PORT_SHAPE]
 
 [PORT_SHAPE]:
 - Owner: the `Fanout` Tag — six members over the topic key. The envelope lane: `publish(topic, envelope)` yields the `Receipt` whose `duplicate` flag is the idempotent-noop evidence; `subscribe(topic)` is the live fanout stream — every subscriber sees every value from attach, the topic's `replay` window warming a late one; `consume(topic, anchor, handler)` is the at-least-once lane — each envelope acknowledges only after the handler succeeds, a handler fault re-delivers, a `poison`-classed handler fault terminates the message, and the topic's `ack: "double"` row confirms the acknowledgement itself; `replay(topic, anchor)` re-reads from a sequence or instant anchor within retention. The blob lane: `stash(topic, name, body)` streams chunked large binary onto the plane and yields the `Stowed` receipt, `haul(topic, name)` streams it back — transient handoff for payloads the bounded envelope cannot carry (tiles, mesh bands, media), announced over the envelope lane and passed here, never a second content-addressing vocabulary and never durable storage.
@@ -98,7 +98,7 @@ class Fanout extends Context.Tag("runtime/Fanout")<Fanout, {
 }
 ```
 
-## [4]-[LOCAL_ROW]
+## [04]-[LOCAL_ROW]
 
 [LOCAL_ROW]:
 - Owner: `Fanout.local(topics)` — one scoped `PubSub.bounded<Envelope>({ capacity, replay: row.replay })` per topic row plus one `Ref`-held blob shelf; `publish` offers (a local publish is never a duplicate — the dedup window is a server guarantee the local row honestly lacks), `subscribe` is the scoped `Stream.fromPubSub` whose late attach receives the replay window, `consume` folds the same stream through the handler with the ack posture vacuous (in-process delivery has no redelivery to confirm or terminate), `replay` answers only the `Window` anchor — a `Sequence` or `Instant` anchor folds to the `horizon` fault because the local tier holds no log — and the blob lane collects into and streams out of the shelf keyed `topic/name`, digest honestly absent.
@@ -154,7 +154,7 @@ const _minted = (topics: Fanout.Topics): Effect.Effect<_Port, never, Scope.Scope
 const _local = (topics: Fanout.Topics): Layer.Layer<Fanout> => Layer.scoped(Fanout, _minted(topics))
 ```
 
-## [5]-[TAB_ROW]
+## [05]-[TAB_ROW]
 
 [TAB_ROW]:
 - Owner: `Fanout.tab(topics)` — the browser cross-tab engine: the local cells decorated with one `BroadcastChannel` per topic row keyed by the row's `subject`. `publish` offers locally then posts the encoded envelope, an arriving post decodes through the `Envelope` schema and offers into the same cells, and every other member is the local row's — so same-tab and cross-tab subscribers read one replay window and the engine is one decoration, never a second implementation.
@@ -202,7 +202,7 @@ const _tab = (topics: Fanout.Topics): Layer.Layer<Fanout> =>
   )
 ```
 
-## [6]-[JETSTREAM_ROW]
+## [06]-[JETSTREAM_ROW]
 
 [JETSTREAM_ROW]:
 - Owner: `Fanout.jetstream(topics)` — the NATS engine. The connection is capability: the exported `Broker` Tag holds the one scoped `wsconnect({ servers })` against `Setting.fanout.origin`, drained on scope close, and the one connection fans into the stream lanes, the object store, and the sibling coordination engine (`coordinate#KV_ROW`) — a second dial beside `Broker.live` is the named defect. Construction ensures the substrate: `jetstreamManager(nc)` then one `jsm.streams.add({ name, subjects, max_age, duplicate_window })` per topic row — retention and the dedup window are the row's durations in nanoseconds — and one `Objm(nc)` store for the blob lane, so stream and store shape are declared where topic policy lives and the server's own durability posture (fsync interval, replicas) stays a deployment fact.

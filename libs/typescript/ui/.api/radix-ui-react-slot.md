@@ -16,13 +16,13 @@
 
 The surface is one factory plus its zero-config instance, and a `Slottable` marker for sibling interleave. `createSlot`/`createSlottable` are the parameterized mechanism; `Slot`/`Slottable` are the default instances — never a hand-rolled clone per component.
 
-| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
-|:-----: |:---------------------------------- |:--------- |:--------------------------------------------------------------------------- |
-| [01] | `createSlot<Elem, Props>(ownerName)` | factory | mints a named `Slot`; `ownerName` rides devtools + the single-child invariant |
-| [02] | `Slot` (= `Root`) | component | `createSlot('Slot')` — the default merge instance; `Root` is the same value |
-| [03] | `SlotProps<Elem, Props>` | type | `Props & { children?: ReactNode }` — the props merged onto the child |
-| [04] | `createSlottable(ownerName)` | factory | mints a named `Slottable` marker (carries the `__radixId` brand) |
-| [05] | `Slottable` (`SlottableComponent`) | component | marks the child that receives the merge among static siblings |
+| [INDEX] | [SYMBOL]                             | [KIND]    | [CAPABILITY_BOUNDARY]                                                         |
+| :-----: | :----------------------------------- | :-------- | :---------------------------------------------------------------------------- |
+|  [01]   | `createSlot<Elem, Props>(ownerName)` | factory   | mints a named `Slot`; `ownerName` rides devtools + the single-child invariant |
+|  [02]   | `Slot` (= `Root`)                    | component | `createSlot('Slot')` — the default merge instance; `Root` is the same value   |
+|  [03]   | `SlotProps<Elem, Props>`             | type      | `Props & { children?: ReactNode }` — the props merged onto the child          |
+|  [04]   | `createSlottable(ownerName)`         | factory   | mints a named `Slottable` marker (carries the `__radixId` brand)              |
+|  [05]   | `Slottable` (`SlottableComponent`)   | component | marks the child that receives the merge among static siblings                 |
 
 ```ts contract
 // The factory IS the mechanism: one named Slot per owner component. Slot = createSlot('Slot'); Root aliases Slot.

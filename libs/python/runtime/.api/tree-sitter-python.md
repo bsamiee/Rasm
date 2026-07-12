@@ -21,8 +21,8 @@
 - rail: parsing
 - Both are `Final[str]` raw `.scm` query SOURCE (not compiled queries), lazily loaded on first attribute access. The Python grammar ships highlights and tags only — there is no `LOCALS_QUERY` (the TypeScript grammar does ship one).
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                          |
-| :-----: | :----------------- | :------------ | :---------------------------------------------- |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                           |
+| :-----: | :----------------- | :------------ | :----------------------------------------------- |
 |  [01]   | `HIGHLIGHTS_QUERY` | query source  | `Final[str]` syntax-highlight `.scm` source text |
 |  [02]   | `TAGS_QUERY`       | query source  | `Final[str]` symbol-tags `.scm` source text      |
 

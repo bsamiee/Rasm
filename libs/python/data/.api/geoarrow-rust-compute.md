@@ -20,26 +20,26 @@
 
 Geometry-returning operations yield `GeoArray` or `GeoChunkedArray`; scalar-returning operations yield `Array` or `ChunkedArray`; `explode` returns a `Table`. The scalar/primitive carriers (`Array`/`ChunkedArray`/`Table`) are owned by `arro3.core` (the lightweight Arrow runtime); the geometry carriers (`GeoArray`/`GeoChunkedArray`/`Geometry`) are owned by `geoarrow.rust.core` and re-consumed here. Method enums are `StrEnum` members (`enums.py`); each pairs with a lowercase `Literal` alias (`types.py`) accepted interchangeably at call sites.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                                                                         |
-| :-----: | :---------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `GeoArray`              | result carrier  | geometry-typed Arrow array (from `geoarrow.rust.core`)                                                         |
-|  [02]   | `GeoChunkedArray`       | result carrier  | chunked geometry-typed Arrow array (from `geoarrow.rust.core`)                                                 |
-|  [03]   | `Array`                 | result carrier  | scalar/primitive Arrow array result (from `arro3.core`)                                                        |
-|  [04]   | `ChunkedArray`          | result carrier  | chunked scalar/primitive Arrow array result (from `arro3.core`)                                                |
-|  [05]   | `Table`                 | result carrier  | Arrow table result for `explode` (from `arro3.core`)                                                           |
-|  [06]   | `AreaMethod`            | method enum     | `StrEnum`: `Euclidean` (planar), `Ellipsoidal` (Karney geodesic, meter²), `Spherical` (Chamberlain-Duquette)  |
-|  [07]   | `LengthMethod`          | method enum     | `StrEnum`: `Euclidean`, `Ellipsoidal` (Karney), `Haversine` (mean radius 6371.088 km), `Vincenty`             |
-|  [08]   | `SimplifyMethod`        | method enum     | `StrEnum`: `RDP` (Ramer-Douglas-Peucker), `VW` (Visvalingam-Whyatt), `VW_Preserve` (topology-preserving VW)   |
-|  [09]   | `RotateOrigin`          | method enum     | `StrEnum`: `Center` (bbox center), `Centroid`                                                                 |
-|  [10]   | `AreaMethodT`           | parameter alias | `Literal['ellipsoidal', 'euclidean', 'spherical']`                                                             |
-|  [11]   | `LengthMethodT`         | parameter alias | `Literal['ellipsoidal', 'euclidean', 'haversine', 'vincenty']`                                                 |
-|  [12]   | `SimplifyMethodT`       | parameter alias | `Literal['rdp', 'vw', 'vw_preserve']`                                                                          |
-|  [13]   | `RotateOriginT`         | parameter alias | `Literal['center', 'centroid']`                                                                                |
-|  [14]   | `GeoInterfaceProtocol`  | input protocol  | scalar geometry implementing `__geo_interface__` (e.g. a `shapely` geometry)                                   |
-|  [15]   | `NumpyArrayProtocolf64` | input protocol  | object exposing the numpy `__array__` f64 interface                                                            |
-|  [16]   | `ScalarGeometry`        | parameter alias | `Union[GeoInterfaceProtocol, geoarrow.rust.core.Geometry]` — a single geometry input                          |
+| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [RAIL]                                                                                                                        |
+| :-----: | :---------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `GeoArray`              | result carrier  | geometry-typed Arrow array (from `geoarrow.rust.core`)                                                                        |
+|  [02]   | `GeoChunkedArray`       | result carrier  | chunked geometry-typed Arrow array (from `geoarrow.rust.core`)                                                                |
+|  [03]   | `Array`                 | result carrier  | scalar/primitive Arrow array result (from `arro3.core`)                                                                       |
+|  [04]   | `ChunkedArray`          | result carrier  | chunked scalar/primitive Arrow array result (from `arro3.core`)                                                               |
+|  [05]   | `Table`                 | result carrier  | Arrow table result for `explode` (from `arro3.core`)                                                                          |
+|  [06]   | `AreaMethod`            | method enum     | `StrEnum`: `Euclidean` (planar), `Ellipsoidal` (Karney geodesic, meter²), `Spherical` (Chamberlain-Duquette)                  |
+|  [07]   | `LengthMethod`          | method enum     | `StrEnum`: `Euclidean`, `Ellipsoidal` (Karney), `Haversine` (mean radius 6371.088 km), `Vincenty`                             |
+|  [08]   | `SimplifyMethod`        | method enum     | `StrEnum`: `RDP` (Ramer-Douglas-Peucker), `VW` (Visvalingam-Whyatt), `VW_Preserve` (topology-preserving VW)                   |
+|  [09]   | `RotateOrigin`          | method enum     | `StrEnum`: `Center` (bbox center), `Centroid`                                                                                 |
+|  [10]   | `AreaMethodT`           | parameter alias | `Literal['ellipsoidal', 'euclidean', 'spherical']`                                                                            |
+|  [11]   | `LengthMethodT`         | parameter alias | `Literal['ellipsoidal', 'euclidean', 'haversine', 'vincenty']`                                                                |
+|  [12]   | `SimplifyMethodT`       | parameter alias | `Literal['rdp', 'vw', 'vw_preserve']`                                                                                         |
+|  [13]   | `RotateOriginT`         | parameter alias | `Literal['center', 'centroid']`                                                                                               |
+|  [14]   | `GeoInterfaceProtocol`  | input protocol  | scalar geometry implementing `__geo_interface__` (e.g. a `shapely` geometry)                                                  |
+|  [15]   | `NumpyArrayProtocolf64` | input protocol  | object exposing the numpy `__array__` f64 interface                                                                           |
+|  [16]   | `ScalarGeometry`        | parameter alias | `Union[GeoInterfaceProtocol, geoarrow.rust.core.Geometry]` — a single geometry input                                          |
 |  [17]   | `AffineTransform`       | parameter type  | `Union[tuple[6 floats], tuple[9 floats], tuple[float, ...]]` — a 6- or 9-element affine; integrates with the `affine` library |
-|  [18]   | `BroadcastGeometry`     | parameter type  | `Union[ScalarGeometry, ArrowArrayExportable, ArrowStreamExportable]` — scalar-or-array geometry broadcast against `input` |
+|  [18]   | `BroadcastGeometry`     | parameter type  | `Union[ScalarGeometry, ArrowArrayExportable, ArrowStreamExportable]` — scalar-or-array geometry broadcast against `input`     |
 
 ## [03]-[ENTRYPOINTS]
 

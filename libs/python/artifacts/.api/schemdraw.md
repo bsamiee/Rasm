@@ -22,85 +22,85 @@
 
 `Drawing` is the one document canvas and a context-manager — `with Drawing() as d:` opens the canvas, `d += element` / `d.add(element)` is the single polymorphic insertion surface, and `__exit__` finalizes the layout and (if `show=True`) displays. `Transform` carries the per-element placement frame (theta + global/local shift + zoom) the fluent algebra threads; `BBox`/`Point` are the geometry value objects the bounding-box and anchor queries return. There is no per-shape `add_resistor`/`add_capacitor` method — every symbol is a constructed `Element` handed to `+=`.
 
-| [INDEX] | [TYPE] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Drawing` | document canvas | `Drawing(canvas=None, file=None, show=True, transparent=False, dpi=72, **kwargs)`; context-manager, `+=`/`add` insertion, `get_imagedata`/`save`/`get_segments`/`get_bbox` egress |
-| [02] | `Transform` | placement frame | `Transform(theta, globalshift, localshift=(0,0), zoom=Point(1,1))`; `transform(xy)`/`transform_array(arr)` map a local point to the canvas |
-| [03] | `ImageFormat` | egress format enum | `str`-Enum `SVG`/`PNG`/`PDF`/`EPS`/`PS`/`PGF`/`JPG`/`TIF`/`RAW`/`RGBA` — the `get_imagedata(fmt)` discriminant |
+| [INDEX] | [TYPE]        | [KIND]             | [ROLE]                                                                                                                                                                            |
+| :-----: | :------------ | :----------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Drawing`     | document canvas    | `Drawing(canvas=None, file=None, show=True, transparent=False, dpi=72, **kwargs)`; context-manager, `+=`/`add` insertion, `get_imagedata`/`save`/`get_segments`/`get_bbox` egress |
+|  [02]   | `Transform`   | placement frame    | `Transform(theta, globalshift, localshift=(0,0), zoom=Point(1,1))`; `transform(xy)`/`transform_array(arr)` map a local point to the canvas                                        |
+|  [03]   | `ImageFormat` | egress format enum | `str`-Enum `SVG`/`PNG`/`PDF`/`EPS`/`PS`/`PGF`/`JPG`/`TIF`/`RAW`/`RGBA` — the `get_imagedata(fmt)` discriminant                                                                    |
 
 [PUBLIC_TYPE_SCOPE]: element base hierarchy
 - rail: diagram
 
 Every drawable symbol derives `Element`; the hierarchy splits into `Element2Term` (a two-terminal in-line symbol like a resistor — carries the `.length`/`.to`/`.tox`/`.toy`/`.endpoints`/`.dot`/`.idot` extra placement surface), `ElementImage` (an embedded raster), `ElementDrawing` (one `Drawing` embedded as a reusable symbol), `ElementCompound` (the base a custom multi-`Segment` symbol composes from), and `Container`/`Encircle` (a box drawn around a set of elements). The base classes are the bounded algebra the schematic author dispatches over; placement, styling, and labelling read off the base, never off a per-symbol special case.
 
-| [INDEX] | [TYPE] | [BASE] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Element` | `object` | abstract symbol root; fluent placement/style/label algebra, `.anchors` dict, `.segments` list, `.get_bbox()` |
-| [02] | `Element2Term` | `Element` | two-terminal in-line symbol; adds `.length`/`.to`/`.tox`/`.toy`/`.endpoints`/`.shift`/`.dot`/`.idot` |
-| [03] | `ElementImage` | `Element` | `ElementImage(image, width, height, xy=Point(0,0), imgfmt=None, **kwargs)` embedded raster |
-| [04] | `ElementDrawing` | `Element` | `ElementDrawing(drawing, **kwargs)` one `Drawing` reused as a single symbol |
-| [05] | `ElementCompound` | `Element` | base for a custom symbol assembled from `Segment*` primitives in `init` |
-| [06] | `Container` | `Element` | `Container(drawing, *, cornerradius=None, padx=None, pady=None)` box around a sub-drawing |
+| [INDEX] | [TYPE]            | [BASE]    | [ROLE]                                                                                                       |
+| :-----: | :---------------- | :-------- | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Element`         | `object`  | abstract symbol root; fluent placement/style/label algebra, `.anchors` dict, `.segments` list, `.get_bbox()` |
+|  [02]   | `Element2Term`    | `Element` | two-terminal in-line symbol; adds `.length`/`.to`/`.tox`/`.toy`/`.endpoints`/`.shift`/`.dot`/`.idot`         |
+|  [03]   | `ElementImage`    | `Element` | `ElementImage(image, width, height, xy=Point(0,0), imgfmt=None, **kwargs)` embedded raster                   |
+|  [04]   | `ElementDrawing`  | `Element` | `ElementDrawing(drawing, **kwargs)` one `Drawing` reused as a single symbol                                  |
+|  [05]   | `ElementCompound` | `Element` | base for a custom symbol assembled from `Segment*` primitives in `init`                                      |
+|  [06]   | `Container`       | `Element` | `Container(drawing, *, cornerradius=None, padx=None, pady=None)` box around a sub-drawing                    |
 
 [PUBLIC_TYPE_SCOPE]: low-level segment primitive vocabulary
 - rail: diagram
 
 `Segment*` is the bounded primitive grammar every `Element` is built from and a custom symbol composes through `ElementCompound`: a placed element's `.segments` is a `list[SegmentType]` of these, and `Drawing.get_segments()` returns the flattened segment stream of the whole schematic for geometry inspection or a custom render. A custom symbol appends `Segment*` instances to `self.segments` in its `__init__`; there is no hand-emitted path — the segment IS the typed primitive.
 
-| [INDEX] | [TYPE] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Segment` | path primitive | `Segment(path, color=None, lw=None, ls=None, capstyle=None, joinstyle=None, fill=None, arrow=None, arrowwidth=0.15, arrowlength=0.25, clip=None, zorder=None, visible=True)` a polyline path |
-| [02] | `SegmentCircle` | circle primitive | `SegmentCircle(center, radius, color=None, lw=None, ls=None, fill=None, clip=None, zorder=None, ref=None, visible=True)` |
-| [03] | `SegmentArc` | arc primitive | `SegmentArc(center, width, height, theta1=35, theta2=-35, arrow=None, angle=0, ...)` elliptical arc |
-| [04] | `SegmentText` | text primitive | `SegmentText(pos, label, align=None, rotation=None, rotation_mode=None, rotation_global=True, color=None, bgcolor=None, fontsize=14, font=None, mathfont=None, clip=None, zorder=None, visible=True, href=None, decoration=None)` |
-| [05] | `SegmentPath` | mixed-path primitive | `SegmentPath(path, ...)` a path mixing `XY` points and SVG command strings |
-| [06] | `SegmentPoly` | polygon primitive | `SegmentPoly(verts, closed=True, cornerradius=0, color=None, fill=None, lw=None, ls=None, hatch=False, joinstyle=None, capstyle=None, ...)` |
-| [07] | `SegmentBezier` | bezier primitive | `SegmentBezier(p, color=None, lw=None, ls=None, capstyle=None, arrow=None, arrowlength=0.25, arrowwidth=0.15, ...)` |
+| [INDEX] | [TYPE]          | [KIND]               | [ROLE]                                                                                                                                                                                                                            |
+| :-----: | :-------------- | :------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Segment`       | path primitive       | `Segment(path, color=None, lw=None, ls=None, capstyle=None, joinstyle=None, fill=None, arrow=None, arrowwidth=0.15, arrowlength=0.25, clip=None, zorder=None, visible=True)` a polyline path                                      |
+|  [02]   | `SegmentCircle` | circle primitive     | `SegmentCircle(center, radius, color=None, lw=None, ls=None, fill=None, clip=None, zorder=None, ref=None, visible=True)`                                                                                                          |
+|  [03]   | `SegmentArc`    | arc primitive        | `SegmentArc(center, width, height, theta1=35, theta2=-35, arrow=None, angle=0, ...)` elliptical arc                                                                                                                               |
+|  [04]   | `SegmentText`   | text primitive       | `SegmentText(pos, label, align=None, rotation=None, rotation_mode=None, rotation_global=True, color=None, bgcolor=None, fontsize=14, font=None, mathfont=None, clip=None, zorder=None, visible=True, href=None, decoration=None)` |
+|  [05]   | `SegmentPath`   | mixed-path primitive | `SegmentPath(path, ...)` a path mixing `XY` points and SVG command strings                                                                                                                                                        |
+|  [06]   | `SegmentPoly`   | polygon primitive    | `SegmentPoly(verts, closed=True, cornerradius=0, color=None, fill=None, lw=None, ls=None, hatch=False, joinstyle=None, capstyle=None, ...)`                                                                                       |
+|  [07]   | `SegmentBezier` | bezier primitive     | `SegmentBezier(p, color=None, lw=None, ls=None, capstyle=None, arrow=None, arrowlength=0.25, arrowwidth=0.15, ...)`                                                                                                               |
 
 [PUBLIC_TYPE_SCOPE]: `elements` symbol vocabulary (`schemdraw.elements`, 226 symbols)
 - rail: diagram
 
 `schemdraw.elements` is the closed electrical/electronic schematic-symbol vocabulary — 226 named symbols in `__all__`, every one an `Element`/`Element2Term` subclass placed by construction and discrimination-by-type (the SYMBOL is a class, with a standards variant as a sibling, e.g. `ResistorIEEE`/`ResistorIEC`). The owning page imports `from schemdraw import elements as elm` and selects the symbol by name; below is the family map (the exhaustive 226-name roster is the package `elements.__all__`, the verifiable closed set).
 
-| [INDEX] | [FAMILY] | [REPRESENTATIVE_SYMBOLS] |
-| --- | --- | --- |
-| [01] | passive two-term | `Resistor`/`ResistorIEEE`/`ResistorIEC`/`ResistorVar`/`Rshunt`/`Thermistor`/`Photoresistor`/`Capacitor`/`Capacitor2`/`CapacitorVar`/`Inductor`/`Inductor2`/`Crystal`/`Fuse`/`CPE`/`Memristor` |
-| [02] | diodes/semiconductor | `Diode`/`Schottky`/`Zener`/`DiodeTVS`/`Varactor`/`LED`/`LED2`/`Photodiode`/`Diac`/`Triac`/`SCR`/`Josephson` |
-| [03] | sources/grounds | `Source`/`SourceV`/`SourceI`/`SourceSin`/`SourcePulse`/`SourceControlled`/`Battery`/`BatteryCell`/`Ground`/`GroundSignal`/`GroundChassis`/`Vdd`/`Vss`/`Antenna`/`NoConnect` |
-| [04] | meters/indicators | `MeterV`/`MeterI`/`MeterA`/`MeterOhm`/`Lamp`/`Solar`/`Neon`/`Oscilloscope` |
-| [05] | switches/buttons | `Switch`/`SwitchSpdt`/`SwitchDpst`/`SwitchDpdt`/`Button`/`SwitchReed`/`SwitchRotary`/`SwitchDIP`/`Breaker` |
-| [06] | transistors | `NFet`/`PFet`/`JFet`/`JFetN`/`JFetP`/`Bjt`/`BjtNpn`/`BjtPnp`/`IgbtN`/`IgbtP`/`NMos`/`PMos`/`Hemt`/`AnalogNFet` |
-| [07] | transducers/machines | `Speaker`/`Mic`/`Motor`/`AudioJack`/`Transformer`/`Coax`/`Triax` |
-| [08] | integrated circuits | `Ic`/`IcPin`/`IcDIP`/`Multiplexer`/`VoltageRegulator`/`DFlipFlop`/`JKFlipFlop`/`Ic555`/`SevenSegment`/`Opamp` |
-| [09] | lines/connectors/wires | `Line`/`Wire`/`DataBusLine`/`Dot`/`Arrow`/`Arrowhead`/`DotDotDot`/`Gap`/`OrthoLines`/`RightLines`/`Jumper`/`BusConnect`/`BusLine` |
-| [10] | annotation/markup | `Label`/`Tag`/`Annotate`/`ZLabel`/`CurrentLabel`/`CurrentLabelInline`/`VoltageLabelArc`/`LoopCurrent`/`LoopArrow`/`Rect`/`Encircle`/`EncircleBox` |
-| [11] | arcs | `Arc2`/`Arc3`/`ArcZ`/`ArcN`/`ArcLoop` |
-| [12] | connectors/headers | `Header`/`Jumper`/`DB25`/`DB9`/`DE9`/`DA15`/`Plug`/`Jack`/`Terminal`/`CoaxConnect` |
-| [13] | compound/two-port | `Optocoupler`/`Relay`/`Rectifier`/`Wheatstone`/`TwoPort`/`VoltageTransactor`/`CurrentTransactor`/`Nullor`/`VMCMPair` |
-| [14] | mains outlets/tubes | `OutletA`..`OutletL` (IEC/NEMA outlets) · `VacuumTube`/`Triode`/`Tetrode`/`Pentode`/`NixieTube`/`TubeDiode` |
+| [INDEX] | [FAMILY]               | [REPRESENTATIVE_SYMBOLS]                                                                                                                                                                      |
+| :-----: | :--------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | passive two-term       | `Resistor`/`ResistorIEEE`/`ResistorIEC`/`ResistorVar`/`Rshunt`/`Thermistor`/`Photoresistor`/`Capacitor`/`Capacitor2`/`CapacitorVar`/`Inductor`/`Inductor2`/`Crystal`/`Fuse`/`CPE`/`Memristor` |
+|  [02]   | diodes/semiconductor   | `Diode`/`Schottky`/`Zener`/`DiodeTVS`/`Varactor`/`LED`/`LED2`/`Photodiode`/`Diac`/`Triac`/`SCR`/`Josephson`                                                                                   |
+|  [03]   | sources/grounds        | `Source`/`SourceV`/`SourceI`/`SourceSin`/`SourcePulse`/`SourceControlled`/`Battery`/`BatteryCell`/`Ground`/`GroundSignal`/`GroundChassis`/`Vdd`/`Vss`/`Antenna`/`NoConnect`                   |
+|  [04]   | meters/indicators      | `MeterV`/`MeterI`/`MeterA`/`MeterOhm`/`Lamp`/`Solar`/`Neon`/`Oscilloscope`                                                                                                                    |
+|  [05]   | switches/buttons       | `Switch`/`SwitchSpdt`/`SwitchDpst`/`SwitchDpdt`/`Button`/`SwitchReed`/`SwitchRotary`/`SwitchDIP`/`Breaker`                                                                                    |
+|  [06]   | transistors            | `NFet`/`PFet`/`JFet`/`JFetN`/`JFetP`/`Bjt`/`BjtNpn`/`BjtPnp`/`IgbtN`/`IgbtP`/`NMos`/`PMos`/`Hemt`/`AnalogNFet`                                                                                |
+|  [07]   | transducers/machines   | `Speaker`/`Mic`/`Motor`/`AudioJack`/`Transformer`/`Coax`/`Triax`                                                                                                                              |
+|  [08]   | integrated circuits    | `Ic`/`IcPin`/`IcDIP`/`Multiplexer`/`VoltageRegulator`/`DFlipFlop`/`JKFlipFlop`/`Ic555`/`SevenSegment`/`Opamp`                                                                                 |
+|  [09]   | lines/connectors/wires | `Line`/`Wire`/`DataBusLine`/`Dot`/`Arrow`/`Arrowhead`/`DotDotDot`/`Gap`/`OrthoLines`/`RightLines`/`Jumper`/`BusConnect`/`BusLine`                                                             |
+|  [10]   | annotation/markup      | `Label`/`Tag`/`Annotate`/`ZLabel`/`CurrentLabel`/`CurrentLabelInline`/`VoltageLabelArc`/`LoopCurrent`/`LoopArrow`/`Rect`/`Encircle`/`EncircleBox`                                             |
+|  [11]   | arcs                   | `Arc2`/`Arc3`/`ArcZ`/`ArcN`/`ArcLoop`                                                                                                                                                         |
+|  [12]   | connectors/headers     | `Header`/`Jumper`/`DB25`/`DB9`/`DE9`/`DA15`/`Plug`/`Jack`/`Terminal`/`CoaxConnect`                                                                                                            |
+|  [13]   | compound/two-port      | `Optocoupler`/`Relay`/`Rectifier`/`Wheatstone`/`TwoPort`/`VoltageTransactor`/`CurrentTransactor`/`Nullor`/`VMCMPair`                                                                          |
+|  [14]   | mains outlets/tubes    | `OutletA`..`OutletL` (IEC/NEMA outlets) · `VacuumTube`/`Triode`/`Tetrode`/`Pentode`/`NixieTube`/`TubeDiode`                                                                                   |
 
 [PUBLIC_TYPE_SCOPE]: domain element modules (`flow`, `logic`, `dsp`)
 - rail: diagram
 
 The three domain modules carry the non-electrical diagram vocabularies on the SAME `Drawing`/`Element`/placement spine: `schemdraw.flow` is the flowchart owner (terminal/process/decision/data boxes the AEC `schedule`/`detail` flowchart figures lower onto), `schemdraw.logic` the digital-logic gate vocabulary plus the `Kmap`/`Table`/`TimingDiagram`/`BitField` structured owners, `schemdraw.dsp` the signal-flow/DSP block vocabulary. Each module's elements are placed and connected through the identical fluent algebra.
 
-| [INDEX] | [MODULE] | [OWNS] | [KEY_SYMBOLS] |
-| --- | --- | --- | --- |
-| [01] | `flow` | flowchart boxes + flow connectors | `Box`/`RoundBox`/`Process`/`RoundProcess`/`Decision`/`Data`/`Subroutine`/`Terminal`/`Start`/`State`/`StateEnd`/`Connect`/`Circle`/`Ellipse`/`Line`/`Arrow`/`Wire`/`Arc2`/`Arc3`/`ArcZ`/`ArcN`/`ArcLoop` |
-| [02] | `logic` | digital-logic gates + structured logic owners | `And`/`Nand`/`Or`/`Nor`/`Xor`/`Xnor`/`Buf`/`Not`/`NotNot`/`Tristate`/`Tgate`/`Schmitt`/`SchmittAnd` · `Kmap`/`Table`/`TimingDiagram`/`BitField` |
-| [03] | `dsp` | signal-flow/DSP blocks | `Square`/`Circle`/`Sum`/`SumSigma`/`Mixer`/`Amp`/`Oscillator`/`OscillatorBox`/`Filter`/`Adc`/`Dac`/`Demod`/`Circulator`/`Isolator`/`VGA`/`Speaker`/`Antenna`/`Ic`/`Multiplexer` |
+| [INDEX] | [MODULE] | [OWNS]                                        | [KEY_SYMBOLS]                                                                                                                                                                                           |
+| :-----: | :------- | :-------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `flow`   | flowchart boxes + flow connectors             | `Box`/`RoundBox`/`Process`/`RoundProcess`/`Decision`/`Data`/`Subroutine`/`Terminal`/`Start`/`State`/`StateEnd`/`Connect`/`Circle`/`Ellipse`/`Line`/`Arrow`/`Wire`/`Arc2`/`Arc3`/`ArcZ`/`ArcN`/`ArcLoop` |
+|  [02]   | `logic`  | digital-logic gates + structured logic owners | `And`/`Nand`/`Or`/`Nor`/`Xor`/`Xnor`/`Buf`/`Not`/`NotNot`/`Tristate`/`Tgate`/`Schmitt`/`SchmittAnd` · `Kmap`/`Table`/`TimingDiagram`/`BitField`                                                         |
+|  [03]   | `dsp`    | signal-flow/DSP blocks                        | `Square`/`Circle`/`Sum`/`SumSigma`/`Mixer`/`Amp`/`Oscillator`/`OscillatorBox`/`Filter`/`Adc`/`Dac`/`Demod`/`Circulator`/`Isolator`/`VGA`/`Speaker`/`Antenna`/`Ic`/`Multiplexer`                         |
 
 [PUBLIC_TYPE_SCOPE]: structured logic owners (`schemdraw.logic`)
 - rail: diagram
 
 `Kmap`/`Table`/`TimingDiagram`/`BitField` are the four structured diagram owners that fold a `dict`/string into a complete figure in one constructor — not a per-cell placement loop. They are the data-driven entrypoints a downstream truth-table / register-map / waveform figure lowers onto.
 
-| [INDEX] | [TYPE] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Kmap` | structured | `Kmap(names='ABCD', truthtable=None, groups=None, default='0', **kwargs)` a Karnaugh map with grouping ellipses |
-| [02] | `Table` | structured | `Table(table, colfmt=None, fontsize=12, font='sans', **kwargs)` a markdown-pipe table rendered as a schematic figure |
-| [03] | `TimingDiagram` | structured | `TimingDiagram(waved, **kwargs)` a WaveJSON-style digital-timing diagram from a `dict` |
-| [04] | `BitField` | structured | `BitField(reg, **kwargs)` a register bit-field map from a `dict` |
+| [INDEX] | [TYPE]          | [KIND]     | [ROLE]                                                                                                               |
+| :-----: | :-------------- | :--------- | :------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Kmap`          | structured | `Kmap(names='ABCD', truthtable=None, groups=None, default='0', **kwargs)` a Karnaugh map with grouping ellipses      |
+|  [02]   | `Table`         | structured | `Table(table, colfmt=None, fontsize=12, font='sans', **kwargs)` a markdown-pipe table rendered as a schematic figure |
+|  [03]   | `TimingDiagram` | structured | `TimingDiagram(waved, **kwargs)` a WaveJSON-style digital-timing diagram from a `dict`                               |
+|  [04]   | `BitField`      | structured | `BitField(reg, **kwargs)` a register bit-field map from a `dict`                                                     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -109,99 +109,99 @@ The three domain modules carry the non-electrical diagram vocabularies on the SA
 
 `Drawing(canvas=None, file=None, show=True, transparent=False, dpi=72, **kwargs)` is the canvas; entered as a context manager (`with Drawing() as d:`) so the layout finalizes on `__exit__`, or constructed and rendered explicitly. `d += element` (`__iadd__`) and `d.add(element)` are the one polymorphic insertion surface — both place a constructed `Element` and RETURN it (so its bound anchors are addressable), and `add_elements(*elements)` batches. `config(...)` overrides this drawing's appearance (unit length, font, color, line width). The egress family is one surface: `get_imagedata(fmt)` returns the rendered bytes over the `ImageFormat` vocabulary (the design's `get_imagedata("svg")` is the durable artifact under the standalone backend), `save(fname)` writes to disk, `get_segments()` returns the flattened primitive stream, and `get_bbox()`/`here`/`theta` expose the geometry/cursor state.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Drawing(canvas=None, file=None, show=True, transparent=False, dpi=72, **kwargs)` | construct | the schematic canvas; context-manager or explicit |
-| [02] | `Drawing.add(element)` / `Drawing.iadd(element)` (`d += e`) | build | place one constructed `Element`, return it (anchors addressable) |
-| [03] | `Drawing.add_elements(*elements)` | build | batch-place several elements |
-| [04] | `Drawing.config(unit=None, inches_per_unit=None, fontsize=None, font=None, color=None, lw=None, ls=None, fill=None, bgcolor=None, margin=None, mathfont=None)` | style | per-drawing appearance override |
-| [05] | `Drawing.add_svgdef(svgdef)` | build | inject a raw `<defs>` SVG fragment (gradient/pattern/marker) into the SVG document |
-| [06] | `Drawing.get_imagedata(fmt='svg')` | egress | rendered bytes over `ImageFormat` (`'svg'` = the durable artifact under `use('svg')`) |
-| [07] | `Drawing.save(fname, transparent=True, dpi=72)` | egress | write the rendered image to disk (format inferred from extension) |
-| [08] | `Drawing.get_segments()` / `Drawing.get_bbox()` | query | the flattened `Segment*` stream / the schematic bounding box |
-| [09] | `Drawing.move(dx, dy)` / `move_from(ref, dx, dy, theta=None)` / `here` / `theta` | cursor | move / re-anchor / read the placement cursor (the next element's start) |
-| [10] | `Drawing.push()` / `pop()` / `undo()` | cursor | save / restore / remove the last placement cursor state |
-| [11] | `Drawing.draw(show=True, canvas=None)` | render | force a (re)render onto a backend (explicit, non-context use) |
-| [12] | `Drawing.container(cornerradius=0.3, padx=0.75, pady=0.75)` / `hold()` / `interactive(...)` | build | open a `Container` box scope / hold cursor / toggle interactive redraw |
+| [INDEX] | [MEMBER]                                                                                                                                                       | [KIND]    | [ROLE]                                                                                |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `Drawing(canvas=None, file=None, show=True, transparent=False, dpi=72, **kwargs)`                                                                              | construct | the schematic canvas; context-manager or explicit                                     |
+|  [02]   | `Drawing.add(element)` / `Drawing.iadd(element)` (`d += e`)                                                                                                    | build     | place one constructed `Element`, return it (anchors addressable)                      |
+|  [03]   | `Drawing.add_elements(*elements)`                                                                                                                              | build     | batch-place several elements                                                          |
+|  [04]   | `Drawing.config(unit=None, inches_per_unit=None, fontsize=None, font=None, color=None, lw=None, ls=None, fill=None, bgcolor=None, margin=None, mathfont=None)` | style     | per-drawing appearance override                                                       |
+|  [05]   | `Drawing.add_svgdef(svgdef)`                                                                                                                                   | build     | inject a raw `<defs>` SVG fragment (gradient/pattern/marker) into the SVG document    |
+|  [06]   | `Drawing.get_imagedata(fmt='svg')`                                                                                                                             | egress    | rendered bytes over `ImageFormat` (`'svg'` = the durable artifact under `use('svg')`) |
+|  [07]   | `Drawing.save(fname, transparent=True, dpi=72)`                                                                                                                | egress    | write the rendered image to disk (format inferred from extension)                     |
+|  [08]   | `Drawing.get_segments()` / `Drawing.get_bbox()`                                                                                                                | query     | the flattened `Segment*` stream / the schematic bounding box                          |
+|  [09]   | `Drawing.move(dx, dy)` / `move_from(ref, dx, dy, theta=None)` / `here` / `theta`                                                                               | cursor    | move / re-anchor / read the placement cursor (the next element's start)               |
+|  [10]   | `Drawing.push()` / `pop()` / `undo()`                                                                                                                          | cursor    | save / restore / remove the last placement cursor state                               |
+|  [11]   | `Drawing.draw(show=True, canvas=None)`                                                                                                                         | render    | force a (re)render onto a backend (explicit, non-context use)                         |
+|  [12]   | `Drawing.container(cornerradius=0.3, padx=0.75, pady=0.75)` / `hold()` / `interactive(...)`                                                                    | build     | open a `Container` box scope / hold cursor / toggle interactive redraw                |
 
 [ENTRYPOINT_SCOPE]: fluent placement algebra (`Element`)
 - rail: diagram
 
 Every `Element` carries the chainable placement/style/label algebra — each method returns `self`, so a symbol is constructed, positioned RELATIVE to the prior element's named anchor, styled, and labelled in one expression: `elm.Resistor().right().at(prev.end).label('R1').color('blue')`. `.at(xy | (element, anchor))` pins the start to an absolute point or another element's named anchor; `.right`/`.left`/`.up`/`.down`/`.theta(deg)` set direction; `.anchor(name)` chooses WHICH of the element's anchors lands at the placement point; `.label(text, loc, ...)` attaches positioned text; `.color`/`.fill`/`.linewidth`/`.linestyle`/`.style`/`.zorder`/`.scale`/`.flip`/`.reverse` style. This relative-connection algebra IS the schematic-authoring model — coordinates are derived, rarely typed.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Element.at(xy \| (element, anchor), dx=0, dy=0)` | place | pin the start to a point or another element's named anchor |
-| [02] | `Element.right()` / `left()` / `up()` / `down()` / `theta(deg)` | place | set the placement direction |
-| [03] | `Element.anchor(name)` / `Element.anchors` (attr) / `set_anchor(name)` | place | choose the anchor that lands at the placement point; the named-anchor dict |
-| [04] | `Element.label(label, loc=None, ofst=None, halign=None, valign=None, rotate=False, fontsize=None, font=None, mathfont=None, color=None, href=None, decoration=None)` | annotate | attach positioned (optionally math/hyperlinked) text |
-| [05] | `Element.color(c)` / `fill(c=True)` / `gradient_fill(c1, c2, vertical=True)` | style | stroke color / fill / two-stop gradient fill |
-| [06] | `Element.linewidth(lw)` / `linestyle(ls)` / `style(color=, fill=, ls=, lw=)` | style | line width / dash style / bundled style |
-| [07] | `Element.scale(s)` / `scalex(s)` / `scaley(s)` / `flip()` / `reverse()` / `zorder(z)` | style | scale / mirror / reverse direction / z-order |
-| [08] | `Element.drop(drop)` / `hold()` / `get_bbox(transform=False, includetext=True)` | place | set the exit anchor for the next element / hold cursor / bbox |
+| [INDEX] | [MEMBER]                                                                                                                                                             | [KIND]   | [ROLE]                                                                     |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- | :------------------------------------------------------------------------- |
+|  [01]   | `Element.at(xy \| (element, anchor), dx=0, dy=0)`                                                                                                                    | place    | pin the start to a point or another element's named anchor                 |
+|  [02]   | `Element.right()` / `left()` / `up()` / `down()` / `theta(deg)`                                                                                                      | place    | set the placement direction                                                |
+|  [03]   | `Element.anchor(name)` / `Element.anchors` (attr) / `set_anchor(name)`                                                                                               | place    | choose the anchor that lands at the placement point; the named-anchor dict |
+|  [04]   | `Element.label(label, loc=None, ofst=None, halign=None, valign=None, rotate=False, fontsize=None, font=None, mathfont=None, color=None, href=None, decoration=None)` | annotate | attach positioned (optionally math/hyperlinked) text                       |
+|  [05]   | `Element.color(c)` / `fill(c=True)` / `gradient_fill(c1, c2, vertical=True)`                                                                                         | style    | stroke color / fill / two-stop gradient fill                               |
+|  [06]   | `Element.linewidth(lw)` / `linestyle(ls)` / `style(color=, fill=, ls=, lw=)`                                                                                         | style    | line width / dash style / bundled style                                    |
+|  [07]   | `Element.scale(s)` / `scalex(s)` / `scaley(s)` / `flip()` / `reverse()` / `zorder(z)`                                                                                | style    | scale / mirror / reverse direction / z-order                               |
+|  [08]   | `Element.drop(drop)` / `hold()` / `get_bbox(transform=False, includetext=True)`                                                                                      | place    | set the exit anchor for the next element / hold cursor / bbox              |
 
 [ENTRYPOINT_SCOPE]: `Element2Term` extra placement (in-line two-terminal symbols)
 - rail: diagram
 
 A two-terminal symbol (resistor, capacitor, wire) adds the in-line placement surface: `.to(xy)` stretches the element so its END lands at a point, `.tox(x)`/`.toy(y)` stretch to an x/y while keeping the other axis, `.length(L)` fixes the span, `.endpoints(start, end)` pins both ends, and `.dot`/`.idot` add a connection dot at the end/start. This is how a wire run reaches a target node by COORDINATE-FREE stretching.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Element2Term.to(xy, dx=0, dy=0)` | place | stretch so the end lands at a point |
-| [02] | `Element2Term.tox(x \| XY \| Element)` / `toy(y \| XY \| Element)` | place | stretch to an x / y, keeping the other axis |
-| [03] | `Element2Term.length(L)` / `endpoints(start, end)` / `shift(s)` | place | fix the span / pin both ends / shift along the run |
-| [04] | `Element2Term.dot(open=False)` / `idot(open=False)` | place | add a (open) connection dot at the end / start |
+| [INDEX] | [MEMBER]                                                           | [KIND] | [ROLE]                                             |
+| :-----: | :----------------------------------------------------------------- | :----- | :------------------------------------------------- |
+|  [01]   | `Element2Term.to(xy, dx=0, dy=0)`                                  | place  | stretch so the end lands at a point                |
+|  [02]   | `Element2Term.tox(x \| XY \| Element)` / `toy(y \| XY \| Element)` | place  | stretch to an x / y, keeping the other axis        |
+|  [03]   | `Element2Term.length(L)` / `endpoints(start, end)` / `shift(s)`    | place  | fix the span / pin both ends / shift along the run |
+|  [04]   | `Element2Term.dot(open=False)` / `idot(open=False)`                | place  | add a (open) connection dot at the end / start     |
 
 [ENTRYPOINT_SCOPE]: integrated-circuit & compound builders (`elements`)
 - rail: diagram
 
 `Ic(size=None, pins=None, slant=0)` builds a named-pin integrated-circuit box from a `Sequence[IcPin]`, each pin a named, sided (`L`/`R`/`T`/`B`), positioned terminal that becomes an addressable anchor on the placed `Ic` (so a wire connects to `ic.IN`/`ic.OUT` by name). `Multiplexer` is the slanted-IC specialization, `Encircle`/`Container` draw a box around a set of elements, and `ElementCompound` is the base a custom symbol composes from by appending `Segment*` to `self.segments`.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Ic(size=None, pins=None, slant=0, **kwargs)` | construct | a named-pin IC box; each `IcPin.name` becomes an addressable anchor |
-| [02] | `IcPin(name=None, pin=None, side='L', pos=None, slot=None, invert=False, invertradius=0.15, anchorname=None, rotation=0, ...)` | construct | one named/sided/positioned IC pin (the bubble for `invert=True`) |
-| [03] | `Multiplexer(demux=False, size=None, pins=None, slant=25, **kwargs)` | construct | a slanted-IC mux/demux from `IcPin`s |
-| [04] | `Encircle(elm_list=None, *, padx=None, pady=None, includelabels=True, **kwargs)` / `EncircleBox(...)` | construct | a rounded / rectangular box drawn around a set of placed elements |
-| [05] | `Opamp(*, sign=None, leads=None, **kwargs)` | construct | op-amp with `in1`/`in2`/`out`/`vd`/`vs` named anchors |
-| [06] | `ElementImage(image, width, height, xy=Point(0,0), imgfmt=None, **kwargs)` / `ElementDrawing(drawing, **kwargs)` | construct | embed a raster / embed a `Drawing` as one reusable symbol |
+| [INDEX] | [MEMBER]                                                                                                                       | [KIND]    | [ROLE]                                                              |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :-------- | :------------------------------------------------------------------ |
+|  [01]   | `Ic(size=None, pins=None, slant=0, **kwargs)`                                                                                  | construct | a named-pin IC box; each `IcPin.name` becomes an addressable anchor |
+|  [02]   | `IcPin(name=None, pin=None, side='L', pos=None, slot=None, invert=False, invertradius=0.15, anchorname=None, rotation=0, ...)` | construct | one named/sided/positioned IC pin (the bubble for `invert=True`)    |
+|  [03]   | `Multiplexer(demux=False, size=None, pins=None, slant=25, **kwargs)`                                                           | construct | a slanted-IC mux/demux from `IcPin`s                                |
+|  [04]   | `Encircle(elm_list=None, *, padx=None, pady=None, includelabels=True, **kwargs)` / `EncircleBox(...)`                          | construct | a rounded / rectangular box drawn around a set of placed elements   |
+|  [05]   | `Opamp(*, sign=None, leads=None, **kwargs)`                                                                                    | construct | op-amp with `in1`/`in2`/`out`/`vd`/`vs` named anchors               |
+|  [06]   | `ElementImage(image, width, height, xy=Point(0,0), imgfmt=None, **kwargs)` / `ElementDrawing(drawing, **kwargs)`               | construct | embed a raster / embed a `Drawing` as one reusable symbol           |
 
 [ENTRYPOINT_SCOPE]: structured logic & boolean-expression parse (`logic`, `parsing`)
 - rail: diagram
 
 `logic.Kmap`/`Table`/`TimingDiagram`/`BitField` fold a `dict`/string into a complete structured figure in one constructor. `parsing.logicparse(expr, ...)` is the boolean-expression-to-gate-network builder — it parses an expression string (`'a and (b or c)'`), runs the bundled Buchheim tree placement, and RETURNS a fully-placed `Drawing` of logic gates (the built-in logic-layout fallback, not the generic routing engine).
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `logic.Kmap(names='ABCD', truthtable=None, groups=None, default='0', **kwargs)` | build | a Karnaugh map with grouping ellipses |
-| [02] | `logic.Table(table, colfmt=None, fontsize=12, font='sans', **kwargs)` | build | a markdown-pipe truth/data table as a schematic figure |
-| [03] | `logic.TimingDiagram(waved, **kwargs)` / `logic.BitField(reg, **kwargs)` | build | a WaveJSON timing diagram / a register bit-field map from a `dict` |
-| [04] | `parsing.logicparse(expr, gateW=2, gateH=0.75, outlabel=None)` | build | parse a boolean expression to a fully-placed gate `Drawing` (returns `Drawing`) |
+| [INDEX] | [MEMBER]                                                                        | [KIND] | [ROLE]                                                                          |
+| :-----: | :------------------------------------------------------------------------------ | :----- | :------------------------------------------------------------------------------ |
+|  [01]   | `logic.Kmap(names='ABCD', truthtable=None, groups=None, default='0', **kwargs)` | build  | a Karnaugh map with grouping ellipses                                           |
+|  [02]   | `logic.Table(table, colfmt=None, fontsize=12, font='sans', **kwargs)`           | build  | a markdown-pipe truth/data table as a schematic figure                          |
+|  [03]   | `logic.TimingDiagram(waved, **kwargs)` / `logic.BitField(reg, **kwargs)`        | build  | a WaveJSON timing diagram / a register bit-field map from a `dict`              |
+|  [04]   | `parsing.logicparse(expr, gateW=2, gateH=0.75, outlabel=None)`                  | build  | parse a boolean expression to a fully-placed gate `Drawing` (returns `Drawing`) |
 
 [ENTRYPOINT_SCOPE]: global appearance & backend selection (`config`, `theme`, `use`, `svgconfig`, `style`)
 - rail: diagram
 
 `use(backend)` selects the render engine ONCE per process — `'svg'` is the standalone pure-SVG backend (no matplotlib, no native lib; the design's egress) and `'matplotlib'` the richer raster/EPS/PGF path. `config(...)` and `theme(name)` set the global default appearance; `svgconfig` carries the SVG-backend render policy (`text='path'` emits font-independent SVG `<path>` text and enables ziamath math rendering, `text='text'` emits native SVG `<text>` elements using system fonts; `svg2=True` uses SVG 2.0 features; `precision=3` the coordinate decimal precision). `style.color_rgb`/`color_hex`/`validate_color` are the color-input helpers.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `use(backend='matplotlib')` | backend | select the render engine: `'svg'` (standalone) or `'matplotlib'` |
-| [02] | `config(unit=3.0, inches_per_unit=0.5, lblofst=0.1, fontsize=14.0, font='sans-serif', color='black', lw=2.0, ls='-', fill=None, bgcolor=None, margin=0.1, mathfont=None)` | style | global default appearance |
-| [03] | `theme(theme='default')` | style | global theme — `default`/`dark`/`solarizedd`/`solarizedl`/`onedork`/`oceans16`/`monokai`/`gruvboxl`/`gruvboxd`/`grade3`/`chesterish` |
-| [04] | `svgconfig.text` (`'path'`/`'text'`) / `svgconfig.svg2` / `svgconfig.precision` / `svgconfig.useBatik` | style | SVG-backend render policy (path-vs-native text, SVG2, precision) |
-| [05] | `style.color_rgb(c)` / `color_hex(c)` / `color_hsl(c)` / `validate_color(c)` | validate | color-input parsing/validation helpers |
-| [06] | `debug(dwgbbox=True, elmbbox=True)` | debug | overlay the drawing/element bounding boxes (layout debugging) |
+| [INDEX] | [MEMBER]                                                                                                                                                                  | [KIND]   | [ROLE]                                                                                                                               |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `use(backend='matplotlib')`                                                                                                                                               | backend  | select the render engine: `'svg'` (standalone) or `'matplotlib'`                                                                     |
+|  [02]   | `config(unit=3.0, inches_per_unit=0.5, lblofst=0.1, fontsize=14.0, font='sans-serif', color='black', lw=2.0, ls='-', fill=None, bgcolor=None, margin=0.1, mathfont=None)` | style    | global default appearance                                                                                                            |
+|  [03]   | `theme(theme='default')`                                                                                                                                                  | style    | global theme — `default`/`dark`/`solarizedd`/`solarizedl`/`onedork`/`oceans16`/`monokai`/`gruvboxl`/`gruvboxd`/`grade3`/`chesterish` |
+|  [04]   | `svgconfig.text` (`'path'`/`'text'`) / `svgconfig.svg2` / `svgconfig.precision` / `svgconfig.useBatik`                                                                    | style    | SVG-backend render policy (path-vs-native text, SVG2, precision)                                                                     |
+|  [05]   | `style.color_rgb(c)` / `color_hex(c)` / `color_hsl(c)` / `validate_color(c)`                                                                                              | validate | color-input parsing/validation helpers                                                                                               |
+|  [06]   | `debug(dwgbbox=True, elmbbox=True)`                                                                                                                                       | debug    | overlay the drawing/element bounding boxes (layout debugging)                                                                        |
 
 [ENTRYPOINT_SCOPE]: custom symbol composition (`Segment*` + `ElementCompound`)
 - rail: diagram
 
 A symbol the 226-element vocabulary does not carry is composed by subclassing `ElementCompound` and appending typed `Segment*` primitives to `self.segments` in `__init__`, plus declaring named anchors in `self.anchors` — so a custom AEC fixture symbol (a sprinkler head, a damper, a building-system glyph) is one `Segment*`-built class, never a hand-emitted SVG path. The placed element then participates in the identical fluent placement algebra.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `class MySymbol(ElementCompound): ...` appending `Segment*` to `self.segments` | compose | a custom symbol from typed primitives (no hand-emitted path) |
-| [02] | `self.anchors['name'] = (x, y)` in the symbol `init` | compose | declare a named terminal anchor on the custom symbol |
-| [03] | `self.segments.append(Segment(...) \| SegmentPoly(...) \| SegmentArc(...) \| SegmentText(...))` | compose | append a typed path/poly/arc/text primitive |
+| [INDEX] | [MEMBER]                                                                                        | [KIND]  | [ROLE]                                                       |
+| :-----: | :---------------------------------------------------------------------------------------------- | :------ | :----------------------------------------------------------- |
+|  [01]   | `class MySymbol(ElementCompound): ...` appending `Segment*` to `self.segments`                  | compose | a custom symbol from typed primitives (no hand-emitted path) |
+|  [02]   | `self.anchors['name'] = (x, y)` in the symbol `init`                                            | compose | declare a named terminal anchor on the custom symbol         |
+|  [03]   | `self.segments.append(Segment(...) \| SegmentPoly(...) \| SegmentArc(...) \| SegmentText(...))` | compose | append a typed path/poly/arc/text primitive                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

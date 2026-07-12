@@ -2,10 +2,10 @@
 
 The headless component spine: react-aria-components is ONE render-props + context + slot pattern instanced across every family, and this module owns how the folder rides it — the `styled` recipe factory fusing a `cva` variant table with RAC's render-state through `composeRenderProps` and the one `cn` rail, the roster law (which library owns which primitive class, radix included), the toast queue + live-region announce rows, the failure envelope (`react-error-boundary` folding the atom's squashed tagged `E`), the one sanitize gate every HTML-bearing string passes before a DOM sink, and the `Clipboard` capability port the browser composition satisfies. Styling is state-as-data: RAC emits `data-*` attributes, the `tailwindcss-react-aria-components` variants read them, and a `className` function survives only where a variant cannot express the state. The module is `ui/src/system/primitive.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC]    |
-| :-----: | :----------------- | :---------------------------------------------------------------------------- | :---------- |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                         | [PUBLIC]    |
+| :-----: | :----------------- | :----------------------------------------------------------------------------- | :---------- |
 |  [01]   | `STYLED_SPINE`     | `Primitive.styled` — the cva × composeRenderProps × cn recipe factory          | `Primitive` |
 |  [02]   | `ROSTER_LAW`       | the component-family ownership table and the slot/context composition rules    | —           |
 |  [03]   | `TOAST_ANNOUNCE`   | the toast queue owner and the imperative live-region rail                      | `Primitive` |
@@ -13,7 +13,7 @@ The headless component spine: react-aria-components is ONE render-props + contex
 |  [05]   | `SANITIZE_GATE`    | the one DOMPurify gate before any `dangerouslySetInnerHTML` sink               | `Primitive` |
 |  [06]   | `CLIPBOARD_PORT`   | the folder-declared clipboard capability Tag the browser composition satisfies | `Clipboard` |
 
-## [2]-[STYLED_SPINE]
+## [02]-[STYLED_SPINE]
 
 [STYLED_SPINE]:
 - Owner: `Primitive.styled(recipe)` — the one styled-atom factory: takes a `cva` recipe (base + variant axes + `defaultVariants` + `compoundVariants`) and returns the `className` composer a RAC component consumes — `composeRenderProps` layers the recipe's selected classes under the caller's own `className` (value or render function), `cn` resolves conflicts last-wins, and `VariantProps<typeof recipe>` lifts the axis union into the component's prop type intersected with `ComponentProps` of the wrapped element.
@@ -49,7 +49,7 @@ const _button = cva("inline-flex items-center gap-2 rounded-md outline-none focu
 })
 ```
 
-## [3]-[ROSTER_LAW]
+## [03]-[ROSTER_LAW]
 
 [ROSTER_LAW]:
 - Law: the RAC families are seed data on one pattern — actions (`ToggleButtonGroup`/`Toolbar`), collections (`GridList`/`ListBox`/`Menu`/`Tree`/`TagGroup`/`Tabs`/`Breadcrumbs`), pickers (`ComboBox`/`SearchField`/`Autocomplete`), fields, toggles, gauges (`Slider`/`Meter`/`ProgressBar`), date/time (`Calendar`/`RangeCalendar`/`DateField`/`TimeField`/`DatePicker`/`DateRangePicker` over `@internationalized/date` `DateValue`), color (`ColorPicker`/`ColorWheel`/`ColorArea`/`ColorSlider`/`ColorField`), structure (`Disclosure`/`DisclosureGroup`), and interaction — and a view row COMPOSES the pattern (`Xxx`/`XxxContext`/`XxxStateContext` triple), never memorizes per-component APIs; a standard widget takes the RAC component, and a raw `use<Widget>` + `use<Widget>State` pair is reached only for a bespoke DOM structure RAC does not ship.
@@ -62,7 +62,7 @@ const _button = cva("inline-flex items-center gap-2 rounded-md outline-none focu
 - Law: date/time and color interiors stay foreign at the seam — `DateValue` segments and RAC's color state are widget-interior currency; a committed value crosses to the domain as the owning kernel scalar (`DateTime.Utc` through `system/intl`'s epoch seam, `Theme.Color` through its decode) at the controlled-prop boundary, never stored foreign.
 - Boundary: field/validation composition is `view/form`'s; grid modeling is `view/table`'s; palette, anchors, and sheets are `view/overlay`'s; discrete interaction hooks are `system/act`'s; locale infra (`I18nProvider`, `useFilter`) is `system/intl`'s.
 
-## [4]-[TOAST_ANNOUNCE]
+## [04]-[TOAST_ANNOUNCE]
 
 [TOAST_ANNOUNCE]:
 - Owner: `Primitive.toasts` — one module-level `UNSTABLE_ToastQueue<Note>` (react-stately's queue; pre-stable marker carried on this card, not hidden) with `maxVisibleToasts` policy; the region row renders `UNSTABLE_ToastRegion`/`UNSTABLE_Toast*` over the queue with `Motion.toast` enter/exit variants, and the queue's `add`/`close` are the only imperative surface — an Effect flow enqueues through `Effect.sync(() => Primitive.toasts.add(note, { timeout }))` at its consuming boundary.
@@ -79,7 +79,7 @@ type Note = { readonly key: string; readonly tone: "neutral" | "success" | "dang
 const _toasts = new UNSTABLE_ToastQueue<Note>({ maxVisibleToasts: 4 })
 ```
 
-## [5]-[FAILURE_ENVELOPE]
+## [05]-[FAILURE_ENVELOPE]
 
 [FAILURE_ENVELOPE]:
 - Owner: `Primitive.boundary` — the one error-boundary row: `ErrorBoundary` with the `fallbackRender` arm (the discriminated prop union's render-prop member), `resetKeys` bound to the failing atom's input so a new query clears a stale error, `onReset` re-running the failed atom through `useAtomRefresh`, and `onError` as the app-wired observation prop (telemetry is not a `ui` edge — the app composes the sink).
@@ -104,7 +104,7 @@ const _fallbackRender = <E,>(fold: Boundary.Fold<E>): ((props: FallbackProps) =>
   }
 ```
 
-## [6]-[SANITIZE_GATE]
+## [06]-[SANITIZE_GATE]
 
 [SANITIZE_GATE]:
 - Owner: `Primitive.sanitize` — the one DOMPurify gate: `_POLICY` is the singular allow-list value (`USE_PROFILES { html: true }`, no inline event attributes ever) applied per call so the module carries zero load-time side effect, `sanitize(dirty)` is the only path to `dangerouslySetInnerHTML`, and the `removed` diagnostic feeds an evidence row when a strip occurs; rich-text catalog messages (`system/intl`) and any wire-borne HTML band pass here — a raw string reaching a DOM sink is the named defect.
@@ -138,7 +138,7 @@ const Primitive: Primitive.Shape = {
 }
 ```
 
-## [7]-[CLIPBOARD_PORT]
+## [07]-[CLIPBOARD_PORT]
 
 [CLIPBOARD_PORT]:
 - Owner: `Clipboard` — the folder-declared clipboard capability Tag: `copy(text)` and `paste` on a typed fault rail, declared HERE and satisfied at the browser composition root from the platform clipboard layer — this folder never imports the platform package, so the capability travels the requirement channel and a test substitutes a Layer.

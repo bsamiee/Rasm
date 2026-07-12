@@ -19,35 +19,35 @@ The async-dependency monad every resource arg and output flows through. `Output<
 [PUBLIC_TYPE_SCOPE]: output types
 - rail: deployment
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
-|:-----: |:------------------ |:------------ |:----------------------------------------- |
-| [01] | `Output<T>` | async value | `OutputInstance<T> & Lifted<T>` |
-| [02] | `OutputInstance<T>` | interface | `.apply`/`.get` contract |
-| [03] | `Input<T>` | alias | `T \| Promise<T> \| OutputInstance<T>` |
-| [04] | `Inputs` | alias | `Record<string, Input<any>>` |
-| [05] | `Unwrap<T>` | utility | deeply strip `Promise`/`Output` nesting |
-| [06] | `Lifted<T>` | utility | property-lifted `Output` projection |
-| [07] | `Unknown` | sentinel | preview-time unresolved marker (`unknown`) |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [NOTE]                                     |
+| :-----: | :------------------ | :------------ | :----------------------------------------- |
+|  [01]   | `Output<T>`         | async value   | `OutputInstance<T> & Lifted<T>`            |
+|  [02]   | `OutputInstance<T>` | interface     | `.apply`/`.get` contract                   |
+|  [03]   | `Input<T>`          | alias         | `T \| Promise<T> \| OutputInstance<T>`     |
+|  [04]   | `Inputs`            | alias         | `Record<string, Input<any>>`               |
+|  [05]   | `Unwrap<T>`         | utility       | deeply strip `Promise`/`Output` nesting    |
+|  [06]   | `Lifted<T>`         | utility       | property-lifted `Output` projection        |
+|  [07]   | `Unknown`           | sentinel      | preview-time unresolved marker (`unknown`) |
 
 [ENTRYPOINT_SCOPE]: output combinators
 - rail: deployment
 
-| [INDEX] | [SURFACE] | [FAMILY] | [NOTE] |
-|:-----: |:--------------------------------------------------- |:--------------- |:------------------------------------------- |
-| [01] | `output<T>(val: Input<T>): Output<Unwrap<T>>` | lift | plain/promised → tracked output |
-| [02] | `secret<T>(val: Input<T>): Output<Unwrap<T>>` | lift | mark output sensitive (state-encrypted) |
-| [03] | `unsecret<T>(val: Output<T>): Output<T>` | strip | remove secret marking |
-| [04] | `isSecret<T>(val: Output<T>): Promise<boolean>` | predicate | test secret flag |
-| [05] | `all(vals): Output<...>` | combinator | join record / tuple(2..8) / array of inputs |
-| [06] | `concat(...params: Input<any>[]): Output<string>` | string join | stringify + concatenate |
-| [07] | `interpolate(literals, ...ph): Output<string>` | tagged template | template-literal output interpolation |
-| [08] | `jsonStringify(obj, replacer?, space?): Output<str>` | serializer | `JSON.stringify` over `Input<any>` |
-| [09] | `jsonParse(text, reviver?): Output<any>` | deserializer | `JSON.parse` over `Input<string>` |
-| [10] | `recover<T>(o, (err)=>Input<T>): Output<T>` | recovery | recover a rejected output to a value |
-| [11] | `deferredOutput<T>(): [Output<T>, resolver]` | deferred pair | forward-reference an output before its source |
-| [12] | `getAllResources<T>(op): Promise<Set<Resource>>` | dependency query | resources an output depends on |
-| [13] | `isUnknown(v)` / `containsUnknowns(v)` | preview guard | detect preview-time unresolved values |
-| [14] | `Output.create` / `Output.isInstance` / `Output.all` | static | factory / type guard / static join |
+| [INDEX] | [SURFACE]                                            | [FAMILY]         | [NOTE]                                        |
+| :-----: | :--------------------------------------------------- | :--------------- | :-------------------------------------------- |
+|  [01]   | `output<T>(val: Input<T>): Output<Unwrap<T>>`        | lift             | plain/promised → tracked output               |
+|  [02]   | `secret<T>(val: Input<T>): Output<Unwrap<T>>`        | lift             | mark output sensitive (state-encrypted)       |
+|  [03]   | `unsecret<T>(val: Output<T>): Output<T>`             | strip            | remove secret marking                         |
+|  [04]   | `isSecret<T>(val: Output<T>): Promise<boolean>`      | predicate        | test secret flag                              |
+|  [05]   | `all(vals): Output<...>`                             | combinator       | join record / tuple(2..8) / array of inputs   |
+|  [06]   | `concat(...params: Input<any>[]): Output<string>`    | string join      | stringify + concatenate                       |
+|  [07]   | `interpolate(literals, ...ph): Output<string>`       | tagged template  | template-literal output interpolation         |
+|  [08]   | `jsonStringify(obj, replacer?, space?): Output<str>` | serializer       | `JSON.stringify` over `Input<any>`            |
+|  [09]   | `jsonParse(text, reviver?): Output<any>`             | deserializer     | `JSON.parse` over `Input<string>`             |
+|  [10]   | `recover<T>(o, (err)=>Input<T>): Output<T>`          | recovery         | recover a rejected output to a value          |
+|  [11]   | `deferredOutput<T>(): [Output<T>, resolver]`         | deferred pair    | forward-reference an output before its source |
+|  [12]   | `getAllResources<T>(op): Promise<Set<Resource>>`     | dependency query | resources an output depends on                |
+|  [13]   | `isUnknown(v)` / `containsUnknowns(v)`               | preview guard    | detect preview-time unresolved values         |
+|  [14]   | `Output.create` / `Output.isInstance` / `Output.all` | static           | factory / type guard / static join            |
 
 ## [03]-[RESOURCE_MODEL]
 
@@ -56,36 +56,36 @@ The class hierarchy the `stack` ComponentResource tiers extend and the `kube`/`s
 [PUBLIC_TYPE_SCOPE]: resource classes + options
 - rail: deployment
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
-|:-----: |:------------------------------------ |:------------- |:----------------------------------------------- |
-| [01] | `Resource` | abstract class | base; `urn: Output<URN>` |
-| [02] | `CustomResource` | abstract class | extends `Resource`; `id: Output<ID>` |
-| [03] | `ComponentResource<TData>` | class | grouping owner; `registerOutputs(outputs?)` |
-| [04] | `ProviderResource` | abstract class | explicit provider instance (multi-region/multi-cluster) |
-| [05] | `StackReference` | class | cross-stack reads; `getOutput`/`requireOutput`/`getOutputDetails` |
-| [06] | `ResourceHook` / `ErrorHook` | class | lifecycle + error transform binding |
-| [07] | `ResourceOptions` | interface | `parent`/`dependsOn`/`protect`/`ignoreChanges`/`provider`/`transforms` |
-| [08] | `CustomResourceOptions` | interface | adds `import`/`id`/`deleteBeforeReplace`/`replaceOnChanges` |
-| [09] | `ComponentResourceOptions` | interface | adds `providers` map |
-| [10] | `CustomTimeouts` / `Alias` | interface | per-op timeout strings / rename descriptor |
-| [11] | `mergeOptions(a, b)` | fold | overload trio; merge base opts into overrides |
-| [12] | `createUrn` / `resourceType` / `resourceName` | utility | compute URN / read type / read name |
-| [13] | `InvokeOptions` / `InvokeOutputOptions` | interface | data-source invoke opts (`parent`/`provider`/`version`/`pluginDownloadURL`/`async`); `InvokeOutputOptions extends InvokeOptions` adds graph `dependsOn` — the `getX(args, InvokeOptions?): Promise<…>` / `getXOutput(args, InvokeOutputOptions?): Output<…>` seam every provider data-source pair takes |
-| [14] | `URN` / `ID` | string brand | `URN = string` / `ID = string`; the `urn`/`id` identity a `static get(name, id: Input<ID>, …)` adopts |
-| [15] | `queryable.ResolvedResource<T>` | utility (submodule) | `@pulumi/pulumi/queryable`; `Omit<Resolved<T>, "urn"\|"getProvider">` — the fully-resolved resource view `@pulumi/policy`'s `q.ResolvedResource<T>` stack narrowing consumes (`.api/pulumi-policy.md`) |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]       | [NOTE]                                                                                                                                                                                                                                                                                                  |
+| :-----: | :-------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Resource`                                    | abstract class      | base; `urn: Output<URN>`                                                                                                                                                                                                                                                                                |
+|  [02]   | `CustomResource`                              | abstract class      | extends `Resource`; `id: Output<ID>`                                                                                                                                                                                                                                                                    |
+|  [03]   | `ComponentResource<TData>`                    | class               | grouping owner; `registerOutputs(outputs?)`                                                                                                                                                                                                                                                             |
+|  [04]   | `ProviderResource`                            | abstract class      | explicit provider instance (multi-region/multi-cluster)                                                                                                                                                                                                                                                 |
+|  [05]   | `StackReference`                              | class               | cross-stack reads; `getOutput`/`requireOutput`/`getOutputDetails`                                                                                                                                                                                                                                       |
+|  [06]   | `ResourceHook` / `ErrorHook`                  | class               | lifecycle + error transform binding                                                                                                                                                                                                                                                                     |
+|  [07]   | `ResourceOptions`                             | interface           | `parent`/`dependsOn`/`protect`/`ignoreChanges`/`provider`/`transforms`                                                                                                                                                                                                                                  |
+|  [08]   | `CustomResourceOptions`                       | interface           | adds `import`/`id`/`deleteBeforeReplace`/`replaceOnChanges`                                                                                                                                                                                                                                             |
+|  [09]   | `ComponentResourceOptions`                    | interface           | adds `providers` map                                                                                                                                                                                                                                                                                    |
+|  [10]   | `CustomTimeouts` / `Alias`                    | interface           | per-op timeout strings / rename descriptor                                                                                                                                                                                                                                                              |
+|  [11]   | `mergeOptions(a, b)`                          | fold                | overload trio; merge base opts into overrides                                                                                                                                                                                                                                                           |
+|  [12]   | `createUrn` / `resourceType` / `resourceName` | utility             | compute URN / read type / read name                                                                                                                                                                                                                                                                     |
+|  [13]   | `InvokeOptions` / `InvokeOutputOptions`       | interface           | data-source invoke opts (`parent`/`provider`/`version`/`pluginDownloadURL`/`async`); `InvokeOutputOptions extends InvokeOptions` adds graph `dependsOn` — the `getX(args, InvokeOptions?): Promise<…>` / `getXOutput(args, InvokeOutputOptions?): Output<…>` seam every provider data-source pair takes |
+|  [14]   | `URN` / `ID`                                  | string brand        | `URN = string` / `ID = string`; the `urn`/`id` identity a `static get(name, id: Input<ID>, …)` adopts                                                                                                                                                                                                   |
+|  [15]   | `queryable.ResolvedResource<T>`               | utility (submodule) | `@pulumi/pulumi/queryable`; `Omit<Resolved<T>, "urn"\|"getProvider">` — the fully-resolved resource view `@pulumi/policy`'s `q.ResolvedResource<T>` stack narrowing consumes (`.api/pulumi-policy.md`)                                                                                                  |
 
 [PUBLIC_TYPE_SCOPE]: config, assets, errors, log
 - rail: deployment
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
-|:-----: |:--------------------------------------------- |:------------- |:----------------------------------------------- |
-| [01] | `Config` | class | read matrix: `{get,require}{,Secret}{,Boolean,Number,Object}` — mode × type × secrecy |
-| [02] | `StringConfigOptions` / `NumberConfigOptions` | interface | `allowedValues`/`pattern`/`min`/`max` validation |
-| [03] | `Asset` → `FileAsset`/`StringAsset`/`RemoteAsset` | class family | file/inline/URL asset for chart + configmap inputs |
-| [04] | `Archive` → `AssetArchive`/`FileArchive`/`RemoteArchive` | class family | multi-file archive inputs |
-| [05] | `RunError` / `ResourceError` | error class | clean abort / resource-associated abort |
-| [06] | `InputPropertyError` / `InputPropertiesError` | error class | single / multi input-property validation failure |
-| [07] | `log.{debug,info,warn,error,hasErrors}` | function set | structured deployment-engine log (per-resource) |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY] | [NOTE]                                                                                |
+| :-----: | :------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------ |
+|  [01]   | `Config`                                                 | class         | read matrix: `{get,require}{,Secret}{,Boolean,Number,Object}` — mode × type × secrecy |
+|  [02]   | `StringConfigOptions` / `NumberConfigOptions`            | interface     | `allowedValues`/`pattern`/`min`/`max` validation                                      |
+|  [03]   | `Asset` → `FileAsset`/`StringAsset`/`RemoteAsset`        | class family  | file/inline/URL asset for chart + configmap inputs                                    |
+|  [04]   | `Archive` → `AssetArchive`/`FileArchive`/`RemoteArchive` | class family  | multi-file archive inputs                                                             |
+|  [05]   | `RunError` / `ResourceError`                             | error class   | clean abort / resource-associated abort                                               |
+|  [06]   | `InputPropertyError` / `InputPropertiesError`            | error class   | single / multi input-property validation failure                                      |
+|  [07]   | `log.{debug,info,warn,error,hasErrors}`                  | function set  | structured deployment-engine log (per-resource)                                       |
 
 ## [04]-[AUTOMATION_API]
 
@@ -95,40 +95,40 @@ The programmatic lifecycle (`@pulumi/pulumi/automation`) — the ONLY entry `iac
 - rail: deployment
 - module: `@pulumi/pulumi/automation`
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
-|:-----: |:------------------------------------------- |:------------ |:----------------------------------------------- |
-| [01] | `LocalWorkspace` | class | `implements Workspace`; local CLI backend |
-| [02] | `Workspace` | interface | `program`/`projectSettings`/`stackSettings`/`whoAmI`/`listStacks`/`installPlugin`/`stackOutputs` |
-| [03] | `PulumiFn` | alias | `() => Promise<Record<string,any> \| void>` — returned keys are outputs |
-| [04] | `InlineProgramArgs` / `LocalProgramArgs` | args | `{stackName,projectName,program}` / `{stackName,workDir}` |
-| [05] | `LocalWorkspaceOptions` | options | `pulumiCommand`/`projectSettings`/`stackSettings`/`secretsProvider`/`envVars`/`pulumiHome`/`workDir` |
-| [06] | `PulumiCommand` | class | resolved CLI binary; version-pin + install owner |
-| [07] | `ProjectSettings` / `ProjectBackend` | settings | `backend.url` selects the self-managed state store (`file://`/`s3://`/…) |
-| [08] | `ConfigMap` / `ConfigValue` | config | `{value, secret}` config entries |
-| [09] | `StackSummary` / `WhoAmIResult` / `PluginInfo` | info | roster / identity / plugin inventory |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY] | [NOTE]                                                                                               |
+| :-----: | :--------------------------------------------- | :------------ | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `LocalWorkspace`                               | class         | `implements Workspace`; local CLI backend                                                            |
+|  [02]   | `Workspace`                                    | interface     | `program`/`projectSettings`/`stackSettings`/`whoAmI`/`listStacks`/`installPlugin`/`stackOutputs`     |
+|  [03]   | `PulumiFn`                                     | alias         | `() => Promise<Record<string,any> \| void>` — returned keys are outputs                              |
+|  [04]   | `InlineProgramArgs` / `LocalProgramArgs`       | args          | `{stackName,projectName,program}` / `{stackName,workDir}`                                            |
+|  [05]   | `LocalWorkspaceOptions`                        | options       | `pulumiCommand`/`projectSettings`/`stackSettings`/`secretsProvider`/`envVars`/`pulumiHome`/`workDir` |
+|  [06]   | `PulumiCommand`                                | class         | resolved CLI binary; version-pin + install owner                                                     |
+|  [07]   | `ProjectSettings` / `ProjectBackend`           | settings      | `backend.url` selects the self-managed state store (`file://`/`s3://`/…)                             |
+|  [08]   | `ConfigMap` / `ConfigValue`                    | config        | `{value, secret}` config entries                                                                     |
+|  [09]   | `StackSummary` / `WhoAmIResult` / `PluginInfo` | info          | roster / identity / plugin inventory                                                                 |
 
 [ENTRYPOINT_SCOPE]: stack lifecycle
 - rail: deployment
 - module: `@pulumi/pulumi/automation`
 
-| [INDEX] | [SURFACE] | [FAMILY] | [NOTE] |
-|:-----: |:--------------------------------------------------------------- |:------------ |:--------------------------------------- |
-| [01] | `LocalWorkspace.createOrSelectStack(args, opts?): Promise<Stack>` | factory | idempotent; `create`/`select` variants |
-| [02] | `Stack.up(opts?): Promise<UpResult>` | ledger | deploy/update; `outputs` + `summary` |
-| [03] | `Stack.preview(opts?): Promise<PreviewResult>` | ledger | dry-run; `changeSummary: OpMap` |
-| [04] | `Stack.refresh(opts?): Promise<RefreshResult>` | ledger | reconcile state with provider (mutating) |
-| [05] | `Stack.destroy(opts?): Promise<DestroyResult>` | ledger | delete all resources |
-| [06] | `Stack.previewRefresh(opts?): Promise<PreviewResult>` | drift | read-only refresh-preview; no mutation |
-| [07] | `Stack.outputs(): Promise<OutputMap>` | query | `{[k]: {value, secret}}` |
-| [08] | `Stack.{getConfig,setConfig,getAllConfig,setAllConfig,refreshConfig}` | config | per-key + bulk config |
-| [09] | `Stack.addEnvironments(...envs): Promise<void>` | ESC | attach Pulumi ESC environments to the stack |
-| [10] | `Stack.{getTag,setTag,listTags}` | tag | stack tag CRUD |
-| [11] | `Stack.history(pageSize?,page?,secrets?): Promise<UpdateSummary[]>` | audit | update history; `info()` = latest |
-| [12] | `Stack.cancel(): Promise<void>` | control | cancel an in-flight update |
-| [13] | `Stack.exportStack()` / `importStack(state)` | state | `Deployment` snapshot export/import (backup/DR) |
-| [14] | `Stack.rename(opts): Promise<RenameResult>` | mutate | rename stack in state |
-| [15] | `Stack.import(opts): Promise<ImportResult>` | adopt | batch-adopt existing cloud resources into state |
-| [16] | `fullyQualifiedStackName(org, project, stack): string` | helper | canonical stack name |
+| [INDEX] | [SURFACE]                                                             | [FAMILY] | [NOTE]                                          |
+| :-----: | :-------------------------------------------------------------------- | :------- | :---------------------------------------------- |
+|  [01]   | `LocalWorkspace.createOrSelectStack(args, opts?): Promise<Stack>`     | factory  | idempotent; `create`/`select` variants          |
+|  [02]   | `Stack.up(opts?): Promise<UpResult>`                                  | ledger   | deploy/update; `outputs` + `summary`            |
+|  [03]   | `Stack.preview(opts?): Promise<PreviewResult>`                        | ledger   | dry-run; `changeSummary: OpMap`                 |
+|  [04]   | `Stack.refresh(opts?): Promise<RefreshResult>`                        | ledger   | reconcile state with provider (mutating)        |
+|  [05]   | `Stack.destroy(opts?): Promise<DestroyResult>`                        | ledger   | delete all resources                            |
+|  [06]   | `Stack.previewRefresh(opts?): Promise<PreviewResult>`                 | drift    | read-only refresh-preview; no mutation          |
+|  [07]   | `Stack.outputs(): Promise<OutputMap>`                                 | query    | `{[k]: {value, secret}}`                        |
+|  [08]   | `Stack.{getConfig,setConfig,getAllConfig,setAllConfig,refreshConfig}` | config   | per-key + bulk config                           |
+|  [09]   | `Stack.addEnvironments(...envs): Promise<void>`                       | ESC      | attach Pulumi ESC environments to the stack     |
+|  [10]   | `Stack.{getTag,setTag,listTags}`                                      | tag      | stack tag CRUD                                  |
+|  [11]   | `Stack.history(pageSize?,page?,secrets?): Promise<UpdateSummary[]>`   | audit    | update history; `info()` = latest               |
+|  [12]   | `Stack.cancel(): Promise<void>`                                       | control  | cancel an in-flight update                      |
+|  [13]   | `Stack.exportStack()` / `importStack(state)`                          | state    | `Deployment` snapshot export/import (backup/DR) |
+|  [14]   | `Stack.rename(opts): Promise<RenameResult>`                           | mutate   | rename stack in state                           |
+|  [15]   | `Stack.import(opts): Promise<ImportResult>`                           | adopt    | batch-adopt existing cloud resources into state |
+|  [16]   | `fullyQualifiedStackName(org, project, stack): string`                | helper   | canonical stack name                            |
 
 [PREPARED_ROW]: `RemoteWorkspace.{create,select,createOrSelect}Stack(RemoteGitProgramArgs, RemoteWorkspaceOptions): Promise<RemoteStack>` — Pulumi-Deployments Git-sourced runs, demoted; `iac` runs inline `LocalWorkspace` programs against a self-managed backend, so `RemoteWorkspace` is a prepared row, not the entry.
 
@@ -140,20 +140,20 @@ The native drift + progress pipeline the receipt ledger folds. Every lifecycle `
 - rail: deployment
 - module: `@pulumi/pulumi/automation`
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [NOTE] |
-|:-----: |:----------------------------------------- |:------------ |:------------------------------------------- |
-| [01] | `EngineEvent` | event sum | exactly one event field non-nil |
-| [02] | `ResourcePreEvent` / `ResOutputsEvent` | interface | `metadata: StepEventMetadata` before/after |
-| [03] | `ResOpFailedEvent` | interface | `metadata` + `status`/`steps` |
-| [04] | `StepEventMetadata` | interface | `op`/`urn`/`type`/`detailedDiff`/`old`/`new`/`provider` |
-| [05] | `StepEventStateMetadata` | interface | per-resource inputs/outputs/protect/id state |
-| [06] | `OpType` | string union | 15-member CRUD op vocabulary |
-| [07] | `OpMap` | mapped type | `{ [op in OpType]?: number }` per-op count |
-| [08] | `DiffKind` / `PropertyDiff` | enum + iface | 6-kind property diff; `inputDiff` flag |
-| [09] | `SummaryEvent` | interface | `resourceChanges: OpMap`; end-of-update |
-| [10] | `DiagnosticEvent` / `PolicyEvent` | interface | provider diagnostic (`severity: "info"\|"info#err"\|"warning"\|"error"` — the bridged-provider error match key) / CrossGuard violation |
-| [11] | `StdoutEngineEvent` / `PreludeEvent` / `CancelEvent` / `StartDebuggingEvent` | interface + type | stdout line / op-start config prelude / cancellation (`{}`) / DAP-attach — the non-resource `EngineEvent` arms |
-| [12] | `CommandError` | error base | `ConcurrentUpdateError`/`StackNotFoundError`/`StackAlreadyExistsError` |
+| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY]    | [NOTE]                                                                                                                                 |
+| :-----: | :--------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `EngineEvent`                                                                | event sum        | exactly one event field non-nil                                                                                                        |
+|  [02]   | `ResourcePreEvent` / `ResOutputsEvent`                                       | interface        | `metadata: StepEventMetadata` before/after                                                                                             |
+|  [03]   | `ResOpFailedEvent`                                                           | interface        | `metadata` + `status`/`steps`                                                                                                          |
+|  [04]   | `StepEventMetadata`                                                          | interface        | `op`/`urn`/`type`/`detailedDiff`/`old`/`new`/`provider`                                                                                |
+|  [05]   | `StepEventStateMetadata`                                                     | interface        | per-resource inputs/outputs/protect/id state                                                                                           |
+|  [06]   | `OpType`                                                                     | string union     | 15-member CRUD op vocabulary                                                                                                           |
+|  [07]   | `OpMap`                                                                      | mapped type      | `{ [op in OpType]?: number }` per-op count                                                                                             |
+|  [08]   | `DiffKind` / `PropertyDiff`                                                  | enum + iface     | 6-kind property diff; `inputDiff` flag                                                                                                 |
+|  [09]   | `SummaryEvent`                                                               | interface        | `resourceChanges: OpMap`; end-of-update                                                                                                |
+|  [10]   | `DiagnosticEvent` / `PolicyEvent`                                            | interface        | provider diagnostic (`severity: "info"\|"info#err"\|"warning"\|"error"` — the bridged-provider error match key) / CrossGuard violation |
+|  [11]   | `StdoutEngineEvent` / `PreludeEvent` / `CancelEvent` / `StartDebuggingEvent` | interface + type | stdout line / op-start config prelude / cancellation (`{}`) / DAP-attach — the non-resource `EngineEvent` arms                         |
+|  [12]   | `CommandError`                                                               | error base       | `ConcurrentUpdateError`/`StackNotFoundError`/`StackAlreadyExistsError`                                                                 |
 
 ```ts contract
 // @pulumi/pulumi/automation — the ledger + drift surface iac folds
@@ -201,16 +201,16 @@ The receipt-ledger rail — how `@pulumi/pulumi` stacks onto the `effect` substr
 
 [RAIL]: `automation → effect` — the stacking seams (all `effect` members verified real)
 
-| [INDEX] | [PULUMI_SEAM] | [EFFECT_MEMBER] | [COMPOSED_RAIL] |
-|:-----: |:------------------------------------- |:-------------------------------- |:--------------------------------------------------------------- |
-| [01] | `Stack.up/preview/refresh/destroy` op | `Match.value(op).pipe(Match.exhaustive)` | ONE ledger dispatch over the op tag → the method; not four drivers |
-| [02] | `UpOptions.signal: AbortSignal` | `Effect.async((resume, signal)=>…)` | `Effect.interrupt`/scope-close aborts the pulumi run — no orphan updates |
-| [03] | `opts.onEvent: (EngineEvent)=>void` | `Stream.asyncPush` / `Queue.unbounded` + `Stream.fromQueue` | engine steps become an Effect `Stream`; `Stream.runFold` buckets the `OpMap` |
-| [04] | `EngineEvent` / `StepEventMetadata` | `Schema.decodeUnknown(StepReceipt)` | each step decodes to a typed receipt row; drift fold reconciles vs `changeSummary` |
-| [05] | `LocalWorkspaceOptions` host facts | `Config.redacted` + `Layer.effect` | `pulumiCommand`/`backend.url`/`secretsProvider`/`envVars` from Effect `Config`, not literals |
-| [06] | `OutputMap` `{value,secret}` | `Schema.decodeUnknown` + `Redacted.make` | secret-flagged outputs → `Redacted`; typed StackOutputs → `ShardingConfig` |
-| [07] | `CommandError` family + `RunError` | `Data.TaggedError` in `catch` | `ConcurrentUpdateError`/`StackNotFoundError`/input errors → tagged domain faults |
-| [08] | ephemeral stack lifecycle | `Effect.acquireRelease` | `createOrSelectStack` acquired, `destroy` released — scoped teardown |
+| [INDEX] | [PULUMI_SEAM]                         | [EFFECT_MEMBER]                                             | [COMPOSED_RAIL]                                                                              |
+| :-----: | :------------------------------------ | :---------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `Stack.up/preview/refresh/destroy` op | `Match.value(op).pipe(Match.exhaustive)`                    | ONE ledger dispatch over the op tag → the method; not four drivers                           |
+|  [02]   | `UpOptions.signal: AbortSignal`       | `Effect.async((resume, signal)=>…)`                         | `Effect.interrupt`/scope-close aborts the pulumi run — no orphan updates                     |
+|  [03]   | `opts.onEvent: (EngineEvent)=>void`   | `Stream.asyncPush` / `Queue.unbounded` + `Stream.fromQueue` | engine steps become an Effect `Stream`; `Stream.runFold` buckets the `OpMap`                 |
+|  [04]   | `EngineEvent` / `StepEventMetadata`   | `Schema.decodeUnknown(StepReceipt)`                         | each step decodes to a typed receipt row; drift fold reconciles vs `changeSummary`           |
+|  [05]   | `LocalWorkspaceOptions` host facts    | `Config.redacted` + `Layer.effect`                          | `pulumiCommand`/`backend.url`/`secretsProvider`/`envVars` from Effect `Config`, not literals |
+|  [06]   | `OutputMap` `{value,secret}`          | `Schema.decodeUnknown` + `Redacted.make`                    | secret-flagged outputs → `Redacted`; typed StackOutputs → `ShardingConfig`                   |
+|  [07]   | `CommandError` family + `RunError`    | `Data.TaggedError` in `catch`                               | `ConcurrentUpdateError`/`StackNotFoundError`/input errors → tagged domain faults             |
+|  [08]   | ephemeral stack lifecycle             | `Effect.acquireRelease`                                     | `createOrSelectStack` acquired, `destroy` released — scoped teardown                         |
 
 ```ts contract
 // iac/program/automation.ts — the one wrap; every consumer sees a typed Effect

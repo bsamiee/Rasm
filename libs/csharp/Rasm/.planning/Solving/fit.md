@@ -911,14 +911,14 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes — `Fin`/`GeometryFault` where the consensus or the refine can fail its post-condition, pure carriers and folds for the projections.
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]          | [KIND]                                                                                                             | [RAIL]                                    | [CASES] |
-| :-----: | :----------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------ | :----------------------------------------- | :-----: |
-|  [01]   | Primitive fit      | `Fit` + `FitOp`  | ONE entry over one request record — kind-as-data (`Seq<FitKind>`), single/multi-kind by arity                      | `Fit.Apply → Fin<FitReceipt>`             |    —    |
-|  [1a]   | Fit kind           | `FitKind`        | `[SmartEnum<string>]` 6 rows: arity columns + `NeedsNormals`/`Carrier` + `Minimal`/`Unpack` delegate rows          | `FitKind.Minimal → Fin<FitPrimitive>`     |    6    |
-|  [1b]   | Fitted geometry    | `FitPrimitive`   | `[Union]` (6 cases) + generated-`Switch` `Distance`/`Gradient`/`Pack`/`Support`/`Agreement`/`Kind` folds          | `FitPrimitive.Distance`/`Gradient` (pure) |    6    |
-|  [1c]   | Consensus cost     | `ConsensusScore` | `[SmartEnum<int>]` `Mlesac` + `[UseDelegateFromConstructor]` per-point `Cost` row                                  | `ConsensusScore.Cost` (pure)              |    1    |
-|  [1d]   | Draw strategy      | `DrawOrder`      | `[SmartEnum<int>]` `Uniform`/`QualityFront`/`Neighborhood` over one sampler — cost and order orthogonal            | dispatch row (pure)                       |    3    |
-|  [1e]   | Orthogonal refine  | `FitModel`       | `ILmModel` instantiation — packed `JᵀJ`/`Jᵀr` scatter + 106-bit `Σd²`; zero fit-local λ code                       | `Lm.Minimize → Fin<LmResult>` (composed)  |    —    |
+| [INDEX] | [AXIS_CONCERN]    | [OWNER]          | [KIND]                                                                                                    | [RAIL]                                    | [CASES] |
+| :-----: | :---------------- | :--------------- | :-------------------------------------------------------------------------------------------------------- | :---------------------------------------- | :-----: |
+|  [01]   | Primitive fit     | `Fit` + `FitOp`  | ONE entry over one request record — kind-as-data (`Seq<FitKind>`), single/multi-kind by arity             | `Fit.Apply → Fin<FitReceipt>`             |    —    |
+|  [1a]   | Fit kind          | `FitKind`        | `[SmartEnum<string>]` 6 rows: arity columns + `NeedsNormals`/`Carrier` + `Minimal`/`Unpack` delegate rows | `FitKind.Minimal → Fin<FitPrimitive>`     |    6    |
+|  [1b]   | Fitted geometry   | `FitPrimitive`   | `[Union]` (6 cases) + generated-`Switch` `Distance`/`Gradient`/`Pack`/`Support`/`Agreement`/`Kind` folds  | `FitPrimitive.Distance`/`Gradient` (pure) |    6    |
+|  [1c]   | Consensus cost    | `ConsensusScore` | `[SmartEnum<int>]` `Mlesac` + `[UseDelegateFromConstructor]` per-point `Cost` row                         | `ConsensusScore.Cost` (pure)              |    1    |
+|  [1d]   | Draw strategy     | `DrawOrder`      | `[SmartEnum<int>]` `Uniform`/`QualityFront`/`Neighborhood` over one sampler — cost and order orthogonal   | dispatch row (pure)                       |    3    |
+|  [1e]   | Orthogonal refine | `FitModel`       | `ILmModel` instantiation — packed `JᵀJ`/`Jᵀr` scatter + 106-bit `Σd²`; zero fit-local λ code              | `Lm.Minimize → Fin<LmResult>` (composed)  |    —    |
 
 The `Apply` fold, the `[CONSENSUS]` cluster (`Draw` adaptive-budget trials, `Score`/`FullScore`/`ShellScore` the normal-gated truncated-cost reduce with the exact bounded-support prefilter, `AdaptiveBudget` re-estimation, `Order`/`Quality`/`Sample` the seeded reproducible draw over the three `DrawOrder` rows), the `[MINIMAL_SOLVERS]`/`[CHART_REBUILD]` vocabulary rows, and the `[REFINE]` instantiation are transcription-complete pure-managed fences composing the `Spatial/neighbors` kd-tree lane, the `CloudKernel` covariance fold, the `Numerics/matrix` owners, and the `Solving/solver` functor; none depends on a live-host member beyond the stable native `Point3d`/`Plane`/`Sphere`/`Cylinder`/`Cone`/`Line` surface the `Numerics/atoms.md` substrate pins.
 

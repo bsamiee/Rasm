@@ -295,7 +295,7 @@ public static class ShellChrome {
 Visibility matrix — the value source for every `Visible` predicate and for `FloatingWindows`:
 
 | [INDEX] | [HOST_ROW]            | [MENU] | [TOOLBAR] | [STATUS] | [TRAY] | [FLOATING] |
-| :-----: | --------------------- | :----: | :-------: | :------: | :----: | :--------: |
+| :-----: | :-------------------- | :----: | :-------: | :------: | :----: | :--------: |
 |  [01]   | AvaloniaDesktopWindow |   on   |    on     |    on    |  off   |    open    |
 |  [02]   | RhinoPanel            |  off   |    on     |   off    |  off   | suppressed |
 |  [03]   | RhinoModal            |  off   |    on     |   off    |  off   |    open    |

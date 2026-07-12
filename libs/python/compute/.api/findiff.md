@@ -20,11 +20,11 @@
 - rail: finite-difference derivatives
 - RETURN SHAPE: `coefficients(deriv, acc=...)` (no explicit `offsets`) returns a dict keyed by scheme position — `{'center': {...}, 'forward': {...}, 'backward': {...}}` — where each inner dict carries `'coefficients'` (the weight array), `'offsets'` (integer stencil offsets), and `'accuracy'`. The consumer reads `result['center']['coefficients']` and `result['center']['offsets']` for the interior stencil, `'forward'`/`'backward'` for the one-sided boundary stencils. `coefficients(deriv, offsets=[...])` (explicit stencil) returns a SINGLE flat `{'coefficients', 'offsets', 'accuracy'}` dict with no center/forward/backward partition, because an explicit offset list already fixes the one stencil.
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                                                              |
-| :-----: | :------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------- |
-|  [01]   | `coefficients(deriv, acc=None, offsets=None, symbolic=False)` | coefficients   | FD coefficients for derivative order `deriv` at target accuracy; center/forward/backward dict |
+| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                                                                                |
+| :-----: | :------------------------------------------------------------ | :------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `coefficients(deriv, acc=None, offsets=None, symbolic=False)` | coefficients   | FD coefficients for derivative order `deriv` at target accuracy; center/forward/backward dict         |
 |  [02]   | `coefficients(deriv, offsets=[...], symbolic=False)`          | coefficients   | FD coefficients for an explicit offset stencil; one flat `{'coefficients','offsets','accuracy'}` dict |
-|  [03]   | `coefficients(deriv, acc, symbolic=True)`                     | coefficients   | exact `sympy` rational coefficients (same dict layout, `Rational` weights)          |
+|  [03]   | `coefficients(deriv, acc, symbolic=True)`                     | coefficients   | exact `sympy` rational coefficients (same dict layout, `Rational` weights)                            |
 
 ## [03]-[DECLINE]
 

@@ -2,20 +2,20 @@
 
 The GLB scene owner: content-key-keyed mesh residency rendered through one of two backends behind one `Schema.Literal` discriminant — the imperative `three` scene (custom materials, instancing, animation, compute, receipts) or the declarative `<model-viewer>` embed (zero GL handle) — with every mesh byte arriving through the `GlbViewport` port this module declares and the app composition satisfies by forwarding `runtime/browser/fetch#DEPOT_SCHEDULER`'s `Depot.haul` arrivals and ledger. The renderer acquisition owns the ONE `GPUDevice` and publishes it for every compute adopter — `three/tsl` scene-resident kernels and `typegpu` standalone kernels share it, split by scene residency. The graft fold keeps GLB animation alive (one mixer per animated subtree under one `Clock`, derived from the one `Ref` ledger), broadcasts the arrival feed to graft, census, and telemetry lanes, collapses draw calls through merge/instanced/batched rows, and binds the C#-owned OpenPBR algebra field-for-field onto `MeshPhysicalMaterial` lobes with color crossing the linear seam through the one `system/token` authority. Georeferenced element instancing rides the `@deck.gl/mesh-layers` pair as layer values `geo` sinks. GPU resources are `Scope`-bracketed without exception, the frame loop parks under `system/act#DOCUMENT_RAIL`'s hidden `<Activity>` row, the backend lifecycle is a `Machine` statechart bound through the atom bridge, faults ride one `GlbFault` family over a closed reason vocabulary, and meshopt decode stays gated `[R23]`. The module is `ui/viewer/src/scene.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                          | [PUBLIC]      |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                             | [PUBLIC]      |
 | :-----: | :---------------- | :--------------------------------------------------------------------------------- | :------------ |
-|  [01]   | `VIEWPORT_PORT`   | the `GlbViewport` port — residency ledger read + verified-arrival ingress as a Tag  | `GlbViewport` |
-|  [02]   | `FAULT_FAMILY`    | `GlbFault` — the closed reason vocabulary and its policy table                      | `GlbFault`    |
-|  [03]   | `BACKEND_SELECT`  | the backend literal, renderer acquisition, output policy, light rig, compute lane   | `Glb`         |
-|  [04]   | `RESIDENCY_GRAFT` | the one-`Scene` graft/dispose/animate fold and the codec-injected loader            | `Glb`         |
-|  [05]   | `DRAW_COLLAPSE`   | merge/instanced/batched rows — repeated element geometry as bounded draw calls      | `Glb`         |
-|  [06]   | `APPEARANCE_BIND` | the OpenPBR lobe assignment, color contract, census resolve, node-material mirror   | `Pbr`         |
-|  [07]   | `INSTANCED_ROWS`  | `@deck.gl/mesh-layers` — georeferenced element instances as deck layer values       | `Instanced`   |
-|  [08]   | `EMBED_ROW`       | the `<model-viewer>` backend row — decoder statics, object-URL bracket, animation   | `Glb`         |
+|  [01]   | `VIEWPORT_PORT`   | the `GlbViewport` port — residency ledger read + verified-arrival ingress as a Tag | `GlbViewport` |
+|  [02]   | `FAULT_FAMILY`    | `GlbFault` — the closed reason vocabulary and its policy table                     | `GlbFault`    |
+|  [03]   | `BACKEND_SELECT`  | the backend literal, renderer acquisition, output policy, light rig, compute lane  | `Glb`         |
+|  [04]   | `RESIDENCY_GRAFT` | the one-`Scene` graft/dispose/animate fold and the codec-injected loader           | `Glb`         |
+|  [05]   | `DRAW_COLLAPSE`   | merge/instanced/batched rows — repeated element geometry as bounded draw calls     | `Glb`         |
+|  [06]   | `APPEARANCE_BIND` | the OpenPBR lobe assignment, color contract, census resolve, node-material mirror  | `Pbr`         |
+|  [07]   | `INSTANCED_ROWS`  | `@deck.gl/mesh-layers` — georeferenced element instances as deck layer values      | `Instanced`   |
+|  [08]   | `EMBED_ROW`       | the `<model-viewer>` backend row — decoder statics, object-URL bracket, animation  | `Glb`         |
 
-## [2]-[VIEWPORT_PORT]
+## [02]-[VIEWPORT_PORT]
 
 [VIEWPORT_PORT]:
 - Owner: `GlbViewport` — the runtime-capability port this folder declares and NEVER implements: `ledger` is the residency read (`core/interchange/frame`'s `Residency.Ledger` published `Subscribable`, the same cell `Depot` owns), and `arrivals` is the verified-octet ingress — each element pairs a `ContentKey` with whole-buffer GLB bytes the hauling side already reassembled and re-proved through the one `Parity` delegate, so bytes reaching this module are proof-carrying by construction. The browser composition root satisfies the Tag by forwarding `Depot.haul` arrival pairs and the `Depot` ledger cell.
@@ -40,7 +40,7 @@ class GlbViewport extends Context.Tag("ui/viewer/GlbViewport")<GlbViewport, {
 }>() {}
 ```
 
-## [3]-[FAULT_FAMILY]
+## [03]-[FAULT_FAMILY]
 
 [FAULT_FAMILY]:
 - Owner: `GlbFault` — one `Data.TaggedError` sized by routing with a closed `reason` vocabulary: `manifest-skew` (an arrival references a mesh the ledger never named), `key-mismatch` (verification refused the octets at the port boundary), `decode-refused` (loader or codec rejected the payload), `codec-absent` (the asset demands a codec the viewport did not wire — the meshopt gate's refusal spelling), `backend-lost` (GPU device loss). The policy table carries `rank`/`retry`/`evict` per reason and the class getter projects it, so recovery reads policy rows, never re-derives them per arm. Code-keyed free-string fault construction is the named discard — reasons are a closed vocabulary.
@@ -78,7 +78,7 @@ class GlbFault extends Data.TaggedError("GlbFault")<{
 }
 ```
 
-## [4]-[BACKEND_SELECT]
+## [04]-[BACKEND_SELECT]
 
 [BACKEND_SELECT]:
 - Owner: the closed backend vocabulary (`three` | `model-viewer`) spread from one `as const` tuple into `Schema.Literal`, and the `three` arm's renderer acquisition under `Effect.acquireRelease`: probe `navigator.gpu`, acquire the ONE `GPUDevice` (`requestAdapter` → `requestDevice`), construct `WebGPURenderer({ canvas, device })` and await `init()` (feature-gating through `renderer.hasFeature` post-init), else `WebGLRenderer` — a refused acquisition on a present-but-broken adapter degrades to the same WebGL floor, so `backend-lost` stays reserved for a lost LIVE device and the probe never faults the channel; the acquisition returns `{ renderer, device }` with the device as an `Option` — the published seam the compute lane, the probe hash kernel, and any `tgpu.initFromDevice` adopter share, one device, one memory space, zero readback round-trips; the output policy row (`outputColorSpace`, tone map selected from the `_TONE` vocabulary, `toneMappingExposure`) stamps at construction; release disposes — three has no GPU garbage collection, so the finalizer IS memory correctness.
@@ -168,7 +168,7 @@ const _renderer = (canvas: HTMLCanvasElement) =>
   )
 ```
 
-## [5]-[RESIDENCY_GRAFT]
+## [05]-[RESIDENCY_GRAFT]
 
 [RESIDENCY_GRAFT]:
 - Owner: `Glb.graft` — the residency fold over the port: one `Scene` roots the graph, ONE `Ref`-held ledger (`HashMap<ContentKey, Glb.Graft>`) is the single truth for grafted subtrees AND their mixers, and the port's arrival stream broadcasts into lanes — the graft lane parses verified octets through the ONE codec-injected `GLTFLoader` (`parseAsync` over the whole buffer), mints the animation half (a per-subtree `AnimationMixer` whose every `gltf.animations` clip binds through `clipAction(...).setLoop(LoopRepeat, Infinity).play()` — the loader result's animation array is retained, never discarded), grafts `gltf.scene` under the root, and commits the ledger atomically; the surplus lane returns on `Glb.Loop.arrivals` for the probe residency census and telemetry taps, so one source feeds many consumers without a second subscription protocol. The eviction arm diffs the port ledger's `evicted` rows against held grafts, removes the subtree, tears the mixer down (`stopAllAction` then `uncacheRoot`) and walks it through the disposal kernel before the ledger drops the key — both arms mutate ONLY the `Ref`, so the fold is race-free by construction. `Glb.Loop.advance(delta)` derives live mixers from the same ledger inside the marked frame-loop kernel — no second roster exists.
@@ -294,7 +294,7 @@ const _loop = (
   })
 ```
 
-## [6]-[DRAW_COLLAPSE]
+## [06]-[DRAW_COLLAPSE]
 
 [DRAW_COLLAPSE]:
 - Owner: the collapse rows the graft applies at parse time, keyed by what repeats: same-material submeshes within one graft merge through `BufferGeometryUtils.mergeGeometries`; N identical geometries collapse into one `InstancedMesh` whose per-instance transform stamps through `setMatrixAt` and re-bounds through `computeBoundingSphere`; distinct same-material geometries batch into one `BatchedMesh` — `addGeometry` per unique geometry, `addInstance` per placement, `setVisibleAt` as the per-instance visibility toggle the selection echo and the compute-lane cull both drive.
@@ -329,7 +329,7 @@ const _batched = (
 const _merged = (parts: ReadonlyArray<BufferGeometry>): BufferGeometry => mergeGeometries([...parts])
 ```
 
-## [7]-[APPEARANCE_BIND]
+## [07]-[APPEARANCE_BIND]
 
 [APPEARANCE_BIND]:
 - Owner: `Pbr` — the field-for-field bind of the C# OpenPBR algebra: `Material`/`PbrGroups`/`AppearanceSummary` arrive DECODED through `core/interchange/codec#LANDING_WIRE` (the verbatim mirror of the `csharp:Rasm.Materials/Appearance` projection), and `Pbr.bind(material, bound)` lands the five wire blocks onto `MeshPhysicalMaterial` lobes exactly as projected — base → `color`/`metalness`/`roughness`, specular → `specularColor`/`specularIntensity`/`ior`, transmission → `transmission`/`attenuationColor`/`attenuationDistance` (the wire's `depth` IS the attenuation depth), emission → `emissive`/`emissiveIntensity` (the wire's `luminance`), geometry → `opacity`/`transparent`/`side` — with `needsUpdate` stamped once at the fold's tail. Every numeric is carriage: a TS-side derivation, regrouping, or convenience-merge of any OpenPBR parameter is the cross-language drift defect.
@@ -388,7 +388,7 @@ const _resolve = (index: Pbr.Index, material: MaterialRow): Option.Option<Pbr.Bo
 const Pbr: Pbr.Shape = { bind: _bind, index: _index, resolve: _resolve }
 ```
 
-## [8]-[INSTANCED_ROWS]
+## [08]-[INSTANCED_ROWS]
 
 [INSTANCED_ROWS]:
 - Owner: `Instanced` — the georeferenced instancing rows over `@deck.gl/mesh-layers`: `Instanced.mesh` places ONE arbitrary mesh at N element anchors through `SimpleMeshLayer`, `Instanced.scene` places a COMPLETE glTF scenegraph through `ScenegraphLayer` with per-node animation under the shared atom clock; both ride the one instance-transform axis — `getPosition` anchor plus the `getOrientation`/`getScale`/`getTranslation` triple — and every row is a declarative deck layer VALUE `geo`'s one `setProps` sink consumes; this module renders nothing itself.
@@ -445,7 +445,7 @@ const _scene = (id: string, scenegraph: string, anchors: ReadonlyArray<Instanced
 const Instanced: Instanced.Shape = { mesh: _mesh, scene: _scene }
 ```
 
-## [9]-[EMBED_ROW]
+## [09]-[EMBED_ROW]
 
 [EMBED_ROW]:
 - Owner: the `model-viewer` backend row — the zero-GL-handle embed: `.src` takes a `model/gltf-binary` object URL minted over a port arrival's bytes, `camera-controls` enables orbit, and the element owns decode, upload, camera, and dispose internally; decoder statics (`dracoDecoderLocation`, `ktx2TranscoderLocation`, `meshoptDecoderLocation`) pin to self-hosted paths BEFORE the first model or the element side-loads from a foreign CDN — a CSP breach. The animation surface is native: `play`/`pause` with `PlayAnimationOptions`, `appendAnimation` for additive blend, `availableAnimations` as the clip census — the embed arm's mirror of `[5]`'s mixer family.

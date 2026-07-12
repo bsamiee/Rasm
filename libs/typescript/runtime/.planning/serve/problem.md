@@ -2,16 +2,16 @@
 
 The outbound-fault law of the front door: every fault leaving the branch over HTTP renders ITSELF through the `HttpServerRespondable` symbol protocol, and `Problem` — one RFC 9457 owner carrying the body schema, the governed class-to-status record, the total fold from any refused value, and the `Cause` fold — is the value that implements it, so the central error-mapper middleware has no existence: the route seam's net is one `toResponseOrElse` fold where a respondable failure short-circuits into its own response and everything else lifts through the total probe ladder first. The ladder is ordered by evidence specificity and every rung is structural: an existing `Problem` passes untouched, the adopted-verbatim `FaultDetail` tag projects through the upstream rows with its `retryable`/`terminal` facts read off the value, a `ParseError` lands on `malformed` and a `RouteNotFound` on `absent`, and the residue classifies through `FaultClass.of` into the governed record — total, closed, and free of any cross-branch import. Exposure derives from the core `blame` axis so caller-blamed detail crosses outward and system-blamed detail redacts to its title; inbound never touches this module — a problem body is never decoded, reconstructed, or matched on. The module ships on the `./server` exports subpath as `runtime/src/serve/problem.ts`; a new core fault class breaks the record loudly at compile time.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                        | [PUBLIC]  |
-| :-----: | :------------------ | :----------------------------------------------------------------------------- | :-------- |
-|  [01]   | `STATUS_RECORD`     | the class-to-status governed record, type-slug derivation, grace resolution     | interior  |
-|  [02]   | `REDACTION_ROWS`    | blame-derived exposure, the extension allowlist, the redact fold                | interior  |
-|  [03]   | `UPSTREAM_ROWS`     | the wire-fault projection over structural `retryable`/`terminal` facts          | interior  |
-|  [04]   | `RESPONDABLE_OWNER` | the RFC 9457 owner, the symbol implementation, the total fold, the seam net     | `Problem` |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                      | [PUBLIC]  |
+| :-----: | :------------------ | :-------------------------------------------------------------------------- | :-------- |
+|  [01]   | `STATUS_RECORD`     | the class-to-status governed record, type-slug derivation, grace resolution | interior  |
+|  [02]   | `REDACTION_ROWS`    | blame-derived exposure, the extension allowlist, the redact fold            | interior  |
+|  [03]   | `UPSTREAM_ROWS`     | the wire-fault projection over structural `retryable`/`terminal` facts      | interior  |
+|  [04]   | `RESPONDABLE_OWNER` | the RFC 9457 owner, the symbol implementation, the total fold, the seam net | `Problem` |
 
-## [2]-[STATUS_RECORD]
+## [02]-[STATUS_RECORD]
 
 [STATUS_RECORD]:
 - Owner: `_rows` — the governed record under a stated `Record<FaultClass.Kind, _Grade>` annotation: the mapped domain demands one row per core class and rejects any excess row, so core growth lands here as one compile-forced edit and this record is the only class-to-status site in the branch — `fault#CLASS_VOCABULARY` stays transport-free by this boundary.
@@ -53,7 +53,7 @@ const _retryAfter = (
   Option.map(Option.orElse(hint, () => grace), (held) => Math.ceil(Duration.toMillis(held) / 1000))
 ```
 
-## [3]-[REDACTION_ROWS]
+## [03]-[REDACTION_ROWS]
 
 [REDACTION_ROWS]:
 - Law: exposure derives from blame — `_expose(kind)` is `FaultClass[kind].blame === "caller"`, never a column: a caller-blamed class carries its fault detail outward as actionable repair material, a system-blamed class redacts to the row title so no internal evidence, path, or dependency name leaks through a 5xx body.
@@ -73,7 +73,7 @@ const _redact = (
   Record.filter(extensions, (_, key) => key === "requestId" || (_expose(kind) && Array.contains(_EXPOSED, key)))
 ```
 
-## [4]-[UPSTREAM_ROWS]
+## [04]-[UPSTREAM_ROWS]
 
 [UPSTREAM_ROWS]:
 - Owner: `_upstream` — the two-row projection for the wire-reconstructed fault: a `retryable` non-`terminal` upstream hop projects as 503 under the unavailable grace window, everything else refuses as 502 with no grace — the `terminal` fact vetoes re-drive even where the hop claims retryability, so a wrong-program upstream reads distinctly from a saturated one and never invites a retry.
@@ -101,7 +101,7 @@ const _hop = (facts: { readonly retryable: boolean; readonly terminal: boolean }
   facts.retryable && !facts.terminal ? _upstream.retryable : _upstream.refused
 ```
 
-## [5]-[RESPONDABLE_OWNER]
+## [05]-[RESPONDABLE_OWNER]
 
 [RESPONDABLE_OWNER]:
 - Owner: `Problem` — a `Schema.Class` carrying exactly the RFC members (`type`, `title`, `status`, `detail`, `instance` as `Option`) plus the allowlisted `extensions` band and the `retry` seconds the grace ladder resolved; the class is the value, the encode anchor, the fold entry, and the self-rendering respondable under one import, and its encoded twin is the wire body verbatim.

@@ -246,18 +246,18 @@ public static class GeoSource {
 public sealed class GeoRefusal(GeoIngestFault fault) : Exception(fault.Message) { public GeoIngestFault Fault { get; } = fault; }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                        | [BINDING]                                                        |
-| :-----: | :------------------ | :---------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | one geo owner       | `GeoSource.Run` over `GeoOp`                    | ingest/egress/probe are cases of ONE dispatch                      |
+| [INDEX] | [POLICY]            | [VALUE]                                          | [BINDING]                                                          |
+| :-----: | :------------------ | :----------------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | one geo owner       | `GeoSource.Run` over `GeoOp`                     | ingest/egress/probe are cases of ONE dispatch                      |
 |  [02]   | one factory         | `GeoAdmission.Canonical` off `GeoJsonProjection` | four codecs, one precision grid; per-codec factory deleted         |
-|  [03]   | interior vocabulary | NTS `Geometry` only                             | decode → interior → encode; no direct transcode, no DTO fork       |
-|  [04]   | canonical bytes     | EWKB via `WKBWriter(handleSRID: true)`          | content key = `ContentAddress.Of(wkb)`; codec-independent identity |
-|  [05]   | CRS gate            | `CrsPolicy` set membership, cheapest-first      | GPB `SrsId`/EWKB SRID/spine `srs_id`; GeoJSON fixed WGS84          |
-|  [06]   | validity gate       | strict parse + `Geometry.IsValid`               | `RepairRings` off — byte identity and repair are exclusive         |
-|  [07]   | H3 buckets          | `FromPoint`/`Fill` at spec resolution           | `h3-pg` bit parity; `Invalid` contributes nothing                  |
-|  [08]   | fault band          | `Code => FaultBand.GeoIngest + n`               | 8441-8443 off the `graph#FAULT_TABLES` registry                    |
-|  [09]   | receipt             | one `GeoFact` stream `store.geo.*`              | kind-discriminated; never parallel records                         |
-|  [10]   | element projection  | per-app geo→element map                         | row shape only (ARCH:61 mirrored); BIM:81 the feature consumer     |
+|  [03]   | interior vocabulary | NTS `Geometry` only                              | decode → interior → encode; no direct transcode, no DTO fork       |
+|  [04]   | canonical bytes     | EWKB via `WKBWriter(handleSRID: true)`           | content key = `ContentAddress.Of(wkb)`; codec-independent identity |
+|  [05]   | CRS gate            | `CrsPolicy` set membership, cheapest-first       | GPB `SrsId`/EWKB SRID/spine `srs_id`; GeoJSON fixed WGS84          |
+|  [06]   | validity gate       | strict parse + `Geometry.IsValid`                | `RepairRings` off — byte identity and repair are exclusive         |
+|  [07]   | H3 buckets          | `FromPoint`/`Fill` at spec resolution            | `h3-pg` bit parity; `Invalid` contributes nothing                  |
+|  [08]   | fault band          | `Code => FaultBand.GeoIngest + n`                | 8441-8443 off the `graph#FAULT_TABLES` registry                    |
+|  [09]   | receipt             | one `GeoFact` stream `store.geo.*`               | kind-discriminated; never parallel records                         |
+|  [10]   | element projection  | per-app geo→element map                          | row shape only (ARCH:61 mirrored); BIM:81 the feature consumer     |
 
 ## [03]-[FEATURE_ROWS]
 
@@ -416,11 +416,11 @@ public static class GeoContainer {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                     | [BINDING]                                                          |
-| :-----: | :------------------ | :------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | deferred properties | `GeoProperties` union + one `Bind<T>`        | element-backed until projected; loose table walks rejected           |
-|  [02]   | one converter graph | `ElementJson.Options`                        | geometry and typed properties never split converter sets             |
-|  [03]   | spine authority     | `gpkg_geometry_columns` + `gpkg_contents`    | one geometry column + SRID per layer; header is the SRID authority   |
-|  [04]   | deep-gate faults    | `GeoRefusal` typed carrier                   | a spine CRS refusal surfaces typed, never a flattened message        |
-|  [05]   | container mechanics | read-only `Microsoft.Data.Sqlite` mount      | embedded-floor law composed, never a second engine                   |
-|  [06]   | layer write         | one transaction: rows + rtree + extent       | a stale extent misleads discovery; maintained in the same commit     |
+| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                          |
+| :-----: | :------------------ | :---------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | deferred properties | `GeoProperties` union + one `Bind<T>`     | element-backed until projected; loose table walks rejected         |
+|  [02]   | one converter graph | `ElementJson.Options`                     | geometry and typed properties never split converter sets           |
+|  [03]   | spine authority     | `gpkg_geometry_columns` + `gpkg_contents` | one geometry column + SRID per layer; header is the SRID authority |
+|  [04]   | deep-gate faults    | `GeoRefusal` typed carrier                | a spine CRS refusal surfaces typed, never a flattened message      |
+|  [05]   | container mechanics | read-only `Microsoft.Data.Sqlite` mount   | embedded-floor law composed, never a second engine                 |
+|  [06]   | layer write         | one transaction: rows + rtree + extent    | a stale extent misleads discovery; maintained in the same commit   |

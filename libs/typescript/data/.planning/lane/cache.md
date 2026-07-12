@@ -2,16 +2,16 @@
 
 The latency lane, correctness-neutral by law: a cache node vanishing costs a cold recompute and nothing else, so this page owns the Tier-0 in-process rows the runtime already supplies — keyed single-flight caches, fiber-tree request deduplication, restart-surviving persisted lookups, and reference-counted resource pools — plus the one escalation law that gates any external engine. Stampede protection, TTL, and memoization are native; an external cache engine is warranted ONLY when the guarantee must cross a process boundary, and that gated row is Valkey behind the same `KeyValueStore` port, so escalation is a Layer swap, never a code path. Write-behind is banned from the lane outright — a cache that owes durability is a correctness surface misfiled, and the journal owns those.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                            |
-| :-----: | :--------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `TIER_ROWS`      | the escalation table — Tier-0 rows, the gated external row, the banned policies       |
-|  [02]   | `KEYED_FLIGHT`   | the memo tier, the keyed single-flight row, the request-dedup plane                   |
-|  [03]   | `PERSISTED`      | the restart-surviving cache over the KeyValueStore port                               |
-|  [04]   | `POOLS`          | reference-counted handles, keyed resource maps, the bounded origin-connection pool     |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                             |
+| :-----: | :------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `TIER_ROWS`    | the escalation table — Tier-0 rows, the gated external row, the banned policies    |
+|  [02]   | `KEYED_FLIGHT` | the memo tier, the keyed single-flight row, the request-dedup plane                |
+|  [03]   | `PERSISTED`    | the restart-surviving cache over the KeyValueStore port                            |
+|  [04]   | `POOLS`        | reference-counted handles, keyed resource maps, the bounded origin-connection pool |
 
-## [2]-[TIER_ROWS]
+## [02]-[TIER_ROWS]
 
 - Owner: the `_tiers` anchor — every caching posture the folder admits as a row with its boundary and its trigger; the two banned rows carry their refusal as data so the argument is never re-had.
 - Packages: none — decision facts.
@@ -39,7 +39,7 @@ declare namespace CacheLane {
 }
 ```
 
-## [3]-[KEYED_FLIGHT]
+## [03]-[KEYED_FLIGHT]
 
 - Owner: `CacheLane.memo` — the ONE memo entry whose modality is the input shape: a bare effect caches whole (`Effect.cached`, or `cachedWithTTL` when a cadence rides the call), a unary function memoizes per-argument (`Effect.cachedFunction`, structural key equality); and `CacheLane.dedup(options)` — the request-cache Layer that turns fiber-tree request graphs into deduplicated batched loads. The keyed single-flight row is `Cache.make` consumed at the package surface directly — a rename-forward alias adds no domain value and is refused here.
 - Packages: `effect` (`Cache`, `Effect.cached`, `Effect.cachedWithTTL`, `Effect.cachedFunction`, `Request`, `Layer`, `Duration`).
@@ -65,7 +65,7 @@ const _dedup = (options: { readonly capacity: number; readonly timeToLive: Durat
   Layer.setRequestCache(Request.makeCache(options))
 ```
 
-## [4]-[PERSISTED]
+## [04]-[PERSISTED]
 
 - Owner: `CacheLane.persisted` — `PersistedCache.make` published as the restart-surviving row, backed by the `Persistence` result store, which itself rides the `KeyValueStore` port — memory in specs, filesystem on a single node, and the gated external engine when the escalation trigger fires, all by Layer swap — plus `CacheLane.scoped(prefix)`, the tenant-partition transformer every multi-app deployment MUST interpose.
 - Packages: `@effect/experimental` (`PersistedCache.make`, `Persistence.layerResultKeyValueStore`, `Persistence.layerResultMemory`); `@effect/platform` (`KeyValueStore.layerMemory`, `KeyValueStore.layerFileSystem`, `KeyValueStore.prefix`); `effect` (`Duration`, `Layer`).
@@ -94,7 +94,7 @@ const _scoped = (prefix: string): Layer.Layer<KeyValueStore.KeyValueStore, never
   )
 ```
 
-## [5]-[POOLS]
+## [05]-[POOLS]
 
 - Owner: the resource rows — `RcRef.make` for one shared scoped resource and `RcMap.make` for keyed single-instance families, both consumed at the package surface directly (a rename-forward alias is refused) — plus `CacheLane.origins`, the ONE bounded keyed-pool mint: min/max-sized, TTL-expiring connection reuse keyed by a structural origin coordinate, the row every remote-origin transfer lane (`object/remote.md`'s SFTP/FTP/DAV clients) rides.
 - Packages: `effect` (`RcRef.make`, `RcMap.make`, `RcMap.get`, `RcMap.invalidate`, `KeyedPool.makeWithTTL`, `KeyedPool.get`, `Duration`, `Scope`, `Data`).

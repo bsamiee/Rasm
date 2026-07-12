@@ -2,17 +2,17 @@
 
 The one data-grid owner: TanStack Table models — rows, headers, facets, grouping, aggregation, pinning — TanStack Virtual windows, react-aria supplies the grid semantics, and ONE atom holds the whole `TableState` so every slice persists, derives, and echoes through the store. Columns type against the wire-decoded row Schema through `createColumnHelper`, or fold dynamically from a `Feed.Document` column band so a producer-opaque tabular artifact renders with zero static row Schema and zero producer branching. RAC `Table` remains the owner for interactive accessible collections WITHOUT heavy derivation — the TanStack fold is earned by faceting/grouping/virtual scale, and one collection never runs both engines. The module is `ui/src/view/table.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]        | [OWNS]                                                                        | [PUBLIC] |
-| :-----: | :--------------- | :------------------------------------------------------------------------------ | :------- |
-|  [01]   | `STATE_FOLD`     | the one-atom `TableState` slice, the `Updater` application, persistence          | `Grid`   |
-|  [02]   | `COLUMN_PLANE`   | static helper columns and the `Feed.Document` band-driven dynamic column fold    | `Grid`   |
-|  [03]   | `DERIVE_MODELS`  | the row-model roster — core, sort, filter, facet, group, expand, paginate        | —        |
-|  [04]   | `GRID_SEMANTICS` | aria grid roles, logical-count law, selection identity                           | —        |
-|  [05]   | `WINDOWING`      | the virtualizer fold — measurement, pinned-range union, selection echo scroll    | `Grid`   |
+| :-----: | :--------------- | :---------------------------------------------------------------------------- | :------- |
+|  [01]   | `STATE_FOLD`     | the one-atom `TableState` slice, the `Updater` application, persistence       | `Grid`   |
+|  [02]   | `COLUMN_PLANE`   | static helper columns and the `Feed.Document` band-driven dynamic column fold | `Grid`   |
+|  [03]   | `DERIVE_MODELS`  | the row-model roster — core, sort, filter, facet, group, expand, paginate     | —        |
+|  [04]   | `GRID_SEMANTICS` | aria grid roles, logical-count law, selection identity                        | —        |
+|  [05]   | `WINDOWING`      | the virtualizer fold — measurement, pinned-range union, selection echo scroll | `Grid`   |
 
-## [2]-[STATE_FOLD]
+## [02]-[STATE_FOLD]
 
 [STATE_FOLD]:
 - Owner: `Grid` — the state fold: ONE atom holds the whole TanStack `TableState` slice (sorting, filters, selection, grouping, expanded, pagination, sizing, order, column AND row pinning, visibility), `useReactTable` reads it as controlled `state` with `onStateChange` writing through `useAtomSet` (the exact `Updater` shape `makeStateUpdater` builds), and `Grid.apply(key)` folds one slice key through `functionalUpdate` so every `on<Slice>Change` handler is one row over one fold — never a per-slice `useState`.
@@ -90,7 +90,7 @@ const _apply = <K extends keyof Grid.Slice>(key: K) =>
     ({ ...state, [key]: functionalUpdate(updater, state[key]) })
 ```
 
-## [3]-[COLUMN_PLANE]
+## [03]-[COLUMN_PLANE]
 
 [COLUMN_PLANE]:
 - Owner: the column fold riding `Grid` — two ingress modalities on one plane: STATIC columns type against the wire-decoded row Schema via `createColumnHelper<Row>()` (accessor rows carrying `sortingFn`/`filterFn`/`aggregationFn` references by registry name); BANDED columns fold from a `Feed.Document` column band — `name`/`kind`/`dimension`/`nullable` rows become dynamic `accessor((row) => row[column.name], { id: column.name })` definitions, so a self-described result artifact renders with the band — never the payload — as the binding contract.
@@ -135,7 +135,7 @@ const _banded = (document: Feed.Document): ReadonlyArray<ColumnDef<Grid.Banded, 
   })
 ```
 
-## [4]-[DERIVE_MODELS]
+## [04]-[DERIVE_MODELS]
 
 [DERIVE_MODELS]:
 - Law: only the used row models import — `getCoreRowModel` always; `getSortedRowModel`, `getFilteredRowModel`, `getFacetedRowModel` + `getFacetedUniqueValues`, `getGroupedRowModel` + `getExpandedRowModel`, and `getPaginationRowModel` join per surface; an imported-but-unwired model is dead mass, and a hand-derived sort/filter over `rows` restates the engine.
@@ -145,14 +145,14 @@ const _banded = (document: Feed.Document): ReadonlyArray<ColumnDef<Grid.Banded, 
 - Boundary: filter input debounce is a `system/atom` `Atom.debounce` row on the query atom, and the query value reaching the filter model rides `useDeferredValue` so keystrokes stay responsive against a large row set; collation-correct column sorting lifts `Format.collate` into a named `sortingFns` registry row.
 - Boundary: derivation locus splits the analytics surfaces — client-modeled rows with fixed shape are this `Grid`; engine-maintained pivot/aggregation over a live feed is `view/chart#PIVOT_SURFACE`, and declared statistical charts are `view/chart`'s other regimes — one surface never runs two engines.
 
-## [5]-[GRID_SEMANTICS]
+## [05]-[GRID_SEMANTICS]
 
 [GRID_SEMANTICS]:
 - Law: semantics and modeling split by owner — react-aria supplies the `grid`/`row`/`columnheader`/`gridcell` roles and roving keyboard over the rendered markup; `aria-rowcount`/`aria-rowindex` stay on the FULL logical count while windowing mounts the visible span, so assistive tech sees the whole collection.
 - Law: `RowSelectionState` keys are `GlobalId` strings where the grid fronts model elements — the table's selection slice and the viewer's selection set are ONE atom projected two ways, never two stores reconciled; the selection echo in `[6]` closes the loop.
 - Law: header interactions are discrete rows — sort toggles and column menus bind through `system/act` `Gesture.useDiscrete`; column resize drag is the table's own sizing handler bound to the `columnSizing` slice, never a second gesture engine on the header.
 
-## [6]-[WINDOWING]
+## [06]-[WINDOWING]
 
 [WINDOWING]:
 - Owner: `Grid.range` — the module's virtualizer member: the pinned-range union `rangeExtractor` the `useVirtualizer` call site consumes; the hook itself binds at the consuming row — `count` from the row model, `getScrollElement` on the scroll container, `estimateSize` + `measureElement` for variable rows, `overscan` as a policy value, `getTotalSize()` sizing the spacer — with `Grid.range(pinned)` unioning pinned/sticky indices over `defaultRangeExtractor` so pinned rows stay mounted outside the visible span.

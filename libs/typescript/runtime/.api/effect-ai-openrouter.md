@@ -113,17 +113,17 @@ declare const withClientTransform: {
 `Generated` is the derived, `Schema.Class`-backed OpenRouter API (348 schemas). It is the low-level escape hatch
 `Service.client` exposes and the source of every asymmetry type the config/metadata reference.
 
-| [INDEX] | [SYMBOL] | [FAMILY] | [CAPABILITY] |
-|:-----: |:---------------------------------- |:----------- |:------------------------------------ |
-| [01] | `Generated.ChatGenerationParams` | Schema.Class | full generation request (model/messages/provider/reasoning/route) |
-| [02] | `Generated.ChatResponse` | Schema.Class | non-stream completion + usage |
-| [03] | `Generated.ChatGenerationTokenUsage`| Schema.Class | prompt/completion/cost token usage |
-| [04] | `Generated.ProviderPreferences` | Schema.Class | upstream routing + sort policy |
-| [05] | `Generated.ChatGenerationParamsReasoningEffortEnum` | enum | reasoning-effort control |
-| [06] | `Generated.ChatGenerationParamsRouteEnum` | enum | recovery routing policy |
-| [07] | `Generated.CacheControlEphemeral` | Schema.Class | prompt-caching breakpoint |
-| [08] | `Generated.ReasoningDetail*` | Schema union | reasoning trace parts |
-| [09] | `Generated.Client` + `Generated.make(httpClient, options?)` | client | raw endpoint access + ClientError |
+| [INDEX] | [SYMBOL]                                                    | [FAMILY]     | [CAPABILITY]                                                      |
+| :-----: | :---------------------------------------------------------- | :----------- | :---------------------------------------------------------------- |
+|  [01]   | `Generated.ChatGenerationParams`                            | Schema.Class | full generation request (model/messages/provider/reasoning/route) |
+|  [02]   | `Generated.ChatResponse`                                    | Schema.Class | non-stream completion + usage                                     |
+|  [03]   | `Generated.ChatGenerationTokenUsage`                        | Schema.Class | prompt/completion/cost token usage                                |
+|  [04]   | `Generated.ProviderPreferences`                             | Schema.Class | upstream routing + sort policy                                    |
+|  [05]   | `Generated.ChatGenerationParamsReasoningEffortEnum`         | enum         | reasoning-effort control                                          |
+|  [06]   | `Generated.ChatGenerationParamsRouteEnum`                   | enum         | recovery routing policy                                           |
+|  [07]   | `Generated.CacheControlEphemeral`                           | Schema.Class | prompt-caching breakpoint                                         |
+|  [08]   | `Generated.ReasoningDetail*`                                | Schema union | reasoning trace parts                                             |
+|  [09]   | `Generated.Client` + `Generated.make(httpClient, options?)` | client       | raw endpoint access + ClientError                                 |
 
 ## [06]-[INTEGRATION]
 

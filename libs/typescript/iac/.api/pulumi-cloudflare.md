@@ -23,12 +23,12 @@
 - rail: cloudflare
 - One shape owns the entire surface; the roster below is SEED DATA of the pattern, never the mechanism. Construction is `new X(name, XArgs, opts?)`; `opts` is the universal `pulumi.CustomResourceOptions` seam (`provider`/`dependsOn`/`parent`/`protect`/`ignoreChanges`/`import`, `.api/pulumi-pulumi.md`). Adoption of an API-existing object is `static get(name, id, XState?, opts?)`. Nested arg shapes live under `types.input.*`; every output is an `Output<T>` mirror.
 
-| [INDEX] | [MEMBER] | [SHAPE_BOUNDARY] |
-|:-----: |:------- |:----------------- |
-| [01] | `new X(name, XArgs, opts?)` | construct any resource; `XArgs` fields are `Input<T>` |
-| [02] | `X.get(name, id, XState?, opts?)` | adopt an existing Cloudflare object by id |
-| [03] | `X.isInstance(obj)` | multi-SDK-safe guard `obj is X` |
-| [04] | `getX(args, InvokeOptions?)` / `getXOutput(args, InvokeOutputOptions?)` | data-source read: eager `Promise<GetXResult>` / graph-threaded `Output<GetXResult>` |
+| [INDEX] | [MEMBER]                                                                | [SHAPE_BOUNDARY]                                                                    |
+| :-----: | :---------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `new X(name, XArgs, opts?)`                                             | construct any resource; `XArgs` fields are `Input<T>`                               |
+|  [02]   | `X.get(name, id, XState?, opts?)`                                       | adopt an existing Cloudflare object by id                                           |
+|  [03]   | `X.isInstance(obj)`                                                     | multi-SDK-safe guard `obj is X`                                                     |
+|  [04]   | `getX(args, InvokeOptions?)` / `getXOutput(args, InvokeOutputOptions?)` | data-source read: eager `Promise<GetXResult>` / graph-threaded `Output<GetXResult>` |
 
 ## [03]-[RESOURCE_FAMILIES]
 
@@ -36,47 +36,47 @@
 - rail: cloudflare
 - The DNS surface the `kube/traffic` cert/dns rows and every cloud row need. `Zone` roots a domain; `DnsRecord` is the record (A/AAAA/CNAME/TXT via its `type`/`content` args); `CustomHostname` fronts a SaaS domain.
 
-| [INDEX] | [SYMBOL] | [ROLE] |
-|:-----: |:------- |:----- |
-| [01] | `Zone` | the domain zone (`account`, `name`, `type`) |
-| [02] | `DnsRecord` | a DNS record (`zoneId`, `type`, `name`, `content`, `proxied`, `ttl`) |
-| [03] | `ZoneDnssec` / `ZoneDnsSettings` / `ZoneSetting` | DNSSEC, zone DNS settings, per-setting overrides |
-| [04] | `CustomHostname` / `CustomHostnameFallbackOrigin` | SaaS custom-hostname + recovery |
+| [INDEX] | [SYMBOL]                                          | [ROLE]                                                               |
+| :-----: | :------------------------------------------------ | :------------------------------------------------------------------- |
+|  [01]   | `Zone`                                            | the domain zone (`account`, `name`, `type`)                          |
+|  [02]   | `DnsRecord`                                       | a DNS record (`zoneId`, `type`, `name`, `content`, `proxied`, `ttl`) |
+|  [03]   | `ZoneDnssec` / `ZoneDnsSettings` / `ZoneSetting`  | DNSSEC, zone DNS settings, per-setting overrides                     |
+|  [04]   | `CustomHostname` / `CustomHostnameFallbackOrigin` | SaaS custom-hostname + recovery                                      |
 
 [EDGE_SCOPE]: Workers, KV, R2, Pages — edge compute + object store
 - rail: cloudflare
 - The service-equivalence compute/object rows: `R2Bucket` is the object-store equivalent (the managed counterpart to the MinIO-continuation/Ceph-RGW self-host rows in the equivalence map); `WorkersScript` + `WorkersRoute` are edge compute; `PagesProject` is static hosting.
 
-| [INDEX] | [SYMBOL] | [ROLE] |
-|:-----: |:------- |:----- |
-| [01] | `R2Bucket` (+ `R2BucketLifecycle`/`R2BucketCors`/`R2BucketEventNotification`/`R2CustomDomain`) | object store + policies |
-| [02] | `WorkersScript` / `WorkersRoute` / `WorkersCustomDomain` | edge compute + routing |
-| [03] | `WorkersKvNamespace` / `WorkersKv` | edge KV namespace + entries |
-| [04] | `PagesProject` / `PagesDomain` | static hosting + domain |
-| [05] | `Queue` / `D1Database` / `HyperdriveConfig` | edge queue / SQLite / DB-accelerator |
+| [INDEX] | [SYMBOL]                                                                                       | [ROLE]                               |
+| :-----: | :--------------------------------------------------------------------------------------------- | :----------------------------------- |
+|  [01]   | `R2Bucket` (+ `R2BucketLifecycle`/`R2BucketCors`/`R2BucketEventNotification`/`R2CustomDomain`) | object store + policies              |
+|  [02]   | `WorkersScript` / `WorkersRoute` / `WorkersCustomDomain`                                       | edge compute + routing               |
+|  [03]   | `WorkersKvNamespace` / `WorkersKv`                                                             | edge KV namespace + entries          |
+|  [04]   | `PagesProject` / `PagesDomain`                                                                 | static hosting + domain              |
+|  [05]   | `Queue` / `D1Database` / `HyperdriveConfig`                                                    | edge queue / SQLite / DB-accelerator |
 
 [INGRESS_SCOPE]: Zero-Trust tunnel + Access — the selfhosted-k8s ingress rows
 - rail: selfhosted-k8s
 - The ingress path for the selfhosted cluster with no public IP: a `ZeroTrustTunnelCloudflared` (cloudflared tunnel) with `…Config`/`…Route`, fronted by `ZeroTrustAccess*` authentication. All current-spelling (catalog-bound); the pre-catalog-bound `Tunnel`/`Access*` aliases are deprecated.
 
-| [INDEX] | [SYMBOL] | [ROLE] |
-|:-----: |:------- |:----- |
-| [01] | `ZeroTrustTunnelCloudflared` | the named tunnel (cloudflared) into the cluster — args `{ accountId, name (required), tunnelSecret?, configSrc? }`; `id` is the CNAME target base (`<id>.cfargotunnel.com`) |
-| [02] | `ZeroTrustTunnelCloudflaredConfig` / `…Route` / `…VirtualNetwork` | tunnel ingress rules, network routes, virtual network — config args `{ accountId, tunnelId, config: { ingresses: [{ hostname?, service (required), path?, originRequest? }], originRequest? } }`; the last ingress row is the catch-all (`service: "http_status:404"`) |
-| [03] | `ZeroTrustAccessApplication` / `…Policy` / `…Group` | Access app + authorization policy + identity group — app args `{ accountId?, domain?, type?, name?, sessionDuration?, policies: [{ id?, decision?, … }] }`; policy args `{ accountId?, name (required), decision (required), includes: [{ everyone?, email?, group?, anyValidServiceToken?, … }] }` |
-| [04] | `ZeroTrustAccessServiceToken` / `…IdentityProvider` | service-to-service token, IdP binding |
-| [05] | `getZeroTrustTunnelCloudflaredToken` / `…Output` | connector credential read — `({ accountId, tunnelId }) → { token }`, the `TUNNEL_TOKEN` the in-cluster cloudflared Deployment runs with (cross a manifest only `pulumi.secret`-wrapped) |
+| [INDEX] | [SYMBOL]                                                          | [ROLE]                                                                                                                                                                                                                                                                                              |
+| :-----: | :---------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ZeroTrustTunnelCloudflared`                                      | the named tunnel (cloudflared) into the cluster — args `{ accountId, name (required), tunnelSecret?, configSrc? }`; `id` is the CNAME target base (`<id>.cfargotunnel.com`)                                                                                                                         |
+|  [02]   | `ZeroTrustTunnelCloudflaredConfig` / `…Route` / `…VirtualNetwork` | tunnel ingress rules, network routes, virtual network — config args `{ accountId, tunnelId, config: { ingresses: [{ hostname?, service (required), path?, originRequest? }], originRequest? } }`; the last ingress row is the catch-all (`service: "http_status:404"`)                              |
+|  [03]   | `ZeroTrustAccessApplication` / `…Policy` / `…Group`               | Access app + authorization policy + identity group — app args `{ accountId?, domain?, type?, name?, sessionDuration?, policies: [{ id?, decision?, … }] }`; policy args `{ accountId?, name (required), decision (required), includes: [{ everyone?, email?, group?, anyValidServiceToken?, … }] }` |
+|  [04]   | `ZeroTrustAccessServiceToken` / `…IdentityProvider`               | service-to-service token, IdP binding                                                                                                                                                                                                                                                               |
+|  [05]   | `getZeroTrustTunnelCloudflaredToken` / `…Output`                  | connector credential read — `({ accountId, tunnelId }) → { token }`, the `TUNNEL_TOKEN` the in-cluster cloudflared Deployment runs with (cross a manifest only `pulumi.secret`-wrapped)                                                                                                             |
 
 [TRAFFIC_SCOPE]: load balancing, rulesets, certificates
 - rail: cloudflare
 - Traffic steering, WAF/transform rules, and cert material. `Ruleset` is the unified rules engine (WAF, transform, redirect via its `phase`/`rules`); `OriginCaCertificate`/`CertificatePack`/`TotalTls` are the cert rows.
 
-| [INDEX] | [SYMBOL] | [ROLE] |
-|:-----: |:------- |:----- |
-| [01] | `LoadBalancer` / `LoadBalancerPool` / `LoadBalancerMonitor` | steering + origin pool + health monitor |
-| [02] | `Ruleset` | unified rules engine (`phase`, `rules`) — WAF/transform/redirect |
-| [03] | `OriginCaCertificate` / `CertificatePack` / `TotalTls` | origin CA cert, edge cert pack, automatic TLS |
-| [04] | `SpectrumApplication` / `PageRule` | L4 app proxy / retired page rule |
+| [INDEX] | [SYMBOL]                                                    | [ROLE]                                                           |
+| :-----: | :---------------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `LoadBalancer` / `LoadBalancerPool` / `LoadBalancerMonitor` | steering + origin pool + health monitor                          |
+|  [02]   | `Ruleset`                                                   | unified rules engine (`phase`, `rules`) — WAF/transform/redirect |
+|  [03]   | `OriginCaCertificate` / `CertificatePack` / `TotalTls`      | origin CA cert, edge cert pack, automatic TLS                    |
+|  [04]   | `SpectrumApplication` / `PageRule`                          | L4 app proxy / retired page rule                                 |
 
 ## [04]-[PROVIDER]
 
@@ -84,11 +84,11 @@
 - rail: cloudflare
 - The dispatch arm constructs ONE `Provider` and threads it via `opts.provider`. `apiToken` (scoped) is the canonical credential; the `apiKey` + `email` pair is the retired account-key auth. `config.*` mirrors these as ambient vars.
 
-| [INDEX] | [FIELD] | [TYPE] | [MEANING] |
-|:-----: |:------ |:----- |:-------- |
-| [01] | `apiToken` | `Input<string>` | scoped API token (canonical); bind a `doppler` secret Output |
-| [02] | `apiKey` / `email` | `Input<string>` | retired global-key auth pair |
-| [03] | `apiUserServiceKey` / `baseUrl` | `Input<string>` | user service key, API base override |
+| [INDEX] | [FIELD]                         | [TYPE]          | [MEANING]                                                    |
+| :-----: | :------------------------------ | :-------------- | :----------------------------------------------------------- |
+|  [01]   | `apiToken`                      | `Input<string>` | scoped API token (canonical); bind a `doppler` secret Output |
+|  [02]   | `apiKey` / `email`              | `Input<string>` | retired global-key auth pair                                 |
+|  [03]   | `apiUserServiceKey` / `baseUrl` | `Input<string>` | user service key, API base override                          |
 
 ## [05]-[IMPLEMENTATION_LAW]
 

@@ -124,13 +124,13 @@ public static class ElementSchema {
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                               | [BINDING]                                                  |
-| :-----: | :--------------------- | :------------------------------------ | :--------------------------------------------------------- |
-|  [01]   | stream grain           | one stream per `ModelId`              | `StreamIdentity.AsGuid`; never per-`NodeId`               |
-|  [02]   | event body             | the seam `GraphDelta`                 | never a whole-graph snapshot; folds via `GraphDelta.ReplayOnto`|
-|  [03]   | append mode            | `EventAppendMode.Rich` (bulk `Quick`) | full metadata on authoring; throughput on re-ingest       |
-|  [04]   | optimistic guard       | `Append(stream, expectedVersion, …)`  | concurrent same-version writer aborts at `SaveChangesAsync`|
-|  [05]   | strong-typed keys      | `RegisterValueType<ModelId/NodeId>`   | typed stream key + document id, never a bare Guid/string  |
+| [INDEX] | [POLICY]          | [VALUE]                               | [BINDING]                                                       |
+| :-----: | :---------------- | :------------------------------------ | :-------------------------------------------------------------- |
+|  [01]   | stream grain      | one stream per `ModelId`              | `StreamIdentity.AsGuid`; never per-`NodeId`                     |
+|  [02]   | event body        | the seam `GraphDelta`                 | never a whole-graph snapshot; folds via `GraphDelta.ReplayOnto` |
+|  [03]   | append mode       | `EventAppendMode.Rich` (bulk `Quick`) | full metadata on authoring; throughput on re-ingest             |
+|  [04]   | optimistic guard  | `Append(stream, expectedVersion, …)`  | concurrent same-version writer aborts at `SaveChangesAsync`     |
+|  [05]   | strong-typed keys | `RegisterValueType<ModelId/NodeId>`   | typed stream key + document id, never a bare Guid/string        |
 
 ## [03]-[GRAPH_PROJECTION]
 
@@ -172,13 +172,13 @@ public sealed record GraphProjection(
 }
 ```
 
-| [INDEX] | [POLICY]                | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :---------------------- | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | authoritative read      | inline `GraphProjection.Graph`         | read-your-writes; never an async lane                     |
-|  [02]   | replay floor            | inline self-aggregating snapshot       | head document loads, never a genesis re-fold per read     |
-|  [03]   | one materializer        | seam `GraphDelta.ReplayOnto`           | projection and AS-OF reconstruction fold the one delta    |
-|  [04]   | serializable document   | `Header`/node-map/edge-array primitives| `ElementGraph` has no STJ ctor; `Of` materializes once    |
-|  [05]   | cross-model rollup      | `MultiStreamProjection`                | sliced by project id, never a second delta fold           |
+| [INDEX] | [POLICY]              | [VALUE]                                 | [BINDING]                                              |
+| :-----: | :-------------------- | :-------------------------------------- | :----------------------------------------------------- |
+|  [01]   | authoritative read    | inline `GraphProjection.Graph`          | read-your-writes; never an async lane                  |
+|  [02]   | replay floor          | inline self-aggregating snapshot        | head document loads, never a genesis re-fold per read  |
+|  [03]   | one materializer      | seam `GraphDelta.ReplayOnto`            | projection and AS-OF reconstruction fold the one delta |
+|  [04]   | serializable document | `Header`/node-map/edge-array primitives | `ElementGraph` has no STJ ctor; `Of` materializes once |
+|  [05]   | cross-model rollup    | `MultiStreamProjection`                 | sliced by project id, never a second delta fold        |
 
 ## [04]-[STORE_RAIL]
 
@@ -346,15 +346,15 @@ public static class GraphStore {
 }
 ```
 
-| [INDEX] | [POLICY]                 | [VALUE]                                  | [BINDING]                                                  |
-| :-----: | :----------------------- | :--------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | one txn owner            | identity + event in one `IDocumentSession` | `IdentityStore.Stamp` then `SaveChangesAsync`            |
-|  [02]   | read consistency         | `FetchLatest<GraphProjection>`           | inline document or live tail fold; read-your-writes       |
-|  [03]   | AS-OF fold               | `AggregateStreamAsync(version\|timestamp)` | version XOR instant; reuses `GraphDelta.ReplayOnto`        |
-|  [04]   | optimistic concurrency   | `Append(model, delta, expectedVersion)`  | racing writer → `ConcurrentUpdateException` → `StreamVersionConflict`|
-|  [05]   | exclusive escalation     | `CommitExclusive` op case                | `FetchForExclusiveWriting`; refusal → `TxnConflict` 8303  |
-|  [06]   | frame injection          | `StoreActor` + `ProjectionContext`       | AppHost fills slots at the port; no AppHost type crosses down |
-|  [07]   | naming lineage           | `NameLineage` co-committed rows          | kernel `Track(prior, rebuilt)` reads a durable prior generation |
+| [INDEX] | [POLICY]               | [VALUE]                                    | [BINDING]                                                             |
+| :-----: | :--------------------- | :----------------------------------------- | :-------------------------------------------------------------------- |
+|  [01]   | one txn owner          | identity + event in one `IDocumentSession` | `IdentityStore.Stamp` then `SaveChangesAsync`                         |
+|  [02]   | read consistency       | `FetchLatest<GraphProjection>`             | inline document or live tail fold; read-your-writes                   |
+|  [03]   | AS-OF fold             | `AggregateStreamAsync(version\|timestamp)` | version XOR instant; reuses `GraphDelta.ReplayOnto`                   |
+|  [04]   | optimistic concurrency | `Append(model, delta, expectedVersion)`    | racing writer → `ConcurrentUpdateException` → `StreamVersionConflict` |
+|  [05]   | exclusive escalation   | `CommitExclusive` op case                  | `FetchForExclusiveWriting`; refusal → `TxnConflict` 8303              |
+|  [06]   | frame injection        | `StoreActor` + `ProjectionContext`         | AppHost fills slots at the port; no AppHost type crosses down         |
+|  [07]   | naming lineage         | `NameLineage` co-committed rows            | kernel `Track(prior, rebuilt)` reads a durable prior generation       |
 
 ## [05]-[FAULT_TABLES]
 
@@ -455,9 +455,9 @@ public abstract partial record GraphFault : Expected, IValidationError<GraphFaul
 }
 ```
 
-| [INDEX] | [POLICY]                 | [VALUE]                                  | [BINDING]                                                  |
-| :-----: | :----------------------- | :--------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | band disjointness        | `[SmartEnum<int>]` key uniqueness        | duplicate integer fails at type initialization             |
-|  [02]   | code derivation          | `Code => FaultBand.<Row> + n`            | implicit int conversion; never `.Value`, never a literal   |
-|  [03]   | foreign reservation      | pinned mirror rows                       | no Persistence union derives from a mirror                |
-|  [04]   | folded-txn conflict      | `GraphFault.TxnConflict` 8303            | registered sub-band row, never a loose 7001               |
+| [INDEX] | [POLICY]            | [VALUE]                           | [BINDING]                                                |
+| :-----: | :------------------ | :-------------------------------- | :------------------------------------------------------- |
+|  [01]   | band disjointness   | `[SmartEnum<int>]` key uniqueness | duplicate integer fails at type initialization           |
+|  [02]   | code derivation     | `Code => FaultBand.<Row> + n`     | implicit int conversion; never `.Value`, never a literal |
+|  [03]   | foreign reservation | pinned mirror rows                | no Persistence union derives from a mirror               |
+|  [04]   | folded-txn conflict | `GraphFault.TxnConflict` 8303     | registered sub-band row, never a loose 7001              |

@@ -20,11 +20,11 @@
 
 `Engine.execute_notebook` wraps the notebook in a `NotebookExecutionManager` and delegates the real run to `execute_managed_notebook`; `PapermillEngines.execute_notebook_with_engine(engine_name, nb, kernel_name, **kwargs)` is the registry dispatch; `register(name, engine)`/`register_entry_points()`/`get_engine(name=None)` manage the engine table (`engine_name=None` -> default `NBClientEngine`).
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [CAPABILITY]                                                |
-| :-----: | :------------------------- | :---------------- | :---------------------------------------------------------- |
-|  [01]   | `Engine`                   | engine base       | `execute_notebook` (wraps in manager) + `execute_managed_notebook` contract |
-|  [02]   | `NBClientEngine`           | nbclient engine   | executes via `papermill.clientwrap.PapermillNotebookClient` over `nbclient`; default engine |
-|  [03]   | `PapermillEngines`         | engine registry   | `register`/`register_entry_points`/`get_engine`/`execute_notebook_with_engine` |
+| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [CAPABILITY]                                                                                                |
+| :-----: | :------------------------- | :---------------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Engine`                   | engine base       | `execute_notebook` (wraps in manager) + `execute_managed_notebook` contract                                 |
+|  [02]   | `NBClientEngine`           | nbclient engine   | executes via `papermill.clientwrap.PapermillNotebookClient` over `nbclient`; default engine                 |
+|  [03]   | `PapermillEngines`         | engine registry   | `register`/`register_entry_points`/`get_engine`/`execute_notebook_with_engine`                              |
 |  [04]   | `NotebookExecutionManager` | execution tracker | lifecycle callbacks; tqdm pbar; autosave; cell timing; `PENDING`/`RUNNING`/`COMPLETED`/`FAILED` cell states |
 
 [PUBLIC_TYPE_SCOPE]: I/O handler family
@@ -32,55 +32,55 @@
 
 Every handler conforms structurally to the four-method contract `read(path)`/`write(buf, path)`/`listdir(path)`/`pretty_path(path)`; the registry dispatches by scheme prefix. There is one handler protocol, never a parallel per-scheme reader/writer split.
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]   | [CAPABILITY]                                                  |
-| :-----: | :-------------------- | :-------------- | :----------------------------------------------------------- |
-|  [01]   | `PapermillIO`         | I/O registry    | route path strings to registered handlers by scheme prefix   |
-|  [02]   | `LocalHandler`        | local I/O       | file-system read/write (also exposes `cwd` for the kernel)   |
-|  [03]   | `S3Handler`           | S3 I/O          | AWS S3 notebook read/write (`s3://`; `boto3` extra)           |
-|  [04]   | `GCSHandler`          | GCS I/O         | Google Cloud Storage read/write (`gs://`; `gcsfs` extra)     |
-|  [05]   | `ABSHandler`          | ABS I/O         | Azure Blob Storage read/write (`abfs://`; `azure` extra)     |
-|  [06]   | `ADLHandler`          | ADLS I/O        | Azure Data Lake Storage read/write (legacy `adl://`)         |
-|  [07]   | `HDFSHandler`         | HDFS I/O        | Hadoop FS read/write (`hdfs://`; `pyarrow` extra)            |
-|  [08]   | `HttpHandler`         | HTTP I/O        | HTTP/HTTPS URL notebook fetch                                |
-|  [09]   | `GithubHandler`       | GitHub I/O      | GitHub raw URL read                                          |
-|  [10]   | `StreamHandler`       | stream I/O      | file-like stream read/write                                  |
-|  [11]   | `NotebookNodeHandler` | in-memory I/O   | route an in-memory `NotebookNode` as input without a path    |
-|  [12]   | `NoIOHandler`         | null I/O        | discard-output handler for execute-only-no-write runs        |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY] | [CAPABILITY]                                               |
+| :-----: | :-------------------- | :------------ | :--------------------------------------------------------- |
+|  [01]   | `PapermillIO`         | I/O registry  | route path strings to registered handlers by scheme prefix |
+|  [02]   | `LocalHandler`        | local I/O     | file-system read/write (also exposes `cwd` for the kernel) |
+|  [03]   | `S3Handler`           | S3 I/O        | AWS S3 notebook read/write (`s3://`; `boto3` extra)        |
+|  [04]   | `GCSHandler`          | GCS I/O       | Google Cloud Storage read/write (`gs://`; `gcsfs` extra)   |
+|  [05]   | `ABSHandler`          | ABS I/O       | Azure Blob Storage read/write (`abfs://`; `azure` extra)   |
+|  [06]   | `ADLHandler`          | ADLS I/O      | Azure Data Lake Storage read/write (legacy `adl://`)       |
+|  [07]   | `HDFSHandler`         | HDFS I/O      | Hadoop FS read/write (`hdfs://`; `pyarrow` extra)          |
+|  [08]   | `HttpHandler`         | HTTP I/O      | HTTP/HTTPS URL notebook fetch                              |
+|  [09]   | `GithubHandler`       | GitHub I/O    | GitHub raw URL read                                        |
+|  [10]   | `StreamHandler`       | stream I/O    | file-like stream read/write                                |
+|  [11]   | `NotebookNodeHandler` | in-memory I/O | route an in-memory `NotebookNode` as input without a path  |
+|  [12]   | `NoIOHandler`         | null I/O      | discard-output handler for execute-only-no-write runs      |
 
 [PUBLIC_TYPE_SCOPE]: parameter translator family
 - rail: notebook — `papermill.translators`
 
 `Translator` is a base whose `codify(parameters, comment)` classmethod folds the parameter dict into a kernel-language parameters cell via the `translate`/`assign`/`comment` and per-type `translate_int`/`translate_float`/`translate_str`/`translate_bool`/`translate_dict`/`translate_list`/`translate_none`/`translate_escaped_str`/`translate_raw_str` rows; `inspect` reads declared parameters back. Registered keys: `python`, `R`, `scala`, `julia`, `matlab`, `.net-csharp`, `.net-fsharp`, `.net-powershell`, `bash`, plus the `pysparkkernel`/`sparkkernel`/`sparkrkernel` aliases.
 
-| [INDEX] | [SYMBOL]                | [TYPE_FAMILY]       | [CAPABILITY]                                         |
-| :-----: | :---------------------- | :------------------ | :--------------------------------------------------- |
-|  [01]   | `Translator`            | translator base     | `codify`/`assign`/`comment` + per-type `translate_*` parameter serialization contract |
-|  [02]   | `PapermillTranslators`  | translator registry | `find_translator(kernel_name, language)` -> `Translator`; `register(language, translator)` |
-|  [03]   | `PythonTranslator`      | Python              | Python parameter cell code generation                |
-|  [04]   | `RTranslator`           | R                   | R parameter cell code generation                     |
-|  [05]   | `JuliaTranslator`       | Julia               | Julia parameter cell code generation                 |
-|  [06]   | `ScalaTranslator`       | Scala               | Scala parameter cell code generation                 |
-|  [07]   | `BashTranslator`        | Bash                | Bash parameter cell code generation                  |
-|  [08]   | `MatlabTranslator`      | Matlab              | Matlab parameter cell code generation                |
-|  [09]   | `CSharpTranslator`      | .NET C#             | C# parameter cell code generation (`.net-csharp`)    |
-|  [10]   | `FSharpTranslator`      | .NET F#             | F# parameter cell code generation (`.net-fsharp`)    |
-|  [11]   | `PowershellTranslator`  | .NET PowerShell     | PowerShell parameter cell code generation (`.net-powershell`) |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]       | [CAPABILITY]                                                                               |
+| :-----: | :--------------------- | :------------------ | :----------------------------------------------------------------------------------------- |
+|  [01]   | `Translator`           | translator base     | `codify`/`assign`/`comment` + per-type `translate_*` parameter serialization contract      |
+|  [02]   | `PapermillTranslators` | translator registry | `find_translator(kernel_name, language)` -> `Translator`; `register(language, translator)` |
+|  [03]   | `PythonTranslator`     | Python              | Python parameter cell code generation                                                      |
+|  [04]   | `RTranslator`          | R                   | R parameter cell code generation                                                           |
+|  [05]   | `JuliaTranslator`      | Julia               | Julia parameter cell code generation                                                       |
+|  [06]   | `ScalaTranslator`      | Scala               | Scala parameter cell code generation                                                       |
+|  [07]   | `BashTranslator`       | Bash                | Bash parameter cell code generation                                                        |
+|  [08]   | `MatlabTranslator`     | Matlab              | Matlab parameter cell code generation                                                      |
+|  [09]   | `CSharpTranslator`     | .NET C#             | C# parameter cell code generation (`.net-csharp`)                                          |
+|  [10]   | `FSharpTranslator`     | .NET F#             | F# parameter cell code generation (`.net-fsharp`)                                          |
+|  [11]   | `PowershellTranslator` | .NET PowerShell     | PowerShell parameter cell code generation (`.net-powershell`)                              |
 
 [PUBLIC_TYPE_SCOPE]: exception family
 - rail: notebook — `papermill.exceptions`
 
 `PapermillExecutionError` is the typed execution receipt: it carries `(cell_index, exec_count, source, ename, evalue, traceback)` from the failing cell, and the error output is already embedded in the written notebook — the fault is structured, never a bare string.
 
-| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]      | [CAPABILITY]                                                  |
-| :-----: | :------------------------------------- | :----------------- | :----------------------------------------------------------- |
-|  [01]   | `PapermillException`                   | base fault         | base for all papermill errors                                |
-|  [02]   | `PapermillExecutionError`              | execution fault    | typed cell fault: `cell_index`/`exec_count`/`source`/`ename`/`evalue`/`traceback` |
-|  [03]   | `PapermillMissingParameterException`   | param fault        | required parameter absent during parameterization            |
-|  [04]   | `PapermillRateLimitException`          | I/O rate fault     | cloud I/O handler rate limit exceeded (drives `tenacity` retry) |
-|  [05]   | `PapermillOptionalDependencyException` | extra-missing fault| a cloud handler's extra (`boto3`/`gcsfs`/`azure`/`pyarrow`) is not installed |
-|  [06]   | `AwsError`                             | AWS fault          | underlying AWS/S3 transport error surfaced from the handler  |
-|  [07]   | `PapermillWarning`                     | warning base       | base for papermill warnings                                  |
-|  [08]   | `PapermillParameterOverwriteWarning`   | param warning      | a passed parameter overwrites a built-in/declared default    |
+| [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]       | [CAPABILITY]                                                                      |
+| :-----: | :------------------------------------- | :------------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `PapermillException`                   | base fault          | base for all papermill errors                                                     |
+|  [02]   | `PapermillExecutionError`              | execution fault     | typed cell fault: `cell_index`/`exec_count`/`source`/`ename`/`evalue`/`traceback` |
+|  [03]   | `PapermillMissingParameterException`   | param fault         | required parameter absent during parameterization                                 |
+|  [04]   | `PapermillRateLimitException`          | I/O rate fault      | cloud I/O handler rate limit exceeded (drives `tenacity` retry)                   |
+|  [05]   | `PapermillOptionalDependencyException` | extra-missing fault | a cloud handler's extra (`boto3`/`gcsfs`/`azure`/`pyarrow`) is not installed      |
+|  [06]   | `AwsError`                             | AWS fault           | underlying AWS/S3 transport error surfaced from the handler                       |
+|  [07]   | `PapermillWarning`                     | warning base        | base for papermill warnings                                                       |
+|  [08]   | `PapermillParameterOverwriteWarning`   | param warning       | a passed parameter overwrites a built-in/declared default                         |
 
 [PUBLIC_TYPE_SCOPE]: model family
 - rail: notebook — `papermill.models`
@@ -106,18 +106,18 @@ Every handler conforms structurally to the four-method contract `read(path)`/`wr
 [ENTRYPOINT_SCOPE]: I/O operations
 - rail: notebook — `papermill.iorw`
 
-| [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]   | [CAPABILITY]                                  |
-| :-----: | :----------------------------------------- | :--------------- | :-------------------------------------------- |
-|  [01]   | `load_notebook_node(notebook_path)`        | read             | read a notebook from any registered path      |
-|  [02]   | `write_ipynb(nb, path)`                    | write            | write a `NotebookNode` to any registered path |
-|  [03]   | `list_notebook_files(path)`                | list             | list notebook files under a directory path    |
-|  [04]   | `PapermillIO.register(scheme, handler)`    | handler register | register a custom I/O handler for a scheme    |
-|  [05]   | `PapermillIO.read(path, extensions)`       | registry read    | read via routing to the matching handler      |
-|  [06]   | `PapermillIO.write(buf, path, extensions)` | registry write   | write via routing to the matching handler     |
-|  [07]   | `PapermillIO.get_handler(path, extensions)`| handler resolve  | resolve the handler that would serve a path   |
-|  [08]   | `PapermillIO.listdir(path)`                | registry list    | list notebook files via the matching handler  |
-|  [09]   | `PapermillIO.register_entry_points()`      | entry-point load | load handlers declared by installed extras     |
-|  [10]   | `PapermillIO.reset()`                      | registry reset   | clear and re-seed the default handler table    |
+| [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]   | [CAPABILITY]                                  |
+| :-----: | :------------------------------------------ | :--------------- | :-------------------------------------------- |
+|  [01]   | `load_notebook_node(notebook_path)`         | read             | read a notebook from any registered path      |
+|  [02]   | `write_ipynb(nb, path)`                     | write            | write a `NotebookNode` to any registered path |
+|  [03]   | `list_notebook_files(path)`                 | list             | list notebook files under a directory path    |
+|  [04]   | `PapermillIO.register(scheme, handler)`     | handler register | register a custom I/O handler for a scheme    |
+|  [05]   | `PapermillIO.read(path, extensions)`        | registry read    | read via routing to the matching handler      |
+|  [06]   | `PapermillIO.write(buf, path, extensions)`  | registry write   | write via routing to the matching handler     |
+|  [07]   | `PapermillIO.get_handler(path, extensions)` | handler resolve  | resolve the handler that would serve a path   |
+|  [08]   | `PapermillIO.listdir(path)`                 | registry list    | list notebook files via the matching handler  |
+|  [09]   | `PapermillIO.register_entry_points()`       | entry-point load | load handlers declared by installed extras    |
+|  [10]   | `PapermillIO.reset()`                       | registry reset   | clear and re-seed the default handler table   |
 
 [ENTRYPOINT_SCOPE]: execution manager lifecycle
 - rail: notebook — `papermill.engines.NotebookExecutionManager`

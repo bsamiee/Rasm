@@ -19,23 +19,23 @@ Every resource extends `pulumi.CustomResource` with `static get`/`isInstance` + 
 [PUBLIC_TYPE_SCOPE]: resource roster
 - rail: fabric
 
-| [INDEX] | [SYMBOL] | [REQUIRED_ARGS] | [KEY_OUTPUTS] |
-|:-----: |:------------------ |:---------------------------------------------------------- |:---------------------------------------------------- |
-| [01] | `PrivateKey` | `algorithm` (`RSA`\|`ECDSA`\|`ED25519`) | `privateKeyPem`, `privateKeyPemPkcs8`, `privateKeyOpenssh`, `publicKeyPem`, `publicKeyOpenssh`, `publicKeyFingerprintMd5`/`Sha256` |
-| [02] | `CertRequest` | `privateKeyPem` | `certRequestPem` |
-| [03] | `SelfSignedCert` | `allowedUses`, `validityPeriodHours`, `privateKeyPem` | `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal` |
-| [04] | `LocallySignedCert` | `allowedUses`, `validityPeriodHours`, `certRequestPem`, `caPrivateKeyPem`, `caCertPem` | `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal` |
-| [05] | `Provider` | — | explicit provider instance |
+| [INDEX] | [SYMBOL]            | [REQUIRED_ARGS]                                                                        | [KEY_OUTPUTS]                                                                                                                      |
+| :-----: | :------------------ | :------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `PrivateKey`        | `algorithm` (`RSA`\|`ECDSA`\|`ED25519`)                                                | `privateKeyPem`, `privateKeyPemPkcs8`, `privateKeyOpenssh`, `publicKeyPem`, `publicKeyOpenssh`, `publicKeyFingerprintMd5`/`Sha256` |
+|  [02]   | `CertRequest`       | `privateKeyPem`                                                                        | `certRequestPem`                                                                                                                   |
+|  [03]   | `SelfSignedCert`    | `allowedUses`, `validityPeriodHours`, `privateKeyPem`                                  | `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal`                                                                        |
+|  [04]   | `LocallySignedCert` | `allowedUses`, `validityPeriodHours`, `certRequestPem`, `caPrivateKeyPem`, `caCertPem` | `certPem`, `validityStartTime`/`EndTime`, `readyForRenewal`                                                                        |
+|  [05]   | `Provider`          | —                                                                                      | explicit provider instance                                                                                                         |
 
 [PUBLIC_TYPE_SCOPE]: data sources (external material)
 - rail: fabric
 
-| [INDEX] | [SURFACE] | [MODE] | [NOTE] |
-|:-----: |:----------------------------------------------------- |:------------ |:------------------------------------------------- |
-| [01] | `getCertificate({url \| content, verifyChain?})` | `Promise` | read a served/PEM cert chain → `certificates[]` |
-| [02] | `getCertificateOutput(...)` | `Output` | Input-accepting mirror of `getCertificate` |
-| [03] | `getPublicKey({privateKeyPem \| privateKeyOpenssh})` | `Promise` | derive public key + fingerprints from a private key |
-| [04] | `getPublicKeyOutput(...)` | `Output` | Input-accepting mirror of `getPublicKey` |
+| [INDEX] | [SURFACE]                                            | [MODE]    | [NOTE]                                              |
+| :-----: | :--------------------------------------------------- | :-------- | :-------------------------------------------------- |
+|  [01]   | `getCertificate({url \| content, verifyChain?})`     | `Promise` | read a served/PEM cert chain → `certificates[]`     |
+|  [02]   | `getCertificateOutput(...)`                          | `Output`  | Input-accepting mirror of `getCertificate`          |
+|  [03]   | `getPublicKey({privateKeyPem \| privateKeyOpenssh})` | `Promise` | derive public key + fingerprints from a private key |
+|  [04]   | `getPublicKeyOutput(...)`                            | `Output`  | Input-accepting mirror of `getPublicKey`            |
 
 ## [03]-[CERT_CHAIN]
 
@@ -59,14 +59,14 @@ Key + cert PEMs stack into the kube TLS + traffic rows; `effect` owns the profil
 
 [RAIL]: `tls → effect + sibling providers`
 
-| [INDEX] | [TLS_SEAM] | [STACKS_WITH] | [COMPOSED_RAIL] |
-|:-----: |:---------------------------------------- |:---------------------------------------------- |:--------------------------------------------------------- |
-| [01] | cert-profile args | `Schema.Struct` + `Schema.Literal` (allowedUses) | ONE decoded `CertProfile` value → the chain args |
-| [02] | `PrivateKey.privateKeyPem` + `Cert.certPem` | `@pulumi/kubernetes` `Secret` (`kubernetes.io/tls`) | `stringData: { "tls.crt": certPem, "tls.key": privateKeyPem }` → `kube/traffic` ingress |
-| [03] | CA root `SelfSignedCert` (`isCaCertificate`) | N `LocallySignedCert` leaves | one CA signs the mesh; mTLS between `kube` workloads |
-| [04] | `PrivateKey.privateKeyPem` (secret) | `@pulumiverse/doppler` `Secret` / `Redacted` | CA key stored canonically; wrapped `Redacted` in outputs |
-| [05] | `readyForRenewal` / `validityEndTime` | `previewRefresh` drift fold (`OpType`) | rotation window → reissue op in the drift receipt |
-| [06] | `getCertificateOutput({url})` | `Output` graph | pin/trust an external endpoint's chain at deploy time |
+| [INDEX] | [TLS_SEAM]                                   | [STACKS_WITH]                                       | [COMPOSED_RAIL]                                                                         |
+| :-----: | :------------------------------------------- | :-------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | cert-profile args                            | `Schema.Struct` + `Schema.Literal` (allowedUses)    | ONE decoded `CertProfile` value → the chain args                                        |
+|  [02]   | `PrivateKey.privateKeyPem` + `Cert.certPem`  | `@pulumi/kubernetes` `Secret` (`kubernetes.io/tls`) | `stringData: { "tls.crt": certPem, "tls.key": privateKeyPem }` → `kube/traffic` ingress |
+|  [03]   | CA root `SelfSignedCert` (`isCaCertificate`) | N `LocallySignedCert` leaves                        | one CA signs the mesh; mTLS between `kube` workloads                                    |
+|  [04]   | `PrivateKey.privateKeyPem` (secret)          | `@pulumiverse/doppler` `Secret` / `Redacted`        | CA key stored canonically; wrapped `Redacted` in outputs                                |
+|  [05]   | `readyForRenewal` / `validityEndTime`        | `previewRefresh` drift fold (`OpType`)              | rotation window → reissue op in the drift receipt                                       |
+|  [06]   | `getCertificateOutput({url})`                | `Output` graph                                      | pin/trust an external endpoint's chain at deploy time                                   |
 
 ```ts contract
 // iac/kube/traffic — cert-profile → chain → TLS secret, one pipeline

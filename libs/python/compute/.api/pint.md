@@ -16,91 +16,91 @@
 [PUBLIC_TYPE_SCOPE]: registry, quantity, and context owners
 - rail: units
 
-| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]    | [CAPABILITY]                                                                |
-| :-----: | :-------------------- | :--------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `UnitRegistry`        | registry root    | shared unit and dimension vocabulary; the `Quantity`/`Unit`/`Measurement` factory and parser |
-|  [02]   | `ApplicationRegistry` | process registry | the proxy returned by `get_application_registry`; routes to the installed registry |
-|  [03]   | `LazyRegistry`        | deferred registry | default application registry that defers definition loading until first use |
-|  [04]   | `Quantity`            | quantity carrier | magnitude-plus-unit value; magnitude is any array-protocol object, NumPy ufuncs unit-thread |
-|  [05]   | `Unit`                | unit atom        | a single registered unit with prefix/symbol resolution                      |
-|  [06]   | `Measurement`         | uncertain value  | magnitude with a standard-error term; arithmetic propagates uncertainty     |
-|  [07]   | `Context`             | transform set    | named cross-dimension conversion rules (e.g. spectroscopy wavelength↔energy) |
-|  [08]   | `Group`               | unit grouping    | a named subset of the registry's units for selective compatibility queries  |
+| [INDEX] | [SYMBOL]              | [TYPE_FAMILY]     | [CAPABILITY]                                                                                 |
+| :-----: | :-------------------- | :---------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `UnitRegistry`        | registry root     | shared unit and dimension vocabulary; the `Quantity`/`Unit`/`Measurement` factory and parser |
+|  [02]   | `ApplicationRegistry` | process registry  | the proxy returned by `get_application_registry`; routes to the installed registry           |
+|  [03]   | `LazyRegistry`        | deferred registry | default application registry that defers definition loading until first use                  |
+|  [04]   | `Quantity`            | quantity carrier  | magnitude-plus-unit value; magnitude is any array-protocol object, NumPy ufuncs unit-thread  |
+|  [05]   | `Unit`                | unit atom         | a single registered unit with prefix/symbol resolution                                       |
+|  [06]   | `Measurement`         | uncertain value   | magnitude with a standard-error term; arithmetic propagates uncertainty                      |
+|  [07]   | `Context`             | transform set     | named cross-dimension conversion rules (e.g. spectroscopy wavelength↔energy)                 |
+|  [08]   | `Group`               | unit grouping     | a named subset of the registry's units for selective compatibility queries                   |
 
 [PUBLIC_TYPE_SCOPE]: error and warning rails
 - rail: units
 
-| [INDEX] | [SYMBOL]                       | [BASE]           | [FAULT]                                          |
-| :-----: | :----------------------------- | :--------------- | :----------------------------------------------- |
-|  [01]   | `PintError`                    | `Exception`      | root of every pint failure                       |
-|  [02]   | `PintTypeError`                | `PintError`, `TypeError` | typed base for dimension/offset/log calculus faults |
-|  [03]   | `UndefinedUnitError`           | `PintError`, `AttributeError` | unit name not in the registry           |
-|  [04]   | `DimensionalityError`          | `PintTypeError`  | incompatible-dimension conversion or operation   |
-|  [05]   | `OffsetUnitCalculusError`      | `PintTypeError`  | invalid offset-unit (temperature) multiply/divide |
-|  [06]   | `LogarithmicUnitCalculusError` | `PintTypeError`  | invalid logarithmic-unit (dB/decade) operation   |
-|  [07]   | `DefinitionError`              | `PintError`, `ValueError` | base for malformed-definition faults    |
-|  [08]   | `DefinitionSyntaxError`        | `DefinitionError` | malformed definition string                     |
-|  [09]   | `RedefinitionError`            | `DefinitionError` | duplicate unit definition                       |
-|  [10]   | `UnitStrippedWarning`          | `UserWarning`    | magnitude consumed with the unit silently dropped |
+| [INDEX] | [SYMBOL]                       | [BASE]                        | [FAULT]                                             |
+| :-----: | :----------------------------- | :---------------------------- | :-------------------------------------------------- |
+|  [01]   | `PintError`                    | `Exception`                   | root of every pint failure                          |
+|  [02]   | `PintTypeError`                | `PintError`, `TypeError`      | typed base for dimension/offset/log calculus faults |
+|  [03]   | `UndefinedUnitError`           | `PintError`, `AttributeError` | unit name not in the registry                       |
+|  [04]   | `DimensionalityError`          | `PintTypeError`               | incompatible-dimension conversion or operation      |
+|  [05]   | `OffsetUnitCalculusError`      | `PintTypeError`               | invalid offset-unit (temperature) multiply/divide   |
+|  [06]   | `LogarithmicUnitCalculusError` | `PintTypeError`               | invalid logarithmic-unit (dB/decade) operation      |
+|  [07]   | `DefinitionError`              | `PintError`, `ValueError`     | base for malformed-definition faults                |
+|  [08]   | `DefinitionSyntaxError`        | `DefinitionError`             | malformed definition string                         |
+|  [09]   | `RedefinitionError`            | `DefinitionError`             | duplicate unit definition                           |
+|  [10]   | `UnitStrippedWarning`          | `UserWarning`                 | magnitude consumed with the unit silently dropped   |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registry construction, parsing, and definition
 - rail: units
 
-| [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY]    | [RESULT]                                          |
-| :-----: | :-------------------------------------------------------------- | :---------------- | :------------------------------------------------ |
-|  [01]   | `UnitRegistry(filename=, force_ndarray=, force_ndarray_like=, autoconvert_offset_to_baseunit=, system=, auto_reduce_dimensions=, on_redefinition=)` | registry build | a configured unit registry |
-|  [02]   | `UnitRegistry.__call__(input_string, case_sensitive=, **values)` | parse            | a `Quantity` from a string                        |
-|  [03]   | `UnitRegistry.parse_expression(input_string, case_sensitive=, **values)` | parse    | a `Quantity` from a string (the `__call__` body)  |
-|  [04]   | `UnitRegistry.parse_units(input_string, as_delta=, case_sensitive=)` | parse       | a bare `Unit` from a string                       |
-|  [05]   | `UnitRegistry.parse_pattern(input_string, pattern, many=)`     | parse             | quantities extracted from a formatted-string pattern |
-|  [06]   | `UnitRegistry.Quantity(value, units=)`                         | construct         | a magnitude-plus-unit value bound to this registry |
-|  [07]   | `UnitRegistry.Unit(units)`                                     | construct         | a unit atom bound to this registry                |
-|  [08]   | `UnitRegistry.Measurement(value, error, units=)`              | construct         | a value with a standard-error term                |
-|  [09]   | `UnitRegistry.define(definition)`                              | mutate            | registers a new unit/prefix/dimension definition  |
-|  [10]   | `UnitRegistry.load_definitions(file)`                          | mutate            | loads a unit-definition file into the registry    |
-|  [11]   | `UnitRegistry.convert(value, src, dst, inplace=False)`         | convert           | scalar/array magnitude expressed in `dst` units   |
-|  [12]   | `UnitRegistry.get_base_units(input_units)`                     | introspect        | `(scale, UnitsContainer)` reduction to base units |
-|  [13]   | `UnitRegistry.get_dimensionality(input_units)`                 | introspect        | a `UnitsContainer` of base dimensions             |
-|  [14]   | `UnitRegistry.wraps(ret, args, strict=True)`                   | decorator factory | enforces argument/return units at a function boundary |
-|  [15]   | `UnitRegistry.check(*args)`                                    | decorator factory | asserts argument dimensionalities at a function boundary |
-|  [16]   | `UnitRegistry.context(*names, **kwargs)` / `enable_contexts` / `disable_contexts` / `add_context` | context | activates a `Context` for cross-dimension conversion |
+| [INDEX] | [SURFACE]                                                                                                                                           | [ENTRY_FAMILY]    | [RESULT]                                                 |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------- |
+|  [01]   | `UnitRegistry(filename=, force_ndarray=, force_ndarray_like=, autoconvert_offset_to_baseunit=, system=, auto_reduce_dimensions=, on_redefinition=)` | registry build    | a configured unit registry                               |
+|  [02]   | `UnitRegistry.__call__(input_string, case_sensitive=, **values)`                                                                                    | parse             | a `Quantity` from a string                               |
+|  [03]   | `UnitRegistry.parse_expression(input_string, case_sensitive=, **values)`                                                                            | parse             | a `Quantity` from a string (the `__call__` body)         |
+|  [04]   | `UnitRegistry.parse_units(input_string, as_delta=, case_sensitive=)`                                                                                | parse             | a bare `Unit` from a string                              |
+|  [05]   | `UnitRegistry.parse_pattern(input_string, pattern, many=)`                                                                                          | parse             | quantities extracted from a formatted-string pattern     |
+|  [06]   | `UnitRegistry.Quantity(value, units=)`                                                                                                              | construct         | a magnitude-plus-unit value bound to this registry       |
+|  [07]   | `UnitRegistry.Unit(units)`                                                                                                                          | construct         | a unit atom bound to this registry                       |
+|  [08]   | `UnitRegistry.Measurement(value, error, units=)`                                                                                                    | construct         | a value with a standard-error term                       |
+|  [09]   | `UnitRegistry.define(definition)`                                                                                                                   | mutate            | registers a new unit/prefix/dimension definition         |
+|  [10]   | `UnitRegistry.load_definitions(file)`                                                                                                               | mutate            | loads a unit-definition file into the registry           |
+|  [11]   | `UnitRegistry.convert(value, src, dst, inplace=False)`                                                                                              | convert           | scalar/array magnitude expressed in `dst` units          |
+|  [12]   | `UnitRegistry.get_base_units(input_units)`                                                                                                          | introspect        | `(scale, UnitsContainer)` reduction to base units        |
+|  [13]   | `UnitRegistry.get_dimensionality(input_units)`                                                                                                      | introspect        | a `UnitsContainer` of base dimensions                    |
+|  [14]   | `UnitRegistry.wraps(ret, args, strict=True)`                                                                                                        | decorator factory | enforces argument/return units at a function boundary    |
+|  [15]   | `UnitRegistry.check(*args)`                                                                                                                         | decorator factory | asserts argument dimensionalities at a function boundary |
+|  [16]   | `UnitRegistry.context(*names, **kwargs)` / `enable_contexts` / `disable_contexts` / `add_context`                                                   | context           | activates a `Context` for cross-dimension conversion     |
 
 [ENTRYPOINT_SCOPE]: quantity conversion, projection, and compatibility
 - rail: units
 
-| [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]      | [RESULT]                                |
-| :-----: | :--------------------------------------------- | :------------------ | :-------------------------------------- |
-|  [01]   | `Quantity.to(other, *contexts, **ctx_kwargs)`  | convert             | a new `Quantity` in target units (context-aware) |
-|  [02]   | `Quantity.ito(other, *contexts, **ctx_kwargs)` | convert in place    | mutates magnitude/units to the target   |
-|  [03]   | `Quantity.to_base_units()` / `ito_base_units()` | convert            | a `Quantity` in registry base units     |
-|  [04]   | `Quantity.to_root_units()` / `ito_root_units()` | convert            | a `Quantity` in root units              |
-|  [05]   | `Quantity.to_reduced_units()`                  | convert             | a `Quantity` with repeated units cancelled |
-|  [06]   | `Quantity.to_compact(unit=None)`               | convert             | a `Quantity` at the most readable prefix |
-|  [07]   | `Quantity.m_as(units)`                          | project             | bare magnitude after converting to `units` |
-|  [08]   | `Quantity.magnitude` \| `Quantity.m`            | project             | the bare magnitude (array-protocol object) |
-|  [09]   | `Quantity.units` \| `Quantity.u`                | project             | the `Unit` of the quantity              |
-|  [10]   | `Quantity.dimensionality`                       | introspect          | a `UnitsContainer` of base dimensions   |
-|  [11]   | `Quantity.check(dimension)`                     | predicate           | dimensionality-match boolean            |
-|  [12]   | `Quantity.is_compatible_with(other, *contexts)` | predicate           | convertibility boolean (context-aware)  |
-|  [13]   | `Quantity.compatible_units(*contexts)`          | introspect          | the frozenset of convertible units      |
-|  [14]   | `Quantity.plus_minus(error, relative=False)`    | construct           | a `Measurement` from the quantity       |
-|  [15]   | `Quantity.from_sequence(seq, units=None)`       | construct           | a `Quantity` array from a sequence       |
-|  [16]   | `Quantity.to_tuple()` / `Quantity.from_tuple(t)` | (de)serialize      | a `(magnitude, units-tuple)` round-trip for wire/pickle |
+| [INDEX] | [SURFACE]                                        | [ENTRY_FAMILY]   | [RESULT]                                                |
+| :-----: | :----------------------------------------------- | :--------------- | :------------------------------------------------------ |
+|  [01]   | `Quantity.to(other, *contexts, **ctx_kwargs)`    | convert          | a new `Quantity` in target units (context-aware)        |
+|  [02]   | `Quantity.ito(other, *contexts, **ctx_kwargs)`   | convert in place | mutates magnitude/units to the target                   |
+|  [03]   | `Quantity.to_base_units()` / `ito_base_units()`  | convert          | a `Quantity` in registry base units                     |
+|  [04]   | `Quantity.to_root_units()` / `ito_root_units()`  | convert          | a `Quantity` in root units                              |
+|  [05]   | `Quantity.to_reduced_units()`                    | convert          | a `Quantity` with repeated units cancelled              |
+|  [06]   | `Quantity.to_compact(unit=None)`                 | convert          | a `Quantity` at the most readable prefix                |
+|  [07]   | `Quantity.m_as(units)`                           | project          | bare magnitude after converting to `units`              |
+|  [08]   | `Quantity.magnitude` \| `Quantity.m`             | project          | the bare magnitude (array-protocol object)              |
+|  [09]   | `Quantity.units` \| `Quantity.u`                 | project          | the `Unit` of the quantity                              |
+|  [10]   | `Quantity.dimensionality`                        | introspect       | a `UnitsContainer` of base dimensions                   |
+|  [11]   | `Quantity.check(dimension)`                      | predicate        | dimensionality-match boolean                            |
+|  [12]   | `Quantity.is_compatible_with(other, *contexts)`  | predicate        | convertibility boolean (context-aware)                  |
+|  [13]   | `Quantity.compatible_units(*contexts)`           | introspect       | the frozenset of convertible units                      |
+|  [14]   | `Quantity.plus_minus(error, relative=False)`     | construct        | a `Measurement` from the quantity                       |
+|  [15]   | `Quantity.from_sequence(seq, units=None)`        | construct        | a `Quantity` array from a sequence                      |
+|  [16]   | `Quantity.to_tuple()` / `Quantity.from_tuple(t)` | (de)serialize    | a `(magnitude, units-tuple)` round-trip for wire/pickle |
 
 [ENTRYPOINT_SCOPE]: module-level application registry, formatting, and analysis
 - rail: units
 
-| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY]   | [RESULT]                                |
-| :-----: | :---------------------------------------------- | :--------------- | :-------------------------------------- |
-|  [01]   | `get_application_registry()`                    | shared registry  | the process-wide `ApplicationRegistry` proxy |
-|  [02]   | `set_application_registry(registry)`            | shared registry  | installs a process-wide registry        |
-|  [03]   | `register_unit_format(name)`                    | formatting       | decorator registering a custom unit-format spec |
-|  [04]   | `formatter(...)`                                | formatting       | a formatted unit string (deprecated module fn; prefer `ureg.formatter`) |
-|  [05]   | `UnitRegistry.formatter.default_format`         | formatting       | the registry-owned default format spec  |
-|  [06]   | `UnitRegistry.setup_matplotlib(enable=True)`    | formatting       | registers the unit-aware matplotlib axis support |
-|  [07]   | `pi_theorem(quantities, registry=None)`         | analysis         | dimensionless Buckingham-π groups       |
+| [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]  | [RESULT]                                                                |
+| :-----: | :------------------------------------------- | :-------------- | :---------------------------------------------------------------------- |
+|  [01]   | `get_application_registry()`                 | shared registry | the process-wide `ApplicationRegistry` proxy                            |
+|  [02]   | `set_application_registry(registry)`         | shared registry | installs a process-wide registry                                        |
+|  [03]   | `register_unit_format(name)`                 | formatting      | decorator registering a custom unit-format spec                         |
+|  [04]   | `formatter(...)`                             | formatting      | a formatted unit string (deprecated module fn; prefer `ureg.formatter`) |
+|  [05]   | `UnitRegistry.formatter.default_format`      | formatting      | the registry-owned default format spec                                  |
+|  [06]   | `UnitRegistry.setup_matplotlib(enable=True)` | formatting      | registers the unit-aware matplotlib axis support                        |
+|  [07]   | `pi_theorem(quantities, registry=None)`      | analysis        | dimensionless Buckingham-π groups                                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

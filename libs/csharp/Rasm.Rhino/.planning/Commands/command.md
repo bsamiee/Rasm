@@ -313,12 +313,12 @@ public static class Scripting {
 
 ## [06]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]                  | [FORM]                                              | [ENTRY]                          |
-| :-----: | :------------------ | :----------------------- | :--------------------------------------------------- | :-------------------------------- |
-|  [01]   | terminal vocabulary | `CommandVerdict`         | rows with `Native` column, both directions            | `Native` / `OfNative`              |
-|  [02]   | per-command policy  | `CommandPolicy`          | needs + replay + budget record                        | `RasmCommand.Policy`               |
-|  [03]   | transition algebra  | `Stage<TModel>`          | one `[Union]`, prompt and commit as cases             | `CommandFlow.Drive`                |
-|  [04]   | host adaptation     | `RasmCommand<TSelf,TState>` | sealed `RunCommand`/`ReplayHistory` adapter        | host command registration          |
-|  [05]   | registry projection | `CommandRegistry`        | live typed reads over the static host registry        | `Resolve` / `Names` / `Stack`      |
-|  [06]   | lifecycle pulse     | `CommandPulse`           | rows binding static host events via `Subscription`    | `Observe(deliver) : Fin<Subscription>` |
-|  [07]   | script execution    | `ScriptOp`               | one union, serial-targeted dispatch                   | `Scripting.Run(session, script)`   |
+| [INDEX] | [CONCERN]           | [OWNER]                     | [FORM]                                             | [ENTRY]                                |
+| :-----: | :------------------ | :-------------------------- | :------------------------------------------------- | :------------------------------------- |
+|  [01]   | terminal vocabulary | `CommandVerdict`            | rows with `Native` column, both directions         | `Native` / `OfNative`                  |
+|  [02]   | per-command policy  | `CommandPolicy`             | needs + replay + budget record                     | `RasmCommand.Policy`                   |
+|  [03]   | transition algebra  | `Stage<TModel>`             | one `[Union]`, prompt and commit as cases          | `CommandFlow.Drive`                    |
+|  [04]   | host adaptation     | `RasmCommand<TSelf,TState>` | sealed `RunCommand`/`ReplayHistory` adapter        | host command registration              |
+|  [05]   | registry projection | `CommandRegistry`           | live typed reads over the static host registry     | `Resolve` / `Names` / `Stack`          |
+|  [06]   | lifecycle pulse     | `CommandPulse`              | rows binding static host events via `Subscription` | `Observe(deliver) : Fin<Subscription>` |
+|  [07]   | script execution    | `ScriptOp`                  | one union, serial-targeted dispatch                | `Scripting.Run(session, script)`       |

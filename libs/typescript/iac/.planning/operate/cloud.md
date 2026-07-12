@@ -2,14 +2,14 @@
 
 The hosted control plane, gated on one spec value: every resource here exists only when `StackSpec.backend` is `cloud` — the composing root reads `spec.hosted` and never constructs this page otherwise — and each is the hosted TWIN of a local owner, subject to the one-clock law: `DriftSchedule` twins `Drift.sweep` (`autoRemediate: false` mirrors evidence-then-deliberate-`refresh`), `TtlSchedule` twins the `Automation.ephemeral` bracket, `DeploymentSchedule.pulumiOperation` speaks the mutating-ledger vocabulary, the `Webhook` drift filter lands beside the Doppler secret-change webhook as one evidence-delivery law with two sources, and review stacks are three data rows (`vcs.previewPullRequests`, `pullRequestTemplate`, a TTL bound), never hand-rolled REST against `api.pulumi.com`. `CloudPlane` is the one tier carrying all of it — deployment settings with VCS triggers, the schedule family, the drift webhook, team RBAC with a stack-scoped token, and the graph-owned ESC `Environment` whose consumers pin through revision tags. `Environments` is the imperative half of the same lane: the `EscApi` client wrapped once onto the Effect rail for processes that are not a Pulumi program — open/read sessions, check-gated writes, revision-tag pinning — with Doppler remaining canonical on every arm: an ESC environment is a projection DAG composing canonical material through dynamic-provider opens, never a second store, and the short-lived OIDC credentials its `fn::open` providers mint are the prepared cloud arms' credential path over static keys. The module is `iac/src/operate/cloud.ts`; a new hosted automation is one resource row, a new environment consumer is one revision-tag pin, a new delivery sink is one webhook row.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                            | [PUBLIC]       |
-| :-----: | :------------------ | :------------------------------------------------------------------ | :------------- |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                             | [PUBLIC]       |
+| :-----: | :------------------ | :----------------------------------------------------------------- | :------------- |
 |  [01]   | `CONTROL_PLANE`     | deployment settings, schedules, drift webhook, RBAC, environment   | `CloudPlane`   |
 |  [02]   | `ENVIRONMENT_PLANE` | the EscApi Effect rail: open/read, check-gated writes, tag pinning | `Environments` |
 
-## [2]-[CONTROL_PLANE]
+## [02]-[CONTROL_PLANE]
 
 [CONTROL_PLANE]:
 - Owner: `CloudPlane` — one tier over `@pulumi/pulumiservice`: `DeploymentSettings` binds the Git source (`sourceContext.git`) and the CURRENT `vcs` trigger block (`previewPullRequests` + `pullRequestTemplate` mint per-PR review stacks; the deprecated `github` block has no spelling), `DriftSchedule` runs hosted detection on the caller's cron with remediation off, `TtlSchedule` bounds review-stack lifetime, the `Webhook` row delivers `DriftDetected`/`UpdateFailed` evidence to the sink that runs `Drift.check` between local cycles, `Team` + `TeamStackPermission` + `TeamAccessToken` scope automation to one stack at the narrowest grant, and the `Environment` resource authors the graph-owned ESC environment (yaml as a `StringAsset`) with an `EnvironmentVersionTag` so consumer rotation is a tag move, never a consumer edit.
@@ -124,7 +124,7 @@ class CloudPlane extends Tier {
 }
 ```
 
-## [3]-[ENVIRONMENT_PLANE]
+## [03]-[ENVIRONMENT_PLANE]
 
 [ENVIRONMENT_PLANE]:
 - Owner: `Environments` — the `EscApi` client acquired once from the `PULUMI_ACCESS_TOKEN` redacted read and every method lifted onto the `DeployFault` rail: `read` is the one-shot `openAndReadEnvironment` session (an open is a lease — dynamic providers resolve once per open), `readAt` pins a consumer to a revision tag through `openAndReadEnvironmentAtVersion`, `write` is check-gated — `checkEnvironment` first, diagnostics re-spelled as an `input` fault naming them, only then `updateEnvironment` — and `pin` moves a revision tag so rotation is a tag move observed by every `readAt` consumer.

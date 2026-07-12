@@ -2,18 +2,18 @@
 
 The browser byte-transport plane and the folder's kernel-delegating mint site: the browser runtime binding rows (the XHR `HttpClient` — the one transport carrying upload/download progress and forced-arraybuffer responses — the `WebSocket` constructor row, and the worker spawner), the per-class flow-policy rows governing how a response becomes a backpressured `Stream`, the decorated dial every browser egress rides, and the decode-worker pool behind one closed `Schema.TaggedRequest` protocol with every band crossing zero-copy as a declared `Transferable`. The dial composes — never forks — the branch egress law: `net/client`'s `Client.dial` carries lane policy (status admission, transient retry, budget, trace propagation), and this page adds exactly the browser plane on top: the offline gate over `boot#SIGNAL_CELLS`'s cell, the CSRF echo from `route#SESSION_PLANE` on every mutating method, and the streaming modality with its flow rows. The worker composes `core/interchange/frame`'s settled surfaces — `ArtifactFrame.reassembled` for the ordered fold-and-verify, `Residency.envelope` for the plan decode — and delegates its cache-reverify mint to the one core `Digest` content row; a second content-address notion, a main-thread re-decode re-paying the offloaded cost, an untyped `postMessage` arm, or a bare `fetch` is the named defect. `Depot` is the window-side residency scheduler the app composes into the ui wave's declared viewport port at the root, because the browser and ui waves never import each other. The module is `runtime/src/browser/fetch.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                              | [PUBLIC]            |
-| :-----: | :---------------- | :--------------------------------------------------------------------- | :------------------ |
-|  [01]   | `BINDING_ROWS`    | the browser runtime rows — XHR client, socket constructor, spawner     | `Web`               |
-|  [02]   | `FLOW_ROWS`       | the per-class buffer, ceiling, and rate policy rows                    | `Fetch` (types)     |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                     | [PUBLIC]              |
+| :-----: | :---------------- | :------------------------------------------------------------------------- | :-------------------- |
+|  [01]   | `BINDING_ROWS`    | the browser runtime rows — XHR client, socket constructor, spawner         | `Web`                 |
+|  [02]   | `FLOW_ROWS`       | the per-class buffer, ceiling, and rate policy rows                        | `Fetch` (types)       |
 |  [03]   | `DIAL_SURFACE`    | the decorated dial, the offline gate, the streaming and decoded modalities | `Fetch`, `FetchFault` |
-|  [04]   | `WIRE_PROTOCOL`   | the request family, the serialized fault, the pool Tag and layer       | `Pool`, `PoolFault` |
-|  [05]   | `DEPOT_SCHEDULER` | the residency ledger, the degree rows, the budget-bounded haul         | `Depot`             |
-|  [06]   | `RUNNER_ENTRY`    | the worker-side boot module and its handler record                     | none                |
+|  [04]   | `WIRE_PROTOCOL`   | the request family, the serialized fault, the pool Tag and layer           | `Pool`, `PoolFault`   |
+|  [05]   | `DEPOT_SCHEDULER` | the residency ledger, the degree rows, the budget-bounded haul             | `Depot`               |
+|  [06]   | `RUNNER_ENTRY`    | the worker-side boot module and its handler record                         | none                  |
 
-## [2]-[BINDING_ROWS]
+## [02]-[BINDING_ROWS]
 
 [BINDING_ROWS]:
 - Owner: `Web`, the browser counterpart of `exec#RUNTIME_ROWS` — one `as const` roster of the Layer rows the browser root merges: `client` (`BrowserHttpClient.layerXMLHttpRequest`, the `HttpClient` every `Client.dial` reaches — XHR selected deliberately because it is the one browser transport exposing upload/download progress and arraybuffer responses), `socket` (`BrowserSocket.layerWebSocketConstructor`, the `Socket.WebSocketConstructor` row `net/channel`'s framed transport and `persist#OVERLAY_AND_LANE`'s sync row construct against), `channel(url)` (`BrowserSocket.layerWebSocket`, the ready socket for a fixed peer), and `workers(spawn)` (`BrowserWorker.layer` over the app-supplied spawn factory — the worker script URL is app data, never a lib literal).
@@ -42,7 +42,7 @@ const Web = {
 } as const
 ```
 
-## [3]-[FLOW_ROWS]
+## [03]-[FLOW_ROWS]
 
 [FLOW_ROWS]:
 - Owner: the interior `_flows` anchor — one row per byte-feed class: `artifact` (frame bands for the decode pool: suspend-posture buffer, a hard byte ceiling, no rate shaping — the pool's scheduler is the governor), `media` (progressive media: sliding buffer sheds the oldest, rate-shaped to steady state), `live` (long-lived event bytes: small suspend buffer, no ceiling — the connection outlives any cap). Each row carries `intake` (buffer capacity), `posture` (the `"suspend" | "dropping" | "sliding"` decision), `cap` (`Option` — absence is a stated decision), and `rate` (`Option` of the token-bucket row `Stream.throttle` consumes).
@@ -95,7 +95,7 @@ class FetchFault extends Data.TaggedError("FetchFault")<{
 }
 ```
 
-## [4]-[DIAL_SURFACE]
+## [04]-[DIAL_SURFACE]
 
 [DIAL_SURFACE]:
 - Owner: `Fetch`, one `Effect.Service` over `Connect` and `Vault` — `pull(lane, request, flow)` is the streaming modality: the offline gate, the decoration, the host dial, and the response's byte stream under the flow row's buffer, ceiling, and shaped rate, returned as one `Stream<Uint8Array>` whose scope rides the stream's own lifetime and whose binary read runs under `BrowserHttpClient.withXHRArrayBuffer` so bands arrive as octets, never re-decoded text; `send(lane, request, shape)` is the decoded modality: the same gate and decoration delegated to the host dial's fused decode, one self-contained step.
@@ -184,7 +184,7 @@ class Fetch extends Effect.Service<Fetch>()("runtime/browser/Fetch", {
 }) {}
 ```
 
-## [5]-[WIRE_PROTOCOL]
+## [05]-[WIRE_PROTOCOL]
 
 [WIRE_PROTOCOL]:
 - Owner: `Pool` — the `Context.Tag` holding the `Worker.SerializedWorkerPool` over the closed request union, the request classes riding it as statics (`Pool.Assemble`: an artifact's frame bands in, the verified receipt plus octets out; `Pool.Verify`: cache-warmed octets re-proven against their declared key — the browser's own delegated mint site; `Pool.Chart`: residency envelope bytes — manifest or delta — decoded off-thread), `Pool.protocol` (the union the runner checks its handlers against), and `Pool.layer(spawn, size)` (the pool layer over `Web.workers` — the worker script URL is app data, never a lib literal).
@@ -258,7 +258,7 @@ class Pool extends Context.Tag("runtime/browser/Pool")<Pool, Worker.SerializedWo
 }
 ```
 
-## [6]-[DEPOT_SCHEDULER]
+## [06]-[DEPOT_SCHEDULER]
 
 [DEPOT_SCHEDULER]:
 - Owner: `Depot`, one scoped `Effect.Service` over `Pool`, `Opfs`, and `Kv` — `ledger`, the residency cell (`core/interchange/frame`'s `Residency.Ledger`) published `Subscribable` so the port read cannot write it; `folded(arrival)` mirroring the frame page's one polymorphic fold — a `Manifest` arrival replaces the ledger (the C# render side owns truth), a `Delta` evolves it, discriminated on the value, never two entrypoints; `landed(receipt)` flipping the receipt's row to `resident`; `plan`, the pending rows as fetch orders — worst-first by LOD then smallest-first by extent so coarse geometry lands early; `haul(pull)`, one budget-bounded pass turning the current plan into verified arrivals.
@@ -360,7 +360,7 @@ class Depot extends Effect.Service<Depot>()("runtime/browser/Depot", {
 }) {}
 ```
 
-## [7]-[RUNNER_ENTRY]
+## [07]-[RUNNER_ENTRY]
 
 [RUNNER_ENTRY]:
 - Owner: the worker-side boot module — a separate entry the app's spawn factory names, composing `WorkerRunner.layerSerialized(Pool.protocol, handlers)` under `BrowserWorkerRunner.layer` and launching it as its whole life; the module exports nothing, the structural proof it is terminal. A worker thread is its own process under the boot-edge law, so its `runMain` is the thread's one boot and never a second document boot.

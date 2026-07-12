@@ -204,14 +204,14 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]                      | [KIND]                                                                                | [RAIL]                              | [CASES] |
-| :-----: | :----------------- | :--------------------------- | :------------------------------------------------------------------------------------ | :----------------------------------- | :-----: |
-|  [01]   | Refinement algebra | `SubdivideOp` + `Subdivision`| `[Union]` two request cases folded by ONE `Apply`                                     | `Apply → Fin<SubdivisionResult>`    |    2    |
-|  [1a]   | Scheme rows        | `SubdivisionScheme`          | `[SmartEnum<string>]` — arity + five delegate columns; the next scheme is a ROW       | data (delegates)                    |    2    |
-|  [1b]   | Result carrier     | `SubdivisionResult`          | `[Union]` refined-with-limit-columns · limit field                                    | carrier (drained at the consumer)   |    2    |
-|  [1c]   | Crease/region row  | `SubdividePolicy`            | semi-sharp crease tags + region face subset                                           | value (`IValidityEvidence`)         |    —    |
-|  [1d]   | Eigen cache        | `StamBasis` + `StamCache`    | per-(scheme, valence) memo over the landed complex-general EVD                        | `For → Fin<StamBasis>`              |    —    |
-|  [1e]   | Level state        | `SubdivisionLevel`/`EdgeTable` | internal SoA incidence co-located with the fold — flat columns, never half-edge     | internal                            |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                        | [KIND]                                                                          | [RAIL]                            | [CASES] |
+| :-----: | :----------------- | :----------------------------- | :------------------------------------------------------------------------------ | :-------------------------------- | :-----: |
+|  [01]   | Refinement algebra | `SubdivideOp` + `Subdivision`  | `[Union]` two request cases folded by ONE `Apply`                               | `Apply → Fin<SubdivisionResult>`  |    2    |
+|  [1a]   | Scheme rows        | `SubdivisionScheme`            | `[SmartEnum<string>]` — arity + five delegate columns; the next scheme is a ROW | data (delegates)                  |    2    |
+|  [1b]   | Result carrier     | `SubdivisionResult`            | `[Union]` refined-with-limit-columns · limit field                              | carrier (drained at the consumer) |    2    |
+|  [1c]   | Crease/region row  | `SubdividePolicy`              | semi-sharp crease tags + region face subset                                     | value (`IValidityEvidence`)       |    —    |
+|  [1d]   | Eigen cache        | `StamBasis` + `StamCache`      | per-(scheme, valence) memo over the landed complex-general EVD                  | `For → Fin<StamBasis>`            |    —    |
+|  [1e]   | Level state        | `SubdivisionLevel`/`EdgeTable` | internal SoA incidence co-located with the fold — flat columns, never half-edge | internal                          |    —    |
 
 The `Apply` fold, `RefineOf`'s bounded level fold, `LimitOf`'s gated traversal, and the `StamCache` memo carry real composed bodies; `AdmitBase`, `Advance`, `Publish`, `Assemble`, `EvaluateLimit`, and the two tangent-mask kernels are signature-pinned with their contracts fixed in the `Auto` bullet and the `[04]` cards. Every solve is a `matrix.md` owner — no local eigensolver, no per-vertex weight loops beside the SpMV.
 

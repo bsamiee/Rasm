@@ -23,10 +23,10 @@
 - rail: energy-modeling
 - The entire code surface: two absolute-path strings to the bundled default-library JSON. There are no classes, functions, or types — the package is a resource carrier.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `honeybee_standards.energy_default` | path constant | absolute path to `energy_default.json` (the always-loaded energy defaults) |
-| [02] | `honeybee_standards.radiance_default` | path constant | absolute path to `radiance_default.json` (the always-loaded radiance defaults) |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY] | [CAPABILITY]                                                                   |
+| :-----: | :------------------------------------ | :------------ | :----------------------------------------------------------------------------- |
+|  [01]   | `honeybee_standards.energy_default`   | path constant | absolute path to `energy_default.json` (the always-loaded energy defaults)     |
+|  [02]   | `honeybee_standards.radiance_default` | path constant | absolute path to `radiance_default.json` (the always-loaded radiance defaults) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -34,12 +34,12 @@
 - rail: energy-modeling
 - The package has no callable entry points; its "entry points" are the JSON data shape `honeybee-energy` reads and the config-layer path it resolves through. The owner accesses everything below via the `honeybee-energy` `lib.*_by_identifier` loaders, never by opening these files.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `energy_default.json` (= `honeybee_energy.config.folders.defaults_file`) | JSON document | the abridged default library: keys `construction_sets`/`constructions`/`materials`/`program_types`/`schedules`/`schedule_type_limits` |
-| [02] | `radiance_default.json` | JSON document | the default radiance library: keys `modifiers`/`modifier_sets` |
-| [03] | data folders `constructions/` `constructionsets/` `programtypes/` `schedules/` `modifiers/` `modifiersets/` | `user_library.{json,idf,mat}` | empty user-extension templates (the per-domain user-library scaffold honeybee writes user objects into) |
-| [04] | `honeybee_energy.lib.*_by_identifier(identifier)` | identifier string | the ONLY supported read path: resolves a default (or extension/user) object by identifier, seeding from this bundle at import |
+| [INDEX] | [SURFACE]                                                                                                   | [CALL_SHAPE]                  | [CAPABILITY]                                                                                                                          |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :---------------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `energy_default.json` (= `honeybee_energy.config.folders.defaults_file`)                                    | JSON document                 | the abridged default library: keys `construction_sets`/`constructions`/`materials`/`program_types`/`schedules`/`schedule_type_limits` |
+|  [02]   | `radiance_default.json`                                                                                     | JSON document                 | the default radiance library: keys `modifiers`/`modifier_sets`                                                                        |
+|  [03]   | data folders `constructions/` `constructionsets/` `programtypes/` `schedules/` `modifiers/` `modifiersets/` | `user_library.{json,idf,mat}` | empty user-extension templates (the per-domain user-library scaffold honeybee writes user objects into)                               |
+|  [04]   | `honeybee_energy.lib.*_by_identifier(identifier)`                                                           | identifier string             | the ONLY supported read path: resolves a default (or extension/user) object by identifier, seeding from this bundle at import         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -2,7 +2,7 @@
 
 The evidence timeline aggregator: one process-local `Entry` family wrapping the evidence vocabularies — receipt envelopes, progress marks, availability shifts, and the page-owned content-keyed `DocumentRef` — and the `Feed` fold that maintains an `Hlc`-ordered, capacity-bounded, coalescing timeline per tenant lane. The feed is the evidence-timeline projection the C# AppUi renders, re-owned as a fold: insertion is a `SortedMap` write under a composed event-time order — never an array re-sort — eviction is a single head drop under the cap, coalescing replaces the previous entry of the same subject and kind instead of stacking repeats, and the whole feed is one more `fold#PLAN_CONTRACT` plan row so live views and durable projections consume it like any other fold. `DocumentRef` is the result-document evidence: a `ContentKey` reference plus a media row and an optional column band, producer-opaque by construction — the same shape carries any runtime's result artifact, and a `tabular` band types what charts, tables, and views bind against the self-describing payload. The module is `core/src/state/feed.ts`; a new evidence vocabulary joins as one entry case, a new media kind is one literal row, a new read is one projection member.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                  | [PUBLIC]                               |
 | :-----: | :------------------ | :---------------------------------------------------------------------- | :------------------------------------- |
@@ -12,7 +12,7 @@ The evidence timeline aggregator: one process-local `Entry` family wrapping the 
 |  [04]   | `EVIDENCE_TIMELINE` | the AppUi evidence-timeline wire counterpart absorbed onto the one feed | `Feed.timeline`                        |
 |  [05]   | `FEED_READS`        | window and recency reads over the folded feed                           | `Feed.window/.recent`                  |
 
-## [2]-[DOCUMENT_REF]
+## [02]-[DOCUMENT_REF]
 
 [DOCUMENT_REF]:
 - Owner: `DocumentRef` — the content-keyed result-document evidence: `key` (the artifact coordinate — the one identity any runtime's mint agrees on), `media` (the consumer-routing row), `label`, `extent`, `origin` (the producing operation or command key, optional), `columns` (the optional column band), `stamp`, `tenant`; reached as `Feed.Document`, so one import carries the feed and the shape a document view binds.
@@ -55,7 +55,7 @@ class DocumentRef extends Schema.Class<DocumentRef>("DocumentRef")({
 }) {}
 ```
 
-## [3]-[ENTRY_FAMILY]
+## [03]-[ENTRY_FAMILY]
 
 [ENTRY_FAMILY]:
 - Owner: `Feed.Entry` — a `Data.taggedEnum` over `Receipt`, `Progress`, and `Shift` cases wrapping the sibling owners whole plus the `Document` case wrapping the page-owned `DocumentRef`; the family is process-local projection vocabulary (the members already own their wire twins or, for the reference, never had one), so the enum form costs zero codecs and carries structural equality for coalescing; the type rides the owner's merged namespace, so `Feed` is the module's one export.
@@ -99,7 +99,7 @@ const _subject: (entry: Feed.Entry) => string = _Entry.$match({
 })
 ```
 
-## [4]-[FEED_FOLD]
+## [04]-[FEED_FOLD]
 
 [FEED_FOLD]:
 - Owner: `Feed.State` — the ordered rows (`SortedMap` keyed by the composed `[stamp, subject, tag]` order) plus the coalescing index (`HashMap` from `[subject, tag]` to the live row key); the absorb step writes both in one advance, so ordering and coalescing are two reads of one fold state, never two structures maintained by different call sites.
@@ -180,7 +180,7 @@ const _absorb = (policy: Feed.Policy) => (state: Feed.State, entry: Feed.Entry):
 const _empty: Feed.State = { rows: SortedMap.empty(_byKey), live: HashMap.empty() }
 ```
 
-## [5]-[EVIDENCE_TIMELINE]
+## [05]-[EVIDENCE_TIMELINE]
 
 [EVIDENCE_TIMELINE]:
 - Owner: `Feed.Timeline` — the AppUi `Diagnostics/evidence` counterpart: the exported `EvidenceTimelineWire` (correlation + envelope rows) decodes at the `state/evidence` `ReceiptEnvelope` wire twin, and `Feed.timeline` absorbs the decoded envelopes onto the ONE feed — no sibling feed shape, no second timeline owner.
@@ -196,7 +196,7 @@ const _timeline = (policy: Feed.Policy) => (state: Feed.State, timeline: Feed.Ti
   Chunk.reduce(timeline.envelopes, state, (folded, envelope) => _absorb(policy)(folded, _Entry.Receipt({ envelope })))
 ```
 
-## [6]-[FEED_READS]
+## [06]-[FEED_READS]
 
 [FEED_READS]:
 - Owner: the read family — `window` folds the rows inside optional `Hlc` bounds, `recent` takes the newest slice from the tail; both are projections of the ordered state, so no read allocates beyond its answer and no read observes an unordered intermediate.

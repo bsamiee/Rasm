@@ -852,7 +852,7 @@ public static class EstimatorFold {
 }
 ```
 
-### [2.1]-[HYPOTHESIS_LAW]
+### [02.1]-[HYPOTHESIS_LAW]
 
 - Owner: `StatisticalTest` `[SmartEnum<string>]` the hypothesis rows, each binding ONE `Evaluate` kernel that computes the test statistic, the (possibly fractional) degrees of freedom, and the p-value from its own tail — collapsing the prior parallel `Statistic`/`PValue`/`dof` helper trio into row data; `TestResult` the (statistic, p-value, decision, dof) carrier; `Hypothesis` the static `Test` surface threading the settled `ClockPolicy`.
 - Cases: `StatisticalTest` rows t · welch-t · anova · chi-square · ks · mann-whitney (6).

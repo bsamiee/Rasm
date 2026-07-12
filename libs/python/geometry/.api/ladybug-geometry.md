@@ -23,40 +23,40 @@
 
 All share the value-object contract: `from_dict`/`to_dict` (carrying a `type` discriminator), `from_array`/`to_array`, `duplicate`, and the `move`/`rotate`/`reflect`/`scale` transform algebra. Construction is positional value objects, never a parallel reader family.
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [CAPABILITY]                                                          |
-| :-----: | :------------- | :-------------- | :------------------------------------------------------------------- |
-|  [01]   | `Point2D` / `Vector2D` | primitive | planar point/direction; `dot`/`cross`/`determinant`/`angle`/`normalize` |
-|  [02]   | `Ray2D` / `LineSegment2D` | 1d | bounded/half-line with `intersect_line_ray`, `closest_point`         |
-|  [03]   | `Arc2D`        | 1d curve        | circular arc; `subdivide`, `point_at`, `intersect_line_ray`          |
-|  [04]   | `Polyline2D`   | 1d chain        | open/closed chain; `offset`, `to_polygon`, `join_segments`, `remove_colinear_vertices` |
-|  [05]   | `Polygon2D`    | 2d region       | boolean algebra, `offset`, point/region relationship, `pole_of_inaccessibility` |
-|  [06]   | `Mesh2D`       | 2d mesh         | face/vertex mesh with grid/triangulated constructors and color algebra |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                                           |
+| :-----: | :------------------------ | :------------ | :------------------------------------------------------------------------------------- |
+|  [01]   | `Point2D` / `Vector2D`    | primitive     | planar point/direction; `dot`/`cross`/`determinant`/`angle`/`normalize`                |
+|  [02]   | `Ray2D` / `LineSegment2D` | 1d            | bounded/half-line with `intersect_line_ray`, `closest_point`                           |
+|  [03]   | `Arc2D`                   | 1d curve      | circular arc; `subdivide`, `point_at`, `intersect_line_ray`                            |
+|  [04]   | `Polyline2D`              | 1d chain      | open/closed chain; `offset`, `to_polygon`, `join_segments`, `remove_colinear_vertices` |
+|  [05]   | `Polygon2D`               | 2d region     | boolean algebra, `offset`, point/region relationship, `pole_of_inaccessibility`        |
+|  [06]   | `Mesh2D`                  | 2d mesh       | face/vertex mesh with grid/triangulated constructors and color algebra                 |
 
 [PUBLIC_TYPE_SCOPE]: solid primitives (`ladybug_geometry.geometry3d`)
 - rail: energy / geometry-substrate
 
 `Face3D` is the workhorse honeybee `Face`/`Aperture` wrap; `Polyface3D` is the lightweight closed-solid honeybee `Room` wrap; `Mesh3D` is the analysis/visualization grid.
 
-| [INDEX] | [SYMBOL]       | [TYPE_FAMILY]   | [CAPABILITY]                                                          |
-| :-----: | :------------- | :-------------- | :------------------------------------------------------------------- |
-|  [01]   | `Point3D` / `Vector3D` | primitive | 3D point/direction; `cross`/`dot`/`angle`/`project`/`distance_to_plane` |
-|  [02]   | `Ray3D` / `LineSegment3D` | 1d | bounded/half-line; `intersect_plane`, `closest_point`               |
-|  [03]   | `Arc3D`        | 1d curve        | planar arc in 3D; `from_start_mid_end`, `to_polyline`, `subdivide`   |
-|  [04]   | `Plane`        | frame           | normal+origin+x frame; `xy_to_xyz`/`xyz_to_xy`, `project_point`, `intersect_plane`, `altitude`/`azimuth`/`tilt` |
-|  [05]   | `Polyline3D`   | 1d chain        | 3D chain; `from_polyline2d`, `to_polyline2d`, `remove_colinear_vertices` |
-|  [06]   | `Face3D`       | 2d region in 3D | boundary+holes planar region; aperture/shade generation, splitting, coplanar boolean, `mesh_grid`, `triangulated_mesh3d` |
-|  [07]   | `Polyface3D`   | closed solid    | faces+edges solid; `is_solid`, `volume`, `naked_edges`, `from_box`/`from_faces`/`from_offset_face` |
-|  [08]   | `Mesh3D`       | 3d mesh         | face/vertex mesh; `from_obj`/`from_stl`/`from_mesh2d`, normals, `height_field_mesh`, `offset_mesh` |
-|  [09]   | `Sphere` / `Cone` / `Cylinder` | analytic solid | parametric solids; `area`/`volume` on all three; `Sphere.intersect_line_ray`/`intersect_plane` ray-casting (Sphere only) |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [CAPABILITY]                                                                                                             |
+| :-----: | :----------------------------- | :-------------- | :----------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Point3D` / `Vector3D`         | primitive       | 3D point/direction; `cross`/`dot`/`angle`/`project`/`distance_to_plane`                                                  |
+|  [02]   | `Ray3D` / `LineSegment3D`      | 1d              | bounded/half-line; `intersect_plane`, `closest_point`                                                                    |
+|  [03]   | `Arc3D`                        | 1d curve        | planar arc in 3D; `from_start_mid_end`, `to_polyline`, `subdivide`                                                       |
+|  [04]   | `Plane`                        | frame           | normal+origin+x frame; `xy_to_xyz`/`xyz_to_xy`, `project_point`, `intersect_plane`, `altitude`/`azimuth`/`tilt`          |
+|  [05]   | `Polyline3D`                   | 1d chain        | 3D chain; `from_polyline2d`, `to_polyline2d`, `remove_colinear_vertices`                                                 |
+|  [06]   | `Face3D`                       | 2d region in 3D | boundary+holes planar region; aperture/shade generation, splitting, coplanar boolean, `mesh_grid`, `triangulated_mesh3d` |
+|  [07]   | `Polyface3D`                   | closed solid    | faces+edges solid; `is_solid`, `volume`, `naked_edges`, `from_box`/`from_faces`/`from_offset_face`                       |
+|  [08]   | `Mesh3D`                       | 3d mesh         | face/vertex mesh; `from_obj`/`from_stl`/`from_mesh2d`, normals, `height_field_mesh`, `offset_mesh`                       |
+|  [09]   | `Sphere` / `Cone` / `Cylinder` | analytic solid  | parametric solids; `area`/`volume` on all three; `Sphere.intersect_line_ray`/`intersect_plane` ray-casting (Sphere only) |
 
 [PUBLIC_TYPE_SCOPE]: network and interop (`network`, `interop`)
 - rail: energy / geometry-substrate
 
-| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                                  |
-| :-----: | :-------------------------- | :-------------- | :----------------------------------------------------------- |
-|  [01]   | `network.DirectedGraphNetwork` / `network.Node` | graph | directed adjacency over geometry nodes for street/skeleton traversal |
-|  [02]   | `interop.obj.OBJ`           | mesh codec      | `from_mesh3d`/`from_mesh3ds`/`from_file`/`to_file`; vertex texture/normal/color + material structure |
-|  [03]   | `interop.stl.STL`           | mesh codec      | `from_mesh3d`/`from_file`/`to_file`; `face_vertices`/`face_normals` binary/ASCII STL |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [CAPABILITY]                                                                                         |
+| :-----: | :---------------------------------------------- | :------------ | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `network.DirectedGraphNetwork` / `network.Node` | graph         | directed adjacency over geometry nodes for street/skeleton traversal                                 |
+|  [02]   | `interop.obj.OBJ`                               | mesh codec    | `from_mesh3d`/`from_mesh3ds`/`from_file`/`to_file`; vertex texture/normal/color + material structure |
+|  [03]   | `interop.stl.STL`                               | mesh codec    | `from_mesh3d`/`from_file`/`to_file`; `face_vertices`/`face_normals` binary/ASCII STL                 |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -65,56 +65,56 @@ All share the value-object contract: `from_dict`/`to_dict` (carrying a `type` di
 
 `geometry_dict_to_object` is the one decode dispatcher: it reads the `type` key of any geometry dict and reconstructs the matching object, so the boundary never branches on a `from_<type>` ladder. Every primitive carries the symmetric `to_dict` (emitting the `type` tag), the `from_array`/`to_array` coordinate form, and the transform algebra.
 
-| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]            | [CAPABILITY]                                                |
-| :-----: | :-------------------------------------------------------------------- | :---------------------- | :--------------------------------------------------------- |
-|  [01]   | `dictutil.geometry_dict_to_object(ladybug_geom_dict, raise_exception=True)` | `type`-tagged dict | reconstruct any 2D/3D primitive from its dict by `type`    |
-|  [02]   | `<Primitive>.to_dict()` / `<Primitive>.from_dict(data)`               | object / dict           | symmetric round-trip; `to_dict` emits the `type` discriminator |
-|  [03]   | `<Primitive>.to_array()` / `<Primitive>.from_array(arr)`              | object / nested tuple   | coordinate-only form for compact numeric interchange       |
-|  [04]   | `<Primitive>.move(v)` / `.rotate(axis, angle, origin)` / `.rotate_xy(angle, origin)` / `.reflect(normal, origin)` / `.scale(factor, origin)` | transform args | immutable transform algebra returning a new object         |
-|  [05]   | `<Primitive>.duplicate()` / `.is_equivalent(other, tolerance)`       | none / peer + tol       | structural copy; tolerance-aware equivalence               |
+| [INDEX] | [SURFACE]                                                                                                                                    | [CALL_SHAPE]          | [CAPABILITY]                                                   |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------- | :------------------------------------------------------------- |
+|  [01]   | `dictutil.geometry_dict_to_object(ladybug_geom_dict, raise_exception=True)`                                                                  | `type`-tagged dict    | reconstruct any 2D/3D primitive from its dict by `type`        |
+|  [02]   | `<Primitive>.to_dict()` / `<Primitive>.from_dict(data)`                                                                                      | object / dict         | symmetric round-trip; `to_dict` emits the `type` discriminator |
+|  [03]   | `<Primitive>.to_array()` / `<Primitive>.from_array(arr)`                                                                                     | object / nested tuple | coordinate-only form for compact numeric interchange           |
+|  [04]   | `<Primitive>.move(v)` / `.rotate(axis, angle, origin)` / `.rotate_xy(angle, origin)` / `.reflect(normal, origin)` / `.scale(factor, origin)` | transform args        | immutable transform algebra returning a new object             |
+|  [05]   | `<Primitive>.duplicate()` / `.is_equivalent(other, tolerance)`                                                                               | none / peer + tol     | structural copy; tolerance-aware equivalence                   |
 
 [ENTRYPOINT_SCOPE]: `Face3D` aperture, shade, contour, and split operations
 - rail: energy / geometry-substrate
 
 `Face3D` carries the energy-model geometry generators honeybee composes: ratio/dimension subdivision mints apertures, the contour-fin family mints shading louvers, and the split family carves a face against lines/polylines/planes/holes. Operations return new `Face3D` lists, never mutate.
 
-| [INDEX] | [SURFACE]                                                                              | [CALL_SHAPE]               | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------------------------ | :------------------------- | :--------------------------------------------------- |
-|  [01]   | `Face3D.sub_faces_by_ratio(ratio)` / `sub_faces_by_ratio_rectangle(ratio, tol)` / `sub_faces_by_ratio_gridded(...)` / `sub_faces_by_ratio_sub_rectangle(...)` | window-to-wall ratio | generate aperture sub-faces by area ratio          |
-|  [02]   | `Face3D.sub_faces_by_dimension_rectangle(sub_rect_height, sub_rect_width, sill_height, horizontal_separation, ...)` | physical dims | generate apertures by explicit dimension           |
-|  [03]   | `Face3D.contour_by_distance_between(...)` / `contour_by_number(...)` / `contour_fins_by_distance_between(...)` / `contour_fins_by_number(...)` | spacing/count | shading-fin / louver generation                    |
-|  [04]   | `Face3D.split_with_line(line, tol)` / `split_with_lines(...)` / `split_with_polyline(...)` / `split_through_holes()` / `intersect_plane(plane)` | cutter geometry | carve a face into sub-faces; plane intersection segments |
-|  [05]   | `Face3D.coplanar_difference(faces, tol, ...)` / `Face3D.coplanar_split(face1, face2, ...)` / `Face3D.coplanar_union(...)` / `coplanar_union_all(...)` / `join_coplanar_faces(...)` | coplanar faces | boolean algebra on coplanar `Face3D`               |
-|  [06]   | `Face3D.mesh_grid(x_dim, y_dim=None, offset=None, flip=False, generate_centroids=True)` | grid dims | analysis-grid `Mesh3D` over the face                |
-|  [07]   | `Face3D.from_extrusion(line_segment, extrusion_vector)` / `from_rectangle(...)` / `from_punched_geometry(base, holes)` / `from_regular_polygon(...)` | seed geometry | structured `Face3D` construction                   |
+| [INDEX] | [SURFACE]                                                                                                                                                                          | [CALL_SHAPE]         | [CAPABILITY]                                             |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :------------------------------------------------------- |
+|  [01]   | `Face3D.sub_faces_by_ratio(ratio)` / `sub_faces_by_ratio_rectangle(ratio, tol)` / `sub_faces_by_ratio_gridded(...)` / `sub_faces_by_ratio_sub_rectangle(...)`                      | window-to-wall ratio | generate aperture sub-faces by area ratio                |
+|  [02]   | `Face3D.sub_faces_by_dimension_rectangle(sub_rect_height, sub_rect_width, sill_height, horizontal_separation, ...)`                                                                | physical dims        | generate apertures by explicit dimension                 |
+|  [03]   | `Face3D.contour_by_distance_between(...)` / `contour_by_number(...)` / `contour_fins_by_distance_between(...)` / `contour_fins_by_number(...)`                                     | spacing/count        | shading-fin / louver generation                          |
+|  [04]   | `Face3D.split_with_line(line, tol)` / `split_with_lines(...)` / `split_with_polyline(...)` / `split_through_holes()` / `intersect_plane(plane)`                                    | cutter geometry      | carve a face into sub-faces; plane intersection segments |
+|  [05]   | `Face3D.coplanar_difference(faces, tol, ...)` / `Face3D.coplanar_split(face1, face2, ...)` / `Face3D.coplanar_union(...)` / `coplanar_union_all(...)` / `join_coplanar_faces(...)` | coplanar faces       | boolean algebra on coplanar `Face3D`                     |
+|  [06]   | `Face3D.mesh_grid(x_dim, y_dim=None, offset=None, flip=False, generate_centroids=True)`                                                                                            | grid dims            | analysis-grid `Mesh3D` over the face                     |
+|  [07]   | `Face3D.from_extrusion(line_segment, extrusion_vector)` / `from_rectangle(...)` / `from_punched_geometry(base, holes)` / `from_regular_polygon(...)`                               | seed geometry        | structured `Face3D` construction                         |
 
 [ENTRYPOINT_SCOPE]: 2D boolean, intersection, bounding, triangulation, projection
 - rail: energy / geometry-substrate
 
 The pure-Python computational kernels. `boolean.*` and the `Polygon2D.boolean_*` mirrors are the package's own watertight 2D boolean (n-ary `_all` forms fold a sequence); `intersection2d`/`intersection3d` are free functions over raw primitives; `bounding` is the broad-phase; `triangulation.earcut` is the mapbox ear-clipping algorithm feeding every `triangulated_mesh*` property.
 
-| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]              | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------------------ | :------------------------ | :--------------------------------------------------- |
-|  [01]   | `boolean.union(poly1, poly2, tolerance)` / `intersect(...)` / `difference(...)` / `split(...)` / `xor(...)` | two polygon point-trees | low-level 2D boolean on `(pt_x, pt_y)` lists          |
-|  [02]   | `boolean.union_all(polygons, tolerance)` / `intersect_all(...)` | polygon sequence          | n-ary fold of the boolean over a sequence            |
-|  [03]   | `Polygon2D.boolean_union(polygon, tolerance)` / `boolean_intersect` / `boolean_difference` / `boolean_xor` | peer polygon | object-level boolean mirror returning `Polygon2D`    |
-|  [04]   | `Polygon2D.boolean_union_all(polygons, tolerance)` / `boolean_intersect_all(...)` / `boolean_split(...)` (static) | sequence | n-ary static boolean over `Polygon2D` sequence       |
-|  [05]   | `intersection3d.intersect_line3d_plane(line, plane)` / `intersect_plane_plane(...)` / `intersect_line3d_sphere(...)` / `intersect_plane_sphere(...)` | primitives | 3D intersection points/lines                         |
-|  [06]   | `intersection2d.intersect_line2d(...)` / `intersect_line2d_arc2d(...)` / `closest_point2d_on_line2d(...)` | primitives | 2D intersection and closest-point                    |
-|  [07]   | `bounding.bounding_box(geometries, axis_angle=0)` / `bounding_rectangle(...)` / `bounding_domain_x/y/z(...)`; `Polyface3D.overlapping_bounding_boxes(pf1, pf2, tol)` / `Polygon2D.overlapping_bounding_rect(p1, p2, tol)` | geometry sequence / pair | AABB extents + per-type overlap broad-phase |
-|  [08]   | `triangulation.earcut(data, hole_indices=None, dim=2)` | flat coord list + holes   | ear-clipping triangulation (mapbox earcut port)      |
-|  [09]   | `Plane.project_point(point, projection_direction=None)` / `Face3D.project_point(point)` / `Point3D.project(normal, origin)` / `Vector3D.project(normal)` | point/vector + plane | project a point/vector onto a plane (method-level) |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                 | [CALL_SHAPE]             | [CAPABILITY]                                       |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :----------------------- | :------------------------------------------------- |
+|  [01]   | `boolean.union(poly1, poly2, tolerance)` / `intersect(...)` / `difference(...)` / `split(...)` / `xor(...)`                                                                                                               | two polygon point-trees  | low-level 2D boolean on `(pt_x, pt_y)` lists       |
+|  [02]   | `boolean.union_all(polygons, tolerance)` / `intersect_all(...)`                                                                                                                                                           | polygon sequence         | n-ary fold of the boolean over a sequence          |
+|  [03]   | `Polygon2D.boolean_union(polygon, tolerance)` / `boolean_intersect` / `boolean_difference` / `boolean_xor`                                                                                                                | peer polygon             | object-level boolean mirror returning `Polygon2D`  |
+|  [04]   | `Polygon2D.boolean_union_all(polygons, tolerance)` / `boolean_intersect_all(...)` / `boolean_split(...)` (static)                                                                                                         | sequence                 | n-ary static boolean over `Polygon2D` sequence     |
+|  [05]   | `intersection3d.intersect_line3d_plane(line, plane)` / `intersect_plane_plane(...)` / `intersect_line3d_sphere(...)` / `intersect_plane_sphere(...)`                                                                      | primitives               | 3D intersection points/lines                       |
+|  [06]   | `intersection2d.intersect_line2d(...)` / `intersect_line2d_arc2d(...)` / `closest_point2d_on_line2d(...)`                                                                                                                 | primitives               | 2D intersection and closest-point                  |
+|  [07]   | `bounding.bounding_box(geometries, axis_angle=0)` / `bounding_rectangle(...)` / `bounding_domain_x/y/z(...)`; `Polyface3D.overlapping_bounding_boxes(pf1, pf2, tol)` / `Polygon2D.overlapping_bounding_rect(p1, p2, tol)` | geometry sequence / pair | AABB extents + per-type overlap broad-phase        |
+|  [08]   | `triangulation.earcut(data, hole_indices=None, dim=2)`                                                                                                                                                                    | flat coord list + holes  | ear-clipping triangulation (mapbox earcut port)    |
+|  [09]   | `Plane.project_point(point, projection_direction=None)` / `Face3D.project_point(point)` / `Point3D.project(normal, origin)` / `Vector3D.project(normal)`                                                                  | point/vector + plane     | project a point/vector onto a plane (method-level) |
 
 [ENTRYPOINT_SCOPE]: mesh interop and content hashing (`interop`, `util`)
 - rail: energy / geometry-substrate
 
-| [INDEX] | [SURFACE]                                                                       | [CALL_SHAPE]              | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------------------------ | :------------------------ | :--------------------------------------------------- |
-|  [01]   | `Mesh3D.from_obj(file_path)` / `Mesh3D.to_obj(folder, name, include_colors=True, include_normals=False, triangulate_quads=False, include_mtl=False)` | path | OBJ read/write directly off a `Mesh3D`               |
-|  [02]   | `Mesh3D.from_stl(file_path)` / `Mesh3D.to_stl(folder, name)`                    | path                      | STL read/write off a `Mesh3D`                        |
-|  [03]   | `interop.obj.OBJ(vertices, faces, vertex_texture_map=None, vertex_normals=None, vertex_colors=None, material_structure=None)` / `OBJ.from_mesh3ds(meshes, ...)` / `.to_file(folder, name, ...)` | mesh(es) | multi-mesh OBJ with materials/textures/colors        |
-|  [04]   | `interop.stl.STL(face_vertices, face_normals, name='polyhedron')` / `STL.from_mesh3d(mesh)` / `.to_file(folder, name)` | mesh | STL value object                                     |
-|  [05]   | `network.coordinates_hash(point, tolerance)` | point + tol | tolerance-bucketed coordinate hash for vertex dedup / graph-node identity |
+| [INDEX] | [SURFACE]                                                                                                                                                                                       | [CALL_SHAPE] | [CAPABILITY]                                                              |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :------------------------------------------------------------------------ |
+|  [01]   | `Mesh3D.from_obj(file_path)` / `Mesh3D.to_obj(folder, name, include_colors=True, include_normals=False, triangulate_quads=False, include_mtl=False)`                                            | path         | OBJ read/write directly off a `Mesh3D`                                    |
+|  [02]   | `Mesh3D.from_stl(file_path)` / `Mesh3D.to_stl(folder, name)`                                                                                                                                    | path         | STL read/write off a `Mesh3D`                                             |
+|  [03]   | `interop.obj.OBJ(vertices, faces, vertex_texture_map=None, vertex_normals=None, vertex_colors=None, material_structure=None)` / `OBJ.from_mesh3ds(meshes, ...)` / `.to_file(folder, name, ...)` | mesh(es)     | multi-mesh OBJ with materials/textures/colors                             |
+|  [04]   | `interop.stl.STL(face_vertices, face_normals, name='polyhedron')` / `STL.from_mesh3d(mesh)` / `.to_file(folder, name)`                                                                          | mesh         | STL value object                                                          |
+|  [05]   | `network.coordinates_hash(point, tolerance)`                                                                                                                                                    | point + tol  | tolerance-bucketed coordinate hash for vertex dedup / graph-node identity |
 
 ## [04]-[INTEGRATION_PATTERNS]
 

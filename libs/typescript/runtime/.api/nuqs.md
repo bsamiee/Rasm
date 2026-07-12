@@ -43,18 +43,18 @@ Consumer note: `browser/route.md` declares one `ParserMap` per route; `.withDefa
 
 The atom roster — primitive scalars, closed-vocabulary refinements, and the two composite constructors that own everything richer. `parseAsJson` and `parseAsArrayOf` are the parameterized escape hatches; a custom shape is one of those under a Schema, never a new hand-rolled parser.
 
-| [INDEX] | [SYMBOL] | [STATE_TYPE] | [KIND] |
-|:-----: |:------------------------------------------------ |:------------ |:---------------------------------- |
-| [01] | `parseAsString` / `parseAsInteger` / `parseAsFloat` | `string`/`number` | scalar atoms |
-| [02] | `parseAsIndex` / `parseAsHex` | `number` | offset/radix scalar atoms |
-| [03] | `parseAsBoolean` | `boolean` | scalar atom |
-| [04] | `parseAsTimestamp` / `parseAsIsoDateTime` / `parseAsIsoDate` | `Date` | epoch-ms / ISO-8601 / date-only |
-| [05] | `parseAsStringEnum<E>(values)` | `E` | closed enum vocabulary |
-| [06] | `parseAsStringLiteral<L>(readonly values)` | `L` | closed string-literal vocabulary |
-| [07] | `parseAsNumberLiteral<L>(readonly values)` | `L` | closed number-literal vocabulary |
-| [08] | `parseAsJson<T>(validator \| StandardSchemaV1<T>)` | `T` | validated JSON — the Schema seam |
-| [09] | `parseAsArrayOf<I>(itemParser, separator?)` | `I[]` | delimited list over an item parser |
-| [10] | `parseAsNativeArrayOf<I>(itemParser)` | `I[]` | repeated-key (`?k=a&k=b`) multi |
+| [INDEX] | [SYMBOL]                                                     | [STATE_TYPE]      | [KIND]                             |
+| :-----: | :----------------------------------------------------------- | :---------------- | :--------------------------------- |
+|  [01]   | `parseAsString` / `parseAsInteger` / `parseAsFloat`          | `string`/`number` | scalar atoms                       |
+|  [02]   | `parseAsIndex` / `parseAsHex`                                | `number`          | offset/radix scalar atoms          |
+|  [03]   | `parseAsBoolean`                                             | `boolean`         | scalar atom                        |
+|  [04]   | `parseAsTimestamp` / `parseAsIsoDateTime` / `parseAsIsoDate` | `Date`            | epoch-ms / ISO-8601 / date-only    |
+|  [05]   | `parseAsStringEnum<E>(values)`                               | `E`               | closed enum vocabulary             |
+|  [06]   | `parseAsStringLiteral<L>(readonly values)`                   | `L`               | closed string-literal vocabulary   |
+|  [07]   | `parseAsNumberLiteral<L>(readonly values)`                   | `L`               | closed number-literal vocabulary   |
+|  [08]   | `parseAsJson<T>(validator \| StandardSchemaV1<T>)`           | `T`               | validated JSON — the Schema seam   |
+|  [09]   | `parseAsArrayOf<I>(itemParser, separator?)`                  | `I[]`             | delimited list over an item parser |
+|  [10]   | `parseAsNativeArrayOf<I>(itemParser)`                        | `I[]`             | repeated-key (`?k=a&k=b`) multi    |
 
 Consumer note: `parseAsStringLiteral`/`parseAsNumberLiteral` type a URL param against a closed set exactly as a `Schema.Literal`; `parseAsJson(validator)` accepts any predicate or Standard Schema catalog-bound, so a kernel `Schema` (via `Schema.standardSchemaV1`) validates a structured query value in place.
 

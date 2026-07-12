@@ -31,26 +31,26 @@ declare class uPlot {
 
 The whole chart is one declarative `Options` value — `width`/`height` + `series` required, everything else policy rows.
 
-| [INDEX] | [BRANCH] | [KEY_FIELDS] | [CAPABILITY] |
-|:-----: |:-------- |:-------------------------------------------------------------------------------------------------------------- |:------------------------------------------------------ |
-| [01] | `series` | `label` `scale` `stroke` `fill` `fillTo` `width` `dash` `points` `paths` `value`/`values` `spanGaps` `gaps` `sorted` `alpha` `facets` | per-column render policy; `paths` swaps the path builder |
-| [02] | `scales` | `time` `auto` `range` `from` `distr` `log` `asinh` `clamp` `fwd`/`bwd` (+ readback `min`/`max`/`dir`/`ori`) | `distr`: 1 linear · 2 ordinal · 3 log · 4 asinh · 100 custom (`fwd`/`bwd` transforms) |
-| [03] | `axes` | `side` (0 top·1 right·2 bottom·3 left) `scale` `values` `space` `incrs` `splits` `filter` `size` `gap` `label` `rotate` `align` `grid` `ticks` `border` `stroke` `font` | tick generation is data (`incrs`/`splits`/`values` functions), never string formats |
-| [04] | `cursor` | `x`/`y` `points` `drag` (`x`/`y`/`setScale`/`dist`/`uni`/`click`) `sync` (`key`/`setSeries`/`scales`/`match`/`filters`) `focus` (`prox`/`bias`) `hover` `dataIdx` `move` `bind` `lock` | zoom-drag + hover proximity + cross-chart sync in one branch |
-| [05] | `legend` | `show` `live` `isolate` `markers` `mount` `values` | live legend reads the cursor idx; `isolate` = click-to-solo |
-| [06] | `select` / `bands` / `focus` / `padding` / `drawOrder` / `pxAlign` | selection box state; hi/lo band pairs (`Band`); series-focus alpha; `["axes","series"]` order | the remaining policy leaves |
-| [07] | `hooks` / `plugins` | `Hooks.Arrays`; `Plugin = { opts?: (self, opts) => void \| Options; hooks: Hooks.ArraysOrFuncs }` | the extension bus — see [04] |
+| [INDEX] | [BRANCH]                                                           | [KEY_FIELDS]                                                                                                                                                                           | [CAPABILITY]                                                                          |
+| :-----: | :----------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `series`                                                           | `label` `scale` `stroke` `fill` `fillTo` `width` `dash` `points` `paths` `value`/`values` `spanGaps` `gaps` `sorted` `alpha` `facets`                                                  | per-column render policy; `paths` swaps the path builder                              |
+|  [02]   | `scales`                                                           | `time` `auto` `range` `from` `distr` `log` `asinh` `clamp` `fwd`/`bwd` (+ readback `min`/`max`/`dir`/`ori`)                                                                            | `distr`: 1 linear · 2 ordinal · 3 log · 4 asinh · 100 custom (`fwd`/`bwd` transforms) |
+|  [03]   | `axes`                                                             | `side` (0 top·1 right·2 bottom·3 left) `scale` `values` `space` `incrs` `splits` `filter` `size` `gap` `label` `rotate` `align` `grid` `ticks` `border` `stroke` `font`                | tick generation is data (`incrs`/`splits`/`values` functions), never string formats   |
+|  [04]   | `cursor`                                                           | `x`/`y` `points` `drag` (`x`/`y`/`setScale`/`dist`/`uni`/`click`) `sync` (`key`/`setSeries`/`scales`/`match`/`filters`) `focus` (`prox`/`bias`) `hover` `dataIdx` `move` `bind` `lock` | zoom-drag + hover proximity + cross-chart sync in one branch                          |
+|  [05]   | `legend`                                                           | `show` `live` `isolate` `markers` `mount` `values`                                                                                                                                     | live legend reads the cursor idx; `isolate` = click-to-solo                           |
+|  [06]   | `select` / `bands` / `focus` / `padding` / `drawOrder` / `pxAlign` | selection box state; hi/lo band pairs (`Band`); series-focus alpha; `["axes","series"]` order                                                                                          | the remaining policy leaves                                                           |
+|  [07]   | `hooks` / `plugins`                                                | `Hooks.Arrays`; `Plugin = { opts?: (self, opts) => void \| Options; hooks: Hooks.ArraysOrFuncs }`                                                                                      | the extension bus — see [04]                                                          |
 
 ## [03]-[INSTANCE_AND_STATICS]
 
-| [INDEX] | [SURFACE] | [FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------------------------------------------------------------ |:----------- |:------------------------------------------------------------ |
-| [01] | `setData` `setScale(key, {min,max})` `setCursor` `setSelect` `setSize({width,height})` `setSeries(idx, {show,focus})` `setLegend({idx})` | imperative write | every mutation is a `set*`; wrap multi-writes in `batch(txn)` |
-| [02] | `addSeries`/`delSeries` `addBand`/`setBand`/`delBand` `redraw(rebuildPaths?, recalcAxes?)` `destroy()` | lifecycle | dynamic series membership; `destroy` is the teardown bracket |
-| [03] | `posToVal` `valToPos` `posToIdx` `valToIdx` `syncRect(defer?)` | mapping | pixel↔value↔index projection for custom draw/hit-test |
-| [04] | `root` `over` `under` `ctx` `bbox` `rect` `series` `scales` `axes` `cursor` `select` `legend` `data` `status` | readback | `over`/`under` are the DOM layers custom hooks draw into |
-| [05] | `uPlot.paths.{linear,spline,stepped,bars,points}` | path builders | factory per geometry; a `Series.paths` row swaps geometry — no `spline2` |
-| [06] | `uPlot.sync(key)` · `uPlot.assign` `fmtNum` `fmtDate(tpl)` `tzDate` `rangeNum` `rangeLog` `rangeAsinh` `orient` `addGap` `clipGaps` `pxRatio` | statics | `sync(key)` + `cursor.sync.key` links cursors across charts |
+| [INDEX] | [SURFACE]                                                                                                                                     | [FAMILY]         | [CAPABILITY]                                                             |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------------- |
+|  [01]   | `setData` `setScale(key, {min,max})` `setCursor` `setSelect` `setSize({width,height})` `setSeries(idx, {show,focus})` `setLegend({idx})`      | imperative write | every mutation is a `set*`; wrap multi-writes in `batch(txn)`            |
+|  [02]   | `addSeries`/`delSeries` `addBand`/`setBand`/`delBand` `redraw(rebuildPaths?, recalcAxes?)` `destroy()`                                        | lifecycle        | dynamic series membership; `destroy` is the teardown bracket             |
+|  [03]   | `posToVal` `valToPos` `posToIdx` `valToIdx` `syncRect(defer?)`                                                                                | mapping          | pixel↔value↔index projection for custom draw/hit-test                    |
+|  [04]   | `root` `over` `under` `ctx` `bbox` `rect` `series` `scales` `axes` `cursor` `select` `legend` `data` `status`                                 | readback         | `over`/`under` are the DOM layers custom hooks draw into                 |
+|  [05]   | `uPlot.paths.{linear,spline,stepped,bars,points}`                                                                                             | path builders    | factory per geometry; a `Series.paths` row swaps geometry — no `spline2` |
+|  [06]   | `uPlot.sync(key)` · `uPlot.assign` `fmtNum` `fmtDate(tpl)` `tzDate` `rangeNum` `rangeLog` `rangeAsinh` `orient` `addGap` `clipGaps` `pxRatio` | statics          | `sync(key)` + `cursor.sync.key` links cursors across charts              |
 
 ## [04]-[HOOK_BUS]
 

@@ -19,16 +19,16 @@
 - rail: interchange/codec
 - `Decoder` is the reusable configured-once decoder; `Encoder extends Decoder` adds `encode` for the rare egress crossing. `Tag` wraps a CBOR tagged value; `Extension`/`addExtension` register a domain tag decoding INTO owned vocabulary. `Options` is one flat policy record — interop-critical fields are `useRecords`, `mapsAsObjects`, `structures`, `tagUint8Array`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------- |:-------------- |:---------------------------------------------------------------- |
-| [01] | `Decoder` (`.decode`, `.decodeMultiple`) | decoder | `interchange/codec` `SnapshotHeader` decode; one instance per configured policy |
-| [02] | `Encoder extends Decoder` (`.encode`) | codec pair | the rare `wire`-owned egress crossing; decode + encode in one configured instance |
-| [03] | `Options` | policy record | `useRecords:false`/`mapsAsObjects:true`/`tagUint8Array` — the C#-interop decode contract |
-| [04] | `Tag` (`.value`, `.tag`) | tagged value | a decoded CBOR tag (259 maps, 2/3 bignum, domain tags) `Match`-dispatched into vocabulary |
-| [05] | `Extension<T, R>` (`Class`, `tag`, `encode`, `decode`)| tag extension | `addExtension` row — a domain CBOR tag decoding to an owned shape |
-| [06] | `SizeLimitOptions` | DoS bound | `interchange/codec` — the `maxArraySize`/`maxMapSize`/`maxObjectSize` ceiling record passed to `setSizeLimits` |
-| [07] | `FLOAT32_OPTIONS` (`NEVER`/`ALWAYS`/`DECIMAL_ROUND`/`DECIMAL_FIT`) | float policy | `useFloat32` egress precision; `roundFloat32` half-even fit |
-| [08] | `DecoderStream` / `EncoderStream` (node `Transform`) | node stream | node-lane framed decode; NOT the Effect `Stream` path (buffer decode + `Stream.fromAsyncIterable` is) |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                                            |
+| :-----: | :----------------------------------------------------------------- | :------------ | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Decoder` (`.decode`, `.decodeMultiple`)                           | decoder       | `interchange/codec` `SnapshotHeader` decode; one instance per configured policy                                |
+|  [02]   | `Encoder extends Decoder` (`.encode`)                              | codec pair    | the rare `wire`-owned egress crossing; decode + encode in one configured instance                              |
+|  [03]   | `Options`                                                          | policy record | `useRecords:false`/`mapsAsObjects:true`/`tagUint8Array` — the C#-interop decode contract                       |
+|  [04]   | `Tag` (`.value`, `.tag`)                                           | tagged value  | a decoded CBOR tag (259 maps, 2/3 bignum, domain tags) `Match`-dispatched into vocabulary                      |
+|  [05]   | `Extension<T, R>` (`Class`, `tag`, `encode`, `decode`)             | tag extension | `addExtension` row — a domain CBOR tag decoding to an owned shape                                              |
+|  [06]   | `SizeLimitOptions`                                                 | DoS bound     | `interchange/codec` — the `maxArraySize`/`maxMapSize`/`maxObjectSize` ceiling record passed to `setSizeLimits` |
+|  [07]   | `FLOAT32_OPTIONS` (`NEVER`/`ALWAYS`/`DECIMAL_ROUND`/`DECIMAL_FIT`) | float policy  | `useFloat32` egress precision; `roundFloat32` half-even fit                                                    |
+|  [08]   | `DecoderStream` / `EncoderStream` (node `Transform`)               | node stream   | node-lane framed decode; NOT the Effect `Stream` path (buffer decode + `Stream.fromAsyncIterable` is)          |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -36,16 +36,16 @@
 - rail: interchange/codec
 - The interop-correct entry is `new Decoder({ useRecords:false, mapsAsObjects:true }).decode(bytes)`, never the top-level `decode` (which binds a shared default `useRecords:true` instance). `decodeMultiple` walks concatenated frames; `encodeAsAsyncIterable` chunks egress. `addExtension`/`setSizeLimits` mutate global state and run once at module init.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------ |:-------------- |:------------------------------------------------------- |
-| [01] | `new Decoder(options?).decode(bytes: Buffer \| Uint8Array): any` | decode | `interchange/codec` one-frame decode → `Schema.decodeUnknown(SnapshotHeader)` |
-| [02] | `Decoder.decodeMultiple(bytes, forEach?): [] \| void` | multi-frame | concatenated snapshot/segment frames in one buffer |
-| [03] | `new Encoder(options?).encode(value): Buffer` | egress | the rare `wire`-owned re-encode; `variableMapSize`/`useFloat32` policy |
-| [04] | `encodeAsIterable(v)` / `encodeAsAsyncIterable(v)` / `encodeIter(iter)` / `decodeIter(iter)` | chunked codec | large-payload streaming egress + iterator decode/encode (runtime-real, type-invisible in catalog-bound) |
-| [05] | `addExtension({ Class, tag, encode, decode })` | tag registry | register a domain CBOR tag once at init; global registry |
-| [06] | `setSizeLimits({ maxArraySize, maxMapSize, maxObjectSize })` | DoS gate | `interchange/codec` ceilings before untrusted decode; runtime name (`index.d.ts` mislabels `setMaxLimits`) |
-| [07] | `roundFloat32(n)` / `clearSource()` / `isNativeAccelerationEnabled` | codec util | float fit, shared-structure reset, `cbor-extract` accel probe |
-| [08] | `import { Decoder } from "cbor-x/decode-no-eval"` | CSP build | strict-CSP browser lane — record compiler disabled, no `new Function` |
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                        |
+| :-----: | :------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `new Decoder(options?).decode(bytes: Buffer \| Uint8Array): any`                             | decode         | `interchange/codec` one-frame decode → `Schema.decodeUnknown(SnapshotHeader)`                              |
+|  [02]   | `Decoder.decodeMultiple(bytes, forEach?): [] \| void`                                        | multi-frame    | concatenated snapshot/segment frames in one buffer                                                         |
+|  [03]   | `new Encoder(options?).encode(value): Buffer`                                                | egress         | the rare `wire`-owned re-encode; `variableMapSize`/`useFloat32` policy                                     |
+|  [04]   | `encodeAsIterable(v)` / `encodeAsAsyncIterable(v)` / `encodeIter(iter)` / `decodeIter(iter)` | chunked codec  | large-payload streaming egress + iterator decode/encode (runtime-real, type-invisible in catalog-bound)    |
+|  [05]   | `addExtension({ Class, tag, encode, decode })`                                               | tag registry   | register a domain CBOR tag once at init; global registry                                                   |
+|  [06]   | `setSizeLimits({ maxArraySize, maxMapSize, maxObjectSize })`                                 | DoS gate       | `interchange/codec` ceilings before untrusted decode; runtime name (`index.d.ts` mislabels `setMaxLimits`) |
+|  [07]   | `roundFloat32(n)` / `clearSource()` / `isNativeAccelerationEnabled`                          | codec util     | float fit, shared-structure reset, `cbor-extract` accel probe                                              |
+|  [08]   | `import { Decoder } from "cbor-x/decode-no-eval"`                                            | CSP build      | strict-CSP browser lane — record compiler disabled, no `new Function`                                      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

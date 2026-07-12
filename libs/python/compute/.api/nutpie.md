@@ -19,12 +19,12 @@
 - `nuts_sampler` name: `"nutpie"` (verified live: `pymc.sampling.mcmc.sample` `nuts_sampler: Literal["pymc", "nutpie", "numpyro", "blackjax"]`).
 - `nuts_sampler_kwargs` splits inside `_sample_external_nuts`: the `backend`/`gradient_backend` keys are POPPED into `nutpie.compile_pymc_model` `compile_kwargs`; every remaining key forwards to `nutpie.sample(...)` (verified live: `pymc.sampling.mcmc._sample_external_nuts`, the `for kwarg in ("backend", "gradient_backend")` pop).
 
-| [INDEX] | [KWARG]            | [VALUE_DOMAIN]                 | [TARGET]                 | [ROLE]                                                                        |
-| :-----: | :----------------- | :----------------------------- | :----------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `backend`          | `'numba'` \| `'jax'`           | `compile_pymc_model`     | native-lowering backend for the log-density + gradient — the accelerator lever |
-|  [02]   | `gradient_backend` | `'pytensor'` \| `'jax'`        | `compile_pymc_model`     | autodiff source for the gradient (`'jax'` pairs with `backend='jax'`)         |
-|  [03]   | `init_mean`        | `ndarray`                      | `nutpie.sample`          | warmup mean seed (PyMC `initvals` are NOT forwarded to nutpie — use this)     |
-|  [04]   | `low_rank_modified_mass_matrix` | `bool`            | `nutpie.sample`          | low-rank mass-matrix adaptation for high-dimensional posteriors               |
+| [INDEX] | [KWARG]                         | [VALUE_DOMAIN]          | [TARGET]             | [ROLE]                                                                         |
+| :-----: | :------------------------------ | :---------------------- | :------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `backend`                       | `'numba'` \| `'jax'`    | `compile_pymc_model` | native-lowering backend for the log-density + gradient — the accelerator lever |
+|  [02]   | `gradient_backend`              | `'pytensor'` \| `'jax'` | `compile_pymc_model` | autodiff source for the gradient (`'jax'` pairs with `backend='jax'`)          |
+|  [03]   | `init_mean`                     | `ndarray`               | `nutpie.sample`      | warmup mean seed (PyMC `initvals` are NOT forwarded to nutpie — use this)      |
+|  [04]   | `low_rank_modified_mass_matrix` | `bool`                  | `nutpie.sample`      | low-rank mass-matrix adaptation for high-dimensional posteriors                |
 
 ## [03]-[DECLINE]
 

@@ -106,13 +106,13 @@ public sealed record ArtifactIndexRow(
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | content-key name    | kernel `XxHash128` over the bytes      | shared with blob residence + retention; never a second id |
-|  [02]   | kind taxonomy       | one `ArtifactKind` row per family      | carries the typed `RetentionClass` + `CacheLane`; no per-kind row type |
-|  [03]   | residence owner     | `Store/blobstore#OBJECT_STORE`         | the index references by content key; never the bytes      |
-|  [04]   | source projection   | `Project` groups by kernel `SourceKey` | GLB + IFC-semantic of one source stay one family          |
-|  [05]   | cloud-run reuse     | `CloudRunKey` length-framed fold       | identical recipe+inputs resolve prior assets; SDK path-existence reuse superseded |
+| [INDEX] | [POLICY]          | [VALUE]                                | [BINDING]                                                                         |
+| :-----: | :---------------- | :------------------------------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | content-key name  | kernel `XxHash128` over the bytes      | shared with blob residence + retention; never a second id                         |
+|  [02]   | kind taxonomy     | one `ArtifactKind` row per family      | carries the typed `RetentionClass` + `CacheLane`; no per-kind row type            |
+|  [03]   | residence owner   | `Store/blobstore#OBJECT_STORE`         | the index references by content key; never the bytes                              |
+|  [04]   | source projection | `Project` groups by kernel `SourceKey` | GLB + IFC-semantic of one source stay one family                                  |
+|  [05]   | cloud-run reuse   | `CloudRunKey` length-framed fold       | identical recipe+inputs resolve prior assets; SDK path-existence reuse superseded |
 
 ## [03]-[MODEL_RESULT_INDEX]
 
@@ -174,14 +174,14 @@ public sealed record ModelResultIndex(
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | reuse horizon       | the ONE `RecencyHorizon` owner         | inference + solve + benchmark + formula read by reference |
-|  [02]   | horizon gate        | folded INTO `Lookup` against the clock | a stale row misses; never a caller-applied bool           |
-|  [03]   | dedup key           | seam `ContentAddress.Of` (`XxHash128`) | one seam for inference keys and solve sub-blocks; no second hasher |
-|  [04]   | read consistency    | synchronous `Query/lane` lane          | a stale dedup is a correctness fault; never async         |
-|  [05]   | residence-only      | `Publish` records the row, not bytes   | the object store owns the payload; no 2-arg phantom       |
-|  [06]   | fingerprint cross   | `HostFingerprint.ToString` string      | no Compute type; strata stays one-directional             |
+| [INDEX] | [POLICY]          | [VALUE]                                | [BINDING]                                                          |
+| :-----: | :---------------- | :------------------------------------- | :----------------------------------------------------------------- |
+|  [01]   | reuse horizon     | the ONE `RecencyHorizon` owner         | inference + solve + benchmark + formula read by reference          |
+|  [02]   | horizon gate      | folded INTO `Lookup` against the clock | a stale row misses; never a caller-applied bool                    |
+|  [03]   | dedup key         | seam `ContentAddress.Of` (`XxHash128`) | one seam for inference keys and solve sub-blocks; no second hasher |
+|  [04]   | read consistency  | synchronous `Query/lane` lane          | a stale dedup is a correctness fault; never async                  |
+|  [05]   | residence-only    | `Publish` records the row, not bytes   | the object store owns the payload; no 2-arg phantom                |
+|  [06]   | fingerprint cross | `HostFingerprint.ToString` string      | no Compute type; strata stays one-directional                      |
 
 ## [04]-[BENCHMARK_INDEX]
 
@@ -215,12 +215,12 @@ public sealed record BenchmarkRow(
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | claim gate          | fingerprint-match + latest survivor    | a wrong-host or stale claim never wins a route            |
-|  [02]   | recency bound       | `ModelResultIndex.RecencyHorizon`      | one horizon owner; never a second `Duration`              |
-|  [03]   | head fold           | one `MostRecent` reduction             | no full `OrderByDescending` materialization               |
-|  [04]   | retention class     | `cache` (re-derivable by re-sweep)     | the sweep governs eviction; never never-evict             |
+| [INDEX] | [POLICY]        | [VALUE]                             | [BINDING]                                      |
+| :-----: | :-------------- | :---------------------------------- | :--------------------------------------------- |
+|  [01]   | claim gate      | fingerprint-match + latest survivor | a wrong-host or stale claim never wins a route |
+|  [02]   | recency bound   | `ModelResultIndex.RecencyHorizon`   | one horizon owner; never a second `Duration`   |
+|  [03]   | head fold       | one `MostRecent` reduction          | no full `OrderByDescending` materialization    |
+|  [04]   | retention class | `cache` (re-derivable by re-sweep)  | the sweep governs eviction; never never-evict  |
 
 ## [05]-[L2_CONTRIBUTION]
 
@@ -315,13 +315,13 @@ public sealed class CacheBackplane(ISubscriber subscriber, HybridCache cache, st
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | one L2 store        | `IBufferDistributedCache` buffer contract | bare `IDistributedCache` forces the extra runtime-copy; rejected |
-|  [02]   | one serializer      | `IHybridCacheSerializerFactory`        | the `messagepack` `SnapshotCodec.Binary` row; no per-type scatter |
-|  [03]   | tenant partition    | `Scoped` over `TenantId` digest        | a cross-tenant L2 bucket collision is unrepresentable     |
-|  [04]   | lane L1/L2 routing  | the AppHost `HybridCacheEntryFlags`    | `DisableLocalCache` on the blob lane; never a per-call branch |
-|  [05]   | one cache owner     | L2+codec here, L1+stampede+tag AppHost | composed at `CacheSurface.Register`; never a second owner |
+| [INDEX] | [POLICY]               | [VALUE]                                         | [BINDING]                                                                               |
+| :-----: | :--------------------- | :---------------------------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | one L2 store           | `IBufferDistributedCache` buffer contract       | bare `IDistributedCache` forces the extra runtime-copy; rejected                        |
+|  [02]   | one serializer         | `IHybridCacheSerializerFactory`                 | the `messagepack` `SnapshotCodec.Binary` row; no per-type scatter                       |
+|  [03]   | tenant partition       | `Scoped` over `TenantId` digest                 | a cross-tenant L2 bucket collision is unrepresentable                                   |
+|  [04]   | lane L1/L2 routing     | the AppHost `HybridCacheEntryFlags`             | `DisableLocalCache` on the blob lane; never a per-call branch                           |
+|  [05]   | one cache owner        | L2+codec here, L1+stampede+tag AppHost          | composed at `CacheSurface.Register`; never a second owner                               |
 |  [06]   | invalidation backplane | `ChannelMessageQueue` beat → `RemoveByTagAsync` | lossy-by-design, `CacheLane.Store`-gated; RESP3 `__redis__:invalidate` the upgrade path |
 
 ## [06]-[INDEX_RESIDENCY]
@@ -439,10 +439,10 @@ public static class WideColumnIndex {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | residency           | `IndexResidency` deployment row        | a projection residence; never a second SoR/horizon/identity |
-|  [02]   | write-once claim    | `InsertIfNotExistsAsync → AppliedInfo` | duplicate = `Applied=false`, the 412-noop analog; never an error |
-|  [03]   | sweep scan          | `FetchPageAsync` + `PagingState` cursor | partition-paged; never a full-table read                  |
-|  [04]   | consistency/retry   | named `IExecutionProfile` rows + `TokenAwarePolicy` | policy declared once; never per-call branching   |
-|  [05]   | fault fold          | `WideColumnFault.Lift` at ONE boundary | `FaultBand.WideColumn + n`; no driver exception crosses    |
+| [INDEX] | [POLICY]          | [VALUE]                                             | [BINDING]                                                        |
+| :-----: | :---------------- | :-------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | residency         | `IndexResidency` deployment row                     | a projection residence; never a second SoR/horizon/identity      |
+|  [02]   | write-once claim  | `InsertIfNotExistsAsync → AppliedInfo`              | duplicate = `Applied=false`, the 412-noop analog; never an error |
+|  [03]   | sweep scan        | `FetchPageAsync` + `PagingState` cursor             | partition-paged; never a full-table read                         |
+|  [04]   | consistency/retry | named `IExecutionProfile` rows + `TokenAwarePolicy` | policy declared once; never per-call branching                   |
+|  [05]   | fault fold        | `WideColumnFault.Lift` at ONE boundary              | `FaultBand.WideColumn + n`; no driver exception crosses          |

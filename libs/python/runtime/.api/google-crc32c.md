@@ -19,11 +19,11 @@
 [ENTRYPOINT_SCOPE]: one-shot digest
 - rail: settings-secrets
 
-| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [RAIL]                                                                    |
-| :-----: | :-------------------------------- | :------------- | :------------------------------------------------------------------------ |
-|  [01]   | `value(data: bytes) -> int`       | digest         | CRC32C checksum of a buffer — the one member the cloud-arm fence compares against `data_crc32c` |
-|  [02]   | `extend(crc: int, data: bytes) -> int` | digest    | continue a checksum over an appended buffer; `extend(value(a), b) == value(a + b)` |
-|  [03]   | `Checksum(data=b"")`              | streaming      | hashlib-shaped incremental digest (`update`/`digest`/`hexdigest`/`copy`/`consume`) — unconsumed; the secret payload is one buffer |
+| [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                                                                                                                            |
+| :-----: | :------------------------------------- | :------------- | :-------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `value(data: bytes) -> int`            | digest         | CRC32C checksum of a buffer — the one member the cloud-arm fence compares against `data_crc32c`                                   |
+|  [02]   | `extend(crc: int, data: bytes) -> int` | digest         | continue a checksum over an appended buffer; `extend(value(a), b) == value(a + b)`                                                |
+|  [03]   | `Checksum(data=b"")`                   | streaming      | hashlib-shaped incremental digest (`update`/`digest`/`hexdigest`/`copy`/`consume`) — unconsumed; the secret payload is one buffer |
 
 ## [03]-[IMPLEMENTATION_LAW]
 

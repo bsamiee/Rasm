@@ -18,14 +18,14 @@
 
 `BasicTracerProvider` is the platform-extensible provider (`NodeTracerProvider`/`WebTracerProvider` subclass it); `TracerConfig` is its one construction bag, and every axis on it — sampler, limits, id generator, processor list — is a policy value, never a subclass. Under the effect facade `tracerConfig` is `Omit<TracerConfig, "resource">` — identity enters through the facade `Configuration`'s own resource options (or the `Resource` layer), so a consumer never sets `TracerConfig.resource`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------- |:------------ |:--------------------------------------------------------------------- |
-| [01] | `BasicTracerProvider` | class | `implements TracerProvider`; base for `NodeTracerProvider` (sdk-trace-node) |
-| [02] | `TracerConfig` | interface | provider bag — `sampler`/`spanLimits`/`idGenerator`/`spanProcessors` |
-| [03] | `SpanLimits` / `GeneralLimits` | interface | per-span vs global attribute/link/event count + value-length caps |
-| [04] | `SDKRegistrationConfig` | interface | `propagator?`/`contextManager?` for the global `register()` path |
-| [05] | `ReadableSpan` / `Span` | type | the recorded-span read shape; `Span = APISpan & ReadableSpan` |
-| [06] | `TimedEvent` | type | a span event with `HrTime` — the `events[]` element |
+| [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                         |
+| :-----: | :----------------------------- | :------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `BasicTracerProvider`          | class         | `implements TracerProvider`; base for `NodeTracerProvider` (sdk-trace-node) |
+|  [02]   | `TracerConfig`                 | interface     | provider bag — `sampler`/`spanLimits`/`idGenerator`/`spanProcessors`        |
+|  [03]   | `SpanLimits` / `GeneralLimits` | interface     | per-span vs global attribute/link/event count + value-length caps           |
+|  [04]   | `SDKRegistrationConfig`        | interface     | `propagator?`/`contextManager?` for the global `register()` path            |
+|  [05]   | `ReadableSpan` / `Span`        | type          | the recorded-span read shape; `Span = APISpan & ReadableSpan`               |
+|  [06]   | `TimedEvent`                   | type          | a span event with `HrTime` — the `events[]` element                         |
 
 ```ts contract
 // The construction bag. Under @effect/opentelemetry tracerConfig omits `resource` — the facade's own resource slot owns identity.
@@ -59,16 +59,16 @@ interface ReadableSpan {
 
 The pipeline is TWO parameterized interfaces, not a fixed set of pairs. `SpanProcessor` owns the start/end/flush lifecycle; `SpanExporter` owns the format/transport. The built-in classes are ROWS on those interfaces — `Simple` (per-span, synchronous, diagnostics-only), `Batch` (queued, the production row, parameterized on `BufferConfig`), `Noop` (drop) — and a custom transport is a new `SpanExporter`, a custom lifecycle a new `SpanProcessor`, never a fork. `BatchSpanProcessor` is the `./platform` specialization of the internal `BatchSpanProcessorBase<T extends BufferConfig>` — node binds `T = BufferConfig`, browser `T = BatchSpanProcessorBrowserConfig`.
 
-| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
-|:-----: |:------------------------------------ |:------------------------ |:--------------------------------------------------------------- |
-| [01] | `SpanProcessor` | interface | `onStart`/`onEnding?`/`onEnd`/`forceFlush`/`shutdown` lifecycle |
-| [02] | `SimpleSpanProcessor` | class | one export per ended span; sync; diagnostics/test only |
-| [03] | `BatchSpanProcessor` | class (`./platform`) | queued batch export; the production row; `BufferConfig`-tuned |
-| [04] | `NoopSpanProcessor` | class | drop-all — the disabled-signal row |
-| [05] | `BufferConfig` / `BatchSpanProcessorBrowserConfig` | interface | batch tuning; browser adds `disableAutoFlushOnDocumentHide` |
-| [06] | `SpanExporter` | interface | `export(spans, cb)`/`shutdown`/`forceFlush?` — format + transport |
-| [07] | `ConsoleSpanExporter` | class | stdout diagnostics |
-| [08] | `InMemorySpanExporter` | class | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane |
+| [INDEX] | [SYMBOL]                                           | [KIND]               | [CAPABILITY_BOUNDARY]                                             |
+| :-----: | :------------------------------------------------- | :------------------- | :---------------------------------------------------------------- |
+|  [01]   | `SpanProcessor`                                    | interface            | `onStart`/`onEnding?`/`onEnd`/`forceFlush`/`shutdown` lifecycle   |
+|  [02]   | `SimpleSpanProcessor`                              | class                | one export per ended span; sync; diagnostics/test only            |
+|  [03]   | `BatchSpanProcessor`                               | class (`./platform`) | queued batch export; the production row; `BufferConfig`-tuned     |
+|  [04]   | `NoopSpanProcessor`                                | class                | drop-all — the disabled-signal row                                |
+|  [05]   | `BufferConfig` / `BatchSpanProcessorBrowserConfig` | interface            | batch tuning; browser adds `disableAutoFlushOnDocumentHide`       |
+|  [06]   | `SpanExporter`                                     | interface            | `export(spans, cb)`/`shutdown`/`forceFlush?` — format + transport |
+|  [07]   | `ConsoleSpanExporter`                              | class                | stdout diagnostics                                                |
+|  [08]   | `InMemorySpanExporter`                             | class                | `getFinishedSpans()`/`reset()` — the kit-driven spec-assert lane  |
 
 ```ts contract
 interface SpanProcessor {
@@ -97,14 +97,14 @@ declare class InMemorySpanExporter implements SpanExporter { getFinishedSpans():
 
 Sampling is ONE interface (`Sampler.shouldSample` → `SamplingResult`) with four built-in rows; `ParentBasedSampler` is a COMBINATOR that delegates by parent trace-flags/remoteness, so head-based policy composes from the roster rather than forking a class. `IdGenerator` is the trace/span-id source, `RandomIdGenerator` its `./platform` row (node: `crypto`; browser: `Math.random`).
 
-| [INDEX] | [SYMBOL] | [KIND] | [CONFIG_AXIS_DECISION] |
-|:-----: |:-------------------------------- |:------------------ |:-------------------------------------------------------------- |
-| [01] | `Sampler` / `SamplingResult` | interface | `shouldSample(ctx, traceId, name, kind, attrs, links)` |
-| [02] | `SamplingDecision` | enum | `NOT_RECORD` / `RECORD` / `RECORD_AND_SAMPLED` |
-| [03] | `AlwaysOnSampler` / `AlwaysOffSampler` | class | unconditional record / drop |
-| [04] | `TraceIdRatioBasedSampler` | class | `constructor(ratio?)` — deterministic head sampling by trace-id |
-| [05] | `ParentBasedSampler` | class (combinator) | delegates to `{ root, remote/localParent{Sampled,NotSampled} }` |
-| [06] | `IdGenerator` / `RandomIdGenerator` | interface/class | 32-hex trace id + 16-hex span id; platform-random |
+| [INDEX] | [SYMBOL]                               | [KIND]             | [CONFIG_AXIS_DECISION]                                          |
+| :-----: | :------------------------------------- | :----------------- | :-------------------------------------------------------------- |
+|  [01]   | `Sampler` / `SamplingResult`           | interface          | `shouldSample(ctx, traceId, name, kind, attrs, links)`          |
+|  [02]   | `SamplingDecision`                     | enum               | `NOT_RECORD` / `RECORD` / `RECORD_AND_SAMPLED`                  |
+|  [03]   | `AlwaysOnSampler` / `AlwaysOffSampler` | class              | unconditional record / drop                                     |
+|  [04]   | `TraceIdRatioBasedSampler`             | class              | `constructor(ratio?)` — deterministic head sampling by trace-id |
+|  [05]   | `ParentBasedSampler`                   | class (combinator) | delegates to `{ root, remote/localParent{Sampled,NotSampled} }` |
+|  [06]   | `IdGenerator` / `RandomIdGenerator`    | interface/class    | 32-hex trace id + 16-hex span id; platform-random               |
 
 ```ts contract
 interface Sampler {

@@ -18,14 +18,14 @@
 [PUBLIC_TYPE_SCOPE]: patch arguments, recipe base, and doc metadata
 - rail: model-transformation
 
-| [INDEX] | [SYMBOL]            | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                          |
-| :-----: | :------------------ | :--------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `ArgumentsDict`     | execute payload  | `TypedDict` — `recipe: str` (required); `file: ifcopenshell.file`, `input: str`, `log: str`, `arguments: Sequence[Any]` (all `NotRequired`) |
-|  [02]   | `BasePatcher`       | recipe base      | `__init__(file, logger)` -> `patch() -> None` -> `get_output() -> ifcopenshell.file \| str \| None`   |
-|  [03]   | `recipes.*`         | recipe namespace | the named recipe modules (one `BasePatcher` subclass per transformation)                              |
-|  [04]   | `PatcherDoc`        | doc carrier      | `TypedDict` recipe metadata (name/description/inputs) `extract_docs` returns                          |
-|  [05]   | `InputDoc`          | arg doc carrier  | `TypedDict` per-argument metadata (name/type/description/default)                                     |
-|  [06]   | `DocstringData`     | parse result     | the structured `parse_docstring` output (summary plus parsed argument table)                          |
+| [INDEX] | [SYMBOL]        | [PACKAGE_ROLE]   | [CAPABILITY]                                                                                                                                |
+| :-----: | :-------------- | :--------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ArgumentsDict` | execute payload  | `TypedDict` — `recipe: str` (required); `file: ifcopenshell.file`, `input: str`, `log: str`, `arguments: Sequence[Any]` (all `NotRequired`) |
+|  [02]   | `BasePatcher`   | recipe base      | `__init__(file, logger)` -> `patch() -> None` -> `get_output() -> ifcopenshell.file \| str \| None`                                         |
+|  [03]   | `recipes.*`     | recipe namespace | the named recipe modules (one `BasePatcher` subclass per transformation)                                                                    |
+|  [04]   | `PatcherDoc`    | doc carrier      | `TypedDict` recipe metadata (name/description/inputs) `extract_docs` returns                                                                |
+|  [05]   | `InputDoc`      | arg doc carrier  | `TypedDict` per-argument metadata (name/type/description/default)                                                                           |
+|  [06]   | `DocstringData` | parse result     | the structured `parse_docstring` output (summary plus parsed argument table)                                                                |
 
 [RECIPE_NAMESPACE]: the `recipes` module names (each a `recipe` key value) include `ExtractElements`, `Migrate`, `OffsetObjectPlacements`, `OffsetStoreyElevations`, `ResetAbsoluteCoordinates`, `ResetSpatialElementLocations`, `SetWorldCoordinateSystem`, `SetFalseOrigin`, `SetRefElevation`, `MergeProjects`, `MergeDuplicateTypes`, `MergeStyles`, `PurgeData`, `UnsharePsets`, `ConvertLengthUnit`, `ConvertNestToAggregate`, `ConvertPropertiesToQuantities`, `Ifc2Sql`, `ExtractPropertiesToSQLite`, `RegenerateGlobalIds`, `TessellateElements`, `Optimise`, `RecycleNonRootedElements`, `SplitByBuildingStorey`, `DowngradeIndexedPolyCurve`, `AssignConstituentFractions`, `RemoveSiteRepresentation`, `AGS2IFC`, plus the Revit/ArchiCAD interop-fix recipes (`FixRevitTINs`, `FixRevit2025TINs`, `FixRevitClassificationCodeTypes`, `RemoveRevitUniformatClassification`, `FixArchiCADToRevitDoorSwings`, `FixArchiCADToRevitSpaces`) and the alignment recipes (`AddGeometricRepresentationToAlignment`, `AddZeroLengthSegmentToAlignment`, `AddLinearPlacementFallbackPosition`, `PatchStationReferentPosition`).
 
@@ -36,13 +36,13 @@
 
 The execute entry dispatches a recipe by name over the `ArgumentsDict` payload; the write entry serializes the recipe-determined output; the doc entries introspect a recipe's argument contract.
 
-| [INDEX] | [SURFACE]                                                                                  | [CALL_SHAPE]                       | [CAPABILITY]                                              |
-| :-----: | :----------------------------------------------------------------------------------------- | :--------------------------------- | :------------------------------------------------------- |
-|  [01]   | `ifcpatch.execute(args: ArgumentsDict) -> ifcopenshell.file \| str \| None`                | one `ArgumentsDict`                | run the `recipe`-named transformation, return the recipe-determined output |
-|  [02]   | `ifcpatch.write(output, filepath: Path \| str) -> None`                                    | recipe output plus path            | serialize a patched `ifcopenshell.file` or write a non-IFC string product |
-|  [03]   | `ifcpatch.extract_docs(submodule_name, cls_name, method_name="__init__", boilerplate_args=None) -> PatcherDoc \| None` | recipe module + class + method | introspect a recipe's argument contract |
-|  [04]   | `ifcpatch.parse_docstring(docstring: str) -> DocstringData`                                 | a docstring                        | parse a recipe docstring into structured metadata        |
-|  [05]   | `ifcpatch.ensure_logger(logger=None) -> logging.Logger`                                     | optional logger                    | resolve the logger the `BasePatcher` records into        |
+| [INDEX] | [SURFACE]                                                                                                              | [CALL_SHAPE]                   | [CAPABILITY]                                                               |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :----------------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `ifcpatch.execute(args: ArgumentsDict) -> ifcopenshell.file \| str \| None`                                            | one `ArgumentsDict`            | run the `recipe`-named transformation, return the recipe-determined output |
+|  [02]   | `ifcpatch.write(output, filepath: Path \| str) -> None`                                                                | recipe output plus path        | serialize a patched `ifcopenshell.file` or write a non-IFC string product  |
+|  [03]   | `ifcpatch.extract_docs(submodule_name, cls_name, method_name="__init__", boilerplate_args=None) -> PatcherDoc \| None` | recipe module + class + method | introspect a recipe's argument contract                                    |
+|  [04]   | `ifcpatch.parse_docstring(docstring: str) -> DocstringData`                                                            | a docstring                    | parse a recipe docstring into structured metadata                          |
+|  [05]   | `ifcpatch.ensure_logger(logger=None) -> logging.Logger`                                                                | optional logger                | resolve the logger the `BasePatcher` records into                          |
 
 `execute` takes ONE positional `ArgumentsDict`, not a keyword call — the consumer builds `{"recipe": name, "file": model, "arguments": [...], "input": ""}` and passes it whole; `recipe` is the only required key. `extract_docs` is the recipe-introspection entry over `(submodule_name, cls_name)`, NOT a single dotted recipe name.
 

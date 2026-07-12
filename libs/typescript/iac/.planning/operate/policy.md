@@ -2,17 +2,17 @@
 
 The policy plane in one owner with three verdict directions: `Guard` judges desired state before apply — one `PolicyPackArgs` value of policies-as-data rows, pack-level `mandatory` enforcement with per-policy overrides, compliance frames riding the rows they cover, attached to every run through `Automation.Options.policyPacks` so no `up` or `preview` executes ungated — `Drift` judges live state after it, projecting `Automation.reconcile` receipts into `DriftReport` rows plus the docker-cell store-conformance read-back, and `Reconcile` closes the loop in-cluster: the Pulumi Kubernetes Operator as a chart row with typed `Stack` CRs, so desired state re-asserts continuously between deploy-host sweeps and a tenant-submitted CR can trigger provisioning without a deploy-host actor. Guard policies narrow against the exact resource classes the tier pages construct through the typed helper family, and the rows encode this folder's own laws as machine pressure ON THE ARM THAT SHIPS: digest-pinned images, no superuser roles on BOTH the bridged `postgresql.Role` class and the CNPG `managed.roles` rows the primary arm actually creates, TLS at the Gateway and legacy-Ingress edges, protected data planes with their scheduled backups present, namespace network fences, managed-by stamps through the one combined validate-remediate callback. The previewRefresh mechanics live on the automation driver — drift here is pure projection over the shared receipt vocabulary, so deploy evidence and drift evidence cannot fork. The module is `iac/src/operate/policy.ts`; a new invariant is one policy row, a new drift dimension is one report field folded from rows already carried, a new reconcile subject is one `Stack` CR row, and no validator ever branches — growth is rows, never arms.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                             | [PUBLIC]    |
-| :-----: | :--------------- | :------------------------------------------------------------------ | :---------- |
-|  [01]   | `PACK_ASSEMBLY`  | the pack value, enforcement vocabulary, compliance frames           | `Guard`     |
-|  [02]   | `POLICY_ROWS`    | the typed validation, stack-invariant, and remediation rows         | `Guard`     |
-|  [03]   | `DRIFT_REPORT`   | the report owner: drifted rows, rotation watch, skew evidence       | `Drift`     |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                               | [PUBLIC]    |
+| :-----: | :--------------- | :------------------------------------------------------------------- | :---------- |
+|  [01]   | `PACK_ASSEMBLY`  | the pack value, enforcement vocabulary, compliance frames            | `Guard`     |
+|  [02]   | `POLICY_ROWS`    | the typed validation, stack-invariant, and remediation rows          | `Guard`     |
+|  [03]   | `DRIFT_REPORT`   | the report owner: drifted rows, rotation watch, skew evidence        | `Drift`     |
 |  [04]   | `DRIFT_SWEEP`    | the reconcile projection, the fleet sweep, the conformance read-back | `Drift`     |
-|  [05]   | `RECONCILE_LOOP` | the in-cluster PKO operator and its typed Stack CR rows             | `Reconcile` |
+|  [05]   | `RECONCILE_LOOP` | the in-cluster PKO operator and its typed Stack CR rows              | `Reconcile` |
 
-## [2]-[PACK_ASSEMBLY]
+## [02]-[PACK_ASSEMBLY]
 
 [PACK_ASSEMBLY]:
 - Owner: `Guard`, the `PolicyPackArgs` value — the `policies` array is the whole pack, `enforcementLevel: "mandatory"` is the pack default each row may override (`"advisory"` for stamps, `"remediate"` for fix-forward rows), and metadata (`description`, `severity`, `framework`, `remediationSteps`) rides each row as data the engine surfaces with the violation.
@@ -24,7 +24,7 @@ The policy plane in one owner with three verdict directions: `Guard` judges desi
 - Boundary: attachment plumbing is `program/automation.md`'s options row; the narrowed classes are the tier pages' constructions; enforcement semantics (`remediate` apply order, `mandatory` abort) are the engine's contract.
 - Packages: `@pulumi/policy` (`PolicyPackArgs`, `ResourceValidationPolicy`, `StackValidationPolicy`, the typed helper family, `PolicyComplianceFramework`, `Secret`); `@pulumi/kubernetes`, `@pulumi/postgresql` (the narrowed classes).
 
-## [3]-[POLICY_ROWS]
+## [03]-[POLICY_ROWS]
 
 [POLICY_ROWS]:
 - Law: image provenance is structural — `image-digest-pinned` narrows `k8s.apps.v1.Deployment` and reports every container whose image lacks an `@sha256:` digest, with a typed `configSchema` allowlisting registries a proof stack may pull mutable; the `kube/workload` digest law compiles to this gate, so a mutable tag cannot reach a cluster even from an app-authored program.
@@ -175,7 +175,7 @@ const Guard: policy.PolicyPackArgs = {
 }
 ```
 
-## [4]-[DRIFT_REPORT]
+## [04]-[DRIFT_REPORT]
 
 [DRIFT_REPORT]:
 - Owner: `DriftReport`, one `Schema.Class` reusing the automation owner's field schemas — `summary` and `drifted` are `RunReceipt.fields.summary` and `RunReceipt.fields.steps` composed directly, so the drift vocabulary cannot fork from the receipt vocabulary — plus `rotations` (the urns of certificate resources whose reissue window is open) and the `Option`-carried `skew` pair.
@@ -211,7 +211,7 @@ class DriftReport extends Schema.Class<DriftReport>("DriftReport")({
 }
 ```
 
-## [5]-[DRIFT_SWEEP]
+## [05]-[DRIFT_SWEEP]
 
 [DRIFT_SWEEP]:
 - Owner: `Drift` — `check(stack, name)` composes `Automation.reconcile` (the driver's read-only leg) and projects the receipt through `_report`; `sweep(fleet, cadence, sink)` repeats the fleet check under the caller's `Schedule` at the fiber's inherited concurrency budget, and each stack's failure is isolated through `Effect.either` so one faulted stack never starves the rest of the fleet cycle — the sweep delivers every cycle's verdicts, faults included, to the sink; `conform(database, expected)` is the docker-cell store read-back over `postgresql.getTables`, returning the relations the expected roster names that the live store does not carry.
@@ -288,7 +288,7 @@ const Drift = {
 } as const
 ```
 
-## [6]-[RECONCILE_LOOP]
+## [06]-[RECONCILE_LOOP]
 
 [RECONCILE_LOOP]:
 - Owner: `Reconcile`, the in-cluster continuous-reconciliation tier — the Pulumi Kubernetes Operator installs as one `helm.v4.Chart` row, and each reconciled estate is one typed `Stack` CR (committed `crd2pulumi` classes from `../crds/pko`): `spec.stack` names the target, `spec.projectRepo`/`branch` bind the Git source of the desired-state program, `spec.refresh: true` re-reads provider state each cycle, `spec.continueResyncOnCommitMatch` + `spec.resyncFrequencySeconds` make the loop continuous rather than commit-edge-triggered, and `spec.envRefs` bind the workspace facts from the ONE workspace `Secret` this tier mints from its `workspace` args — the same facts `_host` reads on the deploy host, one vocabulary, two execution planes, and a CR referencing a secret nothing minted is the phantom this owner closes.

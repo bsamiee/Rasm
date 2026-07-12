@@ -2,16 +2,16 @@
 
 The PostgreSQL spine of the guarantee-lane matrix: one sealed vocabulary owner carrying the first-party capability rows the engine grants outright, the concurrency-primitive table whose load-bearing column is what each primitive does NOT guarantee, the ruled extension matrix every probe and image derivation reads, and the driver Layer rows that bind the neutral `SqlClient` to the pooled pg wire. Everything here is data or a Layer mint — the fail-closed probe service is `lane/capability.md`'s, the per-scope Layer family is `lane/tenant.md`'s, and every journal statement composes these rows through the grant vocabulary instead of assuming the engine. A new engine capability is one row; a pruned extension is one deleted row plus its image fact; no consumer edit exists on either path.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                              |
-| :-----: | :----------------- | :------------------------------------------------------------------------------------ |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                                 |
+| :-----: | :----------------- | :------------------------------------------------------------------------------------- |
 |  [01]   | `SPINE_ROWS`       | the first-party capability rows — identity mint, derivation, evidence, integrity forms |
-|  [02]   | `PRIMITIVE_TABLE`  | the concurrency/queue primitives with their upholds AND denies columns                  |
-|  [03]   | `EXTENSION_MATRIX` | the ruled extension rows, the derived grant union, the image projection                 |
-|  [04]   | `DRIVER_ROWS`      | the `PgClient` Layer mints, the notify bus, the jsonb fragment                          |
+|  [02]   | `PRIMITIVE_TABLE`  | the concurrency/queue primitives with their upholds AND denies columns                 |
+|  [03]   | `EXTENSION_MATRIX` | the ruled extension rows, the derived grant union, the image projection                |
+|  [04]   | `DRIVER_ROWS`      | the `PgClient` Layer mints, the notify bus, the jsonb fragment                         |
 
-## [2]-[SPINE_ROWS]
+## [02]-[SPINE_ROWS]
 
 - Owner: the `_spine` key tuple — one closed key per first-party engine capability; the derived `Pg.Spine` union is the in-core half of the grant vocabulary the sqlite degradation table mirrors, and the SQL idiom each key names lives in this cluster's law lines, spliced by ensure authors as settled fact.
 - Packages: none — the rows are engine facts, not packages.
@@ -31,7 +31,7 @@ declare namespace Pg {
 }
 ```
 
-## [3]-[PRIMITIVE_TABLE]
+## [03]-[PRIMITIVE_TABLE]
 
 - Owner: the `_primitives` anchor — one row per first-party concurrency/queue primitive, each carrying `upholds` and `denies`; the denies column is the table's reason to exist, because every composed correctness lane is built from what a primitive refuses as much as from what it grants.
 - Packages: none — engine facts.
@@ -84,7 +84,7 @@ declare namespace Pg {
 }
 ```
 
-## [4]-[EXTENSION_MATRIX]
+## [04]-[EXTENSION_MATRIX]
 
 - Owner: the `_rows` anchor plus the assembled projections — the ruled extension estate as `{extension, floor, probeSql, capabilities, layer, flags}` rows, the derived `Grant` union, the `{extension, floor}` image projection the deployment image realizes, and the per-dialect `_core` grant table.
 - Packages: none — extensions are deployment-image facts, never JS dependencies.
@@ -143,7 +143,7 @@ declare namespace Pg {
 }
 ```
 
-## [5]-[DRIVER_ROWS]
+## [05]-[DRIVER_ROWS]
 
 - Owner: the three driver Layer mints over `PgClient` and the assembled `Pg` export — the fixed-config row, the `Config`-wrapped row, and the shared-pool adoption row `lane/tenant.md` fans tenant scopes across; the notify bus and jsonb fragment ride the concrete Tag for the two pages that need them.
 - Packages: `@effect/sql-pg` (`PgClient.layer`, `PgClient.layerConfig`, `PgClient.layerFromPool`, `PgClient.listen`, `PgClient.notify`, `PgClient.json`); `effect` (`Config`, `Duration`, `Redacted`).

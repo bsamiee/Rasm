@@ -2,18 +2,18 @@
 
 The realtime serve plane: SSE and WebSocket endpoints over the branch's own feed values — the data wave's reactive reads, the fanout topics, the core presence fold — under the resume-token law that makes a replayable feed reconnect-exact and under an admission gate that is data in one channel-rule table. The SSE row is the serving mirror of `channel#FEED_SEAM`: the same `Sse` codec owns both directions of the dialect — `Sse.makeChannel` decodes on the consuming side, `Sse.encoder` frames on this side — so a hand-assembled `data:` string is unspellable anywhere in the branch. The socket row lifts `HttpServerRequest.upgrade` into one typed duplex channel: `Ndjson.duplexString` frames text lines, `ChannelSchema.duplexUnknown` types both directions, and the frame vocabularies are parameters so a new realtime feature is a frame case at its owner, never a socket edit. Admission guards exactly what the endpoints serve: prefix-matched channel rules resolve scope, presence service, fan cap, and lease policy in one Trie read; the stamp guard pins a decoded `Presence.Op` to the authenticated principal before it reaches the fold; the roster read is a pure verdict against a caller-minted horizon. Foreign realtime protocols arrive through the `Mount` port the route assembly folds. The module ships on the `./server` exports subpath as `runtime/src/serve/live.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                          | [PUBLIC]     |
-| :-----: | :------------ | :--------------------------------------------------------------------------------- | :----------- |
-|  [01]   | `LIVE_FAULT`  | the realtime refusal family, the resume brand, the resumable-source contract        | `LiveFault`  |
-|  [02]   | `SSE_ROW`     | the SSE endpoint fold: resume decode, encoder framing, heartbeat, retry hint        | `Realtime`   |
-|  [03]   | `SOCKET_ROW`  | the WS upgrade fold: typed duplex framing over the socket channel                   | `Realtime`   |
-|  [04]   | `FEED_ROWS`   | source adapters: reactive query reads, fanout topics, the presence roster stream    | `Realtime`   |
-|  [05]   | `ADMISSION`   | channel rules, subscription grant, stamp guard, roster read, fan registry           | `Admission`  |
-|  [06]   | `MOUNT_PORT`  | the foreign-protocol mount port                                                     | `Mount`      |
+| [INDEX] | [CLUSTER]    | [OWNS]                                                                           | [PUBLIC]    |
+| :-----: | :----------- | :------------------------------------------------------------------------------- | :---------- |
+|  [01]   | `LIVE_FAULT` | the realtime refusal family, the resume brand, the resumable-source contract     | `LiveFault` |
+|  [02]   | `SSE_ROW`    | the SSE endpoint fold: resume decode, encoder framing, heartbeat, retry hint     | `Realtime`  |
+|  [03]   | `SOCKET_ROW` | the WS upgrade fold: typed duplex framing over the socket channel                | `Realtime`  |
+|  [04]   | `FEED_ROWS`  | source adapters: reactive query reads, fanout topics, the presence roster stream | `Realtime`  |
+|  [05]   | `ADMISSION`  | channel rules, subscription grant, stamp guard, roster read, fan registry        | `Admission` |
+|  [06]   | `MOUNT_PORT` | the foreign-protocol mount port                                                  | `Mount`     |
 
-## [2]-[LIVE_FAULT]
+## [02]-[LIVE_FAULT]
 
 [LIVE_FAULT]:
 - Owner: `LiveFault` — the realtime reason family: `denied` (subscription refused by admission), `shed` (fan capacity refused), `lost` (resume coordinate no longer replayable — the client re-syncs from a snapshot), `closed` (channel retired or transport failed) — rows carrying the core class so the `problem` net renders an escaped instance at its own status; and `Realtime.Source` — the resumable-feed contract every endpoint takes: `from(resume)` opens the stream, `token(item)` mints the reattach coordinate as `Option` so a snapshot-shaped feed (each emission a fresh decoded read) is honestly tokenless and a journal-shaped feed is replay-exact.
@@ -71,7 +71,7 @@ declare namespace Realtime {
 }
 ```
 
-## [3]-[SSE_ROW]
+## [03]-[SSE_ROW]
 
 [SSE_ROW]:
 - Owner: `Realtime.sse` — one endpoint fold for every SSE feed in the branch: decode `Last-Event-ID` through the `Resume` brand (absence is a fresh attach, never a fault), open `source.from(resume)`, encode each item through its schema into an `Sse.Event` whose `id` is the item's own token, and merge the heartbeat cadence so proxies never reap an idle feed; the head of the encode seam is an `Sse.Retry` directive carrying the server's reconnect hint — the same closed `Event | Retry` frame family `channel#FEED_SEAM` decodes, one codec owner for both directions of the dialect.
@@ -136,7 +136,7 @@ const _sse = <A, I, E, R, R2>(
   })
 ```
 
-## [4]-[SOCKET_ROW]
+## [04]-[SOCKET_ROW]
 
 [SOCKET_ROW]:
 - Owner: `Realtime.socket` — the WS upgrade fold: `HttpServerRequest.upgrade` yields the peer socket, `Socket.toChannelWith` lifts it to a byte channel, `Ndjson.duplexString` frames text lines, and `ChannelSchema.duplexUnknown({ inputSchema, outputSchema })` types both directions in one composition — a live session is one typed duplex channel whose inbound decodes INTO the caller's vocabulary (`Presence.Op`, subscribe intents) and whose outbound is the encoded frame family, backpressure inherited from the channel stack; the binary peer swaps `Ndjson` for the `channel#FRAME_ROWS` msgpack row with an unchanged schema seam.
@@ -166,7 +166,7 @@ const _socket = <In, IEnc, Out, OEnc, RIn, ROut>(
   })
 ```
 
-## [5]-[FEED_ROWS]
+## [05]-[FEED_ROWS]
 
 [FEED_ROWS]:
 - Owner: the source adapters — the three branch feed families lifted into the one `Source` contract so every endpoint fold serves them unchanged. `Realtime.query(bound)` serves a data `Live.Bound`: `changes` is the push stream re-running on every overlapping mutation, each emission a fresh decoded read, so the source is honestly tokenless — a reconnect re-reads current state and misses nothing by construction — and the pull twin stays the consumer-side `mailbox`, never an SSE concern; `Realtime.topic(topic)` serves a fanout subject: a fresh attach warms from the topic row's replay window, and a caller holding its own sequence ledger opens `Fanout.replay(topic, anchor)` instead — the anchor is the caller's evidence, so the adapter mints no token it cannot honor; `Realtime.roster(feed, lease)` serves presence: the folded table stream projects through `Presence.roster` against a horizon minted per emission, so liveness is a read-time verdict and no timer fiber sweeps anything.
@@ -214,7 +214,7 @@ const _roster = <E, R>(
 })
 ```
 
-## [6]-[ADMISSION]
+## [06]-[ADMISSION]
 
 [ADMISSION]:
 - Owner: `Admission.make(rules)` — one constructor over the app's channel-rule rows: each row keys a channel PREFIX and carries `scope` (the `Principal` scope a subscriber must hold, `Option` for public channels), `presence` (whether the channel serves a roster), `fan` (the per-principal live-subscription cap), and `lease` (the presence liveness windows) — held in a `Trie` so `Trie.longestPrefixOf` resolves any concrete channel to its most specific family row in one read, and a channel family is one row, never one row per channel.
@@ -287,7 +287,7 @@ const _make = (rows: ReadonlyArray<readonly [prefix: string, rule: Admission.Rul
 const Admission = { Channel: _Channel, make: _make } as const
 ```
 
-## [7]-[MOUNT_PORT]
+## [07]-[MOUNT_PORT]
 
 [MOUNT_PORT]:
 - Owner: `Mount` — the foreign-protocol port: a `Context.Tag` carrying `{ prefix, app }` where `app` is a complete `HttpApp.Default` implementing a foreign realtime protocol; `route#LAYER_ROUTES` folds `Effect.serviceOption(Mount)` and mounts the app at its prefix — presence-as-data, an unwired port serves nothing, and the standing satisfier is the data wave's EventLog sync server provided at the app root.

@@ -2,16 +2,16 @@
 
 The durable fact journal: audit evidence and usage metering as rows of ONE polymorphic fact family draining through ONE buffered rail into ONE stream-discriminated table. `AuditFact` owns the actor/action/target vocabulary with typed diff evidence as a closed change family; `MeterFact` owns the `(app, tenant)`-keyed quantity against the closed resource vocabulary; both are tagged members of the `Fact` union, both stamp identity and time on the rail, and both age under `journal/retain.md`'s retention classes — no second retention vocabulary exists. The journal append is the system of record — a missing metric point is a dashboard gap, a missing journal row is an evidence or billing defect, and the rail's posture follows that asymmetry: appends retry and suspend, the observability emission beside them never blocks the drain. Rating is exact arithmetic — `BigDecimal` rate rows folded over rollup aggregates, a float never touches money — and the engine-level session audit is the spine's `audit` grant running beside this stream, never replacing it.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]     | [OWNS]                                                                          |
-| :-----: | :------------ | :------------------------------------------------------------------------------- |
-|  [01]   | `FACT_FAMILY` | the closed `Fact` union — audit row, meter row, change family, resource table     |
-|  [02]   | `JOURNAL_ROW` | the stream-discriminated ensure, the batch append, retention grooming             |
-|  [03]   | `RAIL`        | the one buffered service — polymorphic record, stamped identity, bounded drain    |
-|  [04]   | `RATING`      | rollup as a keyed fold and rating as exact `BigDecimal` policy evaluation         |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                         |
+| :-----: | :------------ | :----------------------------------------------------------------------------- |
+|  [01]   | `FACT_FAMILY` | the closed `Fact` union — audit row, meter row, change family, resource table  |
+|  [02]   | `JOURNAL_ROW` | the stream-discriminated ensure, the batch append, retention grooming          |
+|  [03]   | `RAIL`        | the one buffered service — polymorphic record, stamped identity, bounded drain |
+|  [04]   | `RATING`      | rollup as a keyed fold and rating as exact `BigDecimal` policy evaluation      |
 
-## [2]-[FACT_FAMILY]
+## [02]-[FACT_FAMILY]
 
 - Owner: `AuditFact` and `MeterFact` — two `Schema.TaggedClass` rows of the closed `Fact` union; the `Change` diff family; the `_resources` table carrying each metered resource's unit and its metric-egress tenancy posture.
 - Packages: `effect` (`Schema`, `Duration`); `@rasm/ts/core` (`AppIdentity`, `TenantContext`); `journal/retain.md` (`Retain.Class` — the one retention vocabulary).
@@ -87,7 +87,7 @@ declare namespace Fact {
 }
 ```
 
-## [3]-[JOURNAL_ROW]
+## [03]-[JOURNAL_ROW]
 
 - Owner: the `fact_journal` ensure — one stream-discriminated table for every fact row — and `_append`, the batch insert the rail drains through; grooming rides the retain windows by class column.
 - Packages: `@effect/sql` (`SqlClient`, `sql.insert`); `effect` (`Schema`, `Array`).
@@ -142,7 +142,7 @@ const _append = (facts: Array.NonEmptyReadonlyArray<Fact.Value>) =>
     ))
 ```
 
-## [4]-[RAIL]
+## [04]-[RAIL]
 
 - Owner: the `Fact` service — a Layer factory over the app's `AppIdentity` (`Fact.Default(identity)`), holding one bounded intake and one scoped drain fiber; `record` is the ONE entrypoint, modal over its input — an audit draft, a meter charge, or a proven-non-empty batch of either — discriminated on the value, never a sibling per stream.
 - Packages: `effect` (`Effect.Service`, `Queue`, `Stream`, `Chunk`, `Schedule`, `Metric`, `DateTime`, `Option`, `Predicate`); `@rasm/ts/core` (`Convention` — the metric and attribute name rows).
@@ -257,7 +257,7 @@ declare namespace Fact {
 }
 ```
 
-## [5]-[RATING]
+## [05]-[RATING]
 
 - Owner: the rollup fold and the rating evaluation — `rollup` is one `HashMap.modifyAt` keyed fold over `(app, tenant, resource)` tuples accumulating `{ count, total }`, and `rate` folds a caller-supplied rating policy over the rolled aggregates into exact per-key cost.
 - Packages: `effect` (`Array`, `BigDecimal`, `Data`, `HashMap`, `Option`).

@@ -2,16 +2,16 @@
 
 The filesystem plane and the derivative codec, both over the one content identity: files enter and leave the process through the platform `FileSystem` capability — content-addressed intake streams a file through the incremental digest fold into a conditional put, temp staging is scoped acquisition, and a watched directory is a `Stream` of admission events — and the image derivative fan-out decodes a stored object exactly once, `clone()`s per derivative-spec row, encodes through the one `toFormat` dispatch, mints each derivative's own `ContentKey` through the core digest, re-puts under the same conditional-put idempotency (412 = noop), and hands back one presigned grant per row. Untrusted input is gated before decode — `failOn`, pixel limits, blocked loaders, a per-pipeline deadline — because every upload is hostile; sharp is native and server-plane only, and its Promise terminals exist solely inside this page's boundary seams. A new rendition is a roster row; a new intake source is a lift; no per-format method ladder and no second addressing vocabulary exist anywhere on the plane.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                        |
-| :-----: | :---------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `FILE_PLANE`      | content-addressed intake, scoped temp staging, the watch stream, egress            |
-|  [02]   | `CODEC_GATE`      | the untrusted-input posture and the module governance rows                         |
-|  [03]   | `DERIVATIVE_ROWS` | the spec roster, decode-once/clone-N, the `toFormat` dispatch, receipts            |
-|  [04]   | `FANOUT`          | the fetch → gate → encode → mint → conditional re-put → grant fold                 |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                  |
+| :-----: | :---------------- | :---------------------------------------------------------------------- |
+|  [01]   | `FILE_PLANE`      | content-addressed intake, scoped temp staging, the watch stream, egress |
+|  [02]   | `CODEC_GATE`      | the untrusted-input posture and the module governance rows              |
+|  [03]   | `DERIVATIVE_ROWS` | the spec roster, decode-once/clone-N, the `toFormat` dispatch, receipts |
+|  [04]   | `FANOUT`          | the fetch → gate → encode → mint → conditional re-put → grant fold      |
 
-## [2]-[FILE_PLANE]
+## [02]-[FILE_PLANE]
 
 - Owner: `Disk` — the file-side verbs over the platform capability Tags: `intake` (file → identity fold → conditional put → reference row, owner parameterized), `stage` (scoped temp file whose teardown rides the `Scope`), `watch` (a settle-guarded drop directory as a `Stream` of intake admissions), `egress` (content object → file sink, streamed).
 - Packages: `chokidar` (`watch`, the `all` listener, `awaitWriteFinish`, `atomic`, `ignored` matcher rows, awaited `close`) — the intake watch owner; `@effect/platform` (`FileSystem.FileSystem` — `stream`, `sink`, `watch`, `makeTempFileScoped`, `stat`; `Path.Path`); `effect` (`Stream`, `Effect`); `object/stream.md` (`Rail.bytes`, `Rail.identity` — the one identity fold), `object/store.md` (`ObjectStore` — the conditional legs).
@@ -85,7 +85,7 @@ const _egress = (key: ContentKey, path: string) =>
   Effect.flatMap(FileSystem.FileSystem, (fs) => Stream.run(Rail.range(key), fs.sink(path)))
 ```
 
-## [3]-[CODEC_GATE]
+## [03]-[CODEC_GATE]
 
 - Owner: the untrusted-input posture — the `_GATE` ingress options, the blocked-loader roster applied once at module admission, the per-pipeline deadline — and the module governance rows (`cache`, `concurrency`, `simd`, the `sharp.format` capability read) that bound the native runtime and refuse an unbuildable rendition roster at boot.
 - Packages: `sharp` (`SharpOptions` — `failOn`, `limitInputPixels`, `unlimited`, `autoOrient`; `sharp.block`, `sharp.cache`, `sharp.concurrency`, `sharp.simd`, `sharp.format`, `sharp.versions`, `timeout`).
@@ -128,7 +128,7 @@ const _governed = (
   )
 ```
 
-## [4]-[DERIVATIVE_ROWS]
+## [04]-[DERIVATIVE_ROWS]
 
 - Owner: the `Derive.Spec` roster row shape and the per-row receipt — a rendition is `{ name, resize, format, options, admit, composite, terminal, placeholder }`, the codec dispatch is `toFormat(row.format, row.options)` with the tile pyramid as the one alternate terminal arm, and the receipt carries sharp's `OutputInfo` provenance plus the dominant color when the row asks.
 - Packages: `sharp` (`clone`, `resize`, `composite`, `toFormat`, `tile`, `toBuffer({ resolveWithObject: true })`, `toFile`, `metadata`, `stats`, `FormatEnum`, `Metadata`, `OverlayOptions`, `TileOptions`, `ResizeOptions`, `OutputOptions`, `OutputInfo`).
@@ -164,7 +164,7 @@ declare namespace Derive {
 }
 ```
 
-## [5]-[FANOUT]
+## [05]-[FANOUT]
 
 - Owner: `Derive.fanout(sourceKey, specs)` — the whole fold: verified fetch, gated single decode, clone-per-row encode, per-derivative key mint, conditional re-put, reference row owned by the source, presigned grant — plus `DeriveFault`, the plane's stage-discriminated fault.
 - Packages: `sharp`; `object/store.md` (`ObjectStore.get`/`put`/`grant`, the reference verbs); `@rasm/ts/core` (`ContentKey` — every derivative is itself content-addressed).

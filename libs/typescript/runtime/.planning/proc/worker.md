@@ -2,15 +2,15 @@
 
 Off-thread compute is one closed protocol and one pool — no wrapper, the platform surface at full depth. The message vocabulary is a `Schema.Union` of `Schema.TaggedRequest` classes — payload, success, and failure in one declaration, zero-copy crossings declared at the schema through the `Transferable` rows — and the pool executes decoded requests: `executeEffect` answers once, `execute` streams, `broadcast` fans to every member, the request's declared nature discriminating the modality so a parallel pool per shape is unspellable. Sizing is one policy row — fixed with utilization-driven growth or elastic with idle TTL — and backpressure is structural: pool `concurrency` bounds in-flight requests per member, a saturated pool suspends callers on the platform's own queue, and no depth counter or shed flag exists beside it. Failure crosses as the request's failure schema and reconstructs as the same tagged class on the caller, so one fault vocabulary spans the thread boundary. The worker side implements the identical protocol through a compiler-checked handler record and boots as a module that exports nothing. The module is `runtime/src/proc/worker.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                       | [PUBLIC]                |
-| :-----: | :---------------- | :------------------------------------------------------------------------------ | :---------------------- |
-|  [01]   | `PROTOCOL_FAMILY` | the tagged-request union, transfer declarations, the cross-thread fault law     | request classes         |
-|  [02]   | `POOL_ROWS`       | sizing policy rows, the execution modalities, the backpressure law              | pool Tag + Layer        |
-|  [03]   | `RUNNER_BOOT`     | the handler record, the worker boot module, the spawn seam                      | runner Layer            |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                      | [PUBLIC]         |
+| :-----: | :---------------- | :-------------------------------------------------------------------------- | :--------------- |
+|  [01]   | `PROTOCOL_FAMILY` | the tagged-request union, transfer declarations, the cross-thread fault law | request classes  |
+|  [02]   | `POOL_ROWS`       | sizing policy rows, the execution modalities, the backpressure law          | pool Tag + Layer |
+|  [03]   | `RUNNER_BOOT`     | the handler record, the worker boot module, the spawn seam                  | runner Layer     |
 
-## [2]-[PROTOCOL_FAMILY]
+## [02]-[PROTOCOL_FAMILY]
 
 [PROTOCOL_FAMILY]:
 - Owner: the closed protocol union — each request a `Schema.TaggedRequest` class carrying payload, success, and failure schemas in one declaration; the union value is the one artifact both sides compile against, so a request the pool sends that the runner cannot answer is a compile error at the handler record, never a runtime miss.
@@ -79,7 +79,7 @@ class Render extends Schema.TaggedRequest<Render>()("Render", {
 const _Protocol = Schema.Union(Grade, Sweep, Drop, Render)
 ```
 
-## [3]-[POOL_ROWS]
+## [03]-[POOL_ROWS]
 
 [POOL_ROWS]:
 - Owner: the pool form — `Worker.makePoolSerializedLayer(Tag, sizing)` against one `Context.Tag` holding the `SerializedWorkerPool` of the union; execution modalities ride the pool surface (`executeEffect` one-shot, `execute` streaming, `broadcast` fan-out) and the request's declared nature discriminates, never a parallel pool.
@@ -103,7 +103,7 @@ const BenchLive = (
   Worker.makePoolSerializedLayer(Bench, _SIZING[profile])
 ```
 
-## [4]-[RUNNER_BOOT]
+## [04]-[RUNNER_BOOT]
 
 [RUNNER_BOOT]:
 - Owner: the worker side — `WorkerRunner.layerSerialized(protocol, handlers)` with the handler record compiler-checked against the union: an `Effect` handler answers once, a `Stream` handler streams, a `broadcast` request reaches every member's handler; the record is the whole worker program.

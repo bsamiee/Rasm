@@ -2,17 +2,17 @@
 
 Durable execution as suspend-and-replay: a `Workflow` is a Schema-typed, idempotency-keyed computation whose recorded activities replay without re-running side effects, and this page owns the whole altitude — the `Step` mint that gives every activity its budget geometry from the one `core/fault#RETRY_BUDGET` table, the definition law with deterministic execution identity and the engine Tag the root satisfies from `entity#GRID`, the saga compensation fold, the `Signal` external-signal owner (token-addressed `DurableDeferred` plus the branch's ONE durable timer over `DurableClock`), and the `WorkflowProxy` projection that mounts a workflow set on the serving plane. The altitude ruling arrives settled from the core machine page: an in-process transition system is the `Machine` actor; a computation demanding replay, activity memoization, compensation, or cross-process sharding lives here — promotion re-homes the vocabulary, never re-shapes it. A definition never names its engine: `WorkflowEngine.layerMemory` runs specs, `ClusterWorkflowEngine.layer` (composed at `entity#GRID`) runs production, and the swap is one root Layer. The module ships on the `./server` exports subpath as `runtime/src/work/flow.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]    | [OWNS]                                                                            | [PUBLIC] |
-| :-----: | :----------- | :----------------------------------------------------------------------------------- | :------- |
-|  [01]   | `STEP_MINT`  | the budgeted activity mint — deadline geometry, class-gated retry, run evidence       | `Step`   |
-|  [02]   | `FLOW_LAW`   | definition, execution identity, the engine Tag, drive members, the result fold        | `Flow`   |
-|  [03]   | `SAGA_FOLD`  | top-level compensation registration and the rollback law                              | `Flow`   |
-|  [04]   | `SIGNAL_GATE`| the token-addressed external signal and the one durable timer                         | `Signal` |
-|  [05]   | `WIRE_PROXY` | workflow sets as serving-plane contribution pairings                                  | `Flow`   |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                          | [PUBLIC] |
+| :-----: | :------------ | :------------------------------------------------------------------------------ | :------- |
+|  [01]   | `STEP_MINT`   | the budgeted activity mint — deadline geometry, class-gated retry, run evidence | `Step`   |
+|  [02]   | `FLOW_LAW`    | definition, execution identity, the engine Tag, drive members, the result fold  | `Flow`   |
+|  [03]   | `SAGA_FOLD`   | top-level compensation registration and the rollback law                        | `Flow`   |
+|  [04]   | `SIGNAL_GATE` | the token-addressed external signal and the one durable timer                   | `Signal` |
+|  [05]   | `WIRE_PROXY`  | workflow sets as serving-plane contribution pairings                            | `Flow`   |
 
-## [2]-[STEP_MINT]
+## [02]-[STEP_MINT]
 
 [STEP_MINT]:
 - Owner: `Step` — the once-executed durable step with its budget geometry compiled from a `WorkClass`-priced `Budget` row: `Step.run(name, clazz, { success, error, execute })` carries the exit schemas because the engine persists the `Exit` through them — the declared `error` unions the caller's family with `StepFault` so a budget trip serializes beside domain failure — and wraps the body in the row's per-attempt deadline (`Effect.timeoutFail` with `Budget[kind].attempt` failing into an `expired`-classed fault), hands `Budget.schedule(kind)` to `interruptRetryPolicy` so an interrupted step re-drives only while its fault classifies retryable, and stacks the whole-call deadline (`Budget[kind].total`) above the activity so the two-tier geometry every rail in the branch layers is identical here.
@@ -65,7 +65,7 @@ const _run = <A, AI, AR, E extends { readonly class: FaultClass.Kind }, EI, ER, 
 const Step = { run: _run }
 ```
 
-## [3]-[FLOW_LAW]
+## [03]-[FLOW_LAW]
 
 [FLOW_LAW]:
 - Owner: the definition law at the package surface — `Workflow.make({ name, payload, idempotencyKey, success, error, suspendedRetrySchedule })` with the payload a Schema family and `idempotencyKey` a pure projection of it, so `executionId(payload)` is content-derived and an equal payload resumes the same run instead of forking a duplicate; `Workflow.fromTaggedRequest` lifts a `Schema.TaggedRequest` whose payload/success/failure already travel as one declaration — the same triple an `Actor` protocol or a `Tool.fromTaggedRequest` row speaks, so one request class serves entity message, tool row, and workflow without re-declaration; `Flow` carries only the members the package lacks — the `verdict` fold and the saga pair (`compensated`, `saga`) — never renames of what it ships.
@@ -100,7 +100,7 @@ const _verdict = <A, E>(executionId: string, result: Workflow.Result<A, E>): Flo
   )
 ```
 
-## [4]-[SAGA_FOLD]
+## [04]-[SAGA_FOLD]
 
 [SAGA_FOLD]:
 - Owner: the compensation law — `Workflow.withCompensation(effect, (value, cause) => cleanup)` registers a rollback finalizer on a top-level workflow effect; finalizers run LIFO when the whole workflow fails, each receiving the value its step produced and the cause that killed the run.
@@ -124,7 +124,7 @@ const _saga = <A, E, R>(
 const Flow = { compensated: _compensated, saga: _saga, verdict: _verdict }
 ```
 
-## [5]-[SIGNAL_GATE]
+## [05]-[SIGNAL_GATE]
 
 [SIGNAL_GATE]:
 - Owner: `Signal` — the external-signal owner and the branch's ONE durable-timer surface. `DurableDeferred.make(name, { success, error })` mints the deferred at the package surface; a workflow suspends on `Signal.hold` (`DurableDeferred.await` under a durable expiry race); the resolving side derives the token — `DurableDeferred.tokenFromPayload({ workflow, payload })` or `tokenFromExecutionId({ workflow, executionId })` — and settles it out-of-band with `succeed`/`fail`/`done`; `Signal` carries only the members the package lacks — the raced hold and the named pause — never renames of what it ships. A verified inbound callback, a human approval, an agent's held-tool release each resolve the same shape.
@@ -165,7 +165,7 @@ const _hold = <Success extends Schema.Schema.Any, Error extends Schema.Schema.Al
 const Signal = { hold: _hold, pause: _pause }
 ```
 
-## [6]-[WIRE_PROXY]
+## [06]-[WIRE_PROXY]
 
 [WIRE_PROXY]:
 - Owner: the wire projection — `WorkflowProxy.toRpcGroup(workflows, { prefix })` and `WorkflowProxy.toHttpApiGroup(name, workflows)` derive execute/poll/interrupt procedure families from a workflow set, so the serving plane mounts durable executions as an ordinary `serve/api#CONTRIBUTION` pairing and the typed client, OpenAPI rows, and derived SDK arrive from the same declaration.

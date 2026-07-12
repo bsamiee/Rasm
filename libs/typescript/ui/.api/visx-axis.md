@@ -10,13 +10,13 @@
 
 ## [01]-[SURFACE]
 
-| [INDEX] | [SURFACE] | [FAMILY] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------------- |:----------- |:--------------------------------------------------------------------- |
-| [01] | `Axis` (`AxisProps<Scale>`) | the owner | generic over `AxisScale`; orientation, tick policy, label, line/tick visibility as props |
-| [02] | `AxisTop` `AxisRight` `AxisBottom` `AxisLeft` | preset rows | `Orientation`-fixed instances of [01] |
-| [03] | `Orientation` | vocabulary | the closed orientation axis (`top`/`right`/`bottom`/`left`) |
-| [04] | `AxisScale` / `AxisScaleOutput` | type gate | any d3 scale with a numeric-output range — the `@visx/scale` results pass directly |
-| [05] | `TickFormatter<T>` · `TickLabelProps<T>` · `TickRendererProps` / `TicksRendererProps` · `ComputedTick` · `AxisRendererProps` · `SharedAxisProps` / `CommonProps` | policy types | the override ladder: format → label props → tick component → whole-axis renderer |
+| [INDEX] | [SURFACE]                                                                                                                                                        | [FAMILY]     | [CAPABILITY]                                                                             |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Axis` (`AxisProps<Scale>`)                                                                                                                                      | the owner    | generic over `AxisScale`; orientation, tick policy, label, line/tick visibility as props |
+|  [02]   | `AxisTop` `AxisRight` `AxisBottom` `AxisLeft`                                                                                                                    | preset rows  | `Orientation`-fixed instances of [01]                                                    |
+|  [03]   | `Orientation`                                                                                                                                                    | vocabulary   | the closed orientation axis (`top`/`right`/`bottom`/`left`)                              |
+|  [04]   | `AxisScale` / `AxisScaleOutput`                                                                                                                                  | type gate    | any d3 scale with a numeric-output range — the `@visx/scale` results pass directly       |
+|  [05]   | `TickFormatter<T>` · `TickLabelProps<T>` · `TickRendererProps` / `TicksRendererProps` · `ComputedTick` · `AxisRendererProps` · `SharedAxisProps` / `CommonProps` | policy types | the override ladder: format → label props → tick component → whole-axis renderer         |
 
 ```ts contract
 // One scale object feeds shapes AND its axis; policy is props, labels are @visx/text TextProps per tick.

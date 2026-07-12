@@ -2,17 +2,17 @@
 
 The one crypto authority of the folder: argon2id credential digest-at-rest under a semaphore bulkhead, HMAC egress signing, opaque-token minting, the AES-GCM crypto-shredding `Shredder`, jose key-material admission with RFC 7638 thumbprint identity, and the JWT/JWS/JWKS/JWE token authority — one module because every concern shares one key plane and one fault family. Key material enters exactly once: the core-decoded `Credential` landing folds through `Material.admit` into a `Redacted<CryptoKey>` `KeyHandle`, the JWK body decodes once through `Schema.parseJson` at the same seam, the `kid` is the wire fingerprint or the computed thumbprint, and the validity window is enforced at admission — no second import path exists for a Doppler-fetched, wire-carried, or self-minted key. `Jwt` mints with the active ring key, verifies against the local JWKS or a remote per-issuer resolver through one overloaded `verify` discriminating on the issuer descriptor, keeps the remote cache warm with a `Schedule`-driven proactive `reload`, bounds every remote resolve with a deadline and a jittered retry gated on `FaultClass.retryable`, and seals confidential claims as JWE. Every secret — pepper, password, data key, minted token, private handle — is `Redacted` from admission and unwraps only into the primitive call; algorithm, cost, permit budget, cache age, and reason are vocabulary rows or `Config` policy values, never call-site knobs. Every crypto surface rides its span and metric at the declaration seam — KDF latency, JWKS resolve latency, cold-miss and quarantine counters — so the runtime wave's OTLP lane exports the folder's audit stream with zero call-site change. `SignFault` is the folder's canonical fault shape: one reason family whose rows carry the core `FaultClass` classification, closed in both directions by the guard pair, so retryability, dominance, and blame derive from the branch table and the serving edge folds `class` to status through its own governed record.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                | [PUBLIC]                     |
-| :-----: | :----------------- | :--------------------------------------------------------------------- | :--------------------------- |
-|  [01]   | `FAULT_AND_ALG`    | the folder fault shape, the `KeyAlg` scheme vocabulary                 | `SignFault`, `KeyAlg`        |
-|  [02]   | `KEY_MATERIAL`     | `Credential` landing admission, `KeyHandle`/`Ring`, JWKS projection    | `Material`                   |
-|  [03]   | `CRYPTO_PRIMITIVE` | argon2 digest/verify/derive, HMAC, token RNG, uuid, otplib ports       | `Crypto`, `CredentialVerdict`, `Probe` |
-|  [04]   | `SHREDDER`         | the AES-GCM envelope + AES-KW wrap for per-subject crypto-shredding    | `Shredder`                   |
-|  [05]   | `TOKEN_AUTHORITY`  | JWT mint/verify, remote JWKS rotation, the JWE confidential profile, the single-use stash contract | `Jwt`, `AccessClaims` |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                                             | [PUBLIC]                               |
+| :-----: | :----------------- | :------------------------------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `FAULT_AND_ALG`    | the folder fault shape, the `KeyAlg` scheme vocabulary                                             | `SignFault`, `KeyAlg`                  |
+|  [02]   | `KEY_MATERIAL`     | `Credential` landing admission, `KeyHandle`/`Ring`, JWKS projection                                | `Material`                             |
+|  [03]   | `CRYPTO_PRIMITIVE` | argon2 digest/verify/derive, HMAC, token RNG, uuid, otplib ports                                   | `Crypto`, `CredentialVerdict`, `Probe` |
+|  [04]   | `SHREDDER`         | the AES-GCM envelope + AES-KW wrap for per-subject crypto-shredding                                | `Shredder`                             |
+|  [05]   | `TOKEN_AUTHORITY`  | JWT mint/verify, remote JWKS rotation, the JWE confidential profile, the single-use stash contract | `Jwt`, `AccessClaims`                  |
 
-## [2]-[FAULT_AND_ALG]
+## [02]-[FAULT_AND_ALG]
 
 [FAULT_AND_ALG]:
 - Owner: `SignFault` — the one reason-discriminated `Schema.TaggedError` every page in this folder instantiates with its own reason set; each row carries the core `FaultClass` kind, `get class()` projects it so `FaultClass.of` classifies structurally, and `override get message()` derives from fields. `KeyAlg` is the bounded signature-scheme vocabulary — each row carries `{ kty, crv?, use }`, the discriminant derives through `keyof typeof`, and a new scheme is one row.
@@ -100,7 +100,7 @@ class SignFault extends Schema.TaggedError<SignFault>()("SignFault", {
 }
 ```
 
-## [3]-[KEY_MATERIAL]
+## [03]-[KEY_MATERIAL]
 
 [KEY_MATERIAL]:
 - Owner: `Material` — the assembled key-material owner: `admit` folds one core `Credential` landing into a `KeyHandle`, `mint` self-issues an ephemeral non-extractable ring for a KMS-less bootstrap or test composition, `ring` narrows a signing credential plus a published JWKS into the `{ active, verify }` set `Jwt` consumes, `jwks` projects the verify handles back to a `JSONWebKeySet` for publication, and `thumbprint`/`thumbprintUri` are the RFC 7638 identity mints — the URI form is the stable `cnf.jkt` subject for a key-bound principal. The `Credential` landing arrives sealed from the core interchange decode — `material` is `Redacted` from the wire, `fingerprint` is the only audit identity — and this owner is its terminus: the handle never crosses back to a wire and never reaches a log.
@@ -232,7 +232,7 @@ const Material = {
 } as const
 ```
 
-## [4]-[CRYPTO_PRIMITIVE]
+## [04]-[CRYPTO_PRIMITIVE]
 
 [CRYPTO_PRIMITIVE]:
 - Owner: `Crypto` — `digest`/`verify` own argon2id credential-at-rest with the `CredentialVerdict` receipt, `derive` is the raw-KDF row minting deterministic key bytes from a passphrase, `sign` owns HMAC-SHA256 egress signing rendered hex, `matches` is the one constant-time comparison entrypoint discriminating on the `Probe` case — `Mac` (HMAC-over-body), `Digest` (SHA-256 fingerprint), `Text` (raw string) — `token` mints opaque high-entropy material over the WebCrypto-filled `RandomReader`, `uuid` mints a v4 identifier from the same reader so id minting is test-injectable, `fingerprint` is the SHA-256 hex projection for high-entropy token lookup, and `plugin`/`base32` are the otplib ports over these same primitives.
@@ -356,7 +356,7 @@ class Crypto extends Effect.Service<Crypto>()("security/crypt/Crypto", {
 }) {}
 ```
 
-## [5]-[SHREDDER]
+## [05]-[SHREDDER]
 
 [SHREDDER]:
 - Owner: `Shredder` — the AES-GCM envelope plus AES-KW key-wrap primitive the data wave's journal imports for per-subject crypto-shredding: `mint` issues a per-subject data key, `seal`/`open` run the envelope under a 96-bit IV drawn from the `Crypto` entropy port, `wrap`/`unwrap` carry the data key under the master KEK, and erasure is the store dropping the `WrappedKey` — `unwrap` then fails, `open` becomes impossible, and the ciphertext journal is never rewritten.
@@ -427,7 +427,7 @@ class Shredder extends Effect.Service<Shredder>()("security/crypt/Shredder", {
 }) {}
 ```
 
-## [6]-[TOKEN_AUTHORITY]
+## [06]-[TOKEN_AUTHORITY]
 
 [TOKEN_AUTHORITY]:
 - Owner: `Jwt` — a scoped Layer factory over a `Keyset`: `mint` stamps `{ alg, kid }` from the active ring key so verifiers route by `kid`; one overloaded `verify` owns both trust roots — `verify(token)` runs `createLocalJWKSet` over every published verify handle with `algorithms` pinned and the declarative claim gates applied, decoding the payload through `AccessClaims`, and `verify(token, issuer)` resolves the per-issuer remote JWKS and returns the verified raw payload for the OAuth page to project from; `seal`/`unseal` are the JWE confidential profile over the keyset's optional symmetric handle. `SingleUse` is the stash contract every two-leg ceremony port in the folder instantiates — stash with a TTL, consume exactly once — so the satisfying layer is an `effect` `Cache` or `@effect/experimental` `PersistedCache`/`Persistence.layerResultKeyValueStore` row, never a hand-rolled map.

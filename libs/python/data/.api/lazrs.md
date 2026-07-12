@@ -115,22 +115,22 @@
 
 Module-level `int` flags OR-composed into the `DecompressionSelection(value)` mask; `SELECTIVE_DECOMPRESS_ALL` is the all-fields default and `SELECTIVE_DECOMPRESS_ALL_EXTRA_BYTES` selects every extra-byte channel. The per-field flags map to the LAZ point-record field layers so a COPC reader decodes only the dimensions the consumer keeps.
 
-| [INDEX] | [CONSTANT]                              | [SELECTS]                            |
-| :-----: | :-------------------------------------- | :----------------------------------- |
-|  [01]   | `SELECTIVE_DECOMPRESS_ALL`              | every field (default)                |
-|  [02]   | `SELECTIVE_DECOMPRESS_XY_RETURNS_CHANNEL` | X/Y, return number, scanner channel  |
-|  [03]   | `SELECTIVE_DECOMPRESS_Z`                | Z coordinate                         |
-|  [04]   | `SELECTIVE_DECOMPRESS_CLASSIFICATION`   | classification byte                  |
-|  [05]   | `SELECTIVE_DECOMPRESS_FLAGS`            | classification/scan flags            |
-|  [06]   | `SELECTIVE_DECOMPRESS_INTENSITY`        | intensity                            |
-|  [07]   | `SELECTIVE_DECOMPRESS_SCAN_ANGLE`       | scan angle                           |
-|  [08]   | `SELECTIVE_DECOMPRESS_USER_DATA`        | user-data byte                       |
-|  [09]   | `SELECTIVE_DECOMPRESS_POINT_SOURCE_ID`  | point source id                      |
-|  [10]   | `SELECTIVE_DECOMPRESS_GPS_TIME`         | GPS time                             |
-|  [11]   | `SELECTIVE_DECOMPRESS_RGB`              | RGB color channels                   |
-|  [12]   | `SELECTIVE_DECOMPRESS_NIR`              | near-infrared channel                |
-|  [13]   | `SELECTIVE_DECOMPRESS_WAVEPACKET`       | full-waveform wavepacket             |
-|  [14]   | `SELECTIVE_DECOMPRESS_ALL_EXTRA_BYTES`  | every extra-byte channel             |
+| [INDEX] | [CONSTANT]                                | [SELECTS]                           |
+| :-----: | :---------------------------------------- | :---------------------------------- |
+|  [01]   | `SELECTIVE_DECOMPRESS_ALL`                | every field (default)               |
+|  [02]   | `SELECTIVE_DECOMPRESS_XY_RETURNS_CHANNEL` | X/Y, return number, scanner channel |
+|  [03]   | `SELECTIVE_DECOMPRESS_Z`                  | Z coordinate                        |
+|  [04]   | `SELECTIVE_DECOMPRESS_CLASSIFICATION`     | classification byte                 |
+|  [05]   | `SELECTIVE_DECOMPRESS_FLAGS`              | classification/scan flags           |
+|  [06]   | `SELECTIVE_DECOMPRESS_INTENSITY`          | intensity                           |
+|  [07]   | `SELECTIVE_DECOMPRESS_SCAN_ANGLE`         | scan angle                          |
+|  [08]   | `SELECTIVE_DECOMPRESS_USER_DATA`          | user-data byte                      |
+|  [09]   | `SELECTIVE_DECOMPRESS_POINT_SOURCE_ID`    | point source id                     |
+|  [10]   | `SELECTIVE_DECOMPRESS_GPS_TIME`           | GPS time                            |
+|  [11]   | `SELECTIVE_DECOMPRESS_RGB`                | RGB color channels                  |
+|  [12]   | `SELECTIVE_DECOMPRESS_NIR`                | near-infrared channel               |
+|  [13]   | `SELECTIVE_DECOMPRESS_WAVEPACKET`         | full-waveform wavepacket            |
+|  [14]   | `SELECTIVE_DECOMPRESS_ALL_EXTRA_BYTES`    | every extra-byte channel            |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

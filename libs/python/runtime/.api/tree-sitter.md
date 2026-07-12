@@ -20,27 +20,27 @@
 [PUBLIC_TYPE_SCOPE]: parser and tree family
 - rail: parsing
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Parser` | parser | incremental parse driver; settable `language`/`included_ranges`/`logger` (deletable properties); `timeout_micros` deprecated |
-| [02] | `Language` | grammar | compiled grammar object built from a grammar capsule; carries `abi_version`/`semantic_version`/`name` plus the symbol/field/state introspection surface and `copy`/`eq`/`hash` |
-| [03] | `Tree` | tree | parsed syntax tree; `root_node`/`walk`/`edit`/`changed_ranges`/`copy` |
-| [04] | `Node` | node | syntax-tree node; rich navigation + `text`/error flags |
-| [05] | `TreeCursor` | cursor | efficient stateful tree walker |
-| [06] | `Range` | range | byte + `Point` span |
-| [07] | `Point` | point | `(row, column)` byte position |
-| [08] | `LogType` | enum | parser log category (`PARSE`/`LEX`) |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [RAIL]                                                                                                                                                                         |
+| :-----: | :----------- | :------------ | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Parser`     | parser        | incremental parse driver; settable `language`/`included_ranges`/`logger` (deletable properties); `timeout_micros` deprecated                                                   |
+|  [02]   | `Language`   | grammar       | compiled grammar object built from a grammar capsule; carries `abi_version`/`semantic_version`/`name` plus the symbol/field/state introspection surface and `copy`/`eq`/`hash` |
+|  [03]   | `Tree`       | tree          | parsed syntax tree; `root_node`/`walk`/`edit`/`changed_ranges`/`copy`                                                                                                          |
+|  [04]   | `Node`       | node          | syntax-tree node; rich navigation + `text`/error flags                                                                                                                         |
+|  [05]   | `TreeCursor` | cursor        | efficient stateful tree walker                                                                                                                                                 |
+|  [06]   | `Range`      | range         | byte + `Point` span                                                                                                                                                            |
+|  [07]   | `Point`      | point         | `(row, column)` byte position                                                                                                                                                  |
+|  [08]   | `LogType`    | enum          | parser log category (`PARSE`/`LEX`)                                                                                                                                            |
 
 [PUBLIC_TYPE_SCOPE]: query family
 - rail: parsing
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Query` | query | compiled S-expression pattern; introspectable |
-| [02] | `QueryCursor` | cursor | query execution cursor with range/depth/limit scoping |
-| [03] | `QueryPredicate` | `Protocol` | custom predicate handler `(predicate, args, pattern_index, captures) -> bool` passed to `matches`/`captures` |
-| [04] | `QueryError` | fault (`ValueError`) | raised at `Query(...)` compile on malformed query source |
-| [05] | `LookaheadIterator` | iterator | valid next symbols from a grammar parse state |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]        | [RAIL]                                                                                                       |
+| :-----: | :------------------ | :------------------- | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Query`             | query                | compiled S-expression pattern; introspectable                                                                |
+|  [02]   | `QueryCursor`       | cursor               | query execution cursor with range/depth/limit scoping                                                        |
+|  [03]   | `QueryPredicate`    | `Protocol`           | custom predicate handler `(predicate, args, pattern_index, captures) -> bool` passed to `matches`/`captures` |
+|  [04]   | `QueryError`        | fault (`ValueError`) | raised at `Query(...)` compile on malformed query source                                                     |
+|  [05]   | `LookaheadIterator` | iterator             | valid next symbols from a grammar parse state                                                                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -48,83 +48,83 @@
 - rail: parsing
 - `Parser(language=None, *, included_ranges=None, logger=None)` binds the grammar once. `parse` is polymorphic on its first argument: a `ByteString` (`parse(source, old_tree=None, encoding='utf8'|'utf16'|'utf16le'|'utf16be')` returns a `Tree`) OR a read-callback `Callable[[int, Point], ByteString | None]` for streaming/rope-backed sources, which additionally accepts a `progress_callback: Callable[[int, bool], bool]` receiving the current byte offset — return `True` to cancel, and a cancelled parse raises `ValueError("Parsing failed")` rather than returning a partial `Tree`. `Parser.included_ranges` restricts parsing to byte ranges (for embedded languages); `logger` receives `(LogType, str)` parse/lex events. `Parser.timeout_micros` is `@deprecated` — bound a parse with the read-callback `progress_callback` instead. `Tree.root_node_with_offset(offset_bytes, offset_extent)` reparents a subtree under a byte/point offset for fragment parsing.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Parser(language=None, *, included_ranges=None, logger=None)` | build | parser bound to a grammar, optionally scoped/logged |
-| [02] | `Parser.parse(source, old_tree=None, encoding='utf8')` | parse | bytes -> `Tree`; pass `old_tree` for incremental reparse |
-| [03] | `Parser.parse(read_callback, old_tree=None, encoding=, progress_callback=)` | parse | streaming read-callback parse with cancellation |
-| [04] | `Parser.included_ranges` / `logger` | scope | restrict to byte ranges / receive `(LogType, str)` events |
-| [05] | `Parser.reset()` | reset | discard partial parse state |
-| [06] | `Tree.root_node` / `root_node_with_offset` | navigate | tree root, or a subtree rebased to an offset |
-| [07] | `Tree.walk()` / `Tree.language` | navigate | obtain a `TreeCursor`; the grammar that produced the tree |
-| [08] | `Tree.edit(...)` / `Tree.changed_ranges(new_tree)` | edit/diff | apply a byte/point edit, diff vs a new tree |
-| [09] | `Tree.included_ranges` / `Tree.copy()` / `print_dot_graph(file)` | scope | parsed ranges; copy the tree; emit a Graphviz dot graph |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                                                    |
+| :-----: | :-------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `Parser(language=None, *, included_ranges=None, logger=None)`               | build          | parser bound to a grammar, optionally scoped/logged       |
+|  [02]   | `Parser.parse(source, old_tree=None, encoding='utf8')`                      | parse          | bytes -> `Tree`; pass `old_tree` for incremental reparse  |
+|  [03]   | `Parser.parse(read_callback, old_tree=None, encoding=, progress_callback=)` | parse          | streaming read-callback parse with cancellation           |
+|  [04]   | `Parser.included_ranges` / `logger`                                         | scope          | restrict to byte ranges / receive `(LogType, str)` events |
+|  [05]   | `Parser.reset()`                                                            | reset          | discard partial parse state                               |
+|  [06]   | `Tree.root_node` / `root_node_with_offset`                                  | navigate       | tree root, or a subtree rebased to an offset              |
+|  [07]   | `Tree.walk()` / `Tree.language`                                             | navigate       | obtain a `TreeCursor`; the grammar that produced the tree |
+|  [08]   | `Tree.edit(...)` / `Tree.changed_ranges(new_tree)`                          | edit/diff      | apply a byte/point edit, diff vs a new tree               |
+|  [09]   | `Tree.included_ranges` / `Tree.copy()` / `print_dot_graph(file)`            | scope          | parsed ranges; copy the tree; emit a Graphviz dot graph   |
 
 [ENTRYPOINT_SCOPE]: node navigation
 - rail: parsing
 - Prefer field-named and named-child access over positional indexing. `Node.text` returns the source slice as `bytes`. `Node.named_descendant_for_byte_range`/`descendant_for_byte_range` locate the tightest node over a span; `child_with_descendant` finds the child containing a given node. Error recovery is queried via `is_error`/`has_error`/`is_missing`/`is_extra`.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Node.children` / `named_children` | navigate | child enumeration |
-| [02] | `Node.child_by_field_name(name)` / `child_by_field_id(id)` / `children_by_field_name` / `children_by_field_id` | navigate | field-named or field-id child access |
-| [03] | `Node.field_name_for_child(i)` / `field_name_for_named_child(i)` | navigate | reverse lookup: field name of a positional child |
-| [04] | `Node.descendant_for_byte_range(start, end)` / `named_descendant_for_byte_range` | navigate | tightest (named) node over a byte span |
-| [05] | `Node.descendant_for_point_range(start, end)` / `named_descendant_for_point_range` | navigate | tightest (named) node over a `Point` span |
-| [06] | `Node.first_child_for_byte(b)` / `first_named_child_for_byte` / `child_with_descendant(node)` | navigate | child covering a byte / containing a descendant |
-| [07] | `Node.parent` / `next_sibling` / `prev_sibling` / `next_named_sibling` / `prev_named_sibling` | navigate | sibling and parent walk |
-| [08] | `Node.text` / `type` / `grammar_name` / `kind_id` / `grammar_id` / `id` | read | source slice (`bytes \| None`), node type, grammar symbol, stable node id |
-| [09] | `Node.is_named` / `is_error` / `has_error` / `is_missing` / `is_extra` / `has_changes` | read | named/error/recovery/incremental-dirty flags |
-| [10] | `Node.parse_state` / `next_parse_state` / `descendant_count` / `child_count` / `named_child_count` | read | parse-state ids and subtree/child counts |
-| [11] | `Node.start_byte` / `end_byte` / `byte_range` / `start_point` / `end_point` / `range` | read | byte and `Point` span from the node |
-| [12] | `Node.walk()` | navigate | obtain a `TreeCursor` rooted at the node |
+| [INDEX] | [SURFACE]                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                                    |
+| :-----: | :------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------ |
+|  [01]   | `Node.children` / `named_children`                                                                             | navigate       | child enumeration                                                         |
+|  [02]   | `Node.child_by_field_name(name)` / `child_by_field_id(id)` / `children_by_field_name` / `children_by_field_id` | navigate       | field-named or field-id child access                                      |
+|  [03]   | `Node.field_name_for_child(i)` / `field_name_for_named_child(i)`                                               | navigate       | reverse lookup: field name of a positional child                          |
+|  [04]   | `Node.descendant_for_byte_range(start, end)` / `named_descendant_for_byte_range`                               | navigate       | tightest (named) node over a byte span                                    |
+|  [05]   | `Node.descendant_for_point_range(start, end)` / `named_descendant_for_point_range`                             | navigate       | tightest (named) node over a `Point` span                                 |
+|  [06]   | `Node.first_child_for_byte(b)` / `first_named_child_for_byte` / `child_with_descendant(node)`                  | navigate       | child covering a byte / containing a descendant                           |
+|  [07]   | `Node.parent` / `next_sibling` / `prev_sibling` / `next_named_sibling` / `prev_named_sibling`                  | navigate       | sibling and parent walk                                                   |
+|  [08]   | `Node.text` / `type` / `grammar_name` / `kind_id` / `grammar_id` / `id`                                        | read           | source slice (`bytes \| None`), node type, grammar symbol, stable node id |
+|  [09]   | `Node.is_named` / `is_error` / `has_error` / `is_missing` / `is_extra` / `has_changes`                         | read           | named/error/recovery/incremental-dirty flags                              |
+|  [10]   | `Node.parse_state` / `next_parse_state` / `descendant_count` / `child_count` / `named_child_count`             | read           | parse-state ids and subtree/child counts                                  |
+|  [11]   | `Node.start_byte` / `end_byte` / `byte_range` / `start_point` / `end_point` / `range`                          | read           | byte and `Point` span from the node                                       |
+|  [12]   | `Node.walk()`                                                                                                  | navigate       | obtain a `TreeCursor` rooted at the node                                  |
 
 [ENTRYPOINT_SCOPE]: cursor traversal
 - rail: parsing
 - `TreeCursor` is the allocation-light walk: depth-first via `goto_first_child`/`goto_last_child`/`goto_next_sibling`/`goto_previous_sibling`/`goto_parent`, with `goto_first_child_for_byte`/`goto_first_child_for_point`/`goto_descendant`/`reset`/`reset_to` for targeted descent. The byte/point descent moves return the child index (`int | None`); the sibling/child/parent moves return `bool`. `depth`/`descendant_index`/`field_name`/`field_id` expose position. `copy()` snapshots a cursor for branch exploration.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `goto_first_child` / `goto_last_child` / `goto_next_sibling` / `goto_previous_sibling` / `goto_parent` | walk | depth-first traversal moves (`-> bool`) |
-| [02] | `goto_first_child_for_byte(b)` / `goto_first_child_for_point(p)` | walk | descend to the child covering a position (`-> int \| None`) |
-| [03] | `goto_descendant(index)` / `reset(node)` / `reset_to(cursor)` | walk | jump to a descendant index / re-seat cursor on a node or cursor |
-| [04] | `cursor.node` / `depth` / `descendant_index` / `field_name` / `field_id` | read | current node and position |
-| [05] | `cursor.copy()` | snapshot | copy the cursor for branch exploration |
+| [INDEX] | [SURFACE]                                                                                              | [ENTRY_FAMILY] | [RAIL]                                                          |
+| :-----: | :----------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------- |
+|  [01]   | `goto_first_child` / `goto_last_child` / `goto_next_sibling` / `goto_previous_sibling` / `goto_parent` | walk           | depth-first traversal moves (`-> bool`)                         |
+|  [02]   | `goto_first_child_for_byte(b)` / `goto_first_child_for_point(p)`                                       | walk           | descend to the child covering a position (`-> int \| None`)     |
+|  [03]   | `goto_descendant(index)` / `reset(node)` / `reset_to(cursor)`                                          | walk           | jump to a descendant index / re-seat cursor on a node or cursor |
+|  [04]   | `cursor.node` / `depth` / `descendant_index` / `field_name` / `field_id`                               | read           | current node and position                                       |
+|  [05]   | `cursor.copy()`                                                                                        | snapshot       | copy the cursor for branch exploration                          |
 
 [ENTRYPOINT_SCOPE]: query operations
 - rail: parsing
 - Compile a pattern with the `Query(language, source)` constructor (the deprecated `Language.query(...)` shim still exists but is `@deprecated`; never use it). Run it through a `QueryCursor`: `matches(node)` returns `list[tuple[int, dict[str, list[Node]]]]` (pattern index + capture-name -> nodes per match), `captures(node)` returns a `dict[str, list[Node]]` flattening all captures by name. Both accept a `predicate: QueryPredicate` callable (custom predicate handler for non-built-in `#...?` directives) and a `progress_callback: Callable[[int], bool]` receiving the cursor's byte offset — return `True` to cancel, and the run returns its bounded partial results as if complete — `progress_callback` is the modern bound; `QueryCursor.timeout_micros` is `@deprecated`. Scope a run with `set_byte_range`/`set_point_range`/`set_max_start_depth` and cap it with `match_limit`; `did_exceed_match_limit` flags truncation. Built-in predicates (`#eq?`/`#match?`) are evaluated internally; `Query.pattern_settings(i)` returns `#set!` directives and `pattern_assertions(i)` returns `#is?`/`#is-not?` assertions, while `is_pattern_rooted`/`is_pattern_non_local`/`is_pattern_guaranteed_at_step` expose pattern shape and `capture_quantifier(pattern_i, capture_i)` returns the `''`/`'?'`/`'*'`/`'+'` quantifier of a capture.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Query(language, source)` | build | compile an S-expression query |
-| [02] | `QueryCursor(query, *, match_limit=0xFFFFFFFF)` | build | execution cursor for a compiled query |
-| [03] | `QueryCursor.matches(node, predicate=None, progress_callback=None)` | match | `list[(pattern_index, {capture: [Node]})]` |
-| [04] | `QueryCursor.captures(node, predicate=None, progress_callback=None)` | match | `{capture_name: [Node]}` flattened mapping |
-| [05] | `QueryCursor.set_byte_range` / `set_point_range` / `set_max_start_depth` | scope | restrict the query run |
-| [06] | `QueryCursor.match_limit` / `did_exceed_match_limit` | bound | cap matches, detect truncation |
-| [07] | `Query.pattern_count` / `capture_count` / `string_count` / `capture_name(i)` / `string_value(i)` | introspect | enumerate patterns/captures/literal strings |
-| [08] | `Query.pattern_settings(i)` / `pattern_assertions(i)` / `start_byte_for_pattern(i)` / `end_byte_for_pattern(i)` | introspect | `#set!` / `#is?` directives, pattern source span |
-| [09] | `Query.is_pattern_rooted(i)` / `is_pattern_non_local(i)` / `is_pattern_guaranteed_at_step(i)` / `capture_quantifier(p,c)` | introspect | pattern shape and capture quantifier |
-| [10] | `Query.disable_capture(name)` / `disable_pattern(i)` | tune | suppress captures/patterns before running |
-| [11] | `QueryPredicate` (`Protocol`) / `QueryError` | predicate/fault | custom predicate handler shape; malformed-query raise |
-| [12] | `Language.lookahead_iterator(state)` | grammar | `LookaheadIterator` over valid next symbols |
+| [INDEX] | [SURFACE]                                                                                                                 | [ENTRY_FAMILY]  | [RAIL]                                                |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :-------------- | :---------------------------------------------------- |
+|  [01]   | `Query(language, source)`                                                                                                 | build           | compile an S-expression query                         |
+|  [02]   | `QueryCursor(query, *, match_limit=0xFFFFFFFF)`                                                                           | build           | execution cursor for a compiled query                 |
+|  [03]   | `QueryCursor.matches(node, predicate=None, progress_callback=None)`                                                       | match           | `list[(pattern_index, {capture: [Node]})]`            |
+|  [04]   | `QueryCursor.captures(node, predicate=None, progress_callback=None)`                                                      | match           | `{capture_name: [Node]}` flattened mapping            |
+|  [05]   | `QueryCursor.set_byte_range` / `set_point_range` / `set_max_start_depth`                                                  | scope           | restrict the query run                                |
+|  [06]   | `QueryCursor.match_limit` / `did_exceed_match_limit`                                                                      | bound           | cap matches, detect truncation                        |
+|  [07]   | `Query.pattern_count` / `capture_count` / `string_count` / `capture_name(i)` / `string_value(i)`                          | introspect      | enumerate patterns/captures/literal strings           |
+|  [08]   | `Query.pattern_settings(i)` / `pattern_assertions(i)` / `start_byte_for_pattern(i)` / `end_byte_for_pattern(i)`           | introspect      | `#set!` / `#is?` directives, pattern source span      |
+|  [09]   | `Query.is_pattern_rooted(i)` / `is_pattern_non_local(i)` / `is_pattern_guaranteed_at_step(i)` / `capture_quantifier(p,c)` | introspect      | pattern shape and capture quantifier                  |
+|  [10]   | `Query.disable_capture(name)` / `disable_pattern(i)`                                                                      | tune            | suppress captures/patterns before running             |
+|  [11]   | `QueryPredicate` (`Protocol`) / `QueryError`                                                                              | predicate/fault | custom predicate handler shape; malformed-query raise |
+|  [12]   | `Language.lookahead_iterator(state)`                                                                                      | grammar         | `LookaheadIterator` over valid next symbols           |
 
 [ENTRYPOINT_SCOPE]: grammar introspection
 - rail: parsing
 - `Language` is fully introspectable, not an opaque capsule: symbol ids round-trip through `node_kind_for_id`/`id_for_node_kind(kind, named)`, field ids through `field_name_for_id`/`field_id_for_name`, and the parse-state machine through `next_state(state, id)` + `lookahead_iterator(state)`. `supertypes`/`subtypes(supertype)` expose the grammar's supertype hierarchy (the basis for typing captured nodes against grammar supertypes). Use these to resolve capture/field names to stable ids once and match on the integer thereafter, rather than re-resolving strings per node.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Language.abi_version` / `semantic_version` / `name` | introspect | grammar compatibility band, `(maj,min,patch)`, grammar name |
-| [02] | `Language.node_kind_count` / `parse_state_count` / `field_count` | introspect | grammar size metrics |
-| [03] | `Language.node_kind_for_id(id)` / `id_for_node_kind(kind, named)` | introspect | symbol id <-> name round-trip |
-| [04] | `Language.node_kind_is_named(id)` / `is_visible(id)` / `is_supertype(id)` | introspect | symbol classification flags |
-| [05] | `Language.field_name_for_id(id)` / `field_id_for_name(name)` | introspect | field id <-> name round-trip |
-| [06] | `Language.supertypes` / `subtypes(supertype)` | introspect | grammar supertype hierarchy |
-| [07] | `Language.next_state(state, id)` / `lookahead_iterator(state)` | introspect | parse-state transition / valid next symbols |
-| [08] | `LookaheadIterator.names()` / `symbols()` / `current_symbol_name` / `reset(state, language=None)` | iterate | enumerate / re-seat valid next symbols |
-| [09] | `Language.copy()` / `eq` / `hash` | identity | copy or key a grammar; `Language` is hashable |
+| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] | [RAIL]                                                      |
+| :-----: | :------------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------------------- |
+|  [01]   | `Language.abi_version` / `semantic_version` / `name`                                              | introspect     | grammar compatibility band, `(maj,min,patch)`, grammar name |
+|  [02]   | `Language.node_kind_count` / `parse_state_count` / `field_count`                                  | introspect     | grammar size metrics                                        |
+|  [03]   | `Language.node_kind_for_id(id)` / `id_for_node_kind(kind, named)`                                 | introspect     | symbol id <-> name round-trip                               |
+|  [04]   | `Language.node_kind_is_named(id)` / `is_visible(id)` / `is_supertype(id)`                         | introspect     | symbol classification flags                                 |
+|  [05]   | `Language.field_name_for_id(id)` / `field_id_for_name(name)`                                      | introspect     | field id <-> name round-trip                                |
+|  [06]   | `Language.supertypes` / `subtypes(supertype)`                                                     | introspect     | grammar supertype hierarchy                                 |
+|  [07]   | `Language.next_state(state, id)` / `lookahead_iterator(state)`                                    | introspect     | parse-state transition / valid next symbols                 |
+|  [08]   | `LookaheadIterator.names()` / `symbols()` / `current_symbol_name` / `reset(state, language=None)` | iterate        | enumerate / re-seat valid next symbols                      |
+|  [09]   | `Language.copy()` / `eq` / `hash`                                                                 | identity       | copy or key a grammar; `Language` is hashable               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -244,14 +244,14 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]     | [OWNER]                       | [KIND]                                                                              | [RAIL]                            | [CASES] |
-| :-----: | :----------------- | :---------------------------- | :------------------------------------------------------------------------------------ | :---------------------------------- | :-----: |
-|  [01]   | Patterning algebra | `PatternOp` + `Patterning`    | `[Union]` orbit/map folded by ONE `Apply`; `Map` composes `Orbit`'s fold             | `Apply → Fin<InstanceStream>`     |    2    |
-|  [1a]   | Symmetry rows      | `WallpaperGroup`              | `[SmartEnum<string>]` — 17 theorem-closed rows over ONE Seitz generator              | data (delegates)                  |   17    |
-|  [1b]   | Lattice law        | `PatternLattice`              | `[SmartEnum<string>]` — 5 rows, each PROVING its basis pair                          | data (delegates)                  |    5    |
-|  [1c]   | Result carrier     | `InstanceStream`              | `[Union]` planar preview · mapped stream with frames — SoA columns                   | carrier (drained at the consumer) |    2    |
-|  [1d]   | Orbit/mapping rows | `PatternPlan`/`PatternPolicy` | group + basis + motif + extent + grade · heat time + exact-arm policies + budget     | values (`IValidityEvidence`)      |    —    |
-|  [1e]   | Evidence           | `PatternReceipt`              | census · clipped/flipped honesty · max radius/defect · grade echo                    | value                             |    —    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                       | [KIND]                                                                           | [RAIL]                            | [CASES] |
+| :-----: | :----------------- | :---------------------------- | :------------------------------------------------------------------------------- | :-------------------------------- | :-----: |
+|  [01]   | Patterning algebra | `PatternOp` + `Patterning`    | `[Union]` orbit/map folded by ONE `Apply`; `Map` composes `Orbit`'s fold         | `Apply → Fin<InstanceStream>`     |    2    |
+|  [1a]   | Symmetry rows      | `WallpaperGroup`              | `[SmartEnum<string>]` — 17 theorem-closed rows over ONE Seitz generator          | data (delegates)                  |   17    |
+|  [1b]   | Lattice law        | `PatternLattice`              | `[SmartEnum<string>]` — 5 rows, each PROVING its basis pair                      | data (delegates)                  |    5    |
+|  [1c]   | Result carrier     | `InstanceStream`              | `[Union]` planar preview · mapped stream with frames — SoA columns               | carrier (drained at the consumer) |    2    |
+|  [1d]   | Orbit/mapping rows | `PatternPlan`/`PatternPolicy` | group + basis + motif + extent + grade · heat time + exact-arm policies + budget | values (`IValidityEvidence`)      |    —    |
+|  [1e]   | Evidence           | `PatternReceipt`              | census · clipped/flipped honesty · max radius/defect · grade echo                | value                             |    —    |
 
 The `Apply` fold and `OrbitOf`'s bounded lattice walk carry real composed bodies; `SeatKernel.Rows`, `CellWindow`, `Placed`, `SpinOf`, `RootVertex`, `LogField`, and `Instances` are signature-pinned kernels whose contracts the `Auto` bullet and the `[04]` cards fix. The log map, the transport, the trace policies, and the binding normal are all composed owners — the only local mathematics is the Seitz composition and the planar locate, exactly the pair no admitted surface carries.
 

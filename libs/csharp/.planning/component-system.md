@@ -66,16 +66,16 @@ Bim is the sole IFC semantic authority, and its vocabulary is reflected. An offl
 
 Every extension lands on a canonical owner — a row where possible, a compiler-forced arm on the one dispatch site otherwise. If an extension seems to need a new class hierarchy, a new switch, or a second vocabulary, the extension is being done wrong — find the owning surface below.
 
-| [INDEX] | [CHANGE]                    | [OWNER_SURFACE]                              | [SHAPE_OF_THE_EDIT]                |
-| :-----: | :-------------------------- | :------------------------------------------- | :--------------------------------- |
-|  [01]   | new component family        | `ComponentFamily` + one seed page            | one policy row + seed row table    |
-|  [02]   | new section shape           | `SectionProfile` + `SectionSolver.Solve`     | one union arm + one dispatch arm   |
-|  [03]   | new IFC entity or category  | emitter + `ClassIntroductions`               | regenerate + one overlay row       |
-|  [04]   | new property or detail      | `DetailSchema`                               | one schema row                     |
-|  [05]   | new relation semantics      | `Relationship.Generic` attributes            | one attribute convention           |
-|  [06]   | new quantity or dimension   | `QuantityRow`, `Dimension`                   | one mint row or member             |
-|  [07]   | new fault or band           | owning `*Fault` union + `FaultBand`          | one union case or one registry row |
-|  [08]   | new seam participant        | `IElementProjection` + `FaultBand`           | one projector + one band row       |
+| [INDEX] | [CHANGE]                   | [OWNER_SURFACE]                          | [SHAPE_OF_THE_EDIT]                |
+| :-----: | :------------------------- | :--------------------------------------- | :--------------------------------- |
+|  [01]   | new component family       | `ComponentFamily` + one seed page        | one policy row + seed row table    |
+|  [02]   | new section shape          | `SectionProfile` + `SectionSolver.Solve` | one union arm + one dispatch arm   |
+|  [03]   | new IFC entity or category | emitter + `ClassIntroductions`           | regenerate + one overlay row       |
+|  [04]   | new property or detail     | `DetailSchema`                           | one schema row                     |
+|  [05]   | new relation semantics     | `Relationship.Generic` attributes        | one attribute convention           |
+|  [06]   | new quantity or dimension  | `QuantityRow`, `Dimension`               | one mint row or member             |
+|  [07]   | new fault or band          | owning `*Fault` union + `FaultBand`      | one union case or one registry row |
+|  [08]   | new seam participant       | `IElementProjection` + `FaultBand`       | one projector + one band row       |
 
 [NEW_FAMILY]:
 - Edit: add one `ComponentFamily` row (class, lane, admission predicate, cross-nominal selector, `Rows` fold) in Materials `Component/component.md` and author the seed page as a sibling `Component/<family>.md` — policy smart-enums, the standards-data row table with per-column provenance, the `Rows` fold constructing through `Component.Of` inside `Traverse`, seed-computed `IfcBinding` from the family's own token vocabulary, and seed-time `ComponentDetail` bags through `DetailSchema`.

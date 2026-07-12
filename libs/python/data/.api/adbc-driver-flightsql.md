@@ -84,22 +84,22 @@ Each member value is the canonical setting string passed in `db_kwargs`. Timeout
 
 Connection options own session-option get/set and override database-scoped headers; statement options own the partition read-ahead queue, Substrait version, and per-statement timeout/header overrides. `RPC_CALL_HEADER_PREFIX`, `TIMEOUT_FETCH`, `TIMEOUT_QUERY`, and `TIMEOUT_UPDATE` alias the same `DatabaseOptions` value at narrower scope.
 
-| [INDEX] | [MEMBER]                                                     | [VALUE]                                           | [CAPABILITY]                                       |
-| :-----: | :----------------------------------------------------------- | :------------------------------------------------ | :------------------------------------------------- |
-|  [01]   | `ConnectionOptions.OPTION_SESSION_OPTIONS`                   | `adbc.flight.sql.session.options`                 | all session options as a JSON blob                 |
-|  [02]   | `ConnectionOptions.OPTION_SESSION_OPTION_PREFIX`             | `adbc.flight.sql.session.option.`                 | get/set one session option (key prefix)            |
-|  [03]   | `ConnectionOptions.OPTION_ERASE_SESSION_OPTION_PREFIX`       | `adbc.flight.sql.session.optionerase.`            | erase a session option (key prefix)                |
-|  [04]   | `ConnectionOptions.OPTION_BOOL_SESSION_OPTION_PREFIX`        | `adbc.flight.sql.session.optionbool.`             | get/set a boolean session option (key prefix)      |
-|  [05]   | `ConnectionOptions.OPTION_STRING_LIST_SESSION_OPTION_PREFIX` | `adbc.flight.sql.session.optionstringlist.`       | get/set a string-list session option (key prefix)  |
-|  [06]   | `ConnectionOptions.RPC_CALL_HEADER_PREFIX`                   | `adbc.flight.sql.rpc.call_header.`                | connection-scoped header prefix (overrides db)     |
-|  [07]   | `ConnectionOptions.TIMEOUT_FETCH`/`TIMEOUT_QUERY`/`TIMEOUT_UPDATE` | `adbc.flight.sql.rpc.timeout_seconds.{fetch,query,update}` | connection-scoped timeout overrides (seconds) |
-|  [08]   | `StatementOptions.LAST_FLIGHT_INFO`                          | `adbc.flight.sql.statement.exec.last_flight_info` | latest `FlightInfo` (incremental execution)        |
-|  [09]   | `StatementOptions.QUEUE_SIZE`                                | `adbc.rpc.result_queue_size`                      | batches queued per partition (default 5)           |
-|  [10]   | `StatementOptions.RPC_CALL_HEADER_PREFIX`                    | `adbc.flight.sql.rpc.call_header.`                | statement-scoped header prefix (overrides db/conn) |
-|  [11]   | `StatementOptions.SUBSTRAIT_VERSION`                         | `adbc.flight.sql.substrait.version`               | Substrait version on the Flight SQL request        |
-|  [12]   | `StatementOptions.TIMEOUT_FETCH`                             | `adbc.flight.sql.rpc.timeout_seconds.fetch`       | statement-scoped DoGet fetch timeout (seconds)     |
-|  [13]   | `StatementOptions.TIMEOUT_QUERY`                             | `adbc.flight.sql.rpc.timeout_seconds.query`       | statement-scoped query timeout (seconds)           |
-|  [14]   | `StatementOptions.TIMEOUT_UPDATE`                            | `adbc.flight.sql.rpc.timeout_seconds.update`      | statement-scoped update timeout (seconds)          |
+| [INDEX] | [MEMBER]                                                           | [VALUE]                                                    | [CAPABILITY]                                       |
+| :-----: | :----------------------------------------------------------------- | :--------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `ConnectionOptions.OPTION_SESSION_OPTIONS`                         | `adbc.flight.sql.session.options`                          | all session options as a JSON blob                 |
+|  [02]   | `ConnectionOptions.OPTION_SESSION_OPTION_PREFIX`                   | `adbc.flight.sql.session.option.`                          | get/set one session option (key prefix)            |
+|  [03]   | `ConnectionOptions.OPTION_ERASE_SESSION_OPTION_PREFIX`             | `adbc.flight.sql.session.optionerase.`                     | erase a session option (key prefix)                |
+|  [04]   | `ConnectionOptions.OPTION_BOOL_SESSION_OPTION_PREFIX`              | `adbc.flight.sql.session.optionbool.`                      | get/set a boolean session option (key prefix)      |
+|  [05]   | `ConnectionOptions.OPTION_STRING_LIST_SESSION_OPTION_PREFIX`       | `adbc.flight.sql.session.optionstringlist.`                | get/set a string-list session option (key prefix)  |
+|  [06]   | `ConnectionOptions.RPC_CALL_HEADER_PREFIX`                         | `adbc.flight.sql.rpc.call_header.`                         | connection-scoped header prefix (overrides db)     |
+|  [07]   | `ConnectionOptions.TIMEOUT_FETCH`/`TIMEOUT_QUERY`/`TIMEOUT_UPDATE` | `adbc.flight.sql.rpc.timeout_seconds.{fetch,query,update}` | connection-scoped timeout overrides (seconds)      |
+|  [08]   | `StatementOptions.LAST_FLIGHT_INFO`                                | `adbc.flight.sql.statement.exec.last_flight_info`          | latest `FlightInfo` (incremental execution)        |
+|  [09]   | `StatementOptions.QUEUE_SIZE`                                      | `adbc.rpc.result_queue_size`                               | batches queued per partition (default 5)           |
+|  [10]   | `StatementOptions.RPC_CALL_HEADER_PREFIX`                          | `adbc.flight.sql.rpc.call_header.`                         | statement-scoped header prefix (overrides db/conn) |
+|  [11]   | `StatementOptions.SUBSTRAIT_VERSION`                               | `adbc.flight.sql.substrait.version`                        | Substrait version on the Flight SQL request        |
+|  [12]   | `StatementOptions.TIMEOUT_FETCH`                                   | `adbc.flight.sql.rpc.timeout_seconds.fetch`                | statement-scoped DoGet fetch timeout (seconds)     |
+|  [13]   | `StatementOptions.TIMEOUT_QUERY`                                   | `adbc.flight.sql.rpc.timeout_seconds.query`                | statement-scoped query timeout (seconds)           |
+|  [14]   | `StatementOptions.TIMEOUT_UPDATE`                                  | `adbc.flight.sql.rpc.timeout_seconds.update`               | statement-scoped update timeout (seconds)          |
 
 [ENTRYPOINT_SCOPE]: OAuth value enums
 - rail: partition

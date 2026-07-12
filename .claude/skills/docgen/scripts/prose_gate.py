@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterable
 from enum import StrEnum
 from pathlib import Path
 import re
+import subprocess
 import sys
 from typing import Literal
 
@@ -381,7 +382,23 @@ def row(path: Path | str, line: int, check: Check, status: Status, detail: str) 
     return Row(file=str(path), line=line, check=check, status=status, detail=detail)
 
 
+def git_listed(base: Path) -> tuple[Path, ...] | None:
+    # Gitignore-accurate universe: tracked plus untracked-not-ignored files under base; None when base is outside a git repo.
+    try:
+        out = subprocess.run(
+            ("git", "-C", str(base), "ls-files", "--cached", "--others", "--exclude-standard", "-z"),
+            capture_output=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    return tuple(base / raw.decode() for raw in out.split(b"\0") if raw)
+
+
 def walked(target: Path, owned: frozenset[str]) -> tuple[Path, ...]:
+    listed = git_listed(target)
+    if listed is not None:
+        return tuple(sorted({path.resolve() for path in listed if path.suffix in owned}))
     found: list[Path] = []
     for root, dirs, names in target.walk():
         dirs[:] = [entry for entry in dirs if entry not in PRUNED]

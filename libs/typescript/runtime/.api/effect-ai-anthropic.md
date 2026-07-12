@@ -6,19 +6,19 @@ The Anthropic binding onto `@effect/ai`: it resolves the provider-agnostic `Lang
 
 ## [01]-[ASYMMETRY]
 
-| [INDEX] | [COLUMN] | [ANTHROPIC] | [OPENAI] | [GOOGLE] | [BEDROCK] |
-| :-----: | :------ | :--------- | :------ | :------ | :------- |
-| [01] | provider id | `"anthropic"` | openai | google | amazon-bedrock |
-| [02] | language model | `AnthropicLanguageModel` (Messages beta) | Responses | generateContent | Converse |
-| [03] | embedding model | — | batched+DL | raw client | — |
-| [04] | tokenizer | `AnthropicTokenizer.make` (bare value) | `make({model})` | — | — |
-| [05] | provider-defined tools | 5 families / 11 date-suffixed ctors | 4 | 4 | 8 (via this pkg) |
-| [06] | telemetry module | — | `OpenAiTelemetry` | — | — |
-| [07] | model-id kind | `Generated.Model.Encoded` (21 claude ids) | enum | free `string` | 91-id enum |
-| [08] | auth | `Redacted` apiKey + version + org/project | apiKey + org/project | apiKey | SigV4 keys |
-| [09] | per-request Config | `AnthropicLanguageModel/Config` (+`disableParallelToolCalls`) | `strict`/`verbosity` | `toolConfig` | Converse fields |
-| [10] | streaming fold | `MessageStreamEvent` (8-member union) | 49-member | response re-emit | 11-member |
-| [11] | cross-provider export | `prepareTools` → Amazon Bedrock | — | — | consumes it |
+| [INDEX] | [COLUMN]               | [ANTHROPIC]                                                   | [OPENAI]             | [GOOGLE]         | [BEDROCK]        |
+| :-----: | :--------------------- | :------------------------------------------------------------ | :------------------- | :--------------- | :--------------- |
+|  [01]   | provider id            | `"anthropic"`                                                 | openai               | google           | amazon-bedrock   |
+|  [02]   | language model         | `AnthropicLanguageModel` (Messages beta)                      | Responses            | generateContent  | Converse         |
+|  [03]   | embedding model        | —                                                             | batched+DL           | raw client       | —                |
+|  [04]   | tokenizer              | `AnthropicTokenizer.make` (bare value)                        | `make({model})`      | —                | —                |
+|  [05]   | provider-defined tools | 5 families / 11 date-suffixed ctors                           | 4                    | 4                | 8 (via this pkg) |
+|  [06]   | telemetry module       | —                                                             | `OpenAiTelemetry`    | —                | —                |
+|  [07]   | model-id kind          | `Generated.Model.Encoded` (21 claude ids)                     | enum                 | free `string`    | 91-id enum       |
+|  [08]   | auth                   | `Redacted` apiKey + version + org/project                     | apiKey + org/project | apiKey           | SigV4 keys       |
+|  [09]   | per-request Config     | `AnthropicLanguageModel/Config` (+`disableParallelToolCalls`) | `strict`/`verbosity` | `toolConfig`     | Converse fields  |
+|  [10]   | streaming fold         | `MessageStreamEvent` (8-member union)                         | 49-member            | response re-emit | 11-member        |
+|  [11]   | cross-provider export  | `prepareTools` → Amazon Bedrock                               | —                    | —                | consumes it      |
 
 ## [02]-[CLIENT]
 
@@ -96,15 +96,15 @@ namespace Config { interface Service extends Simplify<Partial<Omit<typeof Genera
 
 The `declare module` augmentations attach an optional `anthropic` key — ONE boundary-hook pattern. Prompt caching is the dominant one: every message/part options interface gains `cacheControl?: CacheControlEphemeral.Encoded`.
 
-| [INDEX] | [AUGMENTS] | [INTERFACES] | [ANTHROPIC_SLOT] |
-| :-----: | :-------- | :---------- | :-------------- |
-| [01] | `Prompt` | `System/User/Assistant/Tool MessageOptions`, `Text/ToolCall/ToolResult PartOptions` | `cacheControl?` |
-| [02] | `Prompt` | `ReasoningPartOptions` | `AnthropicReasoningInfo & { cacheControl? }` |
-| [03] | `Prompt` | `FilePartOptions` | `cacheControl?`, `citations?`, `documentTitle?`, `documentContext?` |
-| [04] | `Response` | `Reasoning{,Start,Delta}PartMetadata` | `AnthropicReasoningInfo` |
-| [05] | `Response` | `FinishPartMetadata` | `{ usage?: BetaUsage; stopSequence? }` |
-| [06] | `Response` | `DocumentSourcePartMetadata` | `char_location` \| `page_location` citation |
-| [07] | `Response` | `UrlSourcePartMetadata` | `{ source:"url"; citedText; encryptedIndex }` |
+| [INDEX] | [AUGMENTS] | [INTERFACES]                                                                        | [ANTHROPIC_SLOT]                                                    |
+| :-----: | :--------- | :---------------------------------------------------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | `Prompt`   | `System/User/Assistant/Tool MessageOptions`, `Text/ToolCall/ToolResult PartOptions` | `cacheControl?`                                                     |
+|  [02]   | `Prompt`   | `ReasoningPartOptions`                                                              | `AnthropicReasoningInfo & { cacheControl? }`                        |
+|  [03]   | `Prompt`   | `FilePartOptions`                                                                   | `cacheControl?`, `citations?`, `documentTitle?`, `documentContext?` |
+|  [04]   | `Response` | `Reasoning{,Start,Delta}PartMetadata`                                               | `AnthropicReasoningInfo`                                            |
+|  [05]   | `Response` | `FinishPartMetadata`                                                                | `{ usage?: BetaUsage; stopSequence? }`                              |
+|  [06]   | `Response` | `DocumentSourcePartMetadata`                                                        | `char_location` \| `page_location` citation                         |
+|  [07]   | `Response` | `UrlSourcePartMetadata`                                                             | `{ source:"url"; citedText; encryptedIndex }`                       |
 
 ## [04]-[TOKENIZER]
 
@@ -119,13 +119,13 @@ declare const layer: Layer.Layer<Tokenizer.Tokenizer>
 
 `AnthropicTool` exports the closed-form `ProviderDefinedTools` union schema plus date-suffixed constructors, each ONE instance of `<Mode extends Tool.FailureMode | undefined>(args) => Tool.ProviderDefined<"Anthropic<Name>", { …; failureMode: Mode extends undefined ? "error" : Mode }, requiresHandler>`. The `requiresHandler` flag is the intra-family asymmetry: locally-executed tools (`Bash`/`ComputerUse`/`TextEditor`) are `true` and need an app handler; provider-executed tools (`CodeExecution`/`WebSearch`) are `false`. Versioning is by date suffix — the same tag with an evolving `parameters` literal.
 
-| [INDEX] | [TAG] | [CTORS] | [REQUIRESHANDLER] | [PARAMETERS_AXIS_SUCCESS] |
-| :-----: | :--- | :----- | :--------------- | :----------------------- |
-| [01] | `AnthropicBash` | `Bash_20241022`, `Bash_20250124` | `true` | `{ command; restart? }` / `String` |
-| [02] | `AnthropicComputerUse` | `ComputerUse_20241022`, `ComputerUse_20250124` | `true` | `action` literal (5 → 15 verbs) + coordinates / `String` |
-| [03] | `AnthropicTextEditor` | `TextEditor_20241022`/`_20250124`/`_20250429`/`_20250728` | `true` | `command` literal (5 → 4 verbs) / `Void` |
-| [04] | `AnthropicCodeExecution` | `CodeExecution_20250522`, `CodeExecution_20250825` | `false` | `EmptyParams` / Beta code-exec result block(s), typed failure |
-| [05] | `AnthropicWebSearch` | `WebSearch_20250305` | `false` | `EmptyParams` / `Array<RequestWebSearchResultBlock>` |
+| [INDEX] | [TAG]                    | [CTORS]                                                   | [REQUIRESHANDLER] | [PARAMETERS_AXIS_SUCCESS]                                     |
+| :-----: | :----------------------- | :-------------------------------------------------------- | :---------------- | :------------------------------------------------------------ |
+|  [01]   | `AnthropicBash`          | `Bash_20241022`, `Bash_20250124`                          | `true`            | `{ command; restart? }` / `String`                            |
+|  [02]   | `AnthropicComputerUse`   | `ComputerUse_20241022`, `ComputerUse_20250124`            | `true`            | `action` literal (5 → 15 verbs) + coordinates / `String`      |
+|  [03]   | `AnthropicTextEditor`    | `TextEditor_20241022`/`_20250124`/`_20250429`/`_20250728` | `true`            | `command` literal (5 → 4 verbs) / `Void`                      |
+|  [04]   | `AnthropicCodeExecution` | `CodeExecution_20250522`, `CodeExecution_20250825`        | `false`           | `EmptyParams` / Beta code-exec result block(s), typed failure |
+|  [05]   | `AnthropicWebSearch`     | `WebSearch_20250305`                                      | `false`           | `EmptyParams` / `Array<RequestWebSearchResultBlock>`          |
 
 ```ts contract
 declare const ProviderDefinedTools: Schema.Union<[/* 10 Beta*Tool schemas: bash×2, code-execution, computer-use×2, text-editor×4, web-search */]>

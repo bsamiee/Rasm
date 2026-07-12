@@ -2,17 +2,17 @@
 
 The one render-evidence owner: benchmark and receipt are two lanes of a single discipline — capture a local truth with the render engines' own counters, pair it with the wire-decoded claim, and render the comparison as operator evidence that never gates, never faults, never retries. The benchmark lane folds deck's `DeckMetrics` sink and the frame-loop timer into one bounded seed fold, mirrors the host fingerprint locally so divergent numbers carry their divergence context, and joins claim rows against local rows BY LABEL into a comparison board. The receipt lane captures a deterministic fixed-extent framebuffer through the renderer's async readback, delegates the hash to the branch's one content mint, and compares structurally against the wire `RenderReceipt` — both proofs render side by side. Claims arrive already identity-gated (`Claim.admit` at `core/interchange/codec` refuses a foreign-host claim before this module sees it), and the local fingerprint exists to explain deltas, never to admit or refuse. The module is `ui/viewer/src/probe.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                        | [PUBLIC] |
-| :-----: | :------------- | :--------------------------------------------------------------------------------- | :------- |
-|  [01]   | `METRIC_FOLD`  | the local capture — deck metrics sink and frame timing as one bounded seed fold     | `Probe`  |
-|  [02]   | `HOST_MIRROR`  | the local host-fingerprint capture mirroring the wire's fields                      | `Probe`  |
-|  [03]   | `CLAIM_BOARD`  | the claim-versus-local label-keyed join and its display rows                        | `Probe`  |
-|  [04]   | `CAPTURE_FOLD` | the deterministic framebuffer capture and the kernel hash delegate                  | `Probe`  |
-|  [05]   | `EVIDENCE_ROWS`| tone tables, bounded verdict history, the never-a-gate law                          | `Probe`  |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                          | [PUBLIC] |
+| :-----: | :-------------- | :------------------------------------------------------------------------------ | :------- |
+|  [01]   | `METRIC_FOLD`   | the local capture — deck metrics sink and frame timing as one bounded seed fold | `Probe`  |
+|  [02]   | `HOST_MIRROR`   | the local host-fingerprint capture mirroring the wire's fields                  | `Probe`  |
+|  [03]   | `CLAIM_BOARD`   | the claim-versus-local label-keyed join and its display rows                    | `Probe`  |
+|  [04]   | `CAPTURE_FOLD`  | the deterministic framebuffer capture and the kernel hash delegate              | `Probe`  |
+|  [05]   | `EVIDENCE_ROWS` | tone tables, bounded verdict history, the never-a-gate law                      | `Probe`  |
 
-## [2]-[METRIC_FOLD]
+## [02]-[METRIC_FOLD]
 
 [METRIC_FOLD]:
 - Owner: `Probe.rows` — the local capture: deck's `_onMetrics` callback is the GPU-side sink (`DeckMetrics` — `fps`, `gpuTime`, `cpuTime`, `pickTime`, `gpuMemory`), folded into a bounded rolling window whose projections run as ONE seed fold — raw sums accumulate in a single `Chunk.reduce` pass and means project at read, so a new statistic (a peak, a p95 seed) is one seed field plus one row, never a second traversal; the frame loop contributes a frame-time row measured inside its own tick (the loop is already the timing source, no second RAF); each captured quantity lands as the SAME metric row shape the wire claim carries — `label`/`value`/`unit` derives from `Claim` itself — so comparison is a keyed join, not a shape adaptation.
@@ -69,7 +69,7 @@ const _aligned = (trace: Probe.Trace): readonly [Float64Array, Float64Array, Flo
   ] as const)
 ```
 
-## [3]-[HOST_MIRROR]
+## [03]-[HOST_MIRROR]
 
 [HOST_MIRROR]:
 - Owner: `Probe.host` — the local fingerprint mirroring the wire's `HostFingerprint` fields: `print` is the app's own identity host value handed in as a parameter — the probe never mints identity; `cores` reads `navigator.hardwareConcurrency`; `runtime` reads the user-agent brand; `machine`/`arch` read the WebGPU adapter info (`vendor`/`architecture` — the adapter probe already ran at `scene`'s backend selection, so the info arrives as an `Option` parameter from the renderer row, never a second `requestAdapter`); absent WebGPU, `Option.none` folds to the declared `"<unavailable>"` literal rather than fabricated values.
@@ -98,7 +98,7 @@ const _host = (
   )
 ```
 
-## [4]-[CLAIM_BOARD]
+## [04]-[CLAIM_BOARD]
 
 [CLAIM_BOARD]:
 - Owner: `Probe.board` — the comparison fold: join the admitted claim's metric rows with the local rows BY LABEL (a keyed record join — labels present on only one side render as one-sided evidence, never dropped), compute the signed delta per joined row, and pair the claim's fingerprint with the local one for the divergence header; the result is one board value the panel renders — claim column, local column, delta column, host context.
@@ -139,7 +139,7 @@ const _board = (claim: Claim, local: ReadonlyArray<Metric>): ReadonlyArray<Probe
 }
 ```
 
-## [5]-[CAPTURE_FOLD]
+## [05]-[CAPTURE_FOLD]
 
 [CAPTURE_FOLD]:
 - Owner: `Probe.capture` — the capture discipline as one fold: render into a fixed-extent target (capture never reads the live swap chain — DPR and resize break determinism), await the settled frame (`compileAsync` before first capture; capture runs after the residency fold quiesces), read pixels through `renderer.readRenderTargetPixelsAsync(target, 0, 0, width, height, buffer)` (the WebGPU-safe async readback; a synchronous read stalls the pipeline and is the named defect), and delegate the octets to the mint delegate — the branch's content mint has exactly the delegation sites `core/value/contentKey` enumerates, so the delegate arrives as a parameter the composition satisfies from the runtime worker's mint site, and this module carries no hash code.
@@ -187,7 +187,7 @@ const _capture = (
   })
 ```
 
-## [6]-[EVIDENCE_ROWS]
+## [06]-[EVIDENCE_ROWS]
 
 [EVIDENCE_ROWS]:
 - Owner: `Probe.tone` — the verdict and delta presentation vocabulary: matched renders on the success tone, mismatched on the danger tone WITH both keys shown (the `:x32` spelling the kernel brand carries); delta rows tone by sign; the wire receipt's own fields render beside the local verdict; stamps format through `Format.instant`.

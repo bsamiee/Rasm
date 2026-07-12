@@ -18,11 +18,11 @@
 [PUBLIC_TYPE_SCOPE]: solver, settings, and solution roots
 - rail: convex optimization
 
-| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                                                  |
-| :-----: | :---------------- | :------------- | :---------------------------------------------------------------------------- |
-|  [01]   | `DefaultSolver`   | solver         | `DefaultSolver(P, q, A, b, cones, settings)` — assembles and runs the solve   |
-|  [02]   | `DefaultSettings` | settings       | tolerances, iteration cap, time limit, equilibration, presolve, KKT method    |
-|  [03]   | `DefaultSolution` | result carrier | `x`, `z`, `s`, `status`, `obj_val`, `solve_time`, `iterations`, `r_prim`, `r_dual` |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]  | [CAPABILITY]                                                                                                                                                                             |
+| :-----: | :---------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `DefaultSolver`   | solver         | `DefaultSolver(P, q, A, b, cones, settings)` — assembles and runs the solve                                                                                                              |
+|  [02]   | `DefaultSettings` | settings       | tolerances, iteration cap, time limit, equilibration, presolve, KKT method                                                                                                               |
+|  [03]   | `DefaultSolution` | result carrier | `x`, `z`, `s`, `status`, `obj_val`, `solve_time`, `iterations`, `r_prim`, `r_dual`                                                                                                       |
 |  [04]   | `SolverStatus`    | status enum    | `Unsolved`/`Solved`/`PrimalInfeasible`/`DualInfeasible`/`AlmostSolved`/`AlmostPrimalInfeasible`/`AlmostDualInfeasible`/`MaxIterations`/`MaxTime`/`NumericalError`/`InsufficientProgress` |
 
 [PUBLIC_TYPE_SCOPE]: cone constructors
@@ -45,20 +45,20 @@ The `cones` argument is an ordered list of cone objects whose total dimension ma
 
 `DefaultSettings()` constructs the default row; fields are set by attribute (`settings.verbose = True`, `settings.max_iter = 100`) — the Python interface mirrors the Rust settings surface. Tune by field, never by a parallel solver subclass.
 
-| [INDEX] | [FIELD]                                                | [ROLE]                                                            |
-| :-----: | :----------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `max_iter`                                             | interior-point iteration cap                                     |
-|  [02]   | `time_limit`                                           | wall-clock solve cap (seconds)                                   |
-|  [03]   | `verbose`                                              | iteration-log printing                                           |
-|  [04]   | `tol_gap_abs` / `tol_gap_rel`                          | absolute/relative duality-gap termination tolerances             |
-|  [05]   | `tol_feas`                                             | primal/dual feasibility tolerance                                |
-|  [06]   | `tol_infeas_abs` / `tol_infeas_rel`                    | infeasibility-certificate detection tolerances                   |
-|  [07]   | `tol_ktratio`                                          | kappa/tau ratio termination tolerance                            |
-|  [08]   | `equilibrate_enable`                                   | Ruiz equilibration of the KKT system                             |
-|  [09]   | `presolve_enable`                                      | presolve elimination of redundant rows                           |
-|  [10]   | `chordal_decomposition_enable`                         | chordal sparsity decomposition for PSD cones                     |
-|  [11]   | `direct_kkt_solver` / `direct_solve_method`            | direct KKT linear-system backend selection (`qdldl`/`faer`)      |
-|  [12]   | `static_regularization_enable` / `dynamic_regularization_enable` | KKT regularization toggles                              |
+| [INDEX] | [FIELD]                                                          | [ROLE]                                                      |
+| :-----: | :--------------------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | `max_iter`                                                       | interior-point iteration cap                                |
+|  [02]   | `time_limit`                                                     | wall-clock solve cap (seconds)                              |
+|  [03]   | `verbose`                                                        | iteration-log printing                                      |
+|  [04]   | `tol_gap_abs` / `tol_gap_rel`                                    | absolute/relative duality-gap termination tolerances        |
+|  [05]   | `tol_feas`                                                       | primal/dual feasibility tolerance                           |
+|  [06]   | `tol_infeas_abs` / `tol_infeas_rel`                              | infeasibility-certificate detection tolerances              |
+|  [07]   | `tol_ktratio`                                                    | kappa/tau ratio termination tolerance                       |
+|  [08]   | `equilibrate_enable`                                             | Ruiz equilibration of the KKT system                        |
+|  [09]   | `presolve_enable`                                                | presolve elimination of redundant rows                      |
+|  [10]   | `chordal_decomposition_enable`                                   | chordal sparsity decomposition for PSD cones                |
+|  [11]   | `direct_kkt_solver` / `direct_solve_method`                      | direct KKT linear-system backend selection (`qdldl`/`faer`) |
+|  [12]   | `static_regularization_enable` / `dynamic_regularization_enable` | KKT regularization toggles                                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -67,20 +67,20 @@ The `cones` argument is an ordered list of cone objects whose total dimension ma
 
 `P` and `A` are `scipy.sparse.csc_matrix` (CSC); `P` is the upper-triangular quadratic cost, `q` the linear cost, and `A`/`b`/`cones` the conic constraint stack `A x + s = b, s in K`. `DefaultSolver.solve()` runs the interior-point method and returns the `DefaultSolution`; `DefaultSolver.update(P=, q=, A=, b=, settings=)` mutates problem data in place for a warm re-solve without reassembling the factorization symbolics — the standalone analogue of cvxpy DPP warm re-solve.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                  | [CAPABILITY]                               |
-| :-----: | :------------------------------ | :-------------------------------------------- | :----------------------------------------- |
-|  [01]   | `DefaultSolver`                 | `DefaultSolver(P, q, A, b, cones, settings)`  | construct from standard-form QP + cones    |
-|  [02]   | `DefaultSolver.solve`           | `solve()` -> `DefaultSolution`                | run the interior-point solve               |
-|  [03]   | `DefaultSolver.update`          | `update(P=, q=, A=, b=, settings=)`           | in-place data/settings update for re-solve |
-|  [04]   | `DefaultSolution.x`             | attribute                                     | primal solution vector                     |
-|  [05]   | `DefaultSolution.z`             | attribute                                     | dual solution (conic multipliers)          |
-|  [06]   | `DefaultSolution.s`             | attribute                                     | primal slack vector                        |
-|  [07]   | `DefaultSolution.status`        | attribute -> `SolverStatus`                   | termination status                         |
-|  [08]   | `DefaultSolution.obj_val`       | attribute                                     | objective value at the returned point      |
-|  [09]   | `DefaultSolution.solve_time`    | attribute                                     | wall-clock solve time (seconds)            |
-|  [10]   | `DefaultSolution.iterations`    | attribute                                     | interior-point iteration count             |
-|  [11]   | `DefaultSolution.r_prim`        | attribute                                     | primal residual at termination             |
-|  [12]   | `DefaultSolution.r_dual`        | attribute                                     | dual residual at termination               |
+| [INDEX] | [SURFACE]                    | [CALL_SHAPE]                                 | [CAPABILITY]                               |
+| :-----: | :--------------------------- | :------------------------------------------- | :----------------------------------------- |
+|  [01]   | `DefaultSolver`              | `DefaultSolver(P, q, A, b, cones, settings)` | construct from standard-form QP + cones    |
+|  [02]   | `DefaultSolver.solve`        | `solve()` -> `DefaultSolution`               | run the interior-point solve               |
+|  [03]   | `DefaultSolver.update`       | `update(P=, q=, A=, b=, settings=)`          | in-place data/settings update for re-solve |
+|  [04]   | `DefaultSolution.x`          | attribute                                    | primal solution vector                     |
+|  [05]   | `DefaultSolution.z`          | attribute                                    | dual solution (conic multipliers)          |
+|  [06]   | `DefaultSolution.s`          | attribute                                    | primal slack vector                        |
+|  [07]   | `DefaultSolution.status`     | attribute -> `SolverStatus`                  | termination status                         |
+|  [08]   | `DefaultSolution.obj_val`    | attribute                                    | objective value at the returned point      |
+|  [09]   | `DefaultSolution.solve_time` | attribute                                    | wall-clock solve time (seconds)            |
+|  [10]   | `DefaultSolution.iterations` | attribute                                    | interior-point iteration count             |
+|  [11]   | `DefaultSolution.r_prim`     | attribute                                    | primal residual at termination             |
+|  [12]   | `DefaultSolution.r_dual`     | attribute                                    | dual residual at termination               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

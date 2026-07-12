@@ -240,10 +240,10 @@ The ONE Op-threading law. Every kernel page obeys it; no page re-decides it.
 
 One substrate floor; growth is a case, a claim row, or a generated `SelfOp` — never a sibling rail.
 
-| [INDEX] | [CONCERN]           | [OWNER]                              | [KIND]                                                          | [RAIL]                                        | [CASES] |
-| :-----: | :------------------ | :----------------------------------- | :-------------------------------------------------------------- | :-------------------------------------------- | :-----: |
-|  [01]   | Operation identity  | `Op`                                 | `[ValueObject<string>]` + fault/acceptance factory              | `Op → Error` / `Op → Fin<T>`                  |   17    |
-|  [02]   | Codegen contract    | `GenerateUnionOps`                   | opt-in marker attribute + generated per-case `SelfOp`           | `[Union] case → Op`                           |    1    |
-|  [03]   | Substrate faults    | `Expected` + `Fault`                 | unmarked `[Union]`, typed payloads, code 9104                    | `Fault → Error` (direct subtype)              |   12    |
-|  [04]   | Resource ownership  | `Lease<T>`                           | unmarked `[Union]` Owned/Borrowed                                | `Lease<T>.Use → TResult`, disposal folded     |    2    |
-|  [05]   | Receipt validity    | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold, implicit `bool`                    | `ValidityClaim.All → bool` → the one oracle   |   13    |
+| [INDEX] | [CONCERN]          | [OWNER]                               | [KIND]                                                | [RAIL]                                      | [CASES] |
+| :-----: | :----------------- | :------------------------------------ | :---------------------------------------------------- | :------------------------------------------ | :-----: |
+|  [01]   | Operation identity | `Op`                                  | `[ValueObject<string>]` + fault/acceptance factory    | `Op → Error` / `Op → Fin<T>`                |   17    |
+|  [02]   | Codegen contract   | `GenerateUnionOps`                    | opt-in marker attribute + generated per-case `SelfOp` | `[Union] case → Op`                         |    1    |
+|  [03]   | Substrate faults   | `Expected` + `Fault`                  | unmarked `[Union]`, typed payloads, code 9104         | `Fault → Error` (direct subtype)            |   12    |
+|  [04]   | Resource ownership | `Lease<T>`                            | unmarked `[Union]` Owned/Borrowed                     | `Lease<T>.Use → TResult`, disposal folded   |    2    |
+|  [05]   | Receipt validity   | `IValidityEvidence` + `ValidityClaim` | evidence floor + claim fold, implicit `bool`          | `ValidityClaim.All → bool` → the one oracle |   13    |

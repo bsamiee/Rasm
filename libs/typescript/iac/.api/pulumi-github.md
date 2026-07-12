@@ -20,28 +20,28 @@
 [PROVIDER_SCOPE]: one credentialed seam per estate
 - rail: source-control
 
-| [INDEX] | [FIELD] | [MEANING] |
-|:-----: |:------ |:-------- |
-| [01] | `token` | `Input<string>` — the Doppler fan-in read (`GITHUB_TOKEN`), never a literal |
-| [02] | `owner` | `Input<string>` — the org/user scope every unqualified resource name resolves under (`organization` is its deprecated alias) |
-| [03] | `appAuth` | `{ id, installationId, pemFile }` — GitHub-App identity, the durable-machine upgrade over a PAT |
-| [04] | `baseUrl` | GitHub Enterprise endpoint row |
-| [05] | `maxRetries` / `retryDelayMs` / `retryableErrors` / `readDelayMs` / `writeDelayMs` / `parallelRequests` / `maxPerPage` | rate-posture knobs — provider data, never per-resource handling |
+| [INDEX] | [FIELD]                                                                                                                | [MEANING]                                                                                                                    |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `token`                                                                                                                | `Input<string>` — the Doppler fan-in read (`GITHUB_TOKEN`), never a literal                                                  |
+|  [02]   | `owner`                                                                                                                | `Input<string>` — the org/user scope every unqualified resource name resolves under (`organization` is its deprecated alias) |
+|  [03]   | `appAuth`                                                                                                              | `{ id, installationId, pemFile }` — GitHub-App identity, the durable-machine upgrade over a PAT                              |
+|  [04]   | `baseUrl`                                                                                                              | GitHub Enterprise endpoint row                                                                                               |
+|  [05]   | `maxRetries` / `retryDelayMs` / `retryableErrors` / `readDelayMs` / `writeDelayMs` / `parallelRequests` / `maxPerPage` | rate-posture knobs — provider data, never per-resource handling                                                              |
 
 ## [03]-[RESOURCE_FAMILIES]
 
 [FAMILY_SCOPE]: the roster grouped by concern — each row is the generated quadruple
 - rail: source-control
 
-| [INDEX] | [FAMILY] | [KEY_CLASSES_LOAD_BEARING_ARGS] |
-|:-----: |:------- |:-------------------------------- |
-| [01] | repository | `Repository` (`name`, `visibility`, `autoInit`, `pages`, `securityAndAnalysis`), `RepositoryFile`, `RepositoryTopics`, `RepositoryCollaborator`/`RepositoryCollaborators`, `RepositoryDependabotSecurityUpdates`, `RepositoryVulnerabilityAlerts` |
-| [02] | branch law | `Branch`, `BranchDefault`, `BranchProtection` (GraphQL, current), `RepositoryRuleset` (the rules-engine successor), `BranchProtectionV3` (retired REST — never beside `BranchProtection`) |
-| [03] | environments | `RepositoryEnvironment` (`environment`, `repository`, `reviewers`, `deploymentBranchPolicy`, `waitTimer`, `canAdminsBypass`, `preventSelfReview`), `RepositoryEnvironmentDeploymentPolicy` (`branchPattern` XOR `tagPattern`) |
-| [04] | Actions | `ActionsSecret`/`ActionsEnvironmentSecret`/`ActionsOrganizationSecret` (`secretName`, `plaintextValue` XOR `encryptedValue`), `ActionsVariable`/`ActionsEnvironmentVariable`/`ActionsOrganizationVariable` (`variableName`, `value`), `ActionsRunnerGroup`, `ActionsRepositoryPermissions`, the OIDC subject-claim template pair |
-| [05] | access material | `RepositoryDeployKey` (`repository`, `key`, `title`, `readOnly`), `RepositoryWebhook` (`repository`, `events`, `active`, `configuration: { url, contentType, secret, insecureSsl }`), `OrganizationWebhook` |
-| [06] | org/team | `OrganizationSettings` (`name`, `billingEmail`, `defaultRepositoryPermission`, `membersCanCreateRepositories`, `webCommitSignoffRequired`), `Team` (`name`, `privacy`, `parentTeamId`), `TeamMembership` (`teamId`, `username`, `role`), `TeamRepository` (`teamId`, `repository`, `permission`), `Membership`, `OrganizationRuleset` |
-| [07] | data sources | `getRepository`, `getBranch`, `getRelease`, `getTeam`, `getOrganization`, `getUser` — each with its `*Output` graph-threaded twin |
+| [INDEX] | [FAMILY]        | [KEY_CLASSES_LOAD_BEARING_ARGS]                                                                                                                                                                                                                                                                                                       |
+| :-----: | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | repository      | `Repository` (`name`, `visibility`, `autoInit`, `pages`, `securityAndAnalysis`), `RepositoryFile`, `RepositoryTopics`, `RepositoryCollaborator`/`RepositoryCollaborators`, `RepositoryDependabotSecurityUpdates`, `RepositoryVulnerabilityAlerts`                                                                                     |
+|  [02]   | branch law      | `Branch`, `BranchDefault`, `BranchProtection` (GraphQL, current), `RepositoryRuleset` (the rules-engine successor), `BranchProtectionV3` (retired REST — never beside `BranchProtection`)                                                                                                                                             |
+|  [03]   | environments    | `RepositoryEnvironment` (`environment`, `repository`, `reviewers`, `deploymentBranchPolicy`, `waitTimer`, `canAdminsBypass`, `preventSelfReview`), `RepositoryEnvironmentDeploymentPolicy` (`branchPattern` XOR `tagPattern`)                                                                                                         |
+|  [04]   | Actions         | `ActionsSecret`/`ActionsEnvironmentSecret`/`ActionsOrganizationSecret` (`secretName`, `plaintextValue` XOR `encryptedValue`), `ActionsVariable`/`ActionsEnvironmentVariable`/`ActionsOrganizationVariable` (`variableName`, `value`), `ActionsRunnerGroup`, `ActionsRepositoryPermissions`, the OIDC subject-claim template pair      |
+|  [05]   | access material | `RepositoryDeployKey` (`repository`, `key`, `title`, `readOnly`), `RepositoryWebhook` (`repository`, `events`, `active`, `configuration: { url, contentType, secret, insecureSsl }`), `OrganizationWebhook`                                                                                                                           |
+|  [06]   | org/team        | `OrganizationSettings` (`name`, `billingEmail`, `defaultRepositoryPermission`, `membersCanCreateRepositories`, `webCommitSignoffRequired`), `Team` (`name`, `privacy`, `parentTeamId`), `TeamMembership` (`teamId`, `username`, `role`), `TeamRepository` (`teamId`, `repository`, `permission`), `Membership`, `OrganizationRuleset` |
+|  [07]   | data sources    | `getRepository`, `getBranch`, `getRelease`, `getTeam`, `getOrganization`, `getUser` — each with its `*Output` graph-threaded twin                                                                                                                                                                                                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

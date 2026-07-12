@@ -23,41 +23,41 @@
 
 `Vertex`/`Edge` are the node/link primitives carrying an arbitrary `.data` payload (the local owner stores the stable `rustworkx` integer node index here, the one key coordinates and glyphs share); `graph_core` is a single connected component and `Graph` is the disjoint-set container over `graph_core` components (`Graph(V, E).C[0]` is the component `SugiyamaLayout` consumes). The topology layer is the bounded algebra the layout reads — a layout op walks `graph_core.V()`/`E()`, never a re-emitted adjacency structure.
 
-| [INDEX] | [TYPE] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Vertex` | node | `Vertex(data=None)`; `.data` payload, `.e` edge list, `.c` component back-ref, `.index` |
-| [02] | `Edge` | link | `Edge(x, y, w=1, data=None, connect=False)`; `.w` weight, `.feedback` Tarjan flag, `.v` endpoint pair |
-| [03] | `graph_core` | connected graph | `graph_core(V=None, E=None, directed=True)`; one connected component; `.sV`/`.sE` posets, `.degenerated_edges` |
-| [04] | `Graph` | disjoint-set graph | `Graph(V=None, E=None, directed=True)`; `.C` list of `graph_core` components; merges components as edges connect |
-| [05] | `vertex_core` | node base | `vertex_core`; adjacency essentials (`deg`/`e_in`/`e_out`/`N`/`e_to`/`detach`) — `Vertex` superclass |
-| [06] | `edge_core` | link base | `edge_core(x, y)`; `.v` endpoint pair, `.deg` (0 for a self-loop) — `Edge` superclass |
+| [INDEX] | [TYPE]        | [KIND]             | [ROLE]                                                                                                           |
+| :-----: | :------------ | :----------------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Vertex`      | node               | `Vertex(data=None)`; `.data` payload, `.e` edge list, `.c` component back-ref, `.index`                          |
+|  [02]   | `Edge`        | link               | `Edge(x, y, w=1, data=None, connect=False)`; `.w` weight, `.feedback` Tarjan flag, `.v` endpoint pair            |
+|  [03]   | `graph_core`  | connected graph    | `graph_core(V=None, E=None, directed=True)`; one connected component; `.sV`/`.sE` posets, `.degenerated_edges`   |
+|  [04]   | `Graph`       | disjoint-set graph | `Graph(V=None, E=None, directed=True)`; `.C` list of `graph_core` components; merges components as edges connect |
+|  [05]   | `vertex_core` | node base          | `vertex_core`; adjacency essentials (`deg`/`e_in`/`e_out`/`N`/`e_to`/`detach`) — `Vertex` superclass             |
+|  [06]   | `edge_core`   | link base          | `edge_core(x, y)`; `.v` endpoint pair, `.deg` (0 for a self-loop) — `Edge` superclass                            |
 
 [PUBLIC_TYPE_SCOPE]: layout providers (`grandalf.layouts`)
 - rail: figure
 
 `SugiyamaLayout` is the layered "dot" provider this owner binds; `VertexViewer` is the default node-dimension/position provider attached to each vertex as `vertex.view` (the layout reads `view.w`/`view.h` and writes `view.xy`). `DigcoLayout` is the alternative energy/stress-majorization (DIG-CoLa) placement provider; `Layer`/`DummyVertex`/`_sugiyama_vertex_attr` are the layout's internal layered-state owners (a layered figure dispatches over `SugiyamaLayout`, never these internals).
 
-| [INDEX] | [TYPE] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `SugiyamaLayout` | layered provider | `SugiyamaLayout(graph_core)`; layered "dot" layout — rank, order, Brandes-Köpf xy, edge routing |
-| [02] | `VertexViewer` | shape provider | `VertexViewer(w=2, h=2, data=None)`; default node dimension/position view (`.w`/`.h`/`.xy`) |
-| [03] | `DigcoLayout` | energy provider | `DigcoLayout(graph_core)`; force/stress-majorization (DIG-CoLa) constrained placement |
-| [04] | `DwyerLayout` | energy provider | `DwyerLayout(graph_core)`; subclass of `DigcoLayout` (placement parity; reserved for constraint extension) |
-| [05] | `Layer` | layered state | `Layer(list)`; one rank's ordered vertex list; `order()`/`_cc()` crossing reduction (layout-internal) |
-| [06] | `DummyVertex` | routing control | `DummyVertex(r=None, viewclass=VertexViewer)`; control point inserted per inner rank for a long edge |
-| [07] | `_sugiyama_vertex_attr` | layout attr | per-vertex `rank`/`pos`/`x`/`bar` state held in `SugiyamaLayout.grx` (layout-internal) |
+| [INDEX] | [TYPE]                  | [KIND]           | [ROLE]                                                                                                     |
+| :-----: | :---------------------- | :--------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SugiyamaLayout`        | layered provider | `SugiyamaLayout(graph_core)`; layered "dot" layout — rank, order, Brandes-Köpf xy, edge routing            |
+|  [02]   | `VertexViewer`          | shape provider   | `VertexViewer(w=2, h=2, data=None)`; default node dimension/position view (`.w`/`.h`/`.xy`)                |
+|  [03]   | `DigcoLayout`           | energy provider  | `DigcoLayout(graph_core)`; force/stress-majorization (DIG-CoLa) constrained placement                      |
+|  [04]   | `DwyerLayout`           | energy provider  | `DwyerLayout(graph_core)`; subclass of `DigcoLayout` (placement parity; reserved for constraint extension) |
+|  [05]   | `Layer`                 | layered state    | `Layer(list)`; one rank's ordered vertex list; `order()`/`_cc()` crossing reduction (layout-internal)      |
+|  [06]   | `DummyVertex`           | routing control  | `DummyVertex(r=None, viewclass=VertexViewer)`; control point inserted per inner rank for a long edge       |
+|  [07]   | `_sugiyama_vertex_attr` | layout attr      | per-vertex `rank`/`pos`/`x`/`bar` state held in `SugiyamaLayout.grx` (layout-internal)                     |
 
 [PUBLIC_TYPE_SCOPE]: edge-routing + view providers (`grandalf.routing`)
 - rail: figure
 
 `EdgeViewer` is the default edge-view provider attached as `edge.view`; its `setpath(pts)` stores the routed polyline on `edge.view._pts` (the exact attribute the local owner reads into `RouteMap`). The `route_with_*` functions are bound to `SugiyamaLayout.route_edge` and invoked per edge during `draw()`; they adjust the endpoint to each node's bounding box and optionally round corners.
 
-| [INDEX] | [TYPE_MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `EdgeViewer` | edge view | `EdgeViewer()`; `setpath(pts)` stores routed polyline on `._pts`; `.head_angle`/`.splines` set by routers |
-| [02] | `route_with_lines` | router | `route_with_lines(e, pts)`; clamp endpoints to node bb, straight polyline, set `head_angle` |
-| [03] | `route_with_splines` | router | `route_with_splines(e, pts)`; line route + NURBS-local round-corner cubic Béziers on `view.splines` |
-| [04] | `route_with_rounded_corners` | router | `route_with_rounded_corners(e, pts)`; line route + custom distance-rounded corners (`ROUND_AT_DISTANCE=40`) |
+| [INDEX] | [TYPE_MEMBER]                | [KIND]    | [ROLE]                                                                                                      |
+| :-----: | :--------------------------- | :-------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `EdgeViewer`                 | edge view | `EdgeViewer()`; `setpath(pts)` stores routed polyline on `._pts`; `.head_angle`/`.splines` set by routers   |
+|  [02]   | `route_with_lines`           | router    | `route_with_lines(e, pts)`; clamp endpoints to node bb, straight polyline, set `head_angle`                 |
+|  [03]   | `route_with_splines`         | router    | `route_with_splines(e, pts)`; line route + NURBS-local round-corner cubic Béziers on `view.splines`         |
+|  [04]   | `route_with_rounded_corners` | router    | `route_with_rounded_corners(e, pts)`; line route + custom distance-rounded corners (`ROUND_AT_DISTANCE=40`) |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -66,79 +66,79 @@
 
 `Graph(V, E)` ingests `Vertex`/`Edge` lists and unions vertices into connected components, exposed as `.C`; `graph_core` is one component with the full analysis surface. The local owner builds `GrandalfVertex(node_index)` per `rustworkx` node, `GrandalfEdge(src, dst)` per edge, then takes `Graph(...).C[0]` as the `SugiyamaLayout` input. `get_scs_with_feedback` is the Tarjan strongly-connected-component + feedback-arc detector `SugiyamaLayout.init_all` calls internally to acyclic-ize the graph; `dijkstra`/`path`/`partition` are the analysis members (force/radial/centrality analysis is `rustworkx`'s at the data plane — these stay layout-internal).
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Graph(V=None, E=None, directed=True)` | build | disjoint-set graph; `.C` connected components; `.C[0]` is the `SugiyamaLayout` input |
-| [02] | `Graph.add_vertex(v)` / `add_edge(e)` / `remove_vertex(v)` / `remove_edge(e)` | build | mutate topology, merging/splitting components as connectivity changes |
-| [03] | `Graph.V()` / `E()` / `order()` / `norm()` / `connected()` / `components()` | query | iterate vertices/edges; counts; connectivity; component list |
-| [04] | `graph_core(V=None, E=None, directed=True)` | build | one connected component; raises `ValueError` on an unconnected vertex/edge |
-| [05] | `graph_core.V(cond=None)` / `E(cond=None)` / `N(v, f_io=0)` | query | filtered vertex/edge iterators; neighbor list (`f_io>0` outward, `<0` inward) |
-| [06] | `graph_core.roots()` / `leaves()` | query | vertices with no inward / no outward edges (Sugiyama rank-0 seeds) |
-| [07] | `graph_core.get_scs_with_feedback(roots=None)` | analysis | Tarjan SCCs; marks `Edge.feedback=True` on the feedback-arc set (O(V+E)) |
-| [08] | `graph_core.path(x, y, f_io=0, hook=None)` | analysis | BFS shortest path as a `Vertex` list; `hook` called per visited vertex |
-| [09] | `graph_core.dijkstra(x, f_io=0, hook=None, subset=None)` | analysis | weighted single-source shortest-path distance map (heap priority queue) |
-| [10] | `graph_core.partition()` | analysis | partition the component into rank-respecting vertex lists |
-| [11] | `graph_core.M(cond=None)` / `deg_min()` / `deg_max()` / `deg_avg()` / `eps()` | query | associativity matrix; degree statistics |
+| [INDEX] | [MEMBER]                                                                      | [KIND]   | [ROLE]                                                                               |
+| :-----: | :---------------------------------------------------------------------------- | :------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `Graph(V=None, E=None, directed=True)`                                        | build    | disjoint-set graph; `.C` connected components; `.C[0]` is the `SugiyamaLayout` input |
+|  [02]   | `Graph.add_vertex(v)` / `add_edge(e)` / `remove_vertex(v)` / `remove_edge(e)` | build    | mutate topology, merging/splitting components as connectivity changes                |
+|  [03]   | `Graph.V()` / `E()` / `order()` / `norm()` / `connected()` / `components()`   | query    | iterate vertices/edges; counts; connectivity; component list                         |
+|  [04]   | `graph_core(V=None, E=None, directed=True)`                                   | build    | one connected component; raises `ValueError` on an unconnected vertex/edge           |
+|  [05]   | `graph_core.V(cond=None)` / `E(cond=None)` / `N(v, f_io=0)`                   | query    | filtered vertex/edge iterators; neighbor list (`f_io>0` outward, `<0` inward)        |
+|  [06]   | `graph_core.roots()` / `leaves()`                                             | query    | vertices with no inward / no outward edges (Sugiyama rank-0 seeds)                   |
+|  [07]   | `graph_core.get_scs_with_feedback(roots=None)`                                | analysis | Tarjan SCCs; marks `Edge.feedback=True` on the feedback-arc set (O(V+E))             |
+|  [08]   | `graph_core.path(x, y, f_io=0, hook=None)`                                    | analysis | BFS shortest path as a `Vertex` list; `hook` called per visited vertex               |
+|  [09]   | `graph_core.dijkstra(x, f_io=0, hook=None, subset=None)`                      | analysis | weighted single-source shortest-path distance map (heap priority queue)              |
+|  [10]   | `graph_core.partition()`                                                      | analysis | partition the component into rank-respecting vertex lists                            |
+|  [11]   | `graph_core.M(cond=None)` / `deg_min()` / `deg_max()` / `deg_avg()` / `eps()` | query    | associativity matrix; degree statistics                                              |
 
 [ENTRYPOINT_SCOPE]: `SugiyamaLayout` layered drawing
 - rail: figure
 
 `SugiyamaLayout(component)` is constructed over a `graph_core`; every vertex must carry a `view` (set `vertex.view = VertexViewer(w, h)` first). `init_all()` computes roots, the feedback-arc set, vertex ranks, dummy vertices, and layers; `draw(N=1.5)` converges the ordering over `N` crossing-reduction rounds, runs Brandes-Köpf xy assignment (`setxy`), and routes edges (`draw_edges`). The owner binds `layout.route_edge = route_with_lines | route_with_splines` before `draw()` so each edge's polyline is computed and stored on `edge.view._pts`. Tunable drawing parameters are plain attributes set after construction; `draw_step`/`ordering_step` are the per-step iterators for animation/debugging only.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `SugiyamaLayout(g)` | construct | layered layout over a `graph_core`; computes default `dw`/`dh` from view medians |
-| [02] | `SugiyamaLayout.init_all(roots=None, inverted_edges=None, optimize=False)` | init | ranks vertices, builds dummies + layers; `optimize=True` pushes long edges down |
-| [03] | `SugiyamaLayout.draw(N=1.5)` | run | converge ordering over `N` rounds, Brandes-Köpf xy, then route edges — the one layout driver |
-| [04] | `SugiyamaLayout.route_edge` | bind | per-edge router slot the owner sets to `route_with_lines`/`route_with_splines` before `draw()` |
-| [05] | `SugiyamaLayout.setxy()` | run | Brandes-Köpf horizontal-coordinate assignment writing `vertex.view.xy` (the 4-pass median) |
-| [06] | `SugiyamaLayout.draw_edges()` | run | build each edge's dummy-vertex polyline and invoke `route_edge`, storing it via `view.setpath` |
-| [07] | `SugiyamaLayout.dirvh` / `dirv` / `dirh` | param | alignment-policy state (0-3); the 4 Brandes-Köpf passes sweep all values |
-| [08] | `SugiyamaLayout.xspace` / `yspace` / `dw` / `dh` / `order_iter` | param | intra-layer / inter-layer spacing, default node w/h, ordering-iteration count |
-| [09] | `SugiyamaLayout.draw_step()` / `ordering_step(oneway=False)` | iter | per-layer step iterators for animation/debugging only (inefficient — not the production path) |
-| [10] | `SugiyamaLayout.grx` / `layers` / `ctrls` | state | per-vertex layout attrs, the `Layer` list, edge→dummy-vertex control map (layout-internal) |
+| [INDEX] | [MEMBER]                                                                   | [KIND]    | [ROLE]                                                                                         |
+| :-----: | :------------------------------------------------------------------------- | :-------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `SugiyamaLayout(g)`                                                        | construct | layered layout over a `graph_core`; computes default `dw`/`dh` from view medians               |
+|  [02]   | `SugiyamaLayout.init_all(roots=None, inverted_edges=None, optimize=False)` | init      | ranks vertices, builds dummies + layers; `optimize=True` pushes long edges down                |
+|  [03]   | `SugiyamaLayout.draw(N=1.5)`                                               | run       | converge ordering over `N` rounds, Brandes-Köpf xy, then route edges — the one layout driver   |
+|  [04]   | `SugiyamaLayout.route_edge`                                                | bind      | per-edge router slot the owner sets to `route_with_lines`/`route_with_splines` before `draw()` |
+|  [05]   | `SugiyamaLayout.setxy()`                                                   | run       | Brandes-Köpf horizontal-coordinate assignment writing `vertex.view.xy` (the 4-pass median)     |
+|  [06]   | `SugiyamaLayout.draw_edges()`                                              | run       | build each edge's dummy-vertex polyline and invoke `route_edge`, storing it via `view.setpath` |
+|  [07]   | `SugiyamaLayout.dirvh` / `dirv` / `dirh`                                   | param     | alignment-policy state (0-3); the 4 Brandes-Köpf passes sweep all values                       |
+|  [08]   | `SugiyamaLayout.xspace` / `yspace` / `dw` / `dh` / `order_iter`            | param     | intra-layer / inter-layer spacing, default node w/h, ordering-iteration count                  |
+|  [09]   | `SugiyamaLayout.draw_step()` / `ordering_step(oneway=False)`               | iter      | per-layer step iterators for animation/debugging only (inefficient — not the production path)  |
+|  [10]   | `SugiyamaLayout.grx` / `layers` / `ctrls`                                  | state     | per-vertex layout attrs, the `Layer` list, edge→dummy-vertex control map (layout-internal)     |
 
 [ENTRYPOINT_SCOPE]: `DigcoLayout` energy/stress placement
 - rail: figure
 
 `DigcoLayout(component)` is the alternative force/stress-majorization (DIG-CoLa) provider for non-hierarchical placement: `init_all(alpha, beta)` partitions a directed graph into hierarchical levels and seeds positions (random in x); `draw(N)` minimizes layout stress by conjugate-gradient solving of the Laplacian system, then writes `vertex.view.xy`. It needs the `[full]` numpy extra for performance but runs on the bundled `linalg` fallback. The local owner currently routes force/radial placement to `rustworkx` (`spring_layout`/`circular_layout`) rather than `DigcoLayout`; this entry documents the available capability, not the bound path.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `DigcoLayout(g)` | construct | energy/stress-majorization placement over a `graph_core` |
-| [02] | `DigcoLayout.init_all(alpha=0.1, beta=0.01)` | init | partition directed graph into levels, seed positions |
-| [03] | `DigcoLayout.draw(N=None)` | run | conjugate-gradient stress minimization; writes `vertex.view.xy` |
-| [04] | `DigcoLayout.xspace` / `yspace` / `dr` | param | spacing and node-radius drawing parameters |
-| [05] | `DwyerLayout(g)` | construct | `DigcoLayout` subclass (reserved for separation-constraint extension) |
+| [INDEX] | [MEMBER]                                     | [KIND]    | [ROLE]                                                                |
+| :-----: | :------------------------------------------- | :-------- | :-------------------------------------------------------------------- |
+|  [01]   | `DigcoLayout(g)`                             | construct | energy/stress-majorization placement over a `graph_core`              |
+|  [02]   | `DigcoLayout.init_all(alpha=0.1, beta=0.01)` | init      | partition directed graph into levels, seed positions                  |
+|  [03]   | `DigcoLayout.draw(N=None)`                   | run       | conjugate-gradient stress minimization; writes `vertex.view.xy`       |
+|  [04]   | `DigcoLayout.xspace` / `yspace` / `dr`       | param     | spacing and node-radius drawing parameters                            |
+|  [05]   | `DwyerLayout(g)`                             | construct | `DigcoLayout` subclass (reserved for separation-constraint extension) |
 
 [ENTRYPOINT_SCOPE]: edge routing + geometry helpers (`grandalf.routing` / `grandalf.utils.geometry`)
 - rail: figure
 
 The `route_with_*` functions take `(edge, pts)` where `pts` is the layout-produced polyline; they clamp the tail/head to each node's bounding box (`intersectR`), set `edge.view.head_angle`, and — for the spline/rounded variants — replace the corner sequence. The geometry helpers are the math primitives the routers compose; `setcurve` implements the NURBS-book local cubic-Bézier interpolation, exposed for a figure that wants the spline control points directly. The local owner reads the final `edge.view._pts` into its `RouteMap`; raw geometry primitives stay layout-internal.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `route_with_lines(e, pts)` | route | clamp endpoints to node bb, straight polyline, set `view.head_angle` |
-| [02] | `route_with_splines(e, pts)` | route | line route then `setroundcorner` cubic Béziers stored on `view.splines` |
-| [03] | `route_with_rounded_corners(e, pts)` | route | line route then iterative distance-rounding of corners (`ROUND_AT_DISTANCE`) |
-| [04] | `intersectR(view, topt)` | geom | intersection of the node bounding box with the line to `topt` (endpoint clamp) |
-| [05] | `intersectC(view, r, topt)` | geom | intersection of a circular node of radius `r` with the line to `topt` |
-| [06] | `setcurve(e, pts, tgs=None)` / `setroundcorner(e, pts)` | geom | NURBS-book local cubic-Bézier spline through points / rounded-corner spline list |
-| [07] | `getangle(p1, p2)` / `new_point_at_distance(pt, distance, angle)` | geom | polyline angle; point advanced by a distance along an angle |
-| [08] | `median_wh(views)` / `rand_ortho1(n)` | geom | median node width/height (Sugiyama default sizing); random unit vector ⟂ (1,…,1) |
+| [INDEX] | [MEMBER]                                                          | [KIND] | [ROLE]                                                                           |
+| :-----: | :---------------------------------------------------------------- | :----- | :------------------------------------------------------------------------------- |
+|  [01]   | `route_with_lines(e, pts)`                                        | route  | clamp endpoints to node bb, straight polyline, set `view.head_angle`             |
+|  [02]   | `route_with_splines(e, pts)`                                      | route  | line route then `setroundcorner` cubic Béziers stored on `view.splines`          |
+|  [03]   | `route_with_rounded_corners(e, pts)`                              | route  | line route then iterative distance-rounding of corners (`ROUND_AT_DISTANCE`)     |
+|  [04]   | `intersectR(view, topt)`                                          | geom   | intersection of the node bounding box with the line to `topt` (endpoint clamp)   |
+|  [05]   | `intersectC(view, r, topt)`                                       | geom   | intersection of a circular node of radius `r` with the line to `topt`            |
+|  [06]   | `setcurve(e, pts, tgs=None)` / `setroundcorner(e, pts)`           | geom   | NURBS-book local cubic-Bézier spline through points / rounded-corner spline list |
+|  [07]   | `getangle(p1, p2)` / `new_point_at_distance(pt, distance, angle)` | geom   | polyline angle; point advanced by a distance along an angle                      |
+|  [08]   | `median_wh(views)` / `rand_ortho1(n)`                             | geom   | median node width/height (Sugiyama default sizing); random unit vector ⟂ (1,…,1) |
 
 [ENTRYPOINT_SCOPE]: interop + support utilities (`grandalf.utils`)
 - rail: figure
 
 `Poset` is the deterministic-ordered set backing `graph_core.sV`/`sE` (the stable iteration order keeps layout reproducible). The `networkx` and `Dot` adapters are alternative ingress paths grandalf ships; this owner ingests from `rustworkx`, not these, so they stay available but unbound.
 
-| [INDEX] | [MEMBER] | [KIND] | [ROLE] |
-| --- | --- | --- | --- |
-| [01] | `Poset(L)` | support | deterministic-ordered set backing `graph_core.sV`/`sE`; `add`/`remove`/`get`/`index` |
-| [02] | `convert_nextworkx_graph_to_grandalf(G)` | interop | build a grandalf `Graph` from a networkx graph (alternative ingress; unbound here) |
-| [03] | `convert_grandalf_graph_to_networkx_graph(G)` | interop | export a grandalf graph to a networkx `MultiDiGraph` (alternative egress) |
-| [04] | `Dot` (`grandalf.utils.dot`) | interop | LALR(1) graphviz `.dot` parser (needs the `ply` `[full]` extra; `_has_ply` gate) |
-| [05] | `array` / `matrix` (`grandalf.utils.linalg`) | support | bundled numpy-free linear-algebra fallback `geometry` uses when numpy is absent |
+| [INDEX] | [MEMBER]                                      | [KIND]  | [ROLE]                                                                               |
+| :-----: | :-------------------------------------------- | :------ | :----------------------------------------------------------------------------------- |
+|  [01]   | `Poset(L)`                                    | support | deterministic-ordered set backing `graph_core.sV`/`sE`; `add`/`remove`/`get`/`index` |
+|  [02]   | `convert_nextworkx_graph_to_grandalf(G)`      | interop | build a grandalf `Graph` from a networkx graph (alternative ingress; unbound here)   |
+|  [03]   | `convert_grandalf_graph_to_networkx_graph(G)` | interop | export a grandalf graph to a networkx `MultiDiGraph` (alternative egress)            |
+|  [04]   | `Dot` (`grandalf.utils.dot`)                  | interop | LALR(1) graphviz `.dot` parser (needs the `ply` `[full]` extra; `_has_ply` gate)     |
+|  [05]   | `array` / `matrix` (`grandalf.utils.linalg`)  | support | bundled numpy-free linear-algebra fallback `geometry` uses when numpy is absent      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

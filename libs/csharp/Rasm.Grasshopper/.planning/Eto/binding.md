@@ -222,12 +222,12 @@ flowchart LR
 
 ## [06]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]           | [OWNER]                                  | [KIND]                                              | [RAIL]                                     | [CASES] |
-| :-----: | :------------------ | :---------------------------------------- | :---------------------------------------------------- | :------------------------------------------- | :-----: |
-|  [01]   | direction policy    | `BindMode`                               | `[SmartEnum<int>]` over `DualBindingMode`           | row data                                   |    4    |
-|  [02]   | model lens          | `ModelLens<TValue>`                      | generic `[Union]` → `IndirectBinding<TValue>`       | `ToBinding()`                              |    3    |
-|  [03]   | admission gate      | `ValueGate<TRaw,TModel>` + `GatePolicy`  | gated conversion pair + refusal-posture union       | `Of → Fin<ValueGate>`                      |    2    |
-|  [04]   | fuse + context      | `BindingRail` + `DataScope`              | two fuse gates + one marshalled context owner       | `Fuse`/`FuseGated`/`Assign` → `Fin<T>`     |    3    |
-|  [05]   | collection stores   | `StoreRow<T>` + `StoreSink` + `StoreRail` | carrier + sink unions, one mount gate               | `Mount → Fin<Unit>`                        |    5    |
+| [INDEX] | [CONCERN]         | [OWNER]                                   | [KIND]                                        | [RAIL]                                 | [CASES] |
+| :-----: | :---------------- | :---------------------------------------- | :-------------------------------------------- | :------------------------------------- | :-----: |
+|  [01]   | direction policy  | `BindMode`                                | `[SmartEnum<int>]` over `DualBindingMode`     | row data                               |    4    |
+|  [02]   | model lens        | `ModelLens<TValue>`                       | generic `[Union]` → `IndirectBinding<TValue>` | `ToBinding()`                          |    3    |
+|  [03]   | admission gate    | `ValueGate<TRaw,TModel>` + `GatePolicy`   | gated conversion pair + refusal-posture union | `Of → Fin<ValueGate>`                  |    2    |
+|  [04]   | fuse + context    | `BindingRail` + `DataScope`               | two fuse gates + one marshalled context owner | `Fuse`/`FuseGated`/`Assign` → `Fin<T>` |    3    |
+|  [05]   | collection stores | `StoreRow<T>` + `StoreSink` + `StoreRail` | carrier + sink unions, one mount gate         | `Mount → Fin<Unit>`                    |    5    |
 
 `Op`, `Fault`, `Atom`, `EtoDispatch`, and the Thinktecture admission bridge are composed upstream owners. Every host binding member on this page — the `DelegateBinding` constructor triple, `Convert(toValue, fromValue)`, `CatchException(Func<TException, bool>)`, `IndirectBinding<T>.Child`, and the `IEnumerable<object>` `DataStore` carriers — is decompile-fixed.

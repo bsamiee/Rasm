@@ -18,11 +18,11 @@
 - rail: token/class-fold
 - `ClassValue` is the recursive input union every class-emitting surface types against; `class-variance-authority` aliases `ClassValue`/`CxOptions`/`CxReturn` straight off this namespace, so this is the shared vocabulary of the whole styling rail, not a clsx-local type.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------------------------- |:---------------- |:---------------------------------------------------------------- |
-| [01] | `ClassValue = ClassArray \| ClassDictionary \| string \| number \| bigint \| null \| boolean \| undefined` | recursive input union | the one input type of the class rail; `cva`'s `ClassValue` = this |
-| [02] | `ClassDictionary = Record<string, any>` | conditional map | `{ "text-red-500": isError }` — key emitted when its value is truthy |
-| [03] | `ClassArray = ClassValue[]` | nested list | arbitrary nesting flattened in one pass |
+| [INDEX] | [SYMBOL]                                                                                                   | [TYPE_FAMILY]         | [CONSUMER_BOUNDARY]                                                  |
+| :-----: | :--------------------------------------------------------------------------------------------------------- | :-------------------- | :------------------------------------------------------------------- |
+|  [01]   | `ClassValue = ClassArray \| ClassDictionary \| string \| number \| bigint \| null \| boolean \| undefined` | recursive input union | the one input type of the class rail; `cva`'s `ClassValue` = this    |
+|  [02]   | `ClassDictionary = Record<string, any>`                                                                    | conditional map       | `{ "text-red-500": isError }` — key emitted when its value is truthy |
+|  [03]   | `ClassArray = ClassValue[]`                                                                                | nested list           | arbitrary nesting flattened in one pass                              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -30,10 +30,10 @@
 - rail: token/class-fold
 - one polymorphic entry discriminating on argument shape — variadic values, nested arrays, and conditional object maps all fold through the same call. `clsx/lite` is the same signature narrowed to string arguments only (objects/arrays silently skipped), for hot paths that never pass conditional maps.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------- |:------------- |:---------------------------------------------------------------- |
-| [01] | `clsx(...inputs: ClassValue[]): string` | fold | default + named export; the concatenation under `cn`; `cva.cx` is this function |
-| [02] | `clsx/lite` → `(...inputs): string` | string fast path | object/array args ignored; smaller + faster when inputs are always strings |
+| [INDEX] | [SURFACE]                               | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                             |
+| :-----: | :-------------------------------------- | :--------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `clsx(...inputs: ClassValue[]): string` | fold             | default + named export; the concatenation under `cn`; `cva.cx` is this function |
+|  [02]   | `clsx/lite` → `(...inputs): string`     | string fast path | object/array args ignored; smaller + faster when inputs are always strings      |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

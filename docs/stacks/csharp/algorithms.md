@@ -192,12 +192,12 @@ public static class HeldRefinement
 - Boundary: an asymmetric input to a symmetric kind factors as its symmetrization and returns a correct answer to the wrong system — the post-solve true residual is the only structural signal.
 - Boundary: set the `SparseLU` pivot `tol` in `[0, 1]` as a relative column threshold — `1` full partial pivoting, `0` disabled — never an absolute floor.
 
-| [SPARSE_ROUTE]         | [RANK1_EDIT] | [TRANSPOSE_SOLVE] | [INERTIA] | [REENTRANT] |
-| :--------------------- | :----------: | :---------------: | :-------: | :---------: |
-| `SparseCholesky` SPD   |     yes      |        no         |     —     |     no      |
-| `SparseLDL` symmetric  |      no      |        no         |  private  |     no      |
-| `SparseLU` unsymmetric |      no      |        yes        |     —     |     no      |
-| `SparseQR` rectangular |      no      |        yes        |     —     |     yes     |
+| [INDEX] | [SPARSE_ROUTE]         | [RANK1_EDIT] | [TRANSPOSE_SOLVE] | [INERTIA] | [REENTRANT] |
+| :-----: | :--------------------- | :----------: | :---------------: | :-------: | :---------: |
+|  [01]   | `SparseCholesky` SPD   |     yes      |        no         |     —     |     no      |
+|  [02]   | `SparseLDL` symmetric  |      no      |        no         |  private  |     no      |
+|  [03]   | `SparseLU` unsymmetric |      no      |        yes        |     —     |     no      |
+|  [04]   | `SparseQR` rectangular |      no      |        yes        |     —     |     yes     |
 
 [FACTOR_CACHE]:
 - Law: collapse a completed factorization to one typed operator value owning the factorization instance, cached permutation, symbolic fill counts, solution dimension, and the `Route` discriminant — the same vocabulary the dense spine reads, so the capability columns ride the route, never a second `FactorKind` field beside it.

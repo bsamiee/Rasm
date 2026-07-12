@@ -2,15 +2,15 @@
 
 The schema-drift authority of the interchange plane: pure reflection over two `FileDescriptorSet` generations — the build-pinned generation embedded in the generated proto suite and the live generation the C# runtime ships — folded into one graded `ContractDrift` verdict per proto census family at boot, so schema drift is a value the operator reads and a decode gate consumes, never a runtime decode failure. The diff walk pairs fields by number, gates on leaf identity, then folds the ordered lane table — wire facts, oneof membership, serialized field options, enum rosters, and recursive nested-message descent — while the RPC walk pairs the pinned `DescService` roster's methods by name and compares `methodKind`, `idempotency`, and the input/output signature; every disagreement is a typed `DriftChange` row. The severity table grades each change, the rank lattice folds a family's change set to its dominant verdict, and `admitted`/`alarm` are policy projections a `breaking` family refuses decode through as a `drift`-reasoned `WireFault`. The gate is proto-altitude only — the msgpack, cbor, and jsonpatch arms drift-check through their own vocabulary closures, an out-of-vocabulary RFC 6902 op and the msgpack `Alien` ext land through this same verdict vocabulary at their registry rows, and live-message unknown-field residue is `codec`'s `Wire.residue` read, the runtime complement of this boot-time grade. The module is `core/src/interchange/contract.ts`; a new detectable drift axis is one change case plus one grade row plus one lane row, and a new verdict policy axis is one severity column.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]         | [OWNS]                                                                    | [PUBLIC]         |
-| :-----: | :---------------- | :--------------------------------------------------------------------------- | :--------------- |
-|  [01]   | `DRIFT_VERDICT`   | the change union, severity and grade tables, the verdict receipt and fold    | `ContractDrift`  |
-|  [02]   | `GENERATION_DIFF` | the field-signature walk, the wire-fact compare, the enum-roster walk        | interior         |
-|  [03]   | `GATE_SERVICE`    | the boot verdict census, per-family admission, the coverage law              | `DescriptorGate` |
+| :-----: | :---------------- | :------------------------------------------------------------------------ | :--------------- |
+|  [01]   | `DRIFT_VERDICT`   | the change union, severity and grade tables, the verdict receipt and fold | `ContractDrift`  |
+|  [02]   | `GENERATION_DIFF` | the field-signature walk, the wire-fact compare, the enum-roster walk     | interior         |
+|  [03]   | `GATE_SERVICE`    | the boot verdict census, per-family admission, the coverage law           | `DescriptorGate` |
 
-## [2]-[DRIFT_VERDICT]
+## [02]-[DRIFT_VERDICT]
 
 [DRIFT_VERDICT]:
 - Owner: `ContractDrift`, the verdict receipt — one `Schema.Class` carrying the family, the pinned and live generation coordinates, and every field-level change as typed `DriftChange` union rows; `_severity` grades verdict policy (`rank`, `admitted`, `alarm`), `_grade` maps each change kind to its verdict, `dominant` folds a change set through the rank lattice, and `admitted`/`alarm` are row projections.
@@ -124,7 +124,7 @@ declare namespace ContractDrift {
 }
 ```
 
-## [3]-[GENERATION_DIFF]
+## [03]-[GENERATION_DIFF]
 
 [GENERATION_DIFF]:
 - Owner: the interior walk — `_leaf` classifies a `DescField` to its type signature through the `fieldKind` record dispatch, `_wireFacts` renders the delimited/packed encoding posture, `_signature` renders a `DescMethod` to its RPC signature, `_enumOf`/`_messageOf` project the roster-carrying descriptor off any field kind, `_lanes` is the ordered comparison-lane table every shared field pair folds through, and `_paired` is the one keyed roster fold — `added`, `removed`, `shared` arms over two generations — that `_enumChanges` instantiates by value number, `_serviced` by method name, and `_diffed` by field number, the field walk recursing over message-typed leaves under a visited-set guard; every disagreement folds into `DriftChange` rows.
@@ -306,7 +306,7 @@ const _serviced = (pinned: DescService, live: DescService | undefined): Readonly
 }
 ```
 
-## [4]-[GATE_SERVICE]
+## [04]-[GATE_SERVICE]
 
 [GATE_SERVICE]:
 - Owner: `DescriptorGate`, the boot-time gate — one `Effect.Service` whose Layer factory takes the live descriptor-set octets, the generation label, and the pinned `DescService` roster, decodes through the proto engine and the shipped `./wkt` schema, builds the `FileRegistry`, and folds one verdict per suite family at construction; the verdict census is immutable for the service's life, and `verdict`/`census`/`admitted` are reads over it.

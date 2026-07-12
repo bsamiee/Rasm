@@ -2,14 +2,14 @@
 
 The SI quantity law: a physical measure is one `Quantity` — SI-coherent magnitude plus a seven-axis `Dimension` exponent vector — canonicalized exactly once at the C# admission and carried dimension-checked everywhere in TS. A `{value, unit}` shape never exists in this branch: unit conversion happened before the wire, so the interchange codec decodes the C# `QuantityFamily` SI scalar straight into this owner, and every downstream fold reads magnitudes it can lawfully combine. Dimension algebra is total, magnitude algebra is honestly partial — a dimension mismatch or a non-finite product is a typed `QuantityFault` on the `Either` rail, never a `NaN` escaping into a report. The module is `core/src/value/quantity.ts`; a new named dimension is one static row, a new operation is one member on the owning class.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                         | [PUBLIC]                    |
-| :-----: | :----------------- | :--------------------------------------------------------------- | :-------------------------- |
-|  [01]   | `DIMENSION_VECTOR` | the SI base-exponent vector, its algebra, the named rows         | `Dimension`                 |
-|  [02]   | `QUANTITY_ALGEBRA` | magnitude+dimension carrier and its `Either`-railed arithmetic   | `Quantity`, `QuantityFault` |
+| :-----: | :----------------- | :------------------------------------------------------------- | :-------------------------- |
+|  [01]   | `DIMENSION_VECTOR` | the SI base-exponent vector, its algebra, the named rows       | `Dimension`                 |
+|  [02]   | `QUANTITY_ALGEBRA` | magnitude+dimension carrier and its `Either`-railed arithmetic | `Quantity`, `QuantityFault` |
 
-## [2]-[DIMENSION_VECTOR]
+## [02]-[DIMENSION_VECTOR]
 
 [DIMENSION_VECTOR]:
 - Owner: `Dimension`, a `Schema.Class` over the seven SI base exponents — `length` (m), `mass` (kg), `time` (s), `current` (A), `temperature` (K), `amount` (mol), `luminous` (cd) — with structural `Equal` from the declaration, so dimension matching is `Equal.equals` and a dimension keys containers with zero ceremony.
@@ -91,7 +91,7 @@ class Dimension extends Schema.Class<Dimension>("Dimension")({
 }
 ```
 
-## [3]-[QUANTITY_ALGEBRA]
+## [03]-[QUANTITY_ALGEBRA]
 
 [QUANTITY_ALGEBRA]:
 - Owner: `Quantity`, a `Schema.Class` of finite `magnitude` plus `Dimension` — the class is the decoded interior value, the validator, the constructor, and the derivation root under one name; the interchange codec decodes the C# SI scalar into it and compute-adjacent folds combine it lawfully.

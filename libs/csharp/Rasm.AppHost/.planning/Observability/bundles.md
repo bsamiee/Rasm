@@ -216,14 +216,14 @@ Policy rows bind through the config rail: rows one through six freeze into the S
 
 Canonical AppHost artifact rows are current; `process-dump` is the designed capture row. Sibling packages add rows through ordered contributor descriptors.
 
-| [INDEX] | [ARTIFACT]       | [PRODUCER]                              |
-| :-----: | :--------------- | :-------------------------------------- |
-|  [01]   | effective-config | redacted configuration debug view       |
-|  [02]   | buffered-logs    | profile log pipeline fault buffer       |
-|  [03]   | phase-receipts   | lifecycle receipts in the frozen window |
-|  [04]   | health-snapshot  | latest health fold                      |
+| [INDEX] | [ARTIFACT]       | [PRODUCER]                                                                                     |
+| :-----: | :--------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | effective-config | redacted configuration debug view                                                              |
+|  [02]   | buffered-logs    | profile log pipeline fault buffer                                                              |
+|  [03]   | phase-receipts   | lifecycle receipts in the frozen window                                                        |
+|  [04]   | health-snapshot  | latest health fold                                                                             |
 |  [05]   | process-dump     | `DiagnosticsClient.WriteDump` under `DumpPolicy`; gcdump via the `dotnet-gcdump` tool boundary |
-|  [06]   | event-trace      | EventPipe session decoded through TraceEvent `EventPipeEventSource` |
+|  [06]   | event-trace      | EventPipe session decoded through TraceEvent `EventPipeEventSource`                            |
 
 ## [04]-[MANIFEST_RECEIPT]
 

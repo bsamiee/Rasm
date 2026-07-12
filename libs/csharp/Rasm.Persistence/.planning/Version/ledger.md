@@ -212,16 +212,16 @@ public static class OpLog {
 }
 ```
 
-| [INDEX] | [POLICY]              | [VALUE]                          | [BINDING]                                                  |
-| :-----: | :-------------------- | :------------------------------- | :-------------------------------------------------------- |
-|  [01]   | changefeed source     | Marten `SubscriptionBase.ProcessEventsAsync` | the bespoke op-log store is retired beneath Marten        |
-|  [02]   | projected lane        | `geometry` (LWW) for a `GraphEvent` | `Project` produces a structural delta, never a `crdt` op  |
-|  [03]   | payload shape         | `(Family, Codec)` discriminates  | `Codec` is the lane row's column, `Family`-derived, never stored |
-|  [04]   | windowed read         | `ReplayWindow` origin/entity/family/window | AppUi edit-intent, AppHost determinism, egress CDC drain — one case |
-|  [05]   | lane → merge stance   | `ColumnFamily.Stance`            | dispatch reads the lane row, never a `"crdt"` string compare |
-|  [06]   | HLC cell              | event `Timestamp` + `Version`    | one stamp for op-log, CRDT merge, commit cell, wire       |
-|  [07]   | origin tie-break      | the Marten `origin` header       | LWW `(Hlc, OriginStoreId)` deterministic; never a zero    |
-|  [08]   | trace slot            | top-level `TraceSlot` field      | never inside `Payload`; distinct from AppHost `TraceContext` fold |
+| [INDEX] | [POLICY]            | [VALUE]                                      | [BINDING]                                                           |
+| :-----: | :------------------ | :------------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | changefeed source   | Marten `SubscriptionBase.ProcessEventsAsync` | the bespoke op-log store is retired beneath Marten                  |
+|  [02]   | projected lane      | `geometry` (LWW) for a `GraphEvent`          | `Project` produces a structural delta, never a `crdt` op            |
+|  [03]   | payload shape       | `(Family, Codec)` discriminates              | `Codec` is the lane row's column, `Family`-derived, never stored    |
+|  [04]   | windowed read       | `ReplayWindow` origin/entity/family/window   | AppUi edit-intent, AppHost determinism, egress CDC drain — one case |
+|  [05]   | lane → merge stance | `ColumnFamily.Stance`                        | dispatch reads the lane row, never a `"crdt"` string compare        |
+|  [06]   | HLC cell            | event `Timestamp` + `Version`                | one stamp for op-log, CRDT merge, commit cell, wire                 |
+|  [07]   | origin tie-break    | the Marten `origin` header                   | LWW `(Hlc, OriginStoreId)` deterministic; never a zero              |
+|  [08]   | trace slot          | top-level `TraceSlot` field                  | never inside `Payload`; distinct from AppHost `TraceContext` fold   |
 
 ## [03]-[MERGE_LAW]
 
@@ -380,13 +380,13 @@ public static class SyncMerge {
 }
 ```
 
-| [INDEX] | [POLICY]              | [VALUE]                                              | [BINDING]                                                  |
-| :-----: | :-------------------- | :-------------------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | scalar default        | LWW by `(Hlc, OriginStoreId)`; `FirstWriter` inverts to earliest-wins | total order, deterministic across peers; the `(cmp, isFirstWriter)` switch flips both arms |
-|  [02]   | crdt lane             | `Crdt.Apply` join-semilattice                       | converges by merge; the multi-writer offline substrate    |
-|  [03]   | causal fork           | equal `(stamp, origin)` divergent content           | `SyncFault.Forked` halts merge; never a soft conflict     |
-|  [04]   | conservation          | receipt `IsValid` — `ValidityClaim.All` over the carried `Batch` | a breach is `SyncFault.Unconserved` failing the rail      |
-|  [05]   | whole-relation truncate | `Kind.WholeRelation` → session `Truncate` delegate | the winning truncate clears the `(Model, Family)` relation; `Held` answers the relation head |
+| [INDEX] | [POLICY]                | [VALUE]                                                               | [BINDING]                                                                                    |
+| :-----: | :---------------------- | :-------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | scalar default          | LWW by `(Hlc, OriginStoreId)`; `FirstWriter` inverts to earliest-wins | total order, deterministic across peers; the `(cmp, isFirstWriter)` switch flips both arms   |
+|  [02]   | crdt lane               | `Crdt.Apply` join-semilattice                                         | converges by merge; the multi-writer offline substrate                                       |
+|  [03]   | causal fork             | equal `(stamp, origin)` divergent content                             | `SyncFault.Forked` halts merge; never a soft conflict                                        |
+|  [04]   | conservation            | receipt `IsValid` — `ValidityClaim.All` over the carried `Batch`      | a breach is `SyncFault.Unconserved` failing the rail                                         |
+|  [05]   | whole-relation truncate | `Kind.WholeRelation` → session `Truncate` delegate                    | the winning truncate clears the `(Model, Family)` relation; `Held` answers the relation head |
 
 ## [04]-[SYNC_TRANSPORTS]
 
@@ -466,12 +466,12 @@ public static class SyncPump {
 }
 ```
 
-| [INDEX] | [POLICY]                 | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :----------------------- | :------------------------------------- | :-------------------------------------------------------- |
-|  [01]   | intra-cluster replication | Marten daemon `HotCold`               | this axis is the cross-store/offline lane only            |
-|  [02]   | graph checkout           | fetch+apply the root entry; `GraphDiff` is the BLOB manifest | the `Closure` blob set transfers through the blob store, never an op-log `Fetch` |
-|  [03]   | Speckle marshal          | DI-resolved instance `IOperations`     | runs outside-Rhino; `rootObjId` → `ContentKey`; drift faults |
-|  [04]   | http delta               | AppHost `OutboundHop` pipeline         | database excluded from the hop law                        |
+| [INDEX] | [POLICY]                  | [VALUE]                                                      | [BINDING]                                                                        |
+| :-----: | :------------------------ | :----------------------------------------------------------- | :------------------------------------------------------------------------------- |
+|  [01]   | intra-cluster replication | Marten daemon `HotCold`                                      | this axis is the cross-store/offline lane only                                   |
+|  [02]   | graph checkout            | fetch+apply the root entry; `GraphDiff` is the BLOB manifest | the `Closure` blob set transfers through the blob store, never an op-log `Fetch` |
+|  [03]   | Speckle marshal           | DI-resolved instance `IOperations`                           | runs outside-Rhino; `rootObjId` → `ContentKey`; drift faults                     |
+|  [04]   | http delta                | AppHost `OutboundHop` pipeline                               | database excluded from the hop law                                               |
 
 ## [05]-[PRESENCE]
 
@@ -535,8 +535,8 @@ public static class Awareness {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                            | [BINDING]                                                  |
-| :-----: | :------------------ | :--------------------------------- | :-------------------------------------------------------- |
-|  [01]   | lossy awareness     | `DropOldest` `DrainSpec` lane, `onDrop` receipt | never a durable changefeed row; distinct from `EphemeralMap` |
-|  [02]   | presence ttl        | stamp + `Ttl`, heartbeat sweep     | one ephemeral row, never a transport                      |
-|  [03]   | working-set checkout| `ReplicationQuery` → key set       | one subgraph, never the whole graph                       |
+| [INDEX] | [POLICY]             | [VALUE]                                         | [BINDING]                                                    |
+| :-----: | :------------------- | :---------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | lossy awareness      | `DropOldest` `DrainSpec` lane, `onDrop` receipt | never a durable changefeed row; distinct from `EphemeralMap` |
+|  [02]   | presence ttl         | stamp + `Ttl`, heartbeat sweep                  | one ephemeral row, never a transport                         |
+|  [03]   | working-set checkout | `ReplicationQuery` → key set                    | one subgraph, never the whole graph                          |

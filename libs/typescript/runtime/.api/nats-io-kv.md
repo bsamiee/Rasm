@@ -15,28 +15,28 @@
 [PUBLIC_TYPE_SCOPE]: bucket admin, the KV surface, and the entry fact
 - rail: boundaries
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
-|:-----: |:------------------------------------------------------------------------------------------ |:------------ |:--------------------------------------------------------------- |
-| [01] | `Kvm` (`create`, `open`, `list`) | bucket admin | bucket ensure at engine Layer build over the core connection |
-| [02] | `KV` (`create`, `put`, `update`, `get`, `delete`, `purge`, `watch`, `keys`, `history`, `status`, `destroy`) | kv surface | the one revision-state surface; write mode is a member selection, never a wrapper |
-| [03] | `KvEntry` (`bucket`, `key`, `value: Uint8Array`, `created`, `revision`, `delta?`, `operation: "PUT" \| "DEL" \| "PURGE"`) | entry fact | the versioned read/watch unit; `.string()` / `.json()` decode helpers |
-| [04] | `QueuedIterator<string>` (from `keys`) | key census | lifted through `Stream.fromAsyncIterable` like every NATS iterator |
+| [INDEX] | [SYMBOL]                                                                                                                  | [TYPE_FAMILY] | [CONSUMER]                                                                        |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------ | :------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `Kvm` (`create`, `open`, `list`)                                                                                          | bucket admin  | bucket ensure at engine Layer build over the core connection                      |
+|  [02]   | `KV` (`create`, `put`, `update`, `get`, `delete`, `purge`, `watch`, `keys`, `history`, `status`, `destroy`)               | kv surface    | the one revision-state surface; write mode is a member selection, never a wrapper |
+|  [03]   | `KvEntry` (`bucket`, `key`, `value: Uint8Array`, `created`, `revision`, `delta?`, `operation: "PUT" \| "DEL" \| "PURGE"`) | entry fact    | the versioned read/watch unit; `.string()` / `.json()` decode helpers             |
+|  [04]   | `QueuedIterator<string>` (from `keys`)                                                                                    | key census    | lifted through `Stream.fromAsyncIterable` like every NATS iterator                |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: bucket lifecycle, writes, reads, and replay
 - rail: boundaries
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:---------------------------------------------------------------------- |:------------- |:------------------------------------------------------------------- |
-| [01] | `new Kvm(nc)` → `kvm.create(name, opts?)` / `kvm.open(name, opts?)` / `kvm.list()` | mint | bucket ensure per topology row, like stream ensure |
-| [02] | `kv.create(k, data, markerTTL?): Promise<number>` | claim write | create-if-absent — the distributed claim/lock mint; returns revision |
-| [03] | `kv.update(k, data, version: number, timeout?): Promise<number>` | CAS write | the OCC arm — stale `version` rejects; the default write mode |
-| [04] | `kv.put(k, data, opts?): Promise<number>` | plain write | last-writer-wins only where the row genuinely rules it |
-| [05] | `kv.get(k, opts?: { revision: number }): Promise<KvEntry \| null>` | point read | versioned read; `revision` is the time-travel arm — retrieval is `get`, no entry-level open exists |
-| [06] | `kv.delete(k, opts?)` / `kv.purge(k, opts?)` | remove | tombstone keeping history versus erased history — two rows, one choice |
-| [07] | `kv.watch(opts?)` / `kv.history(opts)` / `kv.keys(filter?)` | replay + tail | change tail, revision-chain replay, key census — all async iterators |
-| [08] | `kv.status()` / `kv.destroy()` | admin | bucket introspection and teardown |
+| [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [CONSUMER]                                                                                         |
+| :-----: | :--------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `new Kvm(nc)` → `kvm.create(name, opts?)` / `kvm.open(name, opts?)` / `kvm.list()` | mint           | bucket ensure per topology row, like stream ensure                                                 |
+|  [02]   | `kv.create(k, data, markerTTL?): Promise<number>`                                  | claim write    | create-if-absent — the distributed claim/lock mint; returns revision                               |
+|  [03]   | `kv.update(k, data, version: number, timeout?): Promise<number>`                   | CAS write      | the OCC arm — stale `version` rejects; the default write mode                                      |
+|  [04]   | `kv.put(k, data, opts?): Promise<number>`                                          | plain write    | last-writer-wins only where the row genuinely rules it                                             |
+|  [05]   | `kv.get(k, opts?: { revision: number }): Promise<KvEntry \| null>`                 | point read     | versioned read; `revision` is the time-travel arm — retrieval is `get`, no entry-level open exists |
+|  [06]   | `kv.delete(k, opts?)` / `kv.purge(k, opts?)`                                       | remove         | tombstone keeping history versus erased history — two rows, one choice                             |
+|  [07]   | `kv.watch(opts?)` / `kv.history(opts)` / `kv.keys(filter?)`                        | replay + tail  | change tail, revision-chain replay, key census — all async iterators                               |
+|  [08]   | `kv.status()` / `kv.destroy()`                                                     | admin          | bucket introspection and teardown                                                                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

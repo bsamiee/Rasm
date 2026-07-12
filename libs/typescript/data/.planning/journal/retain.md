@@ -2,15 +2,15 @@
 
 Lawful data aging without rewriting: the log is append-only forever, so this page owns the three ways data ages — retention-class windows (one policy table driving ledger expiry, outbox grooming, fact grooming, and partition drop behind the causal frontier), crypto-shredding (subject-bearing payload fields sealed under a per-subject data key whose wrapped form is the ONLY thing this folder stores; erasure is destroying the `WrappedKey`, after which unwrap fails, open becomes impossible, and every sealed read folds to a redaction marker, totally), and the per-subject DSAR export fold (one portability read over journal events and object references riding the same subject spine erasure uses). The stability frontier arrives from the core causality owner as a value; partitions at or below a snapshotted frontier drop through the `partition` grant — compaction is a capability, never a default.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                         |
-| :-----: | :--------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `RETENTION_ROWS` | the retention-class vocabulary, window policy, frontier handoff, partition rows     |
-|  [02]   | `SHREDDER`       | the wrapped-key ledger, seal/open folds, erasure as key destruction                 |
-|  [03]   | `DSAR_EXPORT`    | the per-subject portability fold over journal plus object rows                      |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                          |
+| :-----: | :--------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `RETENTION_ROWS` | the retention-class vocabulary, window policy, frontier handoff, partition rows |
+|  [02]   | `SHREDDER`       | the wrapped-key ledger, seal/open folds, erasure as key destruction             |
+|  [03]   | `DSAR_EXPORT`    | the per-subject portability fold over journal plus object rows                  |
 
-## [2]-[RETENTION_ROWS]
+## [02]-[RETENTION_ROWS]
 
 - Owner: the `Retain.Class` vocabulary — one `as const` key tuple feeding `Schema.Literal` plus the window-row table, so wire admission and the type derive from one anchor pair — plus the frontier ledger recording the causal handoff and the partition rows that realize aging on the spine.
 - Packages: `effect` (`Duration`, `Schema`); `@effect/sql`; `@rasm/ts/core` (`Causal.Retention` — the `{floor, stamp}` compaction coordinate); the `partition` and `cron` grants gate execution.
@@ -63,7 +63,7 @@ const _frontierDdl: Capability.Ensure = {
 }
 ```
 
-## [3]-[SHREDDER]
+## [03]-[SHREDDER]
 
 - Owner: the `subject_key` ledger holding one `WrappedKey` per subject, the `seal`/`open` folds composing the security `Shredder`'s five-verb envelope algebra, and `erase` — the one erasure verb, destroying the wrapped key material and marking the tombstone in a single statement.
 - Packages: `@rasm/ts/security` (`Shredder`, `WrappedKey`, `SealedEnvelope` — the one direct `data → security` edge); `effect` (`Effect`, `Option`, `Schema`).
@@ -158,7 +158,7 @@ const _erase = (subject: Retain.Subject) =>
     ))
 ```
 
-## [4]-[DSAR_EXPORT]
+## [04]-[DSAR_EXPORT]
 
 - Owner: `Retain.dsar` — the one portability fold: every journal event indexed to the subject, joined with the subject's object references, streamed as one export document; sealed fields inside payloads stay sealed here — the exporting consumer composes `Retain.open` per field it knows the shape of, because field shapes are app material; plus the subject-index slot this page provides to the publish transaction.
 - Packages: `effect` (`Stream`); `journal/append.md` (the read stream and the `Slot` contract); the object plane's reference rows arrive by relation name.

@@ -17,53 +17,53 @@
 [PUBLIC_TYPE_SCOPE]: the virtualizer instance and the virtual item
 - rail: view
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
-|:-----: |:------------------------------------------------------------- |:---------------- |:--------------------------------------------------------------- |
-| [01] | `Virtualizer<TScrollElement, TItemElement>` | virtualizer | `view/compose` — the framework-agnostic engine; the React hook returns a `ReactVirtualizer` wrapping it |
-| [02] | `VirtualItem` (`{ key, index, start, end, size, lane }`) | window item | `view/compose` — one visible item's absolute offset (`start`), measured `size`, and grid `lane`; the render loop maps these |
-| [03] | `ReactVirtualizer` (adds `containerRef`) | React virtualizer | `view/compose` — the hook return; `containerRef` binds the inner size container for the direct-DOM path |
-| [04] | `Range` / `ScrollToOptions` (`{ align, behavior }`) / `ScrollAlignment` (`'start'\|'center'\|'end'\|'auto'`) / `ScrollBehavior` (`'auto'\|'smooth'`) | window / scroll opts | `view/compose` — the computed index range and the imperative scroll-target options |
+| [INDEX] | [SYMBOL]                                                                                                                                             | [TYPE_FAMILY]        | [CONSUMER]                                                                                                                  |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Virtualizer<TScrollElement, TItemElement>`                                                                                                          | virtualizer          | `view/compose` — the framework-agnostic engine; the React hook returns a `ReactVirtualizer` wrapping it                     |
+|  [02]   | `VirtualItem` (`{ key, index, start, end, size, lane }`)                                                                                             | window item          | `view/compose` — one visible item's absolute offset (`start`), measured `size`, and grid `lane`; the render loop maps these |
+|  [03]   | `ReactVirtualizer` (adds `containerRef`)                                                                                                             | React virtualizer    | `view/compose` — the hook return; `containerRef` binds the inner size container for the direct-DOM path                     |
+|  [04]   | `Range` / `ScrollToOptions` (`{ align, behavior }`) / `ScrollAlignment` (`'start'\|'center'\|'end'\|'auto'`) / `ScrollBehavior` (`'auto'\|'smooth'`) | window / scroll opts | `view/compose` — the computed index range and the imperative scroll-target options                                          |
 
 [PUBLIC_TYPE_SCOPE]: the options bag — one parameterized windowing contract
 - rail: view
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
-|:-----: |:------------------------------------------------------------- |:---------------- |:--------------------------------------------------------------- |
-| [01] | `VirtualizerOptions` / `ReactVirtualizerOptions` / `PartialKeys` | options bag | `view/compose` — the full option contract; the React variant defaults `observeElementRect`/`observeElementOffset`/`scrollToFn` so the hook needs only `count`/`getScrollElement`/`estimateSize` |
-| [02] | `count` / `getScrollElement` / `estimateSize(index)` / `overscan` / `horizontal` | core options | `view/compose` — item count, the scroll container ref, per-index size estimate, off-screen buffer, and axis |
-| [03] | `measureElement` / `lanes` / `gap` / `paddingStart` / `paddingEnd` / `scrollMargin` | layout options | `view/compose` — dynamic measurement, multi-column count, inter-item gap, padding, and the window-offset margin |
-| [04] | `getItemKey(index)` / `rangeExtractor(range)` / `scrollToFn` / `initialOffset` / `enabled` / `isScrollingResetDelay` | control hooks | `view/compose` — stable keys, the overscan/sticky-index extractor, custom scroll animation, SSR offset, and enable gate |
-| [05] | `directDomUpdates` / `directDomUpdatesMode` (`'transform'\|'position'`) / `useFlushSync` | perf options | `view/compose` — the scroll-only direct-DOM fast path and its positioning mode; the advanced surface for long lists |
+| [INDEX] | [SYMBOL]                                                                                                             | [TYPE_FAMILY]  | [CONSUMER]                                                                                                                                                                                      |
+| :-----: | :------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `VirtualizerOptions` / `ReactVirtualizerOptions` / `PartialKeys`                                                     | options bag    | `view/compose` — the full option contract; the React variant defaults `observeElementRect`/`observeElementOffset`/`scrollToFn` so the hook needs only `count`/`getScrollElement`/`estimateSize` |
+|  [02]   | `count` / `getScrollElement` / `estimateSize(index)` / `overscan` / `horizontal`                                     | core options   | `view/compose` — item count, the scroll container ref, per-index size estimate, off-screen buffer, and axis                                                                                     |
+|  [03]   | `measureElement` / `lanes` / `gap` / `paddingStart` / `paddingEnd` / `scrollMargin`                                  | layout options | `view/compose` — dynamic measurement, multi-column count, inter-item gap, padding, and the window-offset margin                                                                                 |
+|  [04]   | `getItemKey(index)` / `rangeExtractor(range)` / `scrollToFn` / `initialOffset` / `enabled` / `isScrollingResetDelay` | control hooks  | `view/compose` — stable keys, the overscan/sticky-index extractor, custom scroll animation, SSR offset, and enable gate                                                                         |
+|  [05]   | `directDomUpdates` / `directDomUpdatesMode` (`'transform'\|'position'`) / `useFlushSync`                             | perf options   | `view/compose` — the scroll-only direct-DOM fast path and its positioning mode; the advanced surface for long lists                                                                             |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: constructing a virtualizer and rendering the window
 - rail: view
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
-| [01] | `useVirtualizer({ count, getScrollElement, estimateSize, overscan, ... })` | build (element) | `view/compose` — virtualize inside a scroll container; the common table/list case |
-| [02] | `useWindowVirtualizer({ count, estimateSize, scrollMargin, ... })` | build (window) | `view/compose` — virtualize against document scroll (no inner scroll container); `scrollMargin` offsets by the list's page position |
-| [03] | `virtualizer.getVirtualItems()` / `.getTotalSize()` | derive window | `view/compose` — the visible-item array and the full scroll height/width for the spacer element |
-| [04] | `virtualizer.getVirtualIndexes()` / `virtualizer.range` (`{ startIndex, endIndex }`) | derive range | `view/compose` — the raw index span before item materialization, for prefetch/telemetry |
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                                          |
+| :-----: | :----------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `useVirtualizer({ count, getScrollElement, estimateSize, overscan, ... })`           | build (element) | `view/compose` — virtualize inside a scroll container; the common table/list case                                                   |
+|  [02]   | `useWindowVirtualizer({ count, estimateSize, scrollMargin, ... })`                   | build (window)  | `view/compose` — virtualize against document scroll (no inner scroll container); `scrollMargin` offsets by the list's page position |
+|  [03]   | `virtualizer.getVirtualItems()` / `.getTotalSize()`                                  | derive window   | `view/compose` — the visible-item array and the full scroll height/width for the spacer element                                     |
+|  [04]   | `virtualizer.getVirtualIndexes()` / `virtualizer.range` (`{ startIndex, endIndex }`) | derive range    | `view/compose` — the raw index span before item materialization, for prefetch/telemetry                                             |
 
 [ENTRYPOINT_SCOPE]: dynamic measurement and imperative scroll
 - rail: view
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
-| [01] | `virtualizer.measureElement(node)` (as each item's `ref`) / `virtualizer.resizeItem(index, size)` | measure | `view/compose` — real-size measurement via `ResizeObserver`; variable-height rows need no `estimateSize` precision |
-| [02] | `virtualizer.scrollToIndex(index, { align, behavior })` / `.scrollToOffset(px, opts)` | scroll to | `view/compose` — jump/smooth-scroll a row into view; `align: 'center'` for a selected `GlobalId` row reveal |
-| [03] | `virtualizer.getOffsetForIndex(index, align)` / `virtualizer.measure()` | offset / reset | `view/compose` — compute a target offset, or force a full re-measure when `estimateSize`/data changes |
+| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY] | [CONSUMER]                                                                                                         |
+| :-----: | :------------------------------------------------------------------------------------------------ | :------------- | :----------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `virtualizer.measureElement(node)` (as each item's `ref`) / `virtualizer.resizeItem(index, size)` | measure        | `view/compose` — real-size measurement via `ResizeObserver`; variable-height rows need no `estimateSize` precision |
+|  [02]   | `virtualizer.scrollToIndex(index, { align, behavior })` / `.scrollToOffset(px, opts)`             | scroll to      | `view/compose` — jump/smooth-scroll a row into view; `align: 'center'` for a selected `GlobalId` row reveal        |
+|  [03]   | `virtualizer.getOffsetForIndex(index, align)` / `virtualizer.measure()`                           | offset / reset | `view/compose` — compute a target offset, or force a full re-measure when `estimateSize`/data changes              |
 
 [ENTRYPOINT_SCOPE]: framework-agnostic core primitives (`@tanstack/virtual-core`)
 - rail: view
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
-| [01] | `elementScroll` / `windowScroll` — `observeElementRect` / `observeElementOffset` / `observeWindowRect` / `observeWindowOffset` | scroll/observe defaults | `view/compose` — the `scrollToFn`/observer implementations the React hook wires by default; overridable for a custom scroll container |
-| [02] | `defaultRangeExtractor(range)` / `defaultKeyExtractor(index)` | default hook | `view/compose` — the baseline overscan and key strategy a custom `rangeExtractor`/`getItemKey` extends (e.g. union a pinned index for a sticky header) |
-| [03] | `measureElement` / `notUndefined` / `approxEqual` / `debounce` / `memo` | core util | `view/compose` — the DPR-aware element measurer and the internal fold/compare utilities the core exposes |
+| [INDEX] | [SURFACE]                                                                                                                      | [ENTRY_FAMILY]          | [CONSUMER]                                                                                                                                             |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------- | :---------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `elementScroll` / `windowScroll` — `observeElementRect` / `observeElementOffset` / `observeWindowRect` / `observeWindowOffset` | scroll/observe defaults | `view/compose` — the `scrollToFn`/observer implementations the React hook wires by default; overridable for a custom scroll container                  |
+|  [02]   | `defaultRangeExtractor(range)` / `defaultKeyExtractor(index)`                                                                  | default hook            | `view/compose` — the baseline overscan and key strategy a custom `rangeExtractor`/`getItemKey` extends (e.g. union a pinned index for a sticky header) |
+|  [03]   | `measureElement` / `notUndefined` / `approxEqual` / `debounce` / `memo`                                                        | core util               | `view/compose` — the DPR-aware element measurer and the internal fold/compare utilities the core exposes                                               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -354,7 +354,7 @@ public static class DenseOps {
 }
 ```
 
-### [2.1]-[LEVENBERG_MARQUARDT]
+### [02.1]-[LEVENBERG_MARQUARDT]
 
 - Owner: `LevenbergMarquardt` the damped Gauss-Newton nonlinear least-squares owner minimizing `‖r(θ)‖²`, solving each step's normal-equation system `(JᵀJ + λ·diag(JᵀJ))·δ = −Jᵀr` through the lane's gated `Admission.Definite` SPD route (the damped normal matrix is symmetric-PD by construction), adapting the damping λ on the actual-versus-predicted reduction; `LmPolicy` the iteration policy record; `LmResult` the typed convergence carrier. This is the one Compute-INTERNAL nonlinear-least-squares owner, serving Compute's own solves and the host-free graduation/inference peers over the wire.
 - Entry: ONE `Minimize` discriminating on the residual's input shape — the HYPERJET arm (`Func<DDScalar[], DDScalar[]>` residual authored once over the hyper-dual scalar) derives the EXACT Jacobian row-by-row through `GetGradient()` and is the CANONICAL provider (the `Stats/estimator` ARMA/Holt/state-space fits and the `Solver/uncertainty` FORM/SORM exact-AD row all arrive on this arm; the finite-difference fall those consumers carried is deleted), while the black-box arm (`Func<Vector<double>, Matrix<double>>` caller-supplied Jacobian) survives for residuals authored outside the hyper-dual reach; both converge on the identical damped fold.
@@ -428,7 +428,7 @@ public static class LevenbergMarquardt {
 }
 ```
 
-### [2.2]-[SPECTRAL_LAW]
+### [02.2]-[SPECTRAL_LAW]
 
 - Owner: `SpectralResult` `[Union]` carrying distinct dense-symmetric and dense-general cases — the `Symmetricity` flag selects five output axes together (eigenvector norm, real versus block-diagonal `D`, single-column versus column-pair encoding, ascending versus Schur-deflation order, working versus norm-gated solve); `SpectralOps.Decompose` the one constructor projecting `Evd<double>` onto the matched `SpectralResult` case; `SpectralOps.Modal` the Schur-pair decoder; `SpectralOps.Defect` the block eigen-residual; `EigenFilter` `[SmartEnum<string>]` the closed eigenbasis weight vocabulary excluding the zero mode.
 - Entry: `public static SpectralResult Decompose(Matrix<double> a, Evd<double> evd, Symmetricity sym)` builds the `Symmetric` case from the real eigenvalues and the orthonormal vectors for a symmetric/Hermitian spectrum and the `General` case decoding the Schur pairs for the nonsymmetric spectrum, each carrying its block defect; `public static Matrix<Complex> Modal(Matrix<double> packed, Vector<Complex> values)` decodes real conjugate pairs from adjacent columns dispatched on `Math.Sign(values[j].Imaginary)`; `public static double Defect(Matrix<double> a, Matrix<double> vectors, Matrix<double> d)` computes `(A·V − V·D).FrobeniusNorm()`; `public static Fin<Vector<double>> Filtered(Evd<double> evd, EigenFilter weight, double zeroFloor)` applies the eigenbasis filter carrying the weight sum as evidence.

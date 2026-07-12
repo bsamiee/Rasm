@@ -2,17 +2,17 @@
 
 The localization plane with zero i18n package: one locale spine (react-aria's `I18nProvider` carrying the kernel `Refined.Locale` brand as the single ambient locale), one interior per-locale native-`Intl` instance cache shared by every formatter this page constructs itself, the `Format` value-formatting vocabulary (option-row tables for date/number/list, the relative-time granularity ladder, the single epoch crossing, collation `Order` and the picker filter), and the `Message` authority (Schema-decoded catalogs as app data, a closed three-case spec family, a total plural/select/interpolation fold, and the BCP-47 fallback chain with the key itself as visible missing-message evidence). No `Intl.*` constructor at a call site, no wall-clock `Date` in domain flow, no format options object authored inline, no ICU engine, no translation runtime. The module is `ui/src/system/intl.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC]  |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                           | [PUBLIC]  |
 | :-----: | :--------------- | :------------------------------------------------------------------------------- | :-------- |
-|  [01]   | `LOCALE_SPINE`   | the `I18nProvider`/`useLocale` ambient-locale law over the kernel brand           | —         |
-|  [02]   | `NATIVE_CACHE`   | the one per-locale `Intl` instance cache behind every self-constructed formatter  | —         |
-|  [03]   | `FORMAT_ROWS`    | `Format` — option-row vocabulary, epoch seam, relative ladder, collation, filter  | `Format`  |
-|  [04]   | `MESSAGE_FAMILY` | the `MessageSpec` closed family and the `Catalog` decode owner                    | `Message` |
-|  [05]   | `MESSAGE_FOLD`   | the total format fold and the locale fallback chain                               | `Message` |
+|  [01]   | `LOCALE_SPINE`   | the `I18nProvider`/`useLocale` ambient-locale law over the kernel brand          | —         |
+|  [02]   | `NATIVE_CACHE`   | the one per-locale `Intl` instance cache behind every self-constructed formatter | —         |
+|  [03]   | `FORMAT_ROWS`    | `Format` — option-row vocabulary, epoch seam, relative ladder, collation, filter | `Format`  |
+|  [04]   | `MESSAGE_FAMILY` | the `MessageSpec` closed family and the `Catalog` decode owner                   | `Message` |
+|  [05]   | `MESSAGE_FOLD`   | the total format fold and the locale fallback chain                              | `Message` |
 
-## [2]-[LOCALE_SPINE]
+## [02]-[LOCALE_SPINE]
 
 [LOCALE_SPINE]:
 - Law: the locale is one ambient value — the app root renders `I18nProvider` with the kernel `Refined.Locale` brand (a canonical BCP-47 string by construction, so it feeds the provider directly), the brand itself lives in a persisted atom (`system/atom#STORE_ROOT`'s persisted row — `Atom.kvs` with `Refined.Locale` as codec), and a locale change is one atom write that re-renders every formatter consumer; a second locale source, a `navigator.language` read in a row, or a prop-drilled locale string is the named defect.
@@ -21,7 +21,7 @@ The localization plane with zero i18n package: one locale spine (react-aria's `I
 - Law: react-aria's memoized hooks are the first choice — `useDateFormatter`/`useNumberFormatter`/`useListFormatter`/`useCollator` already cache per locale+options; this page constructs a native instance only where no hook exists, and that construction rides `[3]`'s one cache.
 - Boundary: message folds take the locale as a parameter from `useLocale` at the consuming row; the provider composition point is the app shell.
 
-## [3]-[NATIVE_CACHE]
+## [03]-[NATIVE_CACHE]
 
 [NATIVE_CACHE]:
 - Owner: `_native(kind, locale)` — the ONE per-locale instance cache behind every formatter this page constructs itself: a constructor row table (`plural` → `Intl.PluralRules`, `relative` → `Intl.RelativeTimeFormat`) and one interior `Map` keyed `kind:locale`; the plural fold and the relative-time fold both read through it, so the folder holds exactly one platform-formatter cache — the split per-concern caches are the collapsed defect.
@@ -51,7 +51,7 @@ const _native = <K extends keyof typeof _NATIVE>(kind: K, locale: string): Retur
 }
 ```
 
-## [4]-[FORMAT_ROWS]
+## [04]-[FORMAT_ROWS]
 
 [FORMAT_ROWS]:
 - Owner: `Format` — the option-row vocabulary: `Format.date` (the closed date/time style rows — `stamp`, `long`, `time`, `weekday`), `Format.number` (`plain`, `compact`, `percent`, `bytes` unit rows), `Format.list` (`and`/`or` conjunction rows), `Format.relative` (the `Intl.RelativeTimeFormat` granularity ladder with its threshold table — seconds through years — folded from a `Duration` delta through `[3]`'s cache), the collation lift `Format.collate`, and the two ingress seams: `Format.instant(utc)` converting an effect `DateTime.Utc` to the native `Date` a formatter consumes (the ONE epoch crossing), `Format.span(duration)` projecting a `Duration` onto the relative-time ladder.
@@ -141,7 +141,7 @@ const Format: Format.Shape = {
 }
 ```
 
-## [5]-[MESSAGE_FAMILY]
+## [05]-[MESSAGE_FAMILY]
 
 [MESSAGE_FAMILY]:
 - Owner: `Message` — the assembled owner whose `Catalog` static is the decode surface: a catalog is `Record<key, MessageSpec>` where `MessageSpec` is one `Schema.Union` of three tagged cases — `Text { value }`, `Plural { arg, forms }` (forms keyed by the closed `Intl.LDMLPluralRule` vocabulary with `other` mandatory), `Select { arg, cases, other }` — decoded ONCE at catalog admission (an app fetch, a bundled JSON module crossing `with { type: "json" }` ingress), never re-validated per format call.
@@ -192,7 +192,7 @@ declare namespace Message {
 }
 ```
 
-## [6]-[MESSAGE_FOLD]
+## [06]-[MESSAGE_FOLD]
 
 [MESSAGE_FOLD]:
 - Owner: `Message.format(book, locale, fallback, key, args?)` — the one total fold: resolve the catalog through the fallback chain, dispatch the spec's tag (`Match.valueTags` — the one-shot record dispatch over a held union value), select the plural category through `[3]`'s cached `Intl.PluralRules`, select the case string with `other` as the floor, and interpolate `{slot}` spellings from the args record; the return is always a string — a missing key yields the key itself, the deliberate visible-evidence policy, never a throw and never an empty string.

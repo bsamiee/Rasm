@@ -21,30 +21,30 @@
 - rail: automation
 - `Change` is an `IntEnum`; each yielded batch is a `set[FileChange]` where `FileChange = tuple[Change, str]` (the change kind and the absolute path string). Dispatch on the enum member, never the integer value or a string kind. `Change.raw_str()` returns the lowercase member name (`'added'`/`'modified'`/`'deleted'`) — the form the reload drivers serialise into `WATCHFILES_CHANGES`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `Change` | `IntEnum` | `added`=1, `modified`=2, `deleted`=3; `.raw_str()` -> member name |
-| [02] | `FileChange` | type alias | `tuple[Change, str]` (kind, absolute path) |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY] | [RAIL]                                                            |
+| :-----: | :----------- | :------------ | :---------------------------------------------------------------- |
+|  [01]   | `Change`     | `IntEnum`     | `added`=1, `modified`=2, `deleted`=3; `.raw_str()` -> member name |
+|  [02]   | `FileChange` | type alias    | `tuple[Change, str]` (kind, absolute path)                        |
 
 [PUBLIC_TYPE_SCOPE]: filter family (`watchfiles.filters`)
 - rail: automation
 - `BaseFilter` is a configurable callable `(change: Change, path: str) -> bool` returning whether to keep the change. Subclass and set the class attributes `ignore_dirs`, `ignore_entity_patterns` (regex strings compiled once in `__init__`), `ignore_paths`, or pass them to the `DefaultFilter` constructor. `DefaultFilter` ships dotfile/VCS/build defaults (`__pycache__`, `.git`, `.venv`, `node_modules`, `.mypy_cache`, ... and `\.py[cod]$`, `~$`, `^\.DS_Store$`, ...). `PythonFilter` extends `DefaultFilter` to keep only `.py`/`.pyx`/`.pyd` changes plus `extra_extensions`. A raw `Callable[[Change, str], bool]` is also accepted in `watch_filter=`; `watch_filter=None` keeps every change.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `BaseFilter` | filter base | callable `(Change, str) -> bool`; configure via class attrs |
-| [02] | `DefaultFilter(*, ignore_dirs=None, ignore_entity_patterns=None, ignore_paths=None)` | filter | dotfile/VCS/build ignore defaults, per-instance overridable |
-| [03] | `PythonFilter(*, ignore_paths=None, extra_extensions=())` | filter | keep only Python-source changes |
+| [INDEX] | [SYMBOL]                                                                             | [TYPE_FAMILY] | [RAIL]                                                      |
+| :-----: | :----------------------------------------------------------------------------------- | :------------ | :---------------------------------------------------------- |
+|  [01]   | `BaseFilter`                                                                         | filter base   | callable `(Change, str) -> bool`; configure via class attrs |
+|  [02]   | `DefaultFilter(*, ignore_dirs=None, ignore_entity_patterns=None, ignore_paths=None)` | filter        | dotfile/VCS/build ignore defaults, per-instance overridable |
+|  [03]   | `PythonFilter(*, ignore_paths=None, extra_extensions=())`                            | filter        | keep only Python-source changes                             |
 
 [PUBLIC_TYPE_SCOPE]: low-level backend (`watchfiles._rust_notify`)
 - rail: automation
 - `RustNotify` is the Rust thread handle wrapped by `watch`/`awatch`; its constructor spawns the watch thread immediately (raises `FileNotFoundError` for a missing path) and `RustNotify.watch(debounce_ms, step_ms, timeout_ms, stop_event)` returns either a `set[(int, str)]` raw-change set or one of the sentinel strings `'signal'`/`'stop'`/`'timeout'`. It is a context manager (`__enter__`/`__exit__` -> `close`). `WatchfilesRustInternalError` (a `RuntimeError`) surfaces an unknown native error. Consumers use `watch`/`awatch`; `RustNotify` is the seam for a bespoke driver only.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `RustNotify(watch_paths, debug, force_polling, poll_delay_ms, recursive, ignore_permission_denied)` | native handle | low-level watch thread; context manager |
-| [02] | `RustNotify.watch(debounce_ms, step_ms, timeout_ms, stop_event)` | native op | one batch: `set[(int,str)]` or `'signal'`/`'stop'`/`'timeout'` |
-| [03] | `WatchfilesRustInternalError` | fault | unknown native `notify` error (`RuntimeError`) |
+| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY] | [RAIL]                                                         |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------------ | :------------------------------------------------------------- |
+|  [01]   | `RustNotify(watch_paths, debug, force_polling, poll_delay_ms, recursive, ignore_permission_denied)` | native handle | low-level watch thread; context manager                        |
+|  [02]   | `RustNotify.watch(debounce_ms, step_ms, timeout_ms, stop_event)`                                    | native op     | one batch: `set[(int,str)]` or `'signal'`/`'stop'`/`'timeout'` |
+|  [03]   | `WatchfilesRustInternalError`                                                                       | fault         | unknown native `notify` error (`RuntimeError`)                 |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -52,21 +52,21 @@
 - rail: automation
 - `watch` (blocking generator) and `awatch` (async generator) share the schema: `*paths`, `watch_filter=DefaultFilter()` (or `None` to keep all), `debounce=1600` (max ms to group a batch), `step=50` (ms to wait for more changes), `stop_event=None`, `rust_timeout` (ms in Rust per poll; `watch` default `5000`, `awatch` default `None` -> `1000` on win32 / `5000` elsewhere), `yield_on_timeout=False`, `debug=None` (or `WATCHFILES_DEBUG`), `force_polling=None` (auto, or `WATCHFILES_FORCE_POLLING`; auto-enabled on WSL), `poll_delay_ms=300` (or `WATCHFILES_POLL_DELAY_MS`), `recursive=True`, `ignore_permission_denied=None` (or `WATCHFILES_IGNORE_PERMISSION_DENIED`). `watch` additionally takes `raise_interrupt=True`; `awatch`'s `raise_interrupt` is deprecated (a `KeyboardInterrupt` cancels the coroutine and re-raises at `anyio.run`/`asyncio.run`). `awatch.stop_event` is an `AnyEvent = anyio.Event | asyncio.Event | trio.Event`; `watch.stop_event` is any object with `is_set() -> bool`. Each iteration yields `set[FileChange]`.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `watch(*paths, watch_filter=DefaultFilter(), debounce=1600, step=50, stop_event=None, rust_timeout=5000, yield_on_timeout=False, debug=None, raise_interrupt=True, force_polling=None, poll_delay_ms=300, recursive=True, ignore_permission_denied=None)` | watch | blocking `set[FileChange]` generator |
-| [02] | `awatch(*paths, watch_filter=DefaultFilter(), debounce=1600, step=50, stop_event=None, rust_timeout=None, yield_on_timeout=False, debug=None, force_polling=None, poll_delay_ms=300, recursive=True, ignore_permission_denied=None)` | watch | async `set[FileChange]` generator (anyio); `raise_interrupt` deprecated |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                 | [ENTRY_FAMILY] | [RAIL]                                                                  |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------- |
+|  [01]   | `watch(*paths, watch_filter=DefaultFilter(), debounce=1600, step=50, stop_event=None, rust_timeout=5000, yield_on_timeout=False, debug=None, raise_interrupt=True, force_polling=None, poll_delay_ms=300, recursive=True, ignore_permission_denied=None)` | watch          | blocking `set[FileChange]` generator                                    |
+|  [02]   | `awatch(*paths, watch_filter=DefaultFilter(), debounce=1600, step=50, stop_event=None, rust_timeout=None, yield_on_timeout=False, debug=None, force_polling=None, poll_delay_ms=300, recursive=True, ignore_permission_denied=None)`                      | watch          | async `set[FileChange]` generator (anyio); `raise_interrupt` deprecated |
 
 [ENTRYPOINT_SCOPE]: reload drivers (`watchfiles.run`)
 - rail: automation
 - `run_process`/`arun_process` watch `*paths` and restart `target` on each debounced batch. `target_type='auto'` resolves via `detect_target_type` to `'function'` (an importable dotted callable, or a non-string callable, run in a `spawn`-context subprocess) or `'command'` (a `.py`/`.sh`/shell command run via `subprocess.Popen`). `callback` receives the change set on each reload (`arun_process` awaits a coroutine callback); the target reads the change list from the `WATCHFILES_CHANGES` env var (JSON of `[raw_str, path]` pairs). `grace_period` seconds delay watching after first start. `run_process` restart signalling is `sigint_timeout`/`sigkill_timeout` seconds (SIGINT then SIGKILL); both drivers register a SIGTERM->KeyboardInterrupt handler so `docker compose stop` exits cleanly. Both return the final reload count; `arun_process` is the async mirror (no `sigint_timeout`/`sigkill_timeout`/`raise_interrupt`).
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `run_process(*paths, target, args=(), kwargs=None, target_type='auto', callback=None, watch_filter=DefaultFilter(), grace_period=0, debounce=1600, step=50, debug=None, sigint_timeout=5, sigkill_timeout=1, recursive=True, ignore_permission_denied=False)` | reload | run+restart a process on change; returns reload count |
-| [02] | `arun_process(*paths, target, args=(), kwargs=None, target_type='auto', callback=None, watch_filter=DefaultFilter(), grace_period=0, debounce=1600, step=50, debug=None, recursive=True, ignore_permission_denied=False)` | reload | async run+restart driver; awaits coroutine `callback` |
-| [03] | `run.detect_target_type(target)` | reload | classify `target` as `'function'`/`'command'` |
-| [04] | `run.import_string(dotted_path)` | reload | import a dotted callable for `target_type='function'` |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                     | [ENTRY_FAMILY] | [RAIL]                                                |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :---------------------------------------------------- |
+|  [01]   | `run_process(*paths, target, args=(), kwargs=None, target_type='auto', callback=None, watch_filter=DefaultFilter(), grace_period=0, debounce=1600, step=50, debug=None, sigint_timeout=5, sigkill_timeout=1, recursive=True, ignore_permission_denied=False)` | reload         | run+restart a process on change; returns reload count |
+|  [02]   | `arun_process(*paths, target, args=(), kwargs=None, target_type='auto', callback=None, watch_filter=DefaultFilter(), grace_period=0, debounce=1600, step=50, debug=None, recursive=True, ignore_permission_denied=False)`                                     | reload         | async run+restart driver; awaits coroutine `callback` |
+|  [03]   | `run.detect_target_type(target)`                                                                                                                                                                                                                              | reload         | classify `target` as `'function'`/`'command'`         |
+|  [04]   | `run.import_string(dotted_path)`                                                                                                                                                                                                                              | reload         | import a dotted callable for `target_type='function'` |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

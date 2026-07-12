@@ -18,13 +18,13 @@
 - rail: token/icon
 - Every named icon and `createLucideIcon` result is exactly `LucideIcon`; `LucideProps` is uniform; `IconNode` is the raw data the dynamic/custom paths consume.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------- |:---------------- |:-------------------------------------------------------------------------- |
-| [01] | `LucideIcon` (exported) | icon component | `ForwardRefExoticComponent<Omit<LucideProps,'ref'> & RefAttributes<SVGSVGElement>>` — every named icon; the `CommandSpec.icon` field type in `view/compose.md` |
-| [02] | `LucideProps` (exported) | icon props | `ElementAttributes & { size?: string \| number; absoluteStrokeWidth?: boolean }` — `strokeWidth`/`color`/`className` ride the SVG attrs |
-| [03] | `IconNode` (exported) | raw node data | `[elementName: SVGElementType, attrs: Record<string,string>][]` — input to `Icon`/`createLucideIcon` |
-| [04] | `SVGAttributes` (exported) | svg attr subset | `Partial<SVGProps<SVGSVGElement>>` — the passthrough SVG surface |
-| [05] | `LucideConfig` / `LucideProviderProps` / `IconComponentProps` (internal, inferred at use) | provider + dynamic shapes | `{ size, color, strokeWidth, absoluteStrokeWidth, className }` defaults; `IconComponentProps = LucideProps & { iconNode }` |
+| [INDEX] | [SYMBOL]                                                                                  | [TYPE_FAMILY]             | [CONSUMER_BOUNDARY]                                                                                                                                            |
+| :-----: | :---------------------------------------------------------------------------------------- | :------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `LucideIcon` (exported)                                                                   | icon component            | `ForwardRefExoticComponent<Omit<LucideProps,'ref'> & RefAttributes<SVGSVGElement>>` — every named icon; the `CommandSpec.icon` field type in `view/compose.md` |
+|  [02]   | `LucideProps` (exported)                                                                  | icon props                | `ElementAttributes & { size?: string \| number; absoluteStrokeWidth?: boolean }` — `strokeWidth`/`color`/`className` ride the SVG attrs                        |
+|  [03]   | `IconNode` (exported)                                                                     | raw node data             | `[elementName: SVGElementType, attrs: Record<string,string>][]` — input to `Icon`/`createLucideIcon`                                                           |
+|  [04]   | `SVGAttributes` (exported)                                                                | svg attr subset           | `Partial<SVGProps<SVGSVGElement>>` — the passthrough SVG surface                                                                                               |
+|  [05]   | `LucideConfig` / `LucideProviderProps` / `IconComponentProps` (internal, inferred at use) | provider + dynamic shapes | `{ size, color, strokeWidth, absoluteStrokeWidth, className }` defaults; `IconComponentProps = LucideProps & { iconNode }`                                     |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -32,14 +32,14 @@
 - rail: token/icon
 - The named export is the common case (static, tree-shaken, vocabulary-keyed); `Icon`/`createLucideIcon` are the runtime/custom escape hatches; `LucideProvider` is the one place project defaults live.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------------------- |:------------- |:---------------------------------------------------------------------- |
-| [01] | `<IconName {...LucideProps} />` — any of ~1746 named `LucideIcon` exports | named icon | `view/compose.md` — a `CommandAction` row's `icon` field keys a named import (`Activity`, `Download`, `Eye`, `Layers`, …); the icon is the row identity |
-| [02] | `<IconName>Icon` suffixed aliases / `.prefixed` `Lucide<IconName>` barrel | alias entry | collision-free imports where an icon name shadows a DOM/global (`Menu`, `Link`, `Image`) |
-| [03] | `Icon` (`ForwardRefExoticComponent<Omit<IconComponentProps,'ref'> & RefAttributes<SVGSVGElement>>`) | dynamic icon | render an icon chosen at runtime by passing `iconNode` — only for runtime-selected icons, never a static row |
-| [04] | `createLucideIcon(iconName: string, iconNode: IconNode): LucideIcon` | custom factory | mint a project glyph in the exact `LucideIcon` shape; participates in `LucideProvider` defaults |
-| [05] | `LucideProvider({ children, size?, color?, strokeWidth?, absoluteStrokeWidth?, className? })` | provider | SPA root — set project-wide `size`/`strokeWidth`/`color` once; every icon inherits |
-| [06] | `useLucideContext(): LucideProps` | context read | read the active provider defaults (e.g. to derive a matching non-icon glyph size) |
+| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                                     |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `<IconName {...LucideProps} />` — any of ~1746 named `LucideIcon` exports                           | named icon     | `view/compose.md` — a `CommandAction` row's `icon` field keys a named import (`Activity`, `Download`, `Eye`, `Layers`, …); the icon is the row identity |
+|  [02]   | `<IconName>Icon` suffixed aliases / `.prefixed` `Lucide<IconName>` barrel                           | alias entry    | collision-free imports where an icon name shadows a DOM/global (`Menu`, `Link`, `Image`)                                                                |
+|  [03]   | `Icon` (`ForwardRefExoticComponent<Omit<IconComponentProps,'ref'> & RefAttributes<SVGSVGElement>>`) | dynamic icon   | render an icon chosen at runtime by passing `iconNode` — only for runtime-selected icons, never a static row                                            |
+|  [04]   | `createLucideIcon(iconName: string, iconNode: IconNode): LucideIcon`                                | custom factory | mint a project glyph in the exact `LucideIcon` shape; participates in `LucideProvider` defaults                                                         |
+|  [05]   | `LucideProvider({ children, size?, color?, strokeWidth?, absoluteStrokeWidth?, className? })`       | provider       | SPA root — set project-wide `size`/`strokeWidth`/`color` once; every icon inherits                                                                      |
+|  [06]   | `useLucideContext(): LucideProps`                                                                   | context read   | read the active provider defaults (e.g. to derive a matching non-icon glyph size)                                                                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -22,28 +22,28 @@
 
 `MemberFile` is the `(name, modified_at, mode, method, data)` tuple `stream_zip` consumes; `AsyncMemberFile` is its async-data twin. `Method` is the abstract base (`Method(ABC)` with one abstract `_get(offset, default_get_compressobj) -> _MethodTuple`, the 5-element `(format_sentinel, auto_upgrade_sentinel, get_compressobj, uncompressed_size, crc_32)` the encoder dispatches on); its public instances (`ZIP_64`, `ZIP_32`, `ZIP_AUTO`, `NO_COMPRESSION_32`, `NO_COMPRESSION_64`) choose format and compression. `ZIP_AUTO` and the `NO_COMPRESSION_*` instances are ALSO callable to parameterize size/level — calling them mints a fresh anonymous `Method` carrying the bound size/CRC, so the constants are both the buffered-mode method and the streamed-mode factory. The error tree is a single rooted hierarchy: `ZipError` is the root, `ZipValueError(ZipError, ValueError)` is the boundary base, `ZipIntegrityError(ZipValueError)` and `ZipOverflowError(ZipValueError, OverflowError)` are the two failure families, and every concrete failure descends from one of them — one `except ZipError` catches all, `except ZipValueError` catches every recoverable boundary failure.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `MemberFile` | tuple alias | `tuple[str, datetime, int, Method, Iterable[bytes]]` |
-| [02] | `AsyncMemberFile` | tuple alias | `tuple[str, datetime, int, Method, AsyncIterable[bytes]]` |
-| [03] | `Method` | abstract base | `Method(ABC)`; one abstract `_get(offset, default_get_compressobj) -> _MethodTuple` per-member format/compression contract |
-| [04] | `ZIP_64` | method instance | force ZIP64 format member (honors `stream_zip`'s `get_compressobj`) |
-| [05] | `ZIP_32` | method instance | force ZIP32 format member (honors `stream_zip`'s `get_compressobj`) |
-| [06] | `ZIP_AUTO` | callable method | size/offset-driven ZIP32/ZIP64 auto-upgrade member (binds its OWN deflate at the passed `level`) |
-| [07] | `NO_COMPRESSION_32` | callable method | stored ZIP32 member (buffered as instance, or pre-sized streamed when called) |
-| [08] | `NO_COMPRESSION_64` | callable method | stored ZIP64 member (buffered as instance, or pre-sized streamed when called) |
-| [09] | `ZipError` | error root | `Exception` base for every `stream_zip` failure |
-| [10] | `ZipValueError` | error | `ZipError` + `ValueError`; boundary base for integrity+overflow |
-| [11] | `ZipIntegrityError` | error | `ZipValueError`; declared-content mismatch base |
-| [12] | `CRC32IntegrityError` | error | `ZipIntegrityError`; streamed CRC32 mismatch |
-| [13] | `UncompressedSizeIntegrityError` | error | `ZipIntegrityError`; streamed uncompressed-size mismatch |
-| [14] | `ZipOverflowError` | error | `ZipValueError` + `OverflowError`; field-overflow base |
-| [15] | `UncompressedSizeOverflowError` | error | `ZipOverflowError`; uncompressed size exceeds field width |
-| [16] | `CompressedSizeOverflowError` | error | `ZipOverflowError`; compressed size exceeds field width |
-| [17] | `CentralDirectorySizeOverflowError` | error | `ZipOverflowError`; central-directory size exceeds field width |
-| [18] | `OffsetOverflowError` | error | `ZipOverflowError`; member offset exceeds ZIP32 field width |
-| [19] | `CentralDirectoryNumberOfEntriesOverflowError` | error | `ZipOverflowError`; entry count exceeds ZIP32 field width |
-| [20] | `NameLengthOverflowError` | error | `ZipOverflowError`; member name length exceeds field width |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]   | [RAIL]                                                                                                                     |
+| :-----: | :--------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `MemberFile`                                   | tuple alias     | `tuple[str, datetime, int, Method, Iterable[bytes]]`                                                                       |
+|  [02]   | `AsyncMemberFile`                              | tuple alias     | `tuple[str, datetime, int, Method, AsyncIterable[bytes]]`                                                                  |
+|  [03]   | `Method`                                       | abstract base   | `Method(ABC)`; one abstract `_get(offset, default_get_compressobj) -> _MethodTuple` per-member format/compression contract |
+|  [04]   | `ZIP_64`                                       | method instance | force ZIP64 format member (honors `stream_zip`'s `get_compressobj`)                                                        |
+|  [05]   | `ZIP_32`                                       | method instance | force ZIP32 format member (honors `stream_zip`'s `get_compressobj`)                                                        |
+|  [06]   | `ZIP_AUTO`                                     | callable method | size/offset-driven ZIP32/ZIP64 auto-upgrade member (binds its OWN deflate at the passed `level`)                           |
+|  [07]   | `NO_COMPRESSION_32`                            | callable method | stored ZIP32 member (buffered as instance, or pre-sized streamed when called)                                              |
+|  [08]   | `NO_COMPRESSION_64`                            | callable method | stored ZIP64 member (buffered as instance, or pre-sized streamed when called)                                              |
+|  [09]   | `ZipError`                                     | error root      | `Exception` base for every `stream_zip` failure                                                                            |
+|  [10]   | `ZipValueError`                                | error           | `ZipError` + `ValueError`; boundary base for integrity+overflow                                                            |
+|  [11]   | `ZipIntegrityError`                            | error           | `ZipValueError`; declared-content mismatch base                                                                            |
+|  [12]   | `CRC32IntegrityError`                          | error           | `ZipIntegrityError`; streamed CRC32 mismatch                                                                               |
+|  [13]   | `UncompressedSizeIntegrityError`               | error           | `ZipIntegrityError`; streamed uncompressed-size mismatch                                                                   |
+|  [14]   | `ZipOverflowError`                             | error           | `ZipValueError` + `OverflowError`; field-overflow base                                                                     |
+|  [15]   | `UncompressedSizeOverflowError`                | error           | `ZipOverflowError`; uncompressed size exceeds field width                                                                  |
+|  [16]   | `CompressedSizeOverflowError`                  | error           | `ZipOverflowError`; compressed size exceeds field width                                                                    |
+|  [17]   | `CentralDirectorySizeOverflowError`            | error           | `ZipOverflowError`; central-directory size exceeds field width                                                             |
+|  [18]   | `OffsetOverflowError`                          | error           | `ZipOverflowError`; member offset exceeds ZIP32 field width                                                                |
+|  [19]   | `CentralDirectoryNumberOfEntriesOverflowError` | error           | `ZipOverflowError`; entry count exceeds ZIP32 field width                                                                  |
+|  [20]   | `NameLengthOverflowError`                      | error           | `ZipOverflowError`; member name length exceeds field width                                                                 |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -52,23 +52,23 @@
 
 `stream_zip` returns a lazy `Iterable[bytes]`; iterating drives `files` member by member so peak memory stays bounded by `chunk_size` and per-member buffering. `password` (a `str`, not `bytes`) switches EVERY member to WinZip AES-256; `get_compressobj` overrides the default raw-deflate object for the `ZIP_64`/`ZIP_32`/stored formats; `get_crypto_random` overrides the encryption salt/IV byte source. `async_stream_zip` mirrors the signature over async iterables. Asymmetry to compose: the `ZIP_AUTO` member IGNORES the function-level `get_compressobj` and builds its own `zlib.compressobj(level=<passed level>, memLevel=8, wbits=-zlib.MAX_WBITS)`, so a uniform deflate codec across every member format is only achieved by setting `stream_zip`'s `get_compressobj` AND passing the matching `level` to each `ZIP_AUTO(size, level)`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `stream_zip` | `stream_zip(files: Iterable[MemberFile], chunk_size: int=65536, get_compressobj=lambda: zlib.compressobj(wbits=-zlib.MAX_WBITS, level=9), extended_timestamps: bool=True, password: Optional[str]=None, get_crypto_random=lambda n: secrets.token_bytes(n)) -> Iterable[bytes]` | stream a ZIP archive as ordered byte chunks |
-| [02] | `async_stream_zip` | `async_stream_zip(files: AsyncIterable[AsyncMemberFile], chunk_size: int=65536, get_compressobj=lambda: zlib.compressobj(wbits=-zlib.MAX_WBITS, level=9), extended_timestamps: bool=True, password: Optional[str]=None, get_crypto_random=lambda n: secrets.token_bytes(n)) -> AsyncIterable[bytes]` | async mirror; runs sync `stream_zip` on a worker thread, bridging via `run_in_executor`/`run_coroutine_threadsafe` |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                                                                                                                                                                                                                                                         | [CAPABILITY]                                                                                                       |
+| :-----: | :----------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `stream_zip`       | `stream_zip(files: Iterable[MemberFile], chunk_size: int=65536, get_compressobj=lambda: zlib.compressobj(wbits=-zlib.MAX_WBITS, level=9), extended_timestamps: bool=True, password: Optional[str]=None, get_crypto_random=lambda n: secrets.token_bytes(n)) -> Iterable[bytes]`                      | stream a ZIP archive as ordered byte chunks                                                                        |
+|  [02]   | `async_stream_zip` | `async_stream_zip(files: AsyncIterable[AsyncMemberFile], chunk_size: int=65536, get_compressobj=lambda: zlib.compressobj(wbits=-zlib.MAX_WBITS, level=9), extended_timestamps: bool=True, password: Optional[str]=None, get_crypto_random=lambda n: secrets.token_bytes(n)) -> AsyncIterable[bytes]` | async mirror; runs sync `stream_zip` on a worker thread, bridging via `run_in_executor`/`run_coroutine_threadsafe` |
 
 [ENTRYPOINT_SCOPE]: `Method` selection and parameterization
 - rail: bundle
 
 `ZIP_64`/`ZIP_32` are used directly as the `method` slot of a `MemberFile`. `ZIP_AUTO` and the `NO_COMPRESSION_*` constants are called first to bind size/level, returning a `Method` to place in the tuple. The auto-upgrade is two-axis: ZIP64 is selected when `uncompressed_size > 4293656841` (the deflate worst-case bound for the default codec) OR `offset > 0xffffffff` (the running archive offset crosses the ZIP32 field) — so a small member late in a large archive still upgrades on offset, and `ZIP_AUTO` also flags the central directory for auto-upgrade (unlike the forced `ZIP_64`/`ZIP_32`).
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `ZIP_64` | used as `method` directly | force ZIP64 member; deflate from `stream_zip`'s `get_compressobj` |
-| [02] | `ZIP_32` | used as `method` directly | force ZIP32 member; deflate from `stream_zip`'s `get_compressobj` |
-| [03] | `ZIP_AUTO` | `ZIP_AUTO(uncompressed_size: int, level: int=9) -> Method` | ZIP64 when `size > 4293656841` or `offset > 0xffffffff`, else ZIP32; binds own deflate at `level`, `memLevel=8` |
-| [04] | `NO_COMPRESSION_32` | `NO_COMPRESSION_32(uncompressed_size: int, crc_32: int) -> Method` | stored ZIP32 member streamed with a pre-declared size and CRC32 (bare instance buffers to size+CRC instead) |
-| [05] | `NO_COMPRESSION_64` | `NO_COMPRESSION_64(uncompressed_size: int, crc_32: int) -> Method` | stored ZIP64 member streamed with a pre-declared size and CRC32 (bare instance buffers to size+CRC instead) |
+| [INDEX] | [SURFACE]           | [CALL_SHAPE]                                                       | [CAPABILITY]                                                                                                    |
+| :-----: | :------------------ | :----------------------------------------------------------------- | :-------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ZIP_64`            | used as `method` directly                                          | force ZIP64 member; deflate from `stream_zip`'s `get_compressobj`                                               |
+|  [02]   | `ZIP_32`            | used as `method` directly                                          | force ZIP32 member; deflate from `stream_zip`'s `get_compressobj`                                               |
+|  [03]   | `ZIP_AUTO`          | `ZIP_AUTO(uncompressed_size: int, level: int=9) -> Method`         | ZIP64 when `size > 4293656841` or `offset > 0xffffffff`, else ZIP32; binds own deflate at `level`, `memLevel=8` |
+|  [04]   | `NO_COMPRESSION_32` | `NO_COMPRESSION_32(uncompressed_size: int, crc_32: int) -> Method` | stored ZIP32 member streamed with a pre-declared size and CRC32 (bare instance buffers to size+CRC instead)     |
+|  [05]   | `NO_COMPRESSION_64` | `NO_COMPRESSION_64(uncompressed_size: int, crc_32: int) -> Method` | stored ZIP64 member streamed with a pre-declared size and CRC32 (bare instance buffers to size+CRC instead)     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

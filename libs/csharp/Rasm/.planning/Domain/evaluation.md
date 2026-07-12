@@ -324,14 +324,14 @@ flowchart LR
 
 One owner per axis; a new evaluatable form, receipt facet, or projection output is an arm, field, or row — never a sibling surface.
 
-| [INDEX] | [CONCERN]             | [OWNER]       | [KIND]                                                                     | [RAIL]                                    | [CASES] |
-| :-----: | :-------------------- | :------------ | :-------------------------------------------------------------------------- | :------------------------------------------ | :-----: |
-|  [01]   | Closest evidence      | `ClosestHit`  | `readonly record struct` receipt, 9 fields, `IValidityEvidence`             | `At` factory (pure); `IsValid` fold          |    9    |
-|  [02]   | Receipt projection    | `ClosestHit.Project<TOut>` | `ProjectionRow` rows through `AtomProjection.Rows`               | `Fin<TOut>` over `Fault`                     |    8    |
-|  [03]   | Closest evaluation    | `Evaluation.ClosestOf` | `extension(object?)` 18-arm recovery lattice                         | `Fin<ClosestHit>`                            |   18    |
-|  [04]   | Signed distance       | `Evaluation.SignedDistanceOf` | analytic arms + receipt normal-sign fallthrough                | `Fin<double>`                                |    6    |
-|  [05]   | Surface evaluation    | `NormalAt`/`FrameAt`/`SurfaceUv`/`SurfaceSampleUv`/`SurfaceSamplePoints` | orientation-corrected surface members | `Fin<Vector3d>`/`Fin<Plane>`/`Fin<Point2d>`/`Fin<Seq<Point3d>>` |    5    |
-|  [06]   | Sampling + vertices   | `SamplePoints`/`CurveSampleParameters`/`VerticesOf` | polymorphic samplers over one `Fractions` policy | `Fin<Seq<Point3d>>`/`Fin<Seq<double>>` |   3    |
+| [INDEX] | [CONCERN]           | [OWNER]                                                                  | [KIND]                                                          | [RAIL]                                                          | [CASES] |
+| :-----: | :------------------ | :----------------------------------------------------------------------- | :-------------------------------------------------------------- | :-------------------------------------------------------------- | :-----: |
+|  [01]   | Closest evidence    | `ClosestHit`                                                             | `readonly record struct` receipt, 9 fields, `IValidityEvidence` | `At` factory (pure); `IsValid` fold                             |    9    |
+|  [02]   | Receipt projection  | `ClosestHit.Project<TOut>`                                               | `ProjectionRow` rows through `AtomProjection.Rows`              | `Fin<TOut>` over `Fault`                                        |    8    |
+|  [03]   | Closest evaluation  | `Evaluation.ClosestOf`                                                   | `extension(object?)` 18-arm recovery lattice                    | `Fin<ClosestHit>`                                               |   18    |
+|  [04]   | Signed distance     | `Evaluation.SignedDistanceOf`                                            | analytic arms + receipt normal-sign fallthrough                 | `Fin<double>`                                                   |    6    |
+|  [05]   | Surface evaluation  | `NormalAt`/`FrameAt`/`SurfaceUv`/`SurfaceSampleUv`/`SurfaceSamplePoints` | orientation-corrected surface members                           | `Fin<Vector3d>`/`Fin<Plane>`/`Fin<Point2d>`/`Fin<Seq<Point3d>>` |    5    |
+|  [06]   | Sampling + vertices | `SamplePoints`/`CurveSampleParameters`/`VerticesOf`                      | polymorphic samplers over one `Fractions` policy                | `Fin<Seq<Point3d>>`/`Fin<Seq<double>>`                          |    3    |
 
 Every fence composes the `Domain/rails` `Op`/`Fault` vocabulary, the `Domain/normalization` `Capability` rows and `Lease` recoveries, the `Domain/validation` oracle, and the `Numerics/atoms` projection rail as settled material; no arm re-derives type admissibility, no facet travels as a sentinel, and no member reaches past `Rhino.Geometry`.
 

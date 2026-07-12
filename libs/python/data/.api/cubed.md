@@ -19,27 +19,27 @@
 
 `config` and `plan` are module-level singletons, not classes: `config` is the donfig-backed runtime configuration manager (`config.set(...)`, `config.get(...)`), and `plan` exposes graph-plan inspection. `Spec` is the per-array execution declaration; `Callback`/`TaskEndEvent` drive telemetry.
 
-| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [ROLE]                                                          |
-| :-----: | :------------------- | :--------------- | :------------------------------------------------------------- |
-|  [01]   | `cubed.Array`        | lazy array       | deferred chunked array with full Array API surface             |
-|  [02]   | `cubed.Spec`         | execution spec   | work_dir, intermediate_store, allowed_mem, reserved_mem, executor, zarr_compressor |
-|  [03]   | `cubed.config`       | runtime config   | donfig-backed configuration singleton (`config.set`/`config.get`) |
-|  [04]   | `cubed.plan`         | plan inspection  | graph-plan inspection singleton                                |
-|  [05]   | `cubed.Callback`     | event observer   | base for compute/operation/task callbacks                      |
-|  [06]   | `cubed.TaskEndEvent` | event payload    | per-task completion event with timing + peak-memory fields     |
+| [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [ROLE]                                                                             |
+| :-----: | :------------------- | :-------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `cubed.Array`        | lazy array      | deferred chunked array with full Array API surface                                 |
+|  [02]   | `cubed.Spec`         | execution spec  | work_dir, intermediate_store, allowed_mem, reserved_mem, executor, zarr_compressor |
+|  [03]   | `cubed.config`       | runtime config  | donfig-backed configuration singleton (`config.set`/`config.get`)                  |
+|  [04]   | `cubed.plan`         | plan inspection | graph-plan inspection singleton                                                    |
+|  [05]   | `cubed.Callback`     | event observer  | base for compute/operation/task callbacks                                          |
+|  [06]   | `cubed.TaskEndEvent` | event payload   | per-task completion event with timing + peak-memory fields                         |
 
 [PUBLIC_TYPE_SCOPE]: `cubed.Array` members
 - rail: chunked-compute
 
-| [INDEX] | [MEMBER]                                                       | [KIND]   | [ROLE]                    |
-| :-----: | :------------------------------------------------------------- | :------- | :------------------------ |
-|  [01]   | `compute(*, executor, callbacks, optimize_graph, resume, ...)` | method   | materialize this array    |
-|  [02]   | `rechunk(chunks, *, min_mem)`                                  | method   | change chunk layout       |
-|  [03]   | `visualize(filename, format, optimize_graph, ...)`             | method   | render the task graph     |
-|  [04]   | `chunks`                                                       | property | per-axis chunk tuple      |
-|  [05]   | `chunksize`                                                    | property | single-chunk shape        |
-|  [06]   | `npartitions`                                                  | property | total chunk count         |
-|  [07]   | `blocks[selection]`                                            | property | block-level indexing view |
+| [INDEX] | [MEMBER]                                                       | [KIND]   | [ROLE]                                                                                                                                                                             |
+| :-----: | :------------------------------------------------------------- | :------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `compute(*, executor, callbacks, optimize_graph, resume, ...)` | method   | materialize this array                                                                                                                                                             |
+|  [02]   | `rechunk(chunks, *, min_mem)`                                  | method   | change chunk layout                                                                                                                                                                |
+|  [03]   | `visualize(filename, format, optimize_graph, ...)`             | method   | render the task graph                                                                                                                                                              |
+|  [04]   | `chunks`                                                       | property | per-axis chunk tuple                                                                                                                                                               |
+|  [05]   | `chunksize`                                                    | property | single-chunk shape                                                                                                                                                                 |
+|  [06]   | `npartitions`                                                  | property | total chunk count                                                                                                                                                                  |
+|  [07]   | `blocks[selection]`                                            | property | block-level indexing view                                                                                                                                                          |
 |  [08]   | `spec`                                                         | property | the array's execution `Spec` (`spec.work_dir`/`allowed_mem`/`reserved_mem`/`executor_name`) — read the budget/executor off a materialized output array rather than re-passing them |
 
 [CALLBACK_TELEMETRY]:
@@ -53,19 +53,19 @@
 
 Array-API creation factories; every factory accepts `chunks=` and `spec=` to bind the chunk layout and execution spec at construction.
 
-| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                        |
-| :-----: | :------------------------------------------------------------------------- | :------------- | :---------------------------- |
-|  [01]   | `asarray(obj, /, *, dtype, device, copy, chunks, spec) -> Array`           | ingest         | any array-like to cubed Array |
-|  [02]   | `from_array(x, chunks='auto', asarray, spec) -> Array`                     | ingest         | existing array-like to cubed  |
-|  [03]   | `from_zarr(store, path, spec) -> Array`                                    | ingest         | Zarr store to cubed Array     |
-|  [04]   | `zeros` / `ones` / `empty` / `full(shape, fill_value, *, dtype, chunks, spec)` | create     | filled lazy arrays            |
-|  [05]   | `zeros_like` / `ones_like` / `empty_like` / `full_like(x, /, ...)`         | create         | shape-matched filled arrays   |
-|  [06]   | `arange(start, /, stop, step, *, dtype, chunks, spec) -> Array`            | create         | range array                   |
-|  [07]   | `eye(n_rows, n_cols, /, *, k, dtype, chunks, spec) -> Array`               | create         | identity / diagonal array     |
-|  [08]   | `linspace(start, stop, /, num, *, dtype, endpoint, chunks, spec) -> Array` | create         | linearly spaced array         |
-|  [09]   | `meshgrid(*arrays, indexing='xy') -> list[Array]`                          | create         | coordinate grids              |
-|  [10]   | `tril(x, /, *, k)` / `triu(x, /, *, k)`                                    | create         | lower/upper triangle          |
-|  [11]   | `cubed.random.random(size, *, chunks, spec) -> Array`                      | create         | chunked uniform RNG           |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                        |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :---------------------------- |
+|  [01]   | `asarray(obj, /, *, dtype, device, copy, chunks, spec) -> Array`               | ingest         | any array-like to cubed Array |
+|  [02]   | `from_array(x, chunks='auto', asarray, spec) -> Array`                         | ingest         | existing array-like to cubed  |
+|  [03]   | `from_zarr(store, path, spec) -> Array`                                        | ingest         | Zarr store to cubed Array     |
+|  [04]   | `zeros` / `ones` / `empty` / `full(shape, fill_value, *, dtype, chunks, spec)` | create         | filled lazy arrays            |
+|  [05]   | `zeros_like` / `ones_like` / `empty_like` / `full_like(x, /, ...)`             | create         | shape-matched filled arrays   |
+|  [06]   | `arange(start, /, stop, step, *, dtype, chunks, spec) -> Array`                | create         | range array                   |
+|  [07]   | `eye(n_rows, n_cols, /, *, k, dtype, chunks, spec) -> Array`                   | create         | identity / diagonal array     |
+|  [08]   | `linspace(start, stop, /, num, *, dtype, endpoint, chunks, spec) -> Array`     | create         | linearly spaced array         |
+|  [09]   | `meshgrid(*arrays, indexing='xy') -> list[Array]`                              | create         | coordinate grids              |
+|  [10]   | `tril(x, /, *, k)` / `triu(x, /, *, k)`                                        | create         | lower/upper triangle          |
+|  [11]   | `cubed.random.random(size, *, chunks, spec) -> Array`                          | create         | chunked uniform RNG           |
 
 [ENTRYPOINT_SCOPE]: execution, store, blockwise, and reduce (`cubed`)
 - rail: chunked-compute
@@ -77,30 +77,30 @@ Array-API creation factories; every factory accepts `chunks=` and `spec=` to bin
 |  [03]   | `to_zarr(x, store, path, executor, ...)`                                                   | persist        | write array to Zarr            |
 |  [04]   | `visualize(*arrays, filename='cubed', format, optimize_graph, ...)`                        | inspect        | render task graph diagram      |
 |  [05]   | `measure_reserved_mem(executor, work_dir, ...)`                                            | inspect        | calibrate executor overhead    |
-|  [06]   | `raise_if_computes()`                                                                       | inspect        | assert no eager compute fires  |
+|  [06]   | `raise_if_computes()`                                                                      | inspect        | assert no eager compute fires  |
 |  [07]   | `map_blocks(func, *args, dtype, chunks, drop_axis, new_axis, spec) -> Array`               | blockwise      | apply func per chunk           |
 |  [08]   | `map_overlap(func, *args, depth, boundary, trim, ...) -> Array`                            | blockwise      | apply func over haloed blocks  |
 |  [09]   | `apply_gufunc(func, signature, *args, axes, output_dtypes, vectorize, allow_rechunk, ...)` | gufunc         | generalized ufunc              |
-|  [10]   | `rechunk(x, chunks, *, min_mem)`                                                            | reshape        | change chunk specification     |
-|  [11]   | `concat(arrays, /, *, axis)` / `stack(arrays, /, *, axis)`                                  | combine        | concatenate or stack arrays    |
+|  [10]   | `rechunk(x, chunks, *, min_mem)`                                                           | reshape        | change chunk specification     |
+|  [11]   | `concat(arrays, /, *, axis)` / `stack(arrays, /, *, axis)`                                 | combine        | concatenate or stack arrays    |
 |  [12]   | `reshape(x, /, shape)` / `broadcast_to(x, /, shape, *, chunks)`                            | reshape        | reshape or broadcast           |
 |  [13]   | `where(condition, x1, x2, /)` / `pad(x, pad_width, mode, ...)`                             | transform      | conditional select or pad      |
 |  [14]   | `nanmean` / `nansum` / `nanmax` / `nanmin` / `nanprod` / `nanstd` / `nanvar` / `nanmedian` | reduce         | NaN-aware reductions           |
-|  [15]   | `nanargmax` / `nanargmin` / `nancumsum` / `nancumprod`                                      | reduce         | NaN-aware arg/cumulative ops   |
+|  [15]   | `nanargmax` / `nanargmin` / `nancumsum` / `nancumprod`                                     | reduce         | NaN-aware arg/cumulative ops   |
 
 [ENTRYPOINT_SCOPE]: linear algebra (`cubed.array_api.linalg`)
 - rail: chunked-compute
 - family: linalg, all over `cubed.Array`
 
-| [INDEX] | [SURFACE]                          | [OPERATION]                    |
-| :-----: | :--------------------------------- | :----------------------------- |
-|  [01]   | `matmul(x1, x2)`                   | matrix multiplication          |
+| [INDEX] | [SURFACE]                          | [OPERATION]                               |
+| :-----: | :--------------------------------- | :---------------------------------------- |
+|  [01]   | `matmul(x1, x2)`                   | matrix multiplication                     |
 |  [02]   | `svd(x)`                           | singular value decomposition (TSQR-based) |
-|  [03]   | `qr(x)`                            | QR decomposition (TSQR)        |
-|  [04]   | `svdvals(x)`                       | singular values only           |
-|  [05]   | `tensordot(x1, x2, axes)`          | generalized tensor contraction |
-|  [06]   | `outer(x1, x2)` / `vecdot(x1, x2)` | outer product or vector dot    |
-|  [07]   | `matrix_transpose(x)`              | swap last two axes             |
+|  [03]   | `qr(x)`                            | QR decomposition (TSQR)                   |
+|  [04]   | `svdvals(x)`                       | singular values only                      |
+|  [05]   | `tensordot(x1, x2, axes)`          | generalized tensor contraction            |
+|  [06]   | `outer(x1, x2)` / `vecdot(x1, x2)` | outer product or vector dot               |
+|  [07]   | `matrix_transpose(x)`              | swap last two axes                        |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

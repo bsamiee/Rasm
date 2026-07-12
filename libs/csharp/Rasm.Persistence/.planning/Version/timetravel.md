@@ -337,14 +337,14 @@ public static class TimeTravel {
 }
 ```
 
-| [INDEX] | [POLICY]          | [VALUE]                                       | [BINDING]                                                          |
-| :-----: | :---------------- | :-------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | one materializer  | `GraphDelta.ReplayOnto`                      | reconstruction equals the live `ElementGraph` field-for-field    |
-|  [02]   | as-of fold        | `AggregateStreamAsync(version\|timestamp)`    | Marten folds the prefix from the periodic snapshot floor         |
-|  [03]   | as-of cut         | `TimeCut.Ceiling` precise/instant/version     | the Marten fold binds the version or the ceiling instant         |
-|  [04]   | checkpoint chain  | `ContentAddress.OfGraph` + rolling hash       | `Anchor` seals, `Verify` re-folds `Prior`+`Version`; reproducibility, not authenticity |
-|  [05]   | as-of key (S3)    | `Checkpoint.AsOfKey` = `Address`              | the ONE cross-runtime digest: icechunk snapshot identity + recovery `ReAttest` oracle; `Hash` never the key |
-|  [06]   | range diff        | node axis `Inequalities` + edge axis seam `ContentAddress.Of` set-diff | both axes; a topology rewire never dropped; distinct from the 3-way merge |
-|  [07]   | bisect descent    | `O(log n)` probes of a MONOTONE predicate     | each probe re-reconstructs through `AggregateStreamAsync(version:)`|
-|  [08]   | frame address     | ONE `Advance` per replay frame                | the seam `OfGraph(prior, delta)` contract; whole-graph recompute is the documented interim |
-|  [09]   | blame             | touching `GraphEvent` by version, `(NodeId, change-kind, axis)` cell | forward-log lifecycle granularity; member narrowing composes with `RangeDiff` |
+| [INDEX] | [POLICY]         | [VALUE]                                                                | [BINDING]                                                                                                   |
+| :-----: | :--------------- | :--------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | one materializer | `GraphDelta.ReplayOnto`                                                | reconstruction equals the live `ElementGraph` field-for-field                                               |
+|  [02]   | as-of fold       | `AggregateStreamAsync(version\|timestamp)`                             | Marten folds the prefix from the periodic snapshot floor                                                    |
+|  [03]   | as-of cut        | `TimeCut.Ceiling` precise/instant/version                              | the Marten fold binds the version or the ceiling instant                                                    |
+|  [04]   | checkpoint chain | `ContentAddress.OfGraph` + rolling hash                                | `Anchor` seals, `Verify` re-folds `Prior`+`Version`; reproducibility, not authenticity                      |
+|  [05]   | as-of key (S3)   | `Checkpoint.AsOfKey` = `Address`                                       | the ONE cross-runtime digest: icechunk snapshot identity + recovery `ReAttest` oracle; `Hash` never the key |
+|  [06]   | range diff       | node axis `Inequalities` + edge axis seam `ContentAddress.Of` set-diff | both axes; a topology rewire never dropped; distinct from the 3-way merge                                   |
+|  [07]   | bisect descent   | `O(log n)` probes of a MONOTONE predicate                              | each probe re-reconstructs through `AggregateStreamAsync(version:)`                                         |
+|  [08]   | frame address    | ONE `Advance` per replay frame                                         | the seam `OfGraph(prior, delta)` contract; whole-graph recompute is the documented interim                  |
+|  [09]   | blame            | touching `GraphEvent` by version, `(NodeId, change-kind, axis)` cell   | forward-log lifecycle granularity; member narrowing composes with `RangeDiff`                               |

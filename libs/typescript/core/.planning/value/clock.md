@@ -2,16 +2,16 @@
 
 The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Schema.Class` of two branded non-negative bigint halves, `physical` then `logical`, whose compose order is byte-identical to the C# port law (physical half first, logical half second, both little-endian), asserted bit-level by the `tests/contracts` `HLC_TWO_HALF` parity vectors — and `Uncertainty` is the honest wall-clock window on the same physical axis, carrying the sync-posture grade ladder that prices how wide an unproven clock must claim. Stamp algebra (order, tick, receive, the sixteen-byte layout twin, the single epoch unit-site) and window algebra (the join semilattice, precedence verdicts, meet, containment) are two clusters of one module because they share one branded axis: `state/causal` orders stamps through `Hlc.Order` and folds happened-before verdicts over windows, and a definite order is claimed only when the windows prove it. The module is `core/src/value/clock.ts`; a new clock fold is one static, a new sync posture is one grade row.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                              | [PUBLIC]        |
-| :-----: | :---------------- | :-------------------------------------------------------------------- | :-------------- |
-|  [01]   | `STAMP_OWNER`     | the two-half value, its order, the tick/receive folds, the unit site  | `Hlc`           |
-|  [02]   | `TWO_HALF_LAYOUT` | the sixteen-byte little-endian twin and its overflow seam             | `Hlc.FromBytes` |
-|  [03]   | `GRADE_LADDER`    | the sync-posture vocabulary and its conservative bounds               | `Uncertainty.grades` |
-|  [04]   | `WINDOW_ALGEBRA`  | the interval value, its join semilattice, precedence, meet, containment | `Uncertainty`   |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]             |
+| :-----: | :---------------- | :---------------------------------------------------------------------- | :------------------- |
+|  [01]   | `STAMP_OWNER`     | the two-half value, its order, the tick/receive folds, the unit site    | `Hlc`                |
+|  [02]   | `TWO_HALF_LAYOUT` | the sixteen-byte little-endian twin and its overflow seam               | `Hlc.FromBytes`      |
+|  [03]   | `GRADE_LADDER`    | the sync-posture vocabulary and its conservative bounds                 | `Uncertainty.grades` |
+|  [04]   | `WINDOW_ALGEBRA`  | the interval value, its join semilattice, precedence, meet, containment | `Uncertainty`        |
 
-## [2]-[STAMP_OWNER]
+## [02]-[STAMP_OWNER]
 
 [STAMP_OWNER]:
 - Owner: `Hlc`, the one stamp authority — `physical` and `logical` are `Schema.BigIntFromSelf` non-negative brands declared as interior anchors, reached by consumers only as `Hlc.fields.physical`/`Hlc.fields.logical` (field composition) and `Hlc.Physical`/`Hlc.Logical` (merged-namespace types), never as standalone brand exports.
@@ -25,7 +25,7 @@ The one clock owner of the branch: `Hlc` is the hybrid-logical stamp — one `Sc
 - Boundary: wall-clock reads ride the consumer's rail (`DateTime.now` under its `Clock` service) and arrive as values; the wire stamp shape coupling an `Hlc` with a tenant is the interchange codec's decode, built from this value.
 - Packages: `effect` (`Schema`, `Order`, `DateTime`, `Duration`, `ParseResult`).
 
-## [3]-[TWO_HALF_LAYOUT]
+## [03]-[TWO_HALF_LAYOUT]
 
 [TWO_HALF_LAYOUT]:
 - Owner: `Hlc.FromBytes`, the sixteen-byte layout twin riding the class as a static — bytes 0..7 the physical half, bytes 8..15 the logical half, both read and written little-endian (`getBigUint64(offset, true)`/`setBigUint64(offset, true)`) — so the byte order, the half order, and the endianness flag live in one declaration and the parity drivers assert exactly this twin against the frozen vectors.
@@ -106,7 +106,7 @@ declare namespace Hlc {
 }
 ```
 
-## [4]-[GRADE_LADDER]
+## [04]-[GRADE_LADDER]
 
 [GRADE_LADDER]:
 - Owner: `Uncertainty.grades`, the sync-posture vocabulary riding the window owner — an interior key tuple anchors order and non-emptiness, the interior row table carries each posture's bound, and the assembled static exposes rows plus `kinds` so the ladder is one lookup away from the constructor it parameterizes.
@@ -116,7 +116,7 @@ declare namespace Hlc {
 - Growth: a new posture is one tuple entry plus one row; a per-deployment bound override is a caller-supplied `Duration` at the window constructor, never a row edit.
 - Packages: `effect` (`Duration`, `Schema`).
 
-## [5]-[WINDOW_ALGEBRA]
+## [05]-[WINDOW_ALGEBRA]
 
 [WINDOW_ALGEBRA]:
 - Owner: `Uncertainty`, a `Schema.Class` of `earliest`/`latest` bounds composed from `Hlc.fields.physical` — the brand reaches this cluster only through the owning class's field record, so window and stamp are the same axis by construction and no second physical notion exists.

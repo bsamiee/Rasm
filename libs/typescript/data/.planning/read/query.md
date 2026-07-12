@@ -2,16 +2,16 @@
 
 The typed CRUD engine of the read side: every row that leaves a relation enters domain code as a decoded value and every request that reaches a statement is schema-proven first. `SqlSchema` is the one polymorphic query surface — arity is the combinator (`findAll`, `findOne`, `single`, `void`), never a sibling name — and `SqlResolver` is its batched form, collapsing keyed N+1 fan-out into one round trip per window. `Model.Class` is the one shape authority for every mutable relation: one field record derives all six wire variants through the field families, so the per-variant struct spam the naive read side mints is unspellable. `Query.table(model, spec)` binds a model to its whole bound surface once at service construction — typed reads, the repository, the windowed loaders, and the batch resolvers share one identity so the batch window and the resolver cache survive across calls. The record of truth is exempt by law: the journal never takes a repository, and this engine serves projection tables, ledgers, snapshots, and read models only.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                             |
-| :-----: | :-------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `MODEL_FAMILY`  | the `Model.Class` field families — six variants from one declaration, exposure control  |
-|  [02]   | `READ_FAMILY`   | the `SqlSchema` typed-query surface — arity in the combinator, one decode rail          |
-|  [03]   | `RESOLVER_ROWS` | the `SqlResolver` batch rows — ordered, grouped, findById, void, the bind-once law      |
-|  [04]   | `TABLE_BINDING` | `Query.table` — model, reads, repository, loaders, resolvers assembled as one owner     |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                                 |
+| :-----: | :-------------- | :------------------------------------------------------------------------------------- |
+|  [01]   | `MODEL_FAMILY`  | the `Model.Class` field families — six variants from one declaration, exposure control |
+|  [02]   | `READ_FAMILY`   | the `SqlSchema` typed-query surface — arity in the combinator, one decode rail         |
+|  [03]   | `RESOLVER_ROWS` | the `SqlResolver` batch rows — ordered, grouped, findById, void, the bind-once law     |
+|  [04]   | `TABLE_BINDING` | `Query.table` — model, reads, repository, loaders, resolvers assembled as one owner    |
 
-## [2]-[MODEL_FAMILY]
+## [02]-[MODEL_FAMILY]
 
 - Owner: the model-declaration law — every mutable relation in the folder is one `Model.Class` whose fields state the whole variant matrix; this cluster owns the field-family selection table, not any concrete model (each table-owning page declares its own).
 - Packages: `@effect/sql` (`Model` — `Class`, `Generated`, `GeneratedByApp`, `Sensitive`, `FieldOption`, `DateTimeInsert`, `DateTimeUpdate`, `JsonFromString`, `UuidV4Insert`, `BooleanFromNumber`, `Field`, `FieldOnly`, `FieldExcept`, `fieldEvolve`, `fieldFromKey`, `fields`); `effect` (`Schema`).
@@ -46,7 +46,7 @@ class Board extends Model.Class<Board>("Board")({
 }) {}
 ```
 
-## [3]-[READ_FAMILY]
+## [03]-[READ_FAMILY]
 
 - Owner: the typed-query law — `SqlSchema` at the package surface, one constructor over `{ Request, Result, execute }` whose arity member is the combinator choice; every decoded read in the folder is one of these four forms.
 - Packages: `@effect/sql` (`SqlSchema.findAll`, `SqlSchema.findOne`, `SqlSchema.single`, `SqlSchema.void`); `effect` (`Schema`, `Option`).
@@ -91,7 +91,7 @@ const _reads = (sql: SqlClient.SqlClient) => ({
 })
 ```
 
-## [4]-[RESOLVER_ROWS]
+## [04]-[RESOLVER_ROWS]
 
 - Owner: the batch-resolver vocabulary — the four `SqlResolver` rows, the bind-once identity law, and the cache verbs; the general non-SQL batching engine is `read/batch.md`'s and these rows are its SQL specialization, fused with the decode law.
 - Packages: `@effect/sql` (`SqlResolver.ordered`, `SqlResolver.grouped`, `SqlResolver.findById`, `SqlResolver.void`, `ResultLengthMismatch`); `effect` (`Schema`, `Option`).
@@ -136,7 +136,7 @@ const _resolvers = (sql: SqlClient.SqlClient) => ({
 })
 ```
 
-## [5]-[TABLE_BINDING]
+## [05]-[TABLE_BINDING]
 
 - Owner: `Query.table(model, spec)` — the assembled per-relation owner: the repository verbs, the windowed data loaders, the caller's typed reads and resolver rows (`spec.reads(sql)`/`spec.resolvers(sql)` built once against the leased client), and the relation's ensure row, bound once and published as one value; `SqlSchema` and `SqlResolver` are consumed at the package surface directly — no alias table forwards them.
 - Packages: `@effect/sql` (`Model.makeRepository`, `Model.makeDataLoaders`); `effect` (`Effect`, `Duration`, `Scope`).

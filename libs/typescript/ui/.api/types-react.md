@@ -20,65 +20,65 @@
 - rail: view/primitive
 - The renderable-value algebra: `ReactNode` is what a component may return, `ReactElement`/`ReactPortal` the element values, and the component-type union (`ComponentType`, `FC`, `ElementType`, `ExoticComponent` family) the callable shapes. Every `view` row's return type and every child slot types against this; a `Schema`-decoded value becomes renderable only by passing through `ReactNode`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:----------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------------- |
-| [01] | `ReactNode` / `ReactElement<P, T>` / `ReactPortal` / `Key` | renderable value | `view` — the return/`children` type of every row; `ReactPortal` is `react-dom` `createPortal`'s result |
-| [02] | `FunctionComponent<P>` (`FC<P>`) / `ComponentType<P>` / `ComponentClass<P>` | component shape | `view/primitive` — a row is an `FC<P>`; `ComponentType` is the `memo`/`lazy`/HOC input union |
-| [03] | `ElementType<P>` / `JSXElementConstructor<P>` | polymorphic tag | `view/compose` — the `as`/polymorphic-element pattern (`@radix-ui/react-slot`) types its element against `ElementType` |
-| [04] | `ExoticComponent<P>` / `NamedExoticComponent` / `ForwardRefExoticComponent` / `MemoExoticComponent<T>` / `LazyExoticComponent<T>` / `ProviderExoticComponent` | exotic family | the result types of `Fragment`/`Suspense`/`forwardRef`/`memo`/`lazy`/`createContext` — one family, one instance per factory |
-| [05] | `Context<T>` / `Provider<T>` / `Consumer<T>` / `ContextType<C>` / `ProviderProps<T>` | context carrier | `atom/binding` `RegistryContext`, `intl/format` `I18nProvider` context — `ContextType` extracts the value |
-| [06] | `PropsWithChildren<P>` / `Attributes` / `ClassAttributes<T>` / `RefAttributes<T>` | prop mixin | shared prop shapes; `RefAttributes<T>` carries the `ref` prop, `PropsWithChildren` the `children` slot |
+| [INDEX] | [SYMBOL]                                                                                                                                                      | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                                                         |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------- | :-------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ReactNode` / `ReactElement<P, T>` / `ReactPortal` / `Key`                                                                                                    | renderable value | `view` — the return/`children` type of every row; `ReactPortal` is `react-dom` `createPortal`'s result                      |
+|  [02]   | `FunctionComponent<P>` (`FC<P>`) / `ComponentType<P>` / `ComponentClass<P>`                                                                                   | component shape  | `view/primitive` — a row is an `FC<P>`; `ComponentType` is the `memo`/`lazy`/HOC input union                                |
+|  [03]   | `ElementType<P>` / `JSXElementConstructor<P>`                                                                                                                 | polymorphic tag  | `view/compose` — the `as`/polymorphic-element pattern (`@radix-ui/react-slot`) types its element against `ElementType`      |
+|  [04]   | `ExoticComponent<P>` / `NamedExoticComponent` / `ForwardRefExoticComponent` / `MemoExoticComponent<T>` / `LazyExoticComponent<T>` / `ProviderExoticComponent` | exotic family    | the result types of `Fragment`/`Suspense`/`forwardRef`/`memo`/`lazy`/`createContext` — one family, one instance per factory |
+|  [05]   | `Context<T>` / `Provider<T>` / `Consumer<T>` / `ContextType<C>` / `ProviderProps<T>`                                                                          | context carrier  | `atom/binding` `RegistryContext`, `intl/format` `I18nProvider` context — `ContextType` extracts the value                   |
+|  [06]   | `PropsWithChildren<P>` / `Attributes` / `ClassAttributes<T>` / `RefAttributes<T>`                                                                             | prop mixin       | shared prop shapes; `RefAttributes<T>` carries the `ref` prop, `PropsWithChildren` the `children` slot                      |
 
 [PUBLIC_TYPE_SCOPE]: the props + ref + CSS algebra — one polymorphic extractor family
 - rail: view/compose
 - `ComponentProps<T>` is ONE extractor discriminating `T` on `keyof JSX.IntrinsicElements | JSXElementConstructor`; the `WithRef`/`WithoutRef`/`ComponentRef` variants project the same input. A `view` row NEVER hand-authors a prop interface for a wrapped element — it lifts the target's props with this family. `Ref<T>` is the whole ref algebra: React 19 accepts a `RefObject` directly and a `RefCallback` may return a cleanup.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:----------------------------------------------------------------------------------- |:----------------- |:---------------------------------------------------------------- |
-| [01] | `ComponentProps<T>` / `ComponentPropsWithRef<T>` / `ComponentPropsWithoutRef<T>` / `ComponentRef<T>` | prop extractor | `view/compose` — lift a wrapped element/component's props + ref-target; supersedes a hand-written interface |
-| [02] | `Ref<T>` = `RefCallback<T> \| RefObject<T \| null> \| null` / `RefObject<T>` (`{ current: T }`) | ref algebra | `act/gesture` + `view` — React 19 `ref` value; `RefObject.current` is mutable, `MutableRefObject` is the retired alias |
-| [03] | `RefCallback<T>` = `(instance: T \| null) => void \| (() => void)` | ref callback | `view` — React 19 ref callbacks return a cleanup; `react-aria` `useObjectRef`/`mergeRefs` reconcile these |
-| [04] | `ForwardedRef<T>` / `PropsWithoutRef<P>` / `PropsWithRef<P>` | ref plumbing | the `forwardRef` render-fn ref param + prop ref-stripping; retired where `ref` is now a plain prop |
-| [05] | `CSSProperties` (`extends CSS.Properties<string \| number>`) | style value | `token/theme` + `token/scale` — the typed `style` prop; custom `--*` props via the string index; typed by `csstype` |
-| [06] | `ElementRef<T>` (deprecated → `ComponentRef<T>`) / `LegacyRef<T>` (deprecated) | retired ref | never author new — `ComponentRef<T>` is the ref-target extractor; string refs are gone |
+| [INDEX] | [SYMBOL]                                                                                             | [TYPE_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                                    |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ComponentProps<T>` / `ComponentPropsWithRef<T>` / `ComponentPropsWithoutRef<T>` / `ComponentRef<T>` | prop extractor | `view/compose` — lift a wrapped element/component's props + ref-target; supersedes a hand-written interface            |
+|  [02]   | `Ref<T>` = `RefCallback<T> \| RefObject<T \| null> \| null` / `RefObject<T>` (`{ current: T }`)      | ref algebra    | `act/gesture` + `view` — React 19 `ref` value; `RefObject.current` is mutable, `MutableRefObject` is the retired alias |
+|  [03]   | `RefCallback<T>` = `(instance: T \| null) => void \| (() => void)`                                   | ref callback   | `view` — React 19 ref callbacks return a cleanup; `react-aria` `useObjectRef`/`mergeRefs` reconcile these              |
+|  [04]   | `ForwardedRef<T>` / `PropsWithoutRef<P>` / `PropsWithRef<P>`                                         | ref plumbing   | the `forwardRef` render-fn ref param + prop ref-stripping; retired where `ref` is now a plain prop                     |
+|  [05]   | `CSSProperties` (`extends CSS.Properties<string \| number>`)                                         | style value    | `token/theme` + `token/scale` — the typed `style` prop; custom `--*` props via the string index; typed by `csstype`    |
+|  [06]   | `ElementRef<T>` (deprecated → `ComponentRef<T>`) / `LegacyRef<T>` (deprecated)                       | retired ref    | never author new — `ComponentRef<T>` is the ref-target extractor; string refs are gone                                 |
 
 [PUBLIC_TYPE_SCOPE]: the hook-contract + concurrent-primitive types
 - rail: atom/binding
 - The type shapes the hook signatures thread: state dispatch, reducer/action arity, effect callbacks, and the React 19 concurrent primitives (`Usable` for `use`, the transition function shapes, the action-state arity). `atom/binding` and `view` rows type their callbacks against these rather than re-declaring closures.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:----------------------------------------------------------------------- |:---------------- |:------------------------------------------------------------------- |
-| [01] | `Dispatch<A>` / `SetStateAction<S>` / `DispatchWithoutAction` | state setter | `view` — the `useState`/`useReducer` setter; `@effect-atom` write hooks mirror this shape |
-| [02] | `Reducer<S, A>` / `ReducerWithoutAction<S>` / `ActionDispatch<Arg>` / `AnyActionArg` | reducer/action | `atom/derive` — `useReducer`/`useActionState` arity; `AnyActionArg = [] \| [any]` is the action-fn tail |
-| [03] | `EffectCallback` / `DependencyList` / `Destructor` | effect shape | `view` — `useEffect`/`useLayoutEffect`/`useInsertionEffect` bodies; `Destructor` is the cleanup return |
-| [04] | `Usable<T>` = `ReactPromise<T> \| Context<T>` / `ReactPromise<T>` | `use` input | `view` — `use(usable)` unwraps a promise or context in render; the promise arm suspends |
-| [05] | `TransitionFunction` / `TransitionStartFunction` | transition scope | `act/transition` — `startTransition`/`useTransition` scope fn; an async fn defers to a non-blocking transition |
+| [INDEX] | [SYMBOL]                                                                             | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                                            |
+| :-----: | :----------------------------------------------------------------------------------- | :--------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Dispatch<A>` / `SetStateAction<S>` / `DispatchWithoutAction`                        | state setter     | `view` — the `useState`/`useReducer` setter; `@effect-atom` write hooks mirror this shape                      |
+|  [02]   | `Reducer<S, A>` / `ReducerWithoutAction<S>` / `ActionDispatch<Arg>` / `AnyActionArg` | reducer/action   | `atom/derive` — `useReducer`/`useActionState` arity; `AnyActionArg = [] \| [any]` is the action-fn tail        |
+|  [03]   | `EffectCallback` / `DependencyList` / `Destructor`                                   | effect shape     | `view` — `useEffect`/`useLayoutEffect`/`useInsertionEffect` bodies; `Destructor` is the cleanup return         |
+|  [04]   | `Usable<T>` = `ReactPromise<T> \| Context<T>` / `ReactPromise<T>`                    | `use` input      | `view` — `use(usable)` unwraps a promise or context in render; the promise arm suspends                        |
+|  [05]   | `TransitionFunction` / `TransitionStartFunction`                                     | transition scope | `act/transition` — `startTransition`/`useTransition` scope fn; an async fn defers to a non-blocking transition |
 
 [PUBLIC_TYPE_SCOPE]: the synthetic-event family — one contract, instanced per device
 - rail: act/gesture
 - `SyntheticEvent<T, E>` is ONE cross-browser event contract parameterized by target element `T` and native event `E`; the roster below is SEED DATA for that one type — a new event kind is a row, never a new mechanism. `EventHandler<E>` and its per-event aliases are the matching handler contract. `act/gesture` prefers `react-aria`'s normalized `PressEvent`/`HoverEvent` over raw synthetic events, but the prop-level handler types are these.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:--------------------------------------------------------------------------------- |:---------------- |:---------------------------------------------------------------- |
-| [01] | `SyntheticEvent<T, E>` / `BaseSyntheticEvent<E, C, T>` | event base | the root all event rows extend; carries `currentTarget`/`nativeEvent`/`preventDefault` |
-| [02] | `MouseEvent<T, E>` / `PointerEvent<T>` / `DragEvent<T>` / `WheelEvent<T>` / `TouchEvent<T>` | pointer event | `act/gesture` — pointer/touch rows; `PointerEvent`/`DragEvent`/`WheelEvent` extend `MouseEvent` |
-| [03] | `KeyboardEvent<T>` (`ModifierKey`) / `FocusEvent<Target, RelatedTarget>` | keyboard/focus | `act/gesture` — key + focus rows; `getModifierState(key: ModifierKey)` on `KeyboardEvent` |
-| [04] | `ChangeEvent<C, T>` / `FormEvent<T>` / `InputEvent<T>` / `SubmitEvent<T>` / `InvalidEvent<T>` | form event | `view/compose` `FormBinding` — the input/submit handler payloads a `Schema` decode validates |
-| [05] | `ClipboardEvent<T>` / `CompositionEvent<T>` / `AnimationEvent<T>` / `TransitionEvent<T>` / `ToggleEvent<T>` / `UIEvent<T>` | ancillary event | `act/transition` — `TransitionEvent`/`AnimationEvent` fire the CSS-motion end; `ToggleEvent` the `<dialog>`/popover state |
-| [06] | `EventHandler<E>` + `MouseEventHandler<T>` / `KeyboardEventHandler<T>` / `ChangeEventHandler<C,T>` / … | handler alias | the `on*` prop types; one bivariant `EventHandler<E>`, one alias per event row |
+| [INDEX] | [SYMBOL]                                                                                                                   | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                                       |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `SyntheticEvent<T, E>` / `BaseSyntheticEvent<E, C, T>`                                                                     | event base      | the root all event rows extend; carries `currentTarget`/`nativeEvent`/`preventDefault`                                    |
+|  [02]   | `MouseEvent<T, E>` / `PointerEvent<T>` / `DragEvent<T>` / `WheelEvent<T>` / `TouchEvent<T>`                                | pointer event   | `act/gesture` — pointer/touch rows; `PointerEvent`/`DragEvent`/`WheelEvent` extend `MouseEvent`                           |
+|  [03]   | `KeyboardEvent<T>` (`ModifierKey`) / `FocusEvent<Target, RelatedTarget>`                                                   | keyboard/focus  | `act/gesture` — key + focus rows; `getModifierState(key: ModifierKey)` on `KeyboardEvent`                                 |
+|  [04]   | `ChangeEvent<C, T>` / `FormEvent<T>` / `InputEvent<T>` / `SubmitEvent<T>` / `InvalidEvent<T>`                              | form event      | `view/compose` `FormBinding` — the input/submit handler payloads a `Schema` decode validates                              |
+|  [05]   | `ClipboardEvent<T>` / `CompositionEvent<T>` / `AnimationEvent<T>` / `TransitionEvent<T>` / `ToggleEvent<T>` / `UIEvent<T>` | ancillary event | `act/transition` — `TransitionEvent`/`AnimationEvent` fire the CSS-motion end; `ToggleEvent` the `<dialog>`/popover state |
+|  [06]   | `EventHandler<E>` + `MouseEventHandler<T>` / `KeyboardEventHandler<T>` / `ChangeEventHandler<C,T>` / …                     | handler alias   | the `on*` prop types; one bivariant `EventHandler<E>`, one alias per event row                                            |
 
 [PUBLIC_TYPE_SCOPE]: the DOM-attribute family + JSX intrinsics + canary surface
 - rail: view/primitive
 - `HTMLAttributes<T>` is ONE attribute base (over `AriaAttributes` + `DOMAttributes<T>`) extended per element into `*HTMLAttributes<T>`; `JSX.IntrinsicElements` maps each tag to `DetailedHTMLProps<*HTMLAttributes<E>, E>`. A `react-aria` hook returns a bundle that spreads onto one of these. The canary/overlay rows are the gated upgrade surface `act/transition` owns.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:--------------------------------------------------------------------------------- |:---------------- |:---------------------------------------------------------------- |
-| [01] | `DOMAttributes<T>` / `HTMLAttributes<T>` / `AllHTMLAttributes<T>` / `SVGAttributes<T>` | attribute base | `view/primitive` — the spread target for a `react-aria` `DOMAttributes` bundle; `AllHTMLAttributes` is the union |
-| [02] | `AriaAttributes` / `AriaRole` / `HTMLInputTypeAttribute` / `HTMLAttributeReferrerPolicy` | aria + enum vocab | `view` — the `aria-*` prop set `react-aria` populates; `AriaRole` the `role` union |
-| [03] | `*HTMLAttributes<T>` (`ButtonHTMLAttributes`/`InputHTMLAttributes`/`AnchorHTMLAttributes`/`DialogHTMLAttributes`/…) | per-element attrs | one interface per element extending `HTMLAttributes<T>` — SEED DATA; a new element is a row |
-| [04] | `JSX.IntrinsicElements` / `JSX.Element` / `JSX.ElementType` / `JSX.LibraryManagedAttributes` | JSX namespace | every `.tsx` — the tag→props map the compiler resolves; `global.d.ts` makes it ambient |
-| [05] | `DetailedHTMLProps<E, T>` / `HTMLProps<T>` / `SVGProps<T>` | detailed props | the `IntrinsicElements` cell shape (element attrs + `ClassAttributes<T>` ref/key) |
-| [06] | `ViewTransitionProps` / `ViewTransitionClass` / `ActivityProps` / `FragmentInstance` / `SuspenseListProps` (canary/overlay) | gated upgrade | `act/transition` — the `<ViewTransition>`/`<Activity>` prop types; import from `./canary`/`./experimental` only |
+| [INDEX] | [SYMBOL]                                                                                                                    | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                                                              |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `DOMAttributes<T>` / `HTMLAttributes<T>` / `AllHTMLAttributes<T>` / `SVGAttributes<T>`                                      | attribute base    | `view/primitive` — the spread target for a `react-aria` `DOMAttributes` bundle; `AllHTMLAttributes` is the union |
+|  [02]   | `AriaAttributes` / `AriaRole` / `HTMLInputTypeAttribute` / `HTMLAttributeReferrerPolicy`                                    | aria + enum vocab | `view` — the `aria-*` prop set `react-aria` populates; `AriaRole` the `role` union                               |
+|  [03]   | `*HTMLAttributes<T>` (`ButtonHTMLAttributes`/`InputHTMLAttributes`/`AnchorHTMLAttributes`/`DialogHTMLAttributes`/…)         | per-element attrs | one interface per element extending `HTMLAttributes<T>` — SEED DATA; a new element is a row                      |
+|  [04]   | `JSX.IntrinsicElements` / `JSX.Element` / `JSX.ElementType` / `JSX.LibraryManagedAttributes`                                | JSX namespace     | every `.tsx` — the tag→props map the compiler resolves; `global.d.ts` makes it ambient                           |
+|  [05]   | `DetailedHTMLProps<E, T>` / `HTMLProps<T>` / `SVGProps<T>`                                                                  | detailed props    | the `IntrinsicElements` cell shape (element attrs + `ClassAttributes<T>` ref/key)                                |
+|  [06]   | `ViewTransitionProps` / `ViewTransitionClass` / `ActivityProps` / `FragmentInstance` / `SuspenseListProps` (canary/overlay) | gated upgrade     | `act/transition` — the `<ViewTransition>`/`<Activity>` prop types; import from `./canary`/`./experimental` only  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -86,28 +86,28 @@
 - rail: view/primitive
 - `@types/react` types the `react` runtime's hooks; the roster is the React 19 primitive set grouped by concern. `view` rows call these directly (react-compiler compiles the memoization), and `@effect-atom` hooks (`useAtomValue`, `.api/effect-atom-atom-react.md`) are built ON `useSyncExternalStore`. A hook is a call into the render-tracked fiber; there is no polymorphic collapse across primitives, but the FORM shapes (`Dispatch`, `Usable`, `EffectCallback`) are shared.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
-| [01] | `useState<S>` / `useReducer<S, A>` / `useRef<T>` / `useContext<T>` | state + context | `view` — but the ONE store binding is `@effect-atom`; local `useState` only for ephemeral view state |
-| [02] | `useEffect` / `useLayoutEffect` / `useInsertionEffect` / `useImperativeHandle` / `useEffectEvent` | effect | `view` — `useEffectEvent<T>(cb)` (main entry, not `./experimental`) extracts a non-reactive event from an effect's deps |
-| [03] | `useMemo<T>` / `useCallback<T>` / `useDebugValue<T>` | memo | react-compiler OWNS these — never hand-write in a row; present for library/interop code only |
-| [04] | `useTransition` / `useDeferredValue<T>` / `startTransition` / `useId` / `useSyncExternalStore` | concurrent | `act/transition` defers work; `useSyncExternalStore` is the external-store subscription `@effect-atom` builds on |
-| [05] | `use<T>(usable: Usable<T>)` | unwrap | `view` — unwrap a promise (suspends) or context in render/loops; the `Result`-atom async seam |
-| [06] | `useActionState<State, Payload>` / `useOptimistic<State, Action>` | form action | `view/compose` `FormBinding` — server-action pending/error state + optimistic UI; pairs `react-dom` `useFormStatus` |
-| [07] | `unstable_useCacheRefresh` / `addTransitionType` / `unstable_startGestureTransition` (canary/overlay) | gated | `act/transition` — behind a capability flag; import from `./canary`/`./experimental` |
+| [INDEX] | [SURFACE]                                                                                             | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                                     |
+| :-----: | :---------------------------------------------------------------------------------------------------- | :-------------- | :---------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `useState<S>` / `useReducer<S, A>` / `useRef<T>` / `useContext<T>`                                    | state + context | `view` — but the ONE store binding is `@effect-atom`; local `useState` only for ephemeral view state                    |
+|  [02]   | `useEffect` / `useLayoutEffect` / `useInsertionEffect` / `useImperativeHandle` / `useEffectEvent`     | effect          | `view` — `useEffectEvent<T>(cb)` (main entry, not `./experimental`) extracts a non-reactive event from an effect's deps |
+|  [03]   | `useMemo<T>` / `useCallback<T>` / `useDebugValue<T>`                                                  | memo            | react-compiler OWNS these — never hand-write in a row; present for library/interop code only                            |
+|  [04]   | `useTransition` / `useDeferredValue<T>` / `startTransition` / `useId` / `useSyncExternalStore`        | concurrent      | `act/transition` defers work; `useSyncExternalStore` is the external-store subscription `@effect-atom` builds on        |
+|  [05]   | `use<T>(usable: Usable<T>)`                                                                           | unwrap          | `view` — unwrap a promise (suspends) or context in render/loops; the `Result`-atom async seam                           |
+|  [06]   | `useActionState<State, Payload>` / `useOptimistic<State, Action>`                                     | form action     | `view/compose` `FormBinding` — server-action pending/error state + optimistic UI; pairs `react-dom` `useFormStatus`     |
+|  [07]   | `unstable_useCacheRefresh` / `addTransitionType` / `unstable_startGestureTransition` (canary/overlay) | gated           | `act/transition` — behind a capability flag; import from `./canary`/`./experimental`                                    |
 
 [ENTRYPOINT_SCOPE]: the typed factories + exotic components
 - rail: view/compose
 - The element factories and the `ExoticComponent`-typed built-ins. React 19 makes `ref` a plain prop, so `forwardRef` is soft-deprecated — a new row takes `ref` in props, not through `forwardRef`. JSX (automatic runtime `./jsx-runtime`) is the normal element-construction path; `createElement` is the escape hatch.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------ |:--------------- |:--------------------------------------------------------------- |
-| [01] | `createElement` / `cloneElement` / `isValidElement<P>` / `Children` / `createRef<T>` | element factory | escape hatch — JSX (`./jsx-runtime` `jsx`/`jsxs`) is the normal path; `Children` maps opaque `children` |
-| [02] | `createContext<T>` → `Context<T>` | context factory | `atom/binding` `RegistryContext`, `intl` `I18nProvider` — the one context per cross-tree value |
-| [03] | `forwardRef<T, P>` (soft-deprecated) / `memo<P>` / `lazy<T>` | component factory | React 19: `ref` is a prop, so author rows without `forwardRef`; `memo` redundant under react-compiler; `lazy` for code-split |
-| [04] | `Fragment` / `Suspense` / `StrictMode` / `Profiler` (`ProfilerOnRenderCallback`) | built-in exotic | `view` — `Suspense` boundary pairs `useAtomSuspense`; `Profiler` feeds `viewer/probe` render timing |
-| [05] | `ViewTransition` (`ExoticComponent<ViewTransitionProps>`) / `Activity` (`ExoticComponent<ActivityProps>`) | gated exotic | `act/transition` — the `<ViewTransition>`/`<Activity>` upgrade rows; `./canary`, capability-gated |
-| [06] | `act<T>(cb)` / `version` | test/identity | `dev`-plane specs drive updates through `act`; `@effect/vitest` rows assert on flushed state |
+| [INDEX] | [SURFACE]                                                                                                 | [ENTRY_FAMILY]    | [CONSUMER_BOUNDARY]                                                                                                          |
+| :-----: | :-------------------------------------------------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `createElement` / `cloneElement` / `isValidElement<P>` / `Children` / `createRef<T>`                      | element factory   | escape hatch — JSX (`./jsx-runtime` `jsx`/`jsxs`) is the normal path; `Children` maps opaque `children`                      |
+|  [02]   | `createContext<T>` → `Context<T>`                                                                         | context factory   | `atom/binding` `RegistryContext`, `intl` `I18nProvider` — the one context per cross-tree value                               |
+|  [03]   | `forwardRef<T, P>` (soft-deprecated) / `memo<P>` / `lazy<T>`                                              | component factory | React 19: `ref` is a prop, so author rows without `forwardRef`; `memo` redundant under react-compiler; `lazy` for code-split |
+|  [04]   | `Fragment` / `Suspense` / `StrictMode` / `Profiler` (`ProfilerOnRenderCallback`)                          | built-in exotic   | `view` — `Suspense` boundary pairs `useAtomSuspense`; `Profiler` feeds `viewer/probe` render timing                          |
+|  [05]   | `ViewTransition` (`ExoticComponent<ViewTransitionProps>`) / `Activity` (`ExoticComponent<ActivityProps>`) | gated exotic      | `act/transition` — the `<ViewTransition>`/`<Activity>` upgrade rows; `./canary`, capability-gated                            |
+|  [06]   | `act<T>(cb)` / `version`                                                                                  | test/identity     | `dev`-plane specs drive updates through `act`; `@effect/vitest` rows assert on flushed state                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

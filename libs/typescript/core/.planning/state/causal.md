@@ -2,16 +2,16 @@
 
 The causality owner: `Vector` — the per-replica version vector whose comparison is the four-way causal ordering and whose join/meet are `Merge` lattice instances — plus delivery order and finality over it: the happened-before fold that answers causality honestly under the `value/clock` uncertainty window, the causal hold-and-drain buffer, the stability frontier (the GLB meet of per-replica acknowledged vectors), the finalize partition, the retention-frontier value handed to the durable journal and to `fold` compaction, and the live `Tracker` whose buffer advance is one `TRef` transaction and whose ack table is a `Merge.cell` over the `Vector.join` lattice — batch-atomic ack absorb, committed-snapshot frontier reads, whole-table `settled` stability waits. Every ordering answer is four-way: overlapping uncertainty windows yield `"concurrent"` rather than a fabricated order, so no consumer acts on clock precision the hardware never had. The version-vector wire shape C# mints decodes through the interchange codec INTO `Vector`, and no TS re-mint of a wire shape exists. The module is `core/src/state/causal.ts`; a new causality read is a static composing the same comparisons, a new tracker read is one transactional member.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                | [PUBLIC]                                                 |
-| :-----: | :------------------ | :---------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `VECTOR_LATTICE`    | the version-vector class, four-way comparison, join/meet instances      | `Vector`                                                    |
-|  [02]   | `HAPPENED_BEFORE`   | the stamped-event comparison under honest uncertainty                   | `Causal.compare`, `Causal.Stamped`                          |
-|  [03]   | `DELIVERY_BUFFER`   | the causal hold-and-drain Mealy step                                    | `Causal.admit`, `Causal.Buffer`, `Causal.Envelope`          |
-|  [04]   | `FRONTIER_TRACKER`  | frontier fold, finalize partition, retention mint, the STM live tracker | `Causal.frontier/.finalize/.retention/.tracker`             |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                  | [PUBLIC]                                           |
+| :-----: | :----------------- | :---------------------------------------------------------------------- | :------------------------------------------------- |
+|  [01]   | `VECTOR_LATTICE`   | the version-vector class, four-way comparison, join/meet instances      | `Vector`                                           |
+|  [02]   | `HAPPENED_BEFORE`  | the stamped-event comparison under honest uncertainty                   | `Causal.compare`, `Causal.Stamped`                 |
+|  [03]   | `DELIVERY_BUFFER`  | the causal hold-and-drain Mealy step                                    | `Causal.admit`, `Causal.Buffer`, `Causal.Envelope` |
+|  [04]   | `FRONTIER_TRACKER` | frontier fold, finalize partition, retention mint, the STM live tracker | `Causal.frontier/.finalize/.retention/.tracker`    |
 
-## [2]-[VECTOR_LATTICE]
+## [02]-[VECTOR_LATTICE]
 
 [VECTOR_LATTICE]:
 - Owner: `Vector` — one `Schema.Class` whose `clocks` field is the decoded `HashMap` of replica counters; comparison, dominance, increment, and the two lattice instances ride the class as statics, so one import carries the shape, the decode target, and the whole causal-order algebra.
@@ -96,7 +96,7 @@ class Vector extends Schema.Class<Vector>("Vector")({
 }
 ```
 
-## [3]-[HAPPENED_BEFORE]
+## [03]-[HAPPENED_BEFORE]
 
 [HAPPENED_BEFORE]:
 - Owner: `Causal.compare` over `Causal.Stamped` — an event's `Hlc` stamp paired with its `Uncertainty` window; wholly-disjoint windows decide `"before"`/`"after"`, identical stamps decide `"equal"`, and every overlap answers `"concurrent"` — the honest verdict `fold#WATERMARK_PANES` lateness and merge tiebreaks consume.
@@ -148,7 +148,7 @@ const _compare = (self: Causal.Stamped, that: Causal.Stamped): Vector.Ordering =
       : verdict)
 ```
 
-## [4]-[DELIVERY_BUFFER]
+## [04]-[DELIVERY_BUFFER]
 
 [DELIVERY_BUFFER]:
 - Owner: `Causal.admit` — the hold-and-drain Mealy step: an arriving `Envelope` joins the held set, then the drain extracts every envelope whose vector is exactly the next expected observation from its origin, advancing `seen` by `Vector.join` per delivery until no held envelope is deliverable — one step, `Stream.mapAccum`-ready, so a live feed gains causal delivery by lifting this declaration unchanged.
@@ -183,7 +183,7 @@ const _admit = <A>(
 }
 ```
 
-## [5]-[FRONTIER_TRACKER]
+## [05]-[FRONTIER_TRACKER]
 
 [FRONTIER_TRACKER]:
 - Owner: the stability frontier and its consequences — `Causal.frontier` folds per-replica acknowledged vectors through `Vector.meet` (the GLB), `Causal.finality`/`Causal.finalize` seal what the frontier covers, `Causal.retention` mints the handoff value, and `Causal.tracker` holds the live cells: the delivery buffer as a `TRef` Mealy cell and the ack table as `merge#MERGE_CELLS`'s `Merge.cell(Vector.join)` — every advance one STM transaction.

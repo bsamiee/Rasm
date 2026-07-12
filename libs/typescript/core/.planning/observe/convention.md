@@ -2,15 +2,15 @@
 
 The vocabulary spine of the four-signal plane: every attribute key, metric name, event name, and bounded value any telemetry node stamps is a typed row on the one `Convention` owner — semconv constants imported as literal-typed data, incubating names fenced behind a churn-absorbing alias table spanning the RUM device/session plane and the infra-correlation plane, Rasm-owned name families for the audit/meter/vital/slo/crash/invoke/gateway domains minted beside them, and the one `AppIdentity -> Identity` attribute projection that makes the whole plane app-parameterized. A string literal at a signal site is the named defect; the row is the instruction, and its literal type flows into every attribute record, `Match` fold, and dashboard query downstream. Cross-language parity with the C# OTLP egress is name-level against the OpenTelemetry spec — the same `service.name`/`http.route`/`exception.type` spellings — so this page is the JS-side name source, never a shared artifact. The module is `core/src/observe/convention.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]             | [OWNS]                                                                                   |
-| :-----: | :-------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `SEMCONV_ROWS`        | the stable/incubating import law, the value families, the alias seam, the deprecated ban   |
+| [INDEX] | [CLUSTER]             | [OWNS]                                                                                      |
+| :-----: | :-------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | `SEMCONV_ROWS`        | the stable/incubating import law, the value families, the alias seam, the deprecated ban    |
 |  [02]   | `RASM_ROWS`           | the project-owned name families: identity, audit, meter, vital, slo, crash, invoke, gateway |
-|  [03]   | `IDENTITY_PROJECTION` | `AppIdentity -> Identity` attributes — the one identity spine every surface derives from   |
+|  [03]   | `IDENTITY_PROJECTION` | `AppIdentity -> Identity` attributes — the one identity spine every surface derives from    |
 
-## [2]-[SEMCONV_ROWS]
+## [02]-[SEMCONV_ROWS]
 
 [SEMCONV_ROWS]:
 - Owner: the interior `_attr`/`_incubating`/`_value` anchors — flat `as const` tables whose values are `@opentelemetry/semantic-conventions` constants, so every row keeps the package's literal type and a semconv rename fails at this declaration, never at a call site.
@@ -144,7 +144,7 @@ const _value = {
 } as const
 ```
 
-## [3]-[RASM_ROWS]
+## [03]-[RASM_ROWS]
 
 [RASM_ROWS]:
 - Owner: the `_rasm`, `_metric`, and `_event` anchors — the project's own name space beside the semconv imports, spelled `rasm.<domain>.<axis>` so a Rasm attribute never collides with a spec namespace and a backend filters the project plane in one prefix.
@@ -201,7 +201,7 @@ const _event = {
 } as const
 ```
 
-## [4]-[IDENTITY_PROJECTION]
+## [04]-[IDENTITY_PROJECTION]
 
 [IDENTITY_PROJECTION]:
 - Owner: the assembled `Convention` export — row families as properties, the `identity` projection as the one operation, companion types on the merged namespace, contract guards riding the hub so a malformed row fails at this declaration with zero widening of the interior anchors.

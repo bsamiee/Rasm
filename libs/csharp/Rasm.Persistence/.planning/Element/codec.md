@@ -161,14 +161,14 @@ public sealed record GeoJsonProjection(GeometryFactory Geometry, bool WriteBound
 - Growth: TWO consumer contracts are recorded on this section, both provided by the seam owner on landing. INCREMENTAL `OfGraph(prior, delta)` — the delta-composable graph address (`Version/timetravel` `Scrub`/`Bisect` re-shape onto it) is `Rasm.Element/Projection/address`'s member; until it lands the documented interim is the whole-graph `OfGraph` recompute, and the parametric-form digest is a COMPONENT of `ToCanonicalBytes(tolerance)` (the `ParametricStream` clause), NEVER a standalone `Of(UInt128)` sibling key — a sibling key would leave `OfGraph` blind to a parametric-body edit. STREAMING identity — the kernel `ContentHash` Growth row's incremental lifecycle (`XxHash128` `Append` + `GetCurrentHashAsUInt128`, seed zero) lands as one kernel member when a consumer demands it, and Persistence IS that demanding consumer for the blobstore multipart and chunk folds whose payloads outgrow a one-shot span; until it lands the documented interim is the one-shot `ContentHash.Of` over the in-memory payload plus the `ContentAddress.Of(UInt128)` wrap of a precomputed digest. A wider content address is one `HashPolicy` row plus an epoch-gated identity migration; a new canonical-byte rule is one clause on the seam `CanonicalWriter`; zero new surface — a second hasher, a `GetHashCode`-based address, a Persistence-local `NodeHash`/`GraphHash` forwarding owner, or a per-surface key respelling is the deleted form.
 - Boundary: the `ContentAddress` is non-cryptographic identity — a tamper or security claim on it is the named defect (the `Version/provenance#ATTESTED_LEDGER` `AttestedEntry` owns tamper-evidence); the canonical byte projection is the ONE seam `Projection/address#CANONICAL_WRITER` codec shared between the `NodeId` content hash and the diff `ContentBytes` so a node that did not change is byte-identical and the structural diff prunes it; the kernel seed convention (seed-zero content, `ContentHash.Of` the verbatim contract) is ground truth and the literal digest values stamp on the host-validation pass, never an un-run asserted value; the graph address IS the seam `ContentAddress.OfGraph` order-independent fold, composed once so the topology memo key (`Query/topology`) and the snapshot graph identity never fork into two Persistence-local orderings, and the snapshot/chunk identities wrap their precomputed digest through `ContentAddress.Of(UInt128)` rather than the bare Thinktecture `Create`, so the seam's wrap verb is the one Persistence reads.
 
-| [INDEX] | [POLICY]              | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :-------------------- | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | content algorithm     | kernel `ContentHash.Of` (seed-zero)    | one hasher entry; a direct `XxHash128` call site is deleted |
-|  [02]   | node/graph key        | seam `ContentAddress.Of`/`OfGraph`     | composed in one hop; no Persistence-local hash owner      |
-|  [03]   | precomputed wrap      | seam `ContentAddress.Of(UInt128)`      | snapshot/chunk digest wrapped, never raw `Create`         |
-|  [04]   | incremental address   | `OfGraph(prior, delta)` seam contract  | whole-graph recompute is the documented interim           |
-|  [05]   | streaming identity    | kernel `Append`/`GetCurrentHashAsUInt128` contract | one-shot `ContentHash.Of` is the documented interim |
-|  [06]   | identity claim        | non-cryptographic                      | tamper-evidence is `Version/provenance#ATTESTED_LEDGER`   |
+| [INDEX] | [POLICY]            | [VALUE]                                            | [BINDING]                                                   |
+| :-----: | :------------------ | :------------------------------------------------- | :---------------------------------------------------------- |
+|  [01]   | content algorithm   | kernel `ContentHash.Of` (seed-zero)                | one hasher entry; a direct `XxHash128` call site is deleted |
+|  [02]   | node/graph key      | seam `ContentAddress.Of`/`OfGraph`                 | composed in one hop; no Persistence-local hash owner        |
+|  [03]   | precomputed wrap    | seam `ContentAddress.Of(UInt128)`                  | snapshot/chunk digest wrapped, never raw `Create`           |
+|  [04]   | incremental address | `OfGraph(prior, delta)` seam contract              | whole-graph recompute is the documented interim             |
+|  [05]   | streaming identity  | kernel `Append`/`GetCurrentHashAsUInt128` contract | one-shot `ContentHash.Of` is the documented interim         |
+|  [06]   | identity claim      | non-cryptographic                                  | tamper-evidence is `Version/provenance#ATTESTED_LEDGER`     |
 
 ## [04]-[COMPRESSION_HASHING]
 
@@ -468,9 +468,9 @@ public static class ContentChunker {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                              | [BINDING]                                                  |
-| :-----: | :------------------ | :----------------------------------- | :--------------------------------------------------------- |
-|  [01]   | chunk boundary      | FastCDC normalized gear-hash cut     | insertion-stable; small change re-stores only changed chunks |
-|  [02]   | chunk identity      | kernel `ContentHash.Of` content key  | dedup across snapshots/peers; never the gear-hash cut     |
-|  [03]   | dedup pre-filter    | `XxHash3` 64-bit short tag           | `Novel` probes `mayHold` before `holds`                   |
-|  [04]   | reassembly guard    | whole-artifact content hash          | torn/reordered manifest faults, never silent wrong bytes  |
+| [INDEX] | [POLICY]         | [VALUE]                             | [BINDING]                                                    |
+| :-----: | :--------------- | :---------------------------------- | :----------------------------------------------------------- |
+|  [01]   | chunk boundary   | FastCDC normalized gear-hash cut    | insertion-stable; small change re-stores only changed chunks |
+|  [02]   | chunk identity   | kernel `ContentHash.Of` content key | dedup across snapshots/peers; never the gear-hash cut        |
+|  [03]   | dedup pre-filter | `XxHash3` 64-bit short tag          | `Novel` probes `mayHold` before `holds`                      |
+|  [04]   | reassembly guard | whole-artifact content hash         | torn/reordered manifest faults, never silent wrong bytes     |

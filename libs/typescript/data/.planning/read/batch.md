@@ -2,16 +2,16 @@
 
 The general request-batching engine: N identical lookups anywhere in a flow are one declared request family and one resolver, and the collapse is structural — call sites stay singular, structural `Equal` over the request's fields deduplicates, and the window settles as one provider round trip. `read/query.md`'s `SqlResolver` rows are this engine fused with the SQL decode; this page owns the engine everywhere else: the object plane's HEAD coalescing, the capability probe scan, journal head probes, and every keyed provider call a sibling branch batches by passing these values. Three window geometries ride one resolver value — same-traversal collapse (`makeBatched` under `{ batching: true }`), wall-clock collapse across unrelated fibers (`dataLoader`), and the durable result band (`persisted`) whose hits survive restart — and the per-flow dedup tier is `Effect.withRequestCaching` over `lane/cache.md`'s request-cache Layer. A resolver is built once and travels as a value: identity is the window, so a resolver minted per call site is the structural defeat this page makes unspellable.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                            |
-| :-----: | :--------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `REQUEST_FAMILY` | the request-class law — field identity, the tagged family, the persistable upgrade     |
-|  [02]   | `RESOLVER_ENGINE`| `Batch.of` — settle-every-request, width caps, the timing bracket, baked context       |
-|  [03]   | `WINDOW_ROWS`    | the three window geometries and the per-flow caching tier                              |
-|  [04]   | `SERVED_LANES`   | the folder's own batched lanes as rows — HEAD coalescing, probes, head reads           |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                             |
+| :-----: | :---------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `REQUEST_FAMILY`  | the request-class law — field identity, the tagged family, the persistable upgrade |
+|  [02]   | `RESOLVER_ENGINE` | `Batch.of` — settle-every-request, width caps, the timing bracket, baked context   |
+|  [03]   | `WINDOW_ROWS`     | the three window geometries and the per-flow caching tier                          |
+|  [04]   | `SERVED_LANES`    | the folder's own batched lanes as rows — HEAD coalescing, probes, head reads       |
 
-## [2]-[REQUEST_FAMILY]
+## [02]-[REQUEST_FAMILY]
 
 - Owner: the request-declaration law — every batched lookup is a class extending `Request.TaggedClass("<tag>")<Success, Error, Fields>`, one name serving value, type, constructor, and dedup identity; the class absorbs its resolver and windowed consumers as statics so the family cannot scatter.
 - Packages: `effect` (`Request`, `Schema`, `PrimaryKey`).
@@ -40,7 +40,7 @@ class Descriptor extends Schema.TaggedRequest<Descriptor>()("Descriptor", {
 }) {}
 ```
 
-## [3]-[RESOLVER_ENGINE]
+## [03]-[RESOLVER_ENGINE]
 
 - Owner: `Batch.of(settle)` — the one resolver mint over `RequestResolver.makeBatched` with the settlement law enforced in its shape — plus the combinator tail every resolver composes: `batchN` width caps and the `aroundRequests` timing bracket; identity baking is `RequestResolver.contextFromServices` consumed at the package surface directly, because a forwarding wrapper adds no domain value and cannot state the variadic tag contract more honestly than the package signature.
 - Packages: `effect` (`RequestResolver` — `makeBatched`, `fromEffectTagged`, `batchN`, `aroundRequests`, `contextFromServices`; `Request` — `completeEffect`, `succeed`, `fail`; `Clock`).
@@ -74,7 +74,7 @@ const _of = <Req extends Request.Request<unknown, unknown>, R>(
   )
 ```
 
-## [4]-[WINDOW_ROWS]
+## [04]-[WINDOW_ROWS]
 
 - Owner: the window-geometry table — same-traversal, wall-clock, and durable rows over one resolver value — and the per-flow caching tier that deduplicates repeated keys across a request graph.
 - Packages: `@effect/experimental` (`RequestResolver.dataLoader`, `RequestResolver.persisted`); `effect` (`Effect.request`, `Effect.withRequestBatching`, `Effect.withRequestCaching`); `lane/cache.md` (`CacheLane.dedup` — the request-cache Layer; `CacheLane.backing` — the `Persistence` rows behind the durable band).
@@ -104,7 +104,7 @@ const _durable = <Req extends Schema.TaggedRequest.All>(
 ) => Experimental.persisted(resolver, policy)
 ```
 
-## [5]-[SERVED_LANES]
+## [05]-[SERVED_LANES]
 
 - Owner: the folder's own batched lanes, each one request family plus one window row — the census of where the engine already earns its keep, kept as data so a new lane is a row.
 - Packages: composition only — each lane's provider members are its owning page's.

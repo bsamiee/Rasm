@@ -2,18 +2,18 @@
 
 The one OTLP wire owner: egress and ingress of the telemetry plane in one module. Egress is one policy value and one Layer — `Export.live(policy)` composes the whole trace/metric/log export plane as a `Layer<never>` registration node the app root merges once, the lane (native `Otlp` over the shared `HttpClient`, `NodeSdk`, `WebSdk`) selected by one policy row, every lane consuming one identity: the OTLP `Resource` derives from `Convention.identity(policy.identity)` folded with the platform's own resource detectors so the incubating host/pod/pid rows the convention declares have a producer. Ingress is the W3C continuation — `traceparent`/`tracestate`/`baggage` decode from any string-keyed carrier into an `Option`-carried parent, and one total transformer continues it, so extract-and-continue can never be half-applied. `Redaction` is the one shared scrub owner: export-boundary span scrub here, capture-time rules consumed by `crash`, structurally distinct laws over one rule shape. `Hooks` is the consumer hook plane — taps, processors, exporters, views, detectors, and redaction points contribute through append-only registry rows one SDK drain collects, so a thousand apps extend the pipeline without forking it. The `@opentelemetry` sdk/exporter block behind the SDK lanes is the `[R3]` pin block — it collapses as one unit when native `Otlp` parity (including the span-scrub hook) closes, and only the propagation codecs, `resources`, and `semantic-conventions` survive. The `plane:dev` DevTools row ships as its own `./dev` subpath module. The module is `runtime/src/otel/emit.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                         | [PUBLIC]      |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                             | [PUBLIC]      |
 | :-----: | :------------- | :--------------------------------------------------------------------------------- | :------------ |
-|  [01]   | `POLICY`       | the one `Export.Policy` row: identity, collector, lane, cadence, sampling, limits   | `Export`      |
+|  [01]   | `POLICY`       | the one `Export.Policy` row: identity, collector, lane, cadence, sampling, limits  | `Export`      |
 |  [02]   | `REDACTION`    | the shared scrub rules + the per-signal structural-safety ledger                   | `Redaction`   |
 |  [03]   | `HOOKS`        | the contribute-then-collect pipeline registry: taps, processors, readers, views    | `Hooks`       |
 |  [04]   | `LANES`        | the native `Otlp` row, the `NodeSdk`/`WebSdk` rows, detectors, the roster dispatch | `Export`      |
 |  [05]   | `CONTINUATION` | carrier decode + the ingress transformer + the egress stamp                        | `Propagation` |
 |  [06]   | `DEV`          | the `plane:dev`-fenced `./dev` DevTools module                                     | `dev`         |
 
-## [2]-[POLICY]
+## [02]-[POLICY]
 
 [POLICY]:
 - Owner: `Export.Policy` — one typed row carrying every export decision: the `AppIdentity` (whose settled dimensions — instance, namespace, environment — the `Convention.identity` projection stamps on the `Resource`, so no export field re-mints an identity fact), the collector endpoint and sealed headers, the lane and serialization, per-signal cadence as `Duration` rows, the head-sampling ratio, batch tuning, metric temporality, the tenant-cardinality budget, the span structural limits, and the redaction rules; the policy arrives as a value from the app root's `Config.unwrap` owner (`config#ADMISSION_ROWS`' family form), and no export decision exists outside it.
@@ -56,7 +56,7 @@ const _signal = (policy: Export.Policy, signal: "logs" | "metrics" | "traces"): 
   `${policy.collector.baseUrl}/v1/${signal}`
 ```
 
-## [3]-[REDACTION]
+## [03]-[REDACTION]
 
 [REDACTION]:
 - Owner: `Redaction` — the one scrub owner of the branch: `Rules` as data (sealed attribute keys plus value patterns), one total `scrub` fold over any attribute record, and `processor(rules)` materializing the rules as an OTel `SpanProcessor` whose `onEnding` hook overwrites deny-keyed and pattern-matched span attributes with the sealed sentinel before the span freezes for export.
@@ -118,7 +118,7 @@ const Redaction: {
 }
 ```
 
-## [4]-[HOOKS]
+## [04]-[HOOKS]
 
 [HOOKS]:
 - Owner: `Hooks` — the consumer hook plane of the telemetry pipeline: one accumulating registry of `SpanProcessor` taps, `IMetricReader` rows, `LogRecordProcessor` sinks, `ViewOptions` reshaping rows, and `ResourceDetector` enrichers. A feature, app, or tenant plane contributes through `Hooks.contribute` — a `Layer.effectDiscard` that appends its rows — and exactly one drain exists: the SDK lanes build their `Configuration` inside `NodeSdk.layer(Effect<Configuration>)` / `WebSdk.layer(Effect<Configuration>)`, folding the collected rows behind the policy's own, so a thousand apps plug processors, exporters, sampling taps, and redaction points into one plane without forking it.
@@ -183,7 +183,7 @@ class Hooks extends Effect.Service<Hooks>()("runtime/Hooks", {
 }
 ```
 
-## [5]-[LANES]
+## [05]-[LANES]
 
 [LANES]:
 - Owner: the interior `_lanes` roster — `as const satisfies Record<string, (policy) => Layer>` — with `Export.live(policy)` as the one entrypoint dispatching `_lanes[policy.lane](policy)`; the lane union derives as `keyof typeof _lanes`, so config admission, the policy type, and the dispatch read one anchor, and a new lane is one row.
@@ -312,7 +312,7 @@ const Export: {
 }
 ```
 
-## [6]-[CONTINUATION]
+## [06]-[CONTINUATION]
 
 [CONTINUATION]:
 - Owner: `Propagation` — causal identity crossing every ingress: the interior codec kernel decodes `traceparent` through `parseTraceParent` into an OTel `SpanContext`, lifts `tracestate` through `new TraceState(raw)`, decodes `baggage` through `parseKeyPairsIntoRecord`, header names read from the core constants; the assembled owner carries the extraction members plus the one ingress transformer and the egress stamp, `Function.dual` so the transformer follows a live pipe subject at every entry seam.
@@ -395,7 +395,7 @@ const Propagation: {
 }
 ```
 
-## [7]-[DEV]
+## [07]-[DEV]
 
 [DEV]:
 - Owner: the sibling `otel/dev` module the `./dev` exports-map subpath alone resolves — one `DevTools.layer` row wired to the local DevTools WebSocket, `plane:dev` by tag so the architecture gauge fails any runtime import; the physical module split is what makes the fence structural rather than disciplinary.

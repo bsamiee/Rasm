@@ -573,15 +573,15 @@ flowchart LR
 
 One owner per axis; a new pair, shape, or relation is a row, a case, or a builder over the one spine — never a sibling dispatcher.
 
-| [INDEX] | [CONCERN]             | [OWNER]                 | [KIND]                                                                   | [RAIL]                                        | [CASES] |
-| :-----: | :-------------------- | :---------------------- | :------------------------------------------------------------------------ | :---------------------------------------------- | :-----: |
-|  [01]   | Contact vocabulary    | `IntersectionKind` / `IntersectionTangency` | `[SmartEnum<int>]` pair                                | rows (pure)                                    |  4 + 3  |
-|  [02]   | Ray request           | `RayQuery`              | `readonly record struct` + `ReflectionCeiling` + evidence fold            | `IValidityEvidence` → the one oracle           |    —    |
-|  [03]   | Deviation receipt     | `CurveDeviation`        | 8-field exact receipt, derived verdict, evidence fold                     | `IValidityEvidence` → the one oracle           |    —    |
-|  [04]   | Hit evidence          | `IntersectionHit`       | `[Union]` + facet projections + batch `Project<TOut>` + disposal law      | `Fin<Seq<TOut>>` through `AnalysisOutput`      |    3    |
-|  [05]   | Result shape          | `IntersectionResult`    | internal `[Union]` — five shapes, `Supports`/`CanProject`/`Project`       | generated `Switch` → the output gate           |    5    |
-|  [06]   | Pair dispatch         | `IntersectionCases`     | 25-row `IntersectionCase` table + ordered scan + unordered retry law      | `Fin<IntersectionResult>` over `Fault`         |   25    |
-|  [07]   | Relation operations   | `Analyze.Relation*`     | five builders over ONE `PairOp` spine + deviation/self kernels            | `Operation → Eff<Env, Seq<TOut>>`              |    5    |
+| [INDEX] | [CONCERN]           | [OWNER]                                     | [KIND]                                                               | [RAIL]                                    | [CASES] |
+| :-----: | :------------------ | :------------------------------------------ | :------------------------------------------------------------------- | :---------------------------------------- | :-----: |
+|  [01]   | Contact vocabulary  | `IntersectionKind` / `IntersectionTangency` | `[SmartEnum<int>]` pair                                              | rows (pure)                               |  4 + 3  |
+|  [02]   | Ray request         | `RayQuery`                                  | `readonly record struct` + `ReflectionCeiling` + evidence fold       | `IValidityEvidence` → the one oracle      |    —    |
+|  [03]   | Deviation receipt   | `CurveDeviation`                            | 8-field exact receipt, derived verdict, evidence fold                | `IValidityEvidence` → the one oracle      |    —    |
+|  [04]   | Hit evidence        | `IntersectionHit`                           | `[Union]` + facet projections + batch `Project<TOut>` + disposal law | `Fin<Seq<TOut>>` through `AnalysisOutput` |    3    |
+|  [05]   | Result shape        | `IntersectionResult`                        | internal `[Union]` — five shapes, `Supports`/`CanProject`/`Project`  | generated `Switch` → the output gate      |    5    |
+|  [06]   | Pair dispatch       | `IntersectionCases`                         | 25-row `IntersectionCase` table + ordered scan + unordered retry law | `Fin<IntersectionResult>` over `Fault`    |   25    |
+|  [07]   | Relation operations | `Analyze.Relation*`                         | five builders over ONE `PairOp` spine + deviation/self kernels       | `Operation → Eff<Env, Seq<TOut>>`         |    5    |
 
 All three fences are transcription-complete host captures: the evidence tier with the oracle-registered receipts, the full twenty-five-row lattice with its lease/tolerance/cancellation discipline and both curve-form lowering rows, and the five relation builders over the shared admission spine. The `RequirementContext.Pair` combinator, the `Requirement` rows, and the oracle are `Domain/validation` law; the form recoveries are `Domain/normalization` law; the tangency relation is `Numerics/atoms` + `Processing/intent` law — composed here, legislated there.
 

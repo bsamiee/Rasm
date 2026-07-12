@@ -167,14 +167,14 @@ public static class CommitGraph {
 }
 ```
 
-| [INDEX] | [POLICY]               | [VALUE]                            | [BINDING]                                              |
-| :-----: | :--------------------- | :--------------------------------- | :---------------------------------------------------- |
-|  [01]   | commit column family   | `commit`                           | one `OpLogEntry` per commit on the changefeed         |
-|  [02]   | merge-base resolution  | maximal common-ancestor antichain  | near-linear: two `Rank` + ONE `Reach` dominance pass; git multi-base |
-|  [03]   | branch-advance demand  | `AdvanceDemand` off `(IsMerge, Order)` | `Movable` gates the derived `GrantSet`; never a caller-guessed lane |
-|  [04]   | content-key preimage   | parents · op-keys · cell only      | `CommitMessage` excluded; re-word is a fresh node     |
-|  [05]   | branch grant           | `Element/authority#GRANT_ALGEBRA` `GrantSet` lane (never AppHost `Capability`) | `Movable(actor, demand)` gates `Grant.Write`/`Merge`/`Rebase`/`ForcePush`; no parallel enum |
-|  [06]   | domain commit ingest   | wire-carried content key           | `BimCommit` lands as one `CommitNode`; bases on `MergeBase` |
+| [INDEX] | [POLICY]              | [VALUE]                                                                        | [BINDING]                                                                                   |
+| :-----: | :-------------------- | :----------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | commit column family  | `commit`                                                                       | one `OpLogEntry` per commit on the changefeed                                               |
+|  [02]   | merge-base resolution | maximal common-ancestor antichain                                              | near-linear: two `Rank` + ONE `Reach` dominance pass; git multi-base                        |
+|  [03]   | branch-advance demand | `AdvanceDemand` off `(IsMerge, Order)`                                         | `Movable` gates the derived `GrantSet`; never a caller-guessed lane                         |
+|  [04]   | content-key preimage  | parents · op-keys · cell only                                                  | `CommitMessage` excluded; re-word is a fresh node                                           |
+|  [05]   | branch grant          | `Element/authority#GRANT_ALGEBRA` `GrantSet` lane (never AppHost `Capability`) | `Movable(actor, demand)` gates `Grant.Write`/`Merge`/`Rebase`/`ForcePush`; no parallel enum |
+|  [06]   | domain commit ingest  | wire-carried content key                                                       | `BimCommit` lands as one `CommitNode`; bases on `MergeBase`                                 |
 
 ## [03]-[CRDT_ALGEBRA]
 
@@ -292,14 +292,14 @@ public static class Crdt {
 }
 ```
 
-| [INDEX] | [TYPE]       | [CRDT_CLASS]                          | [CONVERGENCE]                                                  |
-| :-----: | :----------- | :------------------------------------ | :------------------------------------------------------------- |
-|  [01]   | LwwRegister  | last-write-wins by (HLC, origin)      | total order on the stamp tuple; superset of `Adjudicate`      |
-|  [02]   | MvRegister   | multi-value concurrent-keep           | causal anti-chain; dominated writes collapse                  |
-|  [03]   | OrSet        | add-wins observed-remove set          | per-element tag-set union minus observed removes              |
-|  [04]   | PnCounter    | positive-negative per-origin          | per-origin max of monotone partial counts                    |
-|  [05]   | RgaSequence  | replicated growable array             | predecessor-keyed weave; `Compact` reclaims at quiescence     |
-|  [06]   | EphemeralMap | add-wins observed-remove presence map | per-origin LWW-by-HLC; `Compact` self-expires at liveness     |
+| [INDEX] | [TYPE]       | [CRDT_CLASS]                          | [CONVERGENCE]                                             |
+| :-----: | :----------- | :------------------------------------ | :-------------------------------------------------------- |
+|  [01]   | LwwRegister  | last-write-wins by (HLC, origin)      | total order on the stamp tuple; superset of `Adjudicate`  |
+|  [02]   | MvRegister   | multi-value concurrent-keep           | causal anti-chain; dominated writes collapse              |
+|  [03]   | OrSet        | add-wins observed-remove set          | per-element tag-set union minus observed removes          |
+|  [04]   | PnCounter    | positive-negative per-origin          | per-origin max of monotone partial counts                 |
+|  [05]   | RgaSequence  | replicated growable array             | predecessor-keyed weave; `Compact` reclaims at quiescence |
+|  [06]   | EphemeralMap | add-wins observed-remove presence map | per-origin LWW-by-HLC; `Compact` self-expires at liveness |
 
 ## [04]-[CRDT_WIRE]
 
@@ -488,12 +488,12 @@ public static class ContentParityCorpus {
 }
 ```
 
-| [INDEX] | [POLICY]              | [VALUE]                               | [BINDING]                                                  |
-| :-----: | :-------------------- | :------------------------------------ | :-------------------------------------------------------- |
-|  [01]   | HLC stamp source      | the Marten event `Timestamp` cell     | one `Hlc` for op-log, CRDT merge, commit cell, wire       |
-|  [02]   | wire schema           | `[Key]` sequence, append-only         | retired key never reassigned; `MessagePackAnalyzer` gate  |
-|  [03]   | content key           | `None`-companion canonical bytes      | byte-reproducible across C#/Python/TS; never LZ4 at-rest  |
-|  [04]   | restore guard         | `UntrustedData` + depth + size ceiling | decompression bomb caught beyond the depth cap           |
-|  [05]   | parity corpus         | kernel `ContentHash.Of` at every mint | pin REAL: byte-identical into kernel `ONE_WIRE_FIXTURE_CORPUS` row [04]; the harness asserts producer-emits-fixture |
-|  [06]   | parity contribution   | `Contribute` refuses `MintedHere`     | `elementset` flows from Query; Version never reverse-derives it |
-|  [07]   | fault band            | `CommitFault : Rasm.Domain.Expected` 8260 | `DecodeDrift` 8261 · `ParityDrift` 8263 · `OwnerMinted` 8264; bare `Error.New` deleted |
+| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                                                                           |
+| :-----: | :------------------ | :---------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | HLC stamp source    | the Marten event `Timestamp` cell         | one `Hlc` for op-log, CRDT merge, commit cell, wire                                                                 |
+|  [02]   | wire schema         | `[Key]` sequence, append-only             | retired key never reassigned; `MessagePackAnalyzer` gate                                                            |
+|  [03]   | content key         | `None`-companion canonical bytes          | byte-reproducible across C#/Python/TS; never LZ4 at-rest                                                            |
+|  [04]   | restore guard       | `UntrustedData` + depth + size ceiling    | decompression bomb caught beyond the depth cap                                                                      |
+|  [05]   | parity corpus       | kernel `ContentHash.Of` at every mint     | pin REAL: byte-identical into kernel `ONE_WIRE_FIXTURE_CORPUS` row [04]; the harness asserts producer-emits-fixture |
+|  [06]   | parity contribution | `Contribute` refuses `MintedHere`         | `elementset` flows from Query; Version never reverse-derives it                                                     |
+|  [07]   | fault band          | `CommitFault : Rasm.Domain.Expected` 8260 | `DecodeDrift` 8261 · `ParityDrift` 8263 · `OwnerMinted` 8264; bare `Error.New` deleted                              |

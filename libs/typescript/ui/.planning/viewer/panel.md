@@ -2,16 +2,16 @@
 
 The one wire-materializer of the shell plane: three C#-minted vocabularies — the livewire triple (`BindingStatus`/`CoercedValue`/`WriteReceipt`, `csharp:Rasm.AppHost`), the closed `ControlIntent` union, and the ordered `LayoutProgram` (`csharp:Rasm.AppUi/Shell`) — arrive decoded through `core/interchange/codec#LANDING_WIRE` and materialize through one owner with one shape: wire value → total fold or exhaustive dispatch → rows → emit. `Panel.fold` accumulates the livewire feed into per-binding board rows with a receipt-reconciled optimistic round trip; `Panel.route` closes a union-derived handler record so every control kind lands on exactly one owning plane; `Panel.solve` re-solves the C#-authored Cassowary program to bit-identical positions with edit-variable drag over the frozen program. Payloads are carriage on every arm — a clamp, remap, local default, or synthesized constraint is the cross-language drift defect — and a new wire case is one row here with the compile error at the missing row as the growth mechanism. The module is `ui/viewer/src/panel.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                          | [PUBLIC] |
-| :-----: | :-------------- | :----------------------------------------------------------------------------------- | :------- |
-|  [01]   | `EVENT_FOLD`    | the keyed livewire fold and the receipt-reconciled optimistic round trip              | `Panel`  |
-|  [02]   | `PHASE_RENDER`  | the phase tone vocabulary, the coercion diff, the stamp and value-presenter rows      | `Panel`  |
-|  [03]   | `CONTROL_SINKS` | the union-derived handler record, exhaustive routing, intent egress, availability     | `Panel`  |
-|  [04]   | `LAYOUT_SOLVE`  | the wire-order kiwi fold, edit-variable drag, the four-axis determinism law           | `Panel`  |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                            | [PUBLIC] |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------- | :------- |
+|  [01]   | `EVENT_FOLD`    | the keyed livewire fold and the receipt-reconciled optimistic round trip          | `Panel`  |
+|  [02]   | `PHASE_RENDER`  | the phase tone vocabulary, the coercion diff, the stamp and value-presenter rows  | `Panel`  |
+|  [03]   | `CONTROL_SINKS` | the union-derived handler record, exhaustive routing, intent egress, availability | `Panel`  |
+|  [04]   | `LAYOUT_SOLVE`  | the wire-order kiwi fold, edit-variable drag, the four-axis determinism law       | `Panel`  |
 
-## [2]-[EVENT_FOLD]
+## [02]-[EVENT_FOLD]
 
 [EVENT_FOLD]:
 - Owner: `Panel.fold` — the keyed accumulator: the event feed (a `Stream` of the decoded triple the app wires from its transport, entering the view plane through the atom bridge) folds into a `HashMap<binding, Panel.Row>` where each event's arm updates exactly its slots — `BindingStatus` advances `phase` (clearing the optimistic slot on `refused`/`detached`), `CoercedValue` records the offered→landed pair with its path, `WriteReceipt` lands the value and `Hlc` stamp and clears the optimistic slot; the fold is total over the union by `Match.valueTags` — the one-shot record dispatch over the held event.
@@ -94,7 +94,7 @@ const _drain = (
   )
 ```
 
-## [3]-[PHASE_RENDER]
+## [03]-[PHASE_RENDER]
 
 [PHASE_RENDER]:
 - Owner: `Panel.tone` — the phase styling vocabulary: one `as const` table keyed by the closed phase axis carrying tone, glyph, and motion rows (`refused` pulses a `Motion` row, `coercing` shows the in-flight affordance); the phase chip, the coercion diff (offered versus landed with the path as a breadcrumb), and the receipt stamp (`Format.instant` on the `Hlc`'s wall half, `system/intl`) are the three display rows every binding panel composes.
@@ -111,7 +111,7 @@ const _tone = {
 } as const satisfies Record<Panel.Phase, { readonly tone: "neutral" | "accent" | "success" | "danger"; readonly motion: Option.Option<string> }>
 ```
 
-## [4]-[CONTROL_SINKS]
+## [04]-[CONTROL_SINKS]
 
 [CONTROL_SINKS]:
 - Owner: `Panel.route` — the derived dispatch: `Panel.Sinks` is one mapped handler record computed from the wire union (the record's key space IS the union's tag space, so a new case breaks the record loudly at compile time), and `Panel.route(sinks)` closes it as the reusable terminal — `Match.tagsExhaustive` over the sinks record is the only place intent cases meet handlers.
@@ -136,7 +136,7 @@ const _route = (sinks: Panel.Sinks): ((intent: ControlIntent) => void) =>
   Match.type<ControlIntent>().pipe(Match.tagsExhaustive(sinks))
 ```
 
-## [5]-[LAYOUT_SOLVE]
+## [05]-[LAYOUT_SOLVE]
 
 [LAYOUT_SOLVE]:
 - Owner: `Panel.solve(program)` — the one fold: walk `program.constraints` in received order, minting each `Variable` at FIRST APPEARANCE (an interior name→`Variable` ledger — first-appearance order is the wire's variable order by construction), fold each constraint's `terms` into an `Expression`, map the closed `relation` vocabulary onto `Operator` and the closed `strength` vocabulary onto the `Strength` constants, `addConstraint` in order, register `program.edits` as edit variables at `Strength.strong` (sub-required by kiwi's own law), run `updateVariables()`, and read every variable's `value()` into the positions map.

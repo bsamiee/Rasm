@@ -231,12 +231,12 @@ public sealed record Placement(
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]           | [OWNER]          | [FORM]                                            | [ENTRY]                        |
-| :-----: | :------------------ | :--------------- | :------------------------------------------------- | :------------------------------ |
-|  [01]   | definition address  | `BlockRef`       | one union: id, name, index                          | `Of` / `Resolve`                 |
-|  [02]   | reference scope     | `ReferenceScope` | rows whose key is the native `wheretoLook`          | `(int)scope`                     |
-|  [03]   | definition state    | `BlockSnapshot`  | one-pass read, native discriminants at the seam     | `Of(definition, scope, key)`     |
-|  [04]   | link vocabulary     | `LinkState`      | one derived fold over update × status × source      | `BlockSnapshot.Link`             |
-|  [05]   | change probe        | `BlockStamp`     | chained `GeometryCrc` over the member roster        | `Of(definition, key)`            |
-|  [06]   | operation policies  | `ConflictPolicy` | conflict, deletion, explode, placement rows         | operation rail payloads          |
-|  [07]   | preview request     | `PreviewSpec`    | two verified render overloads as one union          | `Render(definition, key)`        |
+| [INDEX] | [CONCERN]          | [OWNER]          | [FORM]                                          | [ENTRY]                      |
+| :-----: | :----------------- | :--------------- | :---------------------------------------------- | :--------------------------- |
+|  [01]   | definition address | `BlockRef`       | one union: id, name, index                      | `Of` / `Resolve`             |
+|  [02]   | reference scope    | `ReferenceScope` | rows whose key is the native `wheretoLook`      | `(int)scope`                 |
+|  [03]   | definition state   | `BlockSnapshot`  | one-pass read, native discriminants at the seam | `Of(definition, scope, key)` |
+|  [04]   | link vocabulary    | `LinkState`      | one derived fold over update × status × source  | `BlockSnapshot.Link`         |
+|  [05]   | change probe       | `BlockStamp`     | chained `GeometryCrc` over the member roster    | `Of(definition, key)`        |
+|  [06]   | operation policies | `ConflictPolicy` | conflict, deletion, explode, placement rows     | operation rail payloads      |
+|  [07]   | preview request    | `PreviewSpec`    | two verified render overloads as one union      | `Render(definition, key)`    |

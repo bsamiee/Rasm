@@ -2,15 +2,15 @@
 
 Calendar recurrence as a vocabulary: a scheduled job is one `Cadence` row — cron expression with intrinsic timezone, anchor policy, misfire window, catch-up posture, service class, shard group — and one registration fold mints the whole table into `ClusterCron` singletons that fire exactly once per cluster tick. The page owns the three decisions a cron engine leaves open and every hand-rolled scheduler re-invents: what a tick's successor is anchored to (wall clock versus previous completion — `calculateNextRunFromPrevious` as a row column), what happens to a tick that fired while no runner lived (the misfire window — `skipIfOlderThan` bounds how stale a tick still executes), and what happens to the ticks beyond that window (the catch-up posture — skip them, run one representative, or replay all, computed from the `Cron.sequence` between the last recorded run and now with each replayed tick an idempotent step keyed by its instant). Durable pauses arrive settled from `flow#SIGNAL_GATE` — this page composes `Signal.pause` and mints no timer. The same row table drives the host fallback: a single-node process or a scope whose in-database cron grant is refused runs identical rows on the in-process `Schedule.cron`, so degradation is an engine swap, never a second table. The module ships on the `./server` exports subpath as `runtime/src/work/schedule.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC]  |
-| :-----: | :------------- | :--------------------------------------------------------------------------- | :-------- |
-|  [01]   | `CADENCE_ROWS` | the recurrence vocabulary — cron, anchor, misfire, catch-up, class, group     | `Cadence` |
-|  [02]   | `CLUSTER_MINT` | the registration fold onto `ClusterCron` and the catch-up computation        | `Cadence` |
-|  [03]   | `HOST_ROW`     | the in-process fallback engine over the same rows                            | `Cadence` |
+| :-----: | :------------- | :------------------------------------------------------------------------ | :-------- |
+|  [01]   | `CADENCE_ROWS` | the recurrence vocabulary — cron, anchor, misfire, catch-up, class, group | `Cadence` |
+|  [02]   | `CLUSTER_MINT` | the registration fold onto `ClusterCron` and the catch-up computation     | `Cadence` |
+|  [03]   | `HOST_ROW`     | the in-process fallback engine over the same rows                         | `Cadence` |
 
-## [2]-[CADENCE_ROWS]
+## [02]-[CADENCE_ROWS]
 
 [CADENCE_ROWS]:
 - Owner: the `Cadence.Row` — `name` (the singleton identity and the idempotency prefix), `cron` (an `effect/Cron` parsed once with its timezone intrinsic, so a DST transition is the value's own arithmetic), `anchor` (`"clock"` fires on calendar instants regardless of run length; `"previous"` measures the next tick from the last completion — the long-running-job posture that compiles to `calculateNextRunFromPrevious`), `misfire` (the staleness bound compiled to `skipIfOlderThan` — a tick older than the window never executes as if current), `catchUp` (`"skip" | "once" | "all"` — the posture over ticks beyond the misfire window), `clazz` (the `entity#WORK_CLASS` row pricing the execution budget), and `group` (the shard-group partition the singleton registers under).
@@ -42,7 +42,7 @@ declare namespace Cadence {
 }
 ```
 
-## [3]-[CLUSTER_MINT]
+## [03]-[CLUSTER_MINT]
 
 [CLUSTER_MINT]:
 - Owner: `Cadence.cluster(table, run)` — the registration fold: each row becomes one `ClusterCron.make({ name, cron, execute, shardGroup, calculateNextRunFromPrevious, skipIfOlderThan })` Layer, merged into the one schedule Layer the composition root provides beside `entity#GRID`. The `execute` is the row's body wrapped in `Step.run(row.name, row.clazz, …)` so every tick carries the class's deadline geometry and durable exit, and each execution's step key is the tick instant — a re-fired tick replays its recorded exit instead of double-running.
@@ -111,7 +111,7 @@ const _cluster = <R, R2>(
   )
 ```
 
-## [4]-[HOST_ROW]
+## [04]-[HOST_ROW]
 
 [HOST_ROW]:
 - Owner: `Cadence.host(table, run)` — the in-process engine over identical rows: each row repeats its body on `Schedule.cron` under a forked daemon fiber scoped to the Layer, with the same `Step.run` wrapping when a workflow engine is present and a bare budgeted body when not. Two consumers select this row: the single-node process whose grid runs the local entry, and the data wave's maintenance jobs whose in-database cron grant is refused — the grooming and rebuild schedules degrade to host execution through this fold without touching their row shapes.

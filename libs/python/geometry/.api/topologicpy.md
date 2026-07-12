@@ -75,71 +75,71 @@ Each facade is a stateless static-method namespace; `By*` constructors return a 
 
 `By*File`/`By*Path`/`By*String` read external geometry into a core handle; `ExportTo*` write it back. `ByGeometry`/`ByMeshData` ingest in-memory arrays.
 
-| [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [CAPABILITY]                          |
-| :-----: | :----------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `Topology.ByIFCFile(file: ifcopenshell.file)` | construct | in-memory `ifcopenshell.file` object to non-manifold topology `list[Any]` |
-|  [02]   | `Topology.ByBREPString(string)`      | construct      | OpenCASCADE BREP intake               |
-|  [03]   | `Topology.ByOBJPath(path)`           | construct      | Wavefront OBJ intake                  |
-|  [04]   | `Topology.ByGeometry(vertices, ...)` | construct      | raw vertex/edge/face array intake     |
-|  [05]   | `Topology.ByMeshData(mesh)`          | construct      | mesh-dict intake                      |
-|  [06]   | `Topology.ByOCCTShape(shape)`        | construct      | OpenCASCADE handle intake             |
-|  [07]   | `Topology.ByJSONString(string)`      | construct      | JSON topology intake                  |
-|  [08]   | `Topology.ExportToBREP(topology)`    | export         | BREP string/file output               |
-|  [09]   | `Topology.ExportToOBJ(topology)`     | export         | OBJ output                            |
-|  [10]   | `Topology.ExportToJSON(topology)`    | export         | JSON topology output                  |
-|  [11]   | `Topology.ByIFCPath(path)`           | construct      | IFC file-path intake to non-manifold topology `list[Any]` |
+| [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CAPABILITY]                                                              |
+| :-----: | :-------------------------------------------- | :------------- | :------------------------------------------------------------------------ |
+|  [01]   | `Topology.ByIFCFile(file: ifcopenshell.file)` | construct      | in-memory `ifcopenshell.file` object to non-manifold topology `list[Any]` |
+|  [02]   | `Topology.ByBREPString(string)`               | construct      | OpenCASCADE BREP intake                                                   |
+|  [03]   | `Topology.ByOBJPath(path)`                    | construct      | Wavefront OBJ intake                                                      |
+|  [04]   | `Topology.ByGeometry(vertices, ...)`          | construct      | raw vertex/edge/face array intake                                         |
+|  [05]   | `Topology.ByMeshData(mesh)`                   | construct      | mesh-dict intake                                                          |
+|  [06]   | `Topology.ByOCCTShape(shape)`                 | construct      | OpenCASCADE handle intake                                                 |
+|  [07]   | `Topology.ByJSONString(string)`               | construct      | JSON topology intake                                                      |
+|  [08]   | `Topology.ExportToBREP(topology)`             | export         | BREP string/file output                                                   |
+|  [09]   | `Topology.ExportToOBJ(topology)`              | export         | OBJ output                                                                |
+|  [10]   | `Topology.ExportToJSON(topology)`             | export         | JSON topology output                                                      |
+|  [11]   | `Topology.ByIFCPath(path)`                    | construct      | IFC file-path intake to non-manifold topology `list[Any]`                 |
 
 [ENTRYPOINT_SCOPE]: Topology analysis and boolean (`Topology`)
 - rail: geometry-algebra
 
 Sub-topology accessors return the constituent handles; boolean ops return a new combined handle.
 
-| [INDEX] | [SURFACE]                                | [ENTRY_FAMILY] | [CAPABILITY]                          |
-| :-----: | :--------------------------------------- | :------------- | :------------------------------------ |
-|  [01]   | `Topology.Cells(topology)`               | accessor       | constituent cells                     |
-|  [02]   | `Topology.Faces(topology)`               | accessor       | constituent faces                     |
-|  [03]   | `Topology.Edges(topology)`               | accessor       | constituent edges                     |
-|  [04]   | `Topology.Vertices(topology)`            | accessor       | constituent vertices                  |
-|  [05]   | `Topology.SubTopologies(topology, subTopologyType)` | accessor | typed sub-topology `list` — `"vertex"`/`"edge"`/`"wire"`/`"face"`/`"shell"`/`"cell"`/`"cellcomplex"`/`"cluster"`/`"aperture"`; `None` on a bad kind |
-|  [06]   | `Topology.AdjacentTopologies(...)`       | accessor       | topologies adjacent to a sub-topology |
-|  [07]   | `Topology.Union(a, b)`                   | boolean        | non-manifold union                    |
-|  [08]   | `Topology.Difference(a, b)`              | boolean        | non-manifold difference               |
-|  [09]   | `Topology.Intersect(a, b)`               | boolean        | non-manifold intersection             |
-|  [10]   | `Topology.Slice(topology, tool)`         | boolean        | slice by a cutting topology           |
-|  [11]   | `Topology.BoundingBox(topology)`         | analysis       | axis-aligned bound cell               |
-|  [12]   | `Topology.Centroid(topology)`            | analysis       | centroid vertex                       |
-|  [13]   | `Topology.Contains(topology, vtx)`       | analysis       | point containment test                |
-|  [14]   | `Topology.Analyze(topology)`             | analysis       | formatted analysis summary `str` (no keyword params) |
-|  [15]   | `Topology.Decompose(topology, tiltAngle=10.0, tolerance=0.0001, silent=False)` | analysis | building-element category `dict` — `cells`, external/internal/free vertical/horizontal/inclined face lists and their aperture lists; a role classifier, NEVER a hierarchy accessor |
-|  [16]   | `Topology.AddDictionary(topology, dict)` | attribute      | attach a `Dictionary`                 |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [CAPABILITY]                                                                                                                                                                       |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Topology.Cells(topology)`                                                     | accessor       | constituent cells                                                                                                                                                                  |
+|  [02]   | `Topology.Faces(topology)`                                                     | accessor       | constituent faces                                                                                                                                                                  |
+|  [03]   | `Topology.Edges(topology)`                                                     | accessor       | constituent edges                                                                                                                                                                  |
+|  [04]   | `Topology.Vertices(topology)`                                                  | accessor       | constituent vertices                                                                                                                                                               |
+|  [05]   | `Topology.SubTopologies(topology, subTopologyType)`                            | accessor       | typed sub-topology `list` — `"vertex"`/`"edge"`/`"wire"`/`"face"`/`"shell"`/`"cell"`/`"cellcomplex"`/`"cluster"`/`"aperture"`; `None` on a bad kind                                |
+|  [06]   | `Topology.AdjacentTopologies(...)`                                             | accessor       | topologies adjacent to a sub-topology                                                                                                                                              |
+|  [07]   | `Topology.Union(a, b)`                                                         | boolean        | non-manifold union                                                                                                                                                                 |
+|  [08]   | `Topology.Difference(a, b)`                                                    | boolean        | non-manifold difference                                                                                                                                                            |
+|  [09]   | `Topology.Intersect(a, b)`                                                     | boolean        | non-manifold intersection                                                                                                                                                          |
+|  [10]   | `Topology.Slice(topology, tool)`                                               | boolean        | slice by a cutting topology                                                                                                                                                        |
+|  [11]   | `Topology.BoundingBox(topology)`                                               | analysis       | axis-aligned bound cell                                                                                                                                                            |
+|  [12]   | `Topology.Centroid(topology)`                                                  | analysis       | centroid vertex                                                                                                                                                                    |
+|  [13]   | `Topology.Contains(topology, vtx)`                                             | analysis       | point containment test                                                                                                                                                             |
+|  [14]   | `Topology.Analyze(topology)`                                                   | analysis       | formatted analysis summary `str` (no keyword params)                                                                                                                               |
+|  [15]   | `Topology.Decompose(topology, tiltAngle=10.0, tolerance=0.0001, silent=False)` | analysis       | building-element category `dict` — `cells`, external/internal/free vertical/horizontal/inclined face lists and their aperture lists; a role classifier, NEVER a hierarchy accessor |
+|  [16]   | `Topology.AddDictionary(topology, dict)`                                       | attribute      | attach a `Dictionary`                                                                                                                                                              |
 
 [ENTRYPOINT_SCOPE]: sub-topology constructors and graph/dictionary
 - rail: geometry-algebra
 
 Per-class `By*` constructors build the named handle from lower topology; `Graph`/`Dictionary` rows drive analysis and attribute carriers.
 
-| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY] | [CAPABILITY]                          |
-| :-----: | :------------------------------------ | :------------- | :------------------------------------ |
-|  [01]   | `Vertex.ByCoordinates(x, y, z)`       | construct      | point handle from XYZ                 |
-|  [02]   | `Edge.ByStartVertexEndVertex(a, b)`   | construct      | edge from two vertices                |
-|  [03]   | `Wire.ByVertices(vertices)`           | construct      | wire from ordered vertices            |
-|  [04]   | `Face.ByWire(wire)`                   | construct      | face from a closed wire               |
-|  [05]   | `Cell.ByFaces(faces)`                 | construct      | solid from bounding faces             |
-|  [06]   | `Cell.ByThickenedFace(face, ...)`     | construct      | solid by thickening a face            |
-|  [07]   | `CellComplex.ByCells(cells)`          | construct      | assembly from cells                   |
-|  [08]   | `CellComplex.ByFaces(faces)`          | construct      | assembly from internal/external faces |
+| [INDEX] | [SURFACE]                             | [ENTRY_FAMILY] | [CAPABILITY]                                |
+| :-----: | :------------------------------------ | :------------- | :------------------------------------------ |
+|  [01]   | `Vertex.ByCoordinates(x, y, z)`       | construct      | point handle from XYZ                       |
+|  [02]   | `Edge.ByStartVertexEndVertex(a, b)`   | construct      | edge from two vertices                      |
+|  [03]   | `Wire.ByVertices(vertices)`           | construct      | wire from ordered vertices                  |
+|  [04]   | `Face.ByWire(wire)`                   | construct      | face from a closed wire                     |
+|  [05]   | `Cell.ByFaces(faces)`                 | construct      | solid from bounding faces                   |
+|  [06]   | `Cell.ByThickenedFace(face, ...)`     | construct      | solid by thickening a face                  |
+|  [07]   | `CellComplex.ByCells(cells)`          | construct      | assembly from cells                         |
+|  [08]   | `CellComplex.ByFaces(faces)`          | construct      | assembly from internal/external faces       |
 |  [09]   | `Cluster.ByTopologies(*topologies)`   | construct      | non-manifold `Cluster` from a topology list |
-|  [10]   | `Graph.ByTopology(topology)`          | construct      | graph from topology adjacency         |
-|  [11]   | `Graph.ShortestPath(graph, a, b)`     | analysis       | geodesic `Wire` between two vertices   |
-|  [12]   | `Graph.BetweennessCentrality(graph)`  | analysis       | per-vertex betweenness score list      |
-|  [13]   | `Graph.ClosenessCentrality(graph)`    | analysis       | per-vertex closeness score list        |
-|  [14]   | `Graph.DegreeCentrality(graph)`       | analysis       | per-vertex degree score list           |
-|  [15]   | `Graph.ConnectedComponents(graph)`    | analysis       | island sub-graphs, vertex-count sorted |
-|  [16]   | `Graph.MinimumSpanningTree(graph)`    | analysis       | minimum spanning tree `Graph`          |
-|  [17]   | `Graph.Edges(graph)`                  | accessor       | constituent edge handles               |
-|  [18]   | `Graph.JSONData(graph)`               | export         | node-link `dict` for JSON encode       |
-|  [19]   | `Dictionary.ByKeysValues(keys, vals)` | construct      | attribute dictionary                  |
-|  [20]   | `Dictionary.ValueAtKey(dict, key)`    | accessor       | read an attribute value               |
+|  [10]   | `Graph.ByTopology(topology)`          | construct      | graph from topology adjacency               |
+|  [11]   | `Graph.ShortestPath(graph, a, b)`     | analysis       | geodesic `Wire` between two vertices        |
+|  [12]   | `Graph.BetweennessCentrality(graph)`  | analysis       | per-vertex betweenness score list           |
+|  [13]   | `Graph.ClosenessCentrality(graph)`    | analysis       | per-vertex closeness score list             |
+|  [14]   | `Graph.DegreeCentrality(graph)`       | analysis       | per-vertex degree score list                |
+|  [15]   | `Graph.ConnectedComponents(graph)`    | analysis       | island sub-graphs, vertex-count sorted      |
+|  [16]   | `Graph.MinimumSpanningTree(graph)`    | analysis       | minimum spanning tree `Graph`               |
+|  [17]   | `Graph.Edges(graph)`                  | accessor       | constituent edge handles                    |
+|  [18]   | `Graph.JSONData(graph)`               | export         | node-link `dict` for JSON encode            |
+|  [19]   | `Dictionary.ByKeysValues(keys, vals)` | construct      | attribute dictionary                        |
+|  [20]   | `Dictionary.ValueAtKey(dict, key)`    | accessor       | read an attribute value                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

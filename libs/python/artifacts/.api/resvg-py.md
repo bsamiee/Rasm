@@ -23,11 +23,11 @@
 The reflected `__all__` is exactly `['__version__', '__author__', '__resvg_version__', 'svg_to_bytes']`: one rendering function plus three string constants, no public classes, no enums, no submodule surface. `svg_to_bytes` is a native `builtin_function_or_method` on the Rust extension `resvg_py.cpython-315-darwin.so` carrying a populated `__doc__` and an `inspect.signature`-recoverable signature plus a shipped `__init__.pyi` stub (`py.typed` marked). `__resvg_version__` pins the embedded engine (`0.47.0`) — the version the imaging receipt records beside the package `__version__` (`0.3.3`), since the rasterizer's behavior tracks the Rust engine, not the thin Python package. The function is the single sink; there is no options object, no renderer class, no per-input or per-output-mode variant to discriminate.
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]    | [RAIL]                                                                 |
-| :-----: | :------------------ | :--------------- | :-------------------------------------------------------------------- |
+| :-----: | :------------------ | :--------------- | :--------------------------------------------------------------------- |
 |  [01]   | `svg_to_bytes`      | render function  | native SVG-to-PNG rasterizer returning `bytes` (the `Rasterize` floor) |
 |  [02]   | `__version__`       | version constant | installed `resvg-py` package version (`0.3.3`)                         |
 |  [03]   | `__resvg_version__` | version constant | embedded Rust `resvg` engine version (`0.47.0`) — the receipt field    |
-|  [04]   | `__author__`        | version constant | package author string (`baseplate-admin`)                             |
+|  [04]   | `__author__`        | version constant | package author string (`baseplate-admin`)                              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -36,8 +36,8 @@ The reflected `__all__` is exactly `['__version__', '__author__', '__resvg_versi
 
 `svg_to_bytes` accepts `svg_string` OR `svg_path` (exactly one required; `.svgz` gzip files decompress on the path arm); sizing is the `width`/`height`/`zoom`/`dpi` rows; parsing is `background`/`style_sheet`/`resources_dir`/`languages`; font resolution is `skip_system_fonts` plus `font_files`/`font_dirs`/`font_size` and the six `*_family` rows; rendering quality is the `shape_rendering`/`text_rendering`/`image_rendering` `Literal` policy axis; `log_information` toggles engine debug logs to stdout. It returns PNG-encoded `bytes`. All parameters are keyword-defaulted, so the consuming `RenderPolicy` projects exactly the axes a render needs through one `**`-spread, never a positional wall.
 
-| [INDEX] | [SURFACE]      | [CALL_SHAPE]                                                                  | [CAPABILITY]                                |
-| :-----: | :------------- | :---------------------------------------------------------------------------- | :------------------------------------------ |
+| [INDEX] | [SURFACE]      | [CALL_SHAPE]                                                                  | [CAPABILITY]                                          |
+| :-----: | :------------- | :---------------------------------------------------------------------------- | :---------------------------------------------------- |
 |  [01]   | `svg_to_bytes` | `svg_to_bytes(svg_string=None, svg_path=None, background=None, ...) -> bytes` | render SVG markup or `.svg`/`.svgz` file to PNG bytes |
 
 [ENTRYPOINT_SCOPE]: `svg_to_bytes` parameter axes

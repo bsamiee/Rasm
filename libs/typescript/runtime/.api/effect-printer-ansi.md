@@ -21,28 +21,28 @@
 - rail: render
 - `Ansi` is the concrete annotation the printer's phantom `A` becomes. It is a monoid: `Ansi.combine` accumulates directives left-to-right, so `bold ⊕ color(red) ⊕ underlined` is one composite annotation applied by a single `Doc.annotate`. `stringify` projects an `Ansi` to its raw SGR/CSI escape string for non-document use.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:-------------- |:----------------- |:----------------------------------------------------------------- |
-| [01] | `Ansi.Ansi` | branded interface | monoid of terminal directives; the printer annotation `A = Ansi` |
-| [02] | `Ansi.AnsiTypeId` | unique symbol type | nominal brand on the `Ansi` interface |
+| [INDEX] | [SYMBOL]          | [TYPE_FAMILY]      | [RAIL]                                                           |
+| :-----: | :---------------- | :----------------- | :--------------------------------------------------------------- |
+|  [01]   | `Ansi.Ansi`       | branded interface  | monoid of terminal directives; the printer annotation `A = Ansi` |
+|  [02]   | `Ansi.AnsiTypeId` | unique symbol type | nominal brand on the `Ansi` interface                            |
 
 [PUBLIC_TYPE_SCOPE]: Color model (`Color`)
 - rail: render
 - `Color` is the closed 3-bit base palette; the bright and background variants are produced by the `Ansi` constructors, not by separate color values. Refine with `Match.type<Color>()` or `Color.toCode` — never a string switch.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------- |:------------ |:---------------------------------------------------------- |
-| [01] | `Color.Color` | tagged union | `Black\|Red\|Green\|Yellow\|Blue\|Magenta\|Cyan\|White` |
-| [02] | `Color.Black`/`Red`/`Green`/…/`White` | node interface| the eight base-color singleton interfaces |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]  | [RAIL]                                                  |
+| :-----: | :------------------------------------ | :------------- | :------------------------------------------------------ |
+|  [01]   | `Color.Color`                         | tagged union   | `Black\|Red\|Green\|Yellow\|Blue\|Magenta\|Cyan\|White` |
+|  [02]   | `Color.Black`/`Red`/`Green`/…/`White` | node interface | the eight base-color singleton interfaces               |
 
 [PUBLIC_TYPE_SCOPE]: styled document alias (`AnsiDoc`)
 - rail: render
 - `AnsiDoc` is a plain type alias, so the entire `Doc` combinator surface applies unchanged — `AnsiDoc` composes with `Doc.hsep`/`group`/`align` directly. `AnsiDoc.RenderConfig` mirrors `Doc.RenderConfig` (compact | pretty | smart) but the renderer emits escape codes.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:---------------------- |:------------- |:---------------------------------------------------------- |
-| [01] | `AnsiDoc.AnsiDoc` | type alias | `Doc<Ansi>` — a styled terminal document |
-| [02] | `AnsiDoc.RenderConfig` | config union | `render` discriminant: `compact` \| `pretty`/`smart` + options |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                                         |
+| :-----: | :--------------------- | :------------ | :------------------------------------------------------------- |
+|  [01]   | `AnsiDoc.AnsiDoc`      | type alias    | `Doc<Ansi>` — a styled terminal document                       |
+|  [02]   | `AnsiDoc.RenderConfig` | config union  | `render` discriminant: `compact` \| `pretty`/`smart` + options |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -50,45 +50,45 @@
 - rail: render
 - Weight/style directives are constants; color is four parameterized constructors over a `Color` (`color`/`brightColor` for foreground, `bgColor`/`bgColorBright` for background). The 32 named color constants (`Ansi.red`, `Ansi.bgBlueBright`, …) are fixed rows over those four constructors — reach for the constant when the color is literal, the constructor when the `Color` is computed.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:----------------------------------------------------- |:------------- |:---------------------------------------------------------- |
-| [01] | `Ansi.bold` / `Ansi.italicized` / `Ansi.underlined` / `Ansi.strikethrough` | style | text-weight/decoration directive constants |
-| [02] | `Ansi.color(c)` / `Ansi.brightColor(c)` | fg constructor | foreground normal / bright from a `Color` |
-| [03] | `Ansi.bgColor(c)` / `Ansi.bgColorBright(c)` | bg constructor | background normal / bright from a `Color` |
-| [04] | `Ansi.red`/`green`/…/`whiteBright` (16 fg constants) | fg row | fixed foreground rows over `color`/`brightColor` |
-| [05] | `Ansi.bgRed`/…/`bgWhiteBright` (16 bg constants) | bg row | fixed background rows over `bgColor`/`bgColorBright` |
+| [INDEX] | [SURFACE]                                                                  | [ENTRY_FAMILY] | [RAIL]                                               |
+| :-----: | :------------------------------------------------------------------------- | :------------- | :--------------------------------------------------- |
+|  [01]   | `Ansi.bold` / `Ansi.italicized` / `Ansi.underlined` / `Ansi.strikethrough` | style          | text-weight/decoration directive constants           |
+|  [02]   | `Ansi.color(c)` / `Ansi.brightColor(c)`                                    | fg constructor | foreground normal / bright from a `Color`            |
+|  [03]   | `Ansi.bgColor(c)` / `Ansi.bgColorBright(c)`                                | bg constructor | background normal / bright from a `Color`            |
+|  [04]   | `Ansi.red`/`green`/…/`whiteBright` (16 fg constants)                       | fg row         | fixed foreground rows over `color`/`brightColor`     |
+|  [05]   | `Ansi.bgRed`/…/`bgWhiteBright` (16 bg constants)                           | bg row         | fixed background rows over `bgColor`/`bgColorBright` |
 
 [ENTRYPOINT_SCOPE]: cursor + erase + bell directives (`Ansi`)
 - rail: render
 - The terminal-control directives for live/interactive output (progress bars, spinners, wizards). Each is an `Ansi` annotation; the `AnsiDoc` namespace re-exports the same names as `Doc<Ansi>` values so they compose inside a document.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:---------------------------------------------------------- |
-| [01] | `Ansi.cursorTo(col, row?)` / `Ansi.cursorMove(col, row?)` | cursor | absolute / relative cursor positioning |
-| [02] | `Ansi.cursorUp(n?)`/`cursorDown`/`cursorForward`/`cursorBackward`/`cursorLeft` | cursor | directional cursor movement |
-| [03] | `Ansi.cursorSavePosition`/`cursorRestorePosition`/`cursorHide`/`cursorShow` | cursor | save/restore/visibility |
-| [04] | `Ansi.eraseLines(rows)` / `Ansi.eraseLine`/`eraseScreen`/`eraseDown`/`eraseUp` | erase | region-scoped clear directives |
-| [05] | `Ansi.beep` | signal | terminal bell directive |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY] | [RAIL]                                 |
+| :-----: | :----------------------------------------------------------------------------- | :------------- | :------------------------------------- |
+|  [01]   | `Ansi.cursorTo(col, row?)` / `Ansi.cursorMove(col, row?)`                      | cursor         | absolute / relative cursor positioning |
+|  [02]   | `Ansi.cursorUp(n?)`/`cursorDown`/`cursorForward`/`cursorBackward`/`cursorLeft` | cursor         | directional cursor movement            |
+|  [03]   | `Ansi.cursorSavePosition`/`cursorRestorePosition`/`cursorHide`/`cursorShow`    | cursor         | save/restore/visibility                |
+|  [04]   | `Ansi.eraseLines(rows)` / `Ansi.eraseLine`/`eraseScreen`/`eraseDown`/`eraseUp` | erase          | region-scoped clear directives         |
+|  [05]   | `Ansi.beep`                                                                    | signal         | terminal bell directive                |
 
 [ENTRYPOINT_SCOPE]: monoid ops + color codes
 - rail: render
 - Combine directives into one composite annotation, project a `Color` to its base code, or stringify an `Ansi` outside a document.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------- |:------------- |:---------------------------------------------------------- |
-| [01] | `Ansi.combine(self, that)` / `Ansi.combine(that)` | monoid | dual: accumulate two directives into one `Ansi` |
-| [02] | `Ansi.stringify(self)` | projection | raw SGR/CSI escape string for the directive |
-| [03] | `Color.toCode(color)` | projection | base 3-bit color code (`number`) for `Color` |
-| [04] | `Color.black`/`red`/…/`white` | color row | the eight base-`Color` value constants |
+| [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------------ | :------------- | :---------------------------------------------- |
+|  [01]   | `Ansi.combine(self, that)` / `Ansi.combine(that)` | monoid         | dual: accumulate two directives into one `Ansi` |
+|  [02]   | `Ansi.stringify(self)`                            | projection     | raw SGR/CSI escape string for the directive     |
+|  [03]   | `Color.toCode(color)`                             | projection     | base 3-bit color code (`number`) for `Color`    |
+|  [04]   | `Color.black`/`red`/…/`white`                     | color row      | the eight base-`Color` value constants          |
 
 [ENTRYPOINT_SCOPE]: styled-document rendering (`AnsiDoc`)
 - rail: render
 - `AnsiDoc.render` is the terminal renderer: it lowers `Doc<Ansi>` through the chosen layout algorithm and, at each `PushAnnotation`/`PopAnnotation` stream event, emits the accumulated `Ansi` escape sequence and its reset — so nested styles restore correctly. This replaces `Doc.render` (which drops annotations) at the terminal edge.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:---------------------------------------------------------- |
-| [01] | `AnsiDoc.render(self, config)` / `AnsiDoc.render(config)` | render façade | dual: lower + resolve `Ansi` to escape codes -> `string` |
-| [02] | `AnsiDoc.cursorTo(col, row?)`/`cursorUp`/`eraseLines(n)`/`beep`/… | directive doc | the `Ansi` control directives as composable `Doc<Ansi>` values |
+| [INDEX] | [SURFACE]                                                         | [ENTRY_FAMILY] | [RAIL]                                                         |
+| :-----: | :---------------------------------------------------------------- | :------------- | :------------------------------------------------------------- |
+|  [01]   | `AnsiDoc.render(self, config)` / `AnsiDoc.render(config)`         | render façade  | dual: lower + resolve `Ansi` to escape codes -> `string`       |
+|  [02]   | `AnsiDoc.cursorTo(col, row?)`/`cursorUp`/`eraseLines(n)`/`beep`/… | directive doc  | the `Ansi` control directives as composable `Doc<Ansi>` values |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

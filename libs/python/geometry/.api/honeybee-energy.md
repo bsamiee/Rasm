@@ -23,64 +23,64 @@
 - rail: energy-modeling
 - Layered thermal assemblies assigned to faces/sub-faces. Each carries the `from_dict`/`from_dict_abridged`/`from_idf` triad; abridged forms reference materials by identifier (the wire shape), full forms inline them.
 
-| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]    | [CAPABILITY]                                                |
-| :-----: | :--------------------------- | :--------------- | :--------------------------------------------------------- |
-|  [01]   | `OpaqueConstruction`         | opaque assembly  | layered opaque construction; `from_simple_parameters`, U/R-value |
-|  [02]   | `WindowConstruction`         | window assembly  | layered glazing+gas+frame construction                     |
-|  [03]   | `WindowConstructionShade`    | dynamic window   | window with a switchable interior/exterior shade + control |
-|  [04]   | `WindowConstructionDynamic`  | dynamic window   | schedule-switched window-construction states (electrochromic) |
-|  [05]   | `AirBoundaryConstruction`    | air boundary     | air-mixing construction for `AirBoundary` faces            |
-|  [06]   | `ShadeConstruction`          | shade surface    | solar/visible reflectance + specularity for shades         |
+| [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]   | [CAPABILITY]                                                     |
+| :-----: | :-------------------------- | :-------------- | :--------------------------------------------------------------- |
+|  [01]   | `OpaqueConstruction`        | opaque assembly | layered opaque construction; `from_simple_parameters`, U/R-value |
+|  [02]   | `WindowConstruction`        | window assembly | layered glazing+gas+frame construction                           |
+|  [03]   | `WindowConstructionShade`   | dynamic window  | window with a switchable interior/exterior shade + control       |
+|  [04]   | `WindowConstructionDynamic` | dynamic window  | schedule-switched window-construction states (electrochromic)    |
+|  [05]   | `AirBoundaryConstruction`   | air boundary    | air-mixing construction for `AirBoundary` faces                  |
+|  [06]   | `ShadeConstruction`         | shade surface   | solar/visible reflectance + specularity for shades               |
 
 [PUBLIC_TYPE_SCOPE]: materials (`honeybee_energy.material.*`)
 - rail: energy-modeling
 - The leaf thermal materials constructions layer. Each carries `from_dict`/`from_idf`.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]    | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------- | :--------------- | :------------------------------------------------- |
-|  [01]   | `EnergyMaterial` / `EnergyMaterialNoMass`                | opaque material  | mass / massless (R-value-only) opaque layer        |
-|  [02]   | `EnergyMaterialVegetation`                               | opaque material  | green-roof soil+plant layer                        |
-|  [03]   | `EnergyWindowMaterialGlazing` / `EnergyWindowMaterialSimpleGlazSys` | glazing          | spectral glazing pane / simple U-SHGC-VT system    |
-|  [04]   | `EnergyWindowMaterialGas` / `GasCustom` / `GasMixture`   | gas gap          | standard gas / custom-coefficient / mixture gap    |
-|  [05]   | `EnergyWindowFrame`                                      | frame            | window frame conductance/projection                |
-|  [06]   | `EnergyWindowMaterialShade` / `EnergyWindowMaterialBlind` | shade material   | roller shade / louvered blind layer                |
+| [INDEX] | [SYMBOL]                                                            | [TYPE_FAMILY]   | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------ | :-------------- | :---------------------------------------------- |
+|  [01]   | `EnergyMaterial` / `EnergyMaterialNoMass`                           | opaque material | mass / massless (R-value-only) opaque layer     |
+|  [02]   | `EnergyMaterialVegetation`                                          | opaque material | green-roof soil+plant layer                     |
+|  [03]   | `EnergyWindowMaterialGlazing` / `EnergyWindowMaterialSimpleGlazSys` | glazing         | spectral glazing pane / simple U-SHGC-VT system |
+|  [04]   | `EnergyWindowMaterialGas` / `GasCustom` / `GasMixture`              | gas gap         | standard gas / custom-coefficient / mixture gap |
+|  [05]   | `EnergyWindowFrame`                                                 | frame           | window frame conductance/projection             |
+|  [06]   | `EnergyWindowMaterialShade` / `EnergyWindowMaterialBlind`           | shade material  | roller shade / louvered blind layer             |
 
 [PUBLIC_TYPE_SCOPE]: loads, schedules, and program types (`honeybee_energy.load.*`, `.schedule.*`, `.programtype`)
 - rail: energy-modeling
 - Loads are per-room internal gains/flows; schedules drive their temporal profile; a `ProgramType` bundles a full load set for reuse. Loads carry `from_dict`/`from_dict_abridged`/`from_idf` (abridged references schedules by identifier).
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]    | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------- | :--------------- | :------------------------------------------------- |
-|  [01]   | `People` / `Lighting` / `ElectricEquipment` / `GasEquipment` | internal gain    | occupancy / lighting / plug+gas equipment gains    |
-|  [02]   | `Infiltration` / `Ventilation`                          | air flow         | envelope infiltration / outdoor-air ventilation    |
-|  [03]   | `Setpoint`                                               | control          | heating/cooling/humidity setpoint schedules        |
-|  [04]   | `ServiceHotWater` / `Process` / `DaylightingControl`    | load             | SHW demand / process load / daylight dimming sensor |
-|  [05]   | `ScheduleRuleset` / `ScheduleFixedInterval`             | schedule         | rule-based (day+rule+holiday) / 8760-value schedule |
-|  [06]   | `ScheduleDay` / `ScheduleRule` / `ScheduleTypeLimit`    | schedule part    | day profile / applicability rule / value-range limit |
-|  [07]   | `ProgramType`                                           | load bundle      | reusable people+lighting+equipment+infiltration+ventilation+setpoint+SHW set |
+| [INDEX] | [SYMBOL]                                                     | [TYPE_FAMILY] | [CAPABILITY]                                                                 |
+| :-----: | :----------------------------------------------------------- | :------------ | :--------------------------------------------------------------------------- |
+|  [01]   | `People` / `Lighting` / `ElectricEquipment` / `GasEquipment` | internal gain | occupancy / lighting / plug+gas equipment gains                              |
+|  [02]   | `Infiltration` / `Ventilation`                               | air flow      | envelope infiltration / outdoor-air ventilation                              |
+|  [03]   | `Setpoint`                                                   | control       | heating/cooling/humidity setpoint schedules                                  |
+|  [04]   | `ServiceHotWater` / `Process` / `DaylightingControl`         | load          | SHW demand / process load / daylight dimming sensor                          |
+|  [05]   | `ScheduleRuleset` / `ScheduleFixedInterval`                  | schedule      | rule-based (day+rule+holiday) / 8760-value schedule                          |
+|  [06]   | `ScheduleDay` / `ScheduleRule` / `ScheduleTypeLimit`         | schedule part | day profile / applicability rule / value-range limit                         |
+|  [07]   | `ProgramType`                                                | load bundle   | reusable people+lighting+equipment+infiltration+ventilation+setpoint+SHW set |
 
 [PUBLIC_TYPE_SCOPE]: assemblies, HVAC, and simulation (`.constructionset`, `.hvac.*`, `.simulation.*`)
 - rail: energy-modeling
 - A `ConstructionSet` is the per-room default construction lookup; HVAC templates are registered in `HVAC_TYPES_DICT`; the `SimulationParameter` family is the EnergyPlus run configuration.
 
-| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]    | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------- | :--------------- | :------------------------------------------------- |
-|  [01]   | `ConstructionSet` (+ `Wall`/`Floor`/`RoofCeiling`/`Aperture`/`Door` sub-sets) | construction lookup | per-face-type default construction resolution      |
-|  [02]   | `IdealAirSystem`                                        | HVAC             | the default ideal-loads system (no equipment sizing) |
-|  [03]   | `DetailedHVAC`                                          | HVAC             | an OpenStudio-measure-backed detailed HVAC spec    |
-|  [04]   | `HVAC_TYPES_DICT` (20 entries)                          | HVAC registry    | `IdealAirSystem` + `DetailedHVAC` + 18 template systems `VAV`/`PVAV`/`PSZ`/`PTAC`/`FCU`/`VRF`/`WSHP`/`Baseboard`/`Radiant`/`ForcedAirFurnace`/`GasUnitHeater`/`EvaporativeCooler`/`WindowAC`/`Residential` (+ `FCUwithDOAS`/`RadiantwithDOAS`/`VRFwithDOAS`/`WSHPwithDOAS`), keyed by name with per-template `equipment_type` vintage/efficiency vocabularies |
-|  [05]   | `SimulationParameter`                                   | run config       | bundles `SimulationOutput`/`RunPeriod`/`SimulationControl`/`SizingParameter`/`ShadowCalculation`/`DaylightSavingTime` |
+| [INDEX] | [SYMBOL]                                                                      | [TYPE_FAMILY]       | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                  |
+| :-----: | :---------------------------------------------------------------------------- | :------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ConstructionSet` (+ `Wall`/`Floor`/`RoofCeiling`/`Aperture`/`Door` sub-sets) | construction lookup | per-face-type default construction resolution                                                                                                                                                                                                                                                                                                                 |
+|  [02]   | `IdealAirSystem`                                                              | HVAC                | the default ideal-loads system (no equipment sizing)                                                                                                                                                                                                                                                                                                          |
+|  [03]   | `DetailedHVAC`                                                                | HVAC                | an OpenStudio-measure-backed detailed HVAC spec                                                                                                                                                                                                                                                                                                               |
+|  [04]   | `HVAC_TYPES_DICT` (20 entries)                                                | HVAC registry       | `IdealAirSystem` + `DetailedHVAC` + 18 template systems `VAV`/`PVAV`/`PSZ`/`PTAC`/`FCU`/`VRF`/`WSHP`/`Baseboard`/`Radiant`/`ForcedAirFurnace`/`GasUnitHeater`/`EvaporativeCooler`/`WindowAC`/`Residential` (+ `FCUwithDOAS`/`RadiantwithDOAS`/`VRFwithDOAS`/`WSHPwithDOAS`), keyed by name with per-template `equipment_type` vintage/efficiency vocabularies |
+|  [05]   | `SimulationParameter`                                                         | run config          | bundles `SimulationOutput`/`RunPeriod`/`SimulationControl`/`SizingParameter`/`ShadowCalculation`/`DaylightSavingTime`                                                                                                                                                                                                                                         |
 
 [PUBLIC_TYPE_SCOPE]: extension properties (`honeybee_energy.properties.*`)
 - rail: energy-modeling
 - The `*EnergyProperties` hosts registered onto the core `*Properties` via `_extend_honeybee`; the energy-modeling owner reads `obj.properties.energy` and folds the per-object assignment through one extension table.
 
-| [INDEX] | [SYMBOL]                  | [CAPABILITY]                                                              |
-| :-----: | :------------------------ | :----------------------------------------------------------------------- |
-|  [01]   | `ModelEnergyProperties`   | model construction/material/schedule/program/HVAC collections; `check_all`, `apply_properties_from_dict`, autocalculate/baseline helpers |
-|  [02]   | `RoomEnergyProperties`    | per-room program/construction-set/HVAC/SHW/setpoint assignment; `absolute_*` load accessors, `add_default_ideal_air` |
-|  [03]   | `FaceEnergyProperties` / `ApertureEnergyProperties` / `DoorEnergyProperties` | per-face construction assignment; `u_factor`/`r_factor`/`shgc`, `reset_construction_to_set` |
-|  [04]   | `ShadeEnergyProperties`   | shade transmittance schedule + construction                              |
+| [INDEX] | [SYMBOL]                                                                     | [CAPABILITY]                                                                                                                             |
+| :-----: | :--------------------------------------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `ModelEnergyProperties`                                                      | model construction/material/schedule/program/HVAC collections; `check_all`, `apply_properties_from_dict`, autocalculate/baseline helpers |
+|  [02]   | `RoomEnergyProperties`                                                       | per-room program/construction-set/HVAC/SHW/setpoint assignment; `absolute_*` load accessors, `add_default_ideal_air`                     |
+|  [03]   | `FaceEnergyProperties` / `ApertureEnergyProperties` / `DoorEnergyProperties` | per-face construction assignment; `u_factor`/`r_factor`/`shgc`, `reset_construction_to_set`                                              |
+|  [04]   | `ShadeEnergyProperties`                                                      | shade transmittance schedule + construction                                                                                              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -88,64 +88,64 @@
 - rail: energy-modeling
 - Every energy object carries `from_dict` (full, inlined) and most carry `from_dict_abridged` (references resources by identifier — the compact HBJSON wire shape) and `from_idf`. The per-domain `dictutil` are the polymorphic decoders dispatching on the dict `type`.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]             | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------- | :----------------------- | :------------------------------------------------- |
-|  [01]   | `<obj>.from_dict(data)` / `from_dict_abridged(data, *resource_dicts)` | dict (+ resource maps)   | full vs identifier-referenced reconstruction       |
-|  [02]   | `<obj>.from_idf(idf_string, ...)`                              | IDF text                 | parse an EnergyPlus IDF object into the honeybee type |
+| [INDEX] | [SURFACE]                                                                                      | [CALL_SHAPE]                 | [CAPABILITY]                                              |
+| :-----: | :--------------------------------------------------------------------------------------------- | :--------------------------- | :-------------------------------------------------------- |
+|  [01]   | `<obj>.from_dict(data)` / `from_dict_abridged(data, *resource_dicts)`                          | dict (+ resource maps)       | full vs identifier-referenced reconstruction              |
+|  [02]   | `<obj>.from_idf(idf_string, ...)`                                                              | IDF text                     | parse an EnergyPlus IDF object into the honeybee type     |
 |  [03]   | `honeybee_energy.construction.dictutil.dict_to_construction` / `dict_abridged_to_construction` | dict (+ materials/schedules) | polymorphic construction decode (opaque/window/shade/...) |
-|  [04]   | `honeybee_energy.material.dictutil.dict_to_material`           | dict                     | polymorphic material decode                        |
-|  [05]   | `honeybee_energy.load.dictutil.dict_to_load`                  | dict                     | polymorphic load decode                            |
-|  [06]   | `honeybee_energy.schedule.dictutil.dict_to_schedule` / `dict_abridged_to_schedule` | dict (+ type-limits)     | polymorphic schedule decode                        |
-|  [07]   | `ModelEnergyProperties.apply_properties_from_dict(data)`       | model HBJSON dict        | re-attach all energy properties after a geometry load |
+|  [04]   | `honeybee_energy.material.dictutil.dict_to_material`                                           | dict                         | polymorphic material decode                               |
+|  [05]   | `honeybee_energy.load.dictutil.dict_to_load`                                                   | dict                         | polymorphic load decode                                   |
+|  [06]   | `honeybee_energy.schedule.dictutil.dict_to_schedule` / `dict_abridged_to_schedule`             | dict (+ type-limits)         | polymorphic schedule decode                               |
+|  [07]   | `ModelEnergyProperties.apply_properties_from_dict(data)`                                       | model HBJSON dict            | re-attach all energy properties after a geometry load     |
 
 [ENTRYPOINT_SCOPE]: standards library by-identifier loaders (`honeybee_energy.lib.*`)
 - rail: energy-modeling
 - The single resolution path into the standards data backend; the owner resolves by identifier and caches, never hand-parsing the standards JSON. At import the loaders seed the small `honeybee-standards` defaults floor (16 constructions, 16 materials, 1 construction set, 2 program types, 8 schedules) and then merge any installed `honeybee-energy-standards` extension from `folders.standards_extension_folders`; the module registries (`OPAQUE_CONSTRUCTIONS`, `OPAQUE_MATERIALS`, `CONSTRUCTION_SETS`, `PROGRAM_TYPES`, `SCHEDULES`) enumerate the union of whatever is installed (the large ASHRAE/DOE counts appear only with the extension present).
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]             | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------- | :----------------------- | :------------------------------------------------- |
-|  [01]   | `opaque_construction_by_identifier` / `window_construction_by_identifier` / `shade_construction_by_identifier` | identifier string        | resolve a standard construction                    |
-|  [02]   | `opaque_material_by_identifier` / `window_material_by_identifier` | identifier string        | resolve a standard material                        |
-|  [03]   | `construction_set_by_identifier`                              | identifier string        | resolve a standard construction set (per climate zone/vintage) |
-|  [04]   | `program_type_by_identifier` / `building_program_type_by_identifier` | identifier / building type | resolve a standard program type (ASHRAE/DOE prototype) |
-|  [05]   | `schedule_by_identifier`                                      | identifier string        | resolve a standard schedule                        |
+| [INDEX] | [SURFACE]                                                                                                      | [CALL_SHAPE]               | [CAPABILITY]                                                   |
+| :-----: | :------------------------------------------------------------------------------------------------------------- | :------------------------- | :------------------------------------------------------------- |
+|  [01]   | `opaque_construction_by_identifier` / `window_construction_by_identifier` / `shade_construction_by_identifier` | identifier string          | resolve a standard construction                                |
+|  [02]   | `opaque_material_by_identifier` / `window_material_by_identifier`                                              | identifier string          | resolve a standard material                                    |
+|  [03]   | `construction_set_by_identifier`                                                                               | identifier string          | resolve a standard construction set (per climate zone/vintage) |
+|  [04]   | `program_type_by_identifier` / `building_program_type_by_identifier`                                           | identifier / building type | resolve a standard program type (ASHRAE/DOE prototype)         |
+|  [05]   | `schedule_by_identifier`                                                                                       | identifier string          | resolve a standard schedule                                    |
 
 [ENTRYPOINT_SCOPE]: energy assignment surface (`ModelEnergyProperties`, `RoomEnergyProperties`)
 - rail: energy-modeling
 - Assignment is the room/model property surface; the owner composes these rather than poking object fields.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]             | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------- | :----------------------- | :------------------------------------------------- |
-|  [01]   | `RoomEnergyProperties.program_type` / `construction_set` / `hvac` / `shw` (assignment) | object assignment        | assign program/construction-set/HVAC/SHW to a room |
-|  [02]   | `RoomEnergyProperties.add_default_ideal_air()` / `add_daylight_control_to_center` / `add_internal_mass` / `add_process_load` | none / args              | attach default systems and loads                   |
-|  [03]   | `RoomEnergyProperties.absolute_people` / `absolute_lighting` / `absolute_ventilation` / `absolute_infiltration` | property                 | resolve per-area loads to absolute totals (drives QA) |
-|  [04]   | `ModelEnergyProperties.check_all(raise_exception=True, detailed=False)` | flags                    | run every energy-validity check (one-HVAC-per-zone, duplicate ids, air-boundary windows, detailed-HVAC rooms) |
-|  [05]   | `ModelEnergyProperties.aperture_constructions` / `assign_dynamic_aperture_groups` / `autocalculate_ventilation_simulation_control` | none                     | collect/auto-derive model-level energy resources    |
+| [INDEX] | [SURFACE]                                                                                                                          | [CALL_SHAPE]      | [CAPABILITY]                                                                                                  |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `RoomEnergyProperties.program_type` / `construction_set` / `hvac` / `shw` (assignment)                                             | object assignment | assign program/construction-set/HVAC/SHW to a room                                                            |
+|  [02]   | `RoomEnergyProperties.add_default_ideal_air()` / `add_daylight_control_to_center` / `add_internal_mass` / `add_process_load`       | none / args       | attach default systems and loads                                                                              |
+|  [03]   | `RoomEnergyProperties.absolute_people` / `absolute_lighting` / `absolute_ventilation` / `absolute_infiltration`                    | property          | resolve per-area loads to absolute totals (drives QA)                                                         |
+|  [04]   | `ModelEnergyProperties.check_all(raise_exception=True, detailed=False)`                                                            | flags             | run every energy-validity check (one-HVAC-per-zone, duplicate ids, air-boundary windows, detailed-HVAC rooms) |
+|  [05]   | `ModelEnergyProperties.aperture_constructions` / `assign_dynamic_aperture_groups` / `autocalculate_ventilation_simulation_control` | none              | collect/auto-derive model-level energy resources                                                              |
 
 [ENTRYPOINT_SCOPE]: simulation run bridge (`honeybee_energy.run`)
 - rail: energy-modeling
 - The blocking EnergyPlus/OpenStudio CLI boundary. `run_idf`/`run_osw` shell out to the external engine; the owner offloads them through the runtime lane THREAD band under the runtime `guarded` retry rail and the graduation `evidence_run` span weave, never blocking the event loop.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]             | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------- | :----------------------- | :------------------------------------------------- |
-|  [01]   | `to_openstudio_osw(osw_directory, model_path, sim_par_json_path=None, ...)` | dirs + model + sim-par   | build the OpenStudio Workflow (`.osw`) for a translation+simulation |
-|  [02]   | `run_osw(osw_json, measures_only=True, silent=False)`          | osw path                 | run the OpenStudio CLI on the workflow (blocking subprocess) |
-|  [03]   | `run_idf(idf_file_path, epw_file_path=None, expand_objects=True, silent=False)` | idf + epw                | run the EnergyPlus CLI directly (blocking subprocess) |
-|  [04]   | `to_empty_osm_osw(osw_directory, sim_par_json_path, epw_file=None)` | dir + sim-par + epw      | build an OSW that emits an empty OSM seeded from a `SimulationParameter` JSON |
-|  [05]   | `to_gbxml_osw` / `to_sdd_osw` / `measure_compatible_model_json` / `trace_compatible_model_json` | model path               | gbXML / SDD / measure-ready / TRACE-ready export workflows |
-|  [06]   | `prepare_idf_for_simulation` / `output_energyplus_files` / `from_osm_osw` / `from_idf_osw` / `from_gbxml_osw` | paths                    | IDF prep, output discovery, and reverse-import workflows |
+| [INDEX] | [SURFACE]                                                                                                     | [CALL_SHAPE]           | [CAPABILITY]                                                                  |
+| :-----: | :------------------------------------------------------------------------------------------------------------ | :--------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | `to_openstudio_osw(osw_directory, model_path, sim_par_json_path=None, ...)`                                   | dirs + model + sim-par | build the OpenStudio Workflow (`.osw`) for a translation+simulation           |
+|  [02]   | `run_osw(osw_json, measures_only=True, silent=False)`                                                         | osw path               | run the OpenStudio CLI on the workflow (blocking subprocess)                  |
+|  [03]   | `run_idf(idf_file_path, epw_file_path=None, expand_objects=True, silent=False)`                               | idf + epw              | run the EnergyPlus CLI directly (blocking subprocess)                         |
+|  [04]   | `to_empty_osm_osw(osw_directory, sim_par_json_path, epw_file=None)`                                           | dir + sim-par + epw    | build an OSW that emits an empty OSM seeded from a `SimulationParameter` JSON |
+|  [05]   | `to_gbxml_osw` / `to_sdd_osw` / `measure_compatible_model_json` / `trace_compatible_model_json`               | model path             | gbXML / SDD / measure-ready / TRACE-ready export workflows                    |
+|  [06]   | `prepare_idf_for_simulation` / `output_energyplus_files` / `from_osm_osw` / `from_idf_osw` / `from_gbxml_osw` | paths                  | IDF prep, output discovery, and reverse-import workflows                      |
 
 [ENTRYPOINT_SCOPE]: result parsers (`honeybee_energy.result.*`)
 - rail: energy-modeling
 - Parse the EnergyPlus SQLite (`eplusout.sql`) and CSV outputs into Python rows; the owner decodes these into the `numpy`/`xarray` data tier, never hand-parsing the SQL schema.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]             | [CAPABILITY]                                       |
-| :-----: | :------------------------------------------------------------- | :----------------------- | :------------------------------------------------- |
-|  [01]   | `result.eui.eui_from_sql(sql_files)`                          | sql path(s)              | energy-use-intensity breakdown by end use          |
-|  [02]   | `result.emissions.emissions_from_sql` / `emissions_region` / `future_electricity_emissions` | sql + region             | carbon-emissions intensity from grid emission factors |
-|  [03]   | `result.generation.generation_data_from_sql` / `generation_summary_from_sql` | sql path                 | on-site PV/generation output                        |
-|  [04]   | `result.match.match_rooms_to_data(rooms, data)` / `match_faces_to_data` | objects + result data    | join EnergyPlus result series back onto honeybee rooms/faces |
-|  [05]   | `result.loadbalance` / `result.err` / `result.rdd` / `result.zsz` | sql/err/rdd/zsz files    | load-balance, error-file, report-data-dictionary, zone-sizing parsers |
+| [INDEX] | [SURFACE]                                                                                   | [CALL_SHAPE]          | [CAPABILITY]                                                          |
+| :-----: | :------------------------------------------------------------------------------------------ | :-------------------- | :-------------------------------------------------------------------- |
+|  [01]   | `result.eui.eui_from_sql(sql_files)`                                                        | sql path(s)           | energy-use-intensity breakdown by end use                             |
+|  [02]   | `result.emissions.emissions_from_sql` / `emissions_region` / `future_electricity_emissions` | sql + region          | carbon-emissions intensity from grid emission factors                 |
+|  [03]   | `result.generation.generation_data_from_sql` / `generation_summary_from_sql`                | sql path              | on-site PV/generation output                                          |
+|  [04]   | `result.match.match_rooms_to_data(rooms, data)` / `match_faces_to_data`                     | objects + result data | join EnergyPlus result series back onto honeybee rooms/faces          |
+|  [05]   | `result.loadbalance` / `result.err` / `result.rdd` / `result.zsz`                           | sql/err/rdd/zsz files | load-balance, error-file, report-data-dictionary, zone-sizing parsers |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

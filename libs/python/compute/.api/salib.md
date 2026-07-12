@@ -81,30 +81,30 @@
 [ENTRYPOINT_SCOPE]: sampling functions
 - rail: sensitivity-analysis
 
-| [INDEX] | [SURFACE]                                                                                                           | [METHOD] | [RAIL]                    |
-| :-----: | :------------------------------------------------------------------------------------------------------------------ | :------- | :------------------------ |
+| [INDEX] | [SURFACE]                                                                                                           | [METHOD] | [RAIL]                                                                                                    |
+| :-----: | :------------------------------------------------------------------------------------------------------------------ | :------- | :-------------------------------------------------------------------------------------------------------- |
 |  [01]   | `saltelli.sample(problem, N, calc_second_order=True, skip_values=None) -> ndarray`                                  | Saltelli | Sobol quasi-random sample (deprecated alias path; `sobol.sample` is the maintained Saltelli/Sobol design) |
-|  [02]   | `sobol.sample(problem, N, *, calc_second_order=True, scramble=True, skip_values=0, seed=None)`                      | Sobol    | Sobol sequence sample (auto-scales bounds from `problem`) |
-|  [03]   | `morris.sample(problem, N, num_levels=4, optimal_trajectories=None, local_optimization=True, seed=None) -> ndarray` | Morris   | trajectory sample         |
-|  [04]   | `latin.sample(problem, N, seed=None)`                                                                               | LHS      | Latin hypercube sample    |
-|  [05]   | `fast_sampler.sample(problem, N, M=4, seed=None)`                                                                   | FAST     | FAST frequency-domain search-curve sample (`M` = interference factor) |
-|  [06]   | `finite_diff.sample(problem, N, delta=0.01, seed=None, skip_values=1024) -> ndarray`                                | DGSM     | finite-difference gradient sample for DGSM (`delta` = perturbation step) |
-|  [07]   | `ff.sample(problem, seed=None)`                                                                                     | FF       | fractional-factorial two-level design (no `N`; size fixed by `num_vars`) |
+|  [02]   | `sobol.sample(problem, N, *, calc_second_order=True, scramble=True, skip_values=0, seed=None)`                      | Sobol    | Sobol sequence sample (auto-scales bounds from `problem`)                                                 |
+|  [03]   | `morris.sample(problem, N, num_levels=4, optimal_trajectories=None, local_optimization=True, seed=None) -> ndarray` | Morris   | trajectory sample                                                                                         |
+|  [04]   | `latin.sample(problem, N, seed=None)`                                                                               | LHS      | Latin hypercube sample                                                                                    |
+|  [05]   | `fast_sampler.sample(problem, N, M=4, seed=None)`                                                                   | FAST     | FAST frequency-domain search-curve sample (`M` = interference factor)                                     |
+|  [06]   | `finite_diff.sample(problem, N, delta=0.01, seed=None, skip_values=1024) -> ndarray`                                | DGSM     | finite-difference gradient sample for DGSM (`delta` = perturbation step)                                  |
+|  [07]   | `ff.sample(problem, seed=None)`                                                                                     | FF       | fractional-factorial two-level design (no `N`; size fixed by `num_vars`)                                  |
 
 [ENTRYPOINT_SCOPE]: analyze functions
 - rail: sensitivity-analysis
 
-| [INDEX] | [SURFACE]                                                                                                                                                                           | [METHOD] | [INDICES]          |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- | :----------------- |
-|  [01]   | `sobol.analyze(problem, Y, calc_second_order=True, num_resamples=100, conf_level=0.95, print_to_console=False, parallel=False, n_processors=None, keep_resamples=False, seed=None)` | Sobol    | S1/S2/ST           |
-|  [02]   | `morris.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, scaled=False, print_to_console=False, num_levels=4, seed=None) -> Dict`                                          | Morris   | mu/mu*/sigma       |
-|  [03]   | `fast.analyze(problem, Y, M=4, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                              | FAST     | first-order        |
-|  [04]   | `rbd_fast.analyze(problem, X, Y, M=10, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                      | RBD-FAST | first-order        |
-|  [05]   | `delta.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None, y_resamples=None, method='all') -> Dict`                                       | delta    | moment-independent |
-|  [06]   | `pawn.analyze(problem, X, Y, S=10, print_to_console=False, seed=None)`                                                                                                              | PAWN     | KS-based           |
-|  [07]   | `dgsm.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                                | DGSM     | `vi`/`vi_std`/`dgsm` derivative-based |
-|  [08]   | `rsa.analyze(problem, X, Y, bins=20, target='Y', print_to_console=False, seed=None)`                                                                                                | RSA      | regional (binned) sensitivity |
-|  [09]   | `hdmr.analyze(problem, X, Y, maxorder=2, maxiter=100, m=2, K=20, R=None, alpha=0.95, lambdax=0.01, print_to_console=False, seed=None) -> Dict`                                       | HDMR     | component-function `Sa`/`Sb`/`ST` expansion |
+| [INDEX] | [SURFACE]                                                                                                                                                                           | [METHOD] | [INDICES]                                              |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------- | :----------------------------------------------------- |
+|  [01]   | `sobol.analyze(problem, Y, calc_second_order=True, num_resamples=100, conf_level=0.95, print_to_console=False, parallel=False, n_processors=None, keep_resamples=False, seed=None)` | Sobol    | S1/S2/ST                                               |
+|  [02]   | `morris.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, scaled=False, print_to_console=False, num_levels=4, seed=None) -> Dict`                                          | Morris   | mu/mu*/sigma                                           |
+|  [03]   | `fast.analyze(problem, Y, M=4, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                              | FAST     | first-order                                            |
+|  [04]   | `rbd_fast.analyze(problem, X, Y, M=10, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                      | RBD-FAST | first-order                                            |
+|  [05]   | `delta.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None, y_resamples=None, method='all') -> Dict`                                       | delta    | moment-independent                                     |
+|  [06]   | `pawn.analyze(problem, X, Y, S=10, print_to_console=False, seed=None)`                                                                                                              | PAWN     | KS-based                                               |
+|  [07]   | `dgsm.analyze(problem, X, Y, num_resamples=100, conf_level=0.95, print_to_console=False, seed=None)`                                                                                | DGSM     | `vi`/`vi_std`/`dgsm` derivative-based                  |
+|  [08]   | `rsa.analyze(problem, X, Y, bins=20, target='Y', print_to_console=False, seed=None)`                                                                                                | RSA      | regional (binned) sensitivity                          |
+|  [09]   | `hdmr.analyze(problem, X, Y, maxorder=2, maxiter=100, m=2, K=20, R=None, alpha=0.95, lambdax=0.01, print_to_console=False, seed=None) -> Dict`                                      | HDMR     | component-function `Sa`/`Sb`/`ST` expansion            |
 |  [10]   | `ff.analyze(problem, X, Y, second_order=False, print_to_console=False, seed=None)`                                                                                                  | FF       | fractional-factorial main + optional 2nd-order effects |
 
 [ENTRYPOINT_SCOPE]: utility functions

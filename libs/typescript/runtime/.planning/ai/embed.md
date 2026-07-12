@@ -2,15 +2,15 @@
 
 The embedding corpus pipeline and the retrieval port's satisfying side: deterministic chunking (one normalization anchor, three cut lanes as policy rows folding into `Piece` receipts), embedding capability rows on the native engine (`EmbeddingModel.make` with its built-in batch-and-cache, `makeDataLoader` with wall-clock window coalescing, the OpenAI rows as the shipped reference, a `custom` row for any raw provider), a two-tier cache whose durable band survives restart through the persisted request-resolver family, and the `Embedder` Layer that satisfies the data wave's retrieval port at app composition — publishing the `<model>:<dims>:<revision>` fingerprint the vector rows key on, batching through the data wave's request-batching engine values, and folding the provider error union into the port's typed fault. The optional `Reranker` port is satisfied here too: a gated structured-output scoring fold over the window the retrieval fusion hands across. Determinism is the spine: the NFC scrub is the identity anchor — equal text yields equal pieces, equal pieces yield equal cache hits and equal fingerprint rows in every process and every language. The module is `runtime/src/ai/embed.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]  | [OWNS]                                                                          | [PUBLIC]     |
-| :-----: | :--------- | :---------------------------------------------------------------------------------- | :----------- |
-|  [01]   | `CUT`      | the normalization anchor, the cut-lane policy rows, the `Piece` receipt              | `Cut`        |
-|  [02]   | `ROWS`     | embedding capability rows — batched, windowed, custom — and the two-tier cache       | `Embedding`  |
-|  [03]   | `PORT`     | the `Embedder`/`Reranker` satisfying Layers — fingerprint, fault fold, batching      | `Embedding`  |
+| [INDEX] | [CLUSTER] | [OWNS]                                                                          | [PUBLIC]    |
+| :-----: | :-------- | :------------------------------------------------------------------------------ | :---------- |
+|  [01]   | `CUT`     | the normalization anchor, the cut-lane policy rows, the `Piece` receipt         | `Cut`       |
+|  [02]   | `ROWS`    | embedding capability rows — batched, windowed, custom — and the two-tier cache  | `Embedding` |
+|  [03]   | `PORT`    | the `Embedder`/`Reranker` satisfying Layers — fingerprint, fault fold, batching | `Embedding` |
 
-## [2]-[CUT]
+## [02]-[CUT]
 
 [CUT]:
 - Owner: `Cut` — corpus chunking as policy rows: `Cut.pieces(text, lane)` normalizes ONCE (`String.normalize("NFC")` plus whitespace collapse — the determinism anchor every cache key and store fingerprint inherits), then dispatches the lane row through one handler record: `fixed` (span-windowed with overlap columns), `sentence` (`Intl.Segmenter` sentence granularity packed to the span ceiling), `markdown` (heading-bounded sections re-packed under the same ceiling). Every lane answers `Piece` receipts — `seq` (position), `span` (start/length into the normalized text), `body`, and a token estimate — so downstream zips vectors to pieces positionally and provenance survives to the citation layer.
@@ -89,7 +89,7 @@ const _pieces = (raw: string, lane: Cut.Lane): ReadonlyArray<Piece> => {
 const Cut = { pieces: _pieces, scrub: _scrubbed }
 ```
 
-## [3]-[ROWS]
+## [03]-[ROWS]
 
 [ROWS]:
 - Owner: `Embedding.rows` — the capability rows over the native engine: `batched` (the OpenAI polymorphic `model` under `{ mode: "batched", maxBatchSize, cache: { capacity, timeToLive } }` — request coalescing plus the hot in-memory tier in one shipped option), `windowed` (`{ mode: "data-loader", window, maxBatchSize }` — wall-clock coalescing across unrelated fibers, the bulk-ingest row), and `custom` (`EmbeddingModel.make`/`makeDataLoader` over any raw `embedMany` — the row a non-shipped provider or a local ONNX model lands on without a new surface).
@@ -168,7 +168,7 @@ const _band = (
   )
 ```
 
-## [4]-[PORT]
+## [04]-[PORT]
 
 [PORT]:
 - Owner: the port satisfaction — `Embedding.embedder(row)` builds the Layer that satisfies the data wave's `Embedder` Tag at app composition: `fingerprint` publishes `<model>:<dims>:<revision>` (the brand the vector table's primary key carries, so a model migration is a new fingerprint and old vectors stay queryable under theirs), `embed` delegates to the `EmbeddingModel` Tag the row's layer provides, and every provider fault folds into the port's own family — a token-ceiling rejection to `budget`, a transport or provider failure to `provider`, a dimension mismatch to `shape` — so retrieval's lane-exclusion fold reads one vocabulary.

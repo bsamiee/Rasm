@@ -19,20 +19,20 @@
 - rail: sign
 - Every member is `(bytes: Uint8Array) => string` (encode) or `(encoded: string) => Uint8Array` (decode). The variation is axis *values*, so a call is chosen by (alphabet, case, padding, direction), never by a bespoke name. The `decodeIgnorePadding`/`…urlIgnorePadding` arm is the lenient parse for inputs whose padding was stripped in transit.
 
-| [INDEX] | [ALPHABET] | [ENCODE_ROWS] | [DECODE_ROWS] | [CONSUMER_BOUNDARY] |
-|:-----: |:----------------- |:---------------------------------------------------------------------------------------------------- |:---------------------------------------------------------------------- |:---------------------------------------------------------- |
-| [01] | `hex` | `encodeHexLowerCase` · `encodeHexUpperCase` | `decodeHex` | digest/MAC at-rest string; `@node-rs/argon2` peppers, fingerprints |
-| [02] | `base32` | `encodeBase32UpperCase` · `…UpperCaseNoPadding` · `…LowerCase` · `…LowerCaseNoPadding` | `decodeBase32` · `decodeBase32IgnorePadding` | the RFC-4648/authenticator alphabet class `effect` cannot serve; backs the optional otplib `Base32Plugin` swap |
-| [03] | `base64` | `encodeBase64` · `encodeBase64NoPadding` | `decodeBase64` · `decodeBase64IgnorePadding` | binary blob at-rest (PEM DER, attestation objects) |
-| [04] | `base64url` | `encodeBase64url` · `encodeBase64urlNoPadding` | `decodeBase64url` · `decodeBase64urlIgnorePadding` | WebAuthn `Base64URLString`, apikey prefix, session/recovery material; JOSE/JWS segment stays in `jose` |
+| [INDEX] | [ALPHABET]  | [ENCODE_ROWS]                                                                          | [DECODE_ROWS]                                      | [CONSUMER_BOUNDARY]                                                                                            |
+| :-----: | :---------- | :------------------------------------------------------------------------------------- | :------------------------------------------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `hex`       | `encodeHexLowerCase` · `encodeHexUpperCase`                                            | `decodeHex`                                        | digest/MAC at-rest string; `@node-rs/argon2` peppers, fingerprints                                             |
+|  [02]   | `base32`    | `encodeBase32UpperCase` · `…UpperCaseNoPadding` · `…LowerCase` · `…LowerCaseNoPadding` | `decodeBase32` · `decodeBase32IgnorePadding`       | the RFC-4648/authenticator alphabet class `effect` cannot serve; backs the optional otplib `Base32Plugin` swap |
+|  [03]   | `base64`    | `encodeBase64` · `encodeBase64NoPadding`                                               | `decodeBase64` · `decodeBase64IgnorePadding`       | binary blob at-rest (PEM DER, attestation objects)                                                             |
+|  [04]   | `base64url` | `encodeBase64url` · `encodeBase64urlNoPadding`                                         | `decodeBase64url` · `decodeBase64urlIgnorePadding` | WebAuthn `Base64URLString`, apikey prefix, session/recovery material; JOSE/JWS segment stays in `jose`         |
 
 [PUBLIC_TYPE_SCOPE]: deprecated aliases — never author against these
 - rail: sign
 - `encodeBase32`/`encodeBase32NoPadding` are `@deprecated` re-spellings of the `UpperCase` rows, kept for source compatibility. Author against the explicit case-named rows so the produced alphabet is unambiguous at the call site.
 
-| [INDEX] | [SYMBOL] | [REPLACED_BY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------- |:----------------------------------- |:---------------------------------------- |
-| [01] | `encodeBase32` / `encodeBase32NoPadding` | `encodeBase32UpperCase` / `…NoPadding` | avoid — case-ambiguous retired alias |
+| [INDEX] | [SYMBOL]                                 | [REPLACED_BY]                          | [CONSUMER_BOUNDARY]                  |
+| :-----: | :--------------------------------------- | :------------------------------------- | :----------------------------------- |
+|  [01]   | `encodeBase32` / `encodeBase32NoPadding` | `encodeBase32UpperCase` / `…NoPadding` | avoid — case-ambiguous retired alias |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -40,11 +40,11 @@
 - rail: sign
 - Encode is total; decode throws. The digest→string→digest round-trip that stores and re-compares a MAC/API-key hash is the canonical pairing with `@oslojs/crypto`.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------- |:------------- |:------------------------------------------------------------ |
-| [01] | `encodeHexLowerCase(bytes)` / `encodeBase64url(bytes)` / `encodeBase32UpperCaseNoPadding(bytes)` | render (total) | digest/MAC/secret → at-rest or wire string |
-| [02] | `decodeHex(s)` / `decodeBase64url(s)` / `decodeBase32(s)` | parse (throws) | stored string → bytes before `constantTimeEqual`; lift in `Effect.try` |
-| [03] | `decodeBase64urlIgnorePadding(s)` / `decodeBase32IgnorePadding(s)` | lenient parse | wire input whose padding was stripped in transit |
+| [INDEX] | [SURFACE]                                                                                        | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                    |
+| :-----: | :----------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------------- |
+|  [01]   | `encodeHexLowerCase(bytes)` / `encodeBase64url(bytes)` / `encodeBase32UpperCaseNoPadding(bytes)` | render (total) | digest/MAC/secret → at-rest or wire string                             |
+|  [02]   | `decodeHex(s)` / `decodeBase64url(s)` / `decodeBase32(s)`                                        | parse (throws) | stored string → bytes before `constantTimeEqual`; lift in `Effect.try` |
+|  [03]   | `decodeBase64urlIgnorePadding(s)` / `decodeBase32IgnorePadding(s)`                               | lenient parse  | wire input whose padding was stripped in transit                       |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

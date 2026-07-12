@@ -226,11 +226,11 @@ public static class BlockLifecycle {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]            | [OWNER]          | [FORM]                                              | [ENTRY]                                  |
-| :-----: | :------------------- | :--------------- | :--------------------------------------------------- | :----------------------------------------- |
-|  [01]   | invalidation rows    | `RefreshPolicy`  | keyless rows, `Rerender`/`Evict` columns              | `Engage(session, policy)`                   |
-|  [02]   | preview identity     | `PreviewKey`     | document + definition + structural spec               | vault keying                                |
-|  [03]   | vault state          | `VaultState`     | one CAS domain: live map + retired grant ledger       | `BlockLifecycle` swaps                      |
-|  [04]   | custody window       | `PreviewGrant`   | version-pinned bitmap access, idempotent return       | `Lease` / `Dispose`                         |
-|  [05]   | event ingress        | `BlockLifecycle` | one deferred keyed observation over two families      | `Engage` / `Evict`                          |
-|  [06]   | linked-file watching | `BlockLifecycle` | debounced `Observation.File` driving one `Refresh`    | `WatchLinked(session, target, path, ...)`   |
+| [INDEX] | [CONCERN]            | [OWNER]          | [FORM]                                             | [ENTRY]                                   |
+| :-----: | :------------------- | :--------------- | :------------------------------------------------- | :---------------------------------------- |
+|  [01]   | invalidation rows    | `RefreshPolicy`  | keyless rows, `Rerender`/`Evict` columns           | `Engage(session, policy)`                 |
+|  [02]   | preview identity     | `PreviewKey`     | document + definition + structural spec            | vault keying                              |
+|  [03]   | vault state          | `VaultState`     | one CAS domain: live map + retired grant ledger    | `BlockLifecycle` swaps                    |
+|  [04]   | custody window       | `PreviewGrant`   | version-pinned bitmap access, idempotent return    | `Lease` / `Dispose`                       |
+|  [05]   | event ingress        | `BlockLifecycle` | one deferred keyed observation over two families   | `Engage` / `Evict`                        |
+|  [06]   | linked-file watching | `BlockLifecycle` | debounced `Observation.File` driving one `Refresh` | `WatchLinked(session, target, path, ...)` |

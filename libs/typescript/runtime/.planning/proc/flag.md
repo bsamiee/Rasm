@@ -2,17 +2,17 @@
 
 Feature evaluation is one owner over the real OpenFeature server SDK: targeting is data — a closed recursive rule family decoded from the provider document and folded by one total `decide` whose percentage bucket derives from the kernel content-key mint, so the same subject lands in the same bucket in every language — and evaluation is the SDK's own lifecycle: this page's provider implements the SDK `Provider` contract over the live ruleset cell, registers through `OpenFeature.setProviderAndWait`, emits `ConfigurationChanged` on every accepted patch, and answers through the SDK client so hooks and evaluation context ride the standard seam. `Verdict` is the branch projection of the shared evaluation contract — flag, kind-typed value (the object kind is a real arm over one recursive JSON schema), variant, reason, error code, instant — the single shape the C#-evaluated `FlagVerdictWire` decodes into and local evaluation mints. Stickiness and memoization are policy rows: a held variant is a ledger fact with an epoch and a lease, a memoized verdict expires by its own reason, and `evaluate` never fails — a missing flag, a malformed rule, and a cold provider are verdict evidence, never channel faults. The `security` `FlagGate` port is satisfied here. The module is `runtime/src/proc/flag.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                          | [PUBLIC]            |
-| :-----: | :---------------- | :--------------------------------------------------------------------------------- | :------------------ |
-|  [01]   | `TARGETING_RULES` | the recursive rule family, the deterministic bucket, the total `decide` fold       | `Rollout`           |
-|  [02]   | `STICKY_ROWS`     | stickiness mode rows, the held-variant ledger, the reason-keyed expiry fold        | `Sticky`            |
-|  [03]   | `VERDICT_CONTRACT`| the OpenFeature projection, the document and delta families, the JSON value arm    | `Verdict`           |
-|  [04]   | `PROVIDER_OWNER`  | the SDK `Provider` implementation, events, hooks, the promise boundary             | `Flags`             |
-|  [05]   | `GATE_SERVICE`    | the evaluation service, the reason-expiring memo, the `FlagGate` satisfaction      | `Flags`             |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                          | [PUBLIC]  |
+| :-----: | :----------------- | :------------------------------------------------------------------------------ | :-------- |
+|  [01]   | `TARGETING_RULES`  | the recursive rule family, the deterministic bucket, the total `decide` fold    | `Rollout` |
+|  [02]   | `STICKY_ROWS`      | stickiness mode rows, the held-variant ledger, the reason-keyed expiry fold     | `Sticky`  |
+|  [03]   | `VERDICT_CONTRACT` | the OpenFeature projection, the document and delta families, the JSON value arm | `Verdict` |
+|  [04]   | `PROVIDER_OWNER`   | the SDK `Provider` implementation, events, hooks, the promise boundary          | `Flags`   |
+|  [05]   | `GATE_SERVICE`     | the evaluation service, the reason-expiring memo, the `FlagGate` satisfaction   | `Flags`   |
 
-## [2]-[TARGETING_RULES]
+## [02]-[TARGETING_RULES]
 
 [TARGETING_RULES]:
 - Owner: `Rollout` — the targeting owner. `Rollout.Rule` is one `Schema.Union` of tagged cases: `On`/`Off` (static arms), `Fraction` (salted percentage gate), `Segment` (axis membership over the subject's dimensions — the axes are the `AppIdentity` span plus free attributes), `Window` (a UTC validity interval), `Split` (weighted variant arms over the same salted bucket), and the composites `AllOf`/`AnyOf`/`Not` closing self-reference through `Schema.suspend`; rules are wire values the remote provider ships, so a new targeting dimension is one case row plus one fold arm, breaking every dispatch loudly.
@@ -147,7 +147,7 @@ const _decide = (rule: Rollout.Rule, probe: Rollout.Probe): Rollout.Outcome =>
 const Rollout: Rollout.Shape = { Rule: _Rule, reasons: _REASONS, decide: _decide }
 ```
 
-## [3]-[STICKY_ROWS]
+## [03]-[STICKY_ROWS]
 
 [STICKY_ROWS]:
 - Owner: `Sticky` — the holding policy beside the rules. Mode rows close the vocabulary: `none` (evaluate every read), `session` (memoize in-process), `durable` (memoize plus a held-variant ledger surviving restarts — the browser localStorage row and the node filesystem row satisfy the same `KeyValueStore` Tag); a held variant is `Sticky.Held`: flag, variant, epoch, mint instant — one Schema class, one ledger shape on every runtime.
@@ -196,7 +196,7 @@ const Sticky: Sticky.Shape = {
 }
 ```
 
-## [4]-[VERDICT_CONTRACT]
+## [04]-[VERDICT_CONTRACT]
 
 [VERDICT_CONTRACT]:
 - Owner: `Verdict` — one `Schema.Class` carrying `flag`, `kind` (`boolean | string | number | object`), `value` (the kind-typed union whose object arm is the page's one recursive `_Json` schema), `variant: Option`, `reason` (the tuple spread of `Rollout.reasons`), `code: Option` (the OpenFeature `ErrorCode` rows), and `at`; the wire twins ride the owner — `Verdict.Ruleset` is the provider document, `Verdict.Shift` the live delta family (`Set | Clear | Reset`), `Verdict.codes` the error-code anchor — one import carries the whole contract.
@@ -262,7 +262,7 @@ declare namespace Verdict {
 }
 ```
 
-## [5]-[PROVIDER_OWNER]
+## [05]-[PROVIDER_OWNER]
 
 [PROVIDER_OWNER]:
 - Owner: the SDK `Provider` implementation the Layer constructs over the live ruleset cell — `runsOn: "server"`, `metadata`, one `OpenFeatureEventEmitter`, the four `resolve*Evaluation` members delegating to one interior `_resolved(kind, flag, fallback, context)` that recalls the cell, folds `Rollout.decide` under the subject's salted bucket, resolves the variant's value from the definition's map, and answers `ResolutionDetails` — value, variant, reason, `errorCode` on degradation; the object kind rides `resolveObjectEvaluation` over the `_Json` arm, so the SDK's whole kind surface is real.
@@ -272,7 +272,7 @@ declare namespace Verdict {
 - Law: kind agreement is evidence — a resolved value that fails the requested kind's guard answers the fallback with `TYPE_MISMATCH`; a cold cell (epoch 0) answers `PROVIDER_NOT_READY`; a populated cell missing the flag answers `FLAG_NOT_FOUND` — the error channel stays empty and every degradation is data.
 - Packages: `@openfeature/server-sdk` (`Provider`, `ResolutionDetails`, `EvaluationContext`, `OpenFeatureEventEmitter`, `ProviderEvents`, `JsonValue`), `effect` (`Effect`, `Runtime`, `Option`, `HashMap`, `DateTime`).
 
-## [6]-[GATE_SERVICE]
+## [06]-[GATE_SERVICE]
 
 [GATE_SERVICE]:
 - Owner: `Flags` — one `Effect.Service` whose `Default` is a Layer factory taking the bucket digest (the kernel mint's low-32 projection, passed at the root so evaluation stays pure). The scoped build holds one `SubscriptionRef<Ruleset>` cell fed by one source — the live SSE feed (`channel#FEED_SEAM` on `Setting.flag.origin`, each `event.data` decoded through `Schema.parseJson(Verdict.Shift)`, every patch epoch-guarded, a decode failure folding to a skipped patch, never a cleared cell) re-registered on the `Setting.flag.cadence` pacing — constructs the provider over the cell, registers it through `OpenFeature.setProviderAndWait`, closes the SDK on scope release, and answers every read through the SDK client so registered hooks observe every evaluation.

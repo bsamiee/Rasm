@@ -15,15 +15,15 @@
 
 Time-free: the graph is constructed, wired with `pipe`, driven synchronously; the delta unit is a signed `MultiSet` with no version. `output` receives the `MultiSet` directly — there is no `Message`/`FRONTIER` envelope.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY_BOUNDARY] |
-|:-----: |:------------------------------ |:----------------- |:------------------------------------------------------------------------- |
-| [01] | `D2` (no options) | class | the graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step`/`finalize` |
-| [02] | `RootStreamBuilder<T>` | class | input handle — `sendData(collection)` ONLY; no `sendFrontier`, no version |
-| [03] | `StreamBuilder<T>` | class (`IStreamBuilder`) | pipeline node; 1..20-arity `pipe(...)` over `PipedOperator`s |
-| [04] | `MultiSet<T>` (`MultiSetArray`) | class | signed multiset — `map`/`filter`/`negate`/`concat`/`consolidate`/`extend`/`getInner` |
-| [05] | `Index<K, V>` | class | in-memory keyed trace — `get`/`getMultiplicity`/`join`; NO `reconstructAt`/`compact` |
-| [06] | `KeyValue<K, V>` = `[K, V]` | tuple alias | the keyed-record shape the keyed operators require |
-| [07] | `PipedOperator<I, O>` | function alias | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]            | [CAPABILITY_BOUNDARY]                                                                |
+| :-----: | :------------------------------ | :----------------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `D2` (no options)               | class                    | the graph; `newInput()` mints a `RootStreamBuilder`, `run`/`step`/`finalize`         |
+|  [02]   | `RootStreamBuilder<T>`          | class                    | input handle — `sendData(collection)` ONLY; no `sendFrontier`, no version            |
+|  [03]   | `StreamBuilder<T>`              | class (`IStreamBuilder`) | pipeline node; 1..20-arity `pipe(...)` over `PipedOperator`s                         |
+|  [04]   | `MultiSet<T>` (`MultiSetArray`) | class                    | signed multiset — `map`/`filter`/`negate`/`concat`/`consolidate`/`extend`/`getInner` |
+|  [05]   | `Index<K, V>`                   | class                    | in-memory keyed trace — `get`/`getMultiplicity`/`join`; NO `reconstructAt`/`compact` |
+|  [06]   | `KeyValue<K, V>` = `[K, V]`     | tuple alias              | the keyed-record shape the keyed operators require                                   |
+|  [07]   | `PipedOperator<I, O>`           | function alias           | `(stream: IStreamBuilder<I>) => IStreamBuilder<O>` — the ONE operator shape          |
 
 ```ts contract
 // No initialFrontier, no version on sendData — the minimal, time-free graph. output sees the raw MultiSet, not a Message.
@@ -56,13 +56,13 @@ declare class Index<K, V> {
 
 The operator library is the SAME ONE-shape `PipedOperator<I, O>` composed by `pipe` as d2ts — the roster is SEED DATA on it. d2mini drops the versioned operators (`iterate` fixpoint, `buffer`) and adds the `sorted-btree` ordered lane. Four families, same as d2ts minus recursion.
 
-| [INDEX] | [FAMILY] | [OPERATORS] | [SHAPE_BOUNDARY] |
-|:-----: |:------------ |:---------------------------------------------------------------------------- |:------------------------------------------------------------ |
-| [01] | element-wise | `map` `filter` `negate` `concat` `consolidate` `debug` `output` | `PipedOperator<T, …>`; `output` sees the raw `MultiSet` |
-| [02] | keying | `keyBy(fn)` `unkey()` `rekey(fn)` `filterBy(other)` | `T ⇄ KeyValue<K, T>`; `filterBy` semijoins against a key stream |
-| [03] | keyed fold | `join`(+`inner`/`left`/`right`/`full`/`anti`, `JoinType`) `reduce` `count` `distinct` `groupBy`(+`sum`/`count`/`avg`/`min`/`max`/`median`/`mode`) | `KeyValue<K, V>` in — the incremental Semigroup fold per key |
-| [04] | ordered | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`) | fractional-index maintenance; NO full re-sort |
-| [05] | ordered/BTree | `topKWithFractionalIndexBTree` `orderByWithFractionalIndexBTree` (`loadBTree()`) | SEALED — files unreferenced by the catalog-bound barrel; not importable |
+| [INDEX] | [FAMILY]      | [OPERATORS]                                                                                                                                       | [SHAPE_BOUNDARY]                                                        |
+| :-----: | :------------ | :------------------------------------------------------------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------- |
+|  [01]   | element-wise  | `map` `filter` `negate` `concat` `consolidate` `debug` `output`                                                                                   | `PipedOperator<T, …>`; `output` sees the raw `MultiSet`                 |
+|  [02]   | keying        | `keyBy(fn)` `unkey()` `rekey(fn)` `filterBy(other)`                                                                                               | `T ⇄ KeyValue<K, T>`; `filterBy` semijoins against a key stream         |
+|  [03]   | keyed fold    | `join`(+`inner`/`left`/`right`/`full`/`anti`, `JoinType`) `reduce` `count` `distinct` `groupBy`(+`sum`/`count`/`avg`/`min`/`max`/`median`/`mode`) | `KeyValue<K, V>` in — the incremental Semigroup fold per key            |
+|  [04]   | ordered       | `topK` `topKWithIndex` `topKWithFractionalIndex` `orderBy`(+`WithIndex`/`WithFractionalIndex`)                                                    | fractional-index maintenance; NO full re-sort                           |
+|  [05]   | ordered/BTree | `topKWithFractionalIndexBTree` `orderByWithFractionalIndexBTree` (`loadBTree()`)                                                                  | SEALED — files unreferenced by the catalog-bound barrel; not importable |
 
 ```ts contract
 // Same pipe/join/reduce/groupBy algebra as d2ts — the reducer is a @effect/typeclass Semigroup applied per key.

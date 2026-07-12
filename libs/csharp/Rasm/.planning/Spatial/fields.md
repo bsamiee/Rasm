@@ -474,14 +474,14 @@ public abstract partial record VectorField {
 
 ## [07]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]          | [OWNER]                       | [KIND]                                                              | [RAIL]                                        | [CASES] |
-| :-----: | :---------------------- | :---------------------------- | :------------------------------------------------------------------ | :--------------------------------------------- | :-----: |
-|  [01]   | Smooth-minimum species  | `BlendKind`                   | `[Union]` + `ErosionFactor` case column                              | `Smin`/`Erode` (pure)                          |    8    |
-|  [02]   | CSG combination         | `CsgKind`                     | `[SmartEnum<int>]` + `Combine` delegate column                       | dispatch row                                   |    3    |
-|  [03]   | SDF primitive           | `SdfKind`                     | `[Union]` typed parameter cases + `Lipschitz`/`Distance` members     | `SignedDistance → Fin<double>`                 |   12    |
-|  [04]   | Scalar field algebra    | `ScalarField`                 | `[Union]` ~35 cases, five families, flattening operators             | `SampleScalar → Fin<double>`                   |   ~35   |
-|  [05]   | Tagged sampling rail    | `SampleDetailed`/`SampleSdfDetailed` | status-tagged public seam (`SdfStatus` + nested receipts)      | `→ Fin<FieldSample>` / `Fin<SdfSample>`        |    6    |
-|  [06]   | Vector field algebra    | `VectorField`                 | `[Union]` ~25 cases over three shared folds                          | `SampleVector → Fin<Vector3d>`                 |   ~25   |
-|  [07]   | Tensor field algebra    | `TensorField`                 | `[Union]` 6 cases; congruence transform; one shape-operator consumer | `SampleTensor → Fin<SymmetricMatrix>`          |    6    |
-|  [08]   | Ray/bounce policy       | `RayPolicy`/`BouncePolicy`    | `[Union]` pairs over `atoms.md` optics                               | `Project<TOut>` / `Apply → Fin<Direction>`     |   2+2   |
-|  [09]   | Noise vocabulary        | `NoiseKind`                   | `[SmartEnum<int>]` lattice rows + caution/differentiability columns  | `Sample` delegate onto `FieldNoise`            |    4    |
+| [INDEX] | [AXIS_CONCERN]         | [OWNER]                              | [KIND]                                                               | [RAIL]                                     | [CASES] |
+| :-----: | :--------------------- | :----------------------------------- | :------------------------------------------------------------------- | :----------------------------------------- | :-----: |
+|  [01]   | Smooth-minimum species | `BlendKind`                          | `[Union]` + `ErosionFactor` case column                              | `Smin`/`Erode` (pure)                      |    8    |
+|  [02]   | CSG combination        | `CsgKind`                            | `[SmartEnum<int>]` + `Combine` delegate column                       | dispatch row                               |    3    |
+|  [03]   | SDF primitive          | `SdfKind`                            | `[Union]` typed parameter cases + `Lipschitz`/`Distance` members     | `SignedDistance → Fin<double>`             |   12    |
+|  [04]   | Scalar field algebra   | `ScalarField`                        | `[Union]` ~35 cases, five families, flattening operators             | `SampleScalar → Fin<double>`               |   ~35   |
+|  [05]   | Tagged sampling rail   | `SampleDetailed`/`SampleSdfDetailed` | status-tagged public seam (`SdfStatus` + nested receipts)            | `→ Fin<FieldSample>` / `Fin<SdfSample>`    |    6    |
+|  [06]   | Vector field algebra   | `VectorField`                        | `[Union]` ~25 cases over three shared folds                          | `SampleVector → Fin<Vector3d>`             |   ~25   |
+|  [07]   | Tensor field algebra   | `TensorField`                        | `[Union]` 6 cases; congruence transform; one shape-operator consumer | `SampleTensor → Fin<SymmetricMatrix>`      |    6    |
+|  [08]   | Ray/bounce policy      | `RayPolicy`/`BouncePolicy`           | `[Union]` pairs over `atoms.md` optics                               | `Project<TOut>` / `Apply → Fin<Direction>` |   2+2   |
+|  [09]   | Noise vocabulary       | `NoiseKind`                          | `[SmartEnum<int>]` lattice rows + caution/differentiability columns  | `Sample` delegate onto `FieldNoise`        |    4    |

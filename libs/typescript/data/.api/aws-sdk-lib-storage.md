@@ -17,27 +17,27 @@
 [PUBLIC_TYPE_SCOPE]: the upload, its options, and progress
 - rail: object/store
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:------------------------------------------------------------------------- |
-| [01] | `Upload` (`extends EventEmitter`, `constructor(options: Options)`) | uploader | one instance per streaming put; scoped, aborted on interruption |
-| [02] | `Options.client: S3Client` / `Options.params` | input | the object plane's one client; `params` spreads into every leg — `Bucket`/`Key`/`Body`/`IfNoneMatch`/`ChecksumAlgorithm`/`ContentType`/`Metadata` ride here |
-| [03] | `Options.partSize` / `.queueSize` (`Configuration`) | throughput | part bytes (5 MiB floor) and parallel-part width; memory ceiling ≈ `queueSize * partSize` |
-| [04] | `Options.leavePartsOnError` / `.tags` / `.abortController` | policy | abort-versus-keep on failure; post-complete `PutObjectTagging`; external abort injection |
-| [05] | `BodyDataTypes` (`PutObjectCommandInput["Body"]`) | body union | `Uint8Array`/`Buffer`/string/`Readable`/`ReadableStream`/`Blob` — the streaming ingress shapes |
-| [06] | `Progress` (`{ loaded?, total?, part?, Key?, Bucket? }`) | event payload | `httpUploadProgress` — per-part transfer evidence |
-| [07] | `Upload.uploadId?` | evidence | the multipart `UploadId` when the multipart path engaged |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                                         |
+| :-----: | :----------------------------------------------------------------- | :------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Upload` (`extends EventEmitter`, `constructor(options: Options)`) | uploader      | one instance per streaming put; scoped, aborted on interruption                                                                                             |
+|  [02]   | `Options.client: S3Client` / `Options.params`                      | input         | the object plane's one client; `params` spreads into every leg — `Bucket`/`Key`/`Body`/`IfNoneMatch`/`ChecksumAlgorithm`/`ContentType`/`Metadata` ride here |
+|  [03]   | `Options.partSize` / `.queueSize` (`Configuration`)                | throughput    | part bytes (5 MiB floor) and parallel-part width; memory ceiling ≈ `queueSize * partSize`                                                                   |
+|  [04]   | `Options.leavePartsOnError` / `.tags` / `.abortController`         | policy        | abort-versus-keep on failure; post-complete `PutObjectTagging`; external abort injection                                                                    |
+|  [05]   | `BodyDataTypes` (`PutObjectCommandInput["Body"]`)                  | body union    | `Uint8Array`/`Buffer`/string/`Readable`/`ReadableStream`/`Blob` — the streaming ingress shapes                                                              |
+|  [06]   | `Progress` (`{ loaded?, total?, part?, Key?, Bucket? }`)           | event payload | `httpUploadProgress` — per-part transfer evidence                                                                                                           |
+|  [07]   | `Upload.uploadId?`                                                 | evidence      | the multipart `UploadId` when the multipart path engaged                                                                                                    |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the streaming conditional put under Effect
 - rail: object/store
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `new Upload({ client, params: { Bucket, Key: contentKey, Body, IfNoneMatch: "*", ChecksumAlgorithm: "SHA256" }, partSize, queueSize })` | construct | the streaming conditional put — 412 on either leg is the idempotent noop |
-| [02] | `upload.done(): Promise<CompleteMultipartUploadCommandOutput>` | run | one `Effect.tryPromise` per upload; the caught 412 folds to `written: false` |
-| [03] | `upload.abort(): Promise<void>` / `Options.abortController` | teardown | `Effect.acquireRelease`/`onInterrupt` bridges fiber interruption to `AbortMultipartUpload` |
-| [04] | `upload.on("httpUploadProgress", (progress) => ...)` | progress | transfer evidence lifted onto the rail's telemetry, never domain state |
+| [INDEX] | [SURFACE]                                                                                                                               | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                        |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `new Upload({ client, params: { Bucket, Key: contentKey, Body, IfNoneMatch: "*", ChecksumAlgorithm: "SHA256" }, partSize, queueSize })` | construct      | the streaming conditional put — 412 on either leg is the idempotent noop                   |
+|  [02]   | `upload.done(): Promise<CompleteMultipartUploadCommandOutput>`                                                                          | run            | one `Effect.tryPromise` per upload; the caught 412 folds to `written: false`               |
+|  [03]   | `upload.abort(): Promise<void>` / `Options.abortController`                                                                             | teardown       | `Effect.acquireRelease`/`onInterrupt` bridges fiber interruption to `AbortMultipartUpload` |
+|  [04]   | `upload.on("httpUploadProgress", (progress) => ...)`                                                                                    | progress       | transfer evidence lifted onto the rail's telemetry, never domain state                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

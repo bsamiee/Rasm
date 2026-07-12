@@ -2,15 +2,15 @@
 
 Crash capture is one total fold from any settled `Cause` to a structured fatal emission: the exception triple (`exception.type`/`message`/`stacktrace`) plus `error.type` stamp through `Convention` rows, forensic enrichment rides the core-declared fault-enricher contract — the folded `Cause` seeds a `FaultCapture`, the interchange codec's Layer round-trips it with wire-grade forensics in the attribute band, `FaultEnricher.identity` is the shipped no-interchange pass-through, and this module never imports the interchange — and the recent-history replay ring attaches as breadcrumb evidence redacted at the moment of capture, so raw PII never sits in memory waiting for a crash. Capture itself is infallible by law: a pass-through enrichment and a full ring degrade, never fail, because the crash path is the last place a fault channel may open. The fiber-external net — `window.onerror`, `unhandledrejection`, process-level hooks — registers as a `Layer` whose hook arrives as a runtime-supplied value, keeping this module runtime-neutral while the `./browser`/`./server` subpaths each contribute a one-line hook row. The module is `runtime/src/otel/crash.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER] | [OWNS]                                                                       | [PUBLIC] |
-| :-----: | :-------- | :------------------------------------------------------------------------------ | :------- |
-|  [01]   | `REPLAY`  | the breadcrumb ring: bounded window, redaction-at-capture, evidence projection  | `Crash`  |
-|  [02]   | `CAPTURE` | the `Cause` fold, enricher consumption, convention-named fatal emission         | `Crash`  |
-|  [03]   | `NET`     | fiber-external hook rows as runtime-supplied values                             | hooks    |
+| [INDEX] | [CLUSTER] | [OWNS]                                                                         | [PUBLIC] |
+| :-----: | :-------- | :----------------------------------------------------------------------------- | :------- |
+|  [01]   | `REPLAY`  | the breadcrumb ring: bounded window, redaction-at-capture, evidence projection | `Crash`  |
+|  [02]   | `CAPTURE` | the `Cause` fold, enricher consumption, convention-named fatal emission        | `Crash`  |
+|  [03]   | `NET`     | fiber-external hook rows as runtime-supplied values                            | hooks    |
 
-## [2]-[REPLAY]
+## [02]-[REPLAY]
 
 [REPLAY]:
 - Owner: the breadcrumb ring inside the `Crash` service — a `Ref<Chunk<Breadcrumb>>` sliding window whose width is the interior `_RING` policy row; a breadcrumb is `{ at, label, detail }` with `detail` a flat attribute record.
@@ -49,7 +49,7 @@ const _crumb = (
       Chunk.takeRight(Chunk.append(held, { at, detail: Redaction.scrub(rules, detail), label }), _RING.width)))
 ```
 
-## [3]-[CAPTURE]
+## [03]-[CAPTURE]
 
 [CAPTURE]:
 - Owner: the `Crash` service — a Layer factory over the app's `AppIdentity` (`Crash.Default(identity)`), `scoped` construction holding the ring, the capture-defaults scrub rules, and the core enrichment port; `capture` and `note` are the accessors, and `Crash.net` is the class-carried registration static so the whole crash surface travels one import.
@@ -136,7 +136,7 @@ class Crash extends Effect.Service<Crash>()("runtime/Crash", {
 }
 ```
 
-## [4]-[NET]
+## [04]-[NET]
 
 [NET]:
 - Owner: the per-runtime `Hook` rows — plain values the `./browser` and `./server` subpath modules contribute, each wiring its platform's fiber-external failure sources and returning the composed unregister; `crash.ts` names no runtime, so the net law is closed while the hook roster grows at the edges; the fence below is the `./browser` subpath module in full.

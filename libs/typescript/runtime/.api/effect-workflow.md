@@ -19,26 +19,26 @@
 - rail: durable-execution
 - A `Workflow` carries payload/success/error `Schema`s and a deterministic `idempotencyKey`; an `Activity` IS an `Effect` whose exit is durably recorded. Both are closed, versioned Schema families — the same decode-once law as `store/journal`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------- |:-------------- |:------------------------------------------------------------- |
-| [01] | `Workflow.Workflow<Name, Payload, Success, Error>` | workflow def | `work/flow` — one durable definition; `execute`/`poll`/`interrupt`/`resume`/`executionId` on the value |
-| [02] | `Activity.Activity<Success, Error, R>` | activity def | `work/flow` — extends `Effect`; the once-executed durable step |
-| [03] | `Workflow.Result<A, E>` = `Complete<A, E>` \| `Suspended` | result ADT | `poll` return; `Match` the two arms — a suspended run awaits an external signal |
-| [04] | `Activity.CurrentAttempt` | context ref | the attempt counter (`number`) inside an activity; feeds `idempotencyKey({ includeAttempt })` |
-| [05] | `Workflow.AnyStructSchema` / `Workflow.Any` | erased def | registry/proxy bounds over heterogeneous workflow sets |
+| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY] | [CONSUMER_BOUNDARY]                                                                                    |
+| :-----: | :-------------------------------------------------------- | :------------ | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `Workflow.Workflow<Name, Payload, Success, Error>`        | workflow def  | `work/flow` — one durable definition; `execute`/`poll`/`interrupt`/`resume`/`executionId` on the value |
+|  [02]   | `Activity.Activity<Success, Error, R>`                    | activity def  | `work/flow` — extends `Effect`; the once-executed durable step                                         |
+|  [03]   | `Workflow.Result<A, E>` = `Complete<A, E>` \| `Suspended` | result ADT    | `poll` return; `Match` the two arms — a suspended run awaits an external signal                        |
+|  [04]   | `Activity.CurrentAttempt`                                 | context ref   | the attempt counter (`number`) inside an activity; feeds `idempotencyKey({ includeAttempt })`          |
+|  [05]   | `Workflow.AnyStructSchema` / `Workflow.Any`               | erased def    | registry/proxy bounds over heterogeneous workflow sets                                                 |
 
 [PUBLIC_TYPE_SCOPE]: the durable primitives — deferred, clock, queue, rate limiter
 - rail: durable-execution
 - Each is the durable analog of an in-memory `effect` primitive: `DurableDeferred` is a token-addressable `Deferred` that survives restarts, `DurableClock` a durable `Effect.sleep`, `DurableQueue` a `@effect/experimental` `PersistedQueue` with a completion `DurableDeferred`, `DurableRateLimiter` a durable `@effect/experimental` `RateLimiter`.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------- |:-------------- |:------------------------------------------------------------- |
-| [01] | `DurableDeferred.DurableDeferred<Success, Error>` | external signal | `work/flow` — await a human approval / webhook callback across restarts |
-| [02] | `DurableDeferred.Token` | branded string | the durable correlation handle; `tokenFromPayload`/`tokenFromExecutionId` derive it for out-of-band resolution |
-| [03] | `DurableClock.DurableClock` | durable timer | `work/schedule` — sleep across process restarts; short sleeps run in memory |
-| [04] | `DurableQueue.DurableQueue<Payload, Success, Error>` | persisted job | `work/queue` — a `PersistedQueue` whose items complete via a `DurableDeferred` |
-| [05] | `WorkflowEngine` | engine Tag | the execution service; `layerMemory` (spec) or `ClusterWorkflowEngine.layer` (durable) satisfies it |
-| [06] | `WorkflowEngine.WorkflowInstance` | execution context Tag | per-run state (executionId, workflow, scope, suspended/interrupted flags, cause); the durable-instance handle |
+| [INDEX] | [SYMBOL]                                             | [TYPE_FAMILY]         | [CONSUMER_BOUNDARY]                                                                                            |
+| :-----: | :--------------------------------------------------- | :-------------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `DurableDeferred.DurableDeferred<Success, Error>`    | external signal       | `work/flow` — await a human approval / webhook callback across restarts                                        |
+|  [02]   | `DurableDeferred.Token`                              | branded string        | the durable correlation handle; `tokenFromPayload`/`tokenFromExecutionId` derive it for out-of-band resolution |
+|  [03]   | `DurableClock.DurableClock`                          | durable timer         | `work/schedule` — sleep across process restarts; short sleeps run in memory                                    |
+|  [04]   | `DurableQueue.DurableQueue<Payload, Success, Error>` | persisted job         | `work/queue` — a `PersistedQueue` whose items complete via a `DurableDeferred`                                 |
+|  [05]   | `WorkflowEngine`                                     | engine Tag            | the execution service; `layerMemory` (spec) or `ClusterWorkflowEngine.layer` (durable) satisfies it            |
+|  [06]   | `WorkflowEngine.WorkflowInstance`                    | execution context Tag | per-run state (executionId, workflow, scope, suspended/interrupted flags, cause); the durable-instance handle  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -46,52 +46,52 @@
 - rail: durable-execution
 - `Workflow.make` declares the durable computation with a deterministic `idempotencyKey`; `.toLayer(execute)` registers its body; `.execute(payload)` runs it (or returns the executionId with `{ discard: true }`). `withCompensation` is the saga fold — top-level effects register finalizers called on whole-workflow failure (NOT nested activities).
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `Workflow.make({ name, payload, idempotencyKey, success?, error?, suspendedRetrySchedule?, annotations? })` | declare | `work/flow` — the durable definition; `idempotencyKey` derives the replay key |
-| [02] | `Workflow.fromTaggedRequest(schema, { suspendedRetrySchedule? })` | declare | build a workflow from a `Schema.TaggedRequest` (payload+success+failure in one) |
-| [03] | `workflow.toLayer((payload, executionId) => Effect<Success, Error, R>)` | register | bind the workflow body; the `Layer` the app root provides |
-| [04] | `workflow.execute(payload, { discard? })` / `.poll(executionId)` / `.interrupt` / `.resume` | drive | run/observe/cancel/resume; `discard: true` returns the executionId string, fire-and-forget |
-| [05] | `workflow.executionId(payload)` | determinism | the content-derived id; the same payload resumes the same run |
-| [06] | `Workflow.withCompensation(effect, (value, cause) => cleanup)` | saga | register a compensation finalizer on a top-level effect; runs on whole-workflow failure |
-| [07] | `Workflow.intoResult` / `wrapActivityResult` / `suspend` / `provideScope` | result / control | lift an effect to the `Result` ADT; request suspension; scope an activity |
+| [INDEX] | [SURFACE]                                                                                                   | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                                        |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :--------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | `Workflow.make({ name, payload, idempotencyKey, success?, error?, suspendedRetrySchedule?, annotations? })` | declare          | `work/flow` — the durable definition; `idempotencyKey` derives the replay key              |
+|  [02]   | `Workflow.fromTaggedRequest(schema, { suspendedRetrySchedule? })`                                           | declare          | build a workflow from a `Schema.TaggedRequest` (payload+success+failure in one)            |
+|  [03]   | `workflow.toLayer((payload, executionId) => Effect<Success, Error, R>)`                                     | register         | bind the workflow body; the `Layer` the app root provides                                  |
+|  [04]   | `workflow.execute(payload, { discard? })` / `.poll(executionId)` / `.interrupt` / `.resume`                 | drive            | run/observe/cancel/resume; `discard: true` returns the executionId string, fire-and-forget |
+|  [05]   | `workflow.executionId(payload)`                                                                             | determinism      | the content-derived id; the same payload resumes the same run                              |
+|  [06]   | `Workflow.withCompensation(effect, (value, cause) => cleanup)`                                              | saga             | register a compensation finalizer on a top-level effect; runs on whole-workflow failure    |
+|  [07]   | `Workflow.intoResult` / `wrapActivityResult` / `suspend` / `provideScope`                                   | result / control | lift an effect to the `Result` ADT; request suspension; scope an activity                  |
 
 [ENTRYPOINT_SCOPE]: activities — the once-executed durable steps with retry budgets
 - rail: durable-execution
 - `Activity.make` records a step's exit durably; retry/timeout budgets come from `effect/Schedule` (`core/value/fault`), never a loop. `idempotencyKey` and `raceAll` are the dedup and speculative-execution seams.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `Activity.make({ name, execute, success?, error?, interruptRetryPolicy? })` | declare | `work/flow` — the durable step; `interruptRetryPolicy` a `Schedule` |
-| [02] | `Activity.retry(effect, options)` | retry | Effect.Retry options minus `schedule` (`times`/`while`/`until` only — the shipped surface types `schedule` out); bounds and gates from `core/value/fault` rows, pacing composed on the body |
-| [03] | `Activity.idempotencyKey(name, { includeAttempt? })` | dedup | the durable step key; `includeAttempt` splits retries into distinct keys |
-| [04] | `Activity.raceAll(name, activities)` | race | first durable step to complete wins; the speculative-execution fold |
+| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                                                                         |
+| :-----: | :-------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Activity.make({ name, execute, success?, error?, interruptRetryPolicy? })` | declare        | `work/flow` — the durable step; `interruptRetryPolicy` a `Schedule`                                                                                                                         |
+|  [02]   | `Activity.retry(effect, options)`                                           | retry          | Effect.Retry options minus `schedule` (`times`/`while`/`until` only — the shipped surface types `schedule` out); bounds and gates from `core/value/fault` rows, pacing composed on the body |
+|  [03]   | `Activity.idempotencyKey(name, { includeAttempt? })`                        | dedup          | the durable step key; `includeAttempt` splits retries into distinct keys                                                                                                                    |
+|  [04]   | `Activity.raceAll(name, activities)`                                        | race           | first durable step to complete wins; the speculative-execution fold                                                                                                                         |
 
 [ENTRYPOINT_SCOPE]: durable primitives — deferred, clock, queue, rate limiter
 - rail: durable-execution
 - The external-signal, timer, queue, and throttle surfaces. `DurableDeferred` is resolved out-of-band by `Token`; `DurableQueue` wraps `@effect/experimental` `PersistedQueue`; `DurableRateLimiter` wraps `@effect/experimental` `RateLimiter` with the algorithm as a policy value.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `DurableDeferred.make(name, { success?, error? })` — `await` / `into(effect)` | external signal | suspend the workflow until resolved; `into` binds an effect's result to the deferred |
-| [02] | `DurableDeferred.token` / `tokenFromPayload({ workflow, payload })` / `tokenFromExecutionId({ workflow, executionId })` | correlate | derive the `Token` an out-of-band caller resolves against; both take the owning workflow value |
-| [03] | `DurableDeferred.succeed` / `fail` / `failCause` / `done` / `raceAll` | resolve | out-of-band completion by `Token` (webhook, human approval, sibling service) |
-| [04] | `DurableClock.make({ name, duration })` / `DurableClock.sleep({ name, duration, inMemoryThreshold? })` | durable timer | sleep across restarts; `inMemoryThreshold` (default 60s) runs sub-window sleeps in memory |
-| [05] | `DurableQueue.make({ name, payload, idempotencyKey, success?, error? })` | declare queue | `work/queue` — the persisted job family; `idempotencyKey` the dedup key |
-| [06] | `DurableQueue.process(queue, payload, { retrySchedule? })` | offer | enqueue + suspend until a worker finishes; `retrySchedule` over `PersistedQueueError` is the DLQ/replay budget |
-| [07] | `DurableQueue.worker(queue, f, { concurrency? })` / `makeWorker` | consume | the worker `Layer`/effect; bounded concurrency processing |
-| [08] | `DurableRateLimiter.rateLimit({ name, algorithm?, window, limit, key, tokens? })` | throttle | a durable-throttle `Activity`; `algorithm` = `fixed-window` \| `token-bucket` policy value |
+| [INDEX] | [SURFACE]                                                                                                               | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                            |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `DurableDeferred.make(name, { success?, error? })` — `await` / `into(effect)`                                           | external signal | suspend the workflow until resolved; `into` binds an effect's result to the deferred                           |
+|  [02]   | `DurableDeferred.token` / `tokenFromPayload({ workflow, payload })` / `tokenFromExecutionId({ workflow, executionId })` | correlate       | derive the `Token` an out-of-band caller resolves against; both take the owning workflow value                 |
+|  [03]   | `DurableDeferred.succeed` / `fail` / `failCause` / `done` / `raceAll`                                                   | resolve         | out-of-band completion by `Token` (webhook, human approval, sibling service)                                   |
+|  [04]   | `DurableClock.make({ name, duration })` / `DurableClock.sleep({ name, duration, inMemoryThreshold? })`                  | durable timer   | sleep across restarts; `inMemoryThreshold` (default 60s) runs sub-window sleeps in memory                      |
+|  [05]   | `DurableQueue.make({ name, payload, idempotencyKey, success?, error? })`                                                | declare queue   | `work/queue` — the persisted job family; `idempotencyKey` the dedup key                                        |
+|  [06]   | `DurableQueue.process(queue, payload, { retrySchedule? })`                                                              | offer           | enqueue + suspend until a worker finishes; `retrySchedule` over `PersistedQueueError` is the DLQ/replay budget |
+|  [07]   | `DurableQueue.worker(queue, f, { concurrency? })` / `makeWorker`                                                        | consume         | the worker `Layer`/effect; bounded concurrency processing                                                      |
+|  [08]   | `DurableRateLimiter.rateLimit({ name, algorithm?, window, limit, key, tokens? })`                                       | throttle        | a durable-throttle `Activity`; `algorithm` = `fixed-window` \| `token-bucket` policy value                     |
 
 [ENTRYPOINT_SCOPE]: engine layers + wire exposure
 - rail: durable-execution/boundaries
 - The engine Layer selection and the proxy that exposes workflows over the wire.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `WorkflowEngine.layerMemory` | engine (spec) | in-memory execution for kit-driven specs; no durability |
-| [02] | `WorkflowEngine.makeUnsafe(encoded)` / the `WorkflowEngine.Encoded` interface | engine (raw) | a custom engine backing behind the erased interface |
-| [03] | `WorkflowProxy.toRpcGroup(workflows, { prefix? })` | wire expose | a workflow set → an `@effect/rpc` `RpcGroup` (`edge` contribution) |
-| [04] | `WorkflowProxy.toHttpApiGroup(name, workflows)` / `WorkflowProxyServer` | wire expose | a workflow set → an `@effect/platform` `HttpApiGroup` + the server binding; typed client for free |
+| [INDEX] | [SURFACE]                                                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                               |
+| :-----: | :---------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `WorkflowEngine.layerMemory`                                                  | engine (spec)  | in-memory execution for kit-driven specs; no durability                                           |
+|  [02]   | `WorkflowEngine.makeUnsafe(encoded)` / the `WorkflowEngine.Encoded` interface | engine (raw)   | a custom engine backing behind the erased interface                                               |
+|  [03]   | `WorkflowProxy.toRpcGroup(workflows, { prefix? })`                            | wire expose    | a workflow set → an `@effect/rpc` `RpcGroup` (`edge` contribution)                                |
+|  [04]   | `WorkflowProxy.toHttpApiGroup(name, workflows)` / `WorkflowProxyServer`       | wire expose    | a workflow set → an `@effect/platform` `HttpApiGroup` + the server binding; typed client for free |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

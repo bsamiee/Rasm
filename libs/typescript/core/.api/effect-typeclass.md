@@ -15,12 +15,12 @@
 
 Three nested contracts are the whole merge substrate — `Semigroup` (associative combine), `Monoid` (adds identity + whole-collection fold), `Bounded` (adds an `Order` with bounds so a `Monoid` empty derives from `minBound`/`maxBound`). Every instance in [02] is one of these.
 
-| [INDEX] | [SYMBOL] | [CONTRACT] | [MERGE_ROLE_BOUNDARY] |
-|:-----: |:------------------ |:----------------------------------------------------------- |:------------------------------------------------------------ |
-| [01] | `Semigroup<A>` | `combine(self, that)` + `combineMany(self, Iterable)` | the pairwise merge; convergence-legal ⇔ idempotent + commutative |
-| [02] | `Monoid<A>` | `Semigroup<A>` + `empty` + `combineAll(Iterable)` | bounded merge — `empty` is the neutral state; folds a whole collection |
-| [03] | `Bounded<A>` | `compare: Order<A>` + `minBound` + `maxBound` | the semilattice bounds; `Monoid.min`/`max` derive `empty` from a bound |
-| [04] | `SemigroupTypeLambda` / `Kind<F, R, O, E, A>` | HKT encoding | the higher-kinded machinery the law combinators ([03]) quantify over |
+| [INDEX] | [SYMBOL]                                      | [CONTRACT]                                            | [MERGE_ROLE_BOUNDARY]                                                  |
+| :-----: | :-------------------------------------------- | :---------------------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `Semigroup<A>`                                | `combine(self, that)` + `combineMany(self, Iterable)` | the pairwise merge; convergence-legal ⇔ idempotent + commutative       |
+|  [02]   | `Monoid<A>`                                   | `Semigroup<A>` + `empty` + `combineAll(Iterable)`     | bounded merge — `empty` is the neutral state; folds a whole collection |
+|  [03]   | `Bounded<A>`                                  | `compare: Order<A>` + `minBound` + `maxBound`         | the semilattice bounds; `Monoid.min`/`max` derive `empty` from a bound |
+|  [04]   | `SemigroupTypeLambda` / `Kind<F, R, O, E, A>` | HKT encoding                                          | the higher-kinded machinery the law combinators ([03]) quantify over   |
 
 ```ts contract
 // The one merge shape. combineMany is the incremental fold — the d2ts reduce reducer is its elementwise projection.
@@ -44,22 +44,22 @@ declare const Monoid.max: <A>(B: Bounded<A>) => Monoid<A>       // empty = minBo
 
 The merge algebra is ONE parameterized pattern: constructors that build a `Semigroup`/`Monoid` from a policy, structural combinators that compose per-field instances, and the `data/*` named instances. The roster below is SEED DATA on the `Semigroup<A>`/`Monoid<A>` shape — a new merge is a new instance row (a new `Order`, a new `struct` field, a new `data/*` constant), never a new merge shape.
 
-| [INDEX] | [SURFACE] | [PRODUCES] | [MERGE_SEMANTICS] |
-|:-----: |:------------------------------------------------------------ |:---------------------- |:----------------------------------------------------------- |
-| [01] | `Semigroup.make(combine, combineMany?)` / `Monoid.fromSemigroup(S, empty)` | instance | the escape hatch — a bespoke lawful merge, obligations manually proven |
-| [02] | `Semigroup.min(O)` / `.max(O)` · `Monoid.min(B)` / `.max(B)` | semilattice | join/meet over an `Order`/`Bounded` — the register/lattice CRDT |
-| [03] | `Semigroup.first()` / `.last()` / `.constant(a)` | LWW / const register | last-write-wins (commutative only under a timestamp order); `constant` ignores input |
-| [04] | `Semigroup.struct(fields)` / `.tuple(...)` / `.array()` | product instance | per-field/positional merge — the record/tuple CRDT from component instances |
-| [05] | `Semigroup.reverse(S)` / `.intercalate(sep)` / `.imap(to, from)` | derived instance | dual, separated concat, and profunctor-mapped merge (encode/decode a wrapper) |
-| [06] | `data/Number` `SemigroupSum`/`Multiply`/`Min`/`Max` (+`Monoid*`, `Bounded`) | numeric instance | counter (`Sum`) and lattice (`Min`/`Max`) merges — `Sum` is a commutative monoid, not idempotent |
-| [07] | `data/Boolean` `SemigroupEvery`/`Some`/`Xor`/`Eqv` (+`Monoid*`) | boolean lattice | AND/OR (idempotent flag lattices) and XOR/EQV (toggle monoids) |
-| [08] | `data/Record` `getSemigroupUnion`/`getSemigroupIntersection` (+`getMonoidUnion`) | keyed-map merge | grow-only / observed map CRDT — per-value `Semigroup` merges collisions |
-| [09] | `data/Option` `getOptionalMonoid(S)` · `data/Array` `getSemigroup`/`getMonoid` | optional / list | `None` is `empty`, `Some`s merge via `S`; array concat monoid |
-| [10] | `data/String` · `data/BigInt` · `data/Duration` · `data/Ordering` · `data/Predicate` | scalar instance | string/bigint/duration sum-max-min lattices, `Ordering` tie-break monoid, predicate boolean lattices |
-| [11] | `data/Either` `Covariant`/`Monad`/`SemiApplicative`/`Applicative`/`SemiCoproduct`/`SemiAlternative`/`Bicovariant`/`Foldable`/`Traversable` | functor witness | the `Either` `F` the [03] combinators lift through — `Semigroup<Either<E, Op>>` via `getSemigroup(Either.SemiApplicative)` |
-| [12] | `data/Identity` `Monad`/`Applicative`/`Foldable`/`Traversable` (+`getSemiCoproduct(S)`/`getSemiAlternative(S)`) | functor witness | the bare-value functor — lift/fold laws proven without a container |
-| [13] | `data/Tuple` `Bicovariant` | functor witness | map both pair positions — the tuple projection under the [03] combinators |
-| [14] | `data/Effect` · `data/Micro` `Covariant`/`Monad` + `getSemiProduct`/`getProduct`/`getSemiApplicative`/`getApplicative` (concurrency-parameterized) | functor witness | the effectful lift — a `Semigroup<Effect<State>>`/`Monoid<Micro<State>>` with concurrency as the instance parameter |
+| [INDEX] | [SURFACE]                                                                                                                                          | [PRODUCES]           | [MERGE_SEMANTICS]                                                                                                          |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Semigroup.make(combine, combineMany?)` / `Monoid.fromSemigroup(S, empty)`                                                                         | instance             | the escape hatch — a bespoke lawful merge, obligations manually proven                                                     |
+|  [02]   | `Semigroup.min(O)` / `.max(O)` · `Monoid.min(B)` / `.max(B)`                                                                                       | semilattice          | join/meet over an `Order`/`Bounded` — the register/lattice CRDT                                                            |
+|  [03]   | `Semigroup.first()` / `.last()` / `.constant(a)`                                                                                                   | LWW / const register | last-write-wins (commutative only under a timestamp order); `constant` ignores input                                       |
+|  [04]   | `Semigroup.struct(fields)` / `.tuple(...)` / `.array()`                                                                                            | product instance     | per-field/positional merge — the record/tuple CRDT from component instances                                                |
+|  [05]   | `Semigroup.reverse(S)` / `.intercalate(sep)` / `.imap(to, from)`                                                                                   | derived instance     | dual, separated concat, and profunctor-mapped merge (encode/decode a wrapper)                                              |
+|  [06]   | `data/Number` `SemigroupSum`/`Multiply`/`Min`/`Max` (+`Monoid*`, `Bounded`)                                                                        | numeric instance     | counter (`Sum`) and lattice (`Min`/`Max`) merges — `Sum` is a commutative monoid, not idempotent                           |
+|  [07]   | `data/Boolean` `SemigroupEvery`/`Some`/`Xor`/`Eqv` (+`Monoid*`)                                                                                    | boolean lattice      | AND/OR (idempotent flag lattices) and XOR/EQV (toggle monoids)                                                             |
+|  [08]   | `data/Record` `getSemigroupUnion`/`getSemigroupIntersection` (+`getMonoidUnion`)                                                                   | keyed-map merge      | grow-only / observed map CRDT — per-value `Semigroup` merges collisions                                                    |
+|  [09]   | `data/Option` `getOptionalMonoid(S)` · `data/Array` `getSemigroup`/`getMonoid`                                                                     | optional / list      | `None` is `empty`, `Some`s merge via `S`; array concat monoid                                                              |
+|  [10]   | `data/String` · `data/BigInt` · `data/Duration` · `data/Ordering` · `data/Predicate`                                                               | scalar instance      | string/bigint/duration sum-max-min lattices, `Ordering` tie-break monoid, predicate boolean lattices                       |
+|  [11]   | `data/Either` `Covariant`/`Monad`/`SemiApplicative`/`Applicative`/`SemiCoproduct`/`SemiAlternative`/`Bicovariant`/`Foldable`/`Traversable`         | functor witness      | the `Either` `F` the [03] combinators lift through — `Semigroup<Either<E, Op>>` via `getSemigroup(Either.SemiApplicative)` |
+|  [12]   | `data/Identity` `Monad`/`Applicative`/`Foldable`/`Traversable` (+`getSemiCoproduct(S)`/`getSemiAlternative(S)`)                                    | functor witness      | the bare-value functor — lift/fold laws proven without a container                                                         |
+|  [13]   | `data/Tuple` `Bicovariant`                                                                                                                         | functor witness      | map both pair positions — the tuple projection under the [03] combinators                                                  |
+|  [14]   | `data/Effect` · `data/Micro` `Covariant`/`Monad` + `getSemiProduct`/`getProduct`/`getSemiApplicative`/`getApplicative` (concurrency-parameterized) | functor witness      | the effectful lift — a `Semigroup<Effect<State>>`/`Monoid<Micro<State>>` with concurrency as the instance parameter        |
 
 ```ts contract
 // A record CRDT is composed, never written: each field is a lawful component instance, struct lifts them to the record.
@@ -77,14 +77,14 @@ const merged = StateMonoid.combineAll(replicaStates)      // fold from empty acr
 
 The higher hierarchy is the `@rasm/ts-testkit` law-combinator surface (`tests/typescript/_testkit`): it LIFTS a `Semigroup`/`Monoid` through any functor `F` and FOLDS it over any `Foldable`, so the same merge instance proves its laws inside `Option`, `Either`, `Array`, or a decoded op container without a bespoke harness. This is the "shared with the testkit law combinators" the merge design names.
 
-| [INDEX] | [SURFACE] | [LIFTS_FOLDS] | [PROOF_ROLE] |
-|:-----: |:----------------------------------------------------- |:---------------------------------------------------------- |:----------------------------------------------------------- |
-| [01] | `SemiApplicative.getSemigroup(F)(S)` | `Semigroup<A>` → `Semigroup<Kind<F, …, A>>` | merge inside a functor — `Semigroup<Option<Op>>` from `Semigroup<Op>` |
-| [02] | `Applicative.getMonoid(F)(M)` | `Monoid<A>` → `Monoid<Kind<F, …, A>>` | the identity-carrying lift — a `Monoid<Either<E, State>>` |
-| [03] | `Foldable.combineMap(F)(M)` / `Foldable.toArray(F)` | fold a container through `M`; extract to `Array` | fold a decoded-op container to one merged state — the `combineAll` over any `F` |
-| [04] | `Foldable.reduceComposition` / `reduceKind` | nested/effectful fold | fold a container-of-containers, or fold under a `Monad` effect |
-| [05] | `SemiProduct.nonEmptyStruct(F)` / `productComposition` | product of functor values by field | zip decoded op records field-wise — the applicative-product law |
-| [06] | `Covariant.mapComposition` / `Covariant.imap` | map through nested functors; invariant bidirectional map | the functor laws `state/merge` checks alongside merge laws |
+| [INDEX] | [SURFACE]                                              | [LIFTS_FOLDS]                                            | [PROOF_ROLE]                                                                    |
+| :-----: | :----------------------------------------------------- | :------------------------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `SemiApplicative.getSemigroup(F)(S)`                   | `Semigroup<A>` → `Semigroup<Kind<F, …, A>>`              | merge inside a functor — `Semigroup<Option<Op>>` from `Semigroup<Op>`           |
+|  [02]   | `Applicative.getMonoid(F)(M)`                          | `Monoid<A>` → `Monoid<Kind<F, …, A>>`                    | the identity-carrying lift — a `Monoid<Either<E, State>>`                       |
+|  [03]   | `Foldable.combineMap(F)(M)` / `Foldable.toArray(F)`    | fold a container through `M`; extract to `Array`         | fold a decoded-op container to one merged state — the `combineAll` over any `F` |
+|  [04]   | `Foldable.reduceComposition` / `reduceKind`            | nested/effectful fold                                    | fold a container-of-containers, or fold under a `Monad` effect                  |
+|  [05]   | `SemiProduct.nonEmptyStruct(F)` / `productComposition` | product of functor values by field                       | zip decoded op records field-wise — the applicative-product law                 |
+|  [06]   | `Covariant.mapComposition` / `Covariant.imap`          | map through nested functors; invariant bidirectional map | the functor laws `state/merge` checks alongside merge laws                      |
 
 ```ts contract
 // Lift once, prove once: a merge instance and its laws transport through any functor F — no per-container merge, no per-container proof.

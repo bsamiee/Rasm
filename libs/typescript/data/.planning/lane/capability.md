@@ -2,15 +2,15 @@
 
 The fail-closed capability rail of the folder: one closed row/ensure vocabulary, one `Capability` service that proves every extension row and every declared relation at Layer construction through request-batched probes, and one fault family for everything a probe refuses. Nothing in the folder assumes an extension, a version floor, or a relation — presence is proven or the capability does not exist, and the granted set is a value siblings gate on: `require` fails typed, `when` degrades to `Option`. The extension probes collapse to ONE statement per construction — a `RequestResolver`-batched lookup over the whole roster — and the same rail carries the DDL split: the provisioning plane applies the idempotent ensure rows, this service proves them at startup, runtime never mutates schema.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                                |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                                  |
 | :-----: | :--------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `ROW_VOCABULARY` | the row and ensure shapes, the version-order fold, the one fault family                   |
-|  [02]   | `BATCHED_PROBE`  | the probe request family and the one-statement `RequestResolver` over the roster          |
-|  [03]   | `PROBE_SERVICE`  | the `Capability` service — construction-time proof, granted set, `require`/`when` gates   |
+|  [01]   | `ROW_VOCABULARY` | the row and ensure shapes, the version-order fold, the one fault family                 |
+|  [02]   | `BATCHED_PROBE`  | the probe request family and the one-statement `RequestResolver` over the roster        |
+|  [03]   | `PROBE_SERVICE`  | the `Capability` service — construction-time proof, granted set, `require`/`when` gates |
 
-## [2]-[ROW_VOCABULARY]
+## [02]-[ROW_VOCABULARY]
 
 - Owner: `Capability.Row` — the shape every `lane/postgres.md` matrix row inhabits, re-declared here only as the structural bound the service consumes; `Capability.Ensure` — the `{relation, pg, sqlite}` DDL row every table-owning page publishes as data; the segment-numeric version order; the one reason-discriminated fault.
 - Packages: `effect` (`Data`, `Order`, `String`).
@@ -54,7 +54,7 @@ const _meets = (installed: string, floor: string): boolean =>
   Order.greaterThanOrEqualTo(_byVersion)(installed, floor)
 ```
 
-## [3]-[BATCHED_PROBE]
+## [03]-[BATCHED_PROBE]
 
 - Owner: the `_Probe` request class and `_probeResolver` — one `RequestResolver.makeBatched` that folds every extension lookup queued in a construction pass into a single decoded `pg_extension` scan keyed by `sql.in`, resolving each request to the installed version as `Option`.
 - Packages: `effect` (`Effect`, `Option`, `Request`, `RequestResolver`); `@effect/sql` (`SqlClient`, `SqlSchema`, `sql.in`).
@@ -97,7 +97,7 @@ const _probeResolver = (sql: SqlClient.SqlClient): RequestResolver.RequestResolv
 }
 ```
 
-## [4]-[PROBE_SERVICE]
+## [04]-[PROBE_SERVICE]
 
 - Owner: the `Capability` service — one `Effect.Service` whose parameterized `Default(rows, ensures, core)` Layer factory batch-probes the roster, verifies every ensure relation, seeds the granted set with the caller's dialect core grants, and publishes the granted set, the installed-version report, and the refused evidence.
 - Packages: `effect` (`Effect.Service`, `HashMap`, `HashSet`, `Option`); `@effect/sql` (`SqlClient`, `sql.onDialectOrElse`); `lane/postgres.md` (`Pg.rows`, `Pg.core` arrive as arguments, never imports — the service is roster-agnostic).

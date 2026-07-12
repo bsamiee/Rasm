@@ -2,15 +2,15 @@
 
 The Automation-API driver: inline typed programs over `LocalWorkspace.createOrSelectStack` with no `Pulumi.yaml` anywhere — every workspace fact (self-managed `backend.url`, `secretsProvider`, passphrase, CLI root) is an Effect `Config` read resolved once, and the pulumi CLI-binary-on-PATH is a deploy-host fact wrapped exactly here. The engine's `onEvent` callback bridges into an Effect `Stream` through `Stream.asyncPush` inside the run's own `Scope` — release aborts the engine run, so fiber interruption, scope close, and budget exhaustion all cancel with no orphan update — and one fold function buckets summary, steps, and diagnostics in a single pass whether the events arrive as a stream or a batch. The run owner internalizes its own resilience: a jittered exponential `Schedule` gated on the fault family's own `retry` column self-heals state-lock collisions, a per-run budget rides `Effect.timeoutFail`, and a span wraps every drive, so a consumer composes capability, never recurrence plumbing. `previewRefresh` rides the same owner as the read-only fifth leg: `reconcile` re-reads live provider state against the desired graph without mutating, and its receipt is the drift material `operate/policy.md` projects, so drift evidence and deploy evidence share one vocabulary by construction. The fleet verbs ride the same owner — ESC attachment, batch adoption, update history, and stack tags are typed members over the engine's own methods, and `remote` is the Deployments execution row gated on the spec's `cloud` backend. The engine has no in-band typed error class, so this page also owns the deploy plane's one fault family: `DeployFault`, reason-discriminated with its policy table riding the class as a static, minted by one foreign-value triage over the `CommandError` classes. The module is `iac/src/program/automation.ts`; a new engine event arm is one fold row, a new failure cause is one policy row plus one triage arm, and the mutating ledger itself is closed.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                   | [PUBLIC]      |
-| :-----: | :------------------ | :----------------------------------------------------------------------- | :------------ |
-|  [01]   | `ENGINE_VOCABULARY` | the ledger tuple, the 15-member `OpType` union, the receipt owner        | `RunReceipt`  |
-|  [02]   | `DEPLOY_FAULT`      | the reason-discriminated fault family, its policy table, the triage      | `DeployFault` |
-|  [03]   | `AUTOMATION_RUN`    | host facts, the stream bridge, internalized resilience, the fleet verbs  | `Automation`  |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                  | [PUBLIC]      |
+| :-----: | :------------------ | :---------------------------------------------------------------------- | :------------ |
+|  [01]   | `ENGINE_VOCABULARY` | the ledger tuple, the 15-member `OpType` union, the receipt owner       | `RunReceipt`  |
+|  [02]   | `DEPLOY_FAULT`      | the reason-discriminated fault family, its policy table, the triage     | `DeployFault` |
+|  [03]   | `AUTOMATION_RUN`    | host facts, the stream bridge, internalized resilience, the fleet verbs | `Automation`  |
 
-## [2]-[ENGINE_VOCABULARY]
+## [02]-[ENGINE_VOCABULARY]
 
 [ENGINE_VOCABULARY]:
 - Owner: `RunReceipt`, one `Schema.Class` — `op` (the ledger-or-reconcile literal), `stack` (the fully qualified name), `summary` (the per-`OpType` count record the terminal `SummaryEvent.resourceChanges` carries), `steps` (one inline row per `resourcePreEvent`: op, urn, type token, provider, changed property paths), and `diagnostics` (severity-tagged provider messages) — step and diagnostic shapes are inline `Schema.Struct` blocks embedded in the one owner, reachable as `RunReceipt["steps"][number]`, never sibling classes.
@@ -70,7 +70,7 @@ declare namespace RunReceipt {
 }
 ```
 
-## [3]-[DEPLOY_FAULT]
+## [03]-[DEPLOY_FAULT]
 
 [DEPLOY_FAULT]:
 - Owner: `DeployFault`, the deploy plane's one fault family — a `Data.TaggedError` whose `reason` row discriminates every failure route, with the interior `_POLICY` table carrying rank, retryability, and halting posture per reason riding the class as `DeployFault.policies`; the class projects its row as `policy`, so recovery reads data, never a reason `switch`, and the run owner's retry schedule gates on the same column.
@@ -129,7 +129,7 @@ declare namespace DeployFault {
 }
 ```
 
-## [4]-[AUTOMATION_RUN]
+## [04]-[AUTOMATION_RUN]
 
 [AUTOMATION_RUN]:
 - Owner: `Automation` — `stack` acquires the idempotent workspace, `run` drives one mutating ledger op to a receipt, `reconcile` runs the read-only `previewRefresh` leg to the same receipt shape, `receipt` folds an event batch through the same one-pass fold the stream rides, `ephemeral` brackets a stack whose release destroys it, `snapshot`/`restore` are the state-lifecycle pair over `exportStack`/`importStack`, `adopt` is the batch-adoption verb over `Stack.import` (`ImportResource` rows, `protect` by default — the operator disaster/onboarding entry), `attach`/`environments` are the imperative ESC pair over `Stack.addEnvironments`/`listEnvironments` (no typed `StackSettings` field exists, so attachment is run data), `history` reads the engine's update audit beside the receipt, `label`/`tags` write and read stack tags for fleet organization, and `remote` is the Deployments execution row over `RemoteWorkspace.createOrSelectStack`, admitted only when `spec.hosted`. The `_host` Config surface is the one deploy-host read: `PULUMI_BACKEND_URL` selects the self-managed state store, `PULUMI_CONFIG_PASSPHRASE` rides `Config.redacted` and unwraps exactly once into `envVars`, `PULUMI_PROJECT` defaults, `PULUMI_HOME` is optional — no `Pulumi.yaml` exists because `projectSettings` carries the same facts programmatically.

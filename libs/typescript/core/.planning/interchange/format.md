@@ -2,7 +2,7 @@
 
 The four format engines of the interchange plane — one arm per C#-minted byte dialect, each a configured-once pure engine behind one `Schema.transformOrFail` fold so every malformed payload is a `ParseError` on the one admission rail and no second codec fault vocabulary exists. `Proto` is the protobuf-es engine: read/write posture, the census-guarded `GenMessage` suite table, the singular type registry, the size-delimited frame stream both directions, and the custom-option read. `Cbor` is the canonical RFC 8949 decoder with the interop posture no cross-language byte may bypass, the `setSizeLimits` DoS gate, and the chunked `decodeIter` lane for multi-segment payloads. `Pack` is the MessagePack engine carrying the sixteen-byte `Hlc` extension row, the interner context thread, i64 fidelity, and the `ExtData` foreign-ext seam. `Patch` is the RFC 6902 engine: the six-op `Operation` union over the branch pointer brand, the `Pointer` traversal codec, the clone-fenced value-rail apply, the content-key-reconciled minimal diff, and the OCC test-guard egress. Engines are format mechanics only — which family decodes through which arm, what a decoded value lands as, and every verification are the codec registry's concern. The module is `core/src/interchange/format.ts`; a new proto family is one suite row, a new engine posture axis is one policy field, and a fifth dialect is a new engine owner beside these four, never a widening of one.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC] |
 | :-----: | :----------------- | :-------------------------------------------------------------------------- | :------- |
@@ -12,7 +12,7 @@ The four format engines of the interchange plane — one arm per C#-minted byte 
 |  [04]   | `MSGPACK_ENGINE`   | the `Hlc`-ext codec pair, the interner context, stream and zero-copy egress | `Pack`   |
 |  [05]   | `JSONPATCH_ENGINE` | the op union, apply, diff, OCC guards, and the patch content key            | `Patch`  |
 
-## [2]-[ENGINE_FOLD]
+## [02]-[ENGINE_FOLD]
 
 [ENGINE_FOLD]:
 - Owner: `_lifted`, the one transform builder every byte arm instantiates — a `(decode, encode)` function pair folds into a `Schema.transformOrFail` from held octets to `Schema.Unknown`, each direction catching the engine's throw through `Either.try` into `ParseResult.Type`, so a codec defect joins the admission rail at the seam it occurred and the interior never meets a raw engine throw.
@@ -42,7 +42,7 @@ const _lifted = (
   })
 ```
 
-## [3]-[PROTO_ENGINE]
+## [03]-[PROTO_ENGINE]
 
 [PROTO_ENGINE]:
 - Owner: `Proto`, the protobuf-es engine — `_READ`/`_WRITE` posture rows, the `_Message` foreign-identity schema, `frame(gen)` the raw byte-to-message schema, `family(gen, owned)` the composed byte-to-owned-vocabulary schema every proto registry row instantiates, `stream(gen)` the size-delimited frame walk lifted to `Stream`, `delimit(gen, message)` the length-prefixed egress twin of that walk, `peek(octets)` the frame-header triage read, `option(options, ext)` the custom-option read over any `Desc*.proto.options` carrier, the `_suite` `GenMessage` table over the ordered `_names` tuple, and the one `createRegistry` value `Any` unpacking and error-detail decode resolve against.
@@ -178,7 +178,7 @@ const Proto: Proto.Shape = {
 }
 ```
 
-## [4]-[CBOR_ENGINE]
+## [04]-[CBOR_ENGINE]
 
 [CBOR_ENGINE]:
 - Owner: `Cbor`, the canonical-CBOR engine — one configured `Decoder` under the cross-language posture (`useRecords: false`, `mapsAsObjects: true`, `tagUint8Array: true`), `frame` the decode-only byte schema, `frames` the concatenated multi-frame walk, `chunked` the iterator lane over `decodeIter` for a segment set that outgrows one buffer, and `GateLive` the boot-edge `Layer` arming the `setSizeLimits` ceilings before any untrusted decode.
@@ -224,7 +224,7 @@ const Cbor: {
 }
 ```
 
-## [5]-[MSGPACK_ENGINE]
+## [05]-[MSGPACK_ENGINE]
 
 [MSGPACK_ENGINE]:
 - Owner: `Pack`, the MessagePack engine — one `ExtensionCodec` carrying the C#-minted sixteen-byte `Hlc` cell as extension row `_EXT.hlc`, decoding through `Hlc.FromBytes` so the two-half little-endian layout has exactly one spelling; one configured `Decoder`/`Encoder` pair under `useBigInt64: true` and the `max*Length` ceilings; `schema(owned)` the composed byte-to-owned schema, `stream` the backpressured multi-frame walk, `encode`/`transfer` the canonical and zero-copy egress, and the `Alien`/`alien` foreign-ext seam.
@@ -290,7 +290,7 @@ const Pack: Pack.Shape = {
 }
 ```
 
-## [6]-[JSONPATCH_ENGINE]
+## [06]-[JSONPATCH_ENGINE]
 
 [JSONPATCH_ENGINE]:
 - Owner: `Patch`, the RFC 6902 engine — the six-op `Operation` union whose `path`/`from` fields carry the branch `Refined.JsonPointer` brand so a malformed pointer dies at admission, never inside the apply engine; `FromJson` the fused string codec; `apply` the clone-fenced value-rail application; `diff` the content-key-reconciled minimal patch; `guarded` the OCC egress prefixing `createTests` pre-image proofs; `encode` and `key` the egress projections; `pointer` the RFC 6901 traversal-and-token codec riding rfc6902's own `Pointer`.

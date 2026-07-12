@@ -18,11 +18,11 @@
 
 `LoggerProvider` is the logger factory; every axis — resource, processors, limits, per-logger configurator — is a `LoggerProviderOptions` field. Under the effect facade the provider is built by `Logger.layerLoggerProvider`, so a telemetry consumer supplies the processor and configurator, not the provider. `LoggerProviderConfig` is a pure alias of `LoggerProviderOptions`; effect consumes `Omit<LoggerProviderConfig, "resource">` (the `Resource` layer owns identity).
 
-| [INDEX] | [SYMBOL] | [KIND] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------- |:------------ |:------------------------------------------------------------- |
-| [01] | `LoggerProvider` | class | `implements ILoggerProvider`; `getLogger`/`forceFlush`/`shutdown` |
-| [02] | `LoggerProviderOptions` / `LoggerProviderConfig` | interface / alias | `resource?`/`processors?`/`logRecordLimits?`/`loggerConfigurator?` |
-| [03] | `LogRecordLimits` | interface | `attributeCountLimit?` / `attributeValueLengthLimit?` |
+| [INDEX] | [SYMBOL]                                         | [KIND]            | [CONSUMER_BOUNDARY]                                                |
+| :-----: | :----------------------------------------------- | :---------------- | :----------------------------------------------------------------- |
+|  [01]   | `LoggerProvider`                                 | class             | `implements ILoggerProvider`; `getLogger`/`forceFlush`/`shutdown`  |
+|  [02]   | `LoggerProviderOptions` / `LoggerProviderConfig` | interface / alias | `resource?`/`processors?`/`logRecordLimits?`/`loggerConfigurator?` |
+|  [03]   | `LogRecordLimits`                                | interface         | `attributeCountLimit?` / `attributeValueLengthLimit?`              |
 
 ```ts contract
 interface LoggerProviderOptions {
@@ -45,15 +45,15 @@ declare class LoggerProvider implements ILoggerProvider {
 
 The pipeline mirrors the trace leg: `LogRecordProcessor` owns the emit/flush lifecycle, `LogRecordExporter` owns format/transport, and `Simple` (per-record) / `Batch` (queued, `./platform`) / `Console` / `InMemory` are ROWS on those interfaces. `LogRecordProcessor.enabled?` is the advanced per-emit filter — a processor can reject a record by context/scope/severity/event-name BEFORE it is built, the cheapest drop point. `BatchLogRecordProcessor` is the `./platform` specialization of the internal `BatchLogRecordProcessorBase<T extends BufferConfig>` — node binds `T = BufferConfig`, browser `T = BatchLogRecordProcessorBrowserConfig`.
 
-| [INDEX] | [SYMBOL] | [KIND] | [CAPABILITY_BOUNDARY] |
-|:-----: |:------------------------------------ |:------------------ |:--------------------------------------------------------------- |
-| [01] | `LogRecordProcessor` | interface | `onEmit`/`forceFlush`/`shutdown` + `enabled?` per-emit filter |
-| [02] | `SimpleLogRecordProcessor` | class | one export per emitted record; sync; diagnostics/test |
-| [03] | `BatchLogRecordProcessor` | class (`./platform`)| queued batch export; the production row; `BufferConfig`-tuned |
-| [04] | `BufferConfig` / `BatchLogRecordProcessorBrowserConfig` | interface | batch tuning; browser adds `disableAutoFlushOnDocumentHide` |
-| [05] | `LogRecordExporter` | interface | `export(logs, cb)`/`shutdown`/`forceFlush` — format + transport |
-| [06] | `ConsoleLogRecordExporter` | class | stdout diagnostics |
-| [07] | `InMemoryLogRecordExporter` | class | `getFinishedLogRecords()`/`reset()` — the kit-driven spec lane |
+| [INDEX] | [SYMBOL]                                                | [KIND]               | [CAPABILITY_BOUNDARY]                                           |
+| :-----: | :------------------------------------------------------ | :------------------- | :-------------------------------------------------------------- |
+|  [01]   | `LogRecordProcessor`                                    | interface            | `onEmit`/`forceFlush`/`shutdown` + `enabled?` per-emit filter   |
+|  [02]   | `SimpleLogRecordProcessor`                              | class                | one export per emitted record; sync; diagnostics/test           |
+|  [03]   | `BatchLogRecordProcessor`                               | class (`./platform`) | queued batch export; the production row; `BufferConfig`-tuned   |
+|  [04]   | `BufferConfig` / `BatchLogRecordProcessorBrowserConfig` | interface            | batch tuning; browser adds `disableAutoFlushOnDocumentHide`     |
+|  [05]   | `LogRecordExporter`                                     | interface            | `export(logs, cb)`/`shutdown`/`forceFlush` — format + transport |
+|  [06]   | `ConsoleLogRecordExporter`                              | class                | stdout diagnostics                                              |
+|  [07]   | `InMemoryLogRecordExporter`                             | class                | `getFinishedLogRecords()`/`reset()` — the kit-driven spec lane  |
 
 ```ts contract
 interface LogRecordProcessor {
@@ -74,13 +74,13 @@ declare abstract class BatchLogRecordProcessorBase<T extends BufferConfig> imple
 
 `SdkLogRecord` is the mutable chainable builder a processor mutates on emit; `ReadableLogRecord` is the immutable projection the exporter receives — one record type, two views. The log body/attribute/severity vocabulary is the `@opentelemetry/api-logs` peer (`AnyValue`/`LogBody`/`LogAttributes`/`SeverityNumber`), never a local type. `LoggerConfigurator` is the per-logger policy: `createLoggerConfigurator(patterns)` folds a `LoggerPattern[]` (scope-name glob → `LoggerConfig`) into one `(scope) => Required<LoggerConfig>` — a parameterized enable/severity filter, never a hand-rolled per-logger switch.
 
-| [INDEX] | [SYMBOL] | [KIND] | [SHAPE_CAPABILITY] |
-|:-----: |:------------------------------------ |:------------------ |:-------------------------------------------------------------- |
-| [01] | `SdkLogRecord` | interface | mutable builder — `setAttribute`/`setBody`/`setSeverityNumber`/`setEventName` |
-| [02] | `ReadableLogRecord` | interface | immutable read shape the exporter serializes |
-| [03] | `LoggerConfigurator` / `LoggerConfig` | type / interface | `(scope) => Required<LoggerConfig>`; `{ disabled?, minimumSeverity?, traceBased? }` |
-| [04] | `createLoggerConfigurator` | fn | `(LoggerPattern[]) => LoggerConfigurator` — glob→config fold |
-| [05] | `LoggerPattern` | interface | `{ pattern: string; config: LoggerConfig }` — the seed row |
+| [INDEX] | [SYMBOL]                              | [KIND]           | [SHAPE_CAPABILITY]                                                                  |
+| :-----: | :------------------------------------ | :--------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `SdkLogRecord`                        | interface        | mutable builder — `setAttribute`/`setBody`/`setSeverityNumber`/`setEventName`       |
+|  [02]   | `ReadableLogRecord`                   | interface        | immutable read shape the exporter serializes                                        |
+|  [03]   | `LoggerConfigurator` / `LoggerConfig` | type / interface | `(scope) => Required<LoggerConfig>`; `{ disabled?, minimumSeverity?, traceBased? }` |
+|  [04]   | `createLoggerConfigurator`            | fn               | `(LoggerPattern[]) => LoggerConfigurator` — glob→config fold                        |
+|  [05]   | `LoggerPattern`                       | interface        | `{ pattern: string; config: LoggerConfig }` — the seed row                          |
 
 ```ts contract
 interface SdkLogRecord {   // mutable + chainable; hrTime/spanContext/resource/instrumentationScope are read-only

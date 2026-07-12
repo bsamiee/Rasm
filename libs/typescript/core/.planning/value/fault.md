@@ -2,16 +2,16 @@
 
 The one fault-policy owner of the branch: `FaultClass` is the severity-ordered ten-class vocabulary every rail inherits — each row carrying rank, retryability, and blame — `FaultCapture`/`FaultEnricher` are the crash-evidence value and the enrichment port, `Budget` compiles the retry/timeout rows once into jittered, class-gated `Schedule` values, and `Degrade` is the connection-degradation ladder long-lived feeds fold silence through. Taxonomy, evidence, schedule compilation, and degradation are four clusters of one module because they share one axis: the class table's `retryable` column IS the gate every compiled schedule carries, so routing, dominance folds, budget gates, and blame projections read one table instead of re-deriving semantics per folder. The three fault altitudes stay distinct — interchange reconstruction, per-folder `Data.TaggedError` rails, outbound status mapping — and this floor imports none of them. The module is `core/src/value/fault.ts`; a new fault class is one tuple entry plus one row, a new budget is one row, a new degradation posture is one ladder rung.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                        | [PUBLIC]                        |
-| :-----: | :------------------ | :-------------------------------------------------------------- | :------------------------------ |
-|  [01]   | `CLASS_VOCABULARY`  | the ten-class table, classification fold, dominance lattice     | `FaultClass`                    |
-|  [02]   | `ENRICHER_CONTRACT` | the capture evidence model and the enrichment port              | `FaultCapture`, `FaultEnricher` |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                           | [PUBLIC]                        |
+| :-----: | :------------------ | :--------------------------------------------------------------- | :------------------------------ |
+|  [01]   | `CLASS_VOCABULARY`  | the ten-class table, classification fold, dominance lattice      | `FaultClass`                    |
+|  [02]   | `ENRICHER_CONTRACT` | the capture evidence model and the enrichment port               | `FaultCapture`, `FaultEnricher` |
 |  [03]   | `RETRY_BUDGET`      | the budget rows and their compiled class-gated `Schedule` values | `Budget`                        |
-|  [04]   | `DEGRADE_LADDER`    | the silence-threshold ladder and its level fold                 | `Degrade`                       |
+|  [04]   | `DEGRADE_LADDER`    | the silence-threshold ladder and its level fold                  | `Degrade`                       |
 
-## [2]-[CLASS_VOCABULARY]
+## [02]-[CLASS_VOCABULARY]
 
 [CLASS_VOCABULARY]:
 - Owner: `FaultClass`, the assembled vocabulary — the interior key tuple fixes severity order as iteration order (rank ascends with position, a load-bearing sequence), the interior row table carries the axes, the merged hub carries every derived type plus the guard pair, and the exported owner assembles rows, `kinds`, `schema`, and the operation members under a `typeof`-derived stated annotation.
@@ -98,7 +98,7 @@ const FaultClass: FaultClass.Shape = {
 }
 ```
 
-## [3]-[ENRICHER_CONTRACT]
+## [03]-[ENRICHER_CONTRACT]
 
 [ENRICHER_CONTRACT]:
 - Owner: `FaultCapture`, the floor-shaped crash-evidence model — class, fault tag, owning surface, detail, optional `Refined.Guid` correlation, capture instant, and an open string attribute band — the value the runtime crash owner constructs from a folded `Cause` and every enrichment round-trips; `policy` projects the class row so severity and blame are recoverable from any capture, `enriched` is the successor constructor merging attribute bands, and `forensic` is the exception-evidence successor writing the well-known crash rows through the typed key vocabulary.
@@ -166,7 +166,7 @@ class FaultEnricher extends Context.Tag("@rasm/ts/core/FaultEnricher")<FaultEnri
 }
 ```
 
-## [4]-[RETRY_BUDGET]
+## [04]-[RETRY_BUDGET]
 
 [RETRY_BUDGET]:
 - Owner: `Budget`, the assembled budget vocabulary — the interior key tuple anchors the roster, the row table carries every axis as `Duration` policy values, the merged hub carries derived types plus the guard pair, and the exported owner assembles rows, `kinds`, and the `schedule` lookup under a `typeof`-derived stated annotation; the ingress decode ceilings are `schema#INGRESS_CEILING`'s `Ingress` — the two vocabularies never share a concept.
@@ -267,7 +267,7 @@ const Budget: Budget.Shape = {
 }
 ```
 
-## [5]-[DEGRADE_LADDER]
+## [05]-[DEGRADE_LADDER]
 
 [DEGRADE_LADDER]:
 - Owner: `Degrade`, the connection-degradation ladder — an interior level tuple in escalation order (a load-bearing sequence: each rung's silence threshold exceeds its predecessor's), a row table carrying per-level entry threshold and probe cadence, and the exported owner assembling rows, `levels`, and the `level` fold under a stated annotation.

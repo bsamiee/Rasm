@@ -2,16 +2,16 @@
 
 Lifecycle and health are one owner because they are one skeleton: register ranked rows at Layer construction, run each row under its own budget on a severed fiber, convert every outcome to evidence, fold the evidence into a graded receipt. `Life` holds the closed phase spine — `booting → running → draining → halted` — in one `SubscriptionRef` every lifecycle question projects from, the ranked drain registry whose fold runs on interrupt before the graph's finalizers release resources, and the probe registry whose kind rows — `started`, `ready`, `live`, each carrying its canonical k8s route — feed a memoized concurrent report fold. The budgeted row executor is spelled exactly once: drain rows and probe rows are two registries over one `_bounded` fold, their verdicts two graders of one `Exit`-of-`Option` evidence shape. Readiness composes the phase — outside `running` the ready report fails by fold, so the drain flip stops traffic instantly — while liveness ignores it so an orderly drain is never mistaken for a hang. The drain total budget is the number `iac` mirrors into `terminationGracePeriod`; a `process.on("SIGTERM")` listener, an exit-hook library, and teardown-as-ordinary-step are unspellable because the runtime row's `runMain` already owns the signal edge. The module is `runtime/src/proc/life.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                     | [PUBLIC] |
-| :-----: | :------------- | :---------------------------------------------------------------------------- | :------- |
-|  [01]   | `PHASE_SPINE`  | the phase vocabulary, the cell, the parked boot entry                        | `Life`   |
-|  [02]   | `RANKED_FOLD`  | the one budgeted row executor both registries share                          | `Life`   |
-|  [03]   | `DRAIN_BANDS`  | ranked drain rows, the two-tier budget, the drain receipt                    | `Life`   |
-|  [04]   | `PROBE_ROUTES` | the kind/route anchor, the grade lattice, the memoized phase-gated report    | `Life`   |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC] |
+| :-----: | :------------- | :------------------------------------------------------------------------ | :------- |
+|  [01]   | `PHASE_SPINE`  | the phase vocabulary, the cell, the parked boot entry                     | `Life`   |
+|  [02]   | `RANKED_FOLD`  | the one budgeted row executor both registries share                       | `Life`   |
+|  [03]   | `DRAIN_BANDS`  | ranked drain rows, the two-tier budget, the drain receipt                 | `Life`   |
+|  [04]   | `PROBE_ROUTES` | the kind/route anchor, the grade lattice, the memoized phase-gated report | `Life`   |
 
-## [2]-[PHASE_SPINE]
+## [02]-[PHASE_SPINE]
 
 [PHASE_SPINE]:
 - Owner: the phase tuple and the cell — the tuple is a semantic order (lifecycle rank is load-bearing; the anchor derives `Phase` and no consumer re-lists states); the cell starts at `booting`, `life.online` stamps `running` (the boot module's last act before serving), and only the drain fold advances further; the published `phase` is the read-only `Subscribable` projection of the interior cell, so a consumer reads and subscribes and a write is unspellable.
@@ -21,7 +21,7 @@ Lifecycle and health are one owner because they are one skeleton: register ranke
 - Entry: `Life.register(step)` and `Life.probe(row)` from any Layer build (`accessors: true`); `life.parked` in the boot module; `life.phase` for observers.
 - Packages: `effect` (`SubscriptionRef`, `Subscribable`, `Deferred`, `Ref`, `Chunk`), `./config.ts` (`Setting`).
 
-## [3]-[RANKED_FOLD]
+## [03]-[RANKED_FOLD]
 
 [RANKED_FOLD]:
 - Owner: `_bounded` — the one budgeted row executor: measure the open instant, run the row's effect under `Effect.exit` with the budget applied as `Effect.timeoutOption` over `Effect.disconnect`, measure the close, and return the `Exit`-of-`Option` evidence beside the elapsed span; both registries fold through it, so the lapse-is-a-verdict law, the crash-is-evidence law, and the severed-deadline law are stated once.
@@ -107,7 +107,7 @@ const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [
   })
 ```
 
-## [4]-[DRAIN_BANDS]
+## [04]-[DRAIN_BANDS]
 
 [DRAIN_BANDS]:
 - Owner: the drain fold — a step is a row (`label`, `rank`, `budget: Option<Duration>`, `run`) appended to the registry `Chunk` at registration; the fold flips the cell to `draining` first so load balancers stop routing, sorts once by the rank `Order`, splits at the report band, runs sequentially (rank order licenses sequence — a later step depends on the earlier one having stopped its traffic), grades each row through the shared executor, and stamps `halted` under `Effect.ensuring` so the terminal phase is unconditional even when the total budget expires mid-fold.
@@ -116,7 +116,7 @@ const _probeGrade: (outcome: Exit.Exit<Option.Option<Life.Grade>>) => readonly [
 - Law: growth is a row — a new graceful concern (stop intake, pause queues, flush spans, checkpoint state) is one `register` call at its owner's Layer build with a rank inside the `_BANDS` anchor (0–9 intake, 10–89 domain, 90+ reporters); no new surface, hook API, or event bus.
 - Receipt: `Life.Receipt` via `life.settled`.
 
-## [5]-[PROBE_ROUTES]
+## [05]-[PROBE_ROUTES]
 
 [PROBE_ROUTES]:
 - Owner: the probe vocabulary and the report fold — `_KINDS` closes the taxonomy with its serving routes (`/startupz`, `/readyz`, `/livez` — the k8s trio), `_GRADES` closes the verdict lattice with rank columns so worst-of merge is an `Order` projection; `Life.report(kind)` filters the registry to the kind, sweeps every probe with unbounded concurrency (probes are independent — accumulation, never abort), bounds each by `Setting.life.probe` through the shared executor, and merges grades worst-of; zero probes fold to `pass`, vacuously healthy.

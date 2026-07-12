@@ -2,16 +2,16 @@
 
 The intelligence spine: five provider families fold onto one capability-asymmetry table whose rows are `Model.make` values, fallback is the core `ExecutionPlan` engine driven through `Effect.withExecutionPlan` over interchangeable `Model` layers — the removed provider-plan abstraction has no successor here because the core engine IS the mechanism — and every generation crosses ONE guardrail gate: input screen, structural tool admission compiled from the `tool#SAFETY` partition into `toolChoice`, output sweep over text, object, and streaming modalities, and a typed refusal arm. The token economy lives on the same page because budget and gate are one admission: meter-relative window/reply budgets bound at the `Tokenizer` Tag (the Anthropic bare-value service and the model-keyed OpenAI factory are the two shipped meters), enforcement is `truncate` before the wire, and context assembly is a measured, rank-ordered greedy weave over app-passed retrieval values — retrieval is data, never a data-wave import. Cost is exact: a `BigDecimal` spend fold over the response `Usage` against per-row rates, with the aggregator's per-response cost slot preferred where its accessor settles. Business logic depends only on the `LanguageModel`/`Tokenizer` Tags; a provider is a row, never a fork. The module is `runtime/src/ai/model.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]       | [OWNS]                                                                       | [PUBLIC]    |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                          | [PUBLIC]    |
 | :-----: | :-------------- | :------------------------------------------------------------------------------ | :---------- |
-|  [01]   | `PROVIDER_ROWS` | the asymmetry table, client construction, the one transport requirement          | `Providers` |
-|  [02]   | `LADDER`        | tier routing and fault-gated failover on the core execution-plan engine          | `Ladder`    |
-|  [03]   | `GATE`          | the one guardrail — screen, admit, sweep (all three modalities), refusal, spend  | `Guardrail`      |
-|  [04]   | `TOKENS`        | meter-relative budgets, truncation enforcement, the measured context weave       | `Tokens`    |
+|  [01]   | `PROVIDER_ROWS` | the asymmetry table, client construction, the one transport requirement         | `Providers` |
+|  [02]   | `LADDER`        | tier routing and fault-gated failover on the core execution-plan engine         | `Ladder`    |
+|  [03]   | `GATE`          | the one guardrail — screen, admit, sweep (all three modalities), refusal, spend | `Guardrail` |
+|  [04]   | `TOKENS`        | meter-relative budgets, truncation enforcement, the measured context weave      | `Tokens`    |
 
-## [2]-[PROVIDER_ROWS]
+## [02]-[PROVIDER_ROWS]
 
 [PROVIDER_ROWS]:
 - Owner: `Providers` — the capability-asymmetry table as data: one row per family carrying its `Model.make` entry, its populated asymmetry cells, and its client Layer. The cells are facts, not code paths: `openai` is the reference row (language model on Responses, embeddings ×2 modalities, `OpenAiTokenizer.make({ model })`, four provider tools, a namespaced telemetry module), `anthropic` populates tokenizer (`AnthropicTokenizer.make` — a bare `Tokenizer.Service` value, not a factory) and five tool families, `google` carries raw-client embeddings only, `amazon-bedrock` carries SigV4 credentials and native guardrail traces, `openrouter` carries aggregator routing and per-response cost metadata. A consumer reads a cell; a `switch` over provider names is unspellable.
@@ -71,7 +71,7 @@ declare namespace Providers {
 const Providers = { ..._providers, names: Struct.keys(_providers) }
 ```
 
-## [3]-[LADDER]
+## [03]-[LADDER]
 
 [LADDER]:
 - Owner: `Ladder` — tier routing as an execution plan: an ordered tier table (`fast` — the cheap high-volume row, `deep` — the reasoning row, `fallback` — the aggregator row that answers when a primary is down) compiles into one plan value whose steps each carry a provider `Model` layer, an attempt bound, a `Budget`-compiled pacing schedule, and the failover predicate — a step yields to the next only on a retryable `FaultClass` (`unavailable`, `exhausted`, `expired` folded from the provider's error union); an `invalid` request or a `denied` key fails immediately through every tier because retrying a deterministic rejection spends money to learn nothing.
@@ -111,7 +111,7 @@ const _tiered = <A, E, R>(table: Ladder.Table, call: Effect.Effect<A, E, R | Lan
 const Ladder = { drive: _tiered, yields: _yields }
 ```
 
-## [4]-[GATE]
+## [04]-[GATE]
 
 [GATE]:
 - Owner: `Guardrail` — the one guardrail over every generation modality. `Guardrail.text`, `Guardrail.object`, and `Guardrail.stream` wrap `LanguageModel.generateText`, `generateObject`, and `streamText` in the same admission fold: the input screen runs first (a policy predicate over the assembled prompt — length, injection heuristics, tenant policy — refusing before any token is bought), tool admission compiles the `Safety.admit` partition into the call's `toolChoice` (`{ mode: "auto", oneOf: allowed }` — a held or denied tool is structurally uncallable, not merely discouraged) with `disableToolCallResolution: true` whenever held names exist so no handler runs before a supervisor releases the call, and the output sweep runs last. The sweep covers every modality in its own strongest form: the text arm sweeps the settled response, the object arm's caller `Schema` IS its sweep — shape admission is the content policy for structured output — and the streaming arm scans a sliding window over `TextDeltaPart` deltas: the window buffers the last unswept span, emits only swept prefixes, and a tripped window fails the stream into the refusal arm, so streaming is no longer the unswept modality.
@@ -222,7 +222,7 @@ const _accounted = (tier: Ladder.Tier, usage: Response.Usage): Effect.Effect<Big
 const Spend = { of: _spend, accounted: _accounted }
 ```
 
-## [5]-[TOKENS]
+## [05]-[TOKENS]
 
 [TOKENS]:
 - Owner: `Tokens` — the token economy bound at the `Tokenizer` Tag: the meter roster is a uniform factory table (`anthropic` closes over the bare `AnthropicTokenizer.make` service value, `openai` keys `OpenAiTokenizer.layer({ model })` by model, both indexable as `(model) => Layer` so a consumer never probes row shape; the unmetered rows — google, bedrock, openrouter — meter through the default row as a stated approximation), the budget is `{ window, reply }` token pairs per tier, `Tokens.gauge` measures a prompt against its window, and `Tokens.fit` enforces — `Tokenizer.truncate(prompt, window - reply)` before the wire so a call never buys a context overflow.

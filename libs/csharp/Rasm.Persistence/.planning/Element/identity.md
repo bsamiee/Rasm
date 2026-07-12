@@ -225,14 +225,14 @@ public static class IdentityStore {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | one txn owner       | identity as Marten doc in one session  | `IdentityStore.Stamp` + `SaveChangesAsync`; no two-ORM gap |
-|  [02]   | converter rail      | `UseThinktectureValueConverters(Configuration.Default)` | zero hand converters on Thinktecture types; snake-case names derived |
-|  [03]   | spatial planes      | H3 `bigint` cells + PostGIS `Bounds`   | cells for bucket joins; geometry for exact server-side predicates |
-|  [04]   | embedded floor      | `IsSqlite()`-keyed model rows          | WKB bounds, text GlobalIds, no vector column; one context |
-|  [05]   | rooted key          | neutral kernel-minted durable `NodeId` | IFC GlobalId is the `ExternalId` projection re-ingest correlates on |
-|  [06]   | tenant partition    | `Tenant` RLS column                    | coarse scope; the `Element/authority` `ObjectAcl` is the fine grant |
+| [INDEX] | [POLICY]         | [VALUE]                                                 | [BINDING]                                                            |
+| :-----: | :--------------- | :------------------------------------------------------ | :------------------------------------------------------------------- |
+|  [01]   | one txn owner    | identity as Marten doc in one session                   | `IdentityStore.Stamp` + `SaveChangesAsync`; no two-ORM gap           |
+|  [02]   | converter rail   | `UseThinktectureValueConverters(Configuration.Default)` | zero hand converters on Thinktecture types; snake-case names derived |
+|  [03]   | spatial planes   | H3 `bigint` cells + PostGIS `Bounds`                    | cells for bucket joins; geometry for exact server-side predicates    |
+|  [04]   | embedded floor   | `IsSqlite()`-keyed model rows                           | WKB bounds, text GlobalIds, no vector column; one context            |
+|  [05]   | rooted key       | neutral kernel-minted durable `NodeId`                  | IFC GlobalId is the `ExternalId` projection re-ingest correlates on  |
+|  [06]   | tenant partition | `Tenant` RLS column                                     | coarse scope; the `Element/authority` `ObjectAcl` is the fine grant  |
 
 ## [03]-[IDENTITY_POLICY]
 
@@ -638,11 +638,11 @@ public static class SchemaGate {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | Marten DDL          | `AutoCreate.CreateOrUpdate` (writer)   | `AssertDatabaseMatchesConfigurationOnStartup` on the fleet; the assertion is a folded fact |
-|  [02]   | EF identity DDL     | generated migrations (both providers)  | one model emits per-provider SQL; scaffold is reviewed shape |
-|  [03]   | non-modelable DDL   | `IdentityDdl.Rls` + `Extensions` rows  | appended via `migrationBuilder.Sql`; extension SQL stays the frozen `ServerExtension` vocabulary |
-|  [04]   | boot verdict        | one `SchemaGate.Admit` fold (Marten + EF) | schema-ahead is a typed `IdentityFault`, never a silent open |
-|  [05]   | pending apply       | single-writer placement only           | fleet member `AwaitBundle`, never self-applies            |
-|  [06]   | deploy lanes        | `ScriptMigration` / `MigrationsBundle` / `Optimize` | idempotent SQL, fleet migrator, compiled model back through `ConverterRail` |
+| [INDEX] | [POLICY]          | [VALUE]                                             | [BINDING]                                                                                        |
+| :-----: | :---------------- | :-------------------------------------------------- | :----------------------------------------------------------------------------------------------- |
+|  [01]   | Marten DDL        | `AutoCreate.CreateOrUpdate` (writer)                | `AssertDatabaseMatchesConfigurationOnStartup` on the fleet; the assertion is a folded fact       |
+|  [02]   | EF identity DDL   | generated migrations (both providers)               | one model emits per-provider SQL; scaffold is reviewed shape                                     |
+|  [03]   | non-modelable DDL | `IdentityDdl.Rls` + `Extensions` rows               | appended via `migrationBuilder.Sql`; extension SQL stays the frozen `ServerExtension` vocabulary |
+|  [04]   | boot verdict      | one `SchemaGate.Admit` fold (Marten + EF)           | schema-ahead is a typed `IdentityFault`, never a silent open                                     |
+|  [05]   | pending apply     | single-writer placement only                        | fleet member `AwaitBundle`, never self-applies                                                   |
+|  [06]   | deploy lanes      | `ScriptMigration` / `MigrationsBundle` / `Optimize` | idempotent SQL, fleet migrator, compiled model back through `ConverterRail`                      |

@@ -21,14 +21,14 @@
 
 Environment rows carry delimiter, whitespace, extension, undefined, finalize, autoescape, loader, cache, reload, bytecode, and async policy.
 
-| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]                       |
-| :-----: | :-------------------------------------- | :---------------- | :--------------------------------- |
+| [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                      |
+| :-----: | :-------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------ |
 |  [01]   | `Environment`                           | engine root       | configured compilation/render root; mutable `.filters`/`.tests`/`.globals`/`.policies` registries |
-|  [02]   | `Template`                              | compiled unit     | sync/async render entrypoints      |
-|  [03]   | `sandbox.SandboxedEnvironment`          | restricted engine | filtered untrusted-template engine |
-|  [04]   | `sandbox.ImmutableSandboxedEnvironment` | hardened engine   | sandbox blocking object mutation   |
-|  [05]   | `sandbox.SecurityError`                 | sandbox fault     | forbidden sandbox access           |
-|  [06]   | `nativetypes.NativeEnvironment`         | native engine     | renders to the native Python object of a single expression, not a string |
+|  [02]   | `Template`                              | compiled unit     | sync/async render entrypoints                                                                     |
+|  [03]   | `sandbox.SandboxedEnvironment`          | restricted engine | filtered untrusted-template engine                                                                |
+|  [04]   | `sandbox.ImmutableSandboxedEnvironment` | hardened engine   | sandbox blocking object mutation                                                                  |
+|  [05]   | `sandbox.SecurityError`                 | sandbox fault     | forbidden sandbox access                                                                          |
+|  [06]   | `nativetypes.NativeEnvironment`         | native engine     | renders to the native Python object of a single expression, not a string                          |
 |  [07]   | `nativetypes.NativeTemplate`            | native unit       | `render(...)` yields the evaluated Python value (int/list/dict) for typed report-value extraction |
 
 [PUBLIC_TYPE_SCOPE]: loader axis
@@ -76,13 +76,13 @@ Environment rows carry delimiter, whitespace, extension, undefined, finalize, au
 
 Extensions register via `Environment(extensions=[...])` or `add_extension`; they add tags, filters, and parser hooks. `Extension` is the subclass base for custom `{% %}` tags. The shorthand identifier strings (`"jinja2.ext.i18n"`, `"jinja2.ext.do"`, `"jinja2.ext.loopcontrols"`, `"jinja2.ext.debug"`) resolve to these classes.
 
-| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]      | [CAPABILITY]                                                       |
-| :-----: | :---------------------------------- | :------------------ | :----------------------------------------------------------------- |
-|  [01]   | `ext.Extension`                     | extension base      | subclass to add custom `{% %}` tags, filters, and parse hooks      |
-|  [02]   | `ext.InternationalizationExtension` | i18n extension      | `{% trans %}` / `gettext`/`ngettext` translation (`"jinja2.ext.i18n"`) |
-|  [03]   | `ext.ExprStmtExtension`             | expr-stmt extension | `{% do %}` side-effecting expression statement (`"jinja2.ext.do"`) |
+| [INDEX] | [SYMBOL]                            | [PACKAGE_ROLE]      | [CAPABILITY]                                                                |
+| :-----: | :---------------------------------- | :------------------ | :-------------------------------------------------------------------------- |
+|  [01]   | `ext.Extension`                     | extension base      | subclass to add custom `{% %}` tags, filters, and parse hooks               |
+|  [02]   | `ext.InternationalizationExtension` | i18n extension      | `{% trans %}` / `gettext`/`ngettext` translation (`"jinja2.ext.i18n"`)      |
+|  [03]   | `ext.ExprStmtExtension`             | expr-stmt extension | `{% do %}` side-effecting expression statement (`"jinja2.ext.do"`)          |
 |  [04]   | `ext.LoopControlExtension`          | loop-control        | `{% break %}` / `{% continue %}` inside loops (`"jinja2.ext.loopcontrols"`) |
-|  [05]   | `ext.DebugExtension`                | debug extension     | `{% debug %}` dumps the render context (`"jinja2.ext.debug"`)      |
+|  [05]   | `ext.DebugExtension`                | debug extension     | `{% debug %}` dumps the render context (`"jinja2.ext.debug"`)               |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -91,19 +91,19 @@ Extensions register via `Environment(extensions=[...])` or `add_extension`; they
 
 The `Environment` row carries delimiter, whitespace, extension, undefined, finalize, autoescape, loader, cache, reload, bytecode, and async policy.
 
-| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                     | [CAPABILITY]                                        |
-| :-----: | :----------------------------------- | :------------------------------- | :-------------------------------------------------- |
-|  [01]   | `Environment`                        | engine configuration policy      | full engine configuration                           |
-|  [02]   | `Environment.get_template`           | name plus globals policy         | resolve and compile a named template via the loader |
-|  [03]   | `Environment.select_template`        | name list plus globals policy    | resolve the first available of a name list          |
-|  [04]   | `Environment.get_or_select_template` | name or name-list input          | polymorphic resolve over a name or name list        |
-|  [05]   | `Environment.from_string`            | source plus template policy      | compile an in-memory source string                  |
-|  [06]   | `Environment.compile_expression`     | expression plus undefined policy | compile a single expression to a callable           |
-|  [07]   | `Environment.overlay`                | partial config override          | derive a reconfigured child environment             |
-|  [08]   | `Environment.add_extension`          | extension identifier             | register an extension after construction            |
-|  [09]   | `Environment.compile`                | source/AST -> code               | `compile(source, name, filename, raw=False, defer_init=False)` — compile to a code object or (raw) Python module string for `ModuleLoader` |
-|  [10]   | `Environment.compile_templates`      | loader -> compiled archive       | precompile every loader template to a zip/dir the `ModuleLoader` then serves |
-|  [11]   | `Environment.filters` / `.tests` / `.globals` / `.policies` | mutable registries  | inject custom filters/tests/globals after construction (the surface `pass_context`/`pass_environment` decorate) |
+| [INDEX] | [SURFACE]                                                   | [CALL_SHAPE]                     | [CAPABILITY]                                                                                                                               |
+| :-----: | :---------------------------------------------------------- | :------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Environment`                                               | engine configuration policy      | full engine configuration                                                                                                                  |
+|  [02]   | `Environment.get_template`                                  | name plus globals policy         | resolve and compile a named template via the loader                                                                                        |
+|  [03]   | `Environment.select_template`                               | name list plus globals policy    | resolve the first available of a name list                                                                                                 |
+|  [04]   | `Environment.get_or_select_template`                        | name or name-list input          | polymorphic resolve over a name or name list                                                                                               |
+|  [05]   | `Environment.from_string`                                   | source plus template policy      | compile an in-memory source string                                                                                                         |
+|  [06]   | `Environment.compile_expression`                            | expression plus undefined policy | compile a single expression to a callable                                                                                                  |
+|  [07]   | `Environment.overlay`                                       | partial config override          | derive a reconfigured child environment                                                                                                    |
+|  [08]   | `Environment.add_extension`                                 | extension identifier             | register an extension after construction                                                                                                   |
+|  [09]   | `Environment.compile`                                       | source/AST -> code               | `compile(source, name, filename, raw=False, defer_init=False)` — compile to a code object or (raw) Python module string for `ModuleLoader` |
+|  [10]   | `Environment.compile_templates`                             | loader -> compiled archive       | precompile every loader template to a zip/dir the `ModuleLoader` then serves                                                               |
+|  [11]   | `Environment.filters` / `.tests` / `.globals` / `.policies` | mutable registries               | inject custom filters/tests/globals after construction (the surface `pass_context`/`pass_environment` decorate)                            |
 
 [ENTRYPOINT_SCOPE]: render path (sync and async)
 - rail: report-templating

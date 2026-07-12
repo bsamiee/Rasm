@@ -567,12 +567,12 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]   | [OWNER]          | [KIND]                                                                                        | [RAIL]                                    | [CASES] |
-| :-----: | :--------------- | :--------------- | :---------------------------------------------------------------------------------------------- | :--------------------------------------------- | :-----: |
-|  [01]   | Remeshing        | `RemeshOp`       | `[Union]` two rows folded by ONE `Apply` with `Op?` threading                                 | `Remeshing.Apply → Fin<RewriteResult>`     |    2    |
-|  [1a]   | Rewrite policy   | `RemeshPolicy`   | policy row — pass budget · hysteresis band · feature angle · convergence · projection K · floor  | value (`IValidityEvidence`)               |    —    |
-|  [1b]   | Evidence         | `RemeshTrace`    | typed receipt — target/achieved deviation, iterations, per-verb counts, feature census        | carrier on the result                     |    —    |
-|  [1c]   | Quad substrate   | `QuadProvenance` | `Arr` SoA channels (structural equality) — quad corners · patch labels · per-vertex `(u,v)` · singular faces | carrier (`Option` on the result)          |    —    |
+| [INDEX] | [AXIS_CONCERN] | [OWNER]          | [KIND]                                                                                                       | [RAIL]                                 | [CASES] |
+| :-----: | :------------- | :--------------- | :----------------------------------------------------------------------------------------------------------- | :------------------------------------- | :-----: |
+|  [01]   | Remeshing      | `RemeshOp`       | `[Union]` two rows folded by ONE `Apply` with `Op?` threading                                                | `Remeshing.Apply → Fin<RewriteResult>` |    2    |
+|  [1a]   | Rewrite policy | `RemeshPolicy`   | policy row — pass budget · hysteresis band · feature angle · convergence · projection K · floor              | value (`IValidityEvidence`)            |    —    |
+|  [1b]   | Evidence       | `RemeshTrace`    | typed receipt — target/achieved deviation, iterations, per-verb counts, feature census                       | carrier on the result                  |    —    |
+|  [1c]   | Quad substrate | `QuadProvenance` | `Arr` SoA channels (structural equality) — quad corners · patch labels · per-vertex `(u,v)` · singular faces | carrier (`Option` on the result)       |    —    |
 
 ## [04]-[RESEARCH]
 

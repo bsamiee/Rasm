@@ -30,19 +30,19 @@
 - rail: observability
 - `filters.Condition[CallDetailsT] = Callable[[CallDetailsT], bool]` — the parameterized predicate type every `method_*`/`service_*`/`health_check`/combinator returns and the `filter_=` kwarg accepts; the interceptor evaluates it against the per-call details object.
 
-| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [RAIL]                                                  |
-| :-----: | :------------------------ | :------------ | :------------------------------------------------------ |
-|  [01]   | `filters.Condition`       | type alias    | `Callable[[CallDetailsT], bool]` predicate over call    |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [RAIL]                                               |
+| :-----: | :------------------ | :------------ | :--------------------------------------------------- |
+|  [01]   | `filters.Condition` | type alias    | `Callable[[CallDetailsT], bool]` predicate over call |
 
 [PUBLIC_TYPE_SCOPE]: grpcext interceptor contracts
 - rail: observability
 - the legacy-channel interceptor abstractions `grpcext.intercept_channel` wraps; the OTel client interceptor implements `UnaryClientInterceptor`/`StreamClientInterceptor`, and a custom span-enriching channel interceptor subclasses these rather than re-deriving gRPC's own interceptor protocol.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                          |
-| :-----: | :-------------------------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `grpcext.UnaryClientInterceptor`  | abstract base | `intercept_unary(request, metadata, client_info, invoker)` |
-|  [02]   | `grpcext.StreamClientInterceptor` | abstract base | `intercept_stream(request_or_iterator, metadata, client_info, invoker)` |
-|  [03]   | `grpcext.UnaryClientInfo`         | call details  | unary `full_method`/`timeout` carrier           |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                                          |
+| :-----: | :-------------------------------- | :------------ | :------------------------------------------------------------------------------ |
+|  [01]   | `grpcext.UnaryClientInterceptor`  | abstract base | `intercept_unary(request, metadata, client_info, invoker)`                      |
+|  [02]   | `grpcext.StreamClientInterceptor` | abstract base | `intercept_stream(request_or_iterator, metadata, client_info, invoker)`         |
+|  [03]   | `grpcext.UnaryClientInfo`         | call details  | unary `full_method`/`timeout` carrier                                           |
 |  [04]   | `grpcext.StreamClientInfo`        | call details  | streaming `full_method`/`is_client_stream`/`is_server_stream`/`timeout` carrier |
 
 ## [03]-[ENTRYPOINTS]
@@ -63,13 +63,13 @@
 [ENTRYPOINT_SCOPE]: interceptor factories
 - rail: observability
 
-| [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY] | [RAIL]                                             |
-| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------- |
-|  [01]   | `client_interceptor(tracer_provider=None, filter_=None, request_hook=None, response_hook=None)`      | sync client    | a `grpcext` unary+stream client interceptor; pass to `grpcext.intercept_channel` |
-|  [02]   | `server_interceptor(tracer_provider=None, filter_=None)`                                             | sync server    | `grpc.ServerInterceptor` for `grpc.server(interceptors=[...])` |
+| [INDEX] | [SURFACE]                                                                                            | [ENTRY_FAMILY] | [RAIL]                                                                                                                                            |
+| :-----: | :--------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `client_interceptor(tracer_provider=None, filter_=None, request_hook=None, response_hook=None)`      | sync client    | a `grpcext` unary+stream client interceptor; pass to `grpcext.intercept_channel`                                                                  |
+|  [02]   | `server_interceptor(tracer_provider=None, filter_=None)`                                             | sync server    | `grpc.ServerInterceptor` for `grpc.server(interceptors=[...])`                                                                                    |
 |  [03]   | `aio_client_interceptors(tracer_provider=None, filter_=None, request_hook=None, response_hook=None)` | async client   | list of four `grpc.aio` interceptors (unary-unary, unary-stream, stream-unary, stream-stream) for `grpc.aio.insecure_channel(interceptors=[...])` |
-|  [04]   | `aio_server_interceptor(tracer_provider=None, filter_=None)`                                         | async server   | `grpc.aio.ServerInterceptor` for `grpc.aio.server(interceptors=[...])` |
-|  [05]   | `grpcext.intercept_channel(channel, *interceptors)`                                                  | channel wrap   | apply `grpcext` interceptors to an existing sync channel, returning a wrapped channel |
+|  [04]   | `aio_server_interceptor(tracer_provider=None, filter_=None)`                                         | async server   | `grpc.aio.ServerInterceptor` for `grpc.aio.server(interceptors=[...])`                                                                            |
+|  [05]   | `grpcext.intercept_channel(channel, *interceptors)`                                                  | channel wrap   | apply `grpcext` interceptors to an existing sync channel, returning a wrapped channel                                                             |
 
 [ENTRYPOINT_SCOPE]: filter predicates
 - rail: observability

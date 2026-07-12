@@ -2,14 +2,14 @@
 
 The tenancy contract: the ambient reference the request's active `TenantContext` rides, the `SessionCoordinate` vocabulary of session GUCs the data wave pins, and the metric-tagging aspect that makes every security instrument per-tenant sound. Tenancy is one core value — `TenantContext`, the `(app, tenant)` pair with its derived `scope` partition key — and this page never re-mints it; it owns the request-scoped BINDING, the coordinate vocabulary, and the telemetry tag, so a tenant never travels as a bare string past a seam, every downstream query inherits the boundary with no parameter threading, and every folder metric a request emits carries its tenant dimension through one aspect. `TenantScope` is a `Context.Reference` whose default is the unauthenticated scope; the edge binds the request's `TenantContext` and subject once, the data wave reads it to pin each `SessionCoordinate` row inside its transaction transformer — a `security/access/tenant → data` [SHAPE] seam — and `TenantScope.metered` wraps any effect so its metrics land `tenant`-tagged, the hook the runtime OTLP lane exports unchanged. The contract is a value, never configuration prose: each GUC name is one coordinate row both this page's projection and the data wave's RLS policy predicate read, so a rename lands once and a new session coordinate (shard key, search-path override, region) is one row plus its derivation over the same `Principal`. This page holds no SQL: the data wave owns the `within` transaction seam and the policy DDL, and hundreds of apps under mixed isolation are rows in the data wave's store map, never deployments of different code.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                            | [PUBLIC]       |
-| :-----: | :---------------- | :----------------------------------------------------------------- | :------------- |
-|  [01]   | `SCOPE_BINDING`   | the ambient tenancy reference, its request-scope provision, the metric tag aspect | `TenantScope`  |
-|  [02]   | `RLS_CONTRACT`    | the session-coordinate GUC vocabulary and the per-row projection   | `SessionCoordinate`, `TENANT_GUC` |
+| [INDEX] | [CLUSTER]       | [OWNS]                                                                            | [PUBLIC]                          |
+| :-----: | :-------------- | :-------------------------------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `SCOPE_BINDING` | the ambient tenancy reference, its request-scope provision, the metric tag aspect | `TenantScope`                     |
+|  [02]   | `RLS_CONTRACT`  | the session-coordinate GUC vocabulary and the per-row projection                  | `SessionCoordinate`, `TENANT_GUC` |
 
-## [2]-[SCOPE_BINDING]
+## [02]-[SCOPE_BINDING]
 
 [SCOPE_BINDING]:
 - Owner: `TenantScope` — a `Context.Reference` carrying the request's active `TenantContext` (as `Option`, `none` for an unauthenticated or single-tenant-pinned request) and the acting subject; the statics ride the class: `bind` provides it for a request scope, the reference itself is the read (`yield* TenantScope`), `scoped` runs an effect under the resolved principal, `scopeOf` projects the partition key, and `metered` is the telemetry aspect — it reads the bound principal and tags every metric the wrapped effect emits with the `tenant` dimension, falling back to the unscoped label, so the folder's counters and timers stay per-tenant sound when thousands of apps share the library. The reference is the one hop from request altitude to every tenant-bounded read: the edge sets it once from the resolved claim, and no query threads a tenant parameter.
@@ -49,7 +49,7 @@ class TenantScope extends Context.Reference<TenantScope>()("security/access/Tena
 }
 ```
 
-## [3]-[RLS_CONTRACT]
+## [03]-[RLS_CONTRACT]
 
 [RLS_CONTRACT]:
 - Owner: `SessionCoordinate` — the session-GUC vocabulary the data wave pins per transaction: one row per coordinate carrying the GUC name and the projection over a bound `Principal`, so `tenant` (`app.current_tenant`, the RLS predicate key), `scope` (`app.current_scope`, the store-map partition), and `subject` (`app.current_subject`, the audit attribution) travel one write path the data wave owns and a new coordinate is one row, never a second contract. `TENANT_GUC` derives from the tenant row — the single anchor the RLS `CREATE POLICY` predicate reads through `current_setting`.

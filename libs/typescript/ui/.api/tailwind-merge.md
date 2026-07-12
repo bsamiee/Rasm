@@ -20,14 +20,14 @@
 - rail: shapes
 - `ClassNameValue` is the recursive input `twMerge`/`twJoin` accept (composes directly with `clsx`'s output). The `Config`/`ConfigExtension` family is the extension surface: `override` replaces a default group, `extend` adds to it, and the id unions keep custom group names honest at the type level.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------- |:---------------- |:--------------------------------------------------------------- |
-| [01] | `ClassNameValue` (string \| null \| undefined \| 0 \| 0n \| false \| `ClassNameValue[]`) | input union | the variadic argument of `twMerge`/`twJoin`; `clsx(...)` output flows straight in; falsy parts are dropped |
-| [02] | `ClassValidator` (`(classPart: string) => boolean`) | class predicate | a custom class-group member — matches an arbitrary value shape; the `validators.*` set are ready-made ones |
-| [03] | `Config<ClassGroupIds, ThemeGroupIds>` | full config | `cacheSize`/`prefix`/`experimentalParseClassName` + `theme`/`classGroups`/`conflictingClassGroups`/`conflictingClassGroupModifiers`/`orderSensitiveModifiers` |
-| [04] | `ConfigExtension<ClassGroupIds, ThemeGroupIds>` | config extension | the `extendTailwindMerge` argument — `{ override?, extend?, cacheSize?, prefix?, ... }` where `override`/`extend` carry `PartialConfigGroupsPart` |
-| [05] | `DefaultClassGroupIds` / `DefaultThemeGroupIds` | built-in id union | the string-literal union of default group/theme-scale ids; extend it to add a custom group id type-safely |
-| [06] | `ExperimentalParseClassNameParam` / `ExperimentalParsedClassName` | parse hook shape | `experimentalParseClassName({ className, parseClassName })` — pre-parse transform for a nonstandard class syntax |
+| [INDEX] | [SYMBOL]                                                                                 | [TYPE_FAMILY]     | [CONSUMER_BOUNDARY]                                                                                                                                           |
+| :-----: | :--------------------------------------------------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ClassNameValue` (string \| null \| undefined \| 0 \| 0n \| false \| `ClassNameValue[]`) | input union       | the variadic argument of `twMerge`/`twJoin`; `clsx(...)` output flows straight in; falsy parts are dropped                                                    |
+|  [02]   | `ClassValidator` (`(classPart: string) => boolean`)                                      | class predicate   | a custom class-group member — matches an arbitrary value shape; the `validators.*` set are ready-made ones                                                    |
+|  [03]   | `Config<ClassGroupIds, ThemeGroupIds>`                                                   | full config       | `cacheSize`/`prefix`/`experimentalParseClassName` + `theme`/`classGroups`/`conflictingClassGroups`/`conflictingClassGroupModifiers`/`orderSensitiveModifiers` |
+|  [04]   | `ConfigExtension<ClassGroupIds, ThemeGroupIds>`                                          | config extension  | the `extendTailwindMerge` argument — `{ override?, extend?, cacheSize?, prefix?, ... }` where `override`/`extend` carry `PartialConfigGroupsPart`             |
+|  [05]   | `DefaultClassGroupIds` / `DefaultThemeGroupIds`                                          | built-in id union | the string-literal union of default group/theme-scale ids; extend it to add a custom group id type-safely                                                     |
+|  [06]   | `ExperimentalParseClassNameParam` / `ExperimentalParsedClassName`                        | parse hook shape  | `experimentalParseClassName({ className, parseClassName })` — pre-parse transform for a nonstandard class syntax                                              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -35,30 +35,30 @@
 - rail: surfaces-and-dispatch
 - `twMerge` parses and resolves conflicts (render-path, memoized); `twJoin` only concatenates truthy parts (no parse, faster). Both are variadic over `ClassNameValue`, so `clsx`'s conditional-object/array forms pass through unchanged — the choice is whether conflict resolution is needed, not a different input shape.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `twMerge(...classLists: ClassNameValue[]) → string` | resolve merge | THE merge half of `cn` — base + cva variants + tw-rac variants + override collapse to the last-wins set |
-| [02] | `twJoin(...classLists: ClassNameValue[]) → string` | fast concat | conflict-free assembly (static token strings that cannot collide) — skips the parser; `clsx`-shaped inputs |
+| [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                        |
+| :-----: | :-------------------------------------------------- | :------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | `twMerge(...classLists: ClassNameValue[]) → string` | resolve merge  | THE merge half of `cn` — base + cva variants + tw-rac variants + override collapse to the last-wins set    |
+|  [02]   | `twJoin(...classLists: ClassNameValue[]) → string`  | fast concat    | conflict-free assembly (static token strings that cannot collide) — skips the parser; `clsx`-shaped inputs |
 
 [ENTRYPOINT_SCOPE]: custom-instance construction for the extended theme
 - rail: surfaces-and-dispatch
 - When `@theme` adds scales, the default `twMerge` cannot resolve the new utilities — build ONE extended instance. `extendTailwindMerge` layers a `ConfigExtension` (or a `createConfig` callback) onto the default; `createTailwindMerge` builds fully from a callback; `mergeConfigs` composes config objects; `getDefaultConfig` is the base to spread.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `extendTailwindMerge(extension \| createConfig, ...createConfig[]) → typeof twMerge` | extend default | the folder's ONE custom `cn` merger — `{ extend: { theme, classGroups } }` teaching it the `@theme` scales |
-| [02] | `createTailwindMerge(() => Config, ...ConfigExtension[]) → typeof twMerge` | build from base| a fully custom instance when replacing (not extending) the default config wholesale |
-| [03] | `mergeConfigs(baseConfig, configExtension) → Config` | compose config | fold a `ConfigExtension` into a `Config` inside a `createConfig` callback (`override` then `extend` semantics) |
-| [04] | `getDefaultConfig() → Config` | base config | the default catalog-bound-tuned config to inspect or spread when composing a custom one |
+| [INDEX] | [SURFACE]                                                                            | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                            |
+| :-----: | :----------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `extendTailwindMerge(extension \| createConfig, ...createConfig[]) → typeof twMerge` | extend default  | the folder's ONE custom `cn` merger — `{ extend: { theme, classGroups } }` teaching it the `@theme` scales     |
+|  [02]   | `createTailwindMerge(() => Config, ...ConfigExtension[]) → typeof twMerge`           | build from base | a fully custom instance when replacing (not extending) the default config wholesale                            |
+|  [03]   | `mergeConfigs(baseConfig, configExtension) → Config`                                 | compose config  | fold a `ConfigExtension` into a `Config` inside a `createConfig` callback (`override` then `extend` semantics) |
+|  [04]   | `getDefaultConfig() → Config`                                                        | base config     | the default catalog-bound-tuned config to inspect or spread when composing a custom one                        |
 
 [ENTRYPOINT_SCOPE]: class-group building blocks for custom group definitions
 - rail: system-apis
 - The parts that define a custom class group: `fromTheme` references a theme scale so members follow it, and `validators.*` are the ready-made class-part predicates (arbitrary value/length/number/… detection) a group's member list uses instead of a hand-written regex.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `fromTheme(themeGroupId) → ThemeGetter` | theme ref | a class-group member that follows a theme scale — the bridge from `@theme` custom scales to a merge group |
-| [02] | `validators` — 25 predicates: `isArbitraryValue`/`isArbitraryLength`/`isArbitraryNumber`/`isArbitrarySize`/`isArbitraryPosition`/`isArbitraryImage`/`isArbitraryShadow`/`isArbitraryWeight`/`isArbitraryVariable*`/`isNumber`/`isInteger`/`isPercent`/`isFraction`/`isTshirtSize`/`isNamedContainerQuery`/`isAny`/`isAnyNonArbitrary`/… | class predicate | custom-group member matchers — reuse over a hand-rolled regex when defining a `classGroups` entry |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                                                                                                                                               | [ENTRY_FAMILY]  | [CONSUMER_BOUNDARY]                                                                                       |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------------------------------------------------------------- |
+|  [01]   | `fromTheme(themeGroupId) → ThemeGetter`                                                                                                                                                                                                                                                                                                 | theme ref       | a class-group member that follows a theme scale — the bridge from `@theme` custom scales to a merge group |
+|  [02]   | `validators` — 25 predicates: `isArbitraryValue`/`isArbitraryLength`/`isArbitraryNumber`/`isArbitrarySize`/`isArbitraryPosition`/`isArbitraryImage`/`isArbitraryShadow`/`isArbitraryWeight`/`isArbitraryVariable*`/`isNumber`/`isInteger`/`isPercent`/`isFraction`/`isTshirtSize`/`isNamedContainerQuery`/`isAny`/`isAnyNonArbitrary`/… | class predicate | custom-group member matchers — reuse over a hand-rolled regex when defining a `classGroups` entry         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

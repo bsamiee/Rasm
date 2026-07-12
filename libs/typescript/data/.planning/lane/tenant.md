@@ -2,16 +2,16 @@
 
 Tenancy enforcement and the per-scope store family in one owner: `Tenancy` discriminates row-scoped RLS, schema-per-app, and database-per-app as tagged cases whose locus derives from the app key; `Tenancy.within` is the single write path that opens the transaction and pins the tenancy contract — `set_config` over the `TENANT_GUC` anchor `security/access/tenant` declares, read ambiently from the bound `TenantScope` reference so no query threads a tenant parameter; and `Stores` is the `LayerMap` family that turns a `ScopeKey` into a verified per-scope `SqlClient | Capability` subgraph, sharing one app-owned pool across row- and schema-isolated scopes through the pool-adoption row. The same scopes satisfy every security state port at the app root — the port-satisfaction table is this page's contract, and hundreds of apps under mixed isolation are rows in the map, never deployments of different code.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]           | [OWNS]                                                                            |
-| :-----: | :------------------ | :----------------------------------------------------------------------------------- |
-|  [01]   | `POLICY_FAMILY`     | the `Tenancy` tagged family, the locus derivation, the isolation dispatch              |
-|  [02]   | `SCOPED_WRITE`      | `Tenancy.within` — the ambient GUC/search-path transformer, the RLS policy ensure      |
-|  [03]   | `SCOPE_FAMILY`      | `ScopeKey`, the `Stores` LayerMap, shared-pool fan-out, verify-at-construction         |
-|  [04]   | `PORT_SATISFACTION` | the security state ports satisfied by Layers built from these scopes                   |
+| :-----: | :------------------ | :-------------------------------------------------------------------------------- |
+|  [01]   | `POLICY_FAMILY`     | the `Tenancy` tagged family, the locus derivation, the isolation dispatch         |
+|  [02]   | `SCOPED_WRITE`      | `Tenancy.within` — the ambient GUC/search-path transformer, the RLS policy ensure |
+|  [03]   | `SCOPE_FAMILY`      | `ScopeKey`, the `Stores` LayerMap, shared-pool fan-out, verify-at-construction    |
+|  [04]   | `PORT_SATISFACTION` | the security state ports satisfied by Layers built from these scopes              |
 
-## [2]-[POLICY_FAMILY]
+## [02]-[POLICY_FAMILY]
 
 - Owner: `Tenancy` — one `Data.taggedEnum` family (`Rls`, `SchemaPerApp`, `DatabasePerApp`) whose constructors, `$is`/`$match` dispatch, and locus fold travel under one name.
 - Packages: `effect` (`Data`); `@rasm/ts/core` (`AppIdentity` — the app-key brand the locus derives from).
@@ -43,7 +43,7 @@ const _locus = (app: AppIdentity.Key, tenancy: Tenancy): _Locus =>
   })
 ```
 
-## [3]-[SCOPED_WRITE]
+## [03]-[SCOPED_WRITE]
 
 - Owner: `Tenancy.within` — the one transformer that opens the transaction and pins the tenancy coordinate before any statement runs, modal over its input: the ambient form reads the bound `TenantScope` reference, the explicit form takes a `TenantContext` value; plus `Tenancy.rls(relation)` — the idempotent RLS policy ensure every tenant-carrying relation registers, predicated on the `TENANT_GUC` anchor.
 - Packages: `@effect/sql` (`SqlClient`, `sql.withTransaction`, `sql.onDialectOrElse`); `effect` (`Effect`, `Option`); `@rasm/ts/security` (`TenantScope`, `TENANT_GUC`); `@rasm/ts/core` (`TenantContext`).
@@ -115,7 +115,7 @@ const Tenancy: Data.TaggedEnum.Constructor<Tenancy> & {
 }
 ```
 
-## [4]-[SCOPE_FAMILY]
+## [04]-[SCOPE_FAMILY]
 
 - Owner: `ScopeKey` — the `(app, tenancy)` structural identity — and `Stores`, the one `LayerMap.Service` whose lookup dispatches the tenancy family into a per-scope `SqlClient | Capability` subgraph: base client selected by isolation case, capability probes and ensure verification composed as a discard node, dialect core grants seeded.
 - Packages: `effect` (`Data`, `LayerMap`, `Layer`, `Duration`, `Effect`); `lane/postgres.md` (`Pg.client`, `Pg.fromPool`, `Pg.rows`, `Pg.core`); `lane/capability.md` (`Capability`); the journal pages publish the ensure roster as data.
@@ -180,7 +180,7 @@ class Stores extends LayerMap.Service<Stores>()("data/Stores", {
 }
 ```
 
-## [5]-[PORT_SATISFACTION]
+## [05]-[PORT_SATISFACTION]
 
 - Owner: the port-satisfaction contract — every security state port is satisfied at the app root by a Layer built FROM a `Stores` scope, and `Stores.port` is the one combinator that binds a port Tag to its statement implementation over a scope's verified subgraph.
 - Packages: `effect` (`Layer`); the port Tags arrive from `@rasm/ts/security` at the composition root, never imported by the neutral rows.

@@ -2,16 +2,16 @@
 
 The local-persistence plane and the one `idb-keyval` site in the branch: a closed `_domains` vocabulary maps each persisted concern to its own named IndexedDB store and its owning value `Schema`, and one polymorphic lane surface carries every operation — point and batch read, point and atomic-batch write, in-transaction mutate, drop, the atomic drain, and the wipe — over `Effect.tryPromise` conversions into one class-carried `KvFault` rail. Values cross the boundary Schema-encoded to structured-cloneable shapes and decode on read, so the lane's public surface is domain-typed while the stored bytes stay canonical; a direct `idb-keyval`/`indexedDB`/`localStorage` call outside this owner, a key-prefix convention inside one flat store, or a JSON string smuggled past the codec is the named flat-store defect. The page also owns the durable-band residency verdicts over the native `StorageManager` — the persistence grant, the quota estimate, and the closed pressure vocabulary every local-durability decision dispatches on — and the browser half of the local-first arrangement: the `EventLog` overlay client backings and the sqlite-wasm lane seam. The overlay law is absolute: the `EventLog` client accelerates local-first reads and offline capture; the record of truth is the data journal, and a value whose loss corrupts state never lives only here. The sqlite-wasm lane meets the browser at the composition root — the data folder owns the OPFS driver on its wasm profile row (`lane/sqlite`), this folder imports no sql surface and contributes the residency verdicts that lane's health gate reads. The module is `runtime/src/browser/persist.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                            | [PUBLIC]        |
-| :-----: | :----------------- | :------------------------------------------------------------------ | :-------------- |
-|  [01]   | `DOMAIN_ROWS`      | the store-per-domain vocabulary and each domain's value schema      | `Kv` (types)    |
-|  [02]   | `LANE_SURFACE`     | the typed operation family, the codec seam, the atomic drain        | `Kv`, `KvFault` |
-|  [03]   | `STORAGE_RESIDENCY`| the grant, the estimate, the pressure-verdict vocabulary            | `Opfs`          |
-|  [04]   | `OVERLAY_AND_LANE` | the EventLog browser backings, the sync row, the wasm-lane seam law | `Overlay`       |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                              | [PUBLIC]        |
+| :-----: | :------------------ | :------------------------------------------------------------------ | :-------------- |
+|  [01]   | `DOMAIN_ROWS`       | the store-per-domain vocabulary and each domain's value schema      | `Kv` (types)    |
+|  [02]   | `LANE_SURFACE`      | the typed operation family, the codec seam, the atomic drain        | `Kv`, `KvFault` |
+|  [03]   | `STORAGE_RESIDENCY` | the grant, the estimate, the pressure-verdict vocabulary            | `Opfs`          |
+|  [04]   | `OVERLAY_AND_LANE`  | the EventLog browser backings, the sync row, the wasm-lane seam law | `Overlay`       |
 
-## [2]-[DOMAIN_ROWS]
+## [02]-[DOMAIN_ROWS]
 
 [DOMAIN_ROWS]:
 - Owner: the interior `_domains` anchor — one row per persisted concern, each carrying its value schema: `outbox` (the durable replay entries `shell#REPLAY_DRAIN` drains — rows of minted-at plus opaque payload band), `flow` (the single pending redirect record `route#SESSION_PLANE` persists across a full-page departure), `route` (the last-good serialized query string per route key `route#TRAVERSAL_OWNER` restores on cold boot), `cache` (content-keyed byte bands `fetch#DEPOT_SCHEDULER` warms from), `mark` (watermarks — last sync instant, wake posture, boot count).
@@ -23,7 +23,7 @@ The local-persistence plane and the one `idb-keyval` site in the branch: a close
 - Boundary: which entries enter the `outbox` is `shell#REPLAY_DRAIN`'s law; which bands warm the `cache` is `fetch#DEPOT_SCHEDULER`'s; this page owns residency and atomicity only.
 - Packages: `idb-keyval` (`createStore`, `UseStore`); `effect` (`Schema`).
 
-## [3]-[LANE_SURFACE]
+## [03]-[LANE_SURFACE]
 
 [LANE_SURFACE]:
 - Owner: `Kv`, one `Effect.Service` whose members are domain-generic over the row table — `read(domain, key)` yields `Option<Kv.Value<D>>` with absence as `Option.none`, and `read(domain, keys)` is the batch modality over `getMany`, one transaction answering the whole set positionally; `write(domain, key, value)` encodes then stores, and `write(domain, entries)` is the atomic batch over `setMany` — all entries land or none do, the compensation and hydrate spelling; `mutate(domain, key, step)` runs the read-modify-write inside one IndexedDB transaction with a synchronous `step`, so the transaction never spans an await; `drop(domain, key | keys)` discriminates single from batch on the input shape and deletes atomically; `drain(domain)` is the atomic scan-then-clear — a mid-drain crash leaves the whole queue or empties it, never a half-applied tear; `wipe(domain)` resets one store.
@@ -211,7 +211,7 @@ class Kv extends Effect.Service<Kv>()("runtime/browser/Kv", {
 }) {}
 ```
 
-## [4]-[STORAGE_RESIDENCY]
+## [04]-[STORAGE_RESIDENCY]
 
 [STORAGE_RESIDENCY]:
 - Owner: `Opfs`, one `Effect.Service` over the native `StorageManager` — `retained` reads `navigator.storage.persisted()` (already granted), `retain` requests `navigator.storage.persist()` (granted now), and `budget` folds `navigator.storage.estimate()` into the `Opfs.Budget` receipt: usage, quota, headroom, and the verdict drawn from the closed `_BANDS` vocabulary (`ample`/`tight`/`critical` by usage fraction, `opaque` where the host withholds numbers).
@@ -297,7 +297,7 @@ class Opfs extends Effect.Service<Opfs>()("runtime/browser/Opfs", {
 }) {}
 ```
 
-## [5]-[OVERLAY_AND_LANE]
+## [05]-[OVERLAY_AND_LANE]
 
 [OVERLAY_AND_LANE]:
 - Owner: `Overlay` — the browser backing rows the `@effect/experimental` EventLog client requires, assembled once: `Overlay.backing(spec)` merges the IndexedDB journal (`EventJournal.layerIndexedDb`, its own database, never a `[3]` store), the client identity over Web Storage (`EventLog.layerIdentityKvs` satisfied by `BrowserKeyValueStore.layerLocalStorage`), and the `Reactivity` bus; `Overlay.sync(url)` is the self-contained browser sync row (`EventLogRemote.layerWebSocketBrowser` — WebSocket plus Web Crypto E2E, requiring only the built `EventLog`).

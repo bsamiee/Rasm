@@ -2,16 +2,16 @@
 
 The content-addressed object plane: the object key IS the core `ContentKey` — this page is a delegating mint site, never a second hash — and the S3 `Key` string is its `:x32` spelling, so two writers producing the same bytes produce the same object and the conditional put makes the second writer a proven noop. One `ObjectStore` service owns the scoped client, the single abort-bridged `send`, the tagged fault fold with 412 pre-folded to the idempotent receipt, the size-and-shape-discriminated put (plain conditional, hand-composed conditional multipart for bounded bytes, `lib-storage` `Upload` for streaming bodies — the conditional spreads onto every leg), the verified get with ranged reads, the presigned capability mint, and the lifecycle plane: a SQL reference ledger driving reference-sweep GC whose deletes are `If-Match`-guarded CAS so a sweep can never race a re-mint. Provider facts are `Config` data against the engine conformance table — an engine that cannot honor `If-None-Match: *` cannot host this plane, ruled as rows, never re-litigated.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                          |
-| :-----: | :--------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | `CLIENT_SEAM`    | the scoped client, the one typed send, the fault fold, config, the engine table      |
-|  [02]   | `CONDITIONAL`    | the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads    |
-|  [03]   | `REFERENCE_GC`   | the reference ledger, If-Match-guarded sweep, batch deletes, lifecycle rules         |
-|  [04]   | `GRANT_MINT`     | the one presign entry, TTL narrowing, header policy, the typed grant                 |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                            |
+| :-----: | :------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `CLIENT_SEAM`  | the scoped client, the one typed send, the fault fold, config, the engine table   |
+|  [02]   | `CONDITIONAL`  | the put algebra — 412-noop, CAS, multipart-at-complete, streaming, verified reads |
+|  [03]   | `REFERENCE_GC` | the reference ledger, If-Match-guarded sweep, batch deletes, lifecycle rules      |
+|  [04]   | `GRANT_MINT`   | the one presign entry, TTL narrowing, header policy, the typed grant              |
 
-## [2]-[CLIENT_SEAM]
+## [02]-[CLIENT_SEAM]
 
 - Owner: the `ObjectStore` service construction — `Effect.acquireRelease` around the client with `destroy` on release, the abort-bridged send idiom every operation repeats verbatim, the `_folded` fault fold with its read-shaped `_foldedRead` projection, one `_Setting` config owner, the `_shielded` resilience bracket every operation rides — and the `_engines` conformance table that rules which providers host the plane.
 - Packages: `@aws-sdk/client-s3` (`S3Client`, `S3ServiceException`); `effect` (`Config`, `Redacted`, `Match`, `Data`, `Duration`, `Schedule`).
@@ -117,7 +117,7 @@ const _foldedRead = (key: string) => (caught: unknown): ObjectFault => {
 }
 ```
 
-## [3]-[CONDITIONAL]
+## [03]-[CONDITIONAL]
 
 - Owner: the conditional-put algebra and the read family — `conditional` (the ONE conditional command mint the server put, the presign grant, and the stream rail's finalize all share), `put` discriminating plain versus multipart versus streaming on the body shape and size, `get` with identity verification, `head` settling presence and descriptor evidence, and the consistency waiters; the ranged streaming read is `object/stream.md`'s `Rail.range` — one owner per read geometry, never both pages.
 - Packages: `@aws-sdk/client-s3` (`PutObjectCommand`, `GetObjectCommand`, `HeadObjectCommand`, `GetObjectAttributesCommand`, `CopyObjectCommand`, `CreateMultipartUploadCommand`, `UploadPartCommand`, `CompleteMultipartUploadCommand`, `AbortMultipartUploadCommand`, `waitUntilObjectExists`); `@aws-sdk/lib-storage` (`Upload` — the streaming leg); `effect` (`Array`, `Stream`, `Exit`, `Option`); `@rasm/ts/core` (`ContentKey`, `Digest` — the delegating mint).
@@ -303,7 +303,7 @@ const _settled = (client: S3Client, bucket: string, key: ContentKey, maxWaitTime
   }))
 ```
 
-## [4]-[REFERENCE_GC]
+## [04]-[REFERENCE_GC]
 
 - Owner: the `object_ref` ensure row, the reference verbs, the sweep, and the two-layer native GC — orphan detection walks the bucket through the shipped paginator, joins each entry against the ledger, and every delete is a per-key `If-Match`-guarded CAS against the ETag the listing just carried; `DeleteObjectsCommand` is the refused spelling here because the 1000-key batch cannot carry a per-key conditional, and the CAS law outranks the round-trip saving; `lifecycle` pushes the retention-class windows as native bucket rules and `classify` stamps the retention tag on the object itself.
 - Packages: `@aws-sdk/client-s3` (`DeleteObjectCommand`, `paginateListObjectsV2`, `PutBucketLifecycleConfigurationCommand`, `PutObjectTaggingCommand`, `waitUntilObjectNotExists`); `@effect/sql` (`SqlSchema`, `sql.insert`, `sql.in`); `journal/retain.md` (`Retain.Class`, `Retain.Policy` — the one retention vocabulary, and the shredded-subject law arriving as data).
@@ -426,7 +426,7 @@ const _sweep = (client: S3Client, bucket: string) =>
   })
 ```
 
-## [5]-[GRANT_MINT]
+## [05]-[GRANT_MINT]
 
 - Owner: `store.grant(key, command, ttl?)` — one polymorphic mint over any command value: the command discriminates upload, download, part, or probe; the TTL narrows the config default and never widens it; the reply is the typed `{ url, expiresAt, key }` capability, never a bare string.
 - Packages: `@aws-sdk/s3-request-presigner` (`getSignedUrl`); `effect` (`DateTime`, `Duration`).

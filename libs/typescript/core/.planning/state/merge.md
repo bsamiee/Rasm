@@ -2,17 +2,17 @@
 
 The one lawful merge owner of the branch and its law surface in one module: every convergent combination — CRDT register, counter, flag, grow-only set, keyed map, record product, bounded lattice, wrapper re-landing — is a `Merge.Instance<A>` value composing `@effect/typeclass` `Semigroup` atoms with a declared law posture, a shared `Equivalence`, and an optional identity, and every instance's proof obligations — associativity always, commutativity and idempotence exactly when the posture claims them, identity exactly when an `empty` exists — live beside it as `Converge` witness values. An instance with a lawful `empty` projects the lawful `Monoid` whose `combineAll` is the state-vector fold, a `Bounded` scale derives its lattice pair with `empty` from the bounds, and a keyed live table whose multi-key batches commit all-or-nothing is one STM cell family on the same instance vocabulary. The merge law, the incremental reducer law the fold engines apply, and the convergence proofs are one declaration read three ways; ordered-sequence convergence is `fold`'s fractional-index lane by construction, so no sequence instance exists here. The module is `core/src/state/merge.ts`; a new merge semantic is a constructor row, a new law is a witness row, and a bespoke lawful merge enters through `Merge.instance` with its obligations proven at the law surface.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                        | [PUBLIC]                                                  |
-| :-----: | :------------------ | :----------------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `INSTANCE_CONTRACT` | the `Merge.Instance<A>` shape, posture vocabulary, order-derived equivalence   | `Merge.Posture`, `Merge.Instance`, `Merge.instance`         |
-|  [02]   | `INSTANCE_ROSTER`   | scalar, bounded, keyed, set, optional, product, and re-landing constructors    | `Merge.max/min/lattice/first/counter/flag/union/hashSet/hashMap/imap/optional/struct` |
-|  [03]   | `FOLD_ENTRY`        | the absence-honest fold, the lawful `Monoid` projection, the convergence read  | `Merge.fold`, `Merge.monoid`, `Merge.convergent`            |
-|  [04]   | `LAW_SURFACE`       | obligation selection, per-law witnesses, replay commutation, fixture rows      | `Converge`, `Breach`                                        |
-|  [05]   | `MERGE_CELLS`       | the keyed transactional merge table with batch-atomic absorb and settle waits  | `Merge.cell`                                                |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                        | [PUBLIC]                                                                              |
+| :-----: | :------------------ | :---------------------------------------------------------------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `INSTANCE_CONTRACT` | the `Merge.Instance<A>` shape, posture vocabulary, order-derived equivalence  | `Merge.Posture`, `Merge.Instance`, `Merge.instance`                                   |
+|  [02]   | `INSTANCE_ROSTER`   | scalar, bounded, keyed, set, optional, product, and re-landing constructors   | `Merge.max/min/lattice/first/counter/flag/union/hashSet/hashMap/imap/optional/struct` |
+|  [03]   | `FOLD_ENTRY`        | the absence-honest fold, the lawful `Monoid` projection, the convergence read | `Merge.fold`, `Merge.monoid`, `Merge.convergent`                                      |
+|  [04]   | `LAW_SURFACE`       | obligation selection, per-law witnesses, replay commutation, fixture rows     | `Converge`, `Breach`                                                                  |
+|  [05]   | `MERGE_CELLS`       | the keyed transactional merge table with batch-atomic absorb and settle waits | `Merge.cell`                                                                          |
 
-## [2]-[INSTANCE_CONTRACT]
+## [02]-[INSTANCE_CONTRACT]
 
 [INSTANCE_CONTRACT]:
 - Owner: `Merge.Instance<A>` — `combine` (the `Semigroup`; associativity is its contract), `posture` (the declared commutativity/idempotence obligations the law surface asserts), `alike` (the equivalence every law check and table comparison shares), `empty` (the lawful identity as `Option`, never a forged sentinel).
@@ -79,7 +79,7 @@ const _fromOrder = <A>(order: Order.Order<A>): Equivalence.Equivalence<A> =>
   Equivalence.make((self, that) => order(self, that) === 0)
 ```
 
-## [3]-[INSTANCE_ROSTER]
+## [03]-[INSTANCE_ROSTER]
 
 [INSTANCE_ROSTER]:
 - Owner: the constructor family — every row is a `data/*` atom or a one-line `Semigroup` derivation carrying its true posture; the roster is seed data on the `Instance` shape.
@@ -135,7 +135,7 @@ const _struct = <S extends object>(fields: Merge.Fields<S>): Merge.Instance<Type
 })
 ```
 
-## [4]-[FOLD_ENTRY]
+## [04]-[FOLD_ENTRY]
 
 [FOLD_ENTRY]:
 - Owner: `Merge.fold` — the absence-honest fold: a non-empty collection folds through `combineMany` on its head, an empty collection falls to the instance's lawful `empty`, and the return is `Option` because an identity-free instance has no lawful answer for zero rows; a caller holding a witnessed `NonEmptyReadonlyArray` composes `instance.combine.combineMany(Array.headNonEmpty(rows), Array.tailNonEmpty(rows))` directly — the proven-arity spelling, never a second entrypoint.
@@ -154,7 +154,7 @@ const _monoid = <A>(instance: Merge.Instance<A>): Option.Option<Monoid.Monoid<A>
   Option.map(instance.empty, (empty) => Monoid.fromSemigroup(instance.combine, empty))
 ```
 
-## [5]-[LAW_SURFACE]
+## [05]-[LAW_SURFACE]
 
 [LAW_SURFACE]:
 - Owner: `Converge` — the `_LAWS` anchor with its `_OBLIGED` gate record and the `_WITNESSES` record, one gate and one total witness per law over an instance and a three-value sample, so a law is data a harness enumerates, never prose a spec restates; `Breach` is the typed fault carrying the broken law and the sample operands themselves — evidence as data the harness shrinks, rendered only at the reporting edge.
@@ -247,7 +247,7 @@ const Converge: Converge.Shape = {
 }
 ```
 
-## [6]-[MERGE_CELLS]
+## [06]-[MERGE_CELLS]
 
 [MERGE_CELLS]:
 - Owner: `Merge.cell` — the keyed transactional merge table: one `TMap` of per-key state cells whose `absorb` folds a whole row batch through the instance in ONE `STM` commit, so a delta touching several keys lands all-or-nothing, conflicting absorbers re-run automatically, and a reader can never observe half a batch — the multi-cell merge atomicity a `Ref` advanced under a hand permit cannot state.

@@ -2,15 +2,15 @@
 
 Reactivity-keyed reactive reads: read-your-writes is one coordinate vocabulary written at the mutation and consumed at the query, never a poll and never a cache to bust by hand. The journal's publish transaction stamps invalidation keys through its slots; this page owns the read half — `Live.of(spec)` binds a keyed, schema-decoded query into a one-shot `read`, a push `changes` stream that re-runs on every overlapping mutation, and a pull `mailbox` twin — plus the foreign-write edge, the one road by which a mutation that bypassed the publish transaction (a relay completion, a wire-arrived write, a rebuild swap, a fact drain) still wakes exactly the readers its coordinates name. Keys are the whole contract: the record form scopes `{ band: cells }`, an empty cell list names the whole band, a member mutation wakes member readers and whole-band readers both, and delivery is exact because the coordinates are shared data, not convention.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                        |
-| :-----: | :---------------- | :------------------------------------------------------------------------------- |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                             |
+| :-----: | :---------------- | :--------------------------------------------------------------------------------- |
 |  [01]   | `KEY_COORDINATES` | the invalidation-key vocabulary — band/member scoping, the stamp/consume symmetry  |
 |  [02]   | `LIVE_READS`      | `Live.of` — the decoded read, the reactive stream, the mailbox twin                |
 |  [03]   | `FOREIGN_EDGE`    | mutation wrapping and bare invalidation for writes outside the publish transaction |
 
-## [2]-[KEY_COORDINATES]
+## [02]-[KEY_COORDINATES]
 
 - Owner: `Live.Keys` — the one coordinate shape both sides of read-your-writes speak — and `Live.band`/`Live.cells`, the two mints that keep every spelling of a coordinate on one constructor pair.
 - Packages: `effect` (`Record`, `Array`).
@@ -37,7 +37,7 @@ const _merged = (coordinates: ReadonlyArray<Live.Keys>): Live.Keys =>
     Record.union(held, keys, (left, right) => [...left, ...right]))
 ```
 
-## [3]-[LIVE_READS]
+## [03]-[LIVE_READS]
 
 - Owner: `Live.of(spec)` — one binding over `{ keys, query }` yielding the three read modalities: `read` (the decoded one-shot), `changes` (the reactive stream re-running on every overlapping mutation), `mailbox` (the pull-model twin whose consumer drains on its own cadence).
 - Packages: `@effect/sql` (`SqlClient` — `sql.reactive`, `sql.reactiveMailbox`); `effect` (`Effect`, `Stream`, `Mailbox`).
@@ -78,7 +78,7 @@ const _of = <A, R>(spec: Live.Spec<A, R>): Live.Bound<A, R> => ({
 })
 ```
 
-## [4]-[FOREIGN_EDGE]
+## [04]-[FOREIGN_EDGE]
 
 - Owner: `Live.mutation` and `Live.invalidate` — the two spellings by which a write outside the publish transaction still delivers read-your-writes: wrap the write so completion stamps its coordinates, or stamp bare coordinates when the write already happened somewhere this process only observes.
 - Packages: `@effect/experimental` (`Reactivity` — the service Tag, `mutation`, `invalidate`; `Reactivity.layer` is the provisioning row the driver layers compose).

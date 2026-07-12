@@ -2,15 +2,15 @@
 
 ONE sqlite lane, five profile rows: the same journal, projection, tenancy, and capability contracts running against node (`better-sqlite3`), bun (`bun:sqlite`), browser wasm-OPFS, libSQL edge-replica, and Cloudflare D1 — one relational contract degraded per profile, never a second relational universe. Every divergence from the pg spine is a row in the degradation table whose columns are the profiles and whose keys are the spine's grant vocabulary, so the lane and the spine cannot drift silently; the profile constructors are Layer rows on the runtime subpaths, and no neutral statement ever names a driver — `sql.onDialectOrElse` arms inside the shared statements are the entire dialect story. WAL is the durability mode every server profile runs; single-writer is the lane-wide concurrency law, deepening to single-tab on OPFS and primary-serialized on the edge rows.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                                        |
-| :-----: | :------------------ | :------------------------------------------------------------------------------ |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                              |
+| :-----: | :------------------ | :---------------------------------------------------------------------------------- |
 |  [01]   | `DEGRADATION_TABLE` | the per-profile capability-to-fallback matrix — the lane's whole difference as data |
-|  [02]   | `PROFILE_ROWS`      | the five Layer constructors and their runtime coordinates                        |
-|  [03]   | `SNAPSHOT_IO`       | whole-database export/backup/seed, zero-copy transfer, extension load            |
+|  [02]   | `PROFILE_ROWS`      | the five Layer constructors and their runtime coordinates                           |
+|  [03]   | `SNAPSHOT_IO`       | whole-database export/backup/seed, zero-copy transfer, extension load               |
 
-## [2]-[DEGRADATION_TABLE]
+## [02]-[DEGRADATION_TABLE]
 
 - Owner: the `_degrades` anchor — one row per spine grant the lane cannot honor natively, carrying a verdict per profile column; the derived `Sqlite.Fallback` union every consumer dispatches on.
 - Packages: none — the table is pure vocabulary over `lane/postgres.md`'s grant keys.
@@ -56,7 +56,7 @@ declare namespace Sqlite {
 }
 ```
 
-## [3]-[PROFILE_ROWS]
+## [03]-[PROFILE_ROWS]
 
 - Owner: the five Layer constructors — `Sqlite.node(app)` and `Sqlite.bun(app)` on the `./server` subpath, `Sqlite.opfs(worker)` and `Sqlite.memory` on `./wasm`, `Sqlite.libsql` and `Sqlite.d1(db)` at their edge composition roots — plus the worker-side entry `Sqlite.worker` the OPFS profile requires.
 - Packages: `@effect/sql-sqlite-node` (`SqliteClient.layerConfig`, `prepareCacheSize`, `disableWAL`); `@effect/sql-sqlite-bun` (`SqliteClient.layer`); `@effect/sql-sqlite-wasm` (`SqliteClient.layer`, `SqliteClient.layerMemory`, `OpfsWorker.run`, `installReactivityHooks`); `@effect/sql-libsql` (`LibsqlClient.layerConfig`); `@effect/sql-d1` (`D1Client.layer`); `effect` (`Config`, `Layer`, `Scope`).
@@ -129,7 +129,7 @@ const _d1 = (db: D1Database): Layer.Layer<D1Client.D1Client | SqlClient.SqlClien
   D1Client.layer({ db })
 ```
 
-## [4]-[SNAPSHOT_IO]
+## [04]-[SNAPSHOT_IO]
 
 - Owner: `Sqlite.bytes(io)` — ONE byte-operation entry whose modality is the `Sqlite.Io` case value: `Snapshot` (whole-database export content-addressed into the object plane), `Backup` (node-only non-blocking online backup with page-progress metadata), `Seed`/`Dump` (wasm import/export with zero-copy transfer), and `Extend` (runtime extension load, the server profiles' capability-admission write half); the profile Tag each case reaches is the case's own knowledge, never the caller's.
 - Packages: `@effect/sql-sqlite-node` (`client.export`, `client.backup`, `client.loadExtension`, `BackupMetadata`); `@effect/sql-sqlite-bun` (`client.export`); `@effect/sql-sqlite-wasm` (`client.import`, `client.export`, `SqliteClient.withTransferables`); the object plane's put entry consumes the exported bytes at the composition seam.

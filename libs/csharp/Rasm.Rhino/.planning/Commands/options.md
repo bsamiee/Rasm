@@ -259,10 +259,10 @@ public sealed class OptionLease : IDisposable {
 
 ## [05]-[SURFACE_LEDGER]
 
-| [INDEX] | [CONCERN]              | [OWNER]       | [FORM]                                              | [ENTRY]                          |
-| :-----: | :--------------------- | :------------ | :--------------------------------------------------- | :-------------------------------- |
-|  [01]   | option identity        | `OptionLabel` | `[ComplexValueObject]`, host-validated name           | `Create` / `Pair`                  |
-|  [02]   | modality vocabulary    | `OptionValue` | one union: bind, decode, projection per case          | `Bind` / `Decode`                  |
-|  [03]   | option set             | `OptionSet`   | distinct-name validated row collection                | `Of` / `Bind` / `Decode`           |
-|  [04]   | carrier lifetime       | `OptionLease` | capsule over native carriers, idempotent release      | `Selected` / `Snapshot` / `Dispose`|
-|  [05]   | selection product      | `OptionChoice`| label + value + native index + raw evidence           | `OptionLease.Selected`             |
+| [INDEX] | [CONCERN]           | [OWNER]        | [FORM]                                           | [ENTRY]                             |
+| :-----: | :------------------ | :------------- | :----------------------------------------------- | :---------------------------------- |
+|  [01]   | option identity     | `OptionLabel`  | `[ComplexValueObject]`, host-validated name      | `Create` / `Pair`                   |
+|  [02]   | modality vocabulary | `OptionValue`  | one union: bind, decode, projection per case     | `Bind` / `Decode`                   |
+|  [03]   | option set          | `OptionSet`    | distinct-name validated row collection           | `Of` / `Bind` / `Decode`            |
+|  [04]   | carrier lifetime    | `OptionLease`  | capsule over native carriers, idempotent release | `Selected` / `Snapshot` / `Dispose` |
+|  [05]   | selection product   | `OptionChoice` | label + value + native index + raw evidence      | `OptionLease.Selected`              |

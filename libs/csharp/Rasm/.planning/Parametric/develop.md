@@ -185,13 +185,13 @@ flowchart LR
 
 One owner per axis; capability is a case, row, or fold arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [AXIS/CONCERN]      | [OWNER]                       | [KIND]                                                                              | [RAIL]                             | [CASES] |
-| :-----: | :------------------ | :---------------------------- | :----------------------------------------------------------------------------------- | :---------------------------------- | :-----: |
-|  [01]   | Development algebra | `DevelopOp` + `Development`   | `[Union]` decompose/unroll folded by ONE `Apply`; `Unroll` composes `Decompose`     | `Apply → Fin<DevelopmentResult>`   |    2    |
-|  [1a]   | Result carrier      | `DevelopmentResult`           | `[Union]` strips · unrolled-with-atlas; the `ChartAtlas` seam type composed          | carrier (drained at the consumer)  |    2    |
-|  [1b]   | Strip wire          | `StripField`                  | SoA rails/rulings/layout columns — graph results as columns                          | value                              |    —    |
-|  [1c]   | Policy row          | `DevelopPolicy`               | spacing · stations · torsal gate · isometry budget · seed                            | value (`IValidityEvidence`)        |    —    |
-|  [1d]   | Evidence            | `DevelopmentReceipt`          | isometry max/mean · torsal max · census — the Fabrication acceptance reads it        | value                              |    —    |
+| [INDEX] | [AXIS_CONCERN]      | [OWNER]                     | [KIND]                                                                          | [RAIL]                            | [CASES] |
+| :-----: | :------------------ | :-------------------------- | :------------------------------------------------------------------------------ | :-------------------------------- | :-----: |
+|  [01]   | Development algebra | `DevelopOp` + `Development` | `[Union]` decompose/unroll folded by ONE `Apply`; `Unroll` composes `Decompose` | `Apply → Fin<DevelopmentResult>`  |    2    |
+|  [1a]   | Result carrier      | `DevelopmentResult`         | `[Union]` strips · unrolled-with-atlas; the `ChartAtlas` seam type composed     | carrier (drained at the consumer) |    2    |
+|  [1b]   | Strip wire          | `StripField`                | SoA rails/rulings/layout columns — graph results as columns                     | value                             |    —    |
+|  [1c]   | Policy row          | `DevelopPolicy`             | spacing · stations · torsal gate · isometry budget · seed                       | value (`IValidityEvidence`)       |    —    |
+|  [1d]   | Evidence            | `DevelopmentReceipt`        | isometry max/mean · torsal max · census — the Fabrication acceptance reads it   | value                             |    —    |
 
 The `Apply` fold, `DecomposeOf`'s exact-rail composition, `UnrollOf`'s budget-gated strip fold, and `Emit`'s transient graph fold carry real composed bodies; `SeedOf`, `LevelLadder`, `Rulings`, `Develop`, `SharedRails`, and `Atlas` are signature-pinned kernels whose contracts the `Auto` bullet and the `[04]` cards fix. The distance field, the projection arithmetic, the graph algorithms, and the atlas types are all composed owners — the only local mathematics is the torsal residual and the rigid placement, exactly the pair no admitted surface carries.
 

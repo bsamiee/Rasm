@@ -2,15 +2,15 @@
 
 The OAuth 2.0 authorization-code ceremony over `arctic`, modeling every issuer as one vocabulary row rather than a method family: each row bundles its own `Config` requirement and the four ceremony legs — `url` builds the redirect, `exchange` swaps the code for `OAuth2Tokens`, `refresh` rotates the provider grant, `revoke` retires it — into a uniform `Ceremony` closure, so per-provider PKCE, constructor arity, and credential shape all vanish behind one dispatch and a new provider is one row carrying exactly the config it needs — the wide all-providers credential bag is dead. The roster is the full arctic surface as data: `google`/`github`/`microsoft`/`apple` (whose row alone demands `teamId`/`keyId`/`pkcs8`) plus the generic `OAuth2Client` fallback for self-hosted Keycloak/Authentik/Okta issuers — all sharing the ceremony shape, anchored by the `_kinds` tuple with the guard pair closed in both directions. The two-leg ceremony is durable data, not an ad-hoc stash: `authorize` seals a `Departed` snapshot — kind, PKCE verifier, expiry — into the `OAuthStateStore` single-use port under a TTL, the browser redirect crosses any process boundary, and `callback` consumes the snapshot exactly once, type-witnessing the leg order; a replayed, foreign, expired, or provider-mismatched state is `OAuthFault.state` and increments `security_oauth_state_reject`. Every fetch leg is internally resilient — a deadline bounds arctic's own `fetch`, and the `transport` arm (`ArcticFetchError`, the only retryable classification) re-drives under a bounded jittered exponential while `OAuth2RequestError` stays terminal. OIDC `id_token`s verify through `crypt/sign`'s issuer-overloaded `Jwt.verify` — arctic's `decodeIdToken` is never trusted — and the verified subject becomes the `CredentialRef` `authn/session` establishes from. The arctic fault family triages by `Match.instanceOf` into `OAuthFault`, and every secret stays `Redacted`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                              | [PUBLIC]                       |
-| :-----: | :------------------ | :------------------------------------------------------------------ | :----------------------------- |
-|  [01]   | `PROVIDER_ROSTER`   | the closed provider row table with per-row config, the fault, the ceremony snapshot + state port | `Provider`, `OAuthFault`, `Departed`, `OAuthStateStore` |
-|  [02]   | `CEREMONY`          | authorize + callback + establish, single-dispatch id_token verify   | `OAuth`                        |
-|  [03]   | `GRANT_LIFECYCLE`   | refresh rotation and revocation over the row's provider grant        | `OAuth`                        |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                                           | [PUBLIC]                                                |
+| :-----: | :---------------- | :----------------------------------------------------------------------------------------------- | :------------------------------------------------------ |
+|  [01]   | `PROVIDER_ROSTER` | the closed provider row table with per-row config, the fault, the ceremony snapshot + state port | `Provider`, `OAuthFault`, `Departed`, `OAuthStateStore` |
+|  [02]   | `CEREMONY`        | authorize + callback + establish, single-dispatch id_token verify                                | `OAuth`                                                 |
+|  [03]   | `GRANT_LIFECYCLE` | refresh rotation and revocation over the row's provider grant                                    | `OAuth`                                                 |
 
-## [2]-[PROVIDER_ROSTER]
+## [02]-[PROVIDER_ROSTER]
 
 [PROVIDER_ROSTER]:
 - Owner: `Provider` is the closed provider table — each row carries `scopes`, a PKCE flag, an optional OIDC `{ issuer, jwksUri, algorithms }`, `hasRefresh`/`hasRevoke` availability flags, and a `ceremony` `Config` that resolves exactly the credential fields the provider demands and yields the bound arctic client behind the uniform four-leg closure; `OAuthFault` is the folded fault; `Departed` is the serializable ceremony snapshot; `OAuthStateStore` is the `SingleUse<Departed>` port.
@@ -199,7 +199,7 @@ class Departed extends Schema.Class<Departed>("Departed")({
 class OAuthStateStore extends Context.Tag("security/authn/OAuthStateStore")<OAuthStateStore, SingleUse<Departed, OAuthFault>>() {}
 ```
 
-## [3]-[CEREMONY]
+## [03]-[CEREMONY]
 
 [CEREMONY]:
 - Owner: `OAuth.authorize` mints `state`+`verifier`, seals the `Departed` snapshot under the ceremony TTL, and returns the redirect `URL`; `OAuth.callback` consumes the snapshot exactly once, gates kind and expiry, exchanges the code under the resilient leg, verifies the OIDC `id_token`, reads the grant's expiry and scopes, and establishes the session. Dispatch is by `Provider.Kind`; the row's `Config` resolves and the arctic client constructs once per kind under `Effect.cachedFunction`.
@@ -294,7 +294,7 @@ class OAuth extends Effect.Service<OAuth>()("security/authn/OAuth", {
 }) {}
 ```
 
-## [4]-[GRANT_LIFECYCLE]
+## [04]-[GRANT_LIFECYCLE]
 
 [GRANT_LIFECYCLE]:
 - Owner: `OAuth.refresh` rotates a stored provider refresh grant when the row's `hasRefresh` flag is set, reading the new `accessTokenExpiresAt`/`scopes`; `OAuth.revoke` retires the grant on sign-out when `hasRevoke` is set. Both dispatch by `Provider.Kind` through `_bound`, ride the same resilient `_leg` seam, and route the arctic fault family through the same `_faultOf` triage; `_lifecycle` is the bound-row closure the service delegates to, declared before the service so both legs read one shape.

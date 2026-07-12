@@ -19,10 +19,10 @@
 [PUBLIC_TYPE_SCOPE]: quadrature result receipt
 - rail: quadrature
 
-| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]  | [CAPABILITY]                                                                                                                                 |
-| :-----: | :----------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------- |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]               | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                                  |
+| :-----: | :---------------------------- | :-------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `quadax.utils.QuadratureInfo` | result carrier (NamedTuple) | per-integration receipt with fields `err` (estimated error), `neval` (integrand evaluations), `status` (convergence code), `info` (solver diagnostics); a `typing.NamedTuple` defined in `quadax.utils`, NOT a top-level `quadax` export — import via `from quadax.utils import QuadratureInfo` if the type is named, else accept it positionally as the second tuple element |
-|  [02]   | `STATUS`                 | decode table   | `dict[int, str]` mapping `QuadratureInfo.status` codes to human-readable convergence messages; top-level re-export of `quadax.utils.STATUS`; the status is a bitfield combining NORMAL_EXIT/MAX_NINTER/ROUNDOFF/BAD_INTEGRAND/NO_CONVERGE flags, so codes 0-31 each decode to the union of set flags |
+|  [02]   | `STATUS`                      | decode table                | `dict[int, str]` mapping `QuadratureInfo.status` codes to human-readable convergence messages; top-level re-export of `quadax.utils.STATUS`; the status is a bitfield combining NORMAL_EXIT/MAX_NINTER/ROUNDOFF/BAD_INTEGRAND/NO_CONVERGE flags, so codes 0-31 each decode to the union of set flags                                                                          |
 
 [PUBLIC_TYPE_SCOPE]: fixed-rule quadrature classes
 - rail: quadrature
@@ -43,35 +43,35 @@
 - each integrator returns `(value, QuadratureInfo)`; `fun` is a JAX-traceable scalar/array integrand and the integration is differentiable through `fun` and the interval bounds.
 - `adaptive_quadrature` is the canonical polymorphic driver: one adaptive surface discriminating the quadrature family by the rule instance passed as `rule`. `quadgk` / `quadcc` / `quadts` are named specializations that construct the matching rule and delegate to it.
 
-| [INDEX] | [SURFACE]                                                                                                                  | [ENTRY_FAMILY]              | [RAIL]                                                                                                                   |
-| :-----: | :------------------------------------------------------------------------------------------------------------------------- | :-------------------------- | :----------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `adaptive_quadrature(rule, fun, interval, args=(), full_output=False, epsabs=None, epsrel=None, max_ninter=50, norm=inf, **kwargs)` → `(value, QuadratureInfo)` | polymorphic adaptive driver | rule-parameterized globally-adaptive quadrature; `rule` is an `AbstractQuadratureRule` instance selecting the family     |
-|  [02]   | `quadgk(fun, interval, args=(), full_output=False, epsabs=None, epsrel=None, max_ninter=50, order=21, norm=inf)` → `(value, QuadratureInfo)` | Gauss-Kronrod adaptive      | globally-adaptive Gauss-Kronrod over a finite/infinite interval; `order ∈ {15,21,31,41,51,61}` Kronrod nodes             |
-|  [03]   | `quadcc(fun, interval, ..., order=32, norm=inf)` → `(value, QuadratureInfo)`                                               | Clenshaw-Curtis adaptive    | globally-adaptive Clenshaw-Curtis quadrature; `order ∈ {8,16,32,64,128,256}`                                             |
-|  [04]   | `quadts(fun, interval, ..., order=61, norm=inf)` → `(value, QuadratureInfo)`                                               | tanh-sinh adaptive          | globally-adaptive tanh-sinh quadrature for singular endpoints; `order ∈ {41,61,81,101}`                                  |
-|  [05]   | `romberg(fun, interval, args=(), full_output=False, epsabs=None, epsrel=None, divmax=20, norm=inf)` → `(value, QuadratureInfo)` | Romberg                  | Richardson-extrapolated trapezoidal (Romberg) integration; `divmax` caps the extrapolation table depth                   |
-|  [06]   | `rombergts(fun, interval, ..., divmax=20, norm=inf)` → `(value, QuadratureInfo)`                                           | tanh-sinh Romberg           | Romberg extrapolation over tanh-sinh nodes for endpoint-singular/infinite-range integrands                               |
+| [INDEX] | [SURFACE]                                                                                                                                                       | [ENTRY_FAMILY]              | [RAIL]                                                                                                               |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------- | :------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `adaptive_quadrature(rule, fun, interval, args=(), full_output=False, epsabs=None, epsrel=None, max_ninter=50, norm=inf, **kwargs)` → `(value, QuadratureInfo)` | polymorphic adaptive driver | rule-parameterized globally-adaptive quadrature; `rule` is an `AbstractQuadratureRule` instance selecting the family |
+|  [02]   | `quadgk(fun, interval, args=(), full_output=False, epsabs=None, epsrel=None, max_ninter=50, order=21, norm=inf)` → `(value, QuadratureInfo)`                    | Gauss-Kronrod adaptive      | globally-adaptive Gauss-Kronrod over a finite/infinite interval; `order ∈ {15,21,31,41,51,61}` Kronrod nodes         |
+|  [03]   | `quadcc(fun, interval, ..., order=32, norm=inf)` → `(value, QuadratureInfo)`                                                                                    | Clenshaw-Curtis adaptive    | globally-adaptive Clenshaw-Curtis quadrature; `order ∈ {8,16,32,64,128,256}`                                         |
+|  [04]   | `quadts(fun, interval, ..., order=61, norm=inf)` → `(value, QuadratureInfo)`                                                                                    | tanh-sinh adaptive          | globally-adaptive tanh-sinh quadrature for singular endpoints; `order ∈ {41,61,81,101}`                              |
+|  [05]   | `romberg(fun, interval, args=(), full_output=False, epsabs=None, epsrel=None, divmax=20, norm=inf)` → `(value, QuadratureInfo)`                                 | Romberg                     | Richardson-extrapolated trapezoidal (Romberg) integration; `divmax` caps the extrapolation table depth               |
+|  [06]   | `rombergts(fun, interval, ..., divmax=20, norm=inf)` → `(value, QuadratureInfo)`                                                                                | tanh-sinh Romberg           | Romberg extrapolation over tanh-sinh nodes for endpoint-singular/infinite-range integrands                           |
 
 [ENTRYPOINT_SCOPE]: fixed-order non-adaptive quadrature
 - rail: quadrature
 - each fixed integrator applies a single rule at a fixed order with no panel subdivision; it returns `(value, QuadratureInfo)` like the adaptive family but evaluates a known number of nodes for a constant-cost, fully `vmap`-friendly integral.
 
-| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]        | [RAIL]                                          |
-| :-----: | :--------------------------------------------------- | :-------------------- | :---------------------------------------------- |
+| [INDEX] | [SURFACE]                                                                      | [ENTRY_FAMILY]        | [RAIL]                                                                                                           |
+| :-----: | :----------------------------------------------------------------------------- | :-------------------- | :--------------------------------------------------------------------------------------------------------------- |
 |  [01]   | `fixed_quadgk(fun, a, b, args=(), norm=inf, n=21)` → `(value, QuadratureInfo)` | Gauss-Kronrod fixed   | fixed-order Gauss-Kronrod with no subdivision; takes scalar bounds `a, b` (not an `interval`) and node count `n` |
-|  [02]   | `fixed_quadcc(fun, a, b, args=(), norm=inf, n=32)` → `(value, QuadratureInfo)` | Clenshaw-Curtis fixed | fixed-order Clenshaw-Curtis with no subdivision |
-|  [03]   | `fixed_quadts(fun, a, b, args=(), norm=inf, n=61)` → `(value, QuadratureInfo)` | tanh-sinh fixed       | fixed-order tanh-sinh with no subdivision       |
+|  [02]   | `fixed_quadcc(fun, a, b, args=(), norm=inf, n=32)` → `(value, QuadratureInfo)` | Clenshaw-Curtis fixed | fixed-order Clenshaw-Curtis with no subdivision                                                                  |
+|  [03]   | `fixed_quadts(fun, a, b, args=(), norm=inf, n=61)` → `(value, QuadratureInfo)` | tanh-sinh fixed       | fixed-order tanh-sinh with no subdivision                                                                        |
 
 [ENTRYPOINT_SCOPE]: sampled-data integration
 - rail: quadrature
 - defined in the `quadax.sampled` submodule and re-exported at the top-level `quadax` namespace; these integrate already-sampled (non-callable) data over its abscissae and return a bare `jax.Array` — no callable integrand and no `QuadratureInfo` receipt. `x`/`dx`/`axis`/`initial` are keyword-only. They are the rail for integrating discretized field samples rather than a JAX-traceable integrand.
 
-| [INDEX] | [SURFACE]                                                              | [ENTRY_FAMILY]                 | [RAIL]                                                                                |
-| :-----: | :--------------------------------------------------------------------- | :----------------------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `trapezoid(y, *, x=None, dx=1.0, axis=-1)` → `jax.Array`               | sampled trapezoidal            | composite trapezoidal integral of samples `y` over abscissae `x` (or spacing `dx`) along `axis` |
-|  [02]   | `cumulative_trapezoid(y, *, x=None, dx=1.0, axis=-1, initial=None)` → `jax.Array` | sampled cumulative trapezoidal | running trapezoidal integral of `y` along `axis` (`initial` seeds the running total)  |
-|  [03]   | `simpson(y, *, x=None, dx=1.0, axis=-1)` → `jax.Array`                 | sampled Simpson                | composite Simpson integral of samples `y` over `x` (or spacing `dx`) along `axis`     |
-|  [04]   | `cumulative_simpson(y, *, x=None, dx=1.0, axis=-1, initial=None)` → `jax.Array` | sampled cumulative Simpson     | running Simpson integral of `y` along `axis`                                          |
+| [INDEX] | [SURFACE]                                                                         | [ENTRY_FAMILY]                 | [RAIL]                                                                                          |
+| :-----: | :-------------------------------------------------------------------------------- | :----------------------------- | :---------------------------------------------------------------------------------------------- |
+|  [01]   | `trapezoid(y, *, x=None, dx=1.0, axis=-1)` → `jax.Array`                          | sampled trapezoidal            | composite trapezoidal integral of samples `y` over abscissae `x` (or spacing `dx`) along `axis` |
+|  [02]   | `cumulative_trapezoid(y, *, x=None, dx=1.0, axis=-1, initial=None)` → `jax.Array` | sampled cumulative trapezoidal | running trapezoidal integral of `y` along `axis` (`initial` seeds the running total)            |
+|  [03]   | `simpson(y, *, x=None, dx=1.0, axis=-1)` → `jax.Array`                            | sampled Simpson                | composite Simpson integral of samples `y` over `x` (or spacing `dx`) along `axis`               |
+|  [04]   | `cumulative_simpson(y, *, x=None, dx=1.0, axis=-1, initial=None)` → `jax.Array`   | sampled cumulative Simpson     | running Simpson integral of `y` along `axis`                                                    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

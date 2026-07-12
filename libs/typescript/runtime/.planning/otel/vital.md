@@ -2,15 +2,15 @@
 
 Browser RUM is a vocabulary table and one scoped observer bridge — zero `web-vitals`, zero polling: the six vital kinds (LCP, CLS, INP, FCP, TTFB, long task) are policy rows carrying their Performance-Timeline entry type, budget thresholds, and accumulation semantics; one `PerformanceObserver` bracket lifts the platform's push callbacks into a typed `Stream` of vital facts; a `mapAccum` step folds the accumulation semantics each kind declares (CLS sums shifts, INP tracks the interaction crest, paint kinds settle once); and emission is two bounded instruments per fact — the current level as a tagged gauge, the graded occurrence as a tagged counter — named by `Convention` rows. Grading derives from the row thresholds, so a budget change is a row edit that moves the grade fold, the metrics, and every dashboard panel built on the same rows at once. This module is `runtime:browser` — the `./browser` subpath alone resolves it. The module is `runtime/src/otel/vital.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]  | [OWNS]                                                                     | [PUBLIC] |
 | :-----: | :--------- | :------------------------------------------------------------------------- | :------- |
-|  [01]   | `BUDGETS`  | the vital-kind vocabulary: entry types, thresholds, accumulation semantics  | `Vital`  |
-|  [02]   | `OBSERVER` | the scoped `PerformanceObserver` bridge and the accumulation fold           | `Vital`  |
-|  [03]   | `EMISSION` | bounded instruments, the drain Layer, the span-enrichment boundary          | `Vital`  |
+|  [01]   | `BUDGETS`  | the vital-kind vocabulary: entry types, thresholds, accumulation semantics | `Vital`  |
+|  [02]   | `OBSERVER` | the scoped `PerformanceObserver` bridge and the accumulation fold          | `Vital`  |
+|  [03]   | `EMISSION` | bounded instruments, the drain Layer, the span-enrichment boundary         | `Vital`  |
 
-## [2]-[BUDGETS]
+## [02]-[BUDGETS]
 
 [BUDGETS]:
 - Owner: the interior `_rows` anchor — one row per vital kind: `entry` (the Performance-Timeline `entryType` the observer subscribes), `good`/`poor` (the web-standard budget thresholds the grade fold reads), `unit`, and `fold` (the accumulation semantic: `sum` for CLS's session accumulation, `crest` for INP's worst-interaction tracking and long-task ceilings, `last` for the settle-once paint and navigation kinds).
@@ -47,7 +47,7 @@ const _grade = (kind: Vital.Kind, value: number): Vital.Grade =>
   value <= _rows[kind].good ? "good" : value <= _rows[kind].poor ? "mid" : "poor"
 ```
 
-## [3]-[OBSERVER]
+## [03]-[OBSERVER]
 
 [OBSERVER]:
 - Owner: the `_observed` bridge — one `Stream.asyncScoped` whose acquisition constructs a single `PerformanceObserver`, subscribes one `observe({ type, buffered: true })` per row, and whose release disconnects; `buffered: true` replays entries recorded before the observer attached, so a late boot still sees the paint vitals.
@@ -125,7 +125,7 @@ const _observed: Stream.Stream<Vital.Fact> = Stream.asyncScoped<Vital.Fact>(
 ).pipe(Stream.mapAccum(HashMap.empty<Vital.Kind, number>(), _accounted))
 ```
 
-## [4]-[EMISSION]
+## [04]-[EMISSION]
 
 [EMISSION]:
 - Owner: the assembled `Vital` export — the row table spread in, the grade fold, the live fact stream, and the drain Layer under one name.

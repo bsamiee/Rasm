@@ -18,11 +18,11 @@
 - `nuts_sampler` name: `"blackjax"` (verified live: `pymc.sampling.mcmc.sample` `nuts_sampler: Literal["pymc", "nutpie", "numpyro", "blackjax"]`).
 - `nuts_sampler_kwargs` forwards verbatim to `pymc.sampling.jax.sample_jax_nuts(nuts_sampler="blackjax", **kwargs)` — the shared JAX entry, so blackjax's admitted levers are identical to numpyro's; PyMC's blackjax path is window-adapted NUTS only.
 
-| [INDEX] | [KWARG]                 | [VALUE_DOMAIN]                  | [ROLE]                                                                                     |
-| :-----: | :---------------------- | :----------------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `chain_method`          | `"parallel"` \| `"vectorized"` | how chains map over devices — `"parallel"` `pmap` over host devices, `"vectorized"` one `vmap` |
-|  [02]   | `postprocessing_backend`| `"cpu"` \| `"gpu"` \| `None`   | device for `_device_put` of the raw draws before the `DataTree` build                     |
-|  [03]   | `idata_kwargs`          | `dict`                         | forwarded to the `InferenceData` build (`log_likelihood=`, `coords=`, `dims=`)            |
+| [INDEX] | [KWARG]                  | [VALUE_DOMAIN]                 | [ROLE]                                                                                         |
+| :-----: | :----------------------- | :----------------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `chain_method`           | `"parallel"` \| `"vectorized"` | how chains map over devices — `"parallel"` `pmap` over host devices, `"vectorized"` one `vmap` |
+|  [02]   | `postprocessing_backend` | `"cpu"` \| `"gpu"` \| `None`   | device for `_device_put` of the raw draws before the `DataTree` build                          |
+|  [03]   | `idata_kwargs`           | `dict`                         | forwarded to the `InferenceData` build (`log_likelihood=`, `coords=`, `dims=`)                 |
 
 ## [03]-[DECLINE]
 

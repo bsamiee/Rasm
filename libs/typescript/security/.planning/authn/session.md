@@ -2,15 +2,15 @@
 
 The identity plane's session owner: the `Subject`/`Session`/`CredentialRef`/`TokenPair` vocabulary, rotation as a data-carried statechart with reuse detection, the `SessionStore`/`IdentityJournal` ports, the `BearerGuard` middleware seam, and the cookie framing plus CSRF double-submit law as the session's egress projection — one owner because token minting and cookie framing are two faces of one session lifecycle. `Token` mints an access JWT through `crypt/sign`'s `Jwt` and an opaque high-entropy refresh through `Crypto`, storing only the refresh's SHA-256 fingerprint — argon2 is for low-entropy credentials; a random refresh needs a fast constant-time compare, never a per-check KDF. Rotation is the security-critical fold and it is a transition family, not an imperative flow: `_step` folds a live session, the current instant, and the constant-time match verdict into the `RotationStep` case — `Rotate`, `Expired`, `Reused` — and `$match` dispatches each arm, so the guard set is data and a new lifecycle rule is a case. The `Reused` arm is the breach arm: it increments `security_token_reuse`, logs at error, and revokes every session of the subject family before the fault surfaces — a replayed rotated token never fails silently. Every `refresh` runs under a store-backed per-`sid` `RateLimiter`, session and subject ids mint through the `Crypto` entropy port so tests inject determinism, and the `${sid}.${secret}` wire frame decodes through one `Schema.TemplateLiteralParser` owner, never a hand split. `Cookie` frames the `TokenPair` through the `@effect/platform` `Cookies` codec — the attribute policy stays in the `CookieSpec` table, serialization and the `__Host-`/`__Secure-` prefix semantics belong to the platform, and the edge folds the returned collection through `Cookies.toSetCookieHeaders` with `Headers.redact` covering the log path. The two `Context.Tag` ports carry identity state out of the folder so a zero-durable-state browser app composes `security` without the data wave; the app root satisfies both with the data journal. Tenancy is the core `TenantContext.Key`; `SessionFault`/`CsrfFault` instantiate the folder fault shape with the guard pair closed in both directions.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                              | [PUBLIC]                                            |
-| :-----: | :------------------ | :------------------------------------------------------------------ | :-------------------------------------------------- |
-|  [01]   | `IDENTITY_VOCAB`    | the identity/session shapes, the fault, the two identity ports      | `Subject`, `Session`, `CredentialRef`, `TokenPair`, `SessionFault`, `SessionStore`, `IdentityJournal` |
-|  [02]   | `ROTATION_LAW`      | the rotation statechart, mint, reuse-detect, revoke, bearer seam    | `Token`, `RotationStep`, `BearerGuard`, `CurrentClaims` |
-|  [03]   | `COOKIE_EGRESS`     | the cookie-attribute table, platform-codec framing, CSRF double-submit | `Cookie`, `CookieSpec`, `CsrfFault`               |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                 | [PUBLIC]                                                                                              |
+| :-----: | :--------------- | :--------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `IDENTITY_VOCAB` | the identity/session shapes, the fault, the two identity ports         | `Subject`, `Session`, `CredentialRef`, `TokenPair`, `SessionFault`, `SessionStore`, `IdentityJournal` |
+|  [02]   | `ROTATION_LAW`   | the rotation statechart, mint, reuse-detect, revoke, bearer seam       | `Token`, `RotationStep`, `BearerGuard`, `CurrentClaims`                                               |
+|  [03]   | `COOKIE_EGRESS`  | the cookie-attribute table, platform-codec framing, CSRF double-submit | `Cookie`, `CookieSpec`, `CsrfFault`                                                                   |
 
-## [2]-[IDENTITY_VOCAB]
+## [02]-[IDENTITY_VOCAB]
 
 [IDENTITY_VOCAB]:
 - Owner: `Subject` is the durable identity (branded `id`, tenant key, verification), `Session` the live session (branded `id`, subject, tenant, scope, window, refresh fingerprint, rotation generation — the tenant rides the session so a rotated access token keeps its tenancy claim), `CredentialRef` the `{ kind, key }` an authn ceremony resolves through, `TokenPair` the mint receipt; `SessionFault` is the folder fault shape; `SessionStore`/`IdentityJournal` are the identity-state ports.
@@ -103,7 +103,7 @@ class IdentityJournal extends Context.Tag("security/authn/IdentityJournal")<Iden
 }>() {}
 ```
 
-## [3]-[ROTATION_LAW]
+## [03]-[ROTATION_LAW]
 
 [ROTATION_LAW]:
 - Owner: `Token` — `establish` resolves-or-enrolls a `CredentialRef` into a `Subject` and mints the first pair, `refresh` rotates through the `RotationStep` statechart with reuse detection, `revoke` ends a session. `RotationStep` is the transition family — `Rotate` (live session, fingerprint matched), `Expired` (window elapsed), `Reused` (live session, fingerprint rejected — a replayed rotated token) — folded by the pure `_step` and dispatched by `$match`, so protocol position is a case value and a new lifecycle rule (idle timeout, device binding) is a new tagged arm, never another inline guard. `CurrentClaims`/`BearerGuard` are the declarative auth seam: the middleware Tag carries `HttpApiSecurity.bearer`, its implementation folds `Jwt.verify` over the decoded credential, and the runtime serve wave mounts it so every bearer-protected endpoint receives `AccessClaims` through the requirement channel.
@@ -240,7 +240,7 @@ class Token extends Effect.Service<Token>()("security/authn/Token", {
 }) {}
 ```
 
-## [4]-[COOKIE_EGRESS]
+## [04]-[COOKIE_EGRESS]
 
 [COOKIE_EGRESS]:
 - Owner: `Cookie` — the session's egress projection over the `@effect/platform` `Cookies` codec: `frame` maps a `TokenPair` onto the access and refresh specs with `maxAge` derived from the session window, `clear` expires every role on logout, `csrf` mints the readable CSRF cookie, `verify` compares it constant-time to the presented header. `CookieSpec` is the attribute policy table — one row per role carrying `{ name, options }` — and the platform `Cookies.Cookie` is the framed value, so serialization, attribute rendering, and the `__Host-`/`__Secure-` prefix semantics are the platform's, never a hand-rolled string; `CsrfFault` is the folder fault shape at 403 exposure.

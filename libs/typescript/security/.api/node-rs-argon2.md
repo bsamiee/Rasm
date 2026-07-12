@@ -16,23 +16,23 @@
 [PUBLIC_TYPE_SCOPE]: the single cost/policy carrier and its bounded vocabularies
 - rail: shapes
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
-|:-----: |:---------------------------------------------------------------------- |:---------------- |:----------------------------------------------------------------- |
-| [01] | `Options` (`memoryCost`/`timeCost`/`parallelism`/`outputLen`/`algorithm`/`version`/`secret`/`salt`) | cost policy | `sign/crypto` — the one policy carrier; the design pins named rows (login vs api-key) as `Config`/`Layer` values, never inline knobs |
-| [02] | `Algorithm` (`Argon2d` = 0, `Argon2i` = 1, `Argon2id` = 2) | variant enum | `sign/crypto` — `Argon2id` is the only admitted arm (hybrid GPU + side-channel resistance) |
-| [03] | `Version` (`V0x10` = 0, `V0x13` = 1) | format-version enum | `sign/crypto` — `V0x13` (argon2 catalog-bound) is the pinned default; `V0x10` exists only to verify retired digests |
+| [INDEX] | [SYMBOL]                                                                                            | [TYPE_FAMILY]       | [CONSUMER]                                                                                                                           |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Options` (`memoryCost`/`timeCost`/`parallelism`/`outputLen`/`algorithm`/`version`/`secret`/`salt`) | cost policy         | `sign/crypto` — the one policy carrier; the design pins named rows (login vs api-key) as `Config`/`Layer` values, never inline knobs |
+|  [02]   | `Algorithm` (`Argon2d` = 0, `Argon2i` = 1, `Argon2id` = 2)                                          | variant enum        | `sign/crypto` — `Argon2id` is the only admitted arm (hybrid GPU + side-channel resistance)                                           |
+|  [03]   | `Version` (`V0x10` = 0, `V0x13` = 1)                                                                | format-version enum | `sign/crypto` — `V0x13` (argon2 catalog-bound) is the pinned default; `V0x10` exists only to verify retired digests                  |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: hash and verify — the async rail (default) and its sync mirror
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:--------------------------------------------------------------------------------------- |:-------------- |:----------------------------------------------------------------- |
-| [01] | `hash(password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<string>` | hash → PHC | `sign/crypto` ← `authn/apikey` (digest-at-rest), `secret/material` — the credential mint; PHC string stored verbatim |
-| [02] | `verify(hashed: string \| Uint8Array, password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<boolean>` | verify | `sign/crypto` — constant-time check; reads cost params from the PHC string, returns `false` on mismatch (throws only on a malformed hash) |
-| [03] | `hashRaw(password, options?, abortSignal?)` → `Promise<Buffer>` | hash → raw | `sign/crypto` — raw digest bytes when the design owns its own salt/encoding (KDF-style key derivation), not the PHC envelope |
-| [04] | `hashSync` / `hashRawSync` / `verifySync` (no `AbortSignal`) | sync mirror | `sign/crypto` — boot/CLI paths outside the Effect rail only; never on a request fiber |
+| [INDEX] | [SURFACE]                                                                                                                                 | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `hash(password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<string>`                                  | hash → PHC     | `sign/crypto` ← `authn/apikey` (digest-at-rest), `secret/material` — the credential mint; PHC string stored verbatim                      |
+|  [02]   | `verify(hashed: string \| Uint8Array, password: string \| Uint8Array, options?: Options, abortSignal?: AbortSignal)` → `Promise<boolean>` | verify         | `sign/crypto` — constant-time check; reads cost params from the PHC string, returns `false` on mismatch (throws only on a malformed hash) |
+|  [03]   | `hashRaw(password, options?, abortSignal?)` → `Promise<Buffer>`                                                                           | hash → raw     | `sign/crypto` — raw digest bytes when the design owns its own salt/encoding (KDF-style key derivation), not the PHC envelope              |
+|  [04]   | `hashSync` / `hashRawSync` / `verifySync` (no `AbortSignal`)                                                                              | sync mirror    | `sign/crypto` — boot/CLI paths outside the Effect rail only; never on a request fiber                                                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

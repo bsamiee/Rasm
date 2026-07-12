@@ -2,16 +2,16 @@
 
 The one overlay owner: anchored positioning rides floating-ui's hook stack with a reason-keyed dismiss policy, the drag-dismissable sheet rides vaul's bundled Radix stack, the global command palette rides cmdk's filtering machine over an `Overlay.Command` vocabulary with a virtualized combobox lane and a `Clipboard`-ported copy command, and the presence-cursor cohort anchors through `useClientPoint` and world-projected `VirtualElement` rows — four overlay classes, exactly one semantic owner and one positioner per element. RAC `Popover`/`Modal` own standard aria overlays outside this module; react-aria's `mergeProps` + floating-ui's `useMergeRefs` fold the two prop/ref systems where aria semantics meet floating geometry; two focus traps on one surface is the named defect. The module is `ui/src/view/overlay.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                     | [PUBLIC]  |
-| :-----: | :---------------- | :---------------------------------------------------------------------------- | :-------- |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                                  | [PUBLIC]  |
+| :-----: | :---------------- | :-------------------------------------------------------------------------------------- | :-------- |
 |  [01]   | `ANCHOR_HOST`     | the floating-anchor hook stack, middleware pipeline, dismiss policy, arrow, delay group | `Overlay` |
-|  [02]   | `SHEET_HOST`      | the vaul sheet rows — detent policy, drag discipline, nesting                  | `Overlay` |
-|  [03]   | `PALETTE`         | the `Overlay.Command` vocabulary, the cmdk hosting-shell law, the copy rail    | `Overlay` |
-|  [04]   | `PRESENCE_COHORT` | live presence cursors — client-point and world-projected anchoring            | —         |
+|  [02]   | `SHEET_HOST`      | the vaul sheet rows — detent policy, drag discipline, nesting                           | `Overlay` |
+|  [03]   | `PALETTE`         | the `Overlay.Command` vocabulary, the cmdk hosting-shell law, the copy rail             | `Overlay` |
+|  [04]   | `PRESENCE_COHORT` | live presence cursors — client-point and world-projected anchoring                      | —         |
 
-## [2]-[ANCHOR_HOST]
+## [02]-[ANCHOR_HOST]
 
 [ANCHOR_HOST]:
 - Owner: the anchor-host law riding `Overlay` — `Overlay.middleware(options)` mints the canonical `offset → flip → shift → arrow → size` pipeline (the `arrow` row binds `FloatingArrow`'s geometry when the options carry an arrow ref); the consuming row composes `useFloating` with `whileElementsMounted: autoUpdate`; interactions merge through `useInteractions([useClick, useDismiss, useRole])` into the three prop-getters; `FloatingFocusManager` (modal for dialogs, non-modal + `preserveTabOrder` for menus) and `FloatingPortal` complete the stack, with `FloatingOverlay lockScroll` as the scroll-lock backdrop behind a modal anchored dialog; open state binds an atom through `useFloatingRootContext({ open, onOpenChange })` so visibility is store state; enter/exit rides `useTransitionStyles` phases consuming `Theme.Scale.ease` values.
@@ -64,7 +64,7 @@ const _middleware = (options: Overlay.Anchor) => [
 ]
 ```
 
-## [3]-[SHEET_HOST]
+## [03]-[SHEET_HOST]
 
 [SHEET_HOST]:
 - Owner: the sheet law riding `Overlay` — the vaul host: `Drawer.Root` with `open`/`onOpenChange` and `activeSnapPoint`/`setActiveSnapPoint` atom-bound, `snapPoints` + `fadeFromIndex` as the detent policy row (`Overlay.Detents`), `Drawer.Title` + `Drawer.Description` always present (visually hidden when no heading shows), `handleOnly` for drag-origin discipline with `Drawer.Handle` as the affordance; a nested flow mounts `Drawer.NestedRoot`, and `snapToSequentialPoint` disables velocity skipping where detents are semantic stops.
@@ -73,7 +73,7 @@ const _middleware = (options: Overlay.Anchor) => [
 - Law: `repositionInputs` stays default where a sheet hosts fields — the keyboard-avoidance behavior is the package's; a hand-rolled viewport listener beside it is the named defect.
 - Growth: a new sheet detent is one `snapPoints` entry; a new sheet surface is one `Drawer.Root` composition — the detent policy row never forks.
 
-## [4]-[PALETTE]
+## [04]-[PALETTE]
 
 [PALETTE]:
 - Owner: the palette law riding `Overlay` — the `Overlay.Command` vocabulary: one `as const satisfies Record<string, Overlay.Command>` table where each row carries `icon` (a named `LucideIcon` — the row's identity, tree-shaken), `label` (a `system/intl` catalog key), `keywords` (alias tokens for the scorer), and `run` (the intent write — an atom setter or callable atom the app wires); the palette renders the table through cmdk — `Command.Input`/`Command.List`/`Command.Group`/`Command.Item`/`Command.Empty` — with controlled `value`/`onValueChange`, `useCommandState((s) => s.filtered.count)` driving the count/empty rows without list re-render.
@@ -101,7 +101,7 @@ declare namespace Overlay {
 declare const _specs: Record<string, Overlay.Command>
 ```
 
-## [5]-[PRESENCE_COHORT]
+## [05]-[PRESENCE_COHORT]
 
 [PRESENCE_COHORT]:
 - Owner: the presence-cohort law riding `Overlay` — the collaborative-cursor cohort: the live roster (`Presence.roster` entering as an atom through `system/atom#LIVE_BRIDGE`) renders one cursor row per actor; the LOCAL pointer's own affordance (a cursor-attached label, a drag ghost) anchors through `useClientPoint(context)` — the shipped cursor-follow anchor, never a hand-built rect wrapper — while REMOTE actors anchor by `Overlay.virtual` wrapping each actor's world coordinate projected through the owning surface's projection (the viewer projection seam for map surfaces, plain viewport coordinates elsewhere); cursors mount in one `FloatingPortal` at the `Theme.Scale.z` cursor rank, motion rides `Motion.panel`, and idle actors age out by the roster's own lease verdicts — never a local timer per cursor.

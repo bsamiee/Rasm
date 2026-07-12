@@ -18,11 +18,11 @@
 - rail: compiler (cross-plane)
 - Internal to the compiler contract — the caller never names these; they define the cache slot representation the emitted `$[i]` reads and the guard-transition kinds the dev validators dispatch on.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:--------------------------------------------------------- |:------------- |:--------------------------------------------------------------- |
-| [01] | `MemoCache = Array<number \| typeof $empty>` | cache slots | the array `c(size)` returns; each slot holds a memoized value or the sentinel |
-| [02] | `$empty = Symbol.for("react.memo_cache_sentinel")` | uninitialized | the sentinel marking a never-computed slot; DevTools reads the `$[$empty]=true` tag |
-| [03] | `GuardKind` (`PushGuardContext`/`PopGuardContext`/`PushExpectHook`/`PopExpectHook`) | guard transition | the `$dispatcherGuard` dispatch discriminant framing hook-call boundaries |
+| [INDEX] | [SYMBOL]                                                                            | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                 |
+| :-----: | :---------------------------------------------------------------------------------- | :--------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `MemoCache = Array<number \| typeof $empty>`                                        | cache slots      | the array `c(size)` returns; each slot holds a memoized value or the sentinel       |
+|  [02]   | `$empty = Symbol.for("react.memo_cache_sentinel")`                                  | uninitialized    | the sentinel marking a never-computed slot; DevTools reads the `$[$empty]=true` tag |
+|  [03]   | `GuardKind` (`PushGuardContext`/`PopGuardContext`/`PushExpectHook`/`PopExpectHook`) | guard transition | the `$dispatcherGuard` dispatch discriminant framing hook-call boundaries           |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -30,21 +30,21 @@
 - rail: compiler (cross-plane)
 - The only surface a production build reaches. The compiler emits one `c(N)` per component/hook body and threads every stabilized value through the returned cache; on React 19 the allocation is React's native `useMemoCache`.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------- |:-------------- |:------------------------------------------------------------------- |
-| [01] | `c(size: number): Array<unknown>` | allocate cache | emitted `const $ = _c(N)` at each compiled body head; delegates to `React.__COMPILER_RUNTIME.c` on React 19, else `useMemo` polyfill |
-| [02] | `$reset($: MemoCache): void` | invalidate | resets every slot to `$empty` — the emitted cache-clear on a memoization-boundary reset |
+| [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                                                  |
+| :-----: | :-------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `c(size: number): Array<unknown>` | allocate cache | emitted `const $ = _c(N)` at each compiled body head; delegates to `React.__COMPILER_RUNTIME.c` on React 19, else `useMemo` polyfill |
+|  [02]   | `$reset($: MemoCache): void`      | invalidate     | resets every slot to `$empty` — the emitted cache-clear on a memoization-boundary reset                                              |
 
 [ENTRYPOINT_SCOPE]: development-mode validators (stripped in production)
 - rail: compiler (cross-plane)
 - Emitted only when the plugin's `environment` sets the matching emission flag (`enableEmitHookGuards` → `$dispatcherGuard`, `enableChangeDetectionForDebugging` → `$structuralCheck`, `enableEmitInstrumentForget` → `useRenderCounter`, `enableEmitFreeze` → `$makeReadOnly`); each flag is an `{ source, importSpecifierName }` config naming this package + export (see `.api/babel-plugin-react-compiler.md` `[ENVIRONMENT_EMISSION]`). They enforce the compiler's stricter rules-of-React at runtime and surface memoization mistakes; production builds never carry these calls.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------------------------------- |:---------------- |:-------------------------------------------------------------- |
-| [01] | `$dispatcherGuard(kind: GuardKind): void` | hook-call guard | dev — swaps in a guard dispatcher that throws on a hook called indirectly, renamed, or from a compiled non-component call; emitted by plugin `environment.enableEmitHookGuards` |
-| [02] | `$structuralCheck(old, new, variableName, fnName, kind, loc): void` | memo correctness | dev — deep-diffs a value the compiler assumed stable against the recomputed one and `console.error`s the divergence path; emitted by `environment.enableChangeDetectionForDebugging` |
-| [03] | `useRenderCounter(name: string): void` / `renderCounterRegistry` / `clearRenderCounterRegistry()` | rerender probe | dev — counts component rerenders into a shared registry for compiler-effectiveness inspection; emitted by `environment.enableEmitInstrumentForget` |
-| [04] | `$makeReadOnly()` | freeze (stub) | unimplemented in runtime (throws) — the reserved deep-freeze hook `environment.enableEmitFreeze` will emit for frozen values |
+| [INDEX] | [SURFACE]                                                                                         | [ENTRY_FAMILY]   | [CONSUMER_BOUNDARY]                                                                                                                                                                  |
+| :-----: | :------------------------------------------------------------------------------------------------ | :--------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `$dispatcherGuard(kind: GuardKind): void`                                                         | hook-call guard  | dev — swaps in a guard dispatcher that throws on a hook called indirectly, renamed, or from a compiled non-component call; emitted by plugin `environment.enableEmitHookGuards`      |
+|  [02]   | `$structuralCheck(old, new, variableName, fnName, kind, loc): void`                               | memo correctness | dev — deep-diffs a value the compiler assumed stable against the recomputed one and `console.error`s the divergence path; emitted by `environment.enableChangeDetectionForDebugging` |
+|  [03]   | `useRenderCounter(name: string): void` / `renderCounterRegistry` / `clearRenderCounterRegistry()` | rerender probe   | dev — counts component rerenders into a shared registry for compiler-effectiveness inspection; emitted by `environment.enableEmitInstrumentForget`                                   |
+|  [04]   | `$makeReadOnly()`                                                                                 | freeze (stub)    | unimplemented in runtime (throws) — the reserved deep-freeze hook `environment.enableEmitFreeze` will emit for frozen values                                                         |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

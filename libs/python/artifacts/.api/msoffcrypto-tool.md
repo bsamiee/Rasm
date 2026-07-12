@@ -24,31 +24,31 @@
 
 `OfficeFile` is the format-dispatch factory that returns a `BaseOfficeFile` subclass keyed by the container's stream layout: `OOXMLFile` for ECMA-376 OOXML (and the plain/unencrypted OOXML zip), `Doc97File`/`Xls97File`/`Ppt97File` for the OLE 97 formats. The `exceptions` namespace is a two-tier rail: `FileFormatError`/`ParseError`/`DecryptionError`/`EncryptionError` derive directly from `Exception`, and `InvalidKeyError` subclasses `DecryptionError` (a wrong/unverifiable key is a decryption fault). A `try/except DecryptionError` therefore catches both a generic decrypt failure and the key-verification failure in one arm — the consumer never catches `InvalidKeyError` separately unless it must distinguish a bad password from a malformed payload.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `OfficeFile` | factory function | `OfficeFile(file)` stream-layout dispatch to a `BaseOfficeFile` |
-| [02] | `format.base.BaseOfficeFile` | abstract base | `load_key`/`decrypt`/`is_encrypted` ABC contract |
-| [03] | `format.ooxml.OOXMLFile` | format object | ECMA-376 OOXML agile/standard container (also `plain` for an unencrypted OOXML zip); the only subtype carrying `encrypt`/`keyTypes`/`type` |
-| [04] | `format.doc97.Doc97File` | format object | legacy MS-DOC (Word 97) RC4 / RC4-CryptoAPI / XOR container |
-| [05] | `format.xls97.Xls97File` | format object | legacy MS-XLS (Excel 97) container |
-| [06] | `format.ppt97.Ppt97File` | format object | legacy MS-PPT (PowerPoint 97) container |
-| [07] | `exceptions.FileFormatError` | error root | unsupported or unrecognized container format (factory sniff miss) |
-| [08] | `exceptions.ParseError` | error root | container cannot be parsed |
-| [09] | `exceptions.DecryptionError` | error root | container cannot be decrypted; parent of `InvalidKeyError` |
-| [10] | `exceptions.EncryptionError` | error root | container cannot be encrypted (e.g. re-seal of an already-encrypted file) |
-| [11] | `exceptions.InvalidKeyError` | error | wrong or unverifiable password/key (subclass of `DecryptionError`) |
+| [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]    | [RAIL]                                                                                                                                     |
+| :-----: | :--------------------------- | :--------------- | :----------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `OfficeFile`                 | factory function | `OfficeFile(file)` stream-layout dispatch to a `BaseOfficeFile`                                                                            |
+|  [02]   | `format.base.BaseOfficeFile` | abstract base    | `load_key`/`decrypt`/`is_encrypted` ABC contract                                                                                           |
+|  [03]   | `format.ooxml.OOXMLFile`     | format object    | ECMA-376 OOXML agile/standard container (also `plain` for an unencrypted OOXML zip); the only subtype carrying `encrypt`/`keyTypes`/`type` |
+|  [04]   | `format.doc97.Doc97File`     | format object    | legacy MS-DOC (Word 97) RC4 / RC4-CryptoAPI / XOR container                                                                                |
+|  [05]   | `format.xls97.Xls97File`     | format object    | legacy MS-XLS (Excel 97) container                                                                                                         |
+|  [06]   | `format.ppt97.Ppt97File`     | format object    | legacy MS-PPT (PowerPoint 97) container                                                                                                    |
+|  [07]   | `exceptions.FileFormatError` | error root       | unsupported or unrecognized container format (factory sniff miss)                                                                          |
+|  [08]   | `exceptions.ParseError`      | error root       | container cannot be parsed                                                                                                                 |
+|  [09]   | `exceptions.DecryptionError` | error root       | container cannot be decrypted; parent of `InvalidKeyError`                                                                                 |
+|  [10]   | `exceptions.EncryptionError` | error root       | container cannot be encrypted (e.g. re-seal of an already-encrypted file)                                                                  |
+|  [11]   | `exceptions.InvalidKeyError` | error            | wrong or unverifiable password/key (subclass of `DecryptionError`)                                                                         |
 
 [PUBLIC_TYPE_SCOPE]: read discriminants the factory sets
 - rail: confidentiality
 
 `OfficeFile` sets instance attributes the consumer reads to drive the credential and decrypt axes WITHOUT branching on the concrete class. The egress consumer reads them through `getattr` with the legacy-97 defaults, so the same arm services every format object: `getattr(office, "format", "")` and `getattr(office, "keyTypes", ("password",))`.
 
-| [INDEX] | [ATTRIBUTE] | [SET_ON] | [VALUE] |
-| --- | --- | --- | --- |
-| [01] | `OOXMLFile.format` | `OOXMLFile` only (`"ooxml"`) | the family discriminant; absent on the 97 objects, so `getattr(office, "format", "")` distinguishes OOXML from legacy in one read |
-| [02] | `OOXMLFile.type` | `OOXMLFile` only | the encryption-method discriminant `agile`/`standard`/`plain` (the `extensible` version raises `DecryptionError` at sniff and never yields a usable object) |
-| [03] | `OOXMLFile.keyTypes` | `OOXMLFile` agile/standard only | `('password','private_key','secret_key')` for `agile`, `('password','secret_key')` for `standard`; UNSET on `plain` (and on the unreachable `extensible`), so the consumer falls back to `("password",)` via `getattr` |
-| [04] | `BaseOfficeFile.is_encrypted` | every format object | the `bool` confidentiality gate every consumer reads before unlock/reseal |
+| [INDEX] | [ATTRIBUTE]                   | [SET_ON]                        | [VALUE]                                                                                                                                                                                                                |
+| :-----: | :---------------------------- | :------------------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `OOXMLFile.format`            | `OOXMLFile` only (`"ooxml"`)    | the family discriminant; absent on the 97 objects, so `getattr(office, "format", "")` distinguishes OOXML from legacy in one read                                                                                      |
+|  [02]   | `OOXMLFile.type`              | `OOXMLFile` only                | the encryption-method discriminant `agile`/`standard`/`plain` (the `extensible` version raises `DecryptionError` at sniff and never yields a usable object)                                                            |
+|  [03]   | `OOXMLFile.keyTypes`          | `OOXMLFile` agile/standard only | `('password','private_key','secret_key')` for `agile`, `('password','secret_key')` for `standard`; UNSET on `plain` (and on the unreachable `extensible`), so the consumer falls back to `("password",)` via `getattr` |
+|  [04]   | `BaseOfficeFile.is_encrypted` | every format object             | the `bool` confidentiality gate every consumer reads before unlock/reseal                                                                                                                                              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -57,53 +57,53 @@
 
 `OfficeFile` seeks the file to zero, sniffs OLE versus ZIP (`olefile.isOleFile` then `zipfile.is_zipfile`), inspects the `EncryptionInfo`/`wordDocument`/`Workbook`/`PowerPoint Document` stream, and returns the format object; it raises `FileFormatError` when no admissible container is recognized. The handle stays OPEN and the file position changes — the consumer owns handle lifetime and must not assume position zero after the call. The confidentiality probe is `OfficeFile(file).is_encrypted()` on the returned object (the egress consumer constructs once over `BytesIO(egress.source)` then gates on `is_encrypted()`); the package root exposes no standalone `is_encrypted` function.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `OfficeFile` | `OfficeFile(file)` -> `BaseOfficeFile` | sniff the container, return the format object, raise `FileFormatError` on miss |
+| [INDEX] | [SURFACE]    | [CALL_SHAPE]                           | [CAPABILITY]                                                                   |
+| :-----: | :----------- | :------------------------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `OfficeFile` | `OfficeFile(file)` -> `BaseOfficeFile` | sniff the container, return the format object, raise `FileFormatError` on miss |
 
 [ENTRYPOINT_SCOPE]: `OOXMLFile` key load, decrypt, encrypt, inspect
 - rail: confidentiality
 
 `load_key` derives the secret key from a `password`, `private_key`, or `secret_key`; `verify_password=True` raises `InvalidKeyError` when the key fails the verifier-hash check (OOXML verification is OPT-IN, unlike the always-verifying 97 path). `decrypt` streams the plaintext payload to `outfile`; `verify_integrity=True` validates the HMAC before writing, and the arm independently raises `InvalidKeyError("The file could not be decrypted with this password")` when the decrypted bytes are not a valid zip — a post-decrypt validity gate that catches a silently-wrong key even with `verify_integrity=False`. `encrypt(password, outfile)` is the inverse: it re-seals a plaintext OOXML stream under a NEW agile-encryption container (always agile, never standard/extensible) and raises `EncryptionError("File is already encrypted")` when the source is already sealed.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `OOXMLFile.load_key` | `load_key(password=None, private_key=None, secret_key=None, verify_password=False)` | derive the secret key (password/private-key/secret-key, optional verify); `private_key` is agile-only, others raise `DecryptionError` |
-| [02] | `OOXMLFile.decrypt` | `decrypt(outfile, verify_integrity=False)` | stream plaintext to `outfile`; optional HMAC check + always a post-decrypt zip-validity gate |
-| [03] | `OOXMLFile.encrypt` | `encrypt(password, outfile)` | re-seal plaintext OOXML under a fresh AGILE container; `EncryptionError` if already encrypted |
-| [04] | `OOXMLFile.is_encrypted` | `is_encrypted()` -> `bool` | `type=="plain"` -> `False`, else an OLE-backed handle -> `True` |
-| [05] | `OOXMLFile.keyTypes` | instance attribute -> `tuple[str, ...]` | admissible key inputs per `type`; `('password','private_key','secret_key')` agile, `('password','secret_key')` standard, UNSET on `plain` |
-| [06] | `OOXMLFile.type` | instance attribute -> `str` | encryption discriminant `agile`/`standard`/`plain` |
-| [07] | `OOXMLFile.format` | instance attribute -> `str` (`"ooxml"`) | family discriminant the consumer reads to distinguish OOXML from legacy |
+| [INDEX] | [SURFACE]                | [CALL_SHAPE]                                                                        | [CAPABILITY]                                                                                                                              |
+| :-----: | :----------------------- | :---------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `OOXMLFile.load_key`     | `load_key(password=None, private_key=None, secret_key=None, verify_password=False)` | derive the secret key (password/private-key/secret-key, optional verify); `private_key` is agile-only, others raise `DecryptionError`     |
+|  [02]   | `OOXMLFile.decrypt`      | `decrypt(outfile, verify_integrity=False)`                                          | stream plaintext to `outfile`; optional HMAC check + always a post-decrypt zip-validity gate                                              |
+|  [03]   | `OOXMLFile.encrypt`      | `encrypt(password, outfile)`                                                        | re-seal plaintext OOXML under a fresh AGILE container; `EncryptionError` if already encrypted                                             |
+|  [04]   | `OOXMLFile.is_encrypted` | `is_encrypted()` -> `bool`                                                          | `type=="plain"` -> `False`, else an OLE-backed handle -> `True`                                                                           |
+|  [05]   | `OOXMLFile.keyTypes`     | instance attribute -> `tuple[str, ...]`                                             | admissible key inputs per `type`; `('password','private_key','secret_key')` agile, `('password','secret_key')` standard, UNSET on `plain` |
+|  [06]   | `OOXMLFile.type`         | instance attribute -> `str`                                                         | encryption discriminant `agile`/`standard`/`plain`                                                                                        |
+|  [07]   | `OOXMLFile.format`       | instance attribute -> `str` (`"ooxml"`)                                             | family discriminant the consumer reads to distinguish OOXML from legacy                                                                   |
 
 [ENTRYPOINT_SCOPE]: legacy 97 format key load, decrypt, inspect
 - rail: confidentiality
 
 The OLE 97 formats accept only a `password` and stream plaintext with no integrity option. `load_key` ALWAYS verifies the password as part of derivation (it raises `InvalidKeyError("Failed to verify password")` on a wrong key with no opt-in flag — the structural asymmetry with the OOXML opt-in `verify_password`) and resolves an internal method discriminant (`rc4` / `rc4_cryptoapi` / `xor`) from the FIB/header, never a caller-selected scheme. `is_encrypted()` reads the on-stream encryption flag (`fEncrypted` for DOC, the analogous BIFF/PPT flag). `Doc97File`, `Xls97File`, and `Ppt97File` share the identical public call shape.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Doc97File.load_key` | `load_key(password=None)` | derive + ALWAYS verify the legacy MS-DOC key (RC4/RC4-CryptoAPI/XOR) from password |
-| [02] | `Doc97File.decrypt` | `decrypt(outfile)` | stream plaintext to `outfile` (no integrity option) |
-| [03] | `Xls97File.load_key` | `load_key(password=None)` | derive + verify the legacy MS-XLS key from password |
-| [04] | `Xls97File.decrypt` | `decrypt(outfile)` | stream plaintext to `outfile` |
-| [05] | `Ppt97File.load_key` | `load_key(password=None)` | derive + verify the legacy MS-PPT key from password |
-| [06] | `Ppt97File.decrypt` | `decrypt(outfile)` | stream plaintext to `outfile` |
-| [07] | `BaseOfficeFile.is_encrypted` | `is_encrypted()` -> `bool` | report whether the container is encrypted (97 reads the on-stream flag) |
+| [INDEX] | [SURFACE]                     | [CALL_SHAPE]               | [CAPABILITY]                                                                       |
+| :-----: | :---------------------------- | :------------------------- | :--------------------------------------------------------------------------------- |
+|  [01]   | `Doc97File.load_key`          | `load_key(password=None)`  | derive + ALWAYS verify the legacy MS-DOC key (RC4/RC4-CryptoAPI/XOR) from password |
+|  [02]   | `Doc97File.decrypt`           | `decrypt(outfile)`         | stream plaintext to `outfile` (no integrity option)                                |
+|  [03]   | `Xls97File.load_key`          | `load_key(password=None)`  | derive + verify the legacy MS-XLS key from password                                |
+|  [04]   | `Xls97File.decrypt`           | `decrypt(outfile)`         | stream plaintext to `outfile`                                                      |
+|  [05]   | `Ppt97File.load_key`          | `load_key(password=None)`  | derive + verify the legacy MS-PPT key from password                                |
+|  [06]   | `Ppt97File.decrypt`           | `decrypt(outfile)`         | stream plaintext to `outfile`                                                      |
+|  [07]   | `BaseOfficeFile.is_encrypted` | `is_encrypted()` -> `bool` | report whether the container is encrypted (97 reads the on-stream flag)            |
 
 [ENTRYPOINT_SCOPE]: in-package crypto method tier (the schedule the owner never re-rolls)
 - rail: confidentiality
 
 The `method/` tier is the proof that the owner composes the in-package key schedule rather than hand-rolling one over `cryptography`. The format objects call these static methods internally; the consumer never touches them, but a catalog that claims "the schedule is in-package" must name the surface that owns it. Naming them also defends the boundary: a request to re-derive AES/SHA against `cryptography.hazmat` directly is rejected because `ECMA376Agile`/`ECMA376Standard` already own it.
 
-| [INDEX] | [SURFACE] | [OWNS] |
-| --- | --- | --- |
-| [01] | `method.ecma376_agile.ECMA376Agile` | agile `makekey_from_password`/`makekey_from_privkey`, `verify_password`, `verify_integrity`, `decrypt`, and `encrypt` (the agile re-seal schedule `OOXMLFile.encrypt` drives) |
-| [02] | `method.ecma376_standard.ECMA376Standard` | standard `makekey_from_password`, `verifykey`, `decrypt` |
-| [03] | `method.ecma376_extensible` | the extensible-encryption placeholder (sniffed but `DecryptionError` at parse — unsupported, never reached as a usable object) |
-| [04] | `method.rc4.DocumentRC4` | legacy RC4 `verifypw` + stream decrypt (Office binary RC4) |
-| [05] | `method.rc4_cryptoapi.DocumentRC4CryptoAPI` | legacy RC4-CryptoAPI verify + decrypt |
-| [06] | `method.xor_obfuscation` | the XOR-obfuscation method for `fObfuscation==1` DOC containers |
+| [INDEX] | [SURFACE]                                   | [OWNS]                                                                                                                                                                        |
+| :-----: | :------------------------------------------ | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `method.ecma376_agile.ECMA376Agile`         | agile `makekey_from_password`/`makekey_from_privkey`, `verify_password`, `verify_integrity`, `decrypt`, and `encrypt` (the agile re-seal schedule `OOXMLFile.encrypt` drives) |
+|  [02]   | `method.ecma376_standard.ECMA376Standard`   | standard `makekey_from_password`, `verifykey`, `decrypt`                                                                                                                      |
+|  [03]   | `method.ecma376_extensible`                 | the extensible-encryption placeholder (sniffed but `DecryptionError` at parse — unsupported, never reached as a usable object)                                                |
+|  [04]   | `method.rc4.DocumentRC4`                    | legacy RC4 `verifypw` + stream decrypt (Office binary RC4)                                                                                                                    |
+|  [05]   | `method.rc4_cryptoapi.DocumentRC4CryptoAPI` | legacy RC4-CryptoAPI verify + decrypt                                                                                                                                         |
+|  [06]   | `method.xor_obfuscation`                    | the XOR-obfuscation method for `fObfuscation==1` DOC containers                                                                                                               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

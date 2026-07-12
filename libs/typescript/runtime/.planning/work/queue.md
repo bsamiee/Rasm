@@ -2,16 +2,16 @@
 
 The durable-work intake: restart-surviving job families on the native `DurableQueue`, durable keyed throttles on `DurableRateLimiter`, and the pg-composed lane policy over the data wave's outbox statements — claim lease, urgency order, park ceiling, and operator replay as one verdict vocabulary spelled ONCE for every drain in the branch. The decomposition is ruled: the engine layer is native (`@effect/cluster` + `@effect/workflow` own persistence, dedup, and worker execution), the ordering-and-parking layer is pg-composed (the journal's `SKIP LOCKED` claim with an `ORDER BY` urgency term — the visibility-timeout and archive semantics of the external queue engines mined as lease and park columns, the engines themselves rejected as a second job-table paradigm), and no third layer exists. Dead-lettering lives here and only here: a parked deliverable is typed evidence on the fact journal, replay is an operator fold that re-mints deliverables from that evidence, and a sibling page that re-spells park-or-replay is the named twice-owned defect. Service-class pricing arrives settled from `entity#WORK_CLASS`. The module ships on the `./server` exports subpath as `runtime/src/work/queue.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                        | [PUBLIC]   |
-| :-----: | :------------- | :------------------------------------------------------------------------------ | :--------- |
-|  [01]   | `JOB_FAMILY`   | the persisted job declaration law, dedup projection, class-priced workers        | `Job`      |
-|  [02]   | `THROTTLE`     | durable keyed quotas — algorithm rows, tenant keys, cost weights                 | `Throttle` |
-|  [03]   | `LANE_POLICY`  | claim lease, urgency order, batch geometry, the verdict fold over the outbox     | `Lane`     |
-|  [04]   | `PARK_REPLAY`  | dead-letter evidence, the park ceiling, poison short-circuit, operator replay    | `Lane`     |
+| [INDEX] | [CLUSTER]     | [OWNS]                                                                        | [PUBLIC]   |
+| :-----: | :------------ | :---------------------------------------------------------------------------- | :--------- |
+|  [01]   | `JOB_FAMILY`  | the persisted job declaration law, dedup projection, class-priced workers     | `Job`      |
+|  [02]   | `THROTTLE`    | durable keyed quotas — algorithm rows, tenant keys, cost weights              | `Throttle` |
+|  [03]   | `LANE_POLICY` | claim lease, urgency order, batch geometry, the verdict fold over the outbox  | `Lane`     |
+|  [04]   | `PARK_REPLAY` | dead-letter evidence, the park ceiling, poison short-circuit, operator replay | `Lane`     |
 
-## [2]-[JOB_FAMILY]
+## [02]-[JOB_FAMILY]
 
 [JOB_FAMILY]:
 - Owner: `Job` — the persisted job family law: `DurableQueue.make({ name, payload, idempotencyKey, success, error })` declares the family with Schema-typed payload and a pure dedup projection, `DurableQueue.process(queue, payload, { retrySchedule })` enqueues and suspends the caller until a worker settles the item, and `DurableQueue.worker(queue, handle, { concurrency })` is the consuming Layer whose parallelism and retry geometry are the `WorkClass` row's columns — `concurrency` from the class, `retrySchedule` from `Budget.schedule(row.budget)` — so a job family is priced by naming a class, never by carrying knobs.
@@ -71,7 +71,7 @@ const _job = <Name extends string, A, I, E extends { readonly class: FaultClass.
 const Job = { of: _job }
 ```
 
-## [3]-[THROTTLE]
+## [03]-[THROTTLE]
 
 [THROTTLE]:
 - Owner: `Throttle` — durable keyed quotas: `DurableRateLimiter.rateLimit({ name, algorithm, window, limit, key, tokens })` runs as an activity whose consumption survives replay, so a retried step never double-spends its quota. The quota table is data: each row names its scope (`tenant-egress`, `provider-call`, `report-render`), its algorithm as a policy value (`fixed-window` for hard caps, `token-bucket` for burst-tolerant pacing), its window, its limit, and its key projection — a tenant key, a provider name, a channel — and `Throttle.spend(row, key, tokens)` is the one entry every consumer composes inside a step body.
@@ -110,7 +110,7 @@ const _spend = (row: Throttle.Row, key: string, tokens = 1) =>
 const Throttle = { ..._rows, spend: _spend }
 ```
 
-## [4]-[LANE_POLICY]
+## [04]-[LANE_POLICY]
 
 [LANE_POLICY]:
 - Owner: `Lane` — the drain policy over the data journal's outbox statements. The data wave owns the relation and the two statements (`Journal.claimBatch(sql, app, take, leaseSeconds)` — `FOR UPDATE SKIP LOCKED` with attempt increment, `Journal.complete(sql, ids)` — the delivered mark); this page owns what a drain DOES with them: the lease width (`leaseSeconds` derived from the class row's per-attempt budget — the visibility-timeout semantic mined from the external queue engines, expressed as the claim statement's own re-claim predicate), the urgency term (the `ORDER BY` column populated from `WorkClass[clazz].urgency` at enqueue so interactive deliverables pass bulk ones under contention), the batch geometry (`take` sized by the drain's class row), and the verdict fold.
@@ -165,7 +165,7 @@ const _settle = <R, R2>(
     ), { concurrency: WorkClass[clazz].concurrency })
 ```
 
-## [5]-[PARK_REPLAY]
+## [05]-[PARK_REPLAY]
 
 [PARK_REPLAY]:
 - Owner: the dead-letter fold — a `Parked` verdict appends one typed evidence row through the data wave's fact rail (`Fact.record`): the deliverable's identity as the target, the dominant fault class and attempt count as `Change` rows, `operational` retention — so the dead set is queryable history on the record of truth, never a second table. `Lane.replay` is the operator entry: it folds a parked-evidence read (an audit projection the caller supplies) through the drain's own `remit` re-entry with attempts reset, and records the replay fact — replay is itself evidence.

@@ -2,14 +2,14 @@
 
 The app-identity value vocabulary: `AppIdentity` spans the nine cross-cutting dimensions — app, tenant, namespace, build, instance, host-fingerprint, environment, ring, region — as ONE decoded value, and `TenantContext` is the per-scope tenancy value whose derived `scope` key partitions everything tenant-bounded. The `observe` convention projection, the runtime boot identity, and the data per-tenant store scopes all derive from these values — a per-folder identity re-declaration is the named defect, and hundreds of apps emit, boot, and partition through this one spine; the Resource identity spine reads settled owner fields, never a consumer-minted dimension. `TenantContext` is an adopted-verbatim decode-boundary name: the C# wire mints it, the interchange codec decodes it into this owner, and no second tenancy notion exists TS-side. The module is `core/src/value/identity.ts`; a new identity dimension is one field on the owning class, never a sibling shape.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                    | [PUBLIC]        |
-| :-----: | :----------------- | :--------------------------------------------------------- | :-------------- |
-|  [01]   | `PROCESS_IDENTITY` | the nine-dimension app identity and its brand anchors      | `AppIdentity`   |
-|  [02]   | `TENANT_SCOPE`     | the tenancy value and the derived scope-partition key      | `TenantContext` |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                | [PUBLIC]        |
+| :-----: | :----------------- | :---------------------------------------------------- | :-------------- |
+|  [01]   | `PROCESS_IDENTITY` | the nine-dimension app identity and its brand anchors | `AppIdentity`   |
+|  [02]   | `TENANT_SCOPE`     | the tenancy value and the derived scope-partition key | `TenantContext` |
 
-## [2]-[PROCESS_IDENTITY]
+## [02]-[PROCESS_IDENTITY]
 
 [PROCESS_IDENTITY]:
 - Owner: `AppIdentity`, a `Schema.Class` of `app` (`AppKey` brand), `tenant` (`Option` of `TenantKey` — pinned in a single-tenant deployment, `none` in a multi-tenant process), `namespace` (`Option` of `NamespaceKey` — the service-group axis a fleet partitions dashboards and quotas on), `build` (an inline version+commit block), `instance` (`Refined.Guid` — the per-boot run identity, v7 so instances sort by boot time), `host` (`HostPrint` brand), `environment` (the closed deployment-tier vocabulary), `ring` (the exposure ladder, owner-defaulted to `stable`), and `region` (`Option` of `RegionKey` — absent in a single-region deployment) — one decoded value carrying every identity dimension, constructed once at boot from validated config plus the boot-minted instance guid.
@@ -79,7 +79,7 @@ declare namespace AppIdentity {
 }
 ```
 
-## [3]-[TENANT_SCOPE]
+## [03]-[TENANT_SCOPE]
 
 [TENANT_SCOPE]:
 - Owner: `TenantContext`, a `Schema.Class` of `app` plus `tenant` — the exact `(appKey, tenancy)` pair the data folder keys its per-tenant store Layers on and `security` aligns its `app.current_tenant` claims with — carrying structural `Equal` from the declaration so contexts key `LayerMap` and `HashMap` slots with zero ceremony.

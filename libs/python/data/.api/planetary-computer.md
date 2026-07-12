@@ -21,12 +21,12 @@
 
 `sign` and `sign_inplace` are the `modifier=` callables for `pystac_client.Client.open`/`search`; they dispatch on input type and return the same shape with Azure Blob HREFs replaced by SAS-signed URLs. The top-level `__all__` exports only the `sign_*`/`set_subscription_key`/`get_container_client`/`get_adlfs_filesystem` functions — the response models below are internal (`planetary_computer.sas` for `SASToken`/`SignedLink`/`SASBase`, `planetary_computer.settings` for `Settings`) and are consumed indirectly through the signing rail, not imported at the boundary. `SASToken`/`SignedLink` are the `pydantic` response models the token fetch deserializes; `Settings` carries `subscription_key` and `sas_url` resolved from `PC_SDK_*` environment variables or `~/.planetarycomputer/settings.env`.
 
-| [INDEX] | [SYMBOL]     | [MODULE]                       | [TYPE_FAMILY]     | [RAIL]                                                                   |
-| :-----: | :----------- | :----------------------------- | :---------------- | :----------------------------------------------------------------------- |
-|  [01]   | `SASToken`   | `planetary_computer.sas`       | token model       | `pydantic` SAS token response (`token`, `msft:expiry`) with `sign`/`ttl` |
-|  [02]   | `SignedLink` | `planetary_computer.sas`       | signed-link model | `pydantic` signed-HREF response (`href`, `msft:expiry`)                  |
-|  [03]   | `SASBase`    | `planetary_computer.sas`       | model base        | `pydantic` base carrying the `msft:expiry` expiry field                  |
-|  [04]   | `Settings`   | `planetary_computer.settings`  | configuration     | `pydantic` settings holding `subscription_key`/`sas_url` from `PC_SDK_*` env/file |
+| [INDEX] | [SYMBOL]     | [MODULE]                      | [TYPE_FAMILY]     | [RAIL]                                                                            |
+| :-----: | :----------- | :---------------------------- | :---------------- | :-------------------------------------------------------------------------------- |
+|  [01]   | `SASToken`   | `planetary_computer.sas`      | token model       | `pydantic` SAS token response (`token`, `msft:expiry`) with `sign`/`ttl`          |
+|  [02]   | `SignedLink` | `planetary_computer.sas`      | signed-link model | `pydantic` signed-HREF response (`href`, `msft:expiry`)                           |
+|  [03]   | `SASBase`    | `planetary_computer.sas`      | model base        | `pydantic` base carrying the `msft:expiry` expiry field                           |
+|  [04]   | `Settings`   | `planetary_computer.settings` | configuration     | `pydantic` settings holding `subscription_key`/`sas_url` from `PC_SDK_*` env/file |
 
 ## [03]-[ENTRYPOINTS]
 

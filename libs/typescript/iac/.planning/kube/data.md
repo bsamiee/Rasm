@@ -2,16 +2,16 @@
 
 The data plane of the `selfhosted-k8s` arm in three durable rows: the object store (`ObjectStore` — conditional-put-conforming self-host engines as one vocabulary row realized through `helm.v4` typed values), the fanout store (`Nats` — the JetStream server the runtime's `jetstream` engine row dials: websocket listener, file-store persistence with fsync-per-write hardening, replica quorum from the profile), and the Postgres row (`Postgres` — the CNPG operator chart plus the Barman Cloud plugin, the cluster as a COMMITTED `crd2pulumi`-generated typed class so every spec field is compile-checked, WAL archiving and scheduled backups through the `barman-cloud.cloudnative-pg.io` plugin against a `barmancloud.cnpg.io/v1` `ObjectStore` CR — the in-tree `barmanObjectStore` block is a removal-slated dead end with no spelling here — a PgBouncer `Pooler` fronting the write service as the published bind host, and the per-app logical finalization as declarative CNPG rows applied by the operator from inside the cluster). Tenancy is a data-driven escalation: the `_TENANCY` handler record keyed by `StackSpec.Tenancy["pgTier"]` realizes shared-RLS (policy rows ride the ensure roster), database-per-tenant (one typed `Database` CR per tenant slug), or cluster-per-tenant (one dedicated `Cluster` per tenant) from the same spec value, and the logical-replication seam is the `publication`/`subscription` static pair over the typed CRs. The data seam lands here whole: `Pg.image` from `@rasm/ts/data` is the extension roster the image must carry, the profile's `extensions` subset resolves against `Pg.rows` or aborts on the rail, preload demand reads the matrix's own `preload` flag so a new preload-demanding extension is a data row with zero code edit, and the ensure-DDL roster applies transactionally through one in-cluster job while the runtime's capability probe verifies at startup: iac applies, data verifies, the runtime never mutates. The module is `iac/src/kube/data.ts`; a new extension is a matrix row, a new engine is one `_engines` row, a tenancy tier is one `_TENANCY` row, a backup or quorum axis is one profile field.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                    | [PUBLIC]      |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                      | [PUBLIC]      |
 | :-----: | :------------- | :-------------------------------------------------------------------------- | :------------ |
 |  [01]   | `OBJECT_STORE` | the conforming-engine vocabulary and the chart-realized store + credentials | `ObjectStore` |
 |  [02]   | `FANOUT_STORE` | the NATS JetStream server row: websocket, fsync hardening, quorum           | `Nats`        |
 |  [03]   | `CNPG_CLUSTER` | operator + plugin charts, the typed cluster, archive CR, pooler, backups    | `Postgres`    |
 |  [04]   | `APP_FINALIZE` | the tenancy escalation record, Database CRs, replication seam, ensure job   | `Postgres`    |
 
-## [2]-[OBJECT_STORE]
+## [02]-[OBJECT_STORE]
 
 [OBJECT_STORE]:
 - Owner: `ObjectStore` — the interior `_engines` table keyed by the profile's `minio | ceph` literal, each row carrying the chart coordinates and a `values` column that folds root credentials, persistence size, and the provisioned bucket into that chart's own value dialect; the tier realizes one `helm.v4.Chart` from the selected row and projects `endpoint` and `bucket`.
@@ -96,7 +96,7 @@ class ObjectStore extends Tier {
 }
 ```
 
-## [3]-[FANOUT_STORE]
+## [03]-[FANOUT_STORE]
 
 [FANOUT_STORE]:
 - Owner: `Nats` — one `helm.v4.Chart` from the NATS repository realizing the JetStream server the runtime's fanout engine dials, with three value groups the tier states from the profile: the websocket listener (the browser-and-node `wsconnect` origin — no client speaks the bare NATS port), JetStream file-store persistence sized by `profile.fanout.storage`, and the cluster replica count from `profile.fanout.replicas`; `origin` projects the in-cluster websocket DNS the `fanout` output plane publishes and the `RUNTIME_FANOUT_ORIGIN` env row carries.
@@ -136,7 +136,7 @@ class Nats extends Tier {
 }
 ```
 
-## [4]-[CNPG_CLUSTER]
+## [04]-[CNPG_CLUSTER]
 
 [CNPG_CLUSTER]:
 - Owner: `Postgres` — the CNPG operator and the Barman Cloud plugin install as two `helm.v4.Chart` rows (typed values, `skipCrds` false so the CRDs ride the charts), and every CNPG object is a COMMITTED `crd2pulumi`-generated class from `../crds/cnpg` — `postgresql.v1.Cluster`/`Database`/`ScheduledBackup`/`Pooler`/`Publication`/`Subscription` and `barmancloud.v1.ObjectStore` — so the operator vocabulary is compile-checked where the estate is PG-heaviest and a raw `CustomResource<any>` catch-all has no spelling here; the generated module regenerates on operator bumps, never an npm pin.
@@ -300,7 +300,7 @@ class Postgres extends Tier {
 }
 ```
 
-## [5]-[APP_FINALIZE]
+## [05]-[APP_FINALIZE]
 
 [APP_FINALIZE]:
 - Law: finalization is declarative and in-cluster — the deploy host reaches only the Kubernetes API, never the cluster's `.svc` network, so no deploy-side SQL provider can bind the `-rw` service; the app role is the cluster's `managed.roles` row (login, non-superuser, connection-limited, `passwordSecret` at the app basic-auth secret — never the admin entry), and the per-app database is one typed `Database` CR (`cluster`-referenced create-only, `owner`-bound to the managed role, `template0` base) whose `extensions` rows pin every granted matrix row to its floor with `ensure: "present"`; `pg_incremental`'s hard `cron` dependency is a matrix flag the grant subset must prove, so an inconsistent profile fails at `_granted`, never mid-apply.

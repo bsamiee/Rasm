@@ -2,16 +2,16 @@
 
 The Navigation-API typed router under the zero-routing-package law, the browser session-residency plane, and the navigation admission fold — one page because the three concerns meet at one commit path: the route table is app DATA (one row per route carrying its segment template, its `nuqs` query codec, and its guard policy value), the lib owns the algebra over it — segment-param types derived from the template literal itself, the query plane decoded and serialized through the `nuqs/server` codec core, one interceptable ingress over `window.navigation` owning link clicks, form submits, back/forward, and programmatic traversal alike, and one commit path so the location cell and the URL cannot tear. `nuqs` is the codec, the Navigation API is the traversal, `Schema`-grade typing rides the derivation — no router package, no `popstate`/`pushState` split, no hand-mashed `URLSearchParams`. The session plane holds the residency law: the access session travels as an `HttpOnly` cookie the page never reads (`security/authn/session` frames it, the edge writes it — the browser holds zero token bytes), the CSRF token is the one deliberately readable cookie echoed into a header per the double-submit law, session STATUS is memory-only state in one cell reconstructed on every boot, and the OAuth redirect continuity a full-page IdP navigation destroys rides `persist#DOMAIN_ROWS`'s `flow` domain — persisted before departure, consumed single-use at landing. The guard produces the router's own `Admission` verdict directly, handed into the admission slot at composition so the router never imports the guard. The module is `runtime/src/browser/route.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                                | [PUBLIC]                             |
-| :-----: | :---------------- | :------------------------------------------------------------------------ | :----------------------------------- |
-|  [01]   | `TABLE_ALGEBRA`   | the row shape, segment-type derivation, match/href, the query codec        | `Router`                              |
-|  [02]   | `TRAVERSAL_OWNER` | the minted Tag, the intercept ingress, cells, restore, commit law          | `Router`, `RouteFault`                |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                      | [PUBLIC]                              |
+| :-----: | :---------------- | :-------------------------------------------------------------------------- | :------------------------------------ |
+|  [01]   | `TABLE_ALGEBRA`   | the row shape, segment-type derivation, match/href, the query codec         | `Router`                              |
+|  [02]   | `TRAVERSAL_OWNER` | the minted Tag, the intercept ingress, cells, restore, commit law           | `Router`, `RouteFault`                |
 |  [03]   | `SESSION_PLANE`   | the status family, the residency cell, refresh, cross-tab, CSRF, continuity | `SessionStatus`, `Vault`, `FlowFault` |
-|  [04]   | `ADMISSION_FOLD`  | the policy value, the resolve chain, the dirty registry, the confirm       | `Guard`, `Confirm`                    |
+|  [04]   | `ADMISSION_FOLD`  | the policy value, the resolve chain, the dirty registry, the confirm        | `Guard`, `Confirm`                    |
 
-## [2]-[TABLE_ALGEBRA]
+## [02]-[TABLE_ALGEBRA]
 
 [TABLE_ALGEBRA]:
 - Owner: the `Router` type plane and pure algebra — `Router.Row<P>` (`path` template, `query` `ParserMap`, `policy` the guard-interpreted value, `title` `Option`), `Router.Params<Path>` deriving the segment record from the template literal (`"/doc/:key/:rev"` yields `{ key: string; rev: string }` — the correspondence computes, never restates), `Router.Location<Rows>` (the key-discriminated union of `{ key, segments, query }`), `_matched` (template against pathname, one fold, `Option` of captures), and the per-row `createLoader`/`createSerializer` pair — decode and write of the query plane through one `ParserMap`, so loader and serializer cannot drift.
@@ -113,7 +113,7 @@ const _href = <Rows extends Router.Rows, K extends keyof Rows & string>(
   )
 ```
 
-## [3]-[TRAVERSAL_OWNER]
+## [03]-[TRAVERSAL_OWNER]
 
 [TRAVERSAL_OWNER]:
 - Owner: `Router.make(spec)` — mints the app's `{ Tag, layer }`: the Tag typed at `Router.Shape<Rows>` under the app's identifier, and `layer(admission)` building the scoped traversal owner: the location cell seeded from `navigation.currentEntry`, the pending cell carrying the in-flight target, the one `navigate`-event ingress, cold-boot query restoration, and the commit law.
@@ -256,7 +256,7 @@ const Router: {
 }
 ```
 
-## [4]-[SESSION_PLANE]
+## [04]-[SESSION_PLANE]
 
 [SESSION_PLANE]:
 - Owner: `SessionStatus`, one process-local `Data.taggedEnum` — `Anonymous`, `Authenticating`, `Authenticated { subject, expiresAt }`, `Expired` — constructed only through its generated constructors so every guard and affordance dispatch rides `$match`/`$is`; and `Vault`, one scoped `Effect.Service` built through `Vault.Default(spec)` — `status` (the one cell, published `Subscribable`), the transitions (`established`/`authenticating`/`cleared` — local transitions publish to the cross-tab channel, foreign folds never re-publish, so the channel cannot echo), `csrf` (the double-submit header pair read from the readable cookie under `security/authn/session`'s `CookieSpec.csrf` name, `Option`-carried), `posture` (`"include"` — the credentials row `fetch#DIAL_SURFACE` stamps on every dial), and the redirect continuity — `depart(plan)` persists the pending flow into `persist#DOMAIN_ROWS`'s `flow` domain then commits the full-page navigation, `land(url, exchange)` re-reads the flow single-use, guards replay, lapse, and the state echo, extracts the callback code, hands `{ code, state }` to the app-supplied exchange leg, and folds the fresh session into the cell.
@@ -455,7 +455,7 @@ class Vault extends Effect.Service<Vault>()("runtime/browser/Vault", {
 }) {}
 ```
 
-## [5]-[ADMISSION_FOLD]
+## [05]-[ADMISSION_FOLD]
 
 [ADMISSION_FOLD]:
 - Owner: `Guard`, one scoped `Effect.Service` built through `Guard.Default(spec)` — `spec` carries the app-composed `availability` snapshot read (`Option`-carried: no evidence feed composed means no command gating), the `flag` verdict leg (`Option`-carried: the root satisfies it from whatever flag surface the deployment serves — `proc/flag`'s edge-served snapshot or `security`'s `FlagGate` over the subject's claims — so this definition names no engine), and the `settle` budget an in-flight authentication spends before the fold treats it as expired. Members: `resolve(departing, arriving)` — the one admission fold; `hold(token)` — the scoped dirty marker; `dirty` — the registry read, published `Subscribable` so only `hold`'s bracket writes it. `Guard.Policy` is the per-route policy value the table's rows carry — `session`, `flag`, `command`, `leave`, each `Option`-carried so a route states only the gates it earns — with `Guard.open` the all-`none` row and `Guard.policy(overrides)` the spread constructor. `Confirm` is the port Tag the ui wave satisfies at composition: one prompt-to-boolean ceremony.

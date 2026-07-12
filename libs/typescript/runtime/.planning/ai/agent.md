@@ -2,16 +2,16 @@
 
 The agent altitude, ruled and sealed: an agent session's interaction state is a `Transition` machine from the core state page — a closed phase spine driven by a transition table, booted as the in-process serializable actor with snapshot-grade durability — and its conversational memory is the persisted `Chat` substrate the intelligence package ships, so neither state nor history is hand-assembled anywhere. The turn is one fold: recall the session, weave app-passed retrieval into the measured prompt, screen once at the gate, iterate gated tool-calling generation under a bounded step budget, compact when the meter demands, persist. The `Act`/`Turn`/`AgentFault` schema triple is declared once as tagged requests and serves three surfaces without re-declaration — the cluster entity's message protocol (a durable multi-process session is `entity#ACTOR_MINT` applied to the same triple, single-writer turn order arriving as an entity fact), the agents-as-tools row (`Tool.fromTaggedRequest` lifts `Act` so an agent is callable by another agent's toolkit), and the serving plane's proxied drive. Held-tool approval is evidence, not ceremony: the gate's held partition emits unresolved calls, the machine holds the `awaiting` phase, and release arrives as a signal in-process or a durable token for approvals that outlive the process. The module is `runtime/src/ai/agent.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]   | [OWNS]                                                                            | [PUBLIC]   |
-| :-----: | :---------- | :------------------------------------------------------------------------------------ | :--------- |
-|  [01]   | `SESSION`   | persisted chat memory, session identity, the two compaction lanes                       | `Session`  |
-|  [02]   | `TURN`      | the one turn fold and the `Act`/`Turn`/`AgentFault` request triple                      | `Agent`    |
-|  [03]   | `ACTOR`     | the phase machine, the in-process boot, the entity escalation row                       | `Agent`    |
-|  [04]   | `APPROVAL`  | the held-call evidence fold and the two release paths                                   | `Agent`    |
+| [INDEX] | [CLUSTER]  | [OWNS]                                                             | [PUBLIC]  |
+| :-----: | :--------- | :----------------------------------------------------------------- | :-------- |
+|  [01]   | `SESSION`  | persisted chat memory, session identity, the two compaction lanes  | `Session` |
+|  [02]   | `TURN`     | the one turn fold and the `Act`/`Turn`/`AgentFault` request triple | `Agent`   |
+|  [03]   | `ACTOR`    | the phase machine, the in-process boot, the entity escalation row  | `Agent`   |
+|  [04]   | `APPROVAL` | the held-call evidence fold and the two release paths              | `Agent`   |
 
-## [2]-[SESSION]
+## [02]-[SESSION]
 
 [SESSION]:
 - Owner: `Session` — durable conversational memory on the shipped substrate: `Chat.layerPersisted` provides the persistence Tag over `@effect/experimental` `Persistence.BackingPersistence` (satisfied at the app root from a data-wave key-value scope), `Session.open(key)` restores-or-creates the chat whose `history` is the substrate's own `Ref<Prompt>`, and the snapshot rides the substrate's own twins — `export`/`fromExport` for structured hops, `exportJson`/`fromJson` for the string form the KV and wire persistence paths store — a hand-assembled history record beside `Chat` is the killed lane, and no key-value session schema exists on this page.
@@ -61,7 +61,7 @@ const _open = (row: Session.Row) =>
 const Session = { key: SessionKey, open: _open, persisted: Chat.layerPersisted }
 ```
 
-## [3]-[TURN]
+## [03]-[TURN]
 
 [TURN]:
 - Owner: `Agent` and the request triple. `Act` is the inbound tagged request — session key, utterance, app-passed retrieval passages, the safety mode — with `Turn` as its success (the reply text, the held-call evidence band, the spend receipt, the settled phase) and `AgentFault` as its failure (reason-discriminated, class-carrying); `Schema.TaggedRequest` declares payload, success, and failure in one class, and that single declaration is the entity Rpc, the `Tool.fromTaggedRequest` row, and the wire contract.
@@ -103,7 +103,7 @@ class Act extends Schema.TaggedRequest<Act>()("Act", {
 const _asTool = Tool.fromTaggedRequest(Act)
 ```
 
-## [4]-[ACTOR]
+## [04]-[ACTOR]
 
 [ACTOR]:
 - Owner: the phase machine — one `Transition.spec`: a depth-one statechart (`session` compound over four atomic phases), signals `act | settle | hold | release | compact | done`, verdict programs naming what the driver does next; the rows are the whole interaction protocol — an unmatched signal is an empty program, never a hand branch — the `awaiting` node's watch row arms the approval deadline as a delayed self-signal, and `recover` re-initializes a defecting actor under a `pulse`-budget schedule. The compiled spec's `boot` runs the machine scoped beside the session so phase and history live and die together; `freeze`/`restore` carry an interactive session across a page or process hop.
@@ -145,7 +145,7 @@ const _spec = Transition.spec({
 const _boot = _spec.boot
 ```
 
-## [5]-[APPROVAL]
+## [05]-[APPROVAL]
 
 [APPROVAL]:
 - Owner: the held-call fold — when the gate's admission returns held names, the generation runs with tool resolution disabled, the emitted tool-call parts persist on the `Turn.held` band as `{ tool, params }` evidence, and the machine enters `awaiting`. Release is two paths by longevity: the in-process path feeds `release` to the machine when a supervisor approves within the session's live window (the approved calls re-enter the loop as ordinary resolved results), and the durable path — an approval that outlives the process — declares a `flow#SIGNAL_GATE` deferred whose token travels to the approval surface and whose settlement re-drives the entity turn; the `awaiting` watch row expires unanswered holds into `done`, so an abandoned approval degrades to a bounded, evidenced no-op.

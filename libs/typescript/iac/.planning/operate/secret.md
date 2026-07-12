@@ -2,15 +2,15 @@
 
 The material owner of the deploy plane — Doppler provisioning and TLS issuance on one page because both mint secrets other rows only reference. `Secrets` provisions the Doppler hierarchy (`Project → Environment → BranchConfig → Secret`), lands every generated credential in it under one char-class policy whose `keepers` map carries the spec `epoch`, scopes one read-access `ServiceToken` for runtime injection, serves every sibling provider's credential field through one parameterized fan-in read, and mirrors outward through one `integration` + `secretssync` pair per destination — external stores are mirrors, never sources. `Certs` is the certificate pipeline: one profile value drives `PrivateKey → CertRequest → {self-signed CA | CA-signed leaf}`, `allowedUses` is a bounded vocabulary, rotation is window-driven (`earlyRenewalHours` moves the window, `readyForRenewal` is the boolean the drift fold watches), and a CA key that must outlive the graph lands in Doppler as a `{ value }` entry — generated material has exactly one canonical store. A value leaves this page two ways only: an in-graph single-key `Output<string>` bound to a provider credential `Input` (state-encrypted, never process env), or the `ServiceToken.key` as the `DOPPLER_TOKEN` env fact the workload assembly injects. The module is `iac/src/operate/secret.ts`; a new credential is one entries row, a new consumer is one fan-in key, a new destination is one mirror pair row, a tenant's secret access is one `access` row, an mTLS leaf is one more issuance call, and a browser-trusted hostname outside a cluster is one `trusted` call on the ACME lane.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]         | [OWNS]                                                            | [PUBLIC]  |
-| :-----: | :---------------- | :------------------------------------------------------------------ | :-------- |
-|  [01]   | `STORE_HIERARCHY` | the parent-chained hierarchy, generated entries, the token         | `Secrets` |
-|  [02]   | `FAN_IN_AND_OUT`  | the single-key provider fan-in, the mirror fan-out, the webhook    | `Secrets` |
-|  [03]   | `CERT_CHAIN`      | the usage vocabulary, the profile, the CA root, leaf issuance      | `Certs`   |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                          | [PUBLIC]  |
+| :-----: | :---------------- | :-------------------------------------------------------------- | :-------- |
+|  [01]   | `STORE_HIERARCHY` | the parent-chained hierarchy, generated entries, the token      | `Secrets` |
+|  [02]   | `FAN_IN_AND_OUT`  | the single-key provider fan-in, the mirror fan-out, the webhook | `Secrets` |
+|  [03]   | `CERT_CHAIN`      | the usage vocabulary, the profile, the CA root, leaf issuance   | `Certs`   |
 
-## [2]-[STORE_HIERARCHY]
+## [02]-[STORE_HIERARCHY]
 
 [STORE_HIERARCHY]:
 - Owner: `Secrets`, one tier chaining `Project` (named by the spec's `doppler.project`), `Environment` (slugged by the spec's `doppler.config`), `BranchConfig`, then one `Secret` per entries row — every resource `parent`-chained through `child()` so the tier owns the whole store.
@@ -146,7 +146,7 @@ class Secrets extends Tier {
 }
 ```
 
-## [3]-[FAN_IN_AND_OUT]
+## [03]-[FAN_IN_AND_OUT]
 
 [FAN_IN_AND_OUT]:
 - Law: one read serves every provider — `read(key)` is the single-key pluck over `getSecretsOutput(...).map`, and the consumer roster is data: `postgresql.Provider.password` ← `DB_ADMIN_PASSWORD`, `postgresql.Role.password` ← `DB_PASSWORD`, `cloudflare.Provider.apiToken` ← `CLOUDFLARE_API_TOKEN`, `gcp.Provider.credentials` ← `GCP_CREDENTIALS`, grafana auth ← `GRAFANA_PASSWORD`, registry auth ← `REGISTRY_PASSWORD` — a new consuming provider is a key row on the config the store already owns, never a new read path.
@@ -266,7 +266,7 @@ const _ACCESS: {
 }
 ```
 
-## [4]-[CERT_CHAIN]
+## [04]-[CERT_CHAIN]
 
 [CERT_CHAIN]:
 - Owner: `Certs` — the issuance pipeline as three members over one profile value: `_Profile` (algorithm, curve, validity and renewal windows, the `allowedUses` subset) decodes once per caller; `Certs.root(name, profile?)` mints the CA — one `SelfSignedCert` with `isCaCertificate: true` over its own `PrivateKey`, doubled validity, `cert_signing + crl_signing` uses; `Certs.issue(name, { ca, hostname, profile? })` runs `PrivateKey → CertRequest → LocallySignedCert` and returns the `{ key, cert, renewal }` triple the traffic sink consumes.

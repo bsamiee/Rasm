@@ -222,15 +222,15 @@ flowchart LR
 
 One owner per axis; a new statistic is a fold slot, row, or case — never a sibling receipt or a second traversal.
 
-| [INDEX] | [CONCERN]              | [OWNER]              | [KIND]                                                            | [RAIL]                              | [CASES] |
-| :-----: | :--------------------- | :------------------- | :----------------------------------------------------------------- | :------------------------------------ | :-----: |
-|  [01]   | Scalar provenance      | `ScalarMetric`       | `[SmartEnum<int>]` + total `Switch` projections per payload shape | `Of → Fin<double>`                    |    3    |
-|  [02]   | Extremum axis          | `ExtremumDirection`  | `[SmartEnum<int>]`, key = fold sign                               | discriminant (pure)                   |    2    |
-|  [03]   | Summary provenance     | `StatContext`        | `[Union]` `None`/`Metric`/`Tolerance`                             | carried case (pure)                   |    3    |
-|  [04]   | Sample summary         | `Stat`               | `readonly record struct` Welford receipt + `IValidityEvidence`    | `Of → Fin<Stat>`                      |    6f   |
-|  [05]   | Extremum query         | `Stat.Extrema<TItem>` | generic tolerance-banded fold + terminal band re-proof            | `Seq<TItem>` (pure)                   |    1    |
-|  [06]   | Order statistics       | `Distribution`       | `readonly record struct` + linear-interp `Quantile`               | `Of → Fin<Distribution>`              |    4f   |
-|  [07]   | Weighted moments       | `SampleMoment`       | internal packed-triangle receipt + symmetric indexer              | `Of → Fin<SampleMoment>`              |    3f   |
+| [INDEX] | [CONCERN]          | [OWNER]               | [KIND]                                                            | [RAIL]                   | [CASES] |
+| :-----: | :----------------- | :-------------------- | :---------------------------------------------------------------- | :----------------------- | :-----: |
+|  [01]   | Scalar provenance  | `ScalarMetric`        | `[SmartEnum<int>]` + total `Switch` projections per payload shape | `Of → Fin<double>`       |    3    |
+|  [02]   | Extremum axis      | `ExtremumDirection`   | `[SmartEnum<int>]`, key = fold sign                               | discriminant (pure)      |    2    |
+|  [03]   | Summary provenance | `StatContext`         | `[Union]` `None`/`Metric`/`Tolerance`                             | carried case (pure)      |    3    |
+|  [04]   | Sample summary     | `Stat`                | `readonly record struct` Welford receipt + `IValidityEvidence`    | `Of → Fin<Stat>`         |   6f    |
+|  [05]   | Extremum query     | `Stat.Extrema<TItem>` | generic tolerance-banded fold + terminal band re-proof            | `Seq<TItem>` (pure)      |    1    |
+|  [06]   | Order statistics   | `Distribution`        | `readonly record struct` + linear-interp `Quantile`               | `Of → Fin<Distribution>` |   4f    |
+|  [07]   | Weighted moments   | `SampleMoment`        | internal packed-triangle receipt + symmetric indexer              | `Of → Fin<SampleMoment>` |   3f    |
 
 Every fence composes the `Domain/rails` `Op`/`Fault`/`ValidityClaim` vocabulary as settled material; construction re-enters the `Domain/validation` oracle through `Op.AcceptValue`, and the three receipts' `IValidityEvidence` conformances retire the oracle's hand-enumerated statistical arms. No member reaches past `RhinoMath.ZeroTolerance`, the rails claim rows, and the two projection payload structs — the fold algebra itself is host-independent by inspection.
 

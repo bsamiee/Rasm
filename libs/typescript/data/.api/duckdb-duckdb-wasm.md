@@ -13,25 +13,25 @@
 
 ## [02]-[PUBLIC_TYPES]
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:----------------------------------------------------------- |
-| [01] | `AsyncDuckDB` | engine handle | main-thread proxy over the worker-resident engine |
-| [02] | `DuckDBBundles` / bundle (`mainModule`, `mainWorker`, `pthreadWorker`) | bundle roster | self-hosted `mvp`/`eh` artifact coordinates |
-| [03] | `ConsoleLogger` | logger | engine log sink handed to the constructor |
-| [04] | connection (from `db.connect()`) | session handle | `query`/`send`/insert members; closed to release memory |
-| [05] | `DuckDBDataProtocol` (`HTTP`, `BROWSER_FILEREADER`) | file protocol | `registerFileHandle`/`registerFileURL` residency discriminant |
+| [INDEX] | [SYMBOL]                                                               | [TYPE_FAMILY]  | [CONSUMER]                                                    |
+| :-----: | :--------------------------------------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `AsyncDuckDB`                                                          | engine handle  | main-thread proxy over the worker-resident engine             |
+|  [02]   | `DuckDBBundles` / bundle (`mainModule`, `mainWorker`, `pthreadWorker`) | bundle roster  | self-hosted `mvp`/`eh` artifact coordinates                   |
+|  [03]   | `ConsoleLogger`                                                        | logger         | engine log sink handed to the constructor                     |
+|  [04]   | connection (from `db.connect()`)                                       | session handle | `query`/`send`/insert members; closed to release memory       |
+|  [05]   | `DuckDBDataProtocol` (`HTTP`, `BROWSER_FILEREADER`)                    | file protocol  | `registerFileHandle`/`registerFileURL` residency discriminant |
 
 ## [03]-[ENTRYPOINTS]
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER] |
-|:-----: |:------------------------------------------------------------------------------------------ |:------------- |:---------------------------------------------- |
-| [01] | `selectBundle(bundles)` → `new Worker(bundle.mainWorker)` → `new AsyncDuckDB(logger, worker)` → `db.instantiate(bundle.mainModule, bundle.pthreadWorker)` | engine acquire | the lane's scoped acquire; self-hosted bundles only |
-| [02] | `db.connect()` → connection; `conn.close()` / `db.terminate()` | session lease | scoped connection; release arms |
-| [03] | `conn.query<T>(sql)` → `arrow.Table<T>` | materialize | Arrow-native result — zero-copy into the viewer |
-| [04] | `for await (const batch of await conn.send<T>(sql))` | stream read | lazy record-batch pull — the lane's `Stream` lift |
-| [05] | `conn.insertArrowTable(table, { name })` / `conn.insertArrowFromIPCStream(bytes, { name })` | arrow ingest | the ONE columnar wire inbound |
-| [06] | file registry members | file registry | remote Parquet range reads; picked local files |
-| [07] | `conn.insertCSVFromPath(path, options)` / `conn.insertJSONFromPath(path, options)` | typed ingest | schema-typed CSV/JSON admission |
+| [INDEX] | [SURFACE]                                                                                                                                                 | [ENTRY_FAMILY] | [CONSUMER]                                          |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------- |
+|  [01]   | `selectBundle(bundles)` → `new Worker(bundle.mainWorker)` → `new AsyncDuckDB(logger, worker)` → `db.instantiate(bundle.mainModule, bundle.pthreadWorker)` | engine acquire | the lane's scoped acquire; self-hosted bundles only |
+|  [02]   | `db.connect()` → connection; `conn.close()` / `db.terminate()`                                                                                            | session lease  | scoped connection; release arms                     |
+|  [03]   | `conn.query<T>(sql)` → `arrow.Table<T>`                                                                                                                   | materialize    | Arrow-native result — zero-copy into the viewer     |
+|  [04]   | `for await (const batch of await conn.send<T>(sql))`                                                                                                      | stream read    | lazy record-batch pull — the lane's `Stream` lift   |
+|  [05]   | `conn.insertArrowTable(table, { name })` / `conn.insertArrowFromIPCStream(bytes, { name })`                                                               | arrow ingest   | the ONE columnar wire inbound                       |
+|  [06]   | file registry members                                                                                                                                     | file registry  | remote Parquet range reads; picked local files      |
+|  [07]   | `conn.insertCSVFromPath(path, options)` / `conn.insertJSONFromPath(path, options)`                                                                        | typed ingest   | schema-typed CSV/JSON admission                     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

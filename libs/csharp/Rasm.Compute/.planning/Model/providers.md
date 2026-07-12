@@ -160,13 +160,13 @@ The `OrtEpDevice` autoEP descriptor (enumerated through `OrtEnv.GetEpDevices()`)
 
 The `Veto` receipt binds the `OrtDeviceEpIncompatibilityReason` `[Flags]` enum (`UInt32`) the `OrtDeviceEpIncompatibilityDetails.ReasonsBitmask` carries when an EP cannot claim a hardware device:
 
-| [INDEX] | [REASON]              | [VALUE]    |
-| :-----: | :-------------------- | :--------- |
-|  [01]   | `None`                | 0          |
-|  [02]   | `DriverIncompatible`  | 1          |
-|  [03]   | `DeviceIncompatible`  | 2          |
-|  [04]   | `MissingDependency`   | 4          |
-|  [05]   | `Unknown`             | 0x80000000 |
+| [INDEX] | [REASON]             | [VALUE]    |
+| :-----: | :------------------- | :--------- |
+|  [01]   | `None`               | 0          |
+|  [02]   | `DriverIncompatible` | 1          |
+|  [03]   | `DeviceIncompatible` | 2          |
+|  [04]   | `MissingDependency`  | 4          |
+|  [05]   | `Unknown`            | 0x80000000 |
 
 ## [03]-[RESEARCH]
 

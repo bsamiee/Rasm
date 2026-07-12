@@ -20,15 +20,15 @@
 - rail: boundaries
 - `SqliteClient` is a superset of the neutral `SqlClient` — it satisfies the abstract Tag every `store` row yields AND carries the driver-distinct capability. The catalog documents only what the driver ADDS over `.api/effect-sql.md`; the fragment DSL, transactions, `SqlSchema`/`Model`, and overlay bindings are the neutral surface unchanged.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:-------------------------------------------------- |:---------------- |:--------------------------------------------------------------- |
-| [01] | `SqliteClient` (interface, extends `SqlClient`) | `Context.Tag` | the sqlite lane client; usable as the neutral `SqlClient` OR for the driver-distinct members below |
-| [02] | `SqliteClient.export` (`Effect<Uint8Array, SqlError>`) | db snapshot | whole-database serialization — snapshot/DR export, `journal` cold-copy, content-addressed backup blob |
-| [03] | `SqliteClient.backup(dest)` (`→ Effect<BackupMetadata, SqlError>`) | online backup | live page-progress backup to a file without blocking writers; `BackupMetadata` = `{ totalPages, remainingPages }` |
-| [04] | `SqliteClient.loadExtension(path)` (`→ Effect<void, SqlError>`) | extension load | runtime `.so`/`.dylib` load (sqlite-vec, spellfix) — the sqlite analog of the pg `capability/matrix` extension row |
-| [05] | `SqliteClient.config` / `SqliteClient.updateValues: never` | config / degradation | the resolved config; `updateValues: never` is the declared lane degradation (no multi-row `UPDATE … FROM`) |
-| [06] | `SqliteClientConfig` | driver config | `filename`, `readonly?`, `prepareCacheSize?`, `prepareCacheTTL?`, `disableWAL?`, `spanAttributes?`, `transformResultNames?`/`transformQueryNames?` |
-| [07] | `BackupMetadata` | progress record | `{ totalPages, remainingPages }` — poll to observe online-backup completion |
+| [INDEX] | [SYMBOL]                                                           | [TYPE_FAMILY]        | [CONSUMER_BOUNDARY]                                                                                                                                |
+| :-----: | :----------------------------------------------------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SqliteClient` (interface, extends `SqlClient`)                    | `Context.Tag`        | the sqlite lane client; usable as the neutral `SqlClient` OR for the driver-distinct members below                                                 |
+|  [02]   | `SqliteClient.export` (`Effect<Uint8Array, SqlError>`)             | db snapshot          | whole-database serialization — snapshot/DR export, `journal` cold-copy, content-addressed backup blob                                              |
+|  [03]   | `SqliteClient.backup(dest)` (`→ Effect<BackupMetadata, SqlError>`) | online backup        | live page-progress backup to a file without blocking writers; `BackupMetadata` = `{ totalPages, remainingPages }`                                  |
+|  [04]   | `SqliteClient.loadExtension(path)` (`→ Effect<void, SqlError>`)    | extension load       | runtime `.so`/`.dylib` load (sqlite-vec, spellfix) — the sqlite analog of the pg `capability/matrix` extension row                                 |
+|  [05]   | `SqliteClient.config` / `SqliteClient.updateValues: never`         | config / degradation | the resolved config; `updateValues: never` is the declared lane degradation (no multi-row `UPDATE … FROM`)                                         |
+|  [06]   | `SqliteClientConfig`                                               | driver config        | `filename`, `readonly?`, `prepareCacheSize?`, `prepareCacheTTL?`, `disableWAL?`, `spanAttributes?`, `transformResultNames?`/`transformQueryNames?` |
+|  [07]   | `BackupMetadata`                                                   | progress record      | `{ totalPages, remainingPages }` — poll to observe online-backup completion                                                                        |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -36,12 +36,12 @@
 - rail: rails-and-effects
 - `layer`/`layerConfig` provide `SqliteClient | SqlClient` in one Layer, so a row that yields the neutral `SqlClient` and a row that needs `backup`/`loadExtension` share one binding. `layerConfig` sources the filename and cache knobs from `Config` behind `host/config` — no hardcoded path. WAL is on by default (append throughput for the journal); `disableWAL` is the explicit opt-out.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------------------------- |
-| [01] | `SqliteClient.layer(config)` → `Layer<SqliteClient \| SqlClient, ConfigError>` | provide lane | the app root's `./server` composition — binds the sqlite journal/projection lane |
-| [02] | `SqliteClient.layerConfig(Config.Wrap<SqliteClientConfig>)` → `Layer<SqliteClient \| SqlClient, ConfigError>` | provide lane | filename/cache/WAL from `Config` (`PlatformConfigProvider`); the parameterized, no-hardcoded-path form |
-| [03] | `SqliteClient.make(config)` → `Effect<SqliteClient, never, Scope \| Reactivity>` | build client | scoped client construction; requires `Reactivity` so `sql.reactive` works on the lane |
-| [04] | `client.export` / `client.backup(path)` / `client.loadExtension(path)` | driver ops | snapshot/DR + extension capability — composed only where the concrete lane, not the neutral Tag, is in scope |
+| [INDEX] | [SURFACE]                                                                                                     | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                                                          |
+| :-----: | :------------------------------------------------------------------------------------------------------------ | :------------- | :----------------------------------------------------------------------------------------------------------- |
+|  [01]   | `SqliteClient.layer(config)` → `Layer<SqliteClient \| SqlClient, ConfigError>`                                | provide lane   | the app root's `./server` composition — binds the sqlite journal/projection lane                             |
+|  [02]   | `SqliteClient.layerConfig(Config.Wrap<SqliteClientConfig>)` → `Layer<SqliteClient \| SqlClient, ConfigError>` | provide lane   | filename/cache/WAL from `Config` (`PlatformConfigProvider`); the parameterized, no-hardcoded-path form       |
+|  [03]   | `SqliteClient.make(config)` → `Effect<SqliteClient, never, Scope \| Reactivity>`                              | build client   | scoped client construction; requires `Reactivity` so `sql.reactive` works on the lane                        |
+|  [04]   | `client.export` / `client.backup(path)` / `client.loadExtension(path)`                                        | driver ops     | snapshot/DR + extension capability — composed only where the concrete lane, not the neutral Tag, is in scope |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

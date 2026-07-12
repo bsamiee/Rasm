@@ -6,7 +6,7 @@ EP-context model compilation, autoEP hardware-device discovery, and
 execution-provider selection for Compute model rails. The managed surface stacks
 into the `Model/*` design owners as ONE rail: `Boot` folds `OrtThreadingOptions`
 into `EnvironmentCreationOptions`, `Open` folds `SessionOptions` config-entry keys
-+ `OrtModelCompilationOptions` EP-context compile into the resident-session map,
+- `OrtModelCompilationOptions` EP-context compile into the resident-session map,
 `RunOps` folds `OrtValue` carriers + `OrtIoBinding` bound loops under a
 `RunOptions.Terminate` deadline latch into a `Fin` projection, and the autoEP
 `OrtEnv.GetEpDevices`/`GetModelCompatibilityForEpDevices`/`CreateSharedAllocator`

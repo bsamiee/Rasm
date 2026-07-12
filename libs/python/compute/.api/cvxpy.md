@@ -18,31 +18,31 @@
 [PUBLIC_TYPE_SCOPE]: leaf, expression, objective, and problem roots
 - rail: convex optimization
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Variable` | decision leaf | `Variable(shape=(), name=None, *, nonneg, pos, symmetric, PSD, NSD, diag, hermitian, boolean, integer, sparse, bounds)` |
-| [02] | `Parameter` | symbolic constant | `Parameter(shape=(), name=None, value=None, **attrs)` — DPP parameter set before solve; enables warm re-solve |
-| [03] | `Constant` | constant leaf | a fixed numeric value lifted into the expression algebra |
-| [04] | `Expression` | expression node | abstract base of the convex/affine atom algebra (`+`/`@`/`*`/atoms); carries `.curvature`/`.sign`/`.shape`/`.value` |
-| [05] | `Minimize` | objective | `Minimize(expr)` — convex objective |
-| [06] | `Maximize` | objective | `Maximize(expr)` — concave objective |
-| [07] | `Problem` | problem root | `Problem(objective, constraints=[])` — compiled and solved |
+| [INDEX] | [SYMBOL]     | [TYPE_FAMILY]     | [CAPABILITY]                                                                                                            |
+| :-----: | :----------- | :---------------- | :---------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Variable`   | decision leaf     | `Variable(shape=(), name=None, *, nonneg, pos, symmetric, PSD, NSD, diag, hermitian, boolean, integer, sparse, bounds)` |
+|  [02]   | `Parameter`  | symbolic constant | `Parameter(shape=(), name=None, value=None, **attrs)` — DPP parameter set before solve; enables warm re-solve           |
+|  [03]   | `Constant`   | constant leaf     | a fixed numeric value lifted into the expression algebra                                                                |
+|  [04]   | `Expression` | expression node   | abstract base of the convex/affine atom algebra (`+`/`@`/`*`/atoms); carries `.curvature`/`.sign`/`.shape`/`.value`     |
+|  [05]   | `Minimize`   | objective         | `Minimize(expr)` — convex objective                                                                                     |
+|  [06]   | `Maximize`   | objective         | `Maximize(expr)` — concave objective                                                                                    |
+|  [07]   | `Problem`    | problem root      | `Problem(objective, constraints=[])` — compiled and solved                                                              |
 
 [PUBLIC_TYPE_SCOPE]: constraint and cone types
 - rail: convex optimization
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Constraint` | constraint base | abstract base produced by relational operators on expressions |
-| [02] | `Zero` | equality cone | `expr == 0` membership |
-| [03] | `NonNeg` | inequality cone | elementwise `expr >= 0` membership |
-| [04] | `SOC` | second-order cone | `SOC(t, X, axis=0)` — `norm2(X) <= t` second-order-cone membership |
-| [05] | `PSD` | semidefinite cone | `expr >> 0` — symmetric PSD constraint |
-| [06] | `ExpCone` | exponential cone | `ExpCone(x, y, z)` membership |
-| [07] | `PowCone3D` | power cone | `PowCone3D(x, y, z, alpha)` three-dimensional power-cone membership |
-| [08] | `PowConeND` | power cone (N-D) | `PowConeND(W, z, alpha, axis=0)` n-dimensional power-cone membership |
-| [09] | `FiniteSet` | combinatorial | `FiniteSet(expr, vec)` — membership in a finite value set (MI) |
-| [10] | `OpRelEntrConeQuad` | spectral cone | operator-relative-entropy cone (quantum/spectral) |
+| [INDEX] | [SYMBOL]            | [TYPE_FAMILY]     | [CAPABILITY]                                                         |
+| :-----: | :------------------ | :---------------- | :------------------------------------------------------------------- |
+|  [01]   | `Constraint`        | constraint base   | abstract base produced by relational operators on expressions        |
+|  [02]   | `Zero`              | equality cone     | `expr == 0` membership                                               |
+|  [03]   | `NonNeg`            | inequality cone   | elementwise `expr >= 0` membership                                   |
+|  [04]   | `SOC`               | second-order cone | `SOC(t, X, axis=0)` — `norm2(X) <= t` second-order-cone membership   |
+|  [05]   | `PSD`               | semidefinite cone | `expr >> 0` — symmetric PSD constraint                               |
+|  [06]   | `ExpCone`           | exponential cone  | `ExpCone(x, y, z)` membership                                        |
+|  [07]   | `PowCone3D`         | power cone        | `PowCone3D(x, y, z, alpha)` three-dimensional power-cone membership  |
+|  [08]   | `PowConeND`         | power cone (N-D)  | `PowConeND(W, z, alpha, axis=0)` n-dimensional power-cone membership |
+|  [09]   | `FiniteSet`         | combinatorial     | `FiniteSet(expr, vec)` — membership in a finite value set (MI)       |
+|  [10]   | `OpRelEntrConeQuad` | spectral cone     | operator-relative-entropy cone (quantum/spectral)                    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -51,34 +51,34 @@
 
 The relational operators `==`, `<=`, `>=`, `>>`, `<<` on `Expression` build `Constraint` objects; `Problem.solve` selects the backend by the `solver` keyword and returns the optimal value, writing primal values to `Variable.value` and duals to `Constraint.dual_value`. `gp=True` enables DGP geometric programming; `qcp=True` enables DQCP quasiconvex programming.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Problem.solve` | `solve(solver=None, warm_start=True, verbose=False, gp=False, qcp=False, requires_grad=False, enforce_dpp=False, ignore_dpp=False, canon_backend=None, **kwargs)` -> float | compile and solve; returns optimal value |
-| [02] | `Problem.value` | property | optimal objective value after solve |
-| [03] | `Problem.status` | property -> `str` | `optimal`/`infeasible`/`unbounded`/`*_inaccurate` |
-| [04] | `Variable.value` | property (settable for warm start) | primal solution after solve |
-| [05] | `Constraint.dual_value` | property | dual certificate after solve; for an `SOC(t, X)` row the dual is the stacked `[t_dual, X_dual...]` vector (cvxpy reshapes per-cone to `(num_cones, 1+dim(X))`), for a `PSD` row the dual is the symmetric matrix `Z` of the same `(n, n)` shape as the primal — the `tr(Z·X)` complementary-slackness and `λ_min` cone-feasibility reads consume these layouts |
-| [06] | `Constraint.args` | property -> `list[Expression]` | the UNIVERSAL expression-tree operand list every `Constraint` subclass carries — `[lhs, rhs]` for the relational `Inequality`/`Equality`, `[t, X]` for `SOC`, `[X]` for `PSD`, `[x, y, z]` for `ExpCone` — the primal-value access path (`constraint.args[i].value`) for cone rows that carry no single `.expr` |
-| [07] | `Inequality.expr` | property -> `Expression` | the relational-ONLY `lhs − rhs` residual (`<= 0` at feasibility); exists on the relational `Inequality`, NOT on `SOC`/`PSD`/`ExpCone` — a uniform `Constraint.expr.value` read `AttributeError`s on every cone row, so the cone primal value reads off `Constraint.args` |
-| [08] | `installed_solvers` | `installed_solvers()` -> `list[str]` | available solver backend names (`CLARABEL`, …) |
-| [09] | `Problem.get_problem_data` | `get_problem_data(solver, gp=False, enforce_dpp=False, ...)` -> `(data, chain, inverse_data)` | the reduced conic problem data + chain for direct backend drive |
-| [10] | `Problem.backward` / `Problem.derivative` | method | differentiate solution w.r.t. `Parameter` (requires `requires_grad=True`) |
-| [11] | `Problem.is_dcp` / `is_dgp` / `is_dqcp` / `is_qp` | method -> `bool` | curvature-ruleset classification before solve |
-| [12] | `Problem.parameters` / `Problem.variables` | method | enumerate leaves for sweep wiring |
+| [INDEX] | [SURFACE]                                         | [CALL_SHAPE]                                                                                                                                                               | [CAPABILITY]                                                                                                                                                                                                                                                                                                                                                   |
+| :-----: | :------------------------------------------------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Problem.solve`                                   | `solve(solver=None, warm_start=True, verbose=False, gp=False, qcp=False, requires_grad=False, enforce_dpp=False, ignore_dpp=False, canon_backend=None, **kwargs)` -> float | compile and solve; returns optimal value                                                                                                                                                                                                                                                                                                                       |
+|  [02]   | `Problem.value`                                   | property                                                                                                                                                                   | optimal objective value after solve                                                                                                                                                                                                                                                                                                                            |
+|  [03]   | `Problem.status`                                  | property -> `str`                                                                                                                                                          | `optimal`/`infeasible`/`unbounded`/`*_inaccurate`                                                                                                                                                                                                                                                                                                              |
+|  [04]   | `Variable.value`                                  | property (settable for warm start)                                                                                                                                         | primal solution after solve                                                                                                                                                                                                                                                                                                                                    |
+|  [05]   | `Constraint.dual_value`                           | property                                                                                                                                                                   | dual certificate after solve; for an `SOC(t, X)` row the dual is the stacked `[t_dual, X_dual...]` vector (cvxpy reshapes per-cone to `(num_cones, 1+dim(X))`), for a `PSD` row the dual is the symmetric matrix `Z` of the same `(n, n)` shape as the primal — the `tr(Z·X)` complementary-slackness and `λ_min` cone-feasibility reads consume these layouts |
+|  [06]   | `Constraint.args`                                 | property -> `list[Expression]`                                                                                                                                             | the UNIVERSAL expression-tree operand list every `Constraint` subclass carries — `[lhs, rhs]` for the relational `Inequality`/`Equality`, `[t, X]` for `SOC`, `[X]` for `PSD`, `[x, y, z]` for `ExpCone` — the primal-value access path (`constraint.args[i].value`) for cone rows that carry no single `.expr`                                                |
+|  [07]   | `Inequality.expr`                                 | property -> `Expression`                                                                                                                                                   | the relational-ONLY `lhs − rhs` residual (`<= 0` at feasibility); exists on the relational `Inequality`, NOT on `SOC`/`PSD`/`ExpCone` — a uniform `Constraint.expr.value` read `AttributeError`s on every cone row, so the cone primal value reads off `Constraint.args`                                                                                       |
+|  [08]   | `installed_solvers`                               | `installed_solvers()` -> `list[str]`                                                                                                                                       | available solver backend names (`CLARABEL`, …)                                                                                                                                                                                                                                                                                                                 |
+|  [09]   | `Problem.get_problem_data`                        | `get_problem_data(solver, gp=False, enforce_dpp=False, ...)` -> `(data, chain, inverse_data)`                                                                              | the reduced conic problem data + chain for direct backend drive                                                                                                                                                                                                                                                                                                |
+|  [10]   | `Problem.backward` / `Problem.derivative`         | method                                                                                                                                                                     | differentiate solution w.r.t. `Parameter` (requires `requires_grad=True`)                                                                                                                                                                                                                                                                                      |
+|  [11]   | `Problem.is_dcp` / `is_dgp` / `is_dqcp` / `is_qp` | method -> `bool`                                                                                                                                                           | curvature-ruleset classification before solve                                                                                                                                                                                                                                                                                                                  |
+|  [12]   | `Problem.parameters` / `Problem.variables`        | method                                                                                                                                                                     | enumerate leaves for sweep wiring                                                                                                                                                                                                                                                                                                                              |
 
 [ENTRYPOINT_SCOPE]: convex atom library (`cp.<atom>`)
 - rail: convex optimization
 
-| [INDEX] | [SURFACE] | [FAMILY] | [RAIL] |
-| --- | --- | --- | --- |
-| [01] | `sum`, `trace`, `multiply`, `matmul`, `reshape`, `vstack`, `hstack`, `stack`, `diag`, `kron`, `convolve`, `cumsum`, `diff`, `bmat`, `outer`, `vec`, `upper_tri`, `vec_to_upper_tri`, `real`, `imag`, `conj` | affine atoms | affine combinators preserving curvature |
-| [02] | `norm`, `norm1`, `norm2`, `norm_inf`, `pnorm`, `mixed_norm`, `normNuc`, `sigma_max`, `tv` | norm atoms | convex norms, nuclear/spectral norm, total variation |
-| [03] | `quad_form`, `sum_squares`, `quad_over_lin`, `matrix_frac`, `huber`, `tr_inv` | quadratic atoms | quadratic, matrix-fractional, and robust losses |
-| [04] | `exp`, `log`, `log1p`, `log_sum_exp`, `entr`, `kl_div`, `rel_entr`, `logistic`, `log_normcdf`, `loggamma`, `xexp`, `von_neumann_entr` | log/exp atoms | exponential-cone-representable and entropy atoms |
-| [05] | `max`, `min`, `maximum`, `minimum`, `abs`, `pos`, `neg`, `sqrt`, `square`, `power`, `inv_pos`, `sum_largest`, `sum_smallest`, `cummax`, `dotsort`, `cvar`, `ptp` | elementwise/order | extrema, powers, order-statistic and risk atoms |
-| [06] | `lambda_max`, `lambda_min`, `lambda_sum_largest`, `lambda_sum_smallest`, `log_det`, `matrix_frac`, `sigma_max`, `tr_inv`, `pf_eigenvalue`, `eye_minus_inv`, `resolvent`, `psd_wrap` | matrix/spectral | eigenvalue, log-det, and spectral matrix atoms |
-| [07] | `geo_mean`, `harmonic_mean`, `inv_prod`, `prod`, `gmatmul`, `one_minus_pos`, `diff_pos`, `perspective` | DGP/geometric | log-log-convex atoms for `gp=True` geometric programs |
-| [08] | `suppfunc`, `scalene`, `partial_optimize`, `mean`, `std`, `var` | transform/support | support functions, partial optimization, statistical reductions |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                   | [FAMILY]          | [RAIL]                                                          |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------- | :-------------------------------------------------------------- |
+|  [01]   | `sum`, `trace`, `multiply`, `matmul`, `reshape`, `vstack`, `hstack`, `stack`, `diag`, `kron`, `convolve`, `cumsum`, `diff`, `bmat`, `outer`, `vec`, `upper_tri`, `vec_to_upper_tri`, `real`, `imag`, `conj` | affine atoms      | affine combinators preserving curvature                         |
+|  [02]   | `norm`, `norm1`, `norm2`, `norm_inf`, `pnorm`, `mixed_norm`, `normNuc`, `sigma_max`, `tv`                                                                                                                   | norm atoms        | convex norms, nuclear/spectral norm, total variation            |
+|  [03]   | `quad_form`, `sum_squares`, `quad_over_lin`, `matrix_frac`, `huber`, `tr_inv`                                                                                                                               | quadratic atoms   | quadratic, matrix-fractional, and robust losses                 |
+|  [04]   | `exp`, `log`, `log1p`, `log_sum_exp`, `entr`, `kl_div`, `rel_entr`, `logistic`, `log_normcdf`, `loggamma`, `xexp`, `von_neumann_entr`                                                                       | log/exp atoms     | exponential-cone-representable and entropy atoms                |
+|  [05]   | `max`, `min`, `maximum`, `minimum`, `abs`, `pos`, `neg`, `sqrt`, `square`, `power`, `inv_pos`, `sum_largest`, `sum_smallest`, `cummax`, `dotsort`, `cvar`, `ptp`                                            | elementwise/order | extrema, powers, order-statistic and risk atoms                 |
+|  [06]   | `lambda_max`, `lambda_min`, `lambda_sum_largest`, `lambda_sum_smallest`, `log_det`, `matrix_frac`, `sigma_max`, `tr_inv`, `pf_eigenvalue`, `eye_minus_inv`, `resolvent`, `psd_wrap`                         | matrix/spectral   | eigenvalue, log-det, and spectral matrix atoms                  |
+|  [07]   | `geo_mean`, `harmonic_mean`, `inv_prod`, `prod`, `gmatmul`, `one_minus_pos`, `diff_pos`, `perspective`                                                                                                      | DGP/geometric     | log-log-convex atoms for `gp=True` geometric programs           |
+|  [08]   | `suppfunc`, `scalene`, `partial_optimize`, `mean`, `std`, `var`                                                                                                                                             | transform/support | support functions, partial optimization, statistical reductions |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

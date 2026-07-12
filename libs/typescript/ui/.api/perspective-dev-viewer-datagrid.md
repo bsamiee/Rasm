@@ -18,11 +18,11 @@
 [PUBLIC_TYPE_SCOPE]: the registration residue — three exports, none required for normal composition
 - rail: view/chart
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:--------------------------------------------- |:--------------- |:--------------------------------------------------------------------------- |
-| [01] | `HTMLPerspectiveViewerDatagridPluginElement` | element class | the registered plugin element — `instanceof` narrowing on `getPlugin()` only |
-| [02] | `HTMLPerspectiveViewerDatagridToolbarElement` | element class | the edit-mode toolbar element the plugin mounts itself |
-| [03] | `PRIVATE_PLUGIN_SYMBOL` | internal symbol | plugin-internal model key — never read by consumers |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]   | [CONSUMER_BOUNDARY]                                                          |
+| :-----: | :-------------------------------------------- | :-------------- | :--------------------------------------------------------------------------- |
+|  [01]   | `HTMLPerspectiveViewerDatagridPluginElement`  | element class   | the registered plugin element — `instanceof` narrowing on `getPlugin()` only |
+|  [02]   | `HTMLPerspectiveViewerDatagridToolbarElement` | element class   | the edit-mode toolbar element the plugin mounts itself                       |
+|  [03]   | `PRIVATE_PLUGIN_SYMBOL`                       | internal symbol | plugin-internal model key — never read by consumers                          |
 
 ## [03]-[INTEGRATION]
 

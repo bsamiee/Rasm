@@ -36,26 +36,26 @@
 [PUBLIC_TYPE_SCOPE]: algebra and operator building
 - rail: model-asset
 
-| [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]   | [CAPABILITY]                                  |
-| :-----: | :-------------------------------- | :--------------- | :-------------------------------------------- |
-|  [01]   | `algebra.OnnxOperator`            | operator base    | base class for ONNX operator node builders (chains into a graph) |
-|  [02]   | `algebra.onnx_operator.OnnxSubEstimator` | sub-graph | embeds a fitted sub-estimator as an ONNX sub-graph inside a custom converter |
-|  [03]   | `algebra.onnx_ops`                | operator module  | versioned standard operator node classes (`OnnxAdd`, `OnnxMatMul`, `OnnxAbs_13`, ...) |
-|  [04]   | `algebra.custom_ops` \| `algebra.complex_functions` | custom op | custom-domain op nodes and composite complex-function builders |
-|  [05]   | `algebra.type_helper` \| `algebra.graph_state` | build state | type annotation/mapping helpers and graph-construction state carrier |
+| [INDEX] | [SYMBOL]                                            | [PACKAGE_ROLE]  | [CAPABILITY]                                                                          |
+| :-----: | :-------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `algebra.OnnxOperator`                              | operator base   | base class for ONNX operator node builders (chains into a graph)                      |
+|  [02]   | `algebra.onnx_operator.OnnxSubEstimator`            | sub-graph       | embeds a fitted sub-estimator as an ONNX sub-graph inside a custom converter          |
+|  [03]   | `algebra.onnx_ops`                                  | operator module | versioned standard operator node classes (`OnnxAdd`, `OnnxMatMul`, `OnnxAbs_13`, ...) |
+|  [04]   | `algebra.custom_ops` \| `algebra.complex_functions` | custom op       | custom-domain op nodes and composite complex-function builders                        |
+|  [05]   | `algebra.type_helper` \| `algebra.graph_state`      | build state     | type annotation/mapping helpers and graph-construction state carrier                  |
 
 [PUBLIC_TYPE_SCOPE]: initial-type vocabulary and cast transformers
 - rail: model-asset
 
 `common.data_types` is the `initial_types`/`final_types` declaration vocabulary — each `*TensorType([rows, cols])` names an ONNX graph input/output tensor; `None` in a shape dimension is the dynamic batch axis. `sklapi` transformers slot at the pipeline front to pin the numeric dtype, neutralizing the float32 ONNX-runtime drift against scikit-learn's float64 fit.
 
-| [INDEX] | [SYMBOL]                                                        | [PACKAGE_ROLE]   | [CAPABILITY]                                  |
-| :-----: | :-------------------------------------------------------------- | :--------------- | :-------------------------------------------- |
-|  [01]   | `common.data_types.FloatTensorType([None, n])` \| `DoubleTensorType` | input type | float32 / float64 tensor input declaration for `initial_types` |
-|  [02]   | `common.data_types.Int64TensorType` \| `StringTensorType` \| `BooleanTensorType` | input type | integer / string / boolean tensor inputs (categorical pipelines) |
-|  [03]   | `common.data_types.guess_data_type(X)` \| `guess_tensor_type(dtype)` \| `guess_numpy_type(t)` | type inference | infer `initial_types` from a sample array / dtype |
-|  [04]   | `sklapi.CastTransformer(dtype=np.float64)`                      | pipeline step    | dtype-cast transformer that pins float64 at the pipeline front |
-|  [05]   | `sklapi.ReplaceTransformer`                                     | pipeline step    | value-replacement transformer for ONNX-safe preprocessing |
+| [INDEX] | [SYMBOL]                                                                                      | [PACKAGE_ROLE] | [CAPABILITY]                                                     |
+| :-----: | :-------------------------------------------------------------------------------------------- | :------------- | :--------------------------------------------------------------- |
+|  [01]   | `common.data_types.FloatTensorType([None, n])` \| `DoubleTensorType`                          | input type     | float32 / float64 tensor input declaration for `initial_types`   |
+|  [02]   | `common.data_types.Int64TensorType` \| `StringTensorType` \| `BooleanTensorType`              | input type     | integer / string / boolean tensor inputs (categorical pipelines) |
+|  [03]   | `common.data_types.guess_data_type(X)` \| `guess_tensor_type(dtype)` \| `guess_numpy_type(t)` | type inference | infer `initial_types` from a sample array / dtype                |
+|  [04]   | `sklapi.CastTransformer(dtype=np.float64)`                                                    | pipeline step  | dtype-cast transformer that pins float64 at the pipeline front   |
+|  [05]   | `sklapi.ReplaceTransformer`                                                                   | pipeline step  | value-replacement transformer for ONNX-safe preprocessing        |
 
 ## [03]-[LOCAL_ADMISSION]
 

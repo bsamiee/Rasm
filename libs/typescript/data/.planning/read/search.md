@@ -2,16 +2,16 @@
 
 Retrieval as one owner: five lanes — FTS, trigram, phonetic, fuzzy, semantic — each a row carrying its grant and its rank fragment, fused by reciprocal-rank fusion (`Σ 1/(k + rank)`) inside the database, so one round trip answers what five sequential searches answer worse. The lane roster a query runs is the intersection of what it asks and what the scope's grants admit, computed per call from the capability report — a degraded scope answers with fewer lanes and says so in the reply. The BM25 relevance lane rides the ruled `vchord_bm25` grant with core FTS as its ungranted floor; the semantic lane rides the grant-ordered vector index (`vchordrq` where `vchord` holds, `hnsw` under bare `vector`) over an embedding table whose every row is keyed by the `Embedder` port's fingerprint, so vectors minted by different models can never join one distance scan. `Search.of(corpus)` binds the whole read family — fused search, facets, snippets, keyset cursor — and the index plane is provisioned state under the same DDL split as every relation: `Search.ddl` derives the grant-gated ensure roster as data the provision plane applies, and the runtime never executes a schema statement.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                             |
-| :-----: | :------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `PORTS`        | the `Embedder` port (fingerprint contract, `EmbedFault`) and the optional `Reranker`    |
-|  [02]   | `INDEX_PLANE`  | the fingerprint brand, the embedding relation, the grant-gated index-row ensure fold    |
-|  [03]   | `LANE_ROSTER`  | the closed five-lane row table — grant, rank fragment, per-call admission               |
-|  [04]   | `FUSION_QUERY` | `Search.of` — the RRF statement, rerank window, facet/snippet/cursor families           |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                               |
+| :-----: | :------------- | :----------------------------------------------------------------------------------- |
+|  [01]   | `PORTS`        | the `Embedder` port (fingerprint contract, `EmbedFault`) and the optional `Reranker` |
+|  [02]   | `INDEX_PLANE`  | the fingerprint brand, the embedding relation, the grant-gated index-row ensure fold |
+|  [03]   | `LANE_ROSTER`  | the closed five-lane row table — grant, rank fragment, per-call admission            |
+|  [04]   | `FUSION_QUERY` | `Search.of` — the RRF statement, rerank window, facet/snippet/cursor families        |
 
-## [2]-[PORTS]
+## [02]-[PORTS]
 
 - Owner: the `Embedder` `Context.Tag` — embed-with-fingerprint, the one cross-folder retrieval contract — and the `Reranker` tag read through `Effect.serviceOption` so rerank is presence-typed, never a knob.
 - Packages: `effect` (`Context`, `Schema`, `Array`).
@@ -44,7 +44,7 @@ class Reranker extends Context.Tag("data/Reranker")<Reranker, {
 }>() {}
 ```
 
-## [3]-[INDEX_PLANE]
+## [03]-[INDEX_PLANE]
 
 - Owner: the `Fingerprint` brand (`<model>:<dims>:<revision>`), the `Table` identifier brand every corpus coordinate rides, the `retrieve_embedding` ensure whose primary key includes the fingerprint, and the closed index-row vocabulary whose grant-gated selection emits PROVISION data — vector method selection is grant-ordered data, never a query rewrite, and the runtime never executes a DDL statement.
 - Packages: `effect` (`Schema`, `Array`, `HashSet`, `Option`); `lane/capability.md` (`Capability.Ensure` — the shape the provision plane applies and the rail proves); `lane/postgres.md` (the grants — `vchord`, `vector`, `bm25`, `trigram` — are matrix rows arriving as the granted set).
@@ -128,7 +128,7 @@ declare namespace Search {
 }
 ```
 
-## [4]-[LANE_ROSTER]
+## [04]-[LANE_ROSTER]
 
 - Owner: the `_lanes` anchor — five rows, each `{ grant, rank }` where `rank` builds the lane's scored CTE body as a composed `sql` FRAGMENT over a typed bind value — and `_admitted`, the per-call fold intersecting the request's lanes with the scope's grants and the embedder's presence.
 - Packages: composition over `[2]`/`[3]` values and the granted set; `@effect/sql` (the `sql` fragment constructor — every parameter binds by value inside the fragment, so no positional index exists anywhere on the page); `effect` (`Array`, `HashSet`, `Option`).
@@ -199,7 +199,7 @@ declare namespace Search {
 }
 ```
 
-## [5]-[FUSION_QUERY]
+## [05]-[FUSION_QUERY]
 
 - Owner: `Search.of(corpus)` — the bound read family: `search` (the fused RRF statement plus optional rerank), `facets`, the snippet projection, the keyset cursor codec, and `ddl` from `[3]`; one request shape carries every modality.
 - Packages: `effect` (`Effect`, `Option`, `HashMap`, `Record`, `Schema`); `@effect/sql` (the fused statement, the rerank-window body fetch, and the snippet fetch are each composed fragment values — `sql.in` set-shaped over the hit cells, never a per-hit query and never assembled text); `lane/capability.md` (`Capability` — the per-call grant read).

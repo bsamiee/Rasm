@@ -18,30 +18,30 @@
 [PUBLIC_TYPE_SCOPE]: parser, forest, and folds
 - rail: selector-grammar
 
-| [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]      | [CAPABILITY]                                                                |
-| :-----: | :------------------------- | :----------------- | :-------------------------------------------------------------------------- |
-|  [01]   | `Lark`                     | parser             | grammar-driven parser, algorithm/lexer/ambiguity/positions configurable     |
-|  [02]   | `Tree` / `ParseTree`       | parse node         | a grammar-rule node with `data` and `children` (+ `meta` when positions on) |
-|  [03]   | `Token`                    | terminal           | a matched terminal (`str` subclass) with `type`, line/column position       |
-|  [04]   | `Transformer`              | bottom-up fold     | rewrite the tree bottom-up, one method per rule; merge via `\|` / chain      |
-|  [05]   | `Transformer_NonRecursive` | iterative fold     | bottom-up fold without Python recursion (deep trees, no stack overflow)     |
-|  [06]   | `Interpreter`              | top-down fold      | `lark.visitors.Interpreter` — visit top-down with explicit `visit_children` |
-|  [07]   | `Visitor` / `Visitor_Recursive` | tree visitor  | visit nodes in place without rewriting                                      |
-|  [08]   | `v_args`                   | fold decorator     | `inline=`/`meta=`/`tree=` — bind rule children to a transformer method      |
-|  [09]   | `Discard`                  | fold sentinel      | return from a `Transformer`/`Visitor` method to drop the node from the tree |
-|  [10]   | `UnexpectedInput`          | parse failure      | base of the lexer/parser error family below                                 |
+| [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]  | [CAPABILITY]                                                                |
+| :-----: | :------------------------------ | :------------- | :-------------------------------------------------------------------------- |
+|  [01]   | `Lark`                          | parser         | grammar-driven parser, algorithm/lexer/ambiguity/positions configurable     |
+|  [02]   | `Tree` / `ParseTree`            | parse node     | a grammar-rule node with `data` and `children` (+ `meta` when positions on) |
+|  [03]   | `Token`                         | terminal       | a matched terminal (`str` subclass) with `type`, line/column position       |
+|  [04]   | `Transformer`                   | bottom-up fold | rewrite the tree bottom-up, one method per rule; merge via `\|` / chain     |
+|  [05]   | `Transformer_NonRecursive`      | iterative fold | bottom-up fold without Python recursion (deep trees, no stack overflow)     |
+|  [06]   | `Interpreter`                   | top-down fold  | `lark.visitors.Interpreter` — visit top-down with explicit `visit_children` |
+|  [07]   | `Visitor` / `Visitor_Recursive` | tree visitor   | visit nodes in place without rewriting                                      |
+|  [08]   | `v_args`                        | fold decorator | `inline=`/`meta=`/`tree=` — bind rule children to a transformer method      |
+|  [09]   | `Discard`                       | fold sentinel  | return from a `Transformer`/`Visitor` method to drop the node from the tree |
+|  [10]   | `UnexpectedInput`               | parse failure  | base of the lexer/parser error family below                                 |
 
 [PUBLIC_TYPE_SCOPE]: failure family (`lark.exceptions`)
 - rail: selector-grammar
 
-| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]    | [CAPABILITY]                                                       |
-| :-----: | :--------------------- | :--------------- | :---------------------------------------------------------------- |
-|  [01]   | `LarkError`            | root             | base of every lark error                                          |
-|  [02]   | `GrammarError`         | grammar build    | malformed EBNF grammar — raised at `Lark(...)` construction        |
-|  [03]   | `UnexpectedInput`      | parse failure    | base for parse-time failures; carries `pos_in_stream`, `get_context` |
-|  [04]   | `UnexpectedToken`      | parser failure   | a token the grammar did not expect (`expected`/`token` set)        |
-|  [05]   | `UnexpectedCharacters` | lexer failure    | a character the lexer could not match                              |
-|  [06]   | `UnexpectedEOF`        | parser failure   | input ended mid-rule                                               |
+| [INDEX] | [SYMBOL]               | [TYPE_FAMILY]  | [CAPABILITY]                                                         |
+| :-----: | :--------------------- | :------------- | :------------------------------------------------------------------- |
+|  [01]   | `LarkError`            | root           | base of every lark error                                             |
+|  [02]   | `GrammarError`         | grammar build  | malformed EBNF grammar — raised at `Lark(...)` construction          |
+|  [03]   | `UnexpectedInput`      | parse failure  | base for parse-time failures; carries `pos_in_stream`, `get_context` |
+|  [04]   | `UnexpectedToken`      | parser failure | a token the grammar did not expect (`expected`/`token` set)          |
+|  [05]   | `UnexpectedCharacters` | lexer failure  | a character the lexer could not match                                |
+|  [06]   | `UnexpectedEOF`        | parser failure | input ended mid-rule                                                 |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -50,36 +50,36 @@
 
 `Lark` options drive the closed query vocabulary: `parser`(`earley`/`lalr`/`cyk`), `lexer`(`auto`/`basic`/`contextual`/`dynamic`), `ambiguity`(`resolve`/`explicit`/`forest`), `start`, `transformer` (inline fold during parse, LALR only), `postlex`, `propagate_positions`, `maybe_placeholders`, `keep_all_tokens`, `regex`, `g_regex_flags`, `cache`, `import_paths`.
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]                | [CAPABILITY]                                      |
-| :-----: | :-------------------------------------------------------------- | :-------------------------- | :------------------------------------------------ |
-|  [01]   | `Lark(grammar, *, start='start', parser='earley', lexer='auto', ambiguity='auto', transformer=None, propagate_positions=False, maybe_placeholders=True, ...)` | EBNF string + options | build a parser from a grammar |
-|  [02]   | `Lark.open(grammar_filename, rel_to=None, **options)`          | grammar file path           | build a parser from a `.lark` file                |
-|  [03]   | `Lark.open_from_package(package, grammar_path, search_paths=("",), **options)` | packaged grammar | load a grammar shipped inside a package           |
-|  [04]   | `Lark.save(f, exclude_options=())` / `Lark.load(f)`            | file object                 | serialize/deserialize a built parser (cache)      |
+| [INDEX] | [SURFACE]                                                                                                                                                     | [CALL_SHAPE]          | [CAPABILITY]                                 |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :-------------------- | :------------------------------------------- |
+|  [01]   | `Lark(grammar, *, start='start', parser='earley', lexer='auto', ambiguity='auto', transformer=None, propagate_positions=False, maybe_placeholders=True, ...)` | EBNF string + options | build a parser from a grammar                |
+|  [02]   | `Lark.open(grammar_filename, rel_to=None, **options)`                                                                                                         | grammar file path     | build a parser from a `.lark` file           |
+|  [03]   | `Lark.open_from_package(package, grammar_path, search_paths=("",), **options)`                                                                                | packaged grammar      | load a grammar shipped inside a package      |
+|  [04]   | `Lark.save(f, exclude_options=())` / `Lark.load(f)`                                                                                                           | file object           | serialize/deserialize a built parser (cache) |
 
 [ENTRYPOINT_SCOPE]: parse and recovery
 - rail: selector-grammar
 
-| [INDEX] | [SURFACE]                                                          | [CALL_SHAPE]            | [CAPABILITY]                                          |
-| :-----: | :----------------------------------------------------------------- | :---------------------- | :---------------------------------------------------- |
-|  [01]   | `parser.parse(text, start=None, on_error=None) -> ParseTree`      | input string            | parse into a `Tree`; `on_error(UnexpectedInput)->bool` recovers |
-|  [02]   | `parser.parse_interactive(text=None, start=None) -> InteractiveParser` | input string        | incremental/interactive parse driver (LALR)           |
-|  [03]   | `parser.lex(text, dont_ignore=False) -> Iterator[Token]`          | input string            | run only the lexer stage                              |
-|  [04]   | `parser.get_terminal(name) -> TerminalDef`                        | terminal name           | look up a terminal definition                         |
+| [INDEX] | [SURFACE]                                                              | [CALL_SHAPE]  | [CAPABILITY]                                                    |
+| :-----: | :--------------------------------------------------------------------- | :------------ | :-------------------------------------------------------------- |
+|  [01]   | `parser.parse(text, start=None, on_error=None) -> ParseTree`           | input string  | parse into a `Tree`; `on_error(UnexpectedInput)->bool` recovers |
+|  [02]   | `parser.parse_interactive(text=None, start=None) -> InteractiveParser` | input string  | incremental/interactive parse driver (LALR)                     |
+|  [03]   | `parser.lex(text, dont_ignore=False) -> Iterator[Token]`               | input string  | run only the lexer stage                                        |
+|  [04]   | `parser.get_terminal(name) -> TerminalDef`                             | terminal name | look up a terminal definition                                   |
 
 [ENTRYPOINT_SCOPE]: tree folds and typed AST
 - rail: selector-grammar
 
-| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]            | [CAPABILITY]                                          |
-| :-----: | :------------------------------------------------------------- | :---------------------- | :---------------------------------------------------- |
-|  [01]   | `Transformer().transform(tree)`                               | parse tree              | fold the tree to a typed value, one method per rule    |
-|  [02]   | `Transformer.__mul__` / `TransformerChain`                    | transformer composition | chain transformers with `t1 * t2`                      |
-|  [03]   | `@v_args(inline=True\|meta=True\|tree=True)`                   | method decorator        | bind children positionally / pass `meta` / pass `Tree` |
-|  [04]   | `Visitor().visit(tree)` / `Interpreter().visit(tree)`         | parse tree              | in-place visit / top-down interpret with manual descent |
-|  [05]   | `CollapseAmbiguities().transform(tree)`                       | ambiguous tree          | expand an `_ambig` forest into a list of unambiguous trees |
-|  [06]   | `ast_utils.create_transformer(ast_module, transformer=None)`  | module of `Ast` classes | build a `Transformer` that instantiates typed AST nodes (`Ast`/`AsList`/`WithMeta`) |
-|  [07]   | `Tree(data, children, meta=None)` / `tree.children` / `tree.find_data(name)` / `tree.scan_values(pred)` | node | inspect or build a parse node, search by rule/value |
-|  [08]   | `Token(type, value)`                                          | terminal type + value   | a matched terminal (str subclass, carries position)   |
+| [INDEX] | [SURFACE]                                                                                               | [CALL_SHAPE]            | [CAPABILITY]                                                                        |
+| :-----: | :------------------------------------------------------------------------------------------------------ | :---------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `Transformer().transform(tree)`                                                                         | parse tree              | fold the tree to a typed value, one method per rule                                 |
+|  [02]   | `Transformer.__mul__` / `TransformerChain`                                                              | transformer composition | chain transformers with `t1 * t2`                                                   |
+|  [03]   | `@v_args(inline=True\|meta=True\|tree=True)`                                                            | method decorator        | bind children positionally / pass `meta` / pass `Tree`                              |
+|  [04]   | `Visitor().visit(tree)` / `Interpreter().visit(tree)`                                                   | parse tree              | in-place visit / top-down interpret with manual descent                             |
+|  [05]   | `CollapseAmbiguities().transform(tree)`                                                                 | ambiguous tree          | expand an `_ambig` forest into a list of unambiguous trees                          |
+|  [06]   | `ast_utils.create_transformer(ast_module, transformer=None)`                                            | module of `Ast` classes | build a `Transformer` that instantiates typed AST nodes (`Ast`/`AsList`/`WithMeta`) |
+|  [07]   | `Tree(data, children, meta=None)` / `tree.children` / `tree.find_data(name)` / `tree.scan_values(pred)` | node                    | inspect or build a parse node, search by rule/value                                 |
+|  [08]   | `Token(type, value)`                                                                                    | terminal type + value   | a matched terminal (str subclass, carries position)                                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

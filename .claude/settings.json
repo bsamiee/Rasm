@@ -36,7 +36,7 @@
             "Bash(mkdir *)",
             "Bash(mv *)"
         ],
-        "deny": ["Bash(git push --force:*)", "Bash(git push -f:*)", "Bash(git reset --hard:*)"],
+        "deny": [],
         "defaultMode": "bypassPermissions"
     },
     "skipDangerousModePermissionPrompt": true

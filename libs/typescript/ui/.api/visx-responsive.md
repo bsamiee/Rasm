@@ -10,14 +10,14 @@
 
 ## [01]-[SURFACE]
 
-| [INDEX] | [SURFACE] | [FAMILY] | [CAPABILITY] |
-|:-----: |:--------------------------------------------------------------------------------------------- |:----------- |:------------------------------------------------------------------- |
-| [01] | `useParentSize(config?: UseParentSizeConfig)` → `{ parentRef, width, height, top, left, resize }` | hook | the primary seam — ResizeObserver on the ref'd container; `initialSize`, `debounceTime`, `enableDebounceLeadingCall`, `ignoreDimensions`, `resizeObserverPolyfill` config rows |
-| [02] | `ParentSize` (`ParentSizeProps` → children `ParentSizeProvidedProps`) | render-prop | `[01]` as a component — children receive `{ width, height, top, left, ref, resize }` |
-| [03] | `useScreenSize(config?: UseScreenSizeConfig)` / `withScreenSize` | viewport | window-resize dimensions for full-viewport surfaces |
-| [04] | `withParentSize` (`WithParentSizeProvidedProps`) | HOC | retired composition form of `[01]` — the hook is the authored path |
-| [05] | `ScaleSVG` (`ScaleSVGProps`) | recovery row | `viewBox`-proportional scaling — stretch-not-relayout for static/embedded charts |
-| [06] | `debounce` (`DebouncedFunction`) | primitive | the standalone debounce the configs compose |
+| [INDEX] | [SURFACE]                                                                                         | [FAMILY]     | [CAPABILITY]                                                                                                                                                                   |
+| :-----: | :------------------------------------------------------------------------------------------------ | :----------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `useParentSize(config?: UseParentSizeConfig)` → `{ parentRef, width, height, top, left, resize }` | hook         | the primary seam — ResizeObserver on the ref'd container; `initialSize`, `debounceTime`, `enableDebounceLeadingCall`, `ignoreDimensions`, `resizeObserverPolyfill` config rows |
+|  [02]   | `ParentSize` (`ParentSizeProps` → children `ParentSizeProvidedProps`)                             | render-prop  | `[01]` as a component — children receive `{ width, height, top, left, ref, resize }`                                                                                           |
+|  [03]   | `useScreenSize(config?: UseScreenSizeConfig)` / `withScreenSize`                                  | viewport     | window-resize dimensions for full-viewport surfaces                                                                                                                            |
+|  [04]   | `withParentSize` (`WithParentSizeProvidedProps`)                                                  | HOC          | retired composition form of `[01]` — the hook is the authored path                                                                                                             |
+|  [05]   | `ScaleSVG` (`ScaleSVGProps`)                                                                      | recovery row | `viewBox`-proportional scaling — stretch-not-relayout for static/embedded charts                                                                                               |
+|  [06]   | `debounce` (`DebouncedFunction`)                                                                  | primitive    | the standalone debounce the configs compose                                                                                                                                    |
 
 ```ts contract
 const { parentRef, width, height } = useParentSize({ debounceTime: 120, ignoreDimensions: ["top", "left"] })

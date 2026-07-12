@@ -2,17 +2,17 @@
 
 Outbound delivery as ONE owner: mail and webhook egress are channel rows of one dispatch table, sharing one settlement receipt, one reason-discriminated fault family, and one suppression fold — the formerly twice-owned transport convention spelled once — and the transactional-outbox relay is the cluster singleton that drains every channel under the queue page's verdict vocabulary, so retry, redelivery, parking, and replay never re-appear here as channel-local machinery. A channel owns exactly two things: how its payload becomes a wire transmission and how its transport's evidence folds into the shared receipt; everything around the transmission — claim lease, urgency order, park ceiling, tenant egress quota, backfill replay — arrives settled from `queue#LANE_POLICY` and `queue#THROTTLE`. Signing rides the security wave: a webhook body is signed byte-identical by the `Crypto` service and the mail plane signs DKIM natively in-transport — two signature domains that never merge. Suppression is evidence on the record of truth: a hard bounce or a gone endpoint appends a fact row, and every send checks the suppression projection before the wire, so the ledger is history, never a mutable blocklist table. The module ships on the `./server` exports subpath as `runtime/src/work/deliver.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                          | [PUBLIC]        |
-| :-----: | :--------------- | :--------------------------------------------------------------------------------- | :-------------- |
-|  [01]   | `CHANNEL_FAMILY` | the channel dispatch table, the shared receipt, the one delivery fault family       | `Deliver`       |
-|  [02]   | `MAIL_ROW`       | the scoped transporter, the one message shape, auth/DKIM/DSN policy, send evidence  | `Mailer`        |
-|  [03]   | `HOOK_ROW`       | byte-identity signed webhook egress and its settlement fold                         | `Hook`          |
-|  [04]   | `SUPPRESSION`    | the shared suppress-by-evidence fold and the pre-send check                         | `Deliver`       |
-|  [05]   | `RELAY`          | the singleton outbox drain — claim, quota, dispatch, verdict, wake, pacing          | `Relay`         |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                             | [PUBLIC]  |
+| :-----: | :--------------- | :--------------------------------------------------------------------------------- | :-------- |
+|  [01]   | `CHANNEL_FAMILY` | the channel dispatch table, the shared receipt, the one delivery fault family      | `Deliver` |
+|  [02]   | `MAIL_ROW`       | the scoped transporter, the one message shape, auth/DKIM/DSN policy, send evidence | `Mailer`  |
+|  [03]   | `HOOK_ROW`       | byte-identity signed webhook egress and its settlement fold                        | `Hook`    |
+|  [04]   | `SUPPRESSION`    | the shared suppress-by-evidence fold and the pre-send check                        | `Deliver` |
+|  [05]   | `RELAY`          | the singleton outbox drain — claim, quota, dispatch, verdict, wake, pacing         | `Relay`   |
 
-## [2]-[CHANNEL_FAMILY]
+## [02]-[CHANNEL_FAMILY]
 
 [CHANNEL_FAMILY]:
 - Owner: `Deliver` — the channel dispatch table and the two shapes every channel speaks. `Deliver.Receipt` is the settlement evidence: channel kind, transmission identity (the SMTP `messageId`, the webhook delivery id), per-recipient acceptance splits, the wire instant, and the transport's timing band — one `Schema.Class` whose fields serve both channels because settlement IS the same concept. `DeliverFault` is the one fault family: a reason row (`dial | refused | bounced | timeout | schema`) carrying its `FaultClass` kind, so the lane's judge fold reads retryability off the class table and a channel never declares a private fault rail.
@@ -71,7 +71,7 @@ declare namespace Deliver {
 }
 ```
 
-## [3]-[MAIL_ROW]
+## [03]-[MAIL_ROW]
 
 [MAIL_ROW]:
 - Owner: `Mailer` — the scoped mail-egress service. Construction is one polymorphic `createTransport` whose option shape is the environment's transport policy row resolved from `Setting` — pooled SMTP (`pool: true` with `maxConnections`/`maxMessages`/`rateLimit`), a provider name through `wellKnown`, or the `streamTransport`/`jsonTransport` inspect sinks for kit-driven specs and dry runs — built inside `Layer.scoped` with `verify()` proving the credential at construction and `close()` as the finalizer draining pool sockets. Authentication is the discriminated union as data: `LOGIN` credentials, `OAUTH2` riding the built-in `XOAuth2` refresh flow with the `token` event bridged into a `Redacted` ref, every secret (`Setting.mail.pass`, the DKIM `Setting.mail.key`, a provider `clientSecret`/`refreshToken`) arriving sealed on the one `Setting` contract and unwrapped only at the transport call — a `Config` read beside `Setting` is the split-brain defect the config owner names.
@@ -137,7 +137,7 @@ const _mailReceipt = (info: SentMessageInfo, at: DateTime.Utc): Receipt =>
   })
 ```
 
-## [4]-[HOOK_ROW]
+## [04]-[HOOK_ROW]
 
 [HOOK_ROW]:
 - Owner: `Hook` — signed webhook egress under byte identity: the payload encodes to its wire bytes exactly once, the `Crypto` service signs THOSE bytes, and the transmission carries the v1 header triple — `webhook-id` (the deliverable identity — replay dedup on the receiving side), `webhook-timestamp` (the signing instant bounding replay windows), `webhook-signature` (`v1,<hex>` over `id.timestamp.body`) — so the receiver verifies the identical byte sequence and a re-serialization between sign and send is structurally impossible.
@@ -194,7 +194,7 @@ const _hookSettle = (status: number): Effect.Effect<never, DeliverFault> =>
   Effect.fail(new DeliverFault({ reason: status === 410 ? "bounced" : "dial", channel: "webhook", detail: String(status) }))
 ```
 
-## [5]-[SUPPRESSION]
+## [05]-[SUPPRESSION]
 
 [SUPPRESSION]:
 - Owner: the shared suppress-by-evidence fold — both channels feed it and both consult it. A `bounced`-reasoned fault or a receipt's rejected band appends one `deliver.suppressed` fact row (recipient or destination as target, the channel and note as change rows, `regulatory` retention for mail — the unsubscribe evidence — and `operational` for webhooks); `Deliver.admissible(recipient)` reads the suppression projection the data wave serves and answers before any `transmit`, so a suppressed destination never reaches the wire and the check is one read, not a channel-local list.
@@ -220,7 +220,7 @@ const _settled = (receipt: Receipt) =>
   Effect.forEach(receipt.rejected, (row) => _suppress(receipt.channel, row.recipient, row.note), { discard: true })
 ```
 
-## [6]-[RELAY]
+## [06]-[RELAY]
 
 [RELAY]:
 - Owner: `Relay` — the one outbox drain: a `Singleton.make` (exactly one live instance cluster-wide, migrating on rebalance) whose pass fires on the merged wake stream — the journal's NOTIFY pulse handed in as the data-owned `wake` parameter, merged with the lease-width tick — claims a batch through `Journal.claimBatch` sized and leased by the `bulk` class row, decodes each claim against its channel's payload schema, spends `Throttle.tenantEgress` per claim, dispatches through the channel table, and folds every outcome through `Lane.settle` — settle, defer, park with evidence — so the drain body is dispatch plus composition and contains zero retry, backoff, or dead-letter machinery of its own.

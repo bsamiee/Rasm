@@ -2,16 +2,16 @@
 
 The one analytic-visualization owner: three rendering regimes behind one `Chart` surface, discriminated by data shape and interaction class — DECLARED statistical charts through `@observablehq/plot`'s grammar with `@visx/*` as the bespoke accessible-SVG lane and `d3` as the headless math substrate, STREAMING time-series through `uplot`'s canvas engine at 100k+ points, and USER-DRIVEN pivot/aggregation through the `@perspective-dev` WASM engine with `<perspective-viewer>` as its face. One `apache-arrow` `Table` is the columnar bus every regime consumes zero-copy — the same frame `geo` decodes fans to a GeoArrow layer, a perspective table, and an aligned series with no JSON detour. Every chart is a scoped resource behind an effect bracket, every spec derives from atom state, every color resolves from the token authority, and one surface runs exactly one engine — a fixed-shape interactive grid stays `view/table`'s `Grid`, the live basemap stays `viewer/geo`'s. The module is `ui/src/view/chart.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                        | [PUBLIC] |
-| :-----: | :----------------- | :------------------------------------------------------------------------------ | :------- |
+| [INDEX] | [CLUSTER]          | [OWNS]                                                                           | [PUBLIC] |
+| :-----: | :----------------- | :------------------------------------------------------------------------------- | :------- |
 |  [01]   | `REGIME_LAW`       | the three-regime discriminant, the Arrow columnar bus, the engine boundary table | `Chart`  |
 |  [02]   | `DECLARED_SURFACE` | the Plot grammar bracket and the visx bespoke accessible-SVG lane                | `Chart`  |
 |  [03]   | `SERIES_SURFACE`   | the uplot scoped instance — aligned columns, `setData` streaming, cursor cohorts | `Chart`  |
 |  [04]   | `PIVOT_SURFACE`    | the perspective engine — client/table lifecycle, viewer config fold-echo         | `Chart`  |
 
-## [2]-[REGIME_LAW]
+## [02]-[REGIME_LAW]
 
 [REGIME_LAW]:
 - Owner: `Chart` — one owner whose members are the three regime brackets plus the columnar bus fold; regime selection is a decision row, never a component fork: DECLARED (the chart states a statistical claim — distribution, regression, facet, small multiple) renders through `[3]`; STREAMING (a telemetry/sensor/simulation series where point count breaks SVG) renders through `[4]`'s canvas; PIVOT (the USER drives group/split/aggregate/filter over a live feed) renders through `[5]`'s engine.
@@ -41,7 +41,7 @@ const _columns = (table: Table, x: string, series: ReadonlyArray<string>): Optio
   )
 ```
 
-## [3]-[DECLARED_SURFACE]
+## [03]-[DECLARED_SURFACE]
 
 [DECLARED_SURFACE]:
 - Owner: `Chart.plot(container, build)` — the grammar bracket: `build` derives a `Plot.plot(options)` element from decoded inputs (marks over channels, transforms as option rewriters — `binX`/`group`/`stackY`/`windowY` in the options value, never a pre-shaped copy of the data), the bracket mounts it through `replaceChildren` and removes it on release; rebuild-per-change is the model — the grammar rebuilds cheaply, which is exactly why streaming series live on `[4]` instead.
@@ -77,7 +77,7 @@ const _distribution = (table: Table, field: string, width: number): ReturnType<t
   })
 ```
 
-## [4]-[SERIES_SURFACE]
+## [04]-[SERIES_SURFACE]
 
 [SERIES_SURFACE]:
 - Owner: `Chart.series(container, options, seed)` — the canvas bracket: `new uPlot(options, seed, container)` acquires, `destroy()` releases, and the ONLY per-tick write is `Chart.feed(chart, next)` — `setData` inside an atom subscription with the fold owning cadence (high-frequency feeds coalesce to animation frames before the call); React never reconciles a point, and rebuilding the instance per data tick is the named defect.
@@ -115,7 +115,7 @@ const _telemetry = (width: number, height: number, strokes: ReadonlyArray<string
 })
 ```
 
-## [5]-[PIVOT_SURFACE]
+## [05]-[PIVOT_SURFACE]
 
 [PIVOT_SURFACE]:
 - Owner: `Chart.pivot(element, frame, options)` — the engine bracket: `perspective.worker()` spawns the WASM engine off the UI thread (or `websocket(url)` + `open_table(name)` attaches to a host-published feed — where the data lives is wiring, not an API fork), `client.table(frame, { format: "arrow", index })` ingests the bus frame (`index` makes updates upserts, `limit` ring-buffers a stream — the two table modes every feed chooses between), the `<perspective-viewer>` element (`HTMLPerspectiveViewerElement`, the package's own exported type) `load`s the table, and release runs `element.delete()`, `table.delete()`, then `client.terminate()` — every handle INCLUDING the worker engine is a scoped resource, and a bracket that frees the table while the worker thread lives on is the named leak.

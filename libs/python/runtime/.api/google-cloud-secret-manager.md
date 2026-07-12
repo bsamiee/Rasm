@@ -20,40 +20,40 @@
 [PUBLIC_TYPE_SCOPE]: client family
 - rail: secrets
 
-| [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [RAIL]                                                     |
-| :-----: | :-------------------------------------- | :------------ | :--------------------------------------------------------- |
-|  [01]   | `SecretManagerServiceClient`            | client        | sync gRPC client; the shape `GoogleSecretManagerSettingsSource` accepts as `secret_client=` |
-|  [02]   | `SecretManagerServiceAsyncClient`       | client        | asyncio client twin for a native-async read leg           |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                                                      |
+| :-----: | :-------------------------------- | :------------ | :------------------------------------------------------------------------------------------ |
+|  [01]   | `SecretManagerServiceClient`      | client        | sync gRPC client; the shape `GoogleSecretManagerSettingsSource` accepts as `secret_client=` |
+|  [02]   | `SecretManagerServiceAsyncClient` | client        | asyncio client twin for a native-async read leg                                             |
 
 [PUBLIC_TYPE_SCOPE]: request + payload message graph
 - rail: secrets
 - proto-plus messages; the read leg needs only `AccessSecretVersionRequest`/`Response` and `SecretPayload`, the remaining CRUD request messages are the admin surface the runtime never mints.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY] | [RAIL]                                                    |
-| :-----: | :-------------------------------- | :------------ | :-------------------------------------------------------- |
-|  [01]   | `AccessSecretVersionRequest`      | request       | `name`-addressed version read                            |
-|  [02]   | `AccessSecretVersionResponse`     | response      | carries `name` + `payload: SecretPayload`                |
-|  [03]   | `SecretPayload`                   | payload       | `data: bytes` + `data_crc32c: int` integrity check       |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [RAIL]                                             |
+| :-----: | :---------------------------- | :------------ | :------------------------------------------------- |
+|  [01]   | `AccessSecretVersionRequest`  | request       | `name`-addressed version read                      |
+|  [02]   | `AccessSecretVersionResponse` | response      | carries `name` + `payload: SecretPayload`          |
+|  [03]   | `SecretPayload`               | payload       | `data: bytes` + `data_crc32c: int` integrity check |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: client construction
 - rail: secrets
 
-| [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY] | [RAIL]                                                    |
-| :-----: | :--------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
-|  [01]   | `SecretManagerServiceClient(credentials=None, transport=None, client_options=None)` | construct | ADC-resolved when `credentials` is `None`; gRPC transport by default |
-|  [02]   | `SecretManagerServiceClient.from_service_account_file(path)`                 | construct      | explicit service-account JSON credential                 |
-|  [03]   | `SecretManagerServiceClient.secret_version_path(project, secret, version)`   | path builder   | `projects/*/secrets/*/versions/*` resource name          |
+| [INDEX] | [SURFACE]                                                                           | [ENTRY_FAMILY] | [RAIL]                                                               |
+| :-----: | :---------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------- |
+|  [01]   | `SecretManagerServiceClient(credentials=None, transport=None, client_options=None)` | construct      | ADC-resolved when `credentials` is `None`; gRPC transport by default |
+|  [02]   | `SecretManagerServiceClient.from_service_account_file(path)`                        | construct      | explicit service-account JSON credential                             |
+|  [03]   | `SecretManagerServiceClient.secret_version_path(project, secret, version)`          | path builder   | `projects/*/secrets/*/versions/*` resource name                      |
 
 [ENTRYPOINT_SCOPE]: secret read
 - rail: secrets
 
-| [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [RAIL]                                                       |
-| :-----: | :------------------------------------------------------------ | :------------- | :----------------------------------------------------------- |
-|  [01]   | `client.access_secret_version(name=)`                        | read           | returns `AccessSecretVersionResponse`; `.payload.data` bytes |
-|  [02]   | `client.access_secret_version(request=AccessSecretVersionRequest(...))` | read | request-object form, one polymorphic entrypoint             |
-|  [03]   | `await async_client.access_secret_version(name=)`            | read           | asyncio twin for a native-async resolve leg                 |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                                                       |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :----------------------------------------------------------- |
+|  [01]   | `client.access_secret_version(name=)`                                   | read           | returns `AccessSecretVersionResponse`; `.payload.data` bytes |
+|  [02]   | `client.access_secret_version(request=AccessSecretVersionRequest(...))` | read           | request-object form, one polymorphic entrypoint              |
+|  [03]   | `await async_client.access_secret_version(name=)`                       | read           | asyncio twin for a native-async resolve leg                  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

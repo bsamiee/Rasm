@@ -2,17 +2,17 @@
 
 The terminal entry family under the one front-door assembly law: a verb family is a `Command` VALUE a domain contributes as data, the APP folds selected families through `Command.withSubcommands` into exactly one root — the same posture as the assembled `HttpApi`, so the god-CLI has no lib-side existence — and `Verb.main` is the run rail that folds `--help`/`--version` to clean exits instead of failures. The flag-config bridge is law: a flag and its environment variable are one declaration (`Options.withFallbackConfig`), a flag decodes into a branded value at the terminal boundary (`Options.withSchema`) exactly as the wire and route boundaries decode once, a missing interactive input prompts instead of failing (`Options.withFallbackPrompt`), and shell completion is a derivation of the root, never a maintained script. Output is one algebra: every verb's output is a composed `Doc<Ansi>` — structure through the printer's layout combinators, semantic markup through one role table, decoded values through the Schema-derived `Pretty` printer — folded to a string at exactly one render seam whose ambient mode row decides styled, plain, or machine form, with live redraw as directive rows over the same seam. `Ops` ships the lib runbook family — doctor, replay, inspect — as code executing over `proc` and `net` owners, never documents. The module ships on the `./server` exports subpath as `runtime/src/serve/cli.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                        | [PUBLIC] |
-| :-----: | :--------------- | :------------------------------------------------------------------------------ | :------- |
-|  [01]   | `ASSEMBLY_LAW`   | the contribution shape, the clean-exit run rail, bridge rows, completion table   | `Verb`   |
-|  [02]   | `OPS_FAMILY`     | the doctor/replay/inspect runbooks over their capability sources                 | `Ops`    |
-|  [03]   | `ROLE_TABLE`     | the semantic-role directive rows, the role annotator, the theming seam           | `Print`  |
-|  [04]   | `STRUCTURE_ROWS` | kv, table, verdicts, banner, prose, pretty composition rows                      | `Print`  |
-|  [05]   | `PRINT_SEAM`     | the ambient mode row, the fold to string, the display effect, live redraw        | `Print`  |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                         | [PUBLIC] |
+| :-----: | :--------------- | :----------------------------------------------------------------------------- | :------- |
+|  [01]   | `ASSEMBLY_LAW`   | the contribution shape, the clean-exit run rail, bridge rows, completion table | `Verb`   |
+|  [02]   | `OPS_FAMILY`     | the doctor/replay/inspect runbooks over their capability sources               | `Ops`    |
+|  [03]   | `ROLE_TABLE`     | the semantic-role directive rows, the role annotator, the theming seam         | `Print`  |
+|  [04]   | `STRUCTURE_ROWS` | kv, table, verdicts, banner, prose, pretty composition rows                    | `Print`  |
+|  [05]   | `PRINT_SEAM`     | the ambient mode row, the fold to string, the display effect, live redraw      | `Print`  |
 
-## [2]-[ASSEMBLY_LAW]
+## [02]-[ASSEMBLY_LAW]
 
 [ASSEMBLY_LAW]:
 - Owner: `Verb.main` — the run rail the lib genuinely adds: `ValidationError.isHelpRequested` folds to a clean exit (help and version are outcomes, not faults), every other `ValidationError` propagates for the boot edge to report. The FOLD itself is app code by law — `Command.make(name).pipe(Command.withSubcommands([familyA, familyB, Ops.family(sources)]), Command.run({ name, version }))` — because the package's own combinators ARE the assembly surface and a lib member re-wrapping them is the one-hop forward this corpus deletes; an app's CLI entry is `row.main(Verb.main(built)(argv))` under `exec#ROOT_SELECT`'s one-`main` law, and `Command.run` demands the platform `Environment` the runtime row's `context` satisfies — one runtime choice covers server and CLI.
@@ -63,7 +63,7 @@ const _wizard = <Name extends string, R, E, A>(root: Command.Command<Name, R, E,
 const Verb = { completions: _completions, main: _main, wizard: _wizard } as const
 ```
 
-## [3]-[OPS_FAMILY]
+## [03]-[OPS_FAMILY]
 
 [OPS_FAMILY]:
 - Owner: `Ops.family(sources)` — the lib runbook family built over app-supplied capability sources so the verbs stay composition-free: `doctor` folds the health anchor and the app's check rows, `replay` re-publishes a captured fanout envelope, `inspect` emits the canonical spec artifact — one record, three verbs, every handler rendering through the role and structure rows.
@@ -174,7 +174,7 @@ const _family = (sources: Ops.Sources) =>
 const Ops = { family: _family } as const
 ```
 
-## [4]-[ROLE_TABLE]
+## [04]-[ROLE_TABLE]
 
 [ROLE_TABLE]:
 - Owner: `_roles` — six composed `Ansi` values under one `as const satisfies Record<string, Ansi.Ansi>` anchor: `fault` (`bold` ⊕ `red`), `warn` (`yellow`), `ok` (`green`), `path` (`cyan`), `emph` (`bold`), `faint` (`blackBright`) — each a monoid composition attached by ONE `Doc.annotate` through `Print.role(kind, doc)`, never one annotate per style bit.
@@ -208,7 +208,7 @@ const _themed = (palette: Partial<Record<keyof typeof _roles, Ansi.Ansi>>) =>
     })
 ```
 
-## [5]-[STRUCTURE_ROWS]
+## [05]-[STRUCTURE_ROWS]
 
 [STRUCTURE_ROWS]:
 - Owner: the composition rows, each a fold over the printer's own algebra — `kv(pairs)` aligns a label column by `Doc.fill` to the widest label and stacks with `Doc.vsep`; `table(head, rows)` fills every column to its measured width, marks the head `emph`, and stacks — layout by combinator, zero column arithmetic in consumers; `seq(items, shape)` renders a delimited collection through the `Doc.list`/`Doc.tupled` rows of the `Doc.encloseSep` owner; `verdicts({ passed, failed })` renders the doctor shape; `banner(title)` is the `emph` section head; `prose(text)` wraps through `Doc.reflow`; `raw(text)` admits pre-formed text as a newline-splitting `Doc.string`; `pretty(schema)` derives a value renderer from a Schema — `Pretty.make(schema)` prints any decoded domain value canonically, so a verb showing a decoded receipt composes the derivation instead of hand-formatting fields.
@@ -260,7 +260,7 @@ const _pretty = <A, I, R>(schema: Schema.Schema<A, I, R>): ((value: A) => AnsiDo
 }
 ```
 
-## [6]-[PRINT_SEAM]
+## [06]-[PRINT_SEAM]
 
 [PRINT_SEAM]:
 - Owner: the one fold from document to terminal — `Print.Mode` is a `Context.Reference` row (`tty` default; `plain` for `--no-color` and non-TTY pipes; `wire` for machine emission) the app root or a global flag overrides once; `Print.text(doc, mode)` is the pure fold — `tty` renders escape codes through `AnsiDoc.render({ style: "pretty" })`, `plain` strips annotations with `Doc.unAnnotate` then renders pretty, `wire` strips and renders `compact` for single-line machine form; `Print.out(doc)` reads the ambient mode and writes through the platform `Terminal.display` — the only print site, so output is testable as data everywhere above it.

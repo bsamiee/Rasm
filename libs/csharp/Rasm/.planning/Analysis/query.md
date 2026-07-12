@@ -426,13 +426,13 @@ flowchart LR
 
 One owner per axis; capability is a case, a factory row, or a body arm, never a sibling surface. The `[RAIL]` cell names the one return rail each owner exposes.
 
-| [INDEX] | [CONCERN]           | [OWNER]                     | [KIND]                                                                       | [RAIL]                                          | [CASES] |
-| :-----: | :------------------ | :-------------------------- | :--------------------------------------------------------------------------- | :---------------------------------------------- | :-----: |
-|  [01]   | Request vocabulary  | `AnalysisQuery`             | `[Union]`, four bands, `Single`/`Pair`/`Service` arity dispatch              | dispatch (build-time `Reject` on mismatch)      |   25    |
-|  [02]   | Operation algebra   | `Operation<TGeometry, TOut>`| `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) + `Prepare`    | `Apply → Eff<Env, Seq<TOut>>`                   |    4    |
-|  [03]   | Runtime environment | `Env`                       | reader record + `EnvAsks`/`Asks` projections                                 | `Eff<Env, _>` carriage                          |    —    |
-|  [04]   | Execution facade    | `Analyze`                   | `static partial class` — `Scope`/`From`/`In` + 3×`Query` + 4×`Run` + lifts  | `Validation<Error, Seq<TOut>>`                  |    —    |
-|  [05]   | Output projection   | `AnalysisOutput<TOut>`      | `readonly record struct` (`One`/`Many`/`Objects`)                            | `Fin<Seq<TOut>>` through the one oracle          |    3    |
+| [INDEX] | [CONCERN]           | [OWNER]                      | [KIND]                                                                     | [RAIL]                                     | [CASES] |
+| :-----: | :------------------ | :--------------------------- | :------------------------------------------------------------------------- | :----------------------------------------- | :-----: |
+|  [01]   | Request vocabulary  | `AnalysisQuery`              | `[Union]`, four bands, `Single`/`Pair`/`Service` arity dispatch            | dispatch (build-time `Reject` on mismatch) |   25    |
+|  [02]   | Operation algebra   | `Operation<TGeometry, TOut>` | `Body` `[Union]` (`Rejected`/`PerItem`/`Aggregate`/`Service`) + `Prepare`  | `Apply → Eff<Env, Seq<TOut>>`              |    4    |
+|  [03]   | Runtime environment | `Env`                        | reader record + `EnvAsks`/`Asks` projections                               | `Eff<Env, _>` carriage                     |    —    |
+|  [04]   | Execution facade    | `Analyze`                    | `static partial class` — `Scope`/`From`/`In` + 3×`Query` + 4×`Run` + lifts | `Validation<Error, Seq<TOut>>`             |    —    |
+|  [05]   | Output projection   | `AnalysisOutput<TOut>`       | `readonly record struct` (`One`/`Many`/`Objects`)                          | `Fin<Seq<TOut>>` through the one oracle    |    3    |
 
 Both fences are transcription-complete: the request union with all four bands and every factory spelling, the geometry-band operation builders composing the `Domain/normalization` + `Domain/evaluation` owner lattice, the spatial-band service builders lifting the `Spatial/neighbors` `NeighborIndex.Query` substrate onto the operation rail, the full `Body`/`Prepare`/`Apply` algebra, the `Analyze` facade with the one `RhinoDoc` adapter, and the one-oracle `AnalysisOutput`. The family and relation builders the union forwards to are owned by `Analysis/measure`, `Analysis/inspect`, `Analysis/select`, `Analysis/relations`, and `Parametric/locate` — composed here by name, legislated there.
 

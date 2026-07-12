@@ -2,19 +2,19 @@
 
 The one geospatial surface-and-camera owner: one maplibre `Map` owns the WebGL context, camera, and declarative style; one `MapboxOverlay` interleaves deck.gl layers into that same context through the `IControl` rail; the layer tree is a pure value derived from the atom fold and pushed at the single `setProps` sink; and camera authority is this page's `Camera` vocabulary — one `Camera.State` across every render backend, a closed intent family as the only write path, pure screen↔world math for derived anchors. GeoArrow layers stream `apache-arrow` columns zero-copy from the explicit IPC decode seam — the decoded `Table` doubling as the multi-surface bus the chart owner consumes — tile streaming rides one engine with vector/terrain/3D-tile payload rows behind a resilient TTL cache, the discrete-global-grid cell family is one scheme-keyed table, the extension pack is an eight-capability roster on any layer, 3D relief/sky/globe are scene-config rows on the map, position capability enters through the folder-declared `Position`/`Grant` ports, and `@turf/turf` runs planar ops as the NTS-equivalent browser peer over already-decoded GeoJSON — WKB decode stays behind `core/interchange/codec`'s `WkbParser` port, and this module never parses a geometry byte. The module is `ui/viewer/src/geo.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                            | [PUBLIC]  |
-| :-----: | :--------------- | :------------------------------------------------------------------------------------ | :-------- |
-|  [01]   | `SURFACE`        | scoped map + interleaved overlay, relief/sky/globe rows, control/glyph rails, position ports | `Geo`     |
-|  [02]   | `CAMERA`         | the `Camera.State` vocabulary, the closed intent family, backend adapter rows          | `Camera`  |
-|  [03]   | `PROJECT`        | pure screen↔world math — anchors, mercator crossings, geometry-to-intent folds         | `Camera`  |
-|  [04]   | `LAYER_ROWS`     | the atom-derived layer vocabulary — GeoJSON, arrow fan, tiles, cells, trips, WMS       | `Geo`     |
-|  [05]   | `EXTENSION_ROWS` | the eight-capability `LayerExtension` roster on any layer                              | `Geo`     |
-|  [06]   | `PLANAR_OPS`     | the turf peer law — planar compute over decoded features                               | —         |
-|  [07]   | `STYLE_DATA`     | declarative style rows and the feature-state echo                                      | `Geo`     |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                                       | [PUBLIC] |
+| :-----: | :--------------- | :------------------------------------------------------------------------------------------- | :------- |
+|  [01]   | `SURFACE`        | scoped map + interleaved overlay, relief/sky/globe rows, control/glyph rails, position ports | `Geo`    |
+|  [02]   | `CAMERA`         | the `Camera.State` vocabulary, the closed intent family, backend adapter rows                | `Camera` |
+|  [03]   | `PROJECT`        | pure screen↔world math — anchors, mercator crossings, geometry-to-intent folds               | `Camera` |
+|  [04]   | `LAYER_ROWS`     | the atom-derived layer vocabulary — GeoJSON, arrow fan, tiles, cells, trips, WMS             | `Geo`    |
+|  [05]   | `EXTENSION_ROWS` | the eight-capability `LayerExtension` roster on any layer                                    | `Geo`    |
+|  [06]   | `PLANAR_OPS`     | the turf peer law — planar compute over decoded features                                     | —        |
+|  [07]   | `STYLE_DATA`     | declarative style rows and the feature-state echo                                            | `Geo`    |
 
-## [2]-[SURFACE]
+## [02]-[SURFACE]
 
 [SURFACE]:
 - Owner: `Geo.surface` — one scoped acquisition: `new MapLibreMap(options)` over the app-provided container, `new MapboxOverlay({ interleaved: true })` added through `map.addControl` (deck registers a `CustomLayerInterface` per layer into the shared context and depth buffer, so 3D deck geometry occludes against basemap layers); release removes the control — deck's full teardown rides the `IControl.onRemove` hook — then `map.remove()`: one context, one camera, one teardown order.
@@ -76,7 +76,7 @@ const _globe = (surface: Geo.Surface): Effect.Effect<void> =>
   Effect.sync(() => void surface.map.setProjection({ type: "globe" }))
 ```
 
-## [3]-[CAMERA]
+## [03]-[CAMERA]
 
 [CAMERA]:
 - Owner: `Camera` — the camera vocabulary spanning every backend: `Camera.State` (center `[lng, lat]`, `zoom`, `bearing`, `pitch` — the shape both the maplibre getters and deck's `MapViewState` speak), the intent family `Camera.Intent` as a closed `Data.taggedEnum` (`JumpTo` instant, `EaseTo` animated, `FlyTo` curved, `FitBounds` extent-driven, `LookAt` eye/target — the 3D viewpoint carriage `mark`'s restore mints), and the fold pair: `Camera.drive(map, intent)` dispatches onto the maplibre `Camera` verbs, `Camera.settled(map)` reads the getters into a `State` — the `moveend` subscription writes it to the atom so the store always holds the authority's last settled truth.
@@ -142,7 +142,7 @@ const _settled = (map: MapLibreMap): Camera.State =>
   }))
 ```
 
-## [4]-[PROJECT]
+## [04]-[PROJECT]
 
 [PROJECT]:
 - Law: screen↔world is pure math — `map.project(lnglat)`/`map.unproject(point)` for live-surface reads; `WebMercatorViewport` (constructed from a `Camera.State` snapshot plus surface extent) for derived-atom anchor math — `project`/`unproject`/`fitBounds` on the immutable viewport compute pin positions and marquee extents with no live instance in the derivation; a projected point is a fixed 2-tuple, so the marked adapter asserts the bound rather than fabricating a fallback coordinate.
@@ -188,7 +188,7 @@ const Camera: Camera.Shape = {
 }
 ```
 
-## [5]-[LAYER_ROWS]
+## [05]-[LAYER_ROWS]
 
 [LAYER_ROWS]:
 - Owner: `Geo.push` — the one imperative sink: the layer tree is an atom-derived `LayersList` (deck layer instances are declarative descriptors) and every change lands as `overlay.setProps({ layers })`; the overlay diffs and touches only changed GPU attributes. Two memoization planes stay orthogonal: react-compiler memoizes the tree, deck's `updateTriggers` memoizes GPU attributes — an accessor closing over an atom value names its `updateTriggers` key.
@@ -327,7 +327,7 @@ const _push = (surface: Geo.Surface, layers: LayersList): void =>
   surface.overlay.setProps({ layers })
 ```
 
-## [6]-[EXTENSION_ROWS]
+## [06]-[EXTENSION_ROWS]
 
 [EXTENSION_ROWS]:
 - Owner: `Geo.extensions` — the capability roster: one `LayerExtension` instance per GPU capability joins any layer's `extensions` array — `DataFilterExtension` (time-window/range filtering through `filterRange` driven by the atom clock), `BrushingExtension` (`brushingRadius` pointer reveal), `PathStyleExtension` (`getDashArray`/`getOffset` dash and offset), `FillStyleExtension` (`getFillPattern` pattern fill), `CollisionFilterExtension` (label declutter by `getCollisionPriority`), `MaskExtension` (geofence keyed by `maskId` to a layer carrying `operation: "mask"`), `ClipExtension` (`clipBounds` rectangular clip), `_TerrainExtension` (`terrainDrawMode` drape onto the relief surface).
@@ -354,14 +354,14 @@ const _extensions = {
 } as const
 ```
 
-## [7]-[PLANAR_OPS]
+## [07]-[PLANAR_OPS]
 
 [PLANAR_OPS]:
 - Law: turf is the planar compute peer, render surfaces are the sink — `buffer`/`simplify`/`convex` derive overlay polygons, `union`/`intersect`/`difference` are the NTS-peer boolean overlay, and results feed a `GeoJsonLayer` row or a `GeoJSONSource.setData`; the DE-9IM predicates and hit-test rows (`booleanPointInPolygon`, `geojsonRbush`) are consumed by `mark` as settled law.
 - Law: planar ONLY — turf never re-derives a spatial relation the C# side owns as authority; the two meet at the WKB/GeoJSON wire behind `WkbParser`, and a relation computed on both sides that diverges is the cross-language drift defect.
 - Law: traversal rides the substrate — `coordEach`/`geomEach`/`featureEach` folds and the `getCoord`/`getGeom` accessors replace every hand coordinate loop; measurement units are the bounded `{ units }` option, never a suffixed sibling.
 
-## [8]-[STYLE_DATA]
+## [08]-[STYLE_DATA]
 
 [STYLE_DATA]:
 - Law: basemap styling is `*Specification` data — `addLayer(LayerSpecification)`, `setPaintProperty`, `setFilter` consume expression data authored as values; style edits are live re-paints, never style-swap rebuilds, and no render code hand-evaluates an expression.

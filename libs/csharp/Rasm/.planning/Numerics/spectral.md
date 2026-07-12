@@ -442,11 +442,11 @@ internal static class SpectralKernel {
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]        | [OWNER]                                                    | [KIND]                                                      | [CASES] |
-| :-----: | :-------------------- | :---------------------------------------------------------- | :----------------------------------------------------------- | :-----: |
-|  [01]   | Spectral policy       | `SpectralAssemblyKind` · `SpectralScaleNormalization` · `SpectralEnergyNormalization` · `SpectralZeroModePolicy` · `SpectralDistanceKind` | `[SmartEnum<int>]` vocabularies                             | 2·2·4·2·3 |
-|  [02]   | Transfer functions    | `SpectralFilter`                                           | closed `[Union]` + partial-monoid `Compose` + inlined weight |    6    |
-|  [03]   | DEC carriers          | `DiscreteCalculus` (frozen seam) · `SpectralBasis`         | operator bundle + eigenpair carrier                          |    2    |
-|  [04]   | Assembly evidence     | `SpectralAssemblyReceipt` · `HarmonicOneFormReceipt` · `HarmonicOneFormBasis` | `ValidityClaim.All` fold + scale-relative residual gates    |    3    |
-|  [05]   | Descriptor algebra    | `SpectralDescriptorPolicy` · `SpectralWaveReceipt` · `SpectralDescriptorReceipt` · `SpectralDescriptor` · `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking` | policy + evidence + carrier family                           |    7    |
-|  [06]   | Evaluation kernel     | `SpectralKernel`                                           | dense filtered-signature/normalize/rank kernel               |    1    |
+| [INDEX] | [AXIS_CONCERN]     | [OWNER]                                                                                                                                                            | [KIND]                                                       |  [CASES]  |
+| :-----: | :----------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------- | :-------: |
+|  [01]   | Spectral policy    | `SpectralAssemblyKind` · `SpectralScaleNormalization` · `SpectralEnergyNormalization` · `SpectralZeroModePolicy` · `SpectralDistanceKind`                          | `[SmartEnum<int>]` vocabularies                              | 2·2·4·2·3 |
+|  [02]   | Transfer functions | `SpectralFilter`                                                                                                                                                   | closed `[Union]` + partial-monoid `Compose` + inlined weight |     6     |
+|  [03]   | DEC carriers       | `DiscreteCalculus` (frozen seam) · `SpectralBasis`                                                                                                                 | operator bundle + eigenpair carrier                          |     2     |
+|  [04]   | Assembly evidence  | `SpectralAssemblyReceipt` · `HarmonicOneFormReceipt` · `HarmonicOneFormBasis`                                                                                      | `ValidityClaim.All` fold + scale-relative residual gates     |     3     |
+|  [05]   | Descriptor algebra | `SpectralDescriptorPolicy` · `SpectralWaveReceipt` · `SpectralDescriptorReceipt` · `SpectralDescriptor` · `SpectralRankingPolicy`/`SpectralRank`/`SpectralRanking` | policy + evidence + carrier family                           |     7     |
+|  [06]   | Evaluation kernel  | `SpectralKernel`                                                                                                                                                   | dense filtered-signature/normalize/rank kernel               |     1     |

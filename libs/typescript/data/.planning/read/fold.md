@@ -2,16 +2,16 @@
 
 The projection plane: the durable altitude of the core fold contract. A lane binds one `Fold.Plan` to one keyed relation, and the same binding runs at three staleness budgets — the inline slot executing inside the publish transaction (budget zero, read-your-writes structural), the checkpointed drain daemon woken by LISTEN/NOTIFY and claimed under SKIP LOCKED (budget seconds, replicas cooperate with zero coordination), and the maintenance plane where the database itself owns the fold (`pg_ivm` views, `pg_incremental` exactly-once batch pipelines, `pg_cron` grooming) or a shadow-table replay repairs a drifted model under a session advisory lock. Poison never wedges a lane: a failing event diverts to a typed quarantine and the checkpoint advances past it. Time coordinates leave this folder only through the core-owned `AsOf.at` mint — journal position plus event stamp — so every windowed and time-travel read upstream coordinates against real durable positions.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]      | [OWNS]                                                                             |
-| :-----: | :------------- | :------------------------------------------------------------------------------------ |
-|  [01]   | `LANE_SPEC`    | the plan-bound lane value, the keyed read-model relation, the coordinate law            |
-|  [02]   | `INLINE_SLOT`  | the zero-staleness lane — the slot the publish transaction executes                     |
-|  [03]   | `DRAIN_DAEMON` | checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the daemon Layer          |
-|  [04]   | `MAINTENANCE`  | cron/ivm/incremental rows and the shadow-table rebuild with atomic swap                 |
+| [INDEX] | [CLUSTER]      | [OWNS]                                                                         |
+| :-----: | :------------- | :----------------------------------------------------------------------------- |
+|  [01]   | `LANE_SPEC`    | the plan-bound lane value, the keyed read-model relation, the coordinate law   |
+|  [02]   | `INLINE_SLOT`  | the zero-staleness lane — the slot the publish transaction executes            |
+|  [03]   | `DRAIN_DAEMON` | checkpoint ledger, SKIP-LOCKED claim, wake merge, quarantine, the daemon Layer |
+|  [04]   | `MAINTENANCE`  | cron/ivm/incremental rows and the shadow-table rebuild with atomic swap        |
 
-## [2]-[LANE_SPEC]
+## [02]-[LANE_SPEC]
 
 - Owner: `Lane.Spec` — one value binding a core `Fold.Plan<A, K, S>` to durability: the plan, the state schema, the target relation, the cell spelling of the plan's key, and the batch policy; `Lane.ddl` derives the relation's ensure row.
 - Packages: `@rasm/ts/core` (`Fold`); `effect` (`Schema`); `@effect/sql` (`SqlClient`); `lane/capability.md` (`Capability.Ensure` — the shape), `journal/evolve.md` (`Upcast.Plan` — the decode road every lane shares).
@@ -58,7 +58,7 @@ const _ddl = (table: string): Capability.Ensure => ({
 
 ```
 
-## [3]-[INLINE_SLOT]
+## [03]-[INLINE_SLOT]
 
 - Owner: `Lane.inline(spec)` — the projection of a lane into the `Journal.Slot` shape the publish transaction executes: current-rows-first keyed fold, one upsert statement per touched cell, and the invalidation keys stamped from the touched cells.
 - Packages: `effect` (`Effect`, `Array`, `HashMap`, `Option`, `Schema`); `@effect/sql` (`sql.insert`, `sql.onDialectOrElse`); `journal/append.md` (`Journal.Slot` — the contract, `Journal.now`); `read/live.md` (`Live.cells` — the coordinate mint).
@@ -117,7 +117,7 @@ const _inline = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>):
 })
 ```
 
-## [4]-[DRAIN_DAEMON]
+## [04]-[DRAIN_DAEMON]
 
 - Owner: the checkpoint and quarantine ensure rows, the SKIP-LOCKED claim, the wake merge, the bounded drain cycle, `Lane.daemon(spec)` as a `Layer<never>` registration node, and `Lane.replay(name, sequence)` as the quarantine re-entry.
 - Packages: `effect` (`Effect`, `Stream`, `Schedule`, `Layer`, `Either`, `Option`, `Ref`, `BigInt`); `@effect/sql` (`SqlSchema` — the decoded checkpoint and page reads; `SqlClient.SafeIntegers` — the per-fiber bigint toggle the cycle provides so drivers that carry it return BIGINT columns unlossily); `@effect/sql-pg` (`PgClient.listen` — read as an optional service); `journal/append.md` (`Journal.channel`, `Journal.Sequence`), `journal/evolve.md` (`Snapshot.due`/`Snapshot.hydrate` — the cadence the lane composes after applies).
@@ -314,7 +314,7 @@ const _daemon = <A extends Journal.Event, K, S, I>(spec: Lane.Spec<A, K, S, I>, 
   ).pipe(Layer.withSpan("data.lane", { attributes: { lane: spec.name } }))
 ```
 
-## [5]-[MAINTENANCE]
+## [05]-[MAINTENANCE]
 
 - Owner: the in-database maintenance rows — cron jobs, IVM views, incremental pipelines — each grant-gated through the capability rail, plus `Lane.rebuild` — the shadow-table replay with atomic swap under a session advisory lock, the folder's ONE declared carve-out from the DDL-split boundary: an operator verb, session-locked, never scheduled, never reachable from a request path.
 - Packages: `lane/capability.md` (`Capability.require`/`when`); `journal/retain.md` (`Retain.Policy` — every grooming window); `@effect/sql` (`sql.reserve`, `sql.unsafe` over closed-vocabulary literals).

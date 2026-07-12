@@ -2,16 +2,16 @@
 
 The decoded evidence vocabularies as one bounded family: `Receipt`/`ReceiptEnvelope` — the closed command-outcome union the C# AppHost mints, carried with its stamp, tenant, and causal basis; `ProgressMark`/`Progress` — the per-operation progress evidence the C# Compute runtime emits, folded into monotone state with horizon-parameterized verdicts; `Availability` — the degradation-level and per-command verdict snapshot the serving gate types against, merged worst-wins as a lattice. Every shape decodes through the interchange codec INTO this module, composes `Hlc`, `TenantContext`, `ContentKey`, `FaultClass`, and `Vector` from their owners — never re-mints — and every fold is a `fold#PLAN_CONTRACT` plan row on a `merge#INSTANCE_CONTRACT` instance, so evidence runs identically as a pure snapshot, a stream trace, a live handle, or a durable projection. The C# typed families never collapse into erased TS shapes: every kind is its own union member with kind-specific evidence fields, and evidence is fields policy reads, never message strings. The module is `core/src/state/evidence.ts`; a new receipt kind, progress axis, or availability level is one union member or row with every exhaustive consumer breaking loudly until its arm exists.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]              | [OWNS]                                                              | [PUBLIC]                       |
-| :-----: | :--------------------- | :---------------------------------------------------------------------- | :-------------------------------- |
-|  [01]   | `RECEIPT_FAMILY`       | the closed outcome union and its lifecycle rank vocabulary              | `Receipt`                          |
-|  [02]   | `ENVELOPE_OWNER`       | the decoded envelope, its orders, the LWW instance, the fold plan       | `ReceiptEnvelope`                  |
-|  [03]   | `PROGRESS_FOLD`        | the decoded mark, the state product, read-time verdicts, the roll-up    | `ProgressMark`, `Progress`         |
-|  [04]   | `AVAILABILITY_LATTICE` | level rows, verdict family, worst-wins snapshot merge, the gate read    | `Availability`                     |
+| [INDEX] | [CLUSTER]              | [OWNS]                                                               | [PUBLIC]                   |
+| :-----: | :--------------------- | :------------------------------------------------------------------- | :------------------------- |
+|  [01]   | `RECEIPT_FAMILY`       | the closed outcome union and its lifecycle rank vocabulary           | `Receipt`                  |
+|  [02]   | `ENVELOPE_OWNER`       | the decoded envelope, its orders, the LWW instance, the fold plan    | `ReceiptEnvelope`          |
+|  [03]   | `PROGRESS_FOLD`        | the decoded mark, the state product, read-time verdicts, the roll-up | `ProgressMark`, `Progress` |
+|  [04]   | `AVAILABILITY_LATTICE` | level rows, verdict family, worst-wins snapshot merge, the gate read | `Availability`             |
 
-## [2]-[RECEIPT_FAMILY]
+## [02]-[RECEIPT_FAMILY]
 
 [RECEIPT_FAMILY]:
 - Owner: `Receipt` — one `Schema.Union` over four tagged case owners: `Accepted` (admitted, awaiting application), `Applied` (carries the resulting causal `Vector` basis and the touched `ContentKey` set), `Refused` (carries the fault classification and retryability as data), `Superseded` (carries the superseding command's key) — the `_tag` is simultaneously the wire discriminant and the dispatch key.
@@ -75,7 +75,7 @@ declare namespace Receipt {
 }
 ```
 
-## [3]-[ENVELOPE_OWNER]
+## [03]-[ENVELOPE_OWNER]
 
 [ENVELOPE_OWNER]:
 - Owner: `ReceiptEnvelope` — the one decoded evidence owner: `command` (the content-keyed command coordinate — commands are content-addressed), `subject` (the optional target entity key), `stamp`/`tenant` (composed vocabulary), `basis` (the optional `Vector` the receipt observed), `receipt` (the family) — with orders, the merge instance, and the fold plan riding it as statics so one import carries shape, policy, and fold.
@@ -119,7 +119,7 @@ class ReceiptEnvelope extends Schema.Class<ReceiptEnvelope>("ReceiptEnvelope")({
 }
 ```
 
-## [4]-[PROGRESS_FOLD]
+## [04]-[PROGRESS_FOLD]
 
 [PROGRESS_FOLD]:
 - Owner: `ProgressMark` — operation coordinate (`ContentKey`), optional parent operation (the hierarchy axis), stage label, done/total units, `Hlc` stamp, tenant — one decoded shape for every emitting surface; `Progress` — the fold family: `state` (the `Merge.struct` product instance), `plan` (the per-operation plan row), `fraction`/`stalled` (read-time verdicts), `rollup` (the parent-axis weighted aggregation).
@@ -242,7 +242,7 @@ const Progress: Progress.Shape = {
 }
 ```
 
-## [5]-[AVAILABILITY_LATTICE]
+## [05]-[AVAILABILITY_LATTICE]
 
 [AVAILABILITY_LATTICE]:
 - Owner: `Availability` — the decoded snapshot class: `level`, the per-command verdict `HashMap`, the `since` stamp, and the tenant; `worst` (the snapshot lattice), `admits` (the total gate read), and `plan` (the per-tenant fold) ride it as statics. The serving gate consumes it as an injected value typed against this module — ordinary dependency over a legal import, never a port.

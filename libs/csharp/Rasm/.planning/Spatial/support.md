@@ -182,7 +182,7 @@ public sealed record SupportSpace {
 
 One owner per axis; a proximity capability is a row or a column, never a sibling surface.
 
-| [INDEX] | [AXIS/CONCERN]              | [OWNER]             | [KIND]                                                             | [RAIL]                                    | [CASES] |
-| :-----: | :-------------------------- | :------------------ | :----------------------------------------------------------------- | :---------------------------------------- | :-----: |
-|  [01]   | Closest-hit output modality | `SupportProjection` | `[SmartEnum<int>]` + capability/accepts/projectRaw columns          | `Project<TOut> → Fin<TOut>`               |   14    |
+| [INDEX] | [AXIS_CONCERN]              | [OWNER]             | [KIND]                                                              | [RAIL]                                                | [CASES] |
+| :-----: | :-------------------------- | :------------------ | :------------------------------------------------------------------ | :---------------------------------------------------- | :-----: |
+|  [01]   | Closest-hit output modality | `SupportProjection` | `[SmartEnum<int>]` + capability/accepts/projectRaw columns          | `Project<TOut> → Fin<TOut>`                           |   14    |
 |  [02]   | Proximity handle            | `SupportSpace`      | `[BoundaryAdapter]` polymorphic record + captured `Admits` verdicts | `Of → Fin<SupportSpace>`; `Closest → Fin<ClosestHit>` |    —    |

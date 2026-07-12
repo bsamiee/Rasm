@@ -2,16 +2,16 @@
 
 The one config owner of the process plane: an ordered provider chain answers every `Config` read, and one boot-validated `Setting` contract resolves against it exactly once. A source is a case of one closed `Stage` family — process env (where `doppler run` injection lands), dotenv file, K8s file tree, remote document, literal table — folded left through `ConfigProvider.orElse` into one provider installed once beneath the whole graph, so precedence is tuple order and the empty chain is unspellable. `Setting` is the runtime folder's environment contract and simultaneously the config-family form every folder and app instantiates: described rows, structural parsers, `Schema.Config` shaped scalars, sealed secrets, `Config.nested` namespaces, the whole record resolved at Layer construction so a malformed environment fails the root's wiring proof at the boot line. A scattered `process.env` read, a per-site `Config.string`, a second resolve, and a second `setConfigProvider` altitude are the named defects. The module is `runtime/src/proc/config.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]        | [OWNS]                                                                        | [PUBLIC]   |
-| :-----: | :--------------- | :------------------------------------------------------------------------------ | :--------- |
-|  [01]   | `STAGE_FAMILY`   | the closed source vocabulary and the doppler-injection law                      | `Provider` |
-|  [02]   | `CHAIN_FOLD`     | the orElse fold, skip-versus-fail construction, the one install site            | `Provider` |
-|  [03]   | `SETTING_OWNER`  | the boot-validated runtime contract and the config-family form                  | `Setting`  |
-|  [04]   | `ADMISSION_ROWS` | the row vocabulary: parsers, shaped scalars, secrets, defaults, descriptions    | `Setting`  |
+| [INDEX] | [CLUSTER]        | [OWNS]                                                                       | [PUBLIC]   |
+| :-----: | :--------------- | :--------------------------------------------------------------------------- | :--------- |
+|  [01]   | `STAGE_FAMILY`   | the closed source vocabulary and the doppler-injection law                   | `Provider` |
+|  [02]   | `CHAIN_FOLD`     | the orElse fold, skip-versus-fail construction, the one install site         | `Provider` |
+|  [03]   | `SETTING_OWNER`  | the boot-validated runtime contract and the config-family form               | `Setting`  |
+|  [04]   | `ADMISSION_ROWS` | the row vocabulary: parsers, shaped scalars, secrets, defaults, descriptions | `Setting`  |
 
-## [2]-[STAGE_FAMILY]
+## [02]-[STAGE_FAMILY]
 
 [STAGE_FAMILY]:
 - Owner: `Provider.Stage` — one `Data.taggedEnum` family: `Env` (process environment), `DotEnv` carrying its file path, `Tree` carrying the mount root (the K8s secret-mount form, one file per key), `Remote` carrying the document origin, `Table` carrying a literal row map (the harness and inline-override form); constructors ride the exported `Provider` owner, so declaring a chain is one import.
@@ -21,7 +21,7 @@ The one config owner of the process plane: an ordered provider chain answers eve
 - Growth: a new source is one case plus one build arm.
 - Packages: `effect` (`ConfigProvider`, `Data`); `@effect/platform` (`PlatformConfigProvider`, `HttpClientRequest`); `../net/client.ts` (`Client`).
 
-## [3]-[CHAIN_FOLD]
+## [03]-[CHAIN_FOLD]
 
 [CHAIN_FOLD]:
 - Owner: `Provider.chain` — the one entry: a `NonEmptyReadonlyArray<Stage>` folds to the installing Layer; each stage builds effectfully, the fold is `Array.reduce` over `ConfigProvider.orElse` with the head as seed, so precedence is structural.
@@ -89,7 +89,7 @@ const Provider: Data.TaggedEnum.Constructor<Provider.Stage> & {
 }
 ```
 
-## [4]-[SETTING_OWNER]
+## [04]-[SETTING_OWNER]
 
 [SETTING_OWNER]:
 - Owner: `Setting` — the runtime environment contract: one `Effect.Service` class, `effect: Config.unwrap(record)`, the record nested under the `RUNTIME` namespace with one group per consuming sub-domain (`CLUSTER`, `FANOUT`, `FLAG`, `LIFE`, `MAIL`, `SERVE`); `Config` is a subtype of `Effect`, so the record is the constructor, `Setting.Default` resolves the whole environment at Layer construction, its `ConfigError` rides the Default layer's error channel, and the root annotation `Layer.Layer<Out>` is where an unset or malformed variable fails — one line, before any run seam.
@@ -222,7 +222,7 @@ class Setting extends Effect.Service<Setting>()("runtime/Setting", {
 }) {}
 ```
 
-## [5]-[ADMISSION_ROWS]
+## [05]-[ADMISSION_ROWS]
 
 [ADMISSION_ROWS]:
 - Owner: the row vocabulary — which `Config` member admits which environment fact; selection is mechanical: structure parses at the row (`Config.url`, `Config.port`, `Config.duration`, `Config.integer`); a closed choice is `Config.literal(...keys)` spread from the owning vocabulary anchor so admission and dispatch read one table; a secret is `Config.redacted` and stays `Redacted` end to end; a scalar with real shape — brand, union, bounded numeric, transform — admits through `Schema.Config(name, shape)` with its `ParseError` folded into the same `ConfigError` rail; a brand an owner already carries lifts through `Config.branded`.

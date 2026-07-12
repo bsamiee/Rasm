@@ -2,7 +2,7 @@
 
 The keyed-decode engine of the interchange plane: ONE closed census of every C#-minted wire family — arm, mint source, consuming surface, and owning page as data columns — and ONE polymorphic registry whose mapped landing table resolves each codec-homed family to its decoded type, so `Wire.decode(family, octets)` is the single decode entry the branch owns and a per-family codec page is unspellable. Families landing in core vocabulary decode INTO the `value`/`state` owners with zero local twins; families whose consumers live in later waves land wire-owned shapes declared here once, adopted-verbatim on the decode-boundary names the C# side mints. Beside the registry sit the four cross-cutting mechanics every row shares, each spelled once: the reason-discriminated `WireFault` rail with its bounded, replayable poison quarantine; the `Parity` combinator family — content-key mint-and-compare, golden-byte roundtrip, and the reflection walk over key cells; the divert-and-dedup `feed` combinator whose per-family transition policy is a row; and the sequence-gap Mealy the oplog watermark and the frame ordinal chain both mint evidence through. The module is `core/src/interchange/codec.ts`; a new wire family is one census row plus one landing row, a new failure cause is one policy row, and a new feed is one `_feeds` row — never a sibling page, never a second rail.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
 | [INDEX] | [CLUSTER]          | [OWNS]                                                                      | [PUBLIC]                  |
 | :-----: | :----------------- | :-------------------------------------------------------------------------- | :------------------------ |
@@ -15,7 +15,7 @@ The keyed-decode engine of the interchange plane: ONE closed census of every C#-
 |  [07]   | `FEED_DEDUP`       | the divert+dedup stream combinator and its per-family policy rows           | `feed`                    |
 |  [08]   | `SEQUENCE_GAP`     | the gap Mealy, the resumable oplog stream, the frontier read                | `Gap`, `OpLog`            |
 
-## [2]-[WIRE_CENSUS]
+## [02]-[WIRE_CENSUS]
 
 [WIRE_CENSUS]:
 - Owner: the census anchors — `_families`, the ordered key tuple of every C#-minted wire family; `_census`, the fact table carrying `arm` (the closed four-value format axis), `source` (the C# mint), `consumer` (the surface reading the decoded value: `value`, `state`, `observe`, `interchange`, `security`, `data`, `runtime`, `ui`), and `home` (the interchange page owning the landing: `codec`, `format`, `contract`, `frame`, `invoke`); `_wireLiteral`, the family-name schema every fault, feed, and verdict types `family` fields with. The merged-hub guard pair ties tuple and table closed in both directions, and the `Home`/`Consumer` type anchors govern the fact columns — a census row naming a page or surface outside either closed set fails the row guard, never a review.
@@ -100,7 +100,7 @@ const _census = {
 const _wireLiteral: Schema.Literal<Wire.Families> = Schema.Literal(..._families)
 ```
 
-## [3]-[FAULT_RAIL]
+## [03]-[FAULT_RAIL]
 
 [FAULT_RAIL]:
 - Owner: `WireFault`, the one reason-discriminated `Schema.TaggedError` for the whole plane over the `_policy` table — rank, quarantine disposition, replayability per reason — with `fromSlot`, the patch-arm slot triage, riding it as a static; and `Quarantine`, the `Effect.Service` owning the bounded poison intake, the held-frame census, the budgeted replay drain, and the `divert` dual transformer every decode surface composes; `PoisonFrame` rides the service as `Quarantine.Frame`.
@@ -241,7 +241,7 @@ class Quarantine extends Effect.Service<Quarantine>()("@rasm/ts/core/Quarantine"
 }
 ```
 
-## [4]-[PARITY_VERIFY]
+## [04]-[PARITY_VERIFY]
 
 [PARITY_VERIFY]:
 - Owner: `Parity`, the one verify combinator family — `key(payload)` the delegated content mint, `verified(family, expected, payload)` the mint-and-compare gate every content-addressed row shares, `matched(family, actual, expected)` the pure key-pair gate for pre-minted comparisons, `roundtrip(family, schema, octets)` the golden-byte decode-encode-compare proof generic over any byte schema, and `cells(gen, fields)` the reflection walk extracting content-key byte cells off a decoded proto message for field-level parity.
@@ -303,7 +303,7 @@ const Parity: {
 }
 ```
 
-## [5]-[LANDING_EVIDENCE]
+## [05]-[LANDING_EVIDENCE]
 
 [LANDING_EVIDENCE]:
 - Owner: the core-landing rows and the CRDT op union — `ReceiptEnvelopeWire`, `HlcStampWire`, `TenantContextWire`, `CommandAvailabilityWire`, `QuantityWire`, `ProgressMarkWire` decode INTO `state`/`value` owners whole with zero local twins; `CommitWire`/`BranchWire`/`VersionVectorWire`/`MerkleSummaryWire` land the `state` version plane over the msgpack arm; `CrdtOp` is the tagged six-op journal union — `Assign`, `Adjoin`, `Retire`, `Splice`, `Tick`, and the `Alien` foreign-ext landing — whose `hlc` cells intern through the `format#MSGPACK_ENGINE` extension row and whose per-case merge instances bind at `state/merge.ts`'s algebra.
@@ -375,7 +375,7 @@ const CrdtOp: Schema.Union<[typeof _Assign, typeof _Adjoin, typeof _Retire, type
 type CrdtOp = typeof CrdtOp.Type
 ```
 
-## [6]-[LANDING_WIRE]
+## [06]-[LANDING_WIRE]
 
 [LANDING_WIRE]:
 - Owner: the wire-owned decoded shapes — decode-boundary vocabulary for consumers in later waves, adopted verbatim from the C# mints and declared exactly once. The evidence plane: `RenderReceipt` (the frame-hash proof; `matched` is C#-computed and never re-hashed), `FaultDetail` over the `Hops` sixteen-row vocabulary with the `FaultEnricher` Layer, `FlagVerdict` (the OpenFeature evaluation projection the runtime flag service consumes). The shell plane: `BindingStatus`/`CoercedValue`/`WriteReceipt` live-binding triple, the closed `ControlIntent` union gaining its `_tag` at the declaration, `LayoutProgram` (order-preserving Cassowary constraint program, decode-only, never solved here). The BIM plane: `BcfTopic`/`BcfViewpoint` over the one `_GlobalId` brand, `BimModel`/`BimDiff`/`IdsAudit`. The appearance plane: `Material`/`PbrGroups`/`AppearanceSummary` mirroring the OpenPBR projection field-for-field. The geo plane: `GeoFeature` with the opaque WKB band, the seven-kind geometry union, the CRS rows, the tile quadkey algebra, and the `WkbParser` port. The identity plane: `SnapshotHeader` (canonical-CBOR, segment roster), `Claim`/`HostFingerprint` with the boot-identity admission gate, `Credential` (the sealed PEM carrier — secret sealed AT the decode transform, fingerprint-only audit identity, sealed rotation compare).
@@ -823,7 +823,7 @@ class Credential extends Schema.Class<Credential>("Credential")({
 const _sameMaterial: Equivalence.Equivalence<Redacted.Redacted<string>> = Schema.equivalence(Credential.fields.material)
 ```
 
-## [7]-[KEYED_REGISTRY]
+## [07]-[KEYED_REGISTRY]
 
 [KEYED_REGISTRY]:
 - Owner: `Wire`, the assembled registry — `_landingRows`, the ONE value anchor mapping every codec-homed family to its landing schema, from which `_Landing` derives by `Schema.Schema.Type` projection and `_landings` re-binds under the derived mapped annotation so the generic indexed message decode resolves one correlated signature per key; the `_schemas` byte-row table annotated by the same mapped contract; and the polymorphic entrypoints: `decode(family, octets)`, `encode(family, value)` for the egress-legal rows, `schema(family)` the raw byte schema for field composition, `stream(family, frames)` the framed feed with quarantine divert, `diverted` the one framed-divert combinator, `residue(message)` the preserved unknown-field read, `of(arm)` and `homed(page)` the census projections, plus the census facts and the wire literal spread onto the owner.
@@ -1016,7 +1016,7 @@ const Wire: Wire.Shape = {
 }
 ```
 
-## [8]-[FEED_DEDUP]
+## [08]-[FEED_DEDUP]
 
 [FEED_DEDUP]:
 - Owner: `feed`, the one transition-feed entry, and its policy rows — `_feeds` carries one row per feed family: the coalescing `subject` projection, the transition `alike` equivalence, and the optional `flow` throttle; the combinator composes `Wire.stream`'s framed divert with one keyed transition Mealy — per-subject last-value state, an arrival equivalent to its subject's incumbent drops, a transition emits and replaces — and the declared throttle shapes the surviving flow. The merged `feed` namespace carries the row vocabulary on the entry's own name.
@@ -1093,7 +1093,7 @@ const feed = <K extends feed.Family>(
 }
 ```
 
-## [9]-[SEQUENCE_GAP]
+## [09]-[SEQUENCE_GAP]
 
 [SEQUENCE_GAP]:
 - Owner: `Gap`, the sequence-evidence vocabulary — `evidence(family, expected, actual, detail?)` the one sequence-fault mint (`<gap>` unless the chain names its own violation), and `sequential(family, resume)` the bigint watermark Mealy generic over any `seq`-carrying entry: entries at or below the running watermark — the seeded resume and every advance — drop inside the fold as replays, so a late out-of-order duplicate can neither re-anchor the watermark nor double-mint evidence; a successor exactly one past the watermark advances it, and a jump emits `sequence` evidence ahead of the jumped entry — both coordinates on the evidence, the entry still delivered — while the watermark re-anchors so one gap reports once and no arriving entry is lost; `OpLog` rides it — the resumable CRDT journal stream over the msgpack arm plus the `frontier` read.

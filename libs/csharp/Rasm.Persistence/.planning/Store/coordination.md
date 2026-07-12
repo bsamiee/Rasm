@@ -251,15 +251,15 @@ public static class Coordinate {
 public readonly record struct CaseSql(string LockKey, string Statement, Func<IDocumentSession, Option<LeaseToken>, UInt128, Task<Seq<CoordRow>>> Execute);
 ```
 
-| [INDEX] | [POLICY]           | [VALUE]                                       | [BINDING]                                                        |
-| :-----: | :----------------- | :-------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | fencing            | `fence <= @token` on every guarded write      | stale token → typed `LeaseFenced`, never a lost update           |
-|  [02]   | generation mint    | `LeaseAcquire` row-CAS `RETURNING generation` | monotone `++`; the token is validated, not merely issued         |
-|  [03]   | budget shape       | per-unit vector, one statement                | `HashMap<string,long>` mirrors `CostVector` string keys ([A.1])  |
-|  [04]   | read guard         | tenant RLS predicate structural on every READ | no cross-tenant in-flight/lease/membership leak                  |
-|  [05]   | lock family        | `pg_advisory_xact_lock` (transaction-scoped)  | auto-released at commit; session locks are the leak form         |
-|  [06]   | receipt floor      | `IsValid => ValidityClaim.All(...)` per case  | kernel validity fold ([C]); `&&` chains deleted                  |
-|  [07]   | port direction     | AppHost decodes Persistence-owned types       | four PORT rows + `MembershipView.Serving`; nothing crosses down  |
+| [INDEX] | [POLICY]        | [VALUE]                                       | [BINDING]                                                       |
+| :-----: | :-------------- | :-------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | fencing         | `fence <= @token` on every guarded write      | stale token → typed `LeaseFenced`, never a lost update          |
+|  [02]   | generation mint | `LeaseAcquire` row-CAS `RETURNING generation` | monotone `++`; the token is validated, not merely issued        |
+|  [03]   | budget shape    | per-unit vector, one statement                | `HashMap<string,long>` mirrors `CostVector` string keys ([A.1]) |
+|  [04]   | read guard      | tenant RLS predicate structural on every READ | no cross-tenant in-flight/lease/membership leak                 |
+|  [05]   | lock family     | `pg_advisory_xact_lock` (transaction-scoped)  | auto-released at commit; session locks are the leak form        |
+|  [06]   | receipt floor   | `IsValid => ValidityClaim.All(...)` per case  | kernel validity fold ([C]); `&&` chains deleted                 |
+|  [07]   | port direction  | AppHost decodes Persistence-owned types       | four PORT rows + `MembershipView.Serving`; nothing crosses down |
 
 ## [03]-[OUTBOX_CURSOR]
 
@@ -270,10 +270,10 @@ public readonly record struct CaseSql(string LockKey, string Statement, Func<IDo
 - Growth: a new egress sink is ONE `outbox_cursor` row minted on first drain (the advance CAS upserts), zero coordination edits; zero new surface — an envelope-table outbox, a per-sink advance verb, a trigger-based cursor writer, or a coordination-side read of the pump is the deleted form.
 - Boundary: forward-only intra-leg edge — `Version/egress` drains this cursor and coordination NEVER reads the pump (the acyclicity proof's one intra-leg egress edge); the failed advance CAS stays `CoordinationFault.OutboxDrain` in THIS band (the cursor write is fenced-store work) while every delivery fault is the pump's `EgressFault`; the presence/awareness lane (`ColumnFamily.Presence`, `durable: false`) never has a cursor row — only `Family.Durable` lanes drain past this cursor.
 
-| [INDEX] | [POLICY]           | [VALUE]                                     | [BINDING]                                                         |
-| :-----: | :----------------- | :------------------------------------------ | :---------------------------------------------------------------- |
-|  [01]   | outbox spine       | the Marten stream IS the outbox             | same-`IDocumentSession`; envelope tables are the deleted store    |
-|  [02]   | cursor grain       | per-sink `outbox_cursor(SinkKey, Sequence)` | distinct from the per-origin `SyncCursor`; slow sinks isolate     |
-|  [03]   | advance law        | forward-only CAS, post-confirmation         | at-least-once; replay absorbed by sink dedup                      |
-|  [04]   | pump wake          | `pg_notify('rasm_outbox', sink)` same-tx    | latency only — the bounded poll floor owns correctness            |
-|  [05]   | edge direction     | egress reads cursor; coordination never reads pump | the one forward-only intra-leg egress edge                 |
+| [INDEX] | [POLICY]       | [VALUE]                                            | [BINDING]                                                      |
+| :-----: | :------------- | :------------------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | outbox spine   | the Marten stream IS the outbox                    | same-`IDocumentSession`; envelope tables are the deleted store |
+|  [02]   | cursor grain   | per-sink `outbox_cursor(SinkKey, Sequence)`        | distinct from the per-origin `SyncCursor`; slow sinks isolate  |
+|  [03]   | advance law    | forward-only CAS, post-confirmation                | at-least-once; replay absorbed by sink dedup                   |
+|  [04]   | pump wake      | `pg_notify('rasm_outbox', sink)` same-tx           | latency only — the bounded poll floor owns correctness         |
+|  [05]   | edge direction | egress reads cursor; coordination never reads pump | the one forward-only intra-leg egress edge                     |

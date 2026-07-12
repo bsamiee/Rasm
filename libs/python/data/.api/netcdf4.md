@@ -82,15 +82,15 @@
 [ENTRYPOINT_SCOPE]: Dataset lifecycle
 - rail: field-dataset
 
-| [INDEX] | [SURFACE]                                                                   | [ENTRY_FAMILY] | [RAIL]                       |
-| :-----: | :-------------------------------------------------------------------------- | :------------- | :--------------------------- |
-|  [01]   | `Dataset.__init__(filename, mode='r', clobber=True, format='NETCDF4', diskless=False, persist=False, keepweakref=False, memory=None, encoding=None, parallel=False, comm=None, info=None, auto_complex=False)` | open | open/create file handle (`diskless`/`persist`/`memory` for in-memory; `parallel`/`comm`/`info` for MPI; `auto_complex` reconstructs complex vars) |
-|  [02]   | `Dataset.close()`                                                           | lifecycle      | flush and close file         |
-|  [03]   | `Dataset.sync()`                                                            | lifecycle      | flush pending writes to disk |
-|  [04]   | `Dataset.filepath(encoding=None)`                                           | accessor       | resolve on-disk path         |
-|  [05]   | `Dataset.isopen()`                                                          | accessor       | check if file is still open  |
-|  [06]   | `Dataset.fromcdl(cdlfilename, ncfilename=None, mode='a', format='NETCDF4')` | factory        | create from CDL text         |
-|  [07]   | `Dataset.tocdl(coordvars=False, data=False, outfile=None)`                  | export         | dump CDL text representation |
+| [INDEX] | [SURFACE]                                                                                                                                                                                                      | [ENTRY_FAMILY] | [RAIL]                                                                                                                                            |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `Dataset.__init__(filename, mode='r', clobber=True, format='NETCDF4', diskless=False, persist=False, keepweakref=False, memory=None, encoding=None, parallel=False, comm=None, info=None, auto_complex=False)` | open           | open/create file handle (`diskless`/`persist`/`memory` for in-memory; `parallel`/`comm`/`info` for MPI; `auto_complex` reconstructs complex vars) |
+|  [02]   | `Dataset.close()`                                                                                                                                                                                              | lifecycle      | flush and close file                                                                                                                              |
+|  [03]   | `Dataset.sync()`                                                                                                                                                                                               | lifecycle      | flush pending writes to disk                                                                                                                      |
+|  [04]   | `Dataset.filepath(encoding=None)`                                                                                                                                                                              | accessor       | resolve on-disk path                                                                                                                              |
+|  [05]   | `Dataset.isopen()`                                                                                                                                                                                             | accessor       | check if file is still open                                                                                                                       |
+|  [06]   | `Dataset.fromcdl(cdlfilename, ncfilename=None, mode='a', format='NETCDF4')`                                                                                                                                    | factory        | create from CDL text                                                                                                                              |
+|  [07]   | `Dataset.tocdl(coordvars=False, data=False, outfile=None)`                                                                                                                                                     | export         | dump CDL text representation                                                                                                                      |
 
 [ENTRYPOINT_SCOPE]: structure creation
 - rail: field-dataset
@@ -124,44 +124,44 @@
 [ENTRYPOINT_SCOPE]: Variable operations
 - rail: field-dataset
 
-| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :---------------------------------------------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `Variable.chunking()`                                                   | accessor       | chunksizes tuple or `'contiguous'` |
-|  [02]   | `Variable.filters()`                                                    | accessor       | dict of active compression filters |
-|  [03]   | `Variable.get_fill_value()`                                             | accessor       | fill value                         |
-|  [04]   | `Variable.get_var_chunk_cache()`                                        | accessor       | chunk cache settings               |
-|  [05]   | `Variable.set_var_chunk_cache(size=None, nelems=None, preemption=None)` | mutator        | configure chunk cache              |
-|  [06]   | `Variable.set_auto_mask(mask)`                                          | masking        | toggle auto-masking                |
-|  [07]   | `Variable.set_auto_scale(scale)`                                        | scale          | toggle `scale_factor`/`add_offset` |
-|  [08]   | `Variable.set_auto_maskandscale(maskandscale)`                          | masking+scale  | toggle mask and scale together     |
-|  [09]   | `Variable.set_always_mask(always_mask)`                                 | masking        | force masked-array return          |
+| [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [RAIL]                                            |
+| :-----: | :---------------------------------------------------------------------- | :------------- | :------------------------------------------------ |
+|  [01]   | `Variable.chunking()`                                                   | accessor       | chunksizes tuple or `'contiguous'`                |
+|  [02]   | `Variable.filters()`                                                    | accessor       | dict of active compression filters                |
+|  [03]   | `Variable.get_fill_value()`                                             | accessor       | fill value                                        |
+|  [04]   | `Variable.get_var_chunk_cache()`                                        | accessor       | chunk cache settings                              |
+|  [05]   | `Variable.set_var_chunk_cache(size=None, nelems=None, preemption=None)` | mutator        | configure chunk cache                             |
+|  [06]   | `Variable.set_auto_mask(mask)`                                          | masking        | toggle auto-masking                               |
+|  [07]   | `Variable.set_auto_scale(scale)`                                        | scale          | toggle `scale_factor`/`add_offset`                |
+|  [08]   | `Variable.set_auto_maskandscale(maskandscale)`                          | masking+scale  | toggle mask and scale together                    |
+|  [09]   | `Variable.set_always_mask(always_mask)`                                 | masking        | force masked-array return                         |
 |  [10]   | `Variable.set_collective(value)`                                        | parallel I/O   | per-variable collective vs independent MPI access |
-|  [11]   | `Variable.use_nc_get_vars(use_nc_get_vars)`                            | read tuning    | toggle strided `nc_get_vars` reads |
-|  [12]   | `Variable.get_dims()`                                                   | accessor       | tuple of `Dimension` objects       |
-|  [13]   | `Variable.setncattr_string(name, value)`                                | attributes     | force string attribute type        |
-|  [14]   | `Variable.renameAttribute(oldname, newname)`                            | rename         | rename variable attribute          |
-|  [15]   | `Variable.endian()`                                                     | accessor       | endianness string                  |
-|  [16]   | `Variable.quantization()`                                               | accessor       | quantization settings dict         |
+|  [11]   | `Variable.use_nc_get_vars(use_nc_get_vars)`                             | read tuning    | toggle strided `nc_get_vars` reads                |
+|  [12]   | `Variable.get_dims()`                                                   | accessor       | tuple of `Dimension` objects                      |
+|  [13]   | `Variable.setncattr_string(name, value)`                                | attributes     | force string attribute type                       |
+|  [14]   | `Variable.renameAttribute(oldname, newname)`                            | rename         | rename variable attribute                         |
+|  [15]   | `Variable.endian()`                                                     | accessor       | endianness string                                 |
+|  [16]   | `Variable.quantization()`                                               | accessor       | quantization settings dict                        |
 
 [ENTRYPOINT_SCOPE]: module-level time and utility functions
 - rail: field-dataset
 
-| [INDEX] | [SURFACE]                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                             |
-| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :------------- | :--------------------------------- |
-|  [01]   | `date2num(dates, units, calendar=None, has_year_zero=None, longdouble=False)`                                                      | time           | datetime objects to numeric values |
-|  [02]   | `num2date(times, units, calendar='standard', only_use_cftime_datetimes=True, only_use_python_datetimes=False, has_year_zero=None)` | time           | numeric values to datetime objects |
-|  [03]   | `date2index(dates, nctime, calendar=None, select='exact', has_year_zero=None)`                                                     | time           | datetime to index in time variable |
-|  [04]   | `stringtoarr(string, NUMCHARS, dtype='S')`                                                                                         | string util    | string to fixed-length char array  |
-|  [05]   | `chartostring(b, encoding='utf-8')`                                                                                                | string util    | char array to string               |
-|  [06]   | `stringtochar(a, encoding='utf-8', n_strlen=None)`                                                                                 | string util    | string array to char array         |
-|  [07]   | `getlibversion()`                                                                                                                  | info           | netCDF-C library version string    |
+| [INDEX] | [SURFACE]                                                                                                                          | [ENTRY_FAMILY] | [RAIL]                                                                |
+| :-----: | :--------------------------------------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------------------------------------- |
+|  [01]   | `date2num(dates, units, calendar=None, has_year_zero=None, longdouble=False)`                                                      | time           | datetime objects to numeric values                                    |
+|  [02]   | `num2date(times, units, calendar='standard', only_use_cftime_datetimes=True, only_use_python_datetimes=False, has_year_zero=None)` | time           | numeric values to datetime objects                                    |
+|  [03]   | `date2index(dates, nctime, calendar=None, select='exact', has_year_zero=None)`                                                     | time           | datetime to index in time variable                                    |
+|  [04]   | `stringtoarr(string, NUMCHARS, dtype='S')`                                                                                         | string util    | string to fixed-length char array                                     |
+|  [05]   | `chartostring(b, encoding='utf-8')`                                                                                                | string util    | char array to string                                                  |
+|  [06]   | `stringtochar(a, encoding='utf-8', n_strlen=None)`                                                                                 | string util    | string array to char array                                            |
+|  [07]   | `getlibversion()`                                                                                                                  | info           | netCDF-C library version string                                       |
 |  [08]   | `dtype_is_complex(dtype)`                                                                                                          | type query     | report whether a dtype string is complex (paired with `auto_complex`) |
-|  [09]   | `get_chunk_cache()`                                                                                                                | config         | global HDF5 chunk cache settings   |
-|  [10]   | `set_chunk_cache(size=None, nelems=None, preemption=None)`                                                                         | config         | configure global HDF5 chunk cache  |
-|  [11]   | `get_alignment()`                                                                                                                  | config         | HDF5 alignment parameters          |
-|  [12]   | `set_alignment(threshold, alignment)`                                                                                              | config         | set HDF5 alignment                 |
-|  [13]   | `rc_get(key)`                                                                                                                      | config         | get runtime configuration value    |
-|  [14]   | `rc_set(key, value)`                                                                                                               | config         | set runtime configuration value    |
+|  [09]   | `get_chunk_cache()`                                                                                                                | config         | global HDF5 chunk cache settings                                      |
+|  [10]   | `set_chunk_cache(size=None, nelems=None, preemption=None)`                                                                         | config         | configure global HDF5 chunk cache                                     |
+|  [11]   | `get_alignment()`                                                                                                                  | config         | HDF5 alignment parameters                                             |
+|  [12]   | `set_alignment(threshold, alignment)`                                                                                              | config         | set HDF5 alignment                                                    |
+|  [13]   | `rc_get(key)`                                                                                                                      | config         | get runtime configuration value                                       |
+|  [14]   | `rc_set(key, value)`                                                                                                               | config         | set runtime configuration value                                       |
 
 CF time (`date2num`/`num2date`/`date2index`) is provided by the `cftime` dependency and re-exported here; calendar vocabulary (`standard`, `gregorian`, `noleap`, `360_day`, `julian`, `proleptic_gregorian`) and `has_year_zero` semantics live in `cftime`. The field-dataset rail decodes time through these, never through hand-parsed CF unit strings.
 

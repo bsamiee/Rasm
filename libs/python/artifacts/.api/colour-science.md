@@ -82,46 +82,46 @@
 [ENTRYPOINT_SCOPE]: appearance model and colorimetry operations
 - rail: colour
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CAPABILITY]                                   |
-| :-----: | :------------------------------------------------------- | :------------- | :--------------------------------------------- |
-|  [01]   | `XYZ_to_Lab(XYZ, illuminant)` / `Lab_to_XYZ(Lab, illuminant)`                              | Lab projection/inverse | CIE 1976 L\*a\*b\* and its inverse                     |
-|  [02]   | `XYZ_to_xy(XYZ, illuminant)` / `xy_to_XYZ(xy)` / `XYZ_to_xyY(XYZ)`                          | chromaticity   | XYZ to/from CIE 1931 `xy`/`xyY` chromaticity            |
-|  [03]   | `XYZ_to_CIECAM02(...)` / `XYZ_to_CIECAM16(...)` / `XYZ_to_CAM16(...)` / `XYZ_to_Hunt(...)`  | CAM appearance | CIECAM02 / CIECAM16 / CAM16 / Hunt appearance models    |
-|  [04]   | `XYZ_to_Oklab(XYZ)` / `XYZ_to_ICtCp(XYZ)` / `XYZ_to_OSA_UCS(XYZ)` / `XYZ_to_hdr_CIELab(XYZ)`| perceptual space | Oklab, ICtCp, OSA-UCS, and HDR-CIELab uniform spaces  |
-|  [05]   | `domain_range_scale(scale)` / `get_domain_range_scale()` / `set_domain_range_scale(scale)` | scale context  | `'reference'` / `'1'` / `'100'` mode control            |
-|  [06]   | `describe_conversion_path(source, target)`                                                 | graph query    | list conversion path between two colour models          |
+| [INDEX] | [SURFACE]                                                                                    | [ENTRY_FAMILY]         | [CAPABILITY]                                         |
+| :-----: | :------------------------------------------------------------------------------------------- | :--------------------- | :--------------------------------------------------- |
+|  [01]   | `XYZ_to_Lab(XYZ, illuminant)` / `Lab_to_XYZ(Lab, illuminant)`                                | Lab projection/inverse | CIE 1976 L\*a\*b\* and its inverse                   |
+|  [02]   | `XYZ_to_xy(XYZ, illuminant)` / `xy_to_XYZ(xy)` / `XYZ_to_xyY(XYZ)`                           | chromaticity           | XYZ to/from CIE 1931 `xy`/`xyY` chromaticity         |
+|  [03]   | `XYZ_to_CIECAM02(...)` / `XYZ_to_CIECAM16(...)` / `XYZ_to_CAM16(...)` / `XYZ_to_Hunt(...)`   | CAM appearance         | CIECAM02 / CIECAM16 / CAM16 / Hunt appearance models |
+|  [04]   | `XYZ_to_Oklab(XYZ)` / `XYZ_to_ICtCp(XYZ)` / `XYZ_to_OSA_UCS(XYZ)` / `XYZ_to_hdr_CIELab(XYZ)` | perceptual space       | Oklab, ICtCp, OSA-UCS, and HDR-CIELab uniform spaces |
+|  [05]   | `domain_range_scale(scale)` / `get_domain_range_scale()` / `set_domain_range_scale(scale)`   | scale context          | `'reference'` / `'1'` / `'100'` mode control         |
+|  [06]   | `describe_conversion_path(source, target)`                                                   | graph query            | list conversion path between two colour models       |
 
 [ENTRYPOINT_SCOPE]: RGB-space, transfer-function, and colour-correction operations
 - rail: colour
 
-| [INDEX] | [SURFACE]                                                                                                         | [ENTRY_FAMILY]          | [CAPABILITY]                                                                          |
-| :-----: | :--------------------------------------------------------------------------------------------------------------- | :---------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `RGB_to_RGB(RGB, input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02', apply_cctf_decoding, apply_cctf_encoding)` | RGB-space conversion | direct named-RGB to named-RGB with built-in chromatic adaptation, no XYZ round-trip |
-|  [02]   | `matrix_RGB_to_RGB(input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02')` / `normalised_primary_matrix(primaries, whitepoint)` | RGB matrix | the 3×3 adaptation-baked RGB→RGB matrix and the NPM from primaries+whitepoint |
-|  [03]   | `oetf(value, function='ITU-R BT.709')` / `eotf(value, function='ITU-R BT.1886')` / `ootf(value, function='ITU-R BT.2100 PQ')` | transfer function | scene/display/end-to-end transfer trio, method-dispatched (`OETFS`/`EOTFS`/`OOTFS` registries) |
-|  [04]   | `colour_correction(RGB, M_T, M_R, method='Cheung 2004')` / `matrix_colour_correction(M_T, M_R, method='Cheung 2004')` / `apply_matrix_colour_correction(RGB, CCM)` | colour correction | measured-vs-reference CCM derivation and application (`Cheung 2004`/`Finlayson 2015`/`Vandermonde`) |
+| [INDEX] | [SURFACE]                                                                                                                                                          | [ENTRY_FAMILY]       | [CAPABILITY]                                                                                        |
+| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------- | :-------------------------------------------------------------------------------------------------- |
+|  [01]   | `RGB_to_RGB(RGB, input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02', apply_cctf_decoding, apply_cctf_encoding)`                         | RGB-space conversion | direct named-RGB to named-RGB with built-in chromatic adaptation, no XYZ round-trip                 |
+|  [02]   | `matrix_RGB_to_RGB(input_colourspace, output_colourspace, chromatic_adaptation_transform='CAT02')` / `normalised_primary_matrix(primaries, whitepoint)`            | RGB matrix           | the 3×3 adaptation-baked RGB→RGB matrix and the NPM from primaries+whitepoint                       |
+|  [03]   | `oetf(value, function='ITU-R BT.709')` / `eotf(value, function='ITU-R BT.1886')` / `ootf(value, function='ITU-R BT.2100 PQ')`                                      | transfer function    | scene/display/end-to-end transfer trio, method-dispatched (`OETFS`/`EOTFS`/`OOTFS` registries)      |
+|  [04]   | `colour_correction(RGB, M_T, M_R, method='Cheung 2004')` / `matrix_colour_correction(M_T, M_R, method='Cheung 2004')` / `apply_matrix_colour_correction(RGB, CCM)` | colour correction    | measured-vs-reference CCM derivation and application (`Cheung 2004`/`Finlayson 2015`/`Vandermonde`) |
 
 [ENTRYPOINT_SCOPE]: CCT, wavelength, and colour-quality operations
 - rail: colour
 
-| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]       | [CAPABILITY]                                                              |
-| :-----: | :--------------------------------------------------------------------------------------- | :------------------- | :----------------------------------------------------------------------- |
-|  [01]   | `CCT_to_xy(CCT, method)` / `xy_to_CCT(xy, method)` / `CCT_to_uv(...)` / `uv_to_CCT(...)`  | CCT transform        | correlated colour temperature to/from `xy`/`uv` chromaticity, method-dispatched |
-|  [02]   | `wavelength_to_XYZ(wavelength, cmfs)`                                                     | spectral locus       | single-wavelength to XYZ via a CMFS                                      |
-|  [03]   | `dominant_wavelength(xy, xy_n)` / `complementary_wavelength(xy, xy_n)`                    | spectral analysis    | dominant / complementary wavelength of a chromaticity vs a white point   |
-|  [04]   | `whiteness(XYZ, XYZ_0, method)` / `yellowness(XYZ, method)`                               | colour index         | whiteness and yellowness indices, method-dispatched                      |
-|  [05]   | `colour_fidelity_index(sd_test, method)` / `colour_rendering_index(sd_test, method)`      | light-source quality | TM-30 / CIE 2017 colour fidelity and CIE colour rendering index          |
-|  [06]   | `sd_to_aces_relative_exposure_values(sd, illuminant)` / `msds_to_XYZ(msds, ...)`          | scene-referred       | SPD to ACES2065-1 RAE; multi-spectral batch SPD to XYZ                   |
+| [INDEX] | [SURFACE]                                                                                | [ENTRY_FAMILY]       | [CAPABILITY]                                                                    |
+| :-----: | :--------------------------------------------------------------------------------------- | :------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `CCT_to_xy(CCT, method)` / `xy_to_CCT(xy, method)` / `CCT_to_uv(...)` / `uv_to_CCT(...)` | CCT transform        | correlated colour temperature to/from `xy`/`uv` chromaticity, method-dispatched |
+|  [02]   | `wavelength_to_XYZ(wavelength, cmfs)`                                                    | spectral locus       | single-wavelength to XYZ via a CMFS                                             |
+|  [03]   | `dominant_wavelength(xy, xy_n)` / `complementary_wavelength(xy, xy_n)`                   | spectral analysis    | dominant / complementary wavelength of a chromaticity vs a white point          |
+|  [04]   | `whiteness(XYZ, XYZ_0, method)` / `yellowness(XYZ, method)`                              | colour index         | whiteness and yellowness indices, method-dispatched                             |
+|  [05]   | `colour_fidelity_index(sd_test, method)` / `colour_rendering_index(sd_test, method)`     | light-source quality | TM-30 / CIE 2017 colour fidelity and CIE colour rendering index                 |
+|  [06]   | `sd_to_aces_relative_exposure_values(sd, illuminant)` / `msds_to_XYZ(msds, ...)`         | scene-referred       | SPD to ACES2065-1 RAE; multi-spectral batch SPD to XYZ                          |
 
 [ENTRYPOINT_SCOPE]: dataset registries
 - rail: colour
 
-| [INDEX] | [SURFACE]           | [ENTRY_FAMILY]         | [CAPABILITY]                                                                                  |
-| :-----: | :------------------ | :--------------------- | :-------------------------------------------------------------------------------------------- |
-|  [01]   | `MSDS_CMFS`         | CMFS registry          | keyed colour-matching-function multi-SPDs (e.g. `'CIE 1931 2 Degree Standard Observer'`)      |
-|  [02]   | `SDS_ILLUMINANTS`   | illuminant SPDs        | keyed illuminant spectral distributions (`'D65'`, `'A'`, `'FL2'`, …)                          |
-|  [03]   | `CCS_ILLUMINANTS`   | illuminant whitepoints | keyed `xy` chromaticity whitepoints per standard observer                                     |
-|  [04]   | `SDS_LIGHT_SOURCES` | light-source SPDs      | keyed real light-source spectral distributions                                                |
+| [INDEX] | [SURFACE]           | [ENTRY_FAMILY]         | [CAPABILITY]                                                                             |
+| :-----: | :------------------ | :--------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `MSDS_CMFS`         | CMFS registry          | keyed colour-matching-function multi-SPDs (e.g. `'CIE 1931 2 Degree Standard Observer'`) |
+|  [02]   | `SDS_ILLUMINANTS`   | illuminant SPDs        | keyed illuminant spectral distributions (`'D65'`, `'A'`, `'FL2'`, …)                     |
+|  [03]   | `CCS_ILLUMINANTS`   | illuminant whitepoints | keyed `xy` chromaticity whitepoints per standard observer                                |
+|  [04]   | `SDS_LIGHT_SOURCES` | light-source SPDs      | keyed real light-source spectral distributions                                           |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

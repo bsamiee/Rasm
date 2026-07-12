@@ -222,7 +222,7 @@ public static class ReplayVerify {
                     acc.LastOrNone().Map(static last => last is ReplayOutcome.Diverged).IfNone(false)
                         ? IO.pure(acc.Add(new ReplayOutcome.Skipped(entry.Sequence, "downstream-of-divergence")))
                         : Step(runtime, entry).Map(outcome => acc.Add(outcome))).As(),
-                Fail: error => IO.pure(Seq<ReplayOutcome>(new ReplayOutcome.Skipped(0L, error.Message)))) 
+                Fail: error => IO.pure(Seq<ReplayOutcome>(new ReplayOutcome.Skipped(0L, error.Message))))
             : IO.pure(Seq<ReplayOutcome>(new ReplayOutcome.EnvironmentMismatch(runtime.Recorded.Fingerprint.Hex, live.Fingerprint.Hex)));
 
     static IO<ReplayOutcome> Step(ReplayRuntime runtime, LogEntry entry) =>

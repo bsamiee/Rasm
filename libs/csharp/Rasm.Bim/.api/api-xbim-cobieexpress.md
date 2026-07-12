@@ -198,44 +198,19 @@ siblings under the same xBIM lineage and license posture.
  COBie projection of the Pset properties — the same Pset vocabulary the `Xbim.Properties` template
  defines and the GeometryGym model carries, mapped onto `CobieAttribute` (name + `AttributeValue` +
  unit), never a re-typed property model
-- with `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`api-unitsnet`): the
- `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values are stamped from
- the `NodaMoney` `Currency` and the `UnitsNet` SI units the cost/quantity owners hold, so the COBie
- register's units agree with the model's typed money/measures
-- with `VividOrange.Stages` (`api-vividorange-stages`): the COBie `CobiePhase`/`CobieStageType`/
- `CobieImpactStage` draw their stage vocabulary from the project-lifecycle taxonomy, so the design
- phase and the handover phase share one stage vocabulary
-- with `NodaTime` (`api-nodatime`): the `CobieCreatedInfo.CreatedOn` provenance instant is stamped from
- the model `ClockPolicy`, never a BCL `DateTime.Now` at the call site
+- with `Planning/cost#ESTIMATE` (`api-nodamoney`) + `UnitsNet` (`api-unitsnet`): the `CobieCurrencyUnit`/`CobieAreaUnit`/`CobieLinearUnit`/`CobieVolumeUnit` pick-values are stamped from the `NodaMoney` `Currency` and the `UnitsNet` SI units the cost/quantity owners hold, so the COBie register's units agree with the model's typed money/measures
+- with `VividOrange.Stages` (`api-vividorange-stages`): the COBie `CobiePhase`/`CobieStageType`/ `CobieImpactStage` draw their stage vocabulary from the project-lifecycle taxonomy, so the design phase and the handover phase share one stage vocabulary
+- with `NodaTime` (`api-nodatime`): the `CobieCreatedInfo.CreatedOn` provenance instant is stamped from the model `ClockPolicy`, never a BCL `DateTime.Now` at the call site
 
 [LOCAL_ADMISSION]:
-- the FM-handover asset register is the `CobieModel`, AUTHORED from the `BimModel`/`ElementSet` +
- properties through `Instances.New<T>()` in a transaction — a hand-rolled COBie spreadsheet writer or
- a parallel asset-register model beside `CobieModel` is the rejected form
-- the IFC→COBie exchanger's xBIM source is admitted ONLY as a terminal `.ifc`-file→COBie transform; a
- retained xBIM `IModel` as a live second authority alongside GeometryGym is the named boundary violation
-- COBie attributes are the Pset projection (`api-xbim-properties` vocabulary), units the
- `NodaMoney`/`UnitsNet` projection, phases the `VividOrange.Stages` projection, provenance the
- `NodaTime` `ClockPolicy` projection — never a fresh vocabulary minted in the COBie owner
-- the COBie spreadsheet (`ExportToTable`) is the canonical FM deliverable; STEP21 (`SaveAsStep21`) is
- the interchange form; Esent is a working-store backend, not a deliverable
+- the FM-handover asset register is the `CobieModel`, AUTHORED from the `BimModel`/`ElementSet` + properties through `Instances.New<T>()` in a transaction — a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside `CobieModel` is the rejected form
+- the IFC→COBie exchanger's xBIM source is admitted ONLY as a terminal `.ifc`-file→COBie transform; a retained xBIM `IModel` as a live second authority alongside GeometryGym is the named boundary violation
+- COBie attributes are the Pset projection (`api-xbim-properties` vocabulary), units the `NodaMoney`/`UnitsNet` projection, phases the `VividOrange.Stages` projection, provenance the `NodaTime` `ClockPolicy` projection — never a fresh vocabulary minted in the COBie owner
+- the COBie spreadsheet (`ExportToTable`) is the canonical FM deliverable; STEP21 (`SaveAsStep21`) is the interchange form; Esent is a working-store backend, not a deliverable
 
 [RAIL_LAW]:
-- Package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` (,
- CDDL-1.0, `requireLicenseAcceptance=false`, pure-managed `lib/netstandard2.0` AnyCPU IL binding
- forward under net10; transitive `Xbim.Common`/`Xbim.IO.Table` + the xBIM `Xbim.Ifc`/`Xbim.Ifc4`
- IFC stack the exchanger reads)
-- Owns: the COBie EXPRESS FM digital-handover asset-information schema (facility/floor/space/zone,
- type/component, system, spare/resource/job, document/contact/attribute/issue/impact/connection/
- coordinate + the pick-value dictionaries), the `CobieModel` store (STEP21/Esent/spreadsheet IO,
- transactions, `ExportToTable`/`ImportFromTable`), and the turnkey IFC→COBie converter
+- Package: `Xbim.CobieExpress` + `Xbim.IO.CobieExpress` + `Xbim.CobieExpress.Exchanger` (CDDL-1.0, `requireLicenseAcceptance=false`, pure-managed `lib/netstandard2.0` AnyCPU IL binding forward under net10; transitive `Xbim.Common`/`Xbim.IO.Table` + the xBIM `Xbim.Ifc`/`Xbim.Ifc4` IFC stack the exchanger reads)
+- Owns: the COBie EXPRESS FM digital-handover asset-information schema (facility/floor/space/zone, type/component, system, spare/resource/job, document/contact/attribute/issue/impact/connection/ coordinate + the pick-value dictionaries), the `CobieModel` store (STEP21/Esent/spreadsheet IO, transactions, `ExportToTable`/`ImportFromTable`), and the turnkey IFC→COBie converter
 - Accept: the canonical `CobieModel` authored DIRECTLY from the seam `Rasm.Element/Graph/element#ELEMENT_GRAPH` `ElementGraph` baked `Element`s
- + `Semantics/properties#PROPERTY_TEMPLATES` Pset attributes + `VividOrange.Stages` phases +
- `NodaMoney`/`UnitsNet` units + `NodaTime` provenance, serialized as the COBie spreadsheet/STEP21 export
- leg of `Exchange/export#EXPORT_RAIL` content-keyed by the shared `InterchangeIdentity`
-- Reject: standing up the xBIM `Xbim.Ifc`/`Xbim.Ifc4` reader as a second in-memory IFC authority beside
- GeometryGym (the exchanger is a terminal `.ifc`-file→COBie transform only); a hand-rolled COBie
- spreadsheet writer or a parallel asset-register model beside `CobieModel`; re-typing the Pset/unit/
- phase vocabulary instead of projecting the `Xbim.Properties`/`UnitsNet`/`NodaMoney`/`VividOrange.Stages`
- owners; binding the `net472` asset (net10 binds `netstandard2.0`); vendoring or modifying the CDDL-1.0
- source rather than referencing the binary
+ - `Semantics/properties#PROPERTY_TEMPLATES` Pset attributes + `VividOrange.Stages` phases + `NodaMoney`/`UnitsNet` units + `NodaTime` provenance, serialized as the COBie spreadsheet/STEP21 export leg of `Exchange/export#EXPORT_RAIL` content-keyed by the shared `InterchangeIdentity`
+- Reject: standing up the xBIM `Xbim.Ifc`/`Xbim.Ifc4` reader as a second in-memory IFC authority beside GeometryGym (the exchanger is a terminal `.ifc`-file→COBie transform only); a hand-rolled COBie spreadsheet writer or a parallel asset-register model beside `CobieModel`; re-typing the Pset/unit/ phase vocabulary instead of projecting the `Xbim.Properties`/`UnitsNet`/`NodaMoney`/`VividOrange.Stages` owners; binding the `net472` asset (net10 binds `netstandard2.0`); vendoring or modifying the CDDL-1.0 source rather than referencing the binary

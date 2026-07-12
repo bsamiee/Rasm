@@ -22,39 +22,39 @@
 
 `SSAFile` is the sole stateful owner the page constructs; `SSAEvent` and `SSAStyle` are the two `dataclasses` records it reads and mutates (mutable, field-exposed — `SSAEvent.start`/`end`/`text`/`style`/`layer`/`name`/`marginl`/`marginr`/`marginv`/`effect`/`type`, `SSAStyle.fontname`/`fontsize`/`primarycolor`/`bold`/`italic`/`alignment`/`borderstyle`/`outline`/`shadow`/`marginl`/`marginr`/`marginv`). `Color` (8-bit RGBA, range-checked 0–255) and `Alignment` (numpad-style `IntEnum` 1–9, ASS semantics) are the two value vocabularies styles carry. `SSAFile` IS-A `MutableSequence[SSAEvent]`, so the standard-library ABC supplies `append`/`extend`/`index`/`count`/`pop`/`remove`/`reverse`/`__contains__`/`__iadd__` as mixins over the four concrete dunders (`__getitem__`/`__setitem__`/`__delitem__`/`__len__`) plus `insert` — the owner never re-implements list mutation, it slices and appends `SSAEvent` rows directly.
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `SSAFile` | `MutableSequence[SSAEvent]` | the subtitle document — parse/convert/retime/restyle spine; `events`/`styles`/`info`/`fps`/`format` |
-| [02] | `SSAEvent` | `@dataclass` (mutable) | one subtitle line — `start`/`end` ms, tagged `text`, `style`/`name`/`layer`/`margins`/`effect`/`type` |
-| [03] | `SSAStyle` | `@dataclass` (mutable) | one named style — font/size/colors/bold/italic/border/`alignment`/`outline`/`shadow`/margins |
-| [04] | `Color` | `@dataclass` value (RGBA) | 8-bit RGB+alpha (0–255, range-validated on construct); the color value styles carry |
-| [05] | `Alignment` | `IntEnum` (numpad 1–9) | ASS-semantics text anchor; `from_ssa_alignment`/`to_ssa_alignment` bridge the legacy SSA numbering |
+| [INDEX] | [SYMBOL]    | [PACKAGE_ROLE]              | [CAPABILITY]                                                                                          |
+| :-----: | :---------- | :-------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `SSAFile`   | `MutableSequence[SSAEvent]` | the subtitle document — parse/convert/retime/restyle spine; `events`/`styles`/`info`/`fps`/`format`   |
+|  [02]   | `SSAEvent`  | `@dataclass` (mutable)      | one subtitle line — `start`/`end` ms, tagged `text`, `style`/`name`/`layer`/`margins`/`effect`/`type` |
+|  [03]   | `SSAStyle`  | `@dataclass` (mutable)      | one named style — font/size/colors/bold/italic/border/`alignment`/`outline`/`shadow`/margins          |
+|  [04]   | `Color`     | `@dataclass` value (RGBA)   | 8-bit RGB+alpha (0–255, range-validated on construct); the color value styles carry                   |
+|  [05]   | `Alignment` | `IntEnum` (numpad 1–9)      | ASS-semantics text anchor; `from_ssa_alignment`/`to_ssa_alignment` bridge the legacy SSA numbering    |
 
 [PUBLIC_TYPE_SCOPE]: the typed error rail
 - rail: media
 
 The module roots one exception hierarchy at `Pysubs2Error`; the owner maps it onto the `media/subtitle#SUBTITLE` `RuntimeRail` typed-error envelope at the parse/serialize boundary (a malformed or ambiguous source surfaces as a typed media fault, never a bare `Exception`), and traps the standard-library `OSError`/`UnicodeDecodeError`/`UnicodeEncodeError` the `Path.open` ingest/egress can raise beside them. `FormatAutodetectionError` carries the analyzed `content` and the candidate `formats` list; `UnknownFileExtensionError` carries `ext`; `UnknownFormatIdentifierError` carries `format_` — each with a `__reduce__` for clean cross-process propagation off the worker band.
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `Pysubs2Error` | base error | root of the package hierarchy; the owner's single `except` anchor at the subtitle boundary |
-| [02] | `FormatAutodetectionError` | error | source dialect ambiguous/unknown from the fragment scan; carries `content` + candidate `formats` |
-| [03] | `UnknownFormatIdentifierError` | error | a `format_` string (`save`/`to_string`) matches no registered dialect; carries `format_` |
-| [04] | `UnknownFileExtensionError` | error | a save-path extension maps to no dialect when `format_` is omitted; carries `ext` |
-| [05] | `UnknownFPSError` | error | a frame-based format (MicroDVD) needs an fps that was neither supplied nor inferred |
+| [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE] | [CAPABILITY]                                                                                     |
+| :-----: | :----------------------------- | :------------- | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `Pysubs2Error`                 | base error     | root of the package hierarchy; the owner's single `except` anchor at the subtitle boundary       |
+|  [02]   | `FormatAutodetectionError`     | error          | source dialect ambiguous/unknown from the fragment scan; carries `content` + candidate `formats` |
+|  [03]   | `UnknownFormatIdentifierError` | error          | a `format_` string (`save`/`to_string`) matches no registered dialect; carries `format_`         |
+|  [04]   | `UnknownFileExtensionError`    | error          | a save-path extension maps to no dialect when `format_` is omitted; carries `ext`                |
+|  [05]   | `UnknownFPSError`              | error          | a frame-based format (MicroDVD) needs an fps that was neither supplied nor inferred              |
 
 [PUBLIC_TYPE_SCOPE]: the format registry and dialect vocabulary
 - rail: media
 
 The dialect set is data, not code: `pysubs2.formats` carries the closed format-identifier ↔ file-extension ↔ implementation tables the owner's convert axis keys into. `FORMAT_IDENTIFIERS` is the canonical `list[str]` of every writable dialect the owner's target-format discriminant ranges over; `FILE_EXTENSION_TO_FORMAT_IDENTIFIER` and `FORMAT_IDENTIFIER_TO_FORMAT_CLASS` are the two maps `SSAFile.save` and `SSAFile.from_file` resolve through. The owner never instantiates a `FormatBase` subclass directly — it passes a verified `format_` string from this table.
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `formats.FORMAT_IDENTIFIERS` | `list[str]` | every writable dialect id (`srt`/`ass`/`ssa`/`microdvd`/`json`/`mpl2`/`tmp`/`vtt`/`sami`/`whisper_jax`/`ttml`) |
-| [02] | `formats.FILE_EXTENSION_TO_FORMAT_IDENTIFIER` | `dict[str, str]` | `.srt→srt`/`.ass→ass`/`.vtt→vtt`/`.sub→microdvd`/`.smi→sami`… the save-path extension codec |
-| [03] | `formats.FORMAT_IDENTIFIER_TO_FORMAT_CLASS` | `dict[str, type]` | dialect id → `FormatBase` implementation; the parse/serialize dispatch table |
-| [04] | `formats.autodetect_format` | `(str) -> str` | fragment → unique dialect id, else `FormatAutodetectionError` (the `from_file` autodetect) |
-| [05] | `formats.get_format_identifier` / `get_file_extension` | functions | extension ↔ identifier bridge the `save`/`load` default-format resolution calls |
+| [INDEX] | [SYMBOL]                                               | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                                   |
+| :-----: | :----------------------------------------------------- | :---------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `formats.FORMAT_IDENTIFIERS`                           | `list[str]`       | every writable dialect id (`srt`/`ass`/`ssa`/`microdvd`/`json`/`mpl2`/`tmp`/`vtt`/`sami`/`whisper_jax`/`ttml`) |
+|  [02]   | `formats.FILE_EXTENSION_TO_FORMAT_IDENTIFIER`          | `dict[str, str]`  | `.srt→srt`/`.ass→ass`/`.vtt→vtt`/`.sub→microdvd`/`.smi→sami`… the save-path extension codec                    |
+|  [03]   | `formats.FORMAT_IDENTIFIER_TO_FORMAT_CLASS`            | `dict[str, type]` | dialect id → `FormatBase` implementation; the parse/serialize dispatch table                                   |
+|  [04]   | `formats.autodetect_format`                            | `(str) -> str`    | fragment → unique dialect id, else `FormatAutodetectionError` (the `from_file` autodetect)                     |
+|  [05]   | `formats.get_format_identifier` / `get_file_extension` | functions         | extension ↔ identifier bridge the `save`/`load` default-format resolution calls                                |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -63,68 +63,68 @@ The dialect set is data, not code: `pysubs2.formats` carries the closed format-i
 
 `SSAFile.load(path, encoding="utf-8", format_=None, fps=None, errors=None)` is the primary parse: it opens the path in text mode and delegates to `from_file`, which — when `format_` is `None` — buffers the stream, scans the first 10 000 chars through `autodetect_format`, and re-parses with the resolved dialect (so a pipe is read twice safely), setting `SSAFile.format` and `SSAFile.fps` from the detection. `from_string(string, …)` is the in-memory mirror over a `StringIO`; `from_file(fp, …)` is the low-level `TextIO` reader both build on. `errors="surrogateescape"` (added release) passes through bytes the chosen encoding cannot decode — the owner's posture for unknown-encoding subtitle sidecars. The module-level `pysubs2.load` is the `SSAFile.load` alias; `load_from_whisper(result_or_segments)` is the ASR bridge that folds a Whisper `{"segments": [{start, end, text}]}` dict (or the bare segment list) into a fresh `SSAFile`, seconds→ms via `make_time(s=…)`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `SSAFile.load` / `pysubs2.load` | `load(path: str \| PathLike, encoding: str = "utf-8", format_: str \| None = None, fps: float \| None = None, errors: str \| None = None, **kwargs) -> SSAFile` | parse a subtitle file; autodetect dialect/framerate unless forced; `errors="surrogateescape"` for unknown encodings |
-| [02] | `SSAFile.from_string` | `from_string(string: str, format_: str \| None = None, fps: float \| None = None, **kwargs) -> SSAFile` | parse a subtitle document from a Unicode `str` (not bytes) |
-| [03] | `SSAFile.from_file` | `from_file(fp: TextIO, format_: str \| None = None, fps: float \| None = None, **kwargs) -> SSAFile` | low-level text-stream parse; the autodetect-then-reparse buffering core |
-| [04] | `load_from_whisper` | `load_from_whisper(result_or_segments: dict \| list[dict]) -> SSAFile` | bridge an OpenAI-Whisper transcript (`segments` of `{start, end, text}` seconds) into events |
-| [05] | `formats.whisper.WhisperJAXFormat` | parse `format_="whisper_jax"` | the `[hh:mm:ss.mmm -> …] text` Whisper-JAX line dialect (registered, autodetected) |
+| [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                                                                                                                                    | [CAPABILITY]                                                                                                        |
+| :-----: | :--------------------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `SSAFile.load` / `pysubs2.load`    | `load(path: str \| PathLike, encoding: str = "utf-8", format_: str \| None = None, fps: float \| None = None, errors: str \| None = None, **kwargs) -> SSAFile` | parse a subtitle file; autodetect dialect/framerate unless forced; `errors="surrogateescape"` for unknown encodings |
+|  [02]   | `SSAFile.from_string`              | `from_string(string: str, format_: str \| None = None, fps: float \| None = None, **kwargs) -> SSAFile`                                                         | parse a subtitle document from a Unicode `str` (not bytes)                                                          |
+|  [03]   | `SSAFile.from_file`                | `from_file(fp: TextIO, format_: str \| None = None, fps: float \| None = None, **kwargs) -> SSAFile`                                                            | low-level text-stream parse; the autodetect-then-reparse buffering core                                             |
+|  [04]   | `load_from_whisper`                | `load_from_whisper(result_or_segments: dict \| list[dict]) -> SSAFile`                                                                                          | bridge an OpenAI-Whisper transcript (`segments` of `{start, end, text}` seconds) into events                        |
+|  [05]   | `formats.whisper.WhisperJAXFormat` | parse `format_="whisper_jax"`                                                                                                                                   | the `[hh:mm:ss.mmm -> …] text` Whisper-JAX line dialect (registered, autodetected)                                  |
 
 [ENTRYPOINT_SCOPE]: the event surface — read, mutate, project text
 - rail: media
 
 `SSAFile` mutates as a list of `SSAEvent`: `subs[i]`/`subs[i] = ev`/`del subs[i]`/`len(subs)`/`subs.insert(i, ev)` are the concrete dunders (slices supported and type-checked — non-`SSAEvent` values raise `TypeError`), and the `MutableSequence` mixins (`append`/`extend`/`index`/`count`/`pop`/`remove`/`reverse`/`in`) come free. Each `SSAEvent` carries `start`/`end` as milliseconds (use `make_time` to author them), `text` with raw SubStation override tags, and the read/write `plaintext` property that strips `{…}` override sequences and normalizes `\N`/`\n`/`\h` to newlines/spaces — the projection the burn-in path renders. `duration` is a read/write property (writing adjusts `end`; negative raises `ValueError`); `is_comment`/`is_text`/`is_drawing` classify a line (drawing-tag detection runs `parse_tags`); `SSAEvent.shift(...)` retimes one line. `SSAEvent(start=…, end=…, text=…)` and `SSAStyle(...)` construct directly; `.copy()`/`.as_dict()`/`.equals(other)` clone/project/compare without dictifying nested `Color`s.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `SSAFile.getitem` / `insert` / `append` | `subs[i] -> SSAEvent`; `subs[a:b] -> list[SSAEvent]`; `subs.insert(i, ev)`; `subs.append(ev)` | list-like event access/insert/append (slices type-checked; mixins from `MutableSequence`) |
-| [02] | `SSAEvent.init` | `SSAEvent(start: int = 0, end: int = 10000, text: str = "", style: str = "Default", layer: int = 0, name: str = "", marginl: int = 0, marginr: int = 0, marginv: int = 0, effect: str = "", type: Literal["Dialogue","Comment"] = "Dialogue")` | construct one subtitle line (times in ms) |
-| [03] | `SSAEvent.plaintext` | `ev.plaintext -> str` (read/write) | tags-stripped, newline-normalized text; the burn-in render input; writing re-encodes `n`→`N` |
-| [04] | `SSAEvent.duration` | `ev.duration -> int` (read/write) | `end - start` ms; writing adjusts `end`; negative raises `ValueError` |
-| [05] | `SSAEvent.is_text` / `is_comment` / `is_drawing` | `ev.is_text -> bool` … | classify a line — exclude SSA drawings/comments from a text track or render |
-| [06] | `SSAEvent.shift` | `shift(h=0, m=0, s=0, ms=0, frames=None, fps=None) -> None` | retime one line in place (time- or frame-based) |
-| [07] | `SSAStyle.init` | `SSAStyle(fontname="Arial", fontsize=20.0, primarycolor=Color(255,255,255), bold=False, italic=False, alignment=Alignment.BOTTOM_CENTER, borderstyle=1, outline=2.0, shadow=2.0, marginl=10, marginr=10, marginv=10, …)` | construct one named style |
-| [08] | `SSAEvent.copy` / `as_dict` / `equals` | `ev.copy() -> SSAEvent`; `ev.as_dict() -> dict[str, Any]`; `ev.equals(other) -> bool` | clone / shallow project (Color-safe) / field-equality compare |
+| [INDEX] | [SURFACE]                                        | [CALL_SHAPE]                                                                                                                                                                                                                                   | [CAPABILITY]                                                                                 |
+| :-----: | :----------------------------------------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+|  [01]   | `SSAFile.getitem` / `insert` / `append`          | `subs[i] -> SSAEvent`; `subs[a:b] -> list[SSAEvent]`; `subs.insert(i, ev)`; `subs.append(ev)`                                                                                                                                                  | list-like event access/insert/append (slices type-checked; mixins from `MutableSequence`)    |
+|  [02]   | `SSAEvent.init`                                  | `SSAEvent(start: int = 0, end: int = 10000, text: str = "", style: str = "Default", layer: int = 0, name: str = "", marginl: int = 0, marginr: int = 0, marginv: int = 0, effect: str = "", type: Literal["Dialogue","Comment"] = "Dialogue")` | construct one subtitle line (times in ms)                                                    |
+|  [03]   | `SSAEvent.plaintext`                             | `ev.plaintext -> str` (read/write)                                                                                                                                                                                                             | tags-stripped, newline-normalized text; the burn-in render input; writing re-encodes `n`→`N` |
+|  [04]   | `SSAEvent.duration`                              | `ev.duration -> int` (read/write)                                                                                                                                                                                                              | `end - start` ms; writing adjusts `end`; negative raises `ValueError`                        |
+|  [05]   | `SSAEvent.is_text` / `is_comment` / `is_drawing` | `ev.is_text -> bool` …                                                                                                                                                                                                                         | classify a line — exclude SSA drawings/comments from a text track or render                  |
+|  [06]   | `SSAEvent.shift`                                 | `shift(h=0, m=0, s=0, ms=0, frames=None, fps=None) -> None`                                                                                                                                                                                    | retime one line in place (time- or frame-based)                                              |
+|  [07]   | `SSAStyle.init`                                  | `SSAStyle(fontname="Arial", fontsize=20.0, primarycolor=Color(255,255,255), bold=False, italic=False, alignment=Alignment.BOTTOM_CENTER, borderstyle=1, outline=2.0, shadow=2.0, marginl=10, marginr=10, marginv=10, …)`                       | construct one named style                                                                    |
+|  [08]   | `SSAEvent.copy` / `as_dict` / `equals`           | `ev.copy() -> SSAEvent`; `ev.as_dict() -> dict[str, Any]`; `ev.equals(other) -> bool`                                                                                                                                                          | clone / shallow project (Color-safe) / field-equality compare                                |
 
 [ENTRYPOINT_SCOPE]: retiming and style operations on the track
 - rail: media
 
 `SSAFile.shift(h, m, s, ms, frames, fps)` translates every event by one delta (time- or frame-based; `make_time` builds the delta); `transform_framerate(in_fps, out_fps)` rescales every timestamp by the `in_fps/out_fps` ratio (the fix for a frame-rate-mismatched conversion; non-positive fps raises `ValueError`); `sort()` orders events by `(start, end)` in place. Style ops: `rename_style(old, new)` renames a style and rewrites every event referencing it (validates the new name against the SubStation field grammar); `import_styles(other, overwrite=True)` merges styles from another `SSAFile`. `remove_miscellaneous_events()` is the CLI `--clean` — drops comments, drawing-tag lines, sub-2-char text, and time-identical duplicates; `get_text_events()` returns the non-comment/non-drawing subset. `equals(other)` is the deep structural compare over `info`/`styles`/`events`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `SSAFile.shift` | `shift(h=0, m=0, s=0, ms=0, frames: int \| None = None, fps: float \| None = None) -> None` | translate the whole track by a constant time or frame delta |
-| [02] | `SSAFile.transform_framerate` | `transform_framerate(in_fps: float, out_fps: float) -> None` | rescale every timestamp by `in_fps/out_fps` (frame-rate-mismatch fix) |
-| [03] | `SSAFile.sort` | `sort() -> None` | order events by `(start, end)` in place |
-| [04] | `SSAFile.rename_style` | `rename_style(old_name: str, new_name: str) -> None` | rename a style + rewrite all references; validates the new name, rejects taken/illegal |
-| [05] | `SSAFile.import_styles` | `import_styles(subs: SSAFile, overwrite: bool = True) -> None` | merge styles from another file (conflict policy via `overwrite`) |
-| [06] | `SSAFile.remove_miscellaneous_events` / `get_text_events` | `remove_miscellaneous_events() -> None`; `get_text_events() -> list[SSAEvent]` | drop non-essential lines (`--clean`) / select the visible text subset |
+| [INDEX] | [SURFACE]                                                 | [CALL_SHAPE]                                                                                | [CAPABILITY]                                                                           |
+| :-----: | :-------------------------------------------------------- | :------------------------------------------------------------------------------------------ | :------------------------------------------------------------------------------------- |
+|  [01]   | `SSAFile.shift`                                           | `shift(h=0, m=0, s=0, ms=0, frames: int \| None = None, fps: float \| None = None) -> None` | translate the whole track by a constant time or frame delta                            |
+|  [02]   | `SSAFile.transform_framerate`                             | `transform_framerate(in_fps: float, out_fps: float) -> None`                                | rescale every timestamp by `in_fps/out_fps` (frame-rate-mismatch fix)                  |
+|  [03]   | `SSAFile.sort`                                            | `sort() -> None`                                                                            | order events by `(start, end)` in place                                                |
+|  [04]   | `SSAFile.rename_style`                                    | `rename_style(old_name: str, new_name: str) -> None`                                        | rename a style + rewrite all references; validates the new name, rejects taken/illegal |
+|  [05]   | `SSAFile.import_styles`                                   | `import_styles(subs: SSAFile, overwrite: bool = True) -> None`                              | merge styles from another file (conflict policy via `overwrite`)                       |
+|  [06]   | `SSAFile.remove_miscellaneous_events` / `get_text_events` | `remove_miscellaneous_events() -> None`; `get_text_events() -> list[SSAEvent]`              | drop non-essential lines (`--clean`) / select the visible text subset                  |
 
 [ENTRYPOINT_SCOPE]: egress — serialize to any dialect
 - rail: media
 
 `SSAFile.save(path, encoding="utf-8", format_=None, fps=None, errors=None)` writes the track; with `format_=None` the dialect is inferred from the path extension (else `UnknownFileExtensionError`). `to_string(format_, fps=None)` returns the serialized text directly (the in-memory egress the owner keys a `ContentKey` over — no temp file), and `to_file(fp, format_, …)` is the low-level `TextIO` writer. A target `format_` not in `FORMAT_IDENTIFIERS` raises `UnknownFormatIdentifierError`; a MicroDVD save without an fps raises `UnknownFPSError`. The owner's convert axis is exactly `SSAFile.from_string(text, format_=src).to_string(format_=dst)` — one parse, one serialize, no per-pair converter.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `SSAFile.save` | `save(path: str \| PathLike, encoding: str = "utf-8", format_: str \| None = None, fps: float \| None = None, errors: str \| None = None, **kwargs) -> None` | serialize to a path; infer dialect from extension unless forced |
-| [02] | `SSAFile.to_string` | `to_string(format_: str, fps: float \| None = None, **kwargs) -> str` | serialize to an in-memory `str` (the `ContentKey` egress; the convert/restyle product) |
-| [03] | `SSAFile.to_file` | `to_file(fp: TextIO, format_: str, fps: float \| None = None, **kwargs) -> None` | low-level text-stream writer |
-| [04] | `SSAFile.from_string(...).to_string(...)` | parse `format_=src` then serialize `format_=dst` | the one-shot dialect-convert axis (e.g. `srt`→`vtt`, `ass`→`srt`), no per-pair function |
+| [INDEX] | [SURFACE]                                 | [CALL_SHAPE]                                                                                                                                                 | [CAPABILITY]                                                                            |
+| :-----: | :---------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | `SSAFile.save`                            | `save(path: str \| PathLike, encoding: str = "utf-8", format_: str \| None = None, fps: float \| None = None, errors: str \| None = None, **kwargs) -> None` | serialize to a path; infer dialect from extension unless forced                         |
+|  [02]   | `SSAFile.to_string`                       | `to_string(format_: str, fps: float \| None = None, **kwargs) -> str`                                                                                        | serialize to an in-memory `str` (the `ContentKey` egress; the convert/restyle product)  |
+|  [03]   | `SSAFile.to_file`                         | `to_file(fp: TextIO, format_: str, fps: float \| None = None, **kwargs) -> None`                                                                             | low-level text-stream writer                                                            |
+|  [04]   | `SSAFile.from_string(...).to_string(...)` | parse `format_=src` then serialize `format_=dst`                                                                                                             | the one-shot dialect-convert axis (e.g. `srt`→`vtt`, `ass`→`srt`), no per-pair function |
 
 [ENTRYPOINT_SCOPE]: time arithmetic and override-tag parsing
 - rail: media
 
 `pysubs2.make_time(h, m, s, ms, frames, fps)` is the canonical ms constructor (`make_time(s=1.5) == 1500`; `make_time(frames=50, fps=25) == 2000`; mixing frames without fps raises `ValueError`) — every `start`/`end`/`shift` delta authors through it. The `pysubs2.time` module exposes the full conversion family the owner reads for frame-accurate retiming and timestamp rendering; `pysubs2.substation.parse_tags(text, style=…, styles=…)` splits a tagged `text` into `(fragment, computed_SSAStyle)` runs — the styled-fragment decomposition the per-run RGBA burn-in render consumes when the burn must honor inline `\i`/`\b`/`\fn`/`\r` overrides rather than flatten to `plaintext`.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-| --- | --- | --- | --- |
-| [01] | `pysubs2.make_time` | `make_time(h=0, m=0, s=0, ms=0, frames: int \| None = None, fps: float \| None = None) -> int` | author a millisecond time from any unit mix or a frame count (the start/end constructor) |
-| [02] | `time.ms_to_str` | `ms_to_str(ms, fractions: bool = False) -> str` | render ms → `[-]H:MM:SS[.mmm]` (the timestamp display/serialize helper) |
-| [03] | `time.ms_to_times` / `times_to_ms` | `ms_to_times(ms) -> Times(h,m,s,ms)`; `times_to_ms(h=0,m=0,s=0,ms=0) -> int` | normalized (h,m,s,ms) ↔ ms tuple conversion |
-| [04] | `time.frames_to_ms` / `ms_to_frames` | `frames_to_ms(frames, fps) -> int`; `ms_to_frames(ms, fps) -> int` | frame ↔ ms at a framerate (non-positive fps raises `ValueError`) |
-| [05] | `substation.parse_tags` | `parse_tags(text: str, style: SSAStyle = SSAStyle.DEFAULT_STYLE, styles: dict[str, SSAStyle] \| None = None, skip_empty_fragments: bool = False) -> list[tuple[str, SSAStyle]]` | decompose tagged text into styled fragments (the override-aware burn-in render input) |
+| [INDEX] | [SURFACE]                            | [CALL_SHAPE]                                                                                                                                                                    | [CAPABILITY]                                                                             |
+| :-----: | :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | `pysubs2.make_time`                  | `make_time(h=0, m=0, s=0, ms=0, frames: int \| None = None, fps: float \| None = None) -> int`                                                                                  | author a millisecond time from any unit mix or a frame count (the start/end constructor) |
+|  [02]   | `time.ms_to_str`                     | `ms_to_str(ms, fractions: bool = False) -> str`                                                                                                                                 | render ms → `[-]H:MM:SS[.mmm]` (the timestamp display/serialize helper)                  |
+|  [03]   | `time.ms_to_times` / `times_to_ms`   | `ms_to_times(ms) -> Times(h,m,s,ms)`; `times_to_ms(h=0,m=0,s=0,ms=0) -> int`                                                                                                    | normalized (h,m,s,ms) ↔ ms tuple conversion                                              |
+|  [04]   | `time.frames_to_ms` / `ms_to_frames` | `frames_to_ms(frames, fps) -> int`; `ms_to_frames(ms, fps) -> int`                                                                                                              | frame ↔ ms at a framerate (non-positive fps raises `ValueError`)                         |
+|  [05]   | `substation.parse_tags`              | `parse_tags(text: str, style: SSAStyle = SSAStyle.DEFAULT_STYLE, styles: dict[str, SSAStyle] \| None = None, skip_empty_fragments: bool = False) -> list[tuple[str, SSAStyle]]` | decompose tagged text into styled fragments (the override-aware burn-in render input)    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -20,51 +20,51 @@
 
 [STREAM_TYPES]: observable, observer, and notification value carriers — rail: streams
 
-| [INDEX] | [SYMBOL]                       | [KIND]               |
-| :-----: | :----------------------------- | :------------------- |
-|  [01]   | `IObservable<T>`               | stream contract      |
-|  [02]   | `IObserver<T>`                 | observer contract    |
-|  [03]   | `ObservableBase<T>`            | observable base      |
-|  [04]   | `Observer`                     | observer factory     |
-|  [05]   | `Notification<T>`              | materialized value   |
-|  [06]   | `EventPattern<TEventArgs>`     | event value          |
-|  [07]   | `IGroupedObservable<TKey,TElement>` | keyed substream |
-|  [08]   | `Timestamped<T>` / `TimeInterval<T>` | timed value     |
-|  [09]   | `Unit`                         | void-stream token    |
+| [INDEX] | [SYMBOL]                             | [KIND]             |
+| :-----: | :----------------------------------- | :----------------- |
+|  [01]   | `IObservable<T>`                     | stream contract    |
+|  [02]   | `IObserver<T>`                       | observer contract  |
+|  [03]   | `ObservableBase<T>`                  | observable base    |
+|  [04]   | `Observer`                           | observer factory   |
+|  [05]   | `Notification<T>`                    | materialized value |
+|  [06]   | `EventPattern<TEventArgs>`           | event value        |
+|  [07]   | `IGroupedObservable<TKey,TElement>`  | keyed substream    |
+|  [08]   | `Timestamped<T>` / `TimeInterval<T>` | timed value        |
+|  [09]   | `Unit`                               | void-stream token  |
 
 [SUBJECT_TYPES]: subject and connection surfaces — rail: streams
 
-| [INDEX] | [SYMBOL]                    | [KIND]                                |
-| :-----: | :-------------------------- | :------------------------------------ |
-|  [01]   | `Subject<T>`                | multicast subject (`HasObservers`)    |
-|  [02]   | `BehaviorSubject<T>`        | current-value subject (`Value`)       |
-|  [03]   | `ReplaySubject<T>`          | bounded/timed replay buffer           |
-|  [04]   | `AsyncSubject<T>`           | terminal-value subject (`GetAwaiter`) |
-|  [05]   | `ISubject<T>` / `ISubject<TSource,TResult>` | subject contract      |
-|  [06]   | `IConnectableObservable<T>` | deferred-connect multicast (`Connect`)|
+| [INDEX] | [SYMBOL]                                    | [KIND]                                 |
+| :-----: | :------------------------------------------ | :------------------------------------- |
+|  [01]   | `Subject<T>`                                | multicast subject (`HasObservers`)     |
+|  [02]   | `BehaviorSubject<T>`                        | current-value subject (`Value`)        |
+|  [03]   | `ReplaySubject<T>`                          | bounded/timed replay buffer            |
+|  [04]   | `AsyncSubject<T>`                           | terminal-value subject (`GetAwaiter`)  |
+|  [05]   | `ISubject<T>` / `ISubject<TSource,TResult>` | subject contract                       |
+|  [06]   | `IConnectableObservable<T>`                 | deferred-connect multicast (`Connect`) |
 
 [SCHEDULER_TYPES]: scheduler and timing surfaces — rail: streams
 
-| [INDEX] | [SYMBOL]                                    | [KIND]                          |
-| :-----: | :------------------------------------------ | :------------------------------ |
-|  [01]   | `IScheduler`                                | schedule contract               |
-|  [02]   | `Scheduler`                                 | schedule factory + extensions   |
-|  [03]   | `CurrentThreadScheduler`                    | trampolined current thread      |
-|  [04]   | `EventLoopScheduler`                        | dedicated serial worker         |
-|  [05]   | `TaskPoolScheduler` / `ThreadPoolScheduler` | pooled concurrency              |
-|  [06]   | `SynchronizationContextScheduler`           | UI-thread marshal               |
-|  [07]   | `VirtualTimeScheduler<TAbsolute,TRelative>` / `HistoricalScheduler` | deterministic test clock |
+| [INDEX] | [SYMBOL]                                                            | [KIND]                        |
+| :-----: | :------------------------------------------------------------------ | :---------------------------- |
+|  [01]   | `IScheduler`                                                        | schedule contract             |
+|  [02]   | `Scheduler`                                                         | schedule factory + extensions |
+|  [03]   | `CurrentThreadScheduler`                                            | trampolined current thread    |
+|  [04]   | `EventLoopScheduler`                                                | dedicated serial worker       |
+|  [05]   | `TaskPoolScheduler` / `ThreadPoolScheduler`                         | pooled concurrency            |
+|  [06]   | `SynchronizationContextScheduler`                                   | UI-thread marshal             |
+|  [07]   | `VirtualTimeScheduler<TAbsolute,TRelative>` / `HistoricalScheduler` | deterministic test clock      |
 
 [DISPOSABLE_TYPES]: lifecycle ownership — rail: streams
 
-| [INDEX] | [SYMBOL]                       | [KIND]                          |
-| :-----: | :----------------------------- | :------------------------------ |
-|  [01]   | `CompositeDisposable`          | grouped disposal (`Add`/`Clear`)|
-|  [02]   | `SerialDisposable`             | replaceable slot, disposes prior |
-|  [03]   | `SingleAssignmentDisposable`   | one-assignment slot             |
-|  [04]   | `MultipleAssignmentDisposable` | reassignable slot               |
-|  [05]   | `RefCountDisposable`           | shared disposal with leases     |
-|  [06]   | `CancellationDisposable`       | `CancellationTokenSource` bridge |
+| [INDEX] | [SYMBOL]                       | [KIND]                             |
+| :-----: | :----------------------------- | :--------------------------------- |
+|  [01]   | `CompositeDisposable`          | grouped disposal (`Add`/`Clear`)   |
+|  [02]   | `SerialDisposable`             | replaceable slot, disposes prior   |
+|  [03]   | `SingleAssignmentDisposable`   | one-assignment slot                |
+|  [04]   | `MultipleAssignmentDisposable` | reassignable slot                  |
+|  [05]   | `RefCountDisposable`           | shared disposal with leases        |
+|  [06]   | `CancellationDisposable`       | `CancellationTokenSource` bridge   |
 |  [07]   | `Disposable`                   | `Create(Action)` / `Empty` factory |
 
 ## [03]-[ENTRYPOINTS]
@@ -72,55 +72,55 @@
 [FACTORY_ENTRYPOINTS]: observable creation and async/event bridges
 - rail: streams
 
-| [INDEX] | [SURFACE]                                          | [SURFACE_ROOT] | [RAIL]                         |
-| :-----: | :------------------------------------------------- | :------------- | :----------------------------- |
-|  [01]   | `Create` / `Defer` / `Generate`                    | `Observable`   | stream factory / lazy / unfold |
-|  [02]   | `Return` / `Empty` / `Never` / `Throw` / `Range`   | `Observable`   | scalar / terminal / sequence   |
-|  [03]   | `Interval` / `Timer`                               | `Observable`   | timed stream                   |
-|  [04]   | `FromAsync(Func<Task<T>>)` / `FromAsync(Func<CancellationToken,Task<T>>)` | `Observable` | Task -> stream bridge |
-|  [05]   | `FromEvent` / `FromEventPattern`                   | `Observable`   | .NET event -> stream bridge    |
-|  [06]   | `ToObservable(IEnumerable<T>, scheduler?)`         | `Observable`   | sequence -> stream             |
-|  [07]   | `ToEvent` / `ToEventPattern`                       | `Observable`   | stream -> .NET event sink      |
-|  [08]   | `ForEachAsync` / `RunAsync` / `GetAwaiter`         | `Observable`   | stream -> Task await terminal  |
-|  [09]   | `Create` (factory)                                 | `Observer`     | observer factory               |
+| [INDEX] | [SURFACE]                                                                 | [SURFACE_ROOT] | [RAIL]                         |
+| :-----: | :------------------------------------------------------------------------ | :------------- | :----------------------------- |
+|  [01]   | `Create` / `Defer` / `Generate`                                           | `Observable`   | stream factory / lazy / unfold |
+|  [02]   | `Return` / `Empty` / `Never` / `Throw` / `Range`                          | `Observable`   | scalar / terminal / sequence   |
+|  [03]   | `Interval` / `Timer`                                                      | `Observable`   | timed stream                   |
+|  [04]   | `FromAsync(Func<Task<T>>)` / `FromAsync(Func<CancellationToken,Task<T>>)` | `Observable`   | Task -> stream bridge          |
+|  [05]   | `FromEvent` / `FromEventPattern`                                          | `Observable`   | .NET event -> stream bridge    |
+|  [06]   | `ToObservable(IEnumerable<T>, scheduler?)`                                | `Observable`   | sequence -> stream             |
+|  [07]   | `ToEvent` / `ToEventPattern`                                              | `Observable`   | stream -> .NET event sink      |
+|  [08]   | `ForEachAsync` / `RunAsync` / `GetAwaiter`                                | `Observable`   | stream -> Task await terminal  |
+|  [09]   | `Create` (factory)                                                        | `Observer`     | observer factory               |
 
 [QUERY_ENTRYPOINTS]: projection, stateful folds, and composition
 - rail: streams
 
-| [INDEX] | [SURFACE]                                            | [SURFACE_ROOT] | [RAIL]                          |
-| :-----: | :--------------------------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `Select` / `SelectMany` / `Where`                    | `Observable`   | project / flatten / filter      |
-|  [02]   | `Scan` / `Aggregate`                                 | `Observable`   | running fold / terminal fold    |
-|  [03]   | `Buffer` / `Window`                                  | `Observable`   | count/time batching             |
-|  [04]   | `GroupBy`                                            | `Observable`   | keyed substreams                |
-|  [05]   | `Merge` / `Concat` / `Switch` / `Amb`                | `Observable`   | combine / sequence / latest     |
-|  [06]   | `CombineLatest` / `WithLatestFrom` / `Zip`           | `Observable`   | combine state / gated-combine   |
-|  [07]   | `DistinctUntilChanged` / `Distinct`                  | `Observable`   | dedupe state                    |
+| [INDEX] | [SURFACE]                                            | [SURFACE_ROOT] | [RAIL]                           |
+| :-----: | :--------------------------------------------------- | :------------- | :------------------------------- |
+|  [01]   | `Select` / `SelectMany` / `Where`                    | `Observable`   | project / flatten / filter       |
+|  [02]   | `Scan` / `Aggregate`                                 | `Observable`   | running fold / terminal fold     |
+|  [03]   | `Buffer` / `Window`                                  | `Observable`   | count/time batching              |
+|  [04]   | `GroupBy`                                            | `Observable`   | keyed substreams                 |
+|  [05]   | `Merge` / `Concat` / `Switch` / `Amb`                | `Observable`   | combine / sequence / latest      |
+|  [06]   | `CombineLatest` / `WithLatestFrom` / `Zip`           | `Observable`   | combine state / gated-combine    |
+|  [07]   | `DistinctUntilChanged` / `Distinct`                  | `Observable`   | dedupe state                     |
 |  [08]   | `StartWith` / `Do` / `Materialize` / `Dematerialize` | `Observable`   | seed / side-effect / notify lift |
 |  [09]   | `Throttle` / `Sample`                                | `Observable`   | trailing rate-limit / pulse-gate |
-|  [10]   | `TakeUntil` / `SkipUntil` / `Take` / `Skip`          | `Observable`   | lifecycle window                |
+|  [10]   | `TakeUntil` / `SkipUntil` / `Take` / `Skip`          | `Observable`   | lifecycle window                 |
 
 [HOT_STREAM_ENTRYPOINTS]: multicast, connection, and sharing
 - rail: streams
 
-| [INDEX] | [SURFACE]                          | [SURFACE_ROOT] | [RAIL]                          |
-| :-----: | :--------------------------------- | :------------- | :------------------------------ |
-|  [01]   | `Publish` / `Replay`               | `Observable`   | -> `IConnectableObservable<T>`  |
-|  [02]   | `Multicast(subjectFactory)`        | `Observable`   | custom-subject multicast        |
-|  [03]   | `RefCount`                         | `Observable`   | auto connect/disconnect on subs |
-|  [04]   | `Connect`                          | `IConnectableObservable` | start the shared source |
+| [INDEX] | [SURFACE]                   | [SURFACE_ROOT]           | [RAIL]                          |
+| :-----: | :-------------------------- | :----------------------- | :------------------------------ |
+|  [01]   | `Publish` / `Replay`        | `Observable`             | -> `IConnectableObservable<T>`  |
+|  [02]   | `Multicast(subjectFactory)` | `Observable`             | custom-subject multicast        |
+|  [03]   | `RefCount`                  | `Observable`             | auto connect/disconnect on subs |
+|  [04]   | `Connect`                   | `IConnectableObservable` | start the shared source         |
 
 [SCHEDULING_AND_ERROR_ENTRYPOINTS]: scheduling, fault recovery, and subscription
 - rail: streams
 
-| [INDEX] | [SURFACE]                                  | [SURFACE_ROOT]         | [RAIL]                          |
-| :-----: | :----------------------------------------- | :--------------------- | :------------------------------ |
-|  [01]   | `ObserveOn` / `SubscribeOn`                | `Observable`           | observer / subscription marshal |
-|  [02]   | `Synchronize`                              | `Observable`           | serialize concurrent emissions  |
-|  [03]   | `Catch` / `Retry` / `RetryWhen`            | `Observable`           | recover / retry / signalled retry|
-|  [04]   | `Timeout`                                  | `Observable`           | per-emission deadline           |
-|  [05]   | `Finally` / `Using`                        | `Observable`           | termination hook / resource scope |
-|  [06]   | `Subscribe(onNext, onError, onCompleted, ct?)` | `ObservableExtensions` | terminal subscription       |
+| [INDEX] | [SURFACE]                                      | [SURFACE_ROOT]         | [RAIL]                            |
+| :-----: | :--------------------------------------------- | :--------------------- | :-------------------------------- |
+|  [01]   | `ObserveOn` / `SubscribeOn`                    | `Observable`           | observer / subscription marshal   |
+|  [02]   | `Synchronize`                                  | `Observable`           | serialize concurrent emissions    |
+|  [03]   | `Catch` / `Retry` / `RetryWhen`                | `Observable`           | recover / retry / signalled retry |
+|  [04]   | `Timeout`                                      | `Observable`           | per-emission deadline             |
+|  [05]   | `Finally` / `Using`                            | `Observable`           | termination hook / resource scope |
+|  [06]   | `Subscribe(onNext, onError, onCompleted, ct?)` | `ObservableExtensions` | terminal subscription             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

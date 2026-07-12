@@ -150,13 +150,13 @@ public static class SearchRoute {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                  | [BINDING]                                                   |
-| :-----: | :------------------ | :--------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | residence           | `VectorBackend` row data                 | exact/hnsw/ivfflat/diskann/pq-adc/qdrant on ONE axis         |
-|  [02]   | scan tuning         | `SET LOCAL` GUC binder per row           | query-time only; the `WITH` build map stays provisioning's   |
-|  [03]   | route observability | `search.vector.route` fact               | a degradation is evidence, never a silent slowdown           |
-|  [04]   | server-side ANN     | `VectorMetric.Order` `Expression.Call`   | the `<->`/`<=>` LINQ leg composed, never an unrealized string |
-|  [05]   | scale-out ceiling   | `QdrantClient.QueryAsync` provider row   | deployment data; in-PG stays the default residence           |
+| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                     |
+| :-----: | :------------------ | :------------------------------------- | :------------------------------------------------------------ |
+|  [01]   | residence           | `VectorBackend` row data               | exact/hnsw/ivfflat/diskann/pq-adc/qdrant on ONE axis          |
+|  [02]   | scan tuning         | `SET LOCAL` GUC binder per row         | query-time only; the `WITH` build map stays provisioning's    |
+|  [03]   | route observability | `search.vector.route` fact             | a degradation is evidence, never a silent slowdown            |
+|  [04]   | server-side ANN     | `VectorMetric.Order` `Expression.Call` | the `<->`/`<=>` LINQ leg composed, never an unrealized string |
+|  [05]   | scale-out ceiling   | `QdrantClient.QueryAsync` provider row | deployment data; in-PG stays the default residence            |
 
 ## [03]-[LEXICAL_ALGEBRA]
 
@@ -248,13 +248,13 @@ public sealed partial class LexicalRank {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                 | [BINDING]                                                    |
-| :-----: | :------------------ | :--------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | lexical predicate   | `Bm25Predicate` closed union             | one case per builder/operator/cast; `Sql()` the one lowering  |
-|  [02]   | cast stacking       | modifier cases wrap `Inner`              | `::pdb.fuzzy(...)::pdb.boost(...)` in cast order, structural  |
-|  [03]   | score anchor        | `pdb.score(<key_field>)`                 | identities projected; payloads never re-materialized          |
-|  [04]   | degrade             | `LexicalRank.TsRank` row                 | same CTE, `websearch_to_tsquery` only; visible in lineage     |
-|  [05]   | escaping            | constructors carry pre-bound terms       | never raw runtime input into the SQL switch                   |
+| [INDEX] | [POLICY]          | [VALUE]                            | [BINDING]                                                    |
+| :-----: | :---------------- | :--------------------------------- | :----------------------------------------------------------- |
+|  [01]   | lexical predicate | `Bm25Predicate` closed union       | one case per builder/operator/cast; `Sql()` the one lowering |
+|  [02]   | cast stacking     | modifier cases wrap `Inner`        | `::pdb.fuzzy(...)::pdb.boost(...)` in cast order, structural |
+|  [03]   | score anchor      | `pdb.score(<key_field>)`           | identities projected; payloads never re-materialized         |
+|  [04]   | degrade           | `LexicalRank.TsRank` row           | same CTE, `websearch_to_tsquery` only; visible in lineage    |
+|  [05]   | escaping          | constructors carry pre-bound terms | never raw runtime input into the SQL switch                  |
 
 ## [04]-[VECTOR_CODEBOOK]
 
@@ -436,15 +436,15 @@ public sealed record VectorIndex(
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | codebook owner      | `Train` here; Compute encodes only     | a Compute-side fit would force a `Persistence → Compute` cycle |
-|  [02]   | partition agreement | the SAME `TensorPrimitives.Distance`   | train-time and encode-time centroids agree bit-for-bit     |
-|  [03]   | codebook supply     | content-keyed by `Id`, read by reference | a re-train re-keys every `product-quantized` artifact      |
-|  [04]   | coarse→fine rerank  | `Resolve` reads `int8`/`float32` fine  | magnitude recovered from the residence, never faked        |
-|  [05]   | ADC amortization    | one query→centroid table per scan      | reused across the corpus; never a per-row recompute        |
-|  [06]   | admission rail      | `RetrievalFault` 841x                  | the pre-split bare `Error.New(8360..8363)` is dead          |
-|  [07]   | strata one-way      | encoding string + `NodeId` only        | no `EmbeddingVector`/`VectorEncoding` Compute type leaks down |
+| [INDEX] | [POLICY]            | [VALUE]                                  | [BINDING]                                                      |
+| :-----: | :------------------ | :--------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | codebook owner      | `Train` here; Compute encodes only       | a Compute-side fit would force a `Persistence → Compute` cycle |
+|  [02]   | partition agreement | the SAME `TensorPrimitives.Distance`     | train-time and encode-time centroids agree bit-for-bit         |
+|  [03]   | codebook supply     | content-keyed by `Id`, read by reference | a re-train re-keys every `product-quantized` artifact          |
+|  [04]   | coarse→fine rerank  | `Resolve` reads `int8`/`float32` fine    | magnitude recovered from the residence, never faked            |
+|  [05]   | ADC amortization    | one query→centroid table per scan        | reused across the corpus; never a per-row recompute            |
+|  [06]   | admission rail      | `RetrievalFault` 841x                    | the pre-split bare `Error.New(8360..8363)` is dead             |
+|  [07]   | strata one-way      | encoding string + `NodeId` only          | no `EmbeddingVector`/`VectorEncoding` Compute type leaks down  |
 
 ## [05]-[FUSION_AND_REUSE]
 
@@ -550,11 +550,11 @@ public static class Retrieval {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | entry               | `Retrieval.Run(RetrievalOp)`           | fuse/train/scan are cases; no sibling entrypoint family    |
-|  [02]   | fusion              | weighted n-ary RRF over `RetrievalBranch` | typed branch lineage; `RrfConstant = 60` named once      |
-|  [03]   | cache key           | content-addressed `ElementSet.Receipt` | the DERIVED retrieval cached under the subject receipt; a result under its own receipt is the circular deleted form |
-|  [04]   | cache invalidation  | receipt-derived tag → `RemoveByTagAsync` | a changefeed op-log change to a contributing node cuts it |
-|  [05]   | cache identity      | selection-result reuse                 | distinct from `Query/cache`'s compute-result index         |
-|  [06]   | index ownership     | GiST spatial, pgvector ANN, BM25 lexical | DuckDB is the columnar aggregator, never the index        |
+| [INDEX] | [POLICY]           | [VALUE]                                   | [BINDING]                                                                                                           |
+| :-----: | :----------------- | :---------------------------------------- | :------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | entry              | `Retrieval.Run(RetrievalOp)`              | fuse/train/scan are cases; no sibling entrypoint family                                                             |
+|  [02]   | fusion             | weighted n-ary RRF over `RetrievalBranch` | typed branch lineage; `RrfConstant = 60` named once                                                                 |
+|  [03]   | cache key          | content-addressed `ElementSet.Receipt`    | the DERIVED retrieval cached under the subject receipt; a result under its own receipt is the circular deleted form |
+|  [04]   | cache invalidation | receipt-derived tag → `RemoveByTagAsync`  | a changefeed op-log change to a contributing node cuts it                                                           |
+|  [05]   | cache identity     | selection-result reuse                    | distinct from `Query/cache`'s compute-result index                                                                  |
+|  [06]   | index ownership    | GiST spatial, pgvector ANN, BM25 lexical  | DuckDB is the columnar aggregator, never the index                                                                  |

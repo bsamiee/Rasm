@@ -518,12 +518,12 @@ internal static class NeighborKernel {
 
 ## [05]-[DENSITY_BAR]
 
-| [INDEX] | [AXIS/CONCERN]           | [OWNER]                                    | [KIND]                                                      | [RAIL]                                        | [CASES] |
-| :-----: | :----------------------- | :----------------------------------------- | :----------------------------------------------------------- | :--------------------------------------------- | :-----: |
-|  [01]   | Index species            | `NeighborIndex`                            | `[Union]` Cloud/Points/MeshFaces/Bounds/Static                | `Of → Fin<NeighborIndex>`                      |    5    |
-|  [02]   | Query modality           | `NeighborQuery`                            | `[Union]` Nearest/Radius/Box/Ball/Overlaps/Pairs              | `Query → Fin<NeighborAnswer>`                  |    6    |
-|  [03]   | Batch neighborhood spine | `NeighborKernel.GraphOf`                   | hay×needles kNN/radius fold + receipt                         | `→ Fin<NeighborhoodGraph>`                     |    —    |
-|  [04]   | Per-point PCA            | `NeighborhoodPcaSample`/`Result`/`Receipt` | clamped-spectrum evidence rows over the graph spine           | `PcaOf → Fin<NeighborhoodPcaResult>`           |    —    |
-|  [05]   | Normal orientation       | `NeighborKernel.OrientNormals`             | QuikGraph Prim MST + BFS sign propagation                     | `→ Fin<Seq<Vector3d>>`                         |    —    |
-|  [06]   | Principal curvature      | `CurvatureResult`/`CurvatureRangeKind`     | quadric fit + Koenderink classification + range fold          | `PrincipalCurvatures → Fin<CurvatureResult>`   |    5    |
-|  [07]   | Rotation-minimizing frame| `NeighborKernel.BishopChain`               | Wang double reflection + closed-chain twist redistribution    | `→ Fin<Seq<Plane>>`                            |    —    |
+| [INDEX] | [AXIS_CONCERN]            | [OWNER]                                    | [KIND]                                                     | [RAIL]                                       | [CASES] |
+| :-----: | :------------------------ | :----------------------------------------- | :--------------------------------------------------------- | :------------------------------------------- | :-----: |
+|  [01]   | Index species             | `NeighborIndex`                            | `[Union]` Cloud/Points/MeshFaces/Bounds/Static             | `Of → Fin<NeighborIndex>`                    |    5    |
+|  [02]   | Query modality            | `NeighborQuery`                            | `[Union]` Nearest/Radius/Box/Ball/Overlaps/Pairs           | `Query → Fin<NeighborAnswer>`                |    6    |
+|  [03]   | Batch neighborhood spine  | `NeighborKernel.GraphOf`                   | hay×needles kNN/radius fold + receipt                      | `→ Fin<NeighborhoodGraph>`                   |    —    |
+|  [04]   | Per-point PCA             | `NeighborhoodPcaSample`/`Result`/`Receipt` | clamped-spectrum evidence rows over the graph spine        | `PcaOf → Fin<NeighborhoodPcaResult>`         |    —    |
+|  [05]   | Normal orientation        | `NeighborKernel.OrientNormals`             | QuikGraph Prim MST + BFS sign propagation                  | `→ Fin<Seq<Vector3d>>`                       |    —    |
+|  [06]   | Principal curvature       | `CurvatureResult`/`CurvatureRangeKind`     | quadric fit + Koenderink classification + range fold       | `PrincipalCurvatures → Fin<CurvatureResult>` |    5    |
+|  [07]   | Rotation-minimizing frame | `NeighborKernel.BishopChain`               | Wang double reflection + closed-chain twist redistribution | `→ Fin<Seq<Plane>>`                          |    —    |

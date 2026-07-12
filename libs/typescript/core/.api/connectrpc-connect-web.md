@@ -19,15 +19,15 @@
 - rail: interchange/invoke
 - The two options records are the same field set save `useHttpGet` (Connect only) and the `useBinaryFormat` default (Connect → JSON, gRPC-web → binary). `wire` models the axis as one policy record plus a `protocol` discriminant that picks the factory; both produce the identical `Transport` the `connect` `Client<T>` consumes.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:---------------------------------------------------------- |:-------------- |:------------------------------------------------------------ |
-| [01] | `ConnectTransportOptions` | transport policy| `interchange/invoke` connect arm — `useBinaryFormat` (default JSON), `useHttpGet` |
-| [02] | `GrpcWebTransportOptions` | transport policy| `interchange/invoke` grpc-web arm — `useBinaryFormat` (default binary) |
-| [03] | `.baseUrl` (both) | endpoint | `<baseUrl>/<pkg>.<Service>/<Method>` route root; from `host/config` |
-| [04] | `.fetch?: typeof globalThis.fetch` (both) | transport seam | the instrumented-fetch override — net-client policy, OTel headers, credentials |
-| [05] | `.interceptors?: Interceptor[]` (both) | onion | the `connect` `Interceptor` chain — trace propagation, auth, retry |
-| [06] | `.useBinaryFormat?` / `.binaryOptions?` / `.jsonOptions?` | codec select | `@bufbuild/protobuf` binary vs JSON read-write options; binary is content-stable |
-| [07] | `.defaultTimeoutMs?` / `.useHttpGet?` (Connect only) | deadline / verb | transport-wide deadline (per-call `CallOptions.timeoutMs` overrides); GET for idempotent unary |
+| [INDEX] | [SYMBOL]                                                  | [TYPE_FAMILY]    | [CONSUMER_BOUNDARY]                                                                            |
+| :-----: | :-------------------------------------------------------- | :--------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | `ConnectTransportOptions`                                 | transport policy | `interchange/invoke` connect arm — `useBinaryFormat` (default JSON), `useHttpGet`              |
+|  [02]   | `GrpcWebTransportOptions`                                 | transport policy | `interchange/invoke` grpc-web arm — `useBinaryFormat` (default binary)                         |
+|  [03]   | `.baseUrl` (both)                                         | endpoint         | `<baseUrl>/<pkg>.<Service>/<Method>` route root; from `host/config`                            |
+|  [04]   | `.fetch?: typeof globalThis.fetch` (both)                 | transport seam   | the instrumented-fetch override — net-client policy, OTel headers, credentials                 |
+|  [05]   | `.interceptors?: Interceptor[]` (both)                    | onion            | the `connect` `Interceptor` chain — trace propagation, auth, retry                             |
+|  [06]   | `.useBinaryFormat?` / `.binaryOptions?` / `.jsonOptions?` | codec select     | `@bufbuild/protobuf` binary vs JSON read-write options; binary is content-stable               |
+|  [07]   | `.defaultTimeoutMs?` / `.useHttpGet?` (Connect only)      | deadline / verb  | transport-wide deadline (per-call `CallOptions.timeoutMs` overrides); GET for idempotent unary |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -35,12 +35,12 @@
 - rail: interchange/invoke
 - Both are pure `(options) => Transport` factories; the returned value is handed to `createClient(service, transport)`. `wire` calls exactly one per configured client, selected by the `protocol` policy value — the factories are never both live for one descriptor.
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY] |
-|:-----: |:------------------------------------------------------------------------------ |:------------- |:------------------------------------------------------- |
-| [01] | `createConnectTransport(options: ConnectTransportOptions): Transport` | connect arm | `interchange/invoke` `protocol:"connect"` — JSON-default, `useHttpGet`-capable |
-| [02] | `createGrpcWebTransport(options: GrpcWebTransportOptions): Transport` | grpc-web arm | `interchange/invoke` `protocol:"grpc-web"` — binary-default, gRPC gateway compat |
-| [03] | `{ fetch: instrumentedFetch }` | fetch seam | `host/net` policy + `@effect/opentelemetry` `traceparent` on egress |
-| [04] | `{ interceptors: [traceInterceptor, authInterceptor] }` | onion | the shared `connect` `Interceptor` chain applied to every call |
+| [INDEX] | [SURFACE]                                                             | [ENTRY_FAMILY] | [CONSUMER_BOUNDARY]                                                              |
+| :-----: | :-------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------- |
+|  [01]   | `createConnectTransport(options: ConnectTransportOptions): Transport` | connect arm    | `interchange/invoke` `protocol:"connect"` — JSON-default, `useHttpGet`-capable   |
+|  [02]   | `createGrpcWebTransport(options: GrpcWebTransportOptions): Transport` | grpc-web arm   | `interchange/invoke` `protocol:"grpc-web"` — binary-default, gRPC gateway compat |
+|  [03]   | `{ fetch: instrumentedFetch }`                                        | fetch seam     | `host/net` policy + `@effect/opentelemetry` `traceparent` on egress              |
+|  [04]   | `{ interceptors: [traceInterceptor, authInterceptor] }`               | onion          | the shared `connect` `Interceptor` chain applied to every call                   |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

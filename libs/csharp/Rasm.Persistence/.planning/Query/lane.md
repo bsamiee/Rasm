@@ -136,13 +136,13 @@ public static class ReadRouter {
 }
 ```
 
-| [INDEX] | [POLICY]                  | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------------ | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | interactive correctness   | the synchronous `Topology` lane        | inline projection + QuikGraph; never an async view (`C2`)  |
-|  [02]   | analytical                | the async `Columnar`/`Cypher` lane     | carries the `StalenessWatermark`                           |
-|  [03]   | shape routing             | every `QueryShape` bit READ; `Aggregate` → `Columnar` | no-evidence shape → synchronous `Topology`; no dead knob |
-|  [04]   | non-stale gate            | `IProjectionDaemon.WaitForNonStaleData` | the production runner member; never the `TestingExtensions` store/host wrappers |
-|  [05]   | watermark                 | `EventSequenceNumber` vs shard `Sequence` | the sequence gap (verified members), never the recording-clock `Timestamp` confound |
+| [INDEX] | [POLICY]                | [VALUE]                                               | [BINDING]                                                                           |
+| :-----: | :---------------------- | :---------------------------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | interactive correctness | the synchronous `Topology` lane                       | inline projection + QuikGraph; never an async view (`C2`)                           |
+|  [02]   | analytical              | the async `Columnar`/`Cypher` lane                    | carries the `StalenessWatermark`                                                    |
+|  [03]   | shape routing           | every `QueryShape` bit READ; `Aggregate` → `Columnar` | no-evidence shape → synchronous `Topology`; no dead knob                            |
+|  [04]   | non-stale gate          | `IProjectionDaemon.WaitForNonStaleData`               | the production runner member; never the `TestingExtensions` store/host wrappers     |
+|  [05]   | watermark               | `EventSequenceNumber` vs shard `Sequence`             | the sequence gap (verified members), never the recording-clock `Timestamp` confound |
 
 ## [03]-[ELEMENT_SET_ALGEBRA]
 
@@ -282,9 +282,9 @@ public static class ElementSetAlgebra {
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                | [BINDING]                                                  |
-| :-----: | :------------------ | :------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | selection currency  | `ElementSet` in and out                | every analysis surface composes; never an application join |
-|  [02]   | receipt             | `ContentHash.Of` over length-framed preimage | stable + collision-free; the reuse key + parity preimage   |
-|  [03]   | typed leaves        | `SetPredicate` cases + `SpatialOp`/`JsonComparison` operators | no raw-string predicate or operator; lowered to a store index |
-|  [04]   | closure             | bounded transitive fold over topology  | one-hop `Expand` is `Query/topology`; never the ledger manifest |
+| [INDEX] | [POLICY]           | [VALUE]                                                       | [BINDING]                                                       |
+| :-----: | :----------------- | :------------------------------------------------------------ | :-------------------------------------------------------------- |
+|  [01]   | selection currency | `ElementSet` in and out                                       | every analysis surface composes; never an application join      |
+|  [02]   | receipt            | `ContentHash.Of` over length-framed preimage                  | stable + collision-free; the reuse key + parity preimage        |
+|  [03]   | typed leaves       | `SetPredicate` cases + `SpatialOp`/`JsonComparison` operators | no raw-string predicate or operator; lowered to a store index   |
+|  [04]   | closure            | bounded transitive fold over topology                         | one-hop `Expand` is `Query/topology`; never the ledger manifest |

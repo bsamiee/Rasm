@@ -151,14 +151,14 @@ public sealed record FederationPlan(Plan Ir, AdbcQuery Wire, UInt128 Digest, Sou
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                  |
-| :-----: | :------------------ | :---------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | wire ingress        | `Plan.Parser.ParseFrom` + public `SubstraitDeserializer` | ~2 lines; zero `Grpc.Tools` codegen; `Google.Protobuf` the sole runtime dep |
-|  [02]   | round trip          | NORMALIZED retained wire (`AdbcQuery` door) | `SubstraitSerializer` is `internal`; `Json` transcodes protobuf-native; never a managed-IR re-lowering |
-|  [03]   | plan digest         | `ContentHash.Of(wireBytes)`               | the kernel seed-zero entry; never a local `XxHash128`      |
-|  [04]   | source capability   | `SourceKind.AcceptsPlan`/`Live` columns   | plan-vs-SQL door and read-time-currency honesty are row DATA |
-|  [05]   | function references | `FunctionExtensions.Functions*` URI catalogs | no magic-string Substrait function names                 |
-|  [06]   | producers           | `python:data` + `python:artifacts` GATED  | named blockers; the wire never pretends to work            |
+| [INDEX] | [POLICY]            | [VALUE]                                                  | [BINDING]                                                                                              |
+| :-----: | :------------------ | :------------------------------------------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | wire ingress        | `Plan.Parser.ParseFrom` + public `SubstraitDeserializer` | ~2 lines; zero `Grpc.Tools` codegen; `Google.Protobuf` the sole runtime dep                            |
+|  [02]   | round trip          | NORMALIZED retained wire (`AdbcQuery` door)              | `SubstraitSerializer` is `internal`; `Json` transcodes protobuf-native; never a managed-IR re-lowering |
+|  [03]   | plan digest         | `ContentHash.Of(wireBytes)`                              | the kernel seed-zero entry; never a local `XxHash128`                                                  |
+|  [04]   | source capability   | `SourceKind.AcceptsPlan`/`Live` columns                  | plan-vs-SQL door and read-time-currency honesty are row DATA                                           |
+|  [05]   | function references | `FunctionExtensions.Functions*` URI catalogs             | no magic-string Substrait function names                                                               |
+|  [06]   | producers           | `python:data` + `python:artifacts` GATED                 | named blockers; the wire never pretends to work                                                        |
 
 ## [03]-[PLAN_LOWERING]
 
@@ -399,14 +399,14 @@ public sealed record FederatedResult(
 }
 ```
 
-| [INDEX] | [POLICY]            | [VALUE]                                   | [BINDING]                                                  |
-| :-----: | :------------------ | :---------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | one entry           | `Federation.Execute(FederationPlan, TimeCut)` | router/lowerer over standing lanes; never a second engine |
-|  [02]   | lowering form       | `RelationVisitor<Fin<LoweringTarget>, Unit>` | total-by-throw; a new relation kind fails LOUD as `UnsupportedRelation` |
-|  [03]   | key-selection arm   | `SetExpr` via `lane#SetResolve`           | the store's GiST/GIN indexes execute, local (`Live` false) sources only; 3-for-3 set ops |
-|  [04]   | tabular arm         | `ColumnarProfile.Federation` + `AdbcQuery` doors | `from_substrait(blob)` in-process; `SubstraitPlan`/`SqlQuery` external |
-|  [05]   | write posture       | `WriteRelation` → `WriteRejected`         | fail-closed; federation reads, the store rail writes       |
-|  [06]   | default cut         | `StalenessWatermark.HeadSequence` head    | a no-cut plan resolves deterministically; never ambient now |
-|  [07]   | replay identity     | `(digest·cut·watermark)` → `ReplayKey`    | ONE `ArtifactKind` reuse row; local-subtree-deterministic only |
-|  [08]   | receipt validity    | `IValidityEvidence` + `ValidityClaim.All` | the kernel [C] floor; never a hand-rolled `&&` chain       |
-|  [09]   | streaming cadence   | `Materialize` via `SubstraitToDifferentialCompute` | one plan IR for one-shot and materialized alike       |
+| [INDEX] | [POLICY]          | [VALUE]                                            | [BINDING]                                                                                |
+| :-----: | :---------------- | :------------------------------------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | one entry         | `Federation.Execute(FederationPlan, TimeCut)`      | router/lowerer over standing lanes; never a second engine                                |
+|  [02]   | lowering form     | `RelationVisitor<Fin<LoweringTarget>, Unit>`       | total-by-throw; a new relation kind fails LOUD as `UnsupportedRelation`                  |
+|  [03]   | key-selection arm | `SetExpr` via `lane#SetResolve`                    | the store's GiST/GIN indexes execute, local (`Live` false) sources only; 3-for-3 set ops |
+|  [04]   | tabular arm       | `ColumnarProfile.Federation` + `AdbcQuery` doors   | `from_substrait(blob)` in-process; `SubstraitPlan`/`SqlQuery` external                   |
+|  [05]   | write posture     | `WriteRelation` → `WriteRejected`                  | fail-closed; federation reads, the store rail writes                                     |
+|  [06]   | default cut       | `StalenessWatermark.HeadSequence` head             | a no-cut plan resolves deterministically; never ambient now                              |
+|  [07]   | replay identity   | `(digest·cut·watermark)` → `ReplayKey`             | ONE `ArtifactKind` reuse row; local-subtree-deterministic only                           |
+|  [08]   | receipt validity  | `IValidityEvidence` + `ValidityClaim.All`          | the kernel [C] floor; never a hand-rolled `&&` chain                                     |
+|  [09]   | streaming cadence | `Materialize` via `SubstraitToDifferentialCompute` | one plan IR for one-shot and materialized alike                                          |

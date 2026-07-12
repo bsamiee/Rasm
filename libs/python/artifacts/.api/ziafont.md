@@ -22,29 +22,29 @@
 
 `Font` is the load-and-shape owner: construct from a family name / path / `None` (the bundled `DejaVuSans`), and it holds the parsed tables, the active cmap, and the GSUB/GPOS shapers. `Text` is the shaped-run owner — `Font.text(...)` returns exactly this type (`ziafont.font.Text`, re-exported as `ziafont.Text`), so `Font(...).text(s)` and `Text(s, font=...)` are one egress. The glyph family (`SimpleGlyph` for a `glyf`/`CFF` outline, `CompoundGlyph` for a composite glyph, `EmptyGlyph` for `.notdef`/missing) shares ONE interface — `svgpath`/`place`/`svg`/`svgxml`/`svgsymbol`/`advance`/`describe`/`test` — so a caller folds any glyph through the same surface, never a per-outline-format branch. `config` is a module-level `Config` dataclass: a process-global render policy, not a per-call argument. `Text`, `SimpleGlyph`, and `CompoundGlyph` carry `_repr_svg_`, so a run or glyph renders inline in a Jupyter/`great-tables` cell with no extra call.
 
-| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]      | [CAPABILITY]                                                                                                  |
-| :-----: | :-------------------------------- | :----------------- | :----------------------------------------------------------------------------------------------------------- |
-|  [01]   | `ziafont.Font`                    | load+shape owner   | parse sfnt, own cmap/GSUB/GPOS, glyph access, run measurement, script/language selection, run construction    |
-|  [02]   | `ziafont.Text`                    | shaped-run owner   | a shaped multi-line run; `.svg()`/`.svgxml()` standalone document, `.drawon(svg, x, y)` composite into a tree |
-|  [03]   | `ziafont.glyph.SimpleGlyph`       | outline glyph      | one `glyf`/`CFF` outline; `svgpath`/`place`/`svg`/`advance`/`describe`/`test` — the shared glyph interface     |
-|  [04]   | `ziafont.glyph.CompoundGlyph`     | composite glyph    | a glyph assembled from component glyphs + transforms; same shared interface as `SimpleGlyph`                  |
-|  [05]   | `ziafont.glyph.EmptyGlyph`        | missing glyph      | `.notdef`/unmapped fallback carrying the shared interface so a fold never special-cases a missing glyph        |
-|  [06]   | `ziafont.glyph.BBox`              | bounds record      | `(xmin, xmax, ymin, ymax)` font-unit bounds (a `NamedTuple`); the glyph/run extent the layout owner consumes  |
-|  [07]   | `ziafont.config`                  | global render policy | the `Config` instance: `svg2`/`debug`/`fontsize`/`precision` — set once, read by every glyph/run serialize    |
-|  [08]   | `ziafont.fonttypes.Xform`         | transform record   | the affine a `CompoundGlyph` component carries; also the rotation transform a placed run applies               |
-|  [09]   | `ziafont.fonttypes.FontInfo`      | font metrics       | parsed `head`/`hhea`/`OS/2`-derived metrics (units-per-em, ascent/descent, advance) the layout math reads      |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]        | [CAPABILITY]                                                                                                  |
+| :-----: | :---------------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `ziafont.Font`                | load+shape owner     | parse sfnt, own cmap/GSUB/GPOS, glyph access, run measurement, script/language selection, run construction    |
+|  [02]   | `ziafont.Text`                | shaped-run owner     | a shaped multi-line run; `.svg()`/`.svgxml()` standalone document, `.drawon(svg, x, y)` composite into a tree |
+|  [03]   | `ziafont.glyph.SimpleGlyph`   | outline glyph        | one `glyf`/`CFF` outline; `svgpath`/`place`/`svg`/`advance`/`describe`/`test` — the shared glyph interface    |
+|  [04]   | `ziafont.glyph.CompoundGlyph` | composite glyph      | a glyph assembled from component glyphs + transforms; same shared interface as `SimpleGlyph`                  |
+|  [05]   | `ziafont.glyph.EmptyGlyph`    | missing glyph        | `.notdef`/unmapped fallback carrying the shared interface so a fold never special-cases a missing glyph       |
+|  [06]   | `ziafont.glyph.BBox`          | bounds record        | `(xmin, xmax, ymin, ymax)` font-unit bounds (a `NamedTuple`); the glyph/run extent the layout owner consumes  |
+|  [07]   | `ziafont.config`              | global render policy | the `Config` instance: `svg2`/`debug`/`fontsize`/`precision` — set once, read by every glyph/run serialize    |
+|  [08]   | `ziafont.fonttypes.Xform`     | transform record     | the affine a `CompoundGlyph` component carries; also the rotation transform a placed run applies              |
+|  [09]   | `ziafont.fonttypes.FontInfo`  | font metrics         | parsed `head`/`hhea`/`OS/2`-derived metrics (units-per-em, ascent/descent, advance) the layout math reads     |
 
 [PUBLIC_TYPE_SCOPE]: the `Config` global render policy
 - rail: glyphset
 
 `config` is the one process-global knob carrier. There is no per-`Text`/per-`Font` override for these — a design owning the render policy sets `ziafont.config.<field>` at boundary scope before constructing runs, never threads them per call. `precision` bounds the `d`-attribute float places (the content-key stability lever for a hashed SVG artifact); `svg2` selects SVG2 (`<path>` + CSS) vs SVG1.x (`<symbol>`/`<use>`) emission; `fontsize` is the default point size when a run omits one.
 
-| [INDEX] | [FIELD]       | [TYPE]  | [DEFAULT] | [CAPABILITY]                                                                                         |
-| :-----: | :------------ | :------ | :-------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `svg2`        | `bool`  | `True`    | emit SVG2 (`<path>`/CSS); `False` emits SVG1.x (`<symbol>`+`<use>`) for legacy/Inkscape-strict consumers |
-|  [02]   | `fontsize`    | `float` | `48`      | default point size applied when `Font.text`/`Text` is called with `size=None`                        |
-|  [03]   | `precision`   | `float` | `3`       | decimal places in emitted path/coordinate floats — the deterministic-bytes lever for content-keyed SVG |
-|  [04]   | `debug`       | `bool`  | `False`   | draw glyph bounding boxes / baselines into the SVG for layout diagnosis                               |
+| [INDEX] | [FIELD]     | [TYPE]  | [DEFAULT] | [CAPABILITY]                                                                                             |
+| :-----: | :---------- | :------ | :-------- | :------------------------------------------------------------------------------------------------------- |
+|  [01]   | `svg2`      | `bool`  | `True`    | emit SVG2 (`<path>`/CSS); `False` emits SVG1.x (`<symbol>`+`<use>`) for legacy/Inkscape-strict consumers |
+|  [02]   | `fontsize`  | `float` | `48`      | default point size applied when `Font.text`/`Text` is called with `size=None`                            |
+|  [03]   | `precision` | `float` | `3`       | decimal places in emitted path/coordinate floats — the deterministic-bytes lever for content-keyed SVG   |
+|  [04]   | `debug`     | `bool`  | `False`   | draw glyph bounding boxes / baselines into the SVG for layout diagnosis                                  |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -53,68 +53,68 @@
 
 `Font(name=None, searchpaths=None)` loads a family by name (resolved through `system_fonts`/`find_font`), an explicit path, or `None` for the bundled `DejaVuSans`. `glyph(char)` returns the shared-interface glyph for a single character; `glyph_fromid(gid)` returns it by glyph id (the post-GSUB shaped output is a gid sequence). `advance(gid, gid2)` returns the GPOS-kerned advance of `gid` before `gid2` (and the un-kerned advance when `gid2` is `None`) — the kerning is applied here, not by the caller. `scripts()`/`languages(script)`/`language(script, language)` select the OpenType script+language system the GSUB/GPOS shaper applies. `text(...)` is the run constructor returning a `Text`.
 
-| [INDEX] | [SURFACE]              | [CALL_SHAPE]                                                                                                                                                                          | [CAPABILITY]                                                       |
-| :-----: | :--------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `Font.__init__`        | `Font(name: str \| Path \| None = None, searchpaths: Sequence[str \| Path] \| None = None)`                                                                                          | parse the sfnt (or bundled `DejaVuSans`); build cmap + GSUB + GPOS |
-|  [02]   | `Font.text`            | `text(s, size=None, linespacing=1, halign='left'\|'center'\|'right', valign='base'\|'center'\|'top', color=None, rotation=0, rotation_mode='anchor') -> Text`                         | construct a shaped multi-line run (returns a `Text`)               |
-|  [03]   | `Font.glyph`           | `glyph(char: str) -> SimpleGlyph`                                                                                                                                                    | the shared-interface glyph for one character                       |
-|  [04]   | `Font.glyph_fromid`    | `glyph_fromid(glyphid: int) -> SimpleGlyph \| CompoundGlyph`                                                                                                                         | the glyph for a shaped gid (post-GSUB output is gids)              |
-|  [05]   | `Font.glyphindex`      | `glyphindex(char: str) -> int`                                                                                                                                                      | resolve a character to its cmap glyph id                            |
-|  [06]   | `Font.advance`         | `advance(glyph: int, glyph2: int \| None) -> int`                                                                                                                                    | GPOS-kerned advance of `glyph` before `glyph2` (un-kerned if `None`) |
-|  [07]   | `Font.getsize`         | `getsize(s) -> tuple[float, float]`                                                                                                                                                  | shaped `(width, height)` of a string in font units                 |
-|  [08]   | `Font.scripts`         | `scripts() -> set[str]`                                                                                                                                                              | the OpenType script tags the font carries (`'latn'`/`'arab'`/...)  |
-|  [09]   | `Font.languages`       | `languages(script='DFLT') -> set[str]`                                                                                                                                               | the language-system tags under a script                            |
-|  [10]   | `Font.language`        | `language(script, language)`                                                                                                                                                         | select the active script+language for GSUB/GPOS shaping            |
-|  [11]   | `Font.usecmap`         | `usecmap(cmapidx: int) -> None`                                                                                                                                                      | select a specific cmap subtable when the font carries several      |
-|  [12]   | `Font.verifychecksum`  | `verifychecksum() -> None`                                                                                                                                                           | validate the sfnt table checksums (integrity probe)               |
+| [INDEX] | [SURFACE]             | [CALL_SHAPE]                                                                                                                                                  | [CAPABILITY]                                                         |
+| :-----: | :-------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------------------------------------------- |
+|  [01]   | `Font.__init__`       | `Font(name: str \| Path \| None = None, searchpaths: Sequence[str \| Path] \| None = None)`                                                                   | parse the sfnt (or bundled `DejaVuSans`); build cmap + GSUB + GPOS   |
+|  [02]   | `Font.text`           | `text(s, size=None, linespacing=1, halign='left'\|'center'\|'right', valign='base'\|'center'\|'top', color=None, rotation=0, rotation_mode='anchor') -> Text` | construct a shaped multi-line run (returns a `Text`)                 |
+|  [03]   | `Font.glyph`          | `glyph(char: str) -> SimpleGlyph`                                                                                                                             | the shared-interface glyph for one character                         |
+|  [04]   | `Font.glyph_fromid`   | `glyph_fromid(glyphid: int) -> SimpleGlyph \| CompoundGlyph`                                                                                                  | the glyph for a shaped gid (post-GSUB output is gids)                |
+|  [05]   | `Font.glyphindex`     | `glyphindex(char: str) -> int`                                                                                                                                | resolve a character to its cmap glyph id                             |
+|  [06]   | `Font.advance`        | `advance(glyph: int, glyph2: int \| None) -> int`                                                                                                             | GPOS-kerned advance of `glyph` before `glyph2` (un-kerned if `None`) |
+|  [07]   | `Font.getsize`        | `getsize(s) -> tuple[float, float]`                                                                                                                           | shaped `(width, height)` of a string in font units                   |
+|  [08]   | `Font.scripts`        | `scripts() -> set[str]`                                                                                                                                       | the OpenType script tags the font carries (`'latn'`/`'arab'`/...)    |
+|  [09]   | `Font.languages`      | `languages(script='DFLT') -> set[str]`                                                                                                                        | the language-system tags under a script                              |
+|  [10]   | `Font.language`       | `language(script, language)`                                                                                                                                  | select the active script+language for GSUB/GPOS shaping              |
+|  [11]   | `Font.usecmap`        | `usecmap(cmapidx: int) -> None`                                                                                                                               | select a specific cmap subtable when the font carries several        |
+|  [12]   | `Font.verifychecksum` | `verifychecksum() -> None`                                                                                                                                    | validate the sfnt table checksums (integrity probe)                  |
 
 [ENTRYPOINT_SCOPE]: `Text` run serialization and compositing
 - rail: glyphset
 
 `Text` is the shaped run. `svg()` returns a complete standalone `<svg>` document string; `svgxml()` returns it as an ET `Element` for in-process tree assembly; `drawon(svg, x, y)` appends the run's `<symbol>` defs and a positioned `<g>` use-group INTO an existing SVG `Element` at `(x, y)` — the compositing seam a diagram/page owner uses to place outlined text into the document tree it is already building. `getsize()` is the rendered `(width, height)`; `getyofst()` is the baseline-to-top offset for vertical placement; `str_to_gids()` exposes the post-GSUB shaped gid sequence.
 
-| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                            | [CAPABILITY]                                                                       |
-| :-----: | :----------------- | :----------------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `Text.svg`         | `svg() -> str`                                          | a complete standalone `<svg>` document string                                      |
-|  [02]   | `Text.svgxml`      | `svgxml() -> ET.Element`                                | the run as an `xml.etree.ElementTree` `<svg>` element for in-process assembly      |
-|  [03]   | `Text.drawon`      | `drawon(svg: ET.Element, x: float = 0, y: float = 0)`  | composite the run's `<symbol>` defs + a positioned `<g>` use-group into an SVG tree |
-|  [04]   | `Text.getsize`     | `getsize() -> tuple[float, float]`                     | rendered `(width, height)` of the laid-out run                                     |
-|  [05]   | `Text.getyofst`    | `getyofst() -> float`                                  | baseline-to-top offset for vertical alignment                                     |
-|  [06]   | `Text.str_to_gids` | `str_to_gids()`                                         | the shaped post-GSUB glyph-id sequence the run renders                              |
-|  [07]   | `Text.__init__`    | `Text(s: str \| Sequence[int], font=None, size=None, linespacing=1, halign='left', valign='base', color=None, rotation=0, rotation_mode='anchor')` | direct run construction (accepts a gid sequence too) |
+| [INDEX] | [SURFACE]          | [CALL_SHAPE]                                                                                                                                       | [CAPABILITY]                                                                        |
+| :-----: | :----------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- | :---------------------------------------------------------------------------------- |
+|  [01]   | `Text.svg`         | `svg() -> str`                                                                                                                                     | a complete standalone `<svg>` document string                                       |
+|  [02]   | `Text.svgxml`      | `svgxml() -> ET.Element`                                                                                                                           | the run as an `xml.etree.ElementTree` `<svg>` element for in-process assembly       |
+|  [03]   | `Text.drawon`      | `drawon(svg: ET.Element, x: float = 0, y: float = 0)`                                                                                              | composite the run's `<symbol>` defs + a positioned `<g>` use-group into an SVG tree |
+|  [04]   | `Text.getsize`     | `getsize() -> tuple[float, float]`                                                                                                                 | rendered `(width, height)` of the laid-out run                                      |
+|  [05]   | `Text.getyofst`    | `getyofst() -> float`                                                                                                                              | baseline-to-top offset for vertical alignment                                       |
+|  [06]   | `Text.str_to_gids` | `str_to_gids()`                                                                                                                                    | the shaped post-GSUB glyph-id sequence the run renders                              |
+|  [07]   | `Text.__init__`    | `Text(s: str \| Sequence[int], font=None, size=None, linespacing=1, halign='left', valign='base', color=None, rotation=0, rotation_mode='anchor')` | direct run construction (accepts a gid sequence too)                                |
 
 [ENTRYPOINT_SCOPE]: the shared glyph interface (`SimpleGlyph`/`CompoundGlyph`/`EmptyGlyph`)
 - rail: glyphset
 
 The glyph family is the integration core: every glyph — outline, composite, or missing — exposes the SAME interface, so a diagram/typography owner folds glyphs through one surface. `svgpath(x0, y0, scale_factor)` is the load-bearing primitive: it returns a raw ET `<path>` `Element` whose `d` is the outline in user units offset to `(x0, y0)` — the geometry a `drawsvg`/`svgelements`/`ezdxf` owner consumes directly without a `<text>` element. `place(x, y, point_size)` returns the positioned `<use>` element for the SVG2 `<symbol>` flow; `svgsymbol()` is the reusable `<symbol>` def; `advance(nextchr)` is the GPOS-kerned advance to the next glyph; `funits_to_points(value, scale_factor)` converts font units to points; `describe()`/`test()` are the inspection arms.
 
-| [INDEX] | [SURFACE]                  | [CALL_SHAPE]                                                            | [CAPABILITY]                                                                  |
-| :-----: | :------------------------- | :--------------------------------------------------------------------- | :--------------------------------------------------------------------------- |
-|  [01]   | `SimpleGlyph.svgpath`      | `svgpath(x0: float = 0, y0: float = 0, scale_factor: float = 1) -> ET.Element \| None` | the raw `<path>` element (`d` = outline in user units) — the geometry primitive |
-|  [02]   | `SimpleGlyph.place`        | `place(x: float, y: float, point_size: float) -> ET.Element \| None`   | the positioned `<use>` element for the `<symbol>` flow                        |
-|  [03]   | `SimpleGlyph.svg`          | `svg(point_size: float \| None = None) -> str`                         | a standalone single-glyph `<svg>` document string                            |
-|  [04]   | `SimpleGlyph.svgxml`       | `svgxml(point_size: float \| None = None) -> ET.Element`               | a standalone single-glyph `<svg>` element                                    |
-|  [05]   | `SimpleGlyph.svgsymbol`    | `svgsymbol() -> ET.Element`                                            | the reusable `<symbol>` def the `<use>` flow references                       |
-|  [06]   | `SimpleGlyph.advance`      | `advance(nextchr: SimpleGlyph \| None = None) -> int`                  | GPOS-kerned advance to `nextchr` (un-kerned when `None`)                      |
-|  [07]   | `SimpleGlyph.funits_to_points` | `funits_to_points(value: float, scale_factor: float = 1) -> float`  | font-unit to point conversion at a scale                                     |
-|  [08]   | `SimpleGlyph.describe`     | `describe() -> DescribeGlyph`                                          | a renderable glyph-metrics description (advance/bbox/contours)               |
-|  [09]   | `SimpleGlyph.test`         | `test(pxwidth: float = 400, pxheight: float = 400) -> InspectGlyph`   | a labeled point/contour inspection SVG for the glyph                          |
-|  [10]   | `SimpleGlyph.viewbox`      | property                                                              | the glyph's `(x, y, w, h)` SVG viewBox                                        |
+| [INDEX] | [SURFACE]                      | [CALL_SHAPE]                                                                           | [CAPABILITY]                                                                    |
+| :-----: | :----------------------------- | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `SimpleGlyph.svgpath`          | `svgpath(x0: float = 0, y0: float = 0, scale_factor: float = 1) -> ET.Element \| None` | the raw `<path>` element (`d` = outline in user units) — the geometry primitive |
+|  [02]   | `SimpleGlyph.place`            | `place(x: float, y: float, point_size: float) -> ET.Element \| None`                   | the positioned `<use>` element for the `<symbol>` flow                          |
+|  [03]   | `SimpleGlyph.svg`              | `svg(point_size: float \| None = None) -> str`                                         | a standalone single-glyph `<svg>` document string                               |
+|  [04]   | `SimpleGlyph.svgxml`           | `svgxml(point_size: float \| None = None) -> ET.Element`                               | a standalone single-glyph `<svg>` element                                       |
+|  [05]   | `SimpleGlyph.svgsymbol`        | `svgsymbol() -> ET.Element`                                                            | the reusable `<symbol>` def the `<use>` flow references                         |
+|  [06]   | `SimpleGlyph.advance`          | `advance(nextchr: SimpleGlyph \| None = None) -> int`                                  | GPOS-kerned advance to `nextchr` (un-kerned when `None`)                        |
+|  [07]   | `SimpleGlyph.funits_to_points` | `funits_to_points(value: float, scale_factor: float = 1) -> float`                     | font-unit to point conversion at a scale                                        |
+|  [08]   | `SimpleGlyph.describe`         | `describe() -> DescribeGlyph`                                                          | a renderable glyph-metrics description (advance/bbox/contours)                  |
+|  [09]   | `SimpleGlyph.test`             | `test(pxwidth: float = 400, pxheight: float = 400) -> InspectGlyph`                    | a labeled point/contour inspection SVG for the glyph                            |
+|  [10]   | `SimpleGlyph.viewbox`          | property                                                                               | the glyph's `(x, y, w, h)` SVG viewBox                                          |
 
 [ENTRYPOINT_SCOPE]: font discovery, shaping internals, and inspection
 - rail: glyphset
 
 `find_font(name, paths)` resolves a family name to a file `Path` (or `None`); `system_fonts(paths)` maps every discovered family to its path — the discovery layer a design uses to bind a configured family before constructing a `Font`. The `gsub`/`gpos` submodules carry the substitution and positioning engines `Font` drives internally (`Gsub`/`Gpos` plus the per-lookup-type subtable classes — single/multiple/alternate/ligature/chained-context substitution; pair-adjust/single-adjust/mark-to-base/mark-to-mark positioning); a design composes shaping through `Font`/`Text`, never by walking these directly, but their presence is why ziafont needs no `uharfbuzz`. The `inspect` module (`DescribeFont`, `ShowGlyphs`, `ShowLookup1/3/4/63`, `LookupDisplay`) renders feature/lookup discovery tables — the font-feature QA surface.
 
-| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                         | [CAPABILITY]                                                              |
-| :-----: | :------------------------------ | :------------------------------------------------------------------ | :----------------------------------------------------------------------- |
-|  [01]   | `ziafont.find_font`             | `find_font(name: str \| Path, paths: Sequence[str \| Path] \| None = None) -> Path \| None` | resolve a family name to a font file path                                 |
-|  [02]   | `ziafont.system_fonts`          | `system_fonts(paths: Sequence[str \| Path] \| None = None) -> dict[str \| Path, Path]` | map every discovered family to its path (the discovery index)            |
-|  [03]   | `ziafont.gsub.Gsub`             | the GSUB engine `Font` drives                                       | single/multiple/alternate/ligature/chained-context substitution lookups   |
-|  [04]   | `ziafont.gpos.Gpos`             | the GPOS engine `Font` drives                                       | pair-kern/single-adjust/mark-to-base/mark-to-mark positioning lookups     |
-|  [05]   | `ziafont.inspect.DescribeFont`  | `DescribeFont(font)` -> `.table()`/`.format_languages()`           | a font metrics + script/language discovery table                          |
-|  [06]   | `ziafont.inspect.ShowGlyphs`    | `ShowGlyphs(font, ...)` -> `.table()`                              | a glyph-roster inspection grid                                            |
-|  [07]   | `ziafont.inspect.LookupDisplay` | `LookupDisplay(...)` -> `.table()`/`.svg_for_gid(gid)`             | a per-GSUB/GPOS-lookup before/after render for feature QA                  |
+| [INDEX] | [SURFACE]                       | [CALL_SHAPE]                                                                                | [CAPABILITY]                                                            |
+| :-----: | :------------------------------ | :------------------------------------------------------------------------------------------ | :---------------------------------------------------------------------- |
+|  [01]   | `ziafont.find_font`             | `find_font(name: str \| Path, paths: Sequence[str \| Path] \| None = None) -> Path \| None` | resolve a family name to a font file path                               |
+|  [02]   | `ziafont.system_fonts`          | `system_fonts(paths: Sequence[str \| Path] \| None = None) -> dict[str \| Path, Path]`      | map every discovered family to its path (the discovery index)           |
+|  [03]   | `ziafont.gsub.Gsub`             | the GSUB engine `Font` drives                                                               | single/multiple/alternate/ligature/chained-context substitution lookups |
+|  [04]   | `ziafont.gpos.Gpos`             | the GPOS engine `Font` drives                                                               | pair-kern/single-adjust/mark-to-base/mark-to-mark positioning lookups   |
+|  [05]   | `ziafont.inspect.DescribeFont`  | `DescribeFont(font)` -> `.table()`/`.format_languages()`                                    | a font metrics + script/language discovery table                        |
+|  [06]   | `ziafont.inspect.ShowGlyphs`    | `ShowGlyphs(font, ...)` -> `.table()`                                                       | a glyph-roster inspection grid                                          |
+|  [07]   | `ziafont.inspect.LookupDisplay` | `LookupDisplay(...)` -> `.table()`/`.svg_for_gid(gid)`                                      | a per-GSUB/GPOS-lookup before/after render for feature QA               |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

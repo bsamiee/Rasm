@@ -2,18 +2,18 @@
 
 The one keyed-fold and time-coordinate owner of the branch. `Fold.Plan<Op, K, S>` names the key projection, the state lift, and the lawful `merge` instance — one value that is simultaneously the pure snapshot fold, the Mealy step a stream lifts unchanged, and the graph specification the incremental engines execute. `AsOf` is the ONE read time — the two `Hlc` halves plus the journal ordinal — every push, seal, time-travel read, watermark, and compaction coordinate speaks; no second engine-time notion exists. `Replay` maintains every fold incrementally through the differential engines under REPLAY_LAW — a fold rebuilt from any event prefix and advanced by the remaining deltas is equivalent, under the plan instance's `alike`, to the live fold of the whole history; the algebraic half is `merge#LAW_SURFACE`'s `Converge.commutes`, this module supplies the operational half — and the versioned lane retains history in the engine's own `Index` trace: `reconstructAt` IS the AsOf materialization, `compact` IS the retention handoff, so no owned slice log shadows the engine. The dataflow verbs — the keyed join in every engine kind, the `filterBy` semijoin, grouped aggregation over the engine's whole seven-combinator roster, `iterate` fixpoint closure — are handle rows on the same algebra, and `Window` closes event time: the watermark meet, the honest lateness verdict, and pane folds that compose any plan under a composite pane key. The module is `core/src/state/fold.ts`; a new fold is a plan row, a new dataflow verb is a handle row, a new window shape is a policy case.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]          | [OWNS]                                                                     | [PUBLIC]                                          |
-| :-----: | :----------------- | :---------------------------------------------------------------------------- | :---------------------------------------------------- |
-|  [01]   | `PLAN_CONTRACT`    | the plan shape, delta currency, change row, and the pure/stream folds         | `Fold`                                                 |
-|  [02]   | `TIME_COORDINATE`  | the one three-coordinate read time and its engine projection                  | `AsOf`                                                 |
-|  [03]   | `MEMORY_LANE`      | the in-memory and ordered handles plus the lens reads over every handle       | `Replay.memory/.ordered/.view/.feed`                   |
-|  [04]   | `DATAFLOW_VERBS`   | the correlated, matched, aggregated, and fixpoint handles                     | `Replay.joined/.matched/.grouped/.closure`             |
-|  [05]   | `VERSIONED_LANE`   | the Index-traced versioned handle: seal, AsOf read, diff, compaction          | `Replay.versioned`                                     |
-|  [06]   | `WATERMARK_PANES`  | event-time completeness, the lateness verdict, and window policy folds        | `Window`                                               |
+| [INDEX] | [CLUSTER]         | [OWNS]                                                                  | [PUBLIC]                                   |
+| :-----: | :---------------- | :---------------------------------------------------------------------- | :----------------------------------------- |
+|  [01]   | `PLAN_CONTRACT`   | the plan shape, delta currency, change row, and the pure/stream folds   | `Fold`                                     |
+|  [02]   | `TIME_COORDINATE` | the one three-coordinate read time and its engine projection            | `AsOf`                                     |
+|  [03]   | `MEMORY_LANE`     | the in-memory and ordered handles plus the lens reads over every handle | `Replay.memory/.ordered/.view/.feed`       |
+|  [04]   | `DATAFLOW_VERBS`  | the correlated, matched, aggregated, and fixpoint handles               | `Replay.joined/.matched/.grouped/.closure` |
+|  [05]   | `VERSIONED_LANE`  | the Index-traced versioned handle: seal, AsOf read, diff, compaction    | `Replay.versioned`                         |
+|  [06]   | `WATERMARK_PANES` | event-time completeness, the lateness verdict, and window policy folds  | `Window`                                   |
 
-## [2]-[PLAN_CONTRACT]
+## [02]-[PLAN_CONTRACT]
 
 [PLAN_CONTRACT]:
 - Owner: `Fold.Plan<Op, K, S>` — `name` (the plan identity registries and telemetry dimensions key on), `key`, `lift`, `merge` — the single declaration every altitude executes; a fold is a value and capability growth is a plan row. Evidence folds, presence folds, CRDT projections, and journal projections are plan rows, never sibling fold machines.
@@ -92,7 +92,7 @@ function run<Op, K, S, E, R>(
 const Fold: Fold.Shape = { plan: (spec) => spec, step: _step, trace: _trace, run }
 ```
 
-## [3]-[TIME_COORDINATE]
+## [03]-[TIME_COORDINATE]
 
 [TIME_COORDINATE]:
 - Owner: `AsOf` — the `Schema.Class` owner of `{ stamp: Hlc, ordinal }` where the ordinal is a non-negative bigint journal sequence branded in-field, lossless at any journal length: event time plus journal position, totally ordered lexicographically on one lane (`AsOf.Order` composes the `Hlc` order then `Order.bigint` on the ordinal), the one decode anchor for any serialized coordinate — a resume token, a scrub bookmark — and the one value every handle's push, seal, read, diff, and compaction takes. `AsOf.at(stamp, sequence)` is the one mint from a durable position — the data branch's lanes construct through it and a bare position tuple never travels. The old engine-time/read-time split is dead: `AsOf.time` projects into the engine's number plane interior to this module, and no consumer meets a bare coordinate triple.
@@ -131,7 +131,7 @@ declare namespace AsOf {
 }
 ```
 
-## [4]-[MEMORY_LANE]
+## [04]-[MEMORY_LANE]
 
 [MEMORY_LANE]:
 - Owner: `Replay.memory` — the browser in-memory altitude: one d2mini graph per plan (`map` to the keyed lift, `reduce` under the instance reducer, `consolidate`, `output`), a `SubscriptionRef` table advanced by the drained change wave, and a synchronous `push` that sends the signed delta and drains the scheduler to quiescence inside one `Effect.sync`; `Replay.ordered` is the array-re-sort deletion — `orderByWithFractionalIndex` maintains rank as a fractional string index so a change moves one key and never re-sorts the collection, and `ranks` projects the ordered chunk. The engine's `sorted-btree` ordered twins are sealed out of the installed barrel — the package `exports` map is `.`-only and the operators barrel omits them — so the fractional-index operator is the whole reachable ordered surface and the lane stays synchronous end to end.
@@ -362,7 +362,7 @@ const _feed = <Op, K, S>(
 ): Stream.Stream<Fold.Change<K, S>> => Stream.flattenIterables(handle.wave.changes)
 ```
 
-## [5]-[DATAFLOW_VERBS]
+## [05]-[DATAFLOW_VERBS]
 
 [DATAFLOW_VERBS]:
 - Owner: the verb handles — `Replay.joined` correlates two plans by key through the engine's ONE `join` operator parameterized by `JoinKind` (`inner`/`left`/`right`/`full`/`anti` are rows on it, never five handles), so evidence correlated by operation or command key is one maintained table, never a hand walk over two folded tables; `Replay.matched` is the `filterBy` semijoin — a plan's folded table restricted to keys a signed probe feed currently holds, the live-key gate a hand table intersection restates; `Replay.grouped` aggregates through the engine's whole `groupByOperators` roster (`sum`/`count`/`avg`/`min`/`max`/`median`/`mode`), the incremental rollup a hand recursion over a folded table restates; `Replay.closure` runs the `iterate` fixpoint — transitive reachability over a keyed edge feed, the lane commit-graph ancestor closure and causal happened-before closure ride.
@@ -543,7 +543,7 @@ const _closure = <K>(origin: AsOf): Effect.Effect<Replay.Closure<K>> =>
   })
 ```
 
-## [6]-[VERSIONED_LANE]
+## [06]-[VERSIONED_LANE]
 
 [VERSIONED_LANE]:
 - Owner: `Replay.versioned` — the d2ts altitude: the graph opens at the origin frontier, `push` sends a signed delta at an `AsOf`, `seal` advances the input frontier and settles every version at or below it, and the sink appends every emitted state row into an owned engine `Index` trace — `trace.addValue(key, version, [state, multiplicity])` — so the retained history IS the engine's versioned trace and no hand-rolled slice log exists beside it.
@@ -649,7 +649,7 @@ const Replay: Replay.Shape = {
 }
 ```
 
-## [7]-[WATERMARK_PANES]
+## [07]-[WATERMARK_PANES]
 
 [WATERMARK_PANES]:
 - Owner: `Window` — event-time completeness and the pane algebra: `mark` folds per-replica last-seen stamps through the meet (`Option` because zero acked replicas bound nothing) paired with the `Uncertainty` window that prices its honesty; `verdict` collapses `Causal.compare` to `punctual`/`late`/`uncertain`; `Policy` is the closed window family carried as values, `spread` assigns a stamp to its pane coordinates, `panes` composes any plan into a paned plan under a `Data`-tupled `[paneOpen, key]` composite key, and `close` partitions panes by watermark passage.

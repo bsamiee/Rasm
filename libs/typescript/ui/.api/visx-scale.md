@@ -10,15 +10,15 @@
 
 ## [01]-[SURFACE]
 
-| [INDEX] | [SURFACE] | [FAMILY] | [CAPABILITY] |
-|:-----: |:--------------------------------------------------------------------------------------------------- |:------------ |:----------------------------------------------------------------- |
-| [01] | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial` | continuous | quantitative; config `domain`/`range`/`nice`/`clamp`/`zero`/`round`/`interpolate` (+`base`/`constant`/`exponent` per type) |
-| [02] | `scaleTime` `scaleUtc` | temporal | date domains; `nice` accepts `NiceTime` interval values |
-| [03] | `scaleBand` `scalePoint` | ordinal-spatial | categorical position; padding/align/round config keys; `bandwidth()`/`step()` feed bar geometry |
-| [04] | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold` | discrete-map | category→value, quantile/uniform/threshold bucketing |
-| [05] | `createScale(config: ScaleConfig)` / `updateScale(scale, config)` | polymorphic | type-discriminated construction; immutable copy-with-changes rederive |
-| [06] | `inferScaleType(scale)` `coerceNumber` `getTicks(scale, count?)` `scaleCanBeZeroed(config)` `toString` | utils | reflection over a received scale, tick extraction, zero-eligibility |
-| [07] | `ScaleConfig` `ScaleType` `PickScaleConfig` `AnyD3Scale` `D3Scale` `PickD3Scale` `ScaleInput` `InferD3ScaleOutput` `NiceTime` | types | the vocabulary generic chart components constrain against |
+| [INDEX] | [SURFACE]                                                                                                                     | [FAMILY]        | [CAPABILITY]                                                                                                               |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `scaleLinear` `scaleLog` `scaleSymlog` `scalePower` `scaleSqrt` `scaleRadial`                                                 | continuous      | quantitative; config `domain`/`range`/`nice`/`clamp`/`zero`/`round`/`interpolate` (+`base`/`constant`/`exponent` per type) |
+|  [02]   | `scaleTime` `scaleUtc`                                                                                                        | temporal        | date domains; `nice` accepts `NiceTime` interval values                                                                    |
+|  [03]   | `scaleBand` `scalePoint`                                                                                                      | ordinal-spatial | categorical position; padding/align/round config keys; `bandwidth()`/`step()` feed bar geometry                            |
+|  [04]   | `scaleOrdinal` `scaleQuantile` `scaleQuantize` `scaleThreshold`                                                               | discrete-map    | category→value, quantile/uniform/threshold bucketing                                                                       |
+|  [05]   | `createScale(config: ScaleConfig)` / `updateScale(scale, config)`                                                             | polymorphic     | type-discriminated construction; immutable copy-with-changes rederive                                                      |
+|  [06]   | `inferScaleType(scale)` `coerceNumber` `getTicks(scale, count?)` `scaleCanBeZeroed(config)` `toString`                        | utils           | reflection over a received scale, tick extraction, zero-eligibility                                                        |
+|  [07]   | `ScaleConfig` `ScaleType` `PickScaleConfig` `AnyD3Scale` `D3Scale` `PickD3Scale` `ScaleInput` `InferD3ScaleOutput` `NiceTime` | types           | the vocabulary generic chart components constrain against                                                                  |
 
 ```ts contract
 // Config-object form; the return IS the d3 scale. updateScale rederives without mutating the original — the fold-friendly shape.

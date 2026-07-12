@@ -21,11 +21,11 @@
 - rail: parsing
 - The package surface is two grammar factories AND three `Final[str]` query-source constants. The TypeScript grammar additionally ships a `LOCALS_QUERY` (scope/binding resolution source), which the Python grammar does not. All three are raw `.scm` source loaded lazily, not compiled queries; the two dialects share one query-source set.
 
-| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                          |
-| :-----: | :----------------- | :------------ | :---------------------------------------------- |
-|  [01]   | `HIGHLIGHTS_QUERY` | query source  | `Final[str]` syntax-highlight `.scm` source text |
+| [INDEX] | [SYMBOL]           | [TYPE_FAMILY] | [RAIL]                                                   |
+| :-----: | :----------------- | :------------ | :------------------------------------------------------- |
+|  [01]   | `HIGHLIGHTS_QUERY` | query source  | `Final[str]` syntax-highlight `.scm` source text         |
 |  [02]   | `LOCALS_QUERY`     | query source  | `Final[str]` scope/binding-resolution `.scm` source text |
-|  [03]   | `TAGS_QUERY`       | query source  | `Final[str]` symbol-tags `.scm` source text      |
+|  [03]   | `TAGS_QUERY`       | query source  | `Final[str]` symbol-tags `.scm` source text              |
 
 ## [03]-[ENTRYPOINTS]
 

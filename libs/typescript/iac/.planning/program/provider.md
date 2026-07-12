@@ -2,16 +2,16 @@
 
 Provider dispatch and the service surface as ONE owner keyed by one union: the `_map` equivalence table and the `_ARMS` handler record both key on `StackSpec.Arm`, so the capability-by-arm data and the arm program that realizes it live on one page and review pressure holds them adjacent — the map is the audit surface capability reads, the record is the construction it describes. Rows are capabilities, columns are arms, cells name the exact resource-family spelling, and a hole is honest absence the reader gets as `Option`. Each arm is a total function from the spec (plus the Effect-resolved host material and deploy-time pins) to a `PulumiFn`: it proves EVERY spec-derived coordinate its tiers require on the rail as typed `DeployFault`s before the `PulumiFn` is entered — `_proven` for connection-plus-key, `_coord` for each coordinate, `_staged` assembling the traffic edge as a tagged case — so no tier ever throws for a value the spec already proves. The `_estate` composition is the single k8s-estate builder: the selfhosted arm feeds it a `Bootstrap` kubeconfig provider, the aws arm's `cluster` compute row feeds it an `eks.Cluster.kubeconfigJson` provider, and the whole workload/data/traffic/observe/tenant roster rides either plane unchanged — promoting a cloud to a k8s estate is a provider-seam swap, never a tier rewrite. `Bootstrap` is the metal row hardened end to end: `cloudinit`-rendered first boot lays the SSH surface before the connection is reachable, host-key pinning and bastion proxy and dial budgets ride the connection, `local.runOutput` host facts join the trigger set, and the control plane installs through one `remote.Command` whose stdout is the kubeconfig. Adding a cloud is one record row plus one map column; finalizing one is a `StackSpec` value, never a lib edit. The module is `iac/src/program/provider.ts`.
 
-## [1]-[CLUSTERS]
+## [01]-[CLUSTERS]
 
-| [INDEX] | [CLUSTER]           | [OWNS]                                                               | [PUBLIC]    |
+| [INDEX] | [CLUSTER]           | [OWNS]                                                                | [PUBLIC]    |
 | :-----: | :------------------ | :-------------------------------------------------------------------- | :---------- |
 |  [01]   | `EQUIVALENCE_MAP`   | the capability-by-arm table and its `Option`-lifted projections       | `Dispatch`  |
 |  [02]   | `ARM_CONTRACT`      | the material read, pins, the coordinate proofs, the exhaustive record | `Dispatch`  |
 |  [03]   | `CLUSTER_BOOTSTRAP` | first boot, staging, install, connection hardening, kubeconfig egress | `Bootstrap` |
 |  [04]   | `ARM_PROGRAMS`      | the shared k8s estate builder and the five arm bodies                 | `Dispatch`  |
 
-## [2]-[EQUIVALENCE_MAP]
+## [02]-[EQUIVALENCE_MAP]
 
 [EQUIVALENCE_MAP]:
 - Owner: the interior `_capabilities` key tuple anchoring row order, the `_map` table carrying per-arm cells as exact-optional keys (a hole is an omitted key, never a sentinel), and the two projections riding the exported owner: `cell(capability, arm)` lifts the unproven cell read to `Option`, `column(arm)` folds an arm's realized subset in row order. The reads ride `_cells`, the table widened to `Dispatch.Cell` rows — a declared-key access on the literal union demands the key on every row, so the bracket read is index trust lifted at the seam while `_map` keeps its literals.
@@ -138,7 +138,7 @@ declare namespace Dispatch {
 const _cells: Record.ReadonlyRecord<Dispatch.Capability, Dispatch.Cell> = _map
 ```
 
-## [3]-[ARM_CONTRACT]
+## [03]-[ARM_CONTRACT]
 
 [ARM_CONTRACT]:
 - Owner: the arm signature and the record law — `material` is the one deploy-host Config read the arms share (`IAC_SSH_KEY` as an optional `Redacted`, resolved under `doppler run`), `program(spec, material, pins)` is the generic indexed call over `_ARMS`, and the record's mapped annotation `{ readonly [K in StackSpec.Arm]: Dispatch.Arm }` is the exhaustiveness proof — a `StackSpec.arms` entry with no row fails compilation at the record.
@@ -243,7 +243,7 @@ const _edged = (spec: StackSpec): Effect.Effect<Option.Option<{ readonly domain:
         })
 ```
 
-## [4]-[CLUSTER_BOOTSTRAP]
+## [04]-[CLUSTER_BOOTSTRAP]
 
 [CLUSTER_BOOTSTRAP]:
 - Owner: `Bootstrap`, the tier that turns owned metal into a cluster — `Bootstrap.firstBoot(parts, encoding?)` renders the multi-part MIME user-data a host-provisioning resource consumes as its pre-SSH product, staged assets ride `remote.CopyToRemote` (rendered install artifacts as `Asset`/`Archive` values, never checked-in paths), the control plane installs through one `remote.Command` whose CRUD slots own install (`create`) and teardown (`delete`), and `kubeconfig` egresses as the secret-tracked stdout the `@pulumi/kubernetes` `Provider` binds.
@@ -331,7 +331,7 @@ class Bootstrap extends Tier {
 }
 ```
 
-## [5]-[ARM_PROGRAMS]
+## [05]-[ARM_PROGRAMS]
 
 [ARM_PROGRAMS]:
 - Law: `_estate` is the one k8s-estate composition — namespace → `Secrets` (generated entries: `DB_ADMIN_PASSWORD`, `DB_PASSWORD`, `OBJECT_USER`, `OBJECT_PASSWORD`, `GRAFANA_PASSWORD`; `CLOUDFLARE_API_TOKEN` pre-exists on the app's config) → `ObjectStore` → `Nats` → `Postgres` (the admin and app credentials as two distinct reads) → `Lgtm` → `Boards` → `Tenants` when the tenancy mode escalates past `single` → the `RandomUuid7` deployment identity → `Workload.token` → optional `Workload` whose live-`Output` env pairs ride `StackOutputs.pairsOf` with the `pulumi.output(value).apply(String)` renderer — the same flatten the decoded getter rides — → and, only when the staged edge is realized (an `internal` exposure stands service-only), one `Certs.root` CA → `Traffic` over the workload service with the issuance capability and the proven `Edge` case injected; graph-late material (`GRAFANA_AUTOMATION_TOKEN` from `Boards.automation`, `MESH_CA_KEY` from the CA root) lands through `secrets.store` so it outlives the graph in the one canonical store; it returns every realized `StackOutputs` plane, `deploy` included. Both k8s-plane sources feed it: the selfhosted arm's `Bootstrap.kubeconfig` and the aws arm's `eks.Cluster.kubeconfigJson`, so the entire tier roster is plane-agnostic by construction.
