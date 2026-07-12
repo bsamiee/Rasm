@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI.Abstractions`
-
 - Package: `Microsoft.Extensions.AI.Abstractions`
 - Assembly: `Microsoft.Extensions.AI.Abstractions` (`lib/net10.0`; targets `net9.0`, `net8.0`, `netstandard2.0`, and `net462`)
 - Namespace: `Microsoft.Extensions.AI`
@@ -284,7 +283,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
-
 - `IChatClient: IDisposable` binds `GetResponseAsync`, `GetStreamingResponseAsync`, and `GetService`.
 - `IEmbeddingGenerator: IDisposable` is the non-generic discovery root, and `IEmbeddingGenerator<TInput,TEmbedding>` binds `GenerateAsync`.
 - Each multimodal client repeats the delegating base and `GetService` shape.
@@ -294,7 +292,6 @@
 - `Microsoft.Extensions.AI` owns the builder pipeline and typed `ChatClientStructuredOutputExtensions.GetResponseAsync<T>` projection bound by `Rasm.AppHost`.
 
 [FUNCTION_SURFACE]:
-
 - `AIFunction: AIFunctionDeclaration` adds `InvokeAsync` returning `ValueTask<object?>`; the base declaration remains a schema-only manifest.
 - `AIFunctionFactory.Create` derives parameter schemas from a delegate or `MethodInfo` through reflection.
 - `CreateDeclaration` binds an authored `JsonElement` schema and optional return schema without a local delegate.
@@ -304,7 +301,6 @@
 - The provider executes hosted tools registered in `ChatOptions.Tools`; paired hosted call and result content carries each round-trip.
 
 [CONTENT_TOPOLOGY]:
-
 - `AIContent` is the abstract discriminant carried by `ChatMessage.Contents` and `ChatResponse.Messages`.
 - `FunctionCallContent.CallId` pairs with `FunctionResultContent.CallId` for local tool round-trips.
 - Each hosted tool family pairs its call and result content through the same identity shape.
@@ -312,7 +308,6 @@
 - `ErrorContent` and `UsageContent` carry structured failure and token use.
 
 [STACKING]:
-
 - `Rasm.AppHost` composes `inner.AsBuilder().UseFunctionInvocation().UseDistributedCache(hybridCache).UseOpenTelemetry().Build()` and binds `Microsoft.Extensions.Caching.Hybrid` as the response cache.
 - `Microsoft.ML.OnnxRuntime` and `OnnxRuntimeGenAI` back local `IChatClient` and `IEmbeddingGenerator` implementations behind the shared contracts.
 - `ChatResponseExtensions.ToChatResponseAsync` folds streaming output, `AddMessages` grows the history, and `IChatReducer` bounds context before the next send.
@@ -320,14 +315,12 @@
 - `AIJsonUtilities.CreateJsonSchema(type)` binds the same schema to `ChatResponseFormat` or `AIFunction`, and `ChatClientStructuredOutputExtensions.GetResponseAsync<T>` materializes `ChatResponse<T>.Result`.
 
 [LOCAL_ADMISSION]:
-
 - Compute consumes DI-injected `IChatClient`, `IEmbeddingGenerator`, and multimodal contracts; model owners never construct providers.
 - `AIFunction` and hosted tools register in `ChatOptions.Tools`; middleware invokes local functions, while the provider invokes hosted tools.
 - `ChatOptions.Clone()` and `ChatMessage.Clone()` create the per-request copies mutated by a caller.
 - `AdditionalPropertiesDictionary` carries provider-specific keys outside the typed options, responses, and content surfaces.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.AI.Abstractions`
 - Owns: Provider-agnostic client contracts, tool and content models, and JSON-schema utilities
 - Accept: Injected clients, `AIFunctionFactory`, hosted tools, and `AIJsonUtilities`

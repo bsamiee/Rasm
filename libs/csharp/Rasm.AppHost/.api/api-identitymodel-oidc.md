@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-
 - package: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 - assembly: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 - namespace: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: discovery, retrieval, and validation — `Microsoft.IdentityModel.Protocols.OpenIdConnect`
-
 - rail: oidc-protocol
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]      | [RAIL]                                        |
@@ -32,7 +30,6 @@
 |  [07]   | `OpenIdConnectRequestType`               | enum               | authentication / token / logout request kind  |
 
 [PUBLIC_TYPE_SCOPE]: protocol name constants
-
 - rail: oidc-protocol
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [RAIL]                                    |
@@ -49,7 +46,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: discovery retrieval — `OpenIdConnectConfigurationRetriever`
-
 - rail: oidc-protocol
 
 | [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY] | [RAIL]                             |
@@ -60,7 +56,6 @@
 |  [04]   | `static OpenIdConnectConfiguration Create(string json)`                            | parse          | parse a pre-fetched discovery JSON |
 
 [ENTRYPOINT_SCOPE]: protocol validation — `OpenIdConnectProtocolValidator`
-
 - rail: oidc-protocol
 
 | [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY]    | [RAIL]                               |
@@ -72,7 +67,6 @@
 |  [05]   | `GetHashAlgorithm(string algorithm)`                                     | hash select       | resolves the `*_hash` algorithm      |
 
 [ENTRYPOINT_SCOPE]: discovery document projection — `OpenIdConnectConfiguration`
-
 - rail: oidc-protocol
 
 | [INDEX] | [SURFACE]                                                                          | [ENTRY_FAMILY]  | [RAIL]                           |
@@ -87,7 +81,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OIDC_TOPOLOGY]:
-
 - discovery document: `OpenIdConnectConfiguration : BaseConfiguration` is the parsed `.well-known/openid-configuration` carrying `AuthorizationEndpoint`, `TokenEndpoint`, `UserInfoEndpoint`, `EndSessionEndpoint`, `RevocationEndpoint`, `IntrospectionEndpoint`, `DeviceAuthorizationEndpoint`, `PushedAuthorizationRequestEndpoint`, `JwksUri`/`JsonWebKeySet`, and provider capability flags (`RequirePushedAuthorizationRequests`, `TlsClientCertificateBoundAccessTokens`, `AuthorizationResponseIssParameterSupported`, `ClaimsParameterSupported`); `Create(json)` parses a pre-fetched document
 - refresh manager: `ConfigurationManager<OpenIdConnectConfiguration>` is a `BaseConfigurationManager` that wraps a metadata address, an `OpenIdConnectConfigurationRetriever`, and an `IDocumentRetriever` or `HttpDocumentRetriever`. It caches configuration through `AutomaticRefreshInterval`, `RefreshInterval`, and last-known-good state.
 - validation handoff: assign the manager to `TokenValidationParameters.ConfigurationManager` to supply discovery JWKS data to token validators and the JWT handler. `OpenIdConnectConfigurationRetriever` implements `IConfigurationRetriever<OpenIdConnectConfiguration>`.
@@ -98,7 +91,6 @@
 - name constants: `OpenIdConnectParameterNames`, `OpenIdConnectScope`, `OpenIdConnectResponseType`, `OpenIdConnectResponseMode`, `OpenIdConnectGrantTypes`, `OpenIdConnectPrompt`, and `OpenIdProviderMetadataNames` are the canonical literal sets; `OpenIdConnectMessage : AuthenticationProtocolMessage` is the low-level request/response builder for hosts not delegating flow construction to `OpenIddict.Client`
 
 [LOCAL_ADMISSION]:
-
 - Build one `ConfigurationManager<OpenIdConnectConfiguration>` per provider (metadata address + `OpenIdConnectConfigurationRetriever` + `HttpDocumentRetriever`) and assign it to `TokenValidationParameters.ConfigurationManager`/`ValidationParameters.ConfigurationManager`; the validators pull `IssuerSigningKeys` from its refreshed `JsonWebKeySet` rather than a pinned key.
 - Thread the discovery `HttpClient` through the host's resilience handler and `Microsoft.Extensions.ServiceDiscovery`; do not fetch the well-known document with a bare client.
 - Run `OpenIdConnectProtocolValidator.ValidateAuthenticationResponse` after JWT validation for interactive flows to enforce the `nonce`/`c_hash`/`at_hash`/`state` binding; `RequireNonce`/`RequireStateValidation` stay on, and the nonce is minted by `GenerateNonce` and round-tripped through the request `state`.
@@ -106,7 +98,6 @@
 - Name request parameters and scopes through the constant types, not string literals, when building a raw `OpenIdConnectMessage`; prefer the `OpenIddict.Client` flow verbs over hand-built messages for the standard grants.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.IdentityModel.Protocols.OpenIdConnect`
 - Owns: OIDC discovery-document modeling/retrieval, refreshing JWKS configuration, OIDC protocol-invariant validation (nonce/c_hash/at_hash/state), and the OIDC protocol name constants
 - Accept: `ConfigurationManager<OpenIdConnectConfiguration>` as the `TokenValidationParameters.ConfigurationManager` source; `OpenIdConnectProtocolValidator` over an `OpenIdConnectProtocolValidationContext`; discovery through `OpenIdConnectConfigurationRetriever`

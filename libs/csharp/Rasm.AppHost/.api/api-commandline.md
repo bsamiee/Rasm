@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.CommandLine`
-
 - package: `System.CommandLine`
 - assembly: `System.CommandLine`
 - namespace: `System.CommandLine`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: command and symbol family
-
 - rail: configuration
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]    | [RAIL]                          |
@@ -31,7 +29,6 @@
 |  [09]   | `EnvironmentVariablesDirective` | env directive    | `[env]` env-variable directive  |
 
 [PUBLIC_TYPE_SCOPE]: parse and invocation family
-
 - rail: configuration
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]     | [RAIL]                        |
@@ -46,7 +43,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: symbol construction
-
 - rail: configuration
 
 | [INDEX] | [SURFACE]                         | [ENTRY_FAMILY] | [CAPABILITY]        |
@@ -57,12 +53,10 @@
 |  [04]   | `Argument<T>(name)`               | argument ctor  | positional symbol   |
 
 [SYMBOL_CONSTRUCTION_DETAILS]:
-
 - `Option<T>.Description` is a settable `Symbol` property rather than a constructor argument.
 - `Argument<T>` requires a name, and its `Description` is set after construction.
 
 [ENTRYPOINT_SCOPE]: command composition
-
 - rail: configuration
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [RAIL]                     |
@@ -77,7 +71,6 @@
 |  [08]   | `Command.TreatUnmatchedTokensAsErrors` | policy flag    | default `true`             |
 
 [ENTRYPOINT_SCOPE]: action binding
-
 - rail: configuration
 
 | [INDEX] | [SURFACE]                                                            | [ENTRY_FAMILY]  | [RAIL]                        |
@@ -90,7 +83,6 @@
 |  [06]   | `Command.Validators`                                                 | validator list  | `List<Action<CommandResult>>` |
 
 [ENTRYPOINT_SCOPE]: parse and invoke
-
 - rail: configuration
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [RAIL]                          |
@@ -105,7 +97,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMMANDLINE_TOPOLOGY]:
-
 - public namespaces: `System.CommandLine`, `.Parsing`, `.Invocation`, `.Completions`
 - symbol hierarchy: `RootCommand` → `Command` → `Option`/`Argument`/`Command` trees
 - dispatch: `SetAction` stores a `CommandLineAction`; parse then invokes the matched command action
@@ -114,13 +105,11 @@
 - `ParseResult.Errors` carries `ParseError` instances; non-empty errors prevent successful invocation by default
 
 [LOCAL_ADMISSION]:
-
 - Build the `RootCommand` tree at composition time; bind typed `Option<T>` and `Argument<T>` to configuration consumers through `ParseResult.GetValue<T>` inside `SetAction` delegates.
 - Use `SetAction(Func<ParseResult, CancellationToken, Task<int>>)` as the preferred async entry point.
 - Validators on `Command.Validators` run after parsing and before invocation; use them for cross-option constraints.
 
 [RAIL_LAW]:
-
 - Package: `System.CommandLine`
 - Owns: CLI argument parsing and command dispatch
 - Accept: `RootCommand`-rooted parse tree; typed `Option<T>` and `Argument<T>` surfaces

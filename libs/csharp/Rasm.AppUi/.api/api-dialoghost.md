@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DialogHost.Avalonia`
-
 - package: `DialogHost.Avalonia`
 - assembly: `DialogHost.Avalonia`
 - namespace: `DialogHostAvalonia`
@@ -19,7 +18,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [DIALOG_TYPES]: host control, session handle, event args, and handler delegates
-
 - rail: dialogs
 
 | [INDEX] | [SYMBOL]                    | [KIND]              | [RAIL]                                              |
@@ -34,7 +32,6 @@
 |  [08]   | `DialogHostStyles`          | `Styles` resource   | the included default theme `ResourceDictionary`     |
 
 [POSITIONER_TYPES]: popup placement contracts
-
 - rail: dialogs
 
 | [INDEX] | [SYMBOL]                              | [KIND]              | [RAIL]                                             |
@@ -47,7 +44,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [STATIC_DIALOG_OPS]: identifier-keyed show/close/query — no control reference required, `Show` is the awaitable result rail
-
 - rail: dialogs
 
 All operations are static `DialogHost` surfaces.
@@ -63,7 +59,6 @@ All operations are static `DialogHost` surfaces.
 |  [07]   | `GetDialogSession(string? dialogIdentifier) -> DialogSession?`               | session resolution   |
 
 [SESSION_OPS]: per-session lifecycle on the resolved `DialogSession`
-
 - rail: dialogs
 
 | [INDEX] | [SURFACE]                        | [SURFACE_ROOT]           | [RAIL]                               |
@@ -78,7 +73,6 @@ All operations are static `DialogHost` surfaces.
 |  [08]   | `Session`                        | `DialogOpenedEventArgs`  | the session that opened              |
 
 [HOST_PROPERTIES]: styled/direct properties on the `DialogHost` control
-
 - rail: dialogs
 
 | [INDEX] | [SURFACE]                   | [PROPERTY_KIND]  | [RAIL]                                 |
@@ -98,7 +92,6 @@ All operations are static `DialogHost` surfaces.
 |  [13]   | `DisableOpeningAnimation`   | direct           | suppress the open transition           |
 
 [VISUAL_PROPERTIES]: overlay, blur, positioning, and per-host chrome
-
 - rail: dialogs
 
 | [INDEX] | [SURFACE]                                 | [SURFACE_ROOT]                        | [RAIL]                                |
@@ -116,7 +109,6 @@ All operations are static `DialogHost` surfaces.
 |  [11]   | `Constrain(Size available) -> Size`       | `IDialogPopupPositionerConstrainable` | clamp the popup to bounds             |
 
 [EVENTS]: routed events and handler-property delegates
-
 - rail: dialogs
 
 | [INDEX] | [SURFACE]               | [SURFACE_ROOT] | [RAIL]                                       |
@@ -129,20 +121,17 @@ All operations are static `DialogHost` surfaces.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DIALOG_LAW]:
-
 - `Show(content, identifier)` returns `Task<object?>`; the awaited value is the close `Parameter`, so the dialog result is a value on the async rail — a confirm awaits to its chosen result, a click-away or cancel to `null`. This is the dismissal-as-a-value contract the AppUi `Fin`-railed `DialogIntent` re-types onto.
 - The static identifier-keyed surface (`Show`/`Close`/`Pop`/`IsDialogOpen`/`GetDialogSession`) is the addressing model: a session is reached by `Identifier`, never by holding the control, so the intent dispatcher closes/queries a session it never constructed.
 - `DialogClosing` + `DialogClosingEventArgs.Cancel()` is the veto seam: a dirty-form session arms `Cancel` through `DialogClosingCallback` so dismissal blocks until the form resolves (`CanBeCancelled` gates whether the veto is honored).
 - `IsMultipleDialogsEnabled` promotes the host to a session stack: `CurrentSessions` is the stacked set a `Retreat` veto consults, `Pop` retreats one, and a `Show` on a non-stacked host that already holds an open session folds onto the existing session (probed via `IsDialogOpen(Identifier)`) rather than minting a parallel root.
 
 [STACKING_LAW]:
-
 - AppUi binds DialogHost through one ReactiveUI `Interaction<TInput, TOutput>` seam, not call-site `Show`: a `DialogIntent` union case maps to `DialogHost.Show(request, state.Identifier)` per `DialogTopology` row, and the awaited `object?` close parameter projects onto the `Fin` rail at one boundary capsule (`DialogSurface.Project`) — the erased close parameter is re-typed once, never per call site.
 - Per-host chrome composes from theme token keys, not literals: `OverlayBackground`, `BlurBackground`, `PopupPositioner`, and `DialogHostStyle.CornerRadius` resolve through the Fluent token rail so a dialog host inherits the app theme rather than carrying inline brushes.
 - `UpdateContent` stacks with the progress/toast rail: a long-running session resolves its `DialogSession` by `GetDialogSession(Identifier)` and swaps content (progress -> result) without closing and reopening, so the awaited `Show` task stays the single result handle across content phases.
 
 [MODALITY_LAW]:
-
 - Package: `DialogHost.Avalonia`
 - Owns: retained modal orchestration — identifier-addressed sessions, the awaitable result rail, the vetoable closing seam, the session stack, and per-host overlay/blur/positioner/chrome — for panel, companion, sidecar, diagnostic, and downstream app dialog surfaces through one dialog rail.
 - Accept: modal state stays host-addressable and command/identifier-driven; `Show` results flow as `Task<object?>` close parameters onto the `Fin` rail; the `Interaction` seam owns the per-surface binding.

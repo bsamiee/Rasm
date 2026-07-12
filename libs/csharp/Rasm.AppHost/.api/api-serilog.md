@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Serilog`
-
 - package: `Serilog`
 - assembly: `Serilog`
 - namespace: `Serilog`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logger configuration family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]          | [RAIL]                  |
@@ -34,7 +32,6 @@
 |  [12]   | `BatchingOptions`                  | batch policy           | batched sink behavior   |
 
 [PUBLIC_TYPE_SCOPE]: event value and extension family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]        | [RAIL]                  |
@@ -61,7 +58,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: logging operations
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                   |
@@ -87,7 +83,6 @@
 [FALLIBLE]: `Fallible(Action<LoggerSinkConfiguration> configureSink, ILoggingFailureListener failureListener)` wraps a sink chain in a `FailureListenerSink`, so the listener observes every reported failure.
 
 [ENTRYPOINT_SCOPE]: event context and formatting operations
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                 | [ENTRY_FAMILY]     | [RAIL]                    |
@@ -114,7 +109,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SERILOG_TOPOLOGY]:
-
 - namespaces: `Serilog`, `Serilog.Core`, `Serilog.Events`, `Serilog.Context`, `Serilog.Configuration`
 - event model: message template, properties, level, timestamp, exception
 - trace model: event trace id and span id fields
@@ -126,7 +120,6 @@
 - formatter rail: text formatter, display formatter, JSON formatter, JSON value formatter
 
 [LOCAL_ADMISSION]:
-
 - Serilog projects signal facts to structured logs.
 - Destructuring policy must preserve redaction and bounded payload shape.
 - Sink failures emit diagnostics and do not mutate runtime state.
@@ -134,7 +127,6 @@
 - Sink configuration belongs to bootstrap composition and never to lower runtime logic.
 
 [RAIL_LAW]:
-
 - Package: `Serilog`
 - Owns: structured log projection
 - Accept: Serilog projects telemetry outward

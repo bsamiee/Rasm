@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Verify.XunitV3`
-
 - package: `Verify.XunitV3` (version `31.20.0`, MIT)
 - assembly: `Verify.XunitV3` (TFM `net10.0`; the package also ships `net11.0`, the `net10.0` asset binds the workspace floor)
 - transitive: `Verify` core (the `SettingsTask`/`VerifySettings`/`Target`/scrubber surface) and `xunit.v3.extensibility.core`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: approval-test surfaces — 5 types in `VerifyXunit`
-
 - rail: test
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]   | [RAIL]                                                   |
@@ -28,7 +26,6 @@
 |  [05]   | `DerivePathInfo`    | path delegate   | `(sourceFile, projectDir, type, method) -> PathInfo`     |
 
 [CORE_SETTINGS_SCOPE]: transitive `Verify` fluent surface the `SettingsTask` exposes
-
 - rail: test
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]     | [RAIL]                                               |
@@ -42,7 +39,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [VERIFY_ENTRYPOINTS]: object, value, and typed-source snapshot verify on `Verifier`
-
 - rail: test
 
 | [INDEX] | [SURFACE]                                                         | [SURFACE_ROOT] | [RAIL]                              |
@@ -60,7 +56,6 @@
 |  [11]   | `Verify(object?, IEnumerable<Target>, ...)`                       | `Verifier`     | object + extra named targets        |
 
 [FILE_AND_ARCHIVE_ENTRYPOINTS]: file, directory, and zip snapshot verify on `Verifier`
-
 - rail: test
 
 | [INDEX] | [SURFACE]                                                                    | [SURFACE_ROOT] | [RAIL]                   |
@@ -72,7 +67,6 @@
 |  [05]   | `Verify(ZipArchive, include?, includeStructure?, persistArchive?, ...)`      | `Verifier`     | open-archive snapshot    |
 
 [EXCEPTION_ENTRYPOINTS]: throw verification on `Verifier`
-
 - rail: test
 
 | [INDEX] | [SURFACE]                                                    | [SURFACE_ROOT] | [RAIL]                    |
@@ -82,7 +76,6 @@
 |  [03]   | `ThrowsValueTask(Func<ValueTask> / Func<ValueTask<T>>, ...)` | `Verifier`     | value-task throw snapshot |
 
 [CONFIGURATION_ENTRYPOINTS]: process-wide path and attachment configuration on `Verifier`
-
 - rail: test
 
 | [INDEX] | [SURFACE]                                                       | [SURFACE_ROOT] | [RAIL]                                         |
@@ -94,7 +87,6 @@
 |  [05]   | `BuildVerifier(VerifySettings, sourceFile, useUniqueDirectory)` | `Verifier`     | inner-verifier build (extension only)          |
 
 [SETTINGS_CHAIN]: fluent per-call settings off the returned `SettingsTask`
-
 - rail: test
 
 | [INDEX] | [SURFACE]                                                             | [ROOT]           | [CAPABILITY]               |
@@ -117,27 +109,23 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [VERIFY_TOPOLOGY]:
-
 - `VerifyXunit` carries exactly 5 types; `SettingsTask`, `VerifySettings`, `Target`, `Combination`, and the scrubber surface arrive from the transitive `Verify` core, so a test composes `Verifier.Verify*(...)` plus the core fluent chain in one expression.
 - Every `Verifier.Verify*`/`Throws*` returns a `SettingsTask`; the test `await`s it, the awaited build runs the comparison against the `.verified.` file and writes a `.received.` on mismatch, and the fluent settings methods are called inline before the await (`await Verify(x).ScrubLinesContaining("ts").UniqueForTargetFramework()`).
 - `VerifyBase` is abstract; a test class inherits it to call instance `Verify*` on `this`, and its constructor captures `[CallerFilePath]` once so every instance call resolves snapshot placement from the class source file. The static `Verifier` entry is the default; the base class is for fixtures that hold shared settings.
 - `DerivePathInfo` is the `(sourceFile, projectDirectory, type, method) -> PathInfo` delegate; `Verifier.DerivePathInfo` or `UseProjectRelativeDirectory`/`UseSourceFileRelativeDirectory` redirect `.verified.` placement so snapshots live in a committed directory rather than beside transient build output.
 
 [STACKING]:
-
 - xUnit v3 wires through `[CallerFilePath]` on every `sourceFile` parameter; the test never passes a literal path, and `Verify.XunitV3.props` initializes the attachment context at module load so `AddAttachmentEvents()` can route received/verified files into the xUnit v3 attachment stream. The `assay test --csharp` lane (`Mode.RUN`) executes these as ordinary MTP tests; a snapshot mismatch surfaces as a `Completed(FAILED)` test result, not a rail fault.
 - Visual proof stacks the byte-snapshot path onto the headless render lane: an offscreen `SKImage` encoded to a PNG `byte[]` (or the `RenderReceipt` frame bytes) flows through `Verify(bytes, "png", ...)` under a `UseStreamComparer` that hashes rather than byte-equals, and `UniqueForTargetFramework()` partitions the snapshot per host so a Skia raster-version drift does not cross-fail; this is the per-named-dashboard render-hash proof the Charts and Render design pages reference.
 - Structural proof stacks `VerifyJson` onto a settled receipt: a frozen `CommandDeck`, a `DockLayout` blob, or a `TableViewState` serializes through `VerifyJson` with `ScrubLinesContaining`/`AddNamedGuid` stabilizing volatile ids and timestamps, so a deck or layout regression is a one-line snapshot diff. `AddExtraSettings` tunes the Argon object-graph serializer when the receipt carries types Verify does not format by default.
 - Suite hygiene stacks the two gates into setup/teardown: `await VerifyChecks.Run()` validates the verify configuration once (it is async — `await` it), and `DanglingSnapshots.Run()` reports `.verified.` files with no owning test during a CI cleanup pass; neither is a per-test call.
 
 [LOCAL_ADMISSION]:
-
 - Snapshot files default to `[ClassName].[MethodName].verified.[ext]` beside the test source; `UseProjectRelativeDirectory`/`UseSourceFileRelativeDirectory`/`DerivePathInfo` redirect placement for a committed snapshot directory under CI.
 - `Throws*` is the canonical typed-error proof — a domain rail that returns `Fin`/`Validation` proves its failure shape through `Throws` only at the boundary where an exception is the contract; inside ROP code the receipt is verified via `VerifyJson` of the failure value, never a thrown exception.
 - `Combination` runs a cartesian input matrix into one snapshot, collapsing N near-identical `[Theory]` cases into one combination block.
 
 [RAIL_LAW]:
-
 - Package: `Verify.XunitV3`
 - Owns: snapshot approval testing for xUnit v3 suites — object, value, JSON/XML, file/directory/zip, byte/stream, and throw snapshots, plus the fluent scrub/uniqueness/comparer settings chain.
 - Accept: `Verifier.Verify*`/`Throws*` static entry or a `VerifyBase` subclass; the fluent `SettingsTask`/`VerifySettings` chain for scrubbing, CI-stable uniqueness, and custom comparers; `VerifyChecks`/`DanglingSnapshots` as suite gates.

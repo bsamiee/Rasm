@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessageFormat`
-
 - package: `MessageFormat` (NuGet id `MessageFormat`)
 - assembly: `Jeffijoe.MessageFormat` (the shipped assembly id differs from the package id)
 - namespace: `Jeffijoe.MessageFormat`, `Jeffijoe.MessageFormat.Formatting` (the `IFormatter`/`IFormatterLibrary` SPI), `Jeffijoe.MessageFormat.Formatting.Formatters` (the concrete `PluralFormatter`/`SelectFormatter`/`VariableFormatter` handlers), `Jeffijoe.MessageFormat.Parsing` (the pattern parser)
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [ENGINE_TYPES]: the formatter contract resolves patterns through one engine, while extension and coercion surfaces adapt inputs and typed values.
-
 - rail: locale
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY]  | [ROLE]                 |
@@ -45,7 +43,6 @@
 - Scope: Constructs the default and composite value formatters
 
 [FORMATTER_SPI]: the arg-type handler library — `Jeffijoe.MessageFormat.Formatting` + `.Formatting.Formatters`
-
 - rail: locale
 - the engine resolves each `{name, type, ...}` argument by the first `IFormatter` whose `CanFormat(FormatterRequest)` accepts the `type` keyword; the `IFormatterLibrary` is the ordered, mutable handler list exposed on `MessageFormatter.Formatters`
 
@@ -87,7 +84,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [FORMAT]: the resolution surface
-
 - rail: locale
 
 | [INDEX] | [ENTRYPOINT]               | [MODE]   | [INPUT] |
@@ -119,7 +115,6 @@
 - Lifecycle: Performs one-shot resolution without cache reuse
 
 [SPI]: the customization surface
-
 - rail: locale
 
 | [INDEX] | [SURFACE]                     | [CAPABILITY]  |
@@ -155,7 +150,6 @@
 ## [04]-[ERROR_TAXONOMY]
 
 [BOUNDARY_FAULTS]: the failure surface lifted at the locale edge
-
 - rail: locale
 
 The parser reports unbalanced braces and invalid argument syntax, while handler resolution reports an argument `type` absent from the formatter library.
@@ -170,7 +164,6 @@ A pattern is authored content (resx), so a `MessageFormatterException` is a cont
 ## [05]-[STACKING_AND_RAIL]
 
 [STACKING]:
-
 - resx pattern → resolved string: the Theme/locale `ResolvedLocale.Plural` is the `MessageFormatter` bound once per active `CultureInfo`; a resx entry holds the ICU pattern (`{count, plural, one {# item} other {# items}}`), and the localized string is `formatter.FormatMessage(pattern, args)` — the pattern is the only localizable artifact, retiring every inline `count == 1 ? ... : ...` branch.
 - one engine, cached, per culture: `new MessageFormatter(useCache: true, culture)` compiles each pattern once and reuses it; the formatter is a long-lived singleton in the locale rail, the per-call `culture` override handling a transient locale switch (preview a string in another language) without a second engine.
 - typed values through one coercion hook: a `CustomValueFormatter` (constructed via `CustomValueFormatters`) renders `date`/`time`/`number` arguments — the same hook the `UnitsNet` quantity display and `NodaTime` instant formatting flow through, so a `{when, date, long}` or `{qty, number}` argument respects the active culture's calendar/number format without a parallel formatting path.
@@ -178,7 +171,6 @@ A pattern is authored content (resx), so a `MessageFormatterException` is a cont
 - presentation-token alignment: the formatter output feeds the Theme/tokens text pipeline (`Wacton.Unicolour` colour, `Avalonia.Fonts.Inter` typography) as a plain string — MessageFormat owns grammar/plurality only, never layout or styling, so a localized label and its styled token never diverge.
 
 [RAIL_LAW]:
-
 - Packages: `MessageFormat` (assembly `Jeffijoe.MessageFormat`; zero deps, pure-managed)
 - Owns: the Theme/locale ICU-MessageFormat resolution — `plural`/`selectordinal`/`select`/variable pattern interpretation over the resx vocabulary, materializing `ResolvedLocale.Plural`
 - Accept: one cached `MessageFormatter` per active culture as a singleton; the resx ICU pattern as the localizable artifact; an args map (or POCO) per call; a per-call `culture` override for transient locale preview; a `CustomValueFormatter` as the single typed-value (date/time/number) coercion hook; a registered `Pluralizer` for a new locale's CLDR rule

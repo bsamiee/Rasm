@@ -132,20 +132,17 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without creating 
 ## [04]-[LOCAL_ADMISSION]
 
 [BOUNDARY]:
-
 - The arrangement tier-3 route owns every `manifoldc` call site.
 - Kind mismatch and nonzero `manifold_status` return a typed `Fin` failure.
 - A missing RID asset returns `NativeAssetMissing` `2423`.
 - The `Fin` boundary rail contains these failures without exceptions.
 
 [ACTIVATION]:
-
 - Face count: Combined operands exceed `ArrangementPolicy.ScaleCeiling` at `1_000_000` faces
 - Native asset: The RID library resolves at runtime
 - Fixture: The golden-boolean suite matches the managed exact rail
 
 [PRECISION]:
-
 - Manifold guarantees manifold output at float precision.
 - The managed exact arrangement retains exact signs, implicit-point crossings, and cell classification.
 - `BooleanReceipt` and `ManifoldStatus` carry the selected engine's evidence.
@@ -153,22 +150,18 @@ Guarantee reads populate `BooleanReceipt` and `ManifoldStatus` without creating 
 ## [05]-[STACKING_LAW]
 
 [ARRANGEMENT]:
-
 - The managed arrangement owns exact signs, implicit-point crossings, and cell welds.
 - Manifold owns throughput above `ArrangementPolicy.ScaleCeiling`.
 - `ArrangementOp.MeshBoolean` discriminates the engine from policy, so consumers compose one operation.
 
 [MESH_EDIT]:
-
 - Ingest lowers only the published `MeshSpace` or `MeshEdit` through the `meshgl64` interleaved layout.
 - Extraction re-enters predicate-gated geometry once through `MeshEdit.Of`.
 
 [PICO_GK]:
-
 - PicoGK owns Fabrication's voxel and implicit lane.
 - Manifold owns the kernel boolean scale gate.
 
 [NATIVE_AUXILIARY]:
-
 - `manifold_slice`, `manifold_project`, and `manifold_hull` remain native-scale surfaces outside kernel routing.
 - The kernel slice stack owns slicing, the drawing view owns projection, and the hull tiers own hull operations.

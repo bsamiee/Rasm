@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Mapsui.Avalonia12`
-
 - package: `Mapsui.Avalonia12`
 - assembly: `Mapsui.UI.Avalonia` (the shipped assembly id differs from the package id; `Avalonia12` is the package-name discriminant for the Avalonia-12 build)
 - namespace: `Mapsui.UI.Avalonia` (`MapControl`, `RenderController` only)
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [CONTROL_TYPES]: the Avalonia binding — `Mapsui.UI.Avalonia`
-
 - rail: map
 - `MapControl` derives from `UserControl` and implements `IMapControl`, `IDisposable`, and `INotifyPropertyChanged`.
 - `RenderController` implements `IDisposable`.
@@ -29,13 +27,11 @@
 |  [02]   | `RenderController` | render driver | render-loop driver  |
 
 [CONTROL_DETAILS]:
-
 - [01]-[VIEWPORT]: `MapControl` hosts a `Map` and owns pointer, wheel, fling, and tap input.
 - [02]-[RENDERING]: `MapControl` renders through `MapsuiCustomDrawOperation` into the Avalonia Skia compositor.
 - [03]-[LOOP]: `RenderController` feeds the per-control Skia draw operation.
 
 [MODEL_TYPES]: the map model and camera — `Mapsui` core
-
 - rail: map
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [CAPABILITY]        |
@@ -48,7 +44,6 @@
 |  [06]   | `MPoint`          | geometry      | world point         |
 
 [MODEL_DETAILS]:
-
 - [01]-[MAP]: `Map` implements `INotifyPropertyChanged` and `IDisposable`; it owns `Layers`, `Navigator`, `CRS`, `Extent`, `Widgets`, and `BackColor`.
 - [02]-[MAP_EVENTS]: `Map` publishes `Info`, `Tapped`, and `DataChanged`; its default `CRS` is `"EPSG:3857"`, and `Extent` is `MRect?`.
 - [03]-[NAVIGATOR]: `Navigator` owns `CenterOn`, `ZoomTo`, `ZoomToBox`, `FlyTo`, `RotateTo`, and `ZoomToLevel` with duration and `Easing` animation.
@@ -57,7 +52,6 @@
 - [06]-[POINT]: `MPoint(double x, double y)` constructs a world point.
 
 [LAYER_TYPES]: the layer family — `Mapsui.Layers`
-
 - rail: map
 - every layer is `BaseLayer : ILayer`; `ILayer` carries `Name`/`Enabled`/`Opacity`/`Style`/`Extent`/`MinVisible`/`MaxVisible` and `IEnumerable<IFeature> GetFeatures(MRect, double resolution)`
 
@@ -73,13 +67,11 @@
 |  [08]   | `AnimatedPointLayer` | specialized     | animated points      |
 
 [LAYER_DETAILS]:
-
 - [01]-[MEMORY]: `MemoryLayer(string)` derives from `BaseLayer`; its `IEnumerable<IFeature> Features` receives the GDAL/OGR-derived overlay.
 - [02]-[PROVIDER]: `Layer(string)` derives from `BaseLayer`; its `IProvider? DataSource` supplies an asynchronously fetched `ILayerDataSource<IProvider>`.
 - [03]-[TILES]: `TileLayer` derives from `BaseLayer` in `Mapsui.Tiling` and admits XYZ, WMTS, and MBTiles BruTile sources.
 
 [FEATURE_TYPES]: the feature model and the NTS bridge — `Mapsui` + `Mapsui.Nts`
-
 - rail: map
 
 | [INDEX] | [SYMBOL]                       | [OWNER_ASM]  | [CAPABILITY]        |
@@ -95,7 +87,6 @@
 |  [09]   | `EditingWidget`                | `Mapsui.Nts` | editing interaction |
 
 [FEATURE_DETAILS]:
-
 - [01]-[BASE]: `IFeature` implements `ICloneable`; `BaseFeature` owns geometry, `Styles`, and per-feature fields.
 - [02]-[POINT]: `PointFeature` derives from `BaseFeature` and locates markers or labels at an `MPoint`.
 - [03]-[GEOMETRY]: `GeometryFeature` derives from `BaseFeature`; its `Geometry? Geometry` carries the NetTopologySuite geometry for GDAL/OGR and Bim overlays.
@@ -103,7 +94,6 @@
 - [05]-[EDITING]: `EditManager` and `EditingWidget` add, drag, and rotate vertices over NTS geometry.
 
 [STYLE_AND_WIDGET_TYPES]: presentation — `Mapsui.Styles` / `Mapsui.Widgets`
-
 - rail: map
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]   | [CAPABILITY]      |
@@ -127,13 +117,11 @@
 |  [17]   | `ButtonWidget`    | widget          | button control    |
 
 [STYLE_DETAILS]:
-
 - [01]-[VECTOR]: `VectorStyle` composes `Pen` and `Brush` for vector stroke and fill.
 - [02]-[THEME]: `ThemeStyle` implements `IThemeStyle` and selects styles from feature data.
 - [03]-[WIDGETS]: Every widget is screen-anchored on `Map.Widgets`.
 
 [PROJECTION_TYPES]: CRS reprojection — `Mapsui.Projections`
-
 - rail: map
 
 | [INDEX] | [SYMBOL]             | [CAPABILITY]        |
@@ -144,7 +132,6 @@
 |  [04]   | `ProjectionDefaults` | default projection  |
 
 [PROJECTION_DETAILS]:
-
 - [01]-[FORWARD]: `SphericalMercator.FromLonLat` accepts `MPoint` or `double lon, double lat` and returns EPSG:3857 coordinates.
 - [02]-[INVERSE]: `SphericalMercator.ToLonLat` returns WGS-84 coordinates from web-mercator input.
 - [03]-[PLUGGABLE]: `ProjectionDefaults.Projection` admits non-mercator reprojection through `IProjection`.
@@ -152,7 +139,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [CONTROL]: the `MapControl` binding surface — `Mapsui.UI.Avalonia`
-
 - rail: map
 
 | [INDEX] | [SURFACE]                          | [CAPABILITY]        |
@@ -176,7 +162,6 @@
 |  [17]   | `MaxTapGestureMovement`            | tap threshold       |
 
 [CONTROL_SIGNATURES]:
-
 - [01]-[MAP]: `Map Map { get; set; }` binds through `MapProperty`, a `DirectProperty<MapControl, Map>` for XAML and MVVM.
 - [02]-[INFO]: `Info` is an `EventHandler<MapInfoEventArgs>?`.
 - [03]-[HIT_TEST]: `MapInfo GetMapInfo(ScreenPosition, IEnumerable<ILayer>)` identifies the feature at a screen point.
@@ -184,7 +169,6 @@
 - [05]-[REFRESH]: `Refresh(ChangeType)` and `RefreshData(ChangeType)` carry the change classification; `RefreshGraphics()` and `ForceUpdate()` are parameterless.
 
 [MAP_AND_CAMERA]: the model + navigator surface — `Mapsui` core
-
 - rail: map
 
 | [INDEX] | [SURFACE]                     | [CAPABILITY]       |
@@ -206,7 +190,6 @@
 |  [15]   | `Map.ClearCache`              | cache reset        |
 
 [MAP_SIGNATURES]:
-
 - [01]-[CONSTRUCTION]: `new Map()` creates the model, and `map.Layers.Add(layer)` pushes a layer onto the ordered draw stack.
 - [02]-[PAN]: `Navigator.CenterOn` accepts `MPoint` or `x, y` coordinates with duration and optional `Easing`.
 - [03]-[ZOOM]: `Navigator.ZoomTo` accepts a resolution; `ZoomToBox` accepts `MRect` and `MBoxFit`; `ZoomToLevel` accepts an integer level.
@@ -215,7 +198,6 @@
 - [06]-[DATA]: `async Task Map.RefreshDataAsync(Viewport?)` fetches data, and `Map.ClearCache()` drops tile and feature caches.
 
 [BASEMAP_AND_OVERLAY]: the tile + NTS-feature layer construction
-
 - rail: map
 
 | [INDEX] | [SURFACE]                       | [CAPABILITY]      |
@@ -227,7 +209,6 @@
 |  [05]   | `Layer`                         | provider overlay  |
 
 [OVERLAY_SIGNATURES]:
-
 - [01]-[BASEMAP]: `Mapsui.Tiling.OpenStreetMap.CreateTileLayer(string? userAgent = null)` returns a ready `TileLayer`.
 - [02]-[MEMORY]: `new MemoryLayer(name) { Features = features, Style = style }` draws a GDAL/OGR-derived `IFeature` set.
 - [03]-[GEOMETRY]: `new GeometryFeature(Geometry)` in `Mapsui.Nts` wraps a NetTopologySuite geometry as a drawable feature.
@@ -237,7 +218,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ASSEMBLY_TOPOLOGY]:
-
 - `Mapsui.UI.Avalonia` ships only `MapControl` and `RenderController` in the five-assembly stack.
 - `Mapsui` owns `Map`, `Navigator`, `LayerCollection`, `MRect`, `MPoint`, the layer, feature, style, and widget vocabulary, and the projection seam.
 - `Mapsui.Tiling` owns `TileLayer` and the BruTile tile sources.
@@ -249,7 +229,6 @@
 ## [05]-[STACKING_AND_RAIL]
 
 [STACKING]:
-
 - NTS overlay beside the 3D viewport: a Bim-owned `NetTopologySuite` `Geometry` (or a GDAL/OGR-decoded feature) becomes a `Mapsui.Nts.GeometryFeature`, dropped into a `MemoryLayer.Features`, drawn above an OSM `TileLayer` — the 2D georeferenced overlay rendering on the SAME Skia surface as, and laid out beside, the `Silk.NET.WebGPU` 3D viewport. The map and the 3D scene share the Avalonia compositor; Mapsui owns the 2D geo plane only.
 - one Skia family: the map draws through `Mapsui.Rendering.Skia` against the central-pinned `SkiaSharp` 3.119.x runtime shared with `Avalonia.Skia`/`Svg.Skia`/`LiveCharts`/`SkiaSharp.HarfBuzz` — theme colour tokens flow into `Mapsui.Styles.Color`/`Pen`/`Brush` the same way they flow into chart paints, never a hand-built second `SKPaint` path.
 - reprojection at the boundary: Bim owns geodesy, and features arrive with the Bim-owned `GeoReference` from `GeoReferenceProjector` lowering `IfcMapConversion` and `IfcProjectedCRS`.
@@ -261,7 +240,6 @@
 - widgets are screen-anchored, not features: `ScaleBarWidget`/`ZoomInOutWidget`/`MapInfoWidget` live on `Map.Widgets` (screen space), distinct from `ILayer` features (world space) — the chrome (scale bar, zoom buttons) never enters the feature/CRS pipeline.
 
 [RAIL_LAW]:
-
 - Packages: `Mapsui.Avalonia12` (assembly `Mapsui.UI.Avalonia`) composing the transitive `Mapsui` / `Mapsui.Tiling` / `Mapsui.Rendering.Skia` / `Mapsui.Nts`
 - Owns: the Shell 2D slippy-map / basemap / vector-overlay viewport — one `MapControl` over a `Map` model with a tile basemap and NTS-feature overlays, rendered on the shared Skia surface
 - Accept: one `MapControl` bound to a `Map` via `MapProperty`; an OSM `TileLayer` (`OpenStreetMap.CreateTileLayer`) as the basemap; a `MemoryLayer` over `GeometryFeature` (NTS `Geometry`) for GDAL/OGR-derived overlays; `Navigator` for all camera moves (animated); `SphericalMercator`/`ProjectionDefaults` for CRS transforms at the boundary; `Mapsui.Styles` colours from the theme tokens; `GetSnapshot` for capture; `Info`/`GetMapInfo` for feature pick

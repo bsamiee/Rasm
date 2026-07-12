@@ -7,7 +7,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Serilog.Sinks.Console`
-
 - package: `Serilog.Sinks.Console`
 - assembly: `Serilog.Sinks.Console`
 - namespace: `Serilog`
@@ -15,7 +14,6 @@
 - rail: telemetry sink
 
 [PACKAGE_SURFACE]: `Serilog.Sinks.File`
-
 - package: `Serilog.Sinks.File`
 - assembly: `Serilog.Sinks.File`
 - namespace: `Serilog`
@@ -25,7 +23,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: console sink
-
 - rail: telemetry sink
 
 | [INDEX] | [SYMBOL]                                               | [TYPE_FAMILY]       | [CAPABILITY]                      |
@@ -39,7 +36,6 @@
 |  [07]   | `Serilog.Sinks.SystemConsole.Output.LevelOutputFormat` | level output helper | level token formatting            |
 
 [PUBLIC_TYPE_SCOPE]: file sink
-
 - rail: telemetry sink
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]        | [CAPABILITY]                                                 |
@@ -55,11 +51,9 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: console sink registration
-
 - rail: telemetry sink
 
 [WRITE_TO_CONSOLE_OVERLOADS]:
-
 - Shared parameters: `restrictedToMinimumLevel`, `levelSwitch`, `standardErrorFromLevel`, `syncRoot`
 - Template parameters: `outputTemplate`, `formatProvider`, `theme`, `applyThemeToRedirectedOutput`
 - Formatter parameter: `ITextFormatter formatter`
@@ -72,15 +66,12 @@
 |  [04]   | `AuditTo.Console` | formatter  | audit console sink           |
 
 [ENTRYPOINT_SCOPE]: file sink registration
-
 - rail: telemetry sink
 
 [WRITE_TO_FILE_TEMPLATE]:
-
 - Parameters: `path`, `restrictedToMinimumLevel`, `outputTemplate`, `formatProvider`, `fileSizeLimitBytes`, `levelSwitch`, `buffered`, `shared`, `flushToDiskInterval`, `rollingInterval`, `rollOnFileSizeLimit`, `retainedFileCountLimit`, `encoding`, `hooks`
 
 [WRITE_TO_FILE_FORMATTER]:
-
 - Parameters: `ITextFormatter formatter`, file path, and size, roll, retention, buffering, and sharing policy
 
 | [INDEX] | [SURFACE]                           | [OVERLOAD] | [CAPABILITY]               |
@@ -97,14 +88,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [LOCAL_ADMISSION]:
-
 - Console and file sinks are bootstrap/composition concerns only.
 - Console output is the interactive and supervisor diagnostic sink; it carries bounded structured event rendering, never domain receipts as log text.
 - File output writes only to owner-declared runtime log paths, with rolling interval, retention count, and size limits declared at composition.
 - File lifecycle hooks belong to retention/compliance composition and never mutate domain state.
 
 [RAIL_LAW]:
-
 - Packages: `Serilog.Sinks.Console`, `Serilog.Sinks.File`
 - Own: local Serilog sink emission for interactive diagnostics and retained bounded log files
 - Accept: `WriteTo.Console`, `WriteTo.File`, `AuditTo.Console`, `AuditTo.File` in host bootstrap/composition

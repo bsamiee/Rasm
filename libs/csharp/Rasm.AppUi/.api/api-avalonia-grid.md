@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Controls.DataGrid`
-
 - package: `Avalonia.Controls.DataGrid`
 - license: `MIT`
 - assembly: `Avalonia.Controls.DataGrid`
@@ -20,7 +19,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [GRID_CONTROLS]: table controls and containers
-
 - rail: tables
 
 | [INDEX] | [SYMBOL]                   | [RAIL]           |
@@ -35,7 +33,6 @@
 |  [08]   | `DataGridDetailsPresenter` | detail presenter |
 
 [COLUMN_TYPES]: column and edit model
-
 - rail: tables
 
 | [INDEX] | [SYMBOL]                  | [RAIL]                              |
@@ -49,7 +46,6 @@
 |  [07]   | `DataGridLengthConverter` | sizing converter                    |
 
 [GRID_ENUMS]: bounded table vocabulary
-
 - rail: tables
 
 | [INDEX] | [SYMBOL]                           | [RAIL]                                   |
@@ -64,7 +60,6 @@
 |  [08]   | `DataGridLengthUnitType`           | `Auto`/`Pixel`/`SizeToCells`/`SizeToHdr` |
 
 [GRID_EVENTS]: event argument surfaces
-
 - rail: tables
 
 | [INDEX] | [SYMBOL]                                | [RAIL]            |
@@ -81,7 +76,6 @@
 |  [10]   | `DataGridRowClipboardEventArgs`         | clipboard row     |
 
 [COLLECTION_VIEW_TYPES]: tabular collection view
-
 - rail: tables
 
 | [INDEX] | [SYMBOL]                           | [RAIL]                              |
@@ -99,7 +93,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [GRID_STATE_ENTRYPOINTS]: row source, selection, and policy
-
 - rail: tables
 
 | [INDEX] | [SURFACE]                                                               | [SURFACE_ROOT] | [RAIL]                 |
@@ -119,7 +112,6 @@
 |  [13]   | `HeadersVisibility` / `GridLinesVisibility`                             | `DataGrid`     | chrome policy          |
 
 [GRID_EDIT_ENTRYPOINTS]: edit, scroll, and grouping operations
-
 - rail: tables
 
 | [INDEX] | [SURFACE]                                                     | [SURFACE_ROOT] | [RAIL]               |
@@ -134,7 +126,6 @@
 |  [08]   | `GetGroupFromItem(item, level)`                               | `DataGrid`     | group lookup         |
 
 [GRID_EVENT_ENTRYPOINTS]: table event operations
-
 - rail: tables
 
 | [INDEX] | [SURFACE]                                                                   | [SURFACE_ROOT] | [RAIL]              |
@@ -149,7 +140,6 @@
 |  [08]   | `SelectionChanged`                                                          | `DataGrid`     | selection signal    |
 
 [COLUMN_ENTRYPOINTS]: per-column model
-
 - rail: tables
 
 | [INDEX] | [SURFACE]                                                | [SURFACE_ROOT]           | [RAIL]                       |
@@ -165,7 +155,6 @@
 |  [09]   | `CellTemplate` / `CellEditingTemplate` (`IDataTemplate`) | `DataGridTemplateColumn` | display + edit cell template |
 
 [COLLECTION_VIEW_ENTRYPOINTS]: view projection operations
-
 - rail: tables
 
 | [INDEX] | [SURFACE]                                                    | [SURFACE_ROOT]           | [RAIL]           |
@@ -184,7 +173,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GRID_TOPOLOGY]:
-
 - `DataGrid` is a virtualized control: `ItemsSource` (`IEnumerable`) is realized lazily through `DataGridRowsPresenter`/`DataGridCellsPresenter`, and `LoadingRow`/`UnloadingRow` recycle row containers — never assume a `DataGridRow` exists for an off-screen item.
 - `DataGrid.CollectionView` (`DirectProperty`) exposes the live `IDataGridCollectionView`; when `ItemsSource` is a plain `IEnumerable`, the grid wraps it in an internal `DataGridCollectionView`. Filter/sort/group/page state belongs on that view, not on the source collection.
 - Editing is two-level: `DataGridEditingUnit.Cell` vs `.Row`. `CommitEdit(DataGridEditingUnit.Row, exitEditingMode: true)` validates and persists the whole row; `BeginningEdit`/`CellEditEnding`/`RowEditEnding` are the cancellable guard hooks (set `e.Cancel = true` to veto), and `CellEditEnded`/`RowEditEnded` are the post-commit observation points.
@@ -194,7 +182,6 @@
 - `DataGridCollectionView.DeferRefresh()` returns an `IDisposable` scope that suppresses re-projection across a batch of `SortDescriptions`/`GroupDescriptions`/`Filter` mutations — wrap multi-axis state changes in it to collapse N refreshes into one.
 
 [STACKING_LAW]:
-
 - DynamicData feed: the canonical row source is a `SourceCache<TRow,TKey>` or `SourceList<TRow>` whose `.Connect()` pipeline applies `Filter`, `Sort`, `Transform`, and `Bind` to materialize a `ReadOnlyObservableCollection<TRow>` bound directly to `ItemsSource`.
 - projection split: coarse server-side or domain filtering lives in the DynamicData pipeline, while interactive filtering, sorting, grouping, and paging live in `DataGridCollectionView`. DynamicData owns reactive set algebra, and the grid view owns presentation projection.
 - ReactiveUI binding (`api-reactiveui-avalonia`, `api-reactive`): `SelectedItem`/`SelectedItems`/`CurrentColumn` and the edit-lifecycle events bind to a `ReactiveObject` view model via `WhenAnyValue`/`Bind`; sort and filter intents are `ReactiveCommand`s that mutate the `DataGridCollectionView` (or the upstream DynamicData operator) rather than mutating UI state imperatively.
@@ -202,7 +189,6 @@
 - The retained panels (schedule/cost/diff rosters, property inspectors, diagnostics tables) are all DataGrid instances over this one rail; `Dock.Avalonia` (`api-dock`) hosts them as dockable documents/tools, and `api-avalonia-fluent` supplies the column-header/cell theme.
 
 [TABLE_LAW]:
-
 - Package: `Avalonia.Controls.DataGrid`
 - Owns: virtualized table projection, two-level editable rows, sortable/groupable/pageable columns, frozen columns, clipboard, and the `DataGridCollectionView` state engine
 - Accept: typed rows feed one grid through a DynamicData-bound `ReadOnlyObservableCollection`; filter/sort/group/page state lives on `DataGridCollectionView`; edit/selection bind to a ReactiveUI view model

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp.NativeAssets.macOS`
-
 - package: `SkiaSharp.NativeAssets.macOS` `3.119.4`
 - license: MIT
 - assembly: no managed runtime assembly
@@ -16,7 +15,6 @@
 - rail: visuals
 
 [PACKAGE_SURFACE]: `SkiaSharp.NativeAssets.Linux.NoDependencies`
-
 - package: `SkiaSharp.NativeAssets.Linux.NoDependencies` `3.119.4`
 - license: MIT
 - assembly: no managed runtime assembly
@@ -29,7 +27,6 @@
 ## [02]-[PACKAGE_ASSETS]
 
 [NATIVE_ASSETS]: macOS Skia payload
-
 - rail: visuals
 
 | [INDEX] | [ASSET]                                | [RAIL]          |
@@ -41,7 +38,6 @@
 |  [05]   | `SkiaSharp.NativeAssets.macOS.targets` | target import   |
 
 [LINUX_NATIVE_ASSETS]: Linux Skia payload (statically linked, no fontconfig dependency)
-
 - rail: visuals
 
 | [INDEX] | [ASSET]                                                          | [RAIL]         |
@@ -55,7 +51,6 @@
 |  [07]   | `SkiaSharp.NativeAssets.Linux.NoDependencies.targets`            | target import  |
 
 [TARGET_ASSETS]: buildTransitive target groups, per package (not shared — only macOS ships the macOS-workload targets)
-
 - rail: visuals
 
 | [INDEX] | [PACKAGE]                                     | [ROLE]                      |
@@ -68,7 +63,6 @@
 ## [03]-[ASSET_ENTRYPOINTS]
 
 [ASSET_ENTRYPOINTS]: native asset operations — RID selection and output copy, no managed call surface
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                  | [SURFACE_ROOT]             | [NOTE]                                                                   |
@@ -81,37 +75,31 @@
 ## [04]-[INTEGRATION_STACKING]
 
 [MANAGED_LOAD_HANDSHAKE]: the native payload is the unmanaged half of every `SkiaSharp` `SKObject`.
-
 - `api-skiasharp.md` types are managed P/Invoke shims; the first call into any `SKCanvas`/`SKSurface`/`SKImage`/`GRContext` `dlopen`s `libSkiaSharp` from the RID payload these packages copy to output. A missing/wrong-RID payload is a load-time `DllNotFoundException`, never a compile error — hence the native asset identity is part of visual evidence, not an optional runtime concern.
 - The `SKObject.Dispose` lifecycle (`api-skiasharp.md` ASSET_LAW) frees the unmanaged handles these payloads back; the managed and native halves are one disposable resource.
 
 [BACKEND_TRIGGERED_LOAD]: the `Avalonia.Skia` backend boot is what forces the load on the live path.
-
 - `Avalonia.Desktop` `UsePlatformDetect` -> `Avalonia.Skia` `UseSkia` (`api-avalonia-desktop.md`, `api-avalonia-skia.md`) initializes `SkiaPlatform`, which constructs the first `GRContext`/raster surface and triggers the `libSkiaSharp` `dlopen`. On macOS that is the `runtimes/osx/native/libSkiaSharp.dylib` from `SkiaSharp.NativeAssets.macOS`.
 - The headless/server/container render path (`api-headless.md`) loads the SAME `libSkiaSharp` for its raster `SKSurface`; on Linux that is the statically-linked `NoDependencies` `.so`, deliberately self-contained so no system fontconfig/freetype is required in a minimal container.
 
 [VERIFY_PROOF]: native-load identity is a bridge/Verify fact.
-
 - The capture/evidence rails (`Render/capture.md`, `Diagnostics/proof.md`) that emit `SKImage`/`SKData` receipts implicitly prove the native payload loaded; the Verify lane (`uv run python -m tools.assay bridge verify` / package publish staging) excludes host assemblies but must carry the RID-correct `libSkiaSharp` so deterministic raster evidence is reproducible per platform.
 
 ## [05]-[IMPLEMENTATION_LAW]
 
 [NATIVE_ASSET_LAW]:
-
 - Package: `SkiaSharp.NativeAssets.macOS` + `SkiaSharp.NativeAssets.Linux.NoDependencies`
 - Owns: per-platform native Skia load identity, target import, and output asset presence
 - Accept: native asset identity is part of visual evidence
 - Reject: missing native load proof
 
 [LINUX_VARIANT_LAW]:
-
 - Package: `SkiaSharp.NativeAssets.Linux.NoDependencies`
 - Owns: the Linux Skia payload; the glibc/fontconfig variant `SkiaSharp.NativeAssets.Linux` stays centrally pinned but referenced with `ExcludeAssets="all" PrivateAssets="all"`
 - Accept: one Linux native payload flows to output — the statically linked `NoDependencies` build
 - Reject: dual Linux `libSkiaSharp.so` payloads or a runtime fontconfig dependency
 
 [API_BOUNDARY_LAW]:
-
 - Package: `SkiaSharp.NativeAssets.macOS` + `SkiaSharp.NativeAssets.Linux.NoDependencies`
 - Owns: native payload only
 - Accept: managed API facts remain in `SkiaSharp`

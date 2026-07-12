@@ -7,7 +7,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
-
 - package: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
 - assembly: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
 - namespace: `OpenTelemetry.Exporter`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: exporter type family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]   | [RAIL]                    |
@@ -27,7 +25,6 @@
 |  [03]   | `OtlpLogExporter`    | log exporter    | `BaseExporter<LogRecord>` |
 
 [PUBLIC_TYPE_SCOPE]: options and builder family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]     | [RAIL]                                      |
@@ -42,7 +39,6 @@
 |  [08]   | `OtlpSignalType`             | signal enum       | `Traces` / `Metrics` / `Logs`               |
 
 [PUBLIC_TYPE_SCOPE]: builder extension family
-
 - namespace: `OpenTelemetry`
 - rail: telemetry
 
@@ -53,7 +49,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: unified signal registration
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]  | [RAIL]                                   |
@@ -62,7 +57,6 @@
 |  [02]   | `UseOtlpExporter(builder, OtlpExportProtocol, Uri)` | protocol+URL    | protocol and base URL override           |
 
 [ENTRYPOINT_SCOPE]: options properties
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]   | [RAIL]                                          |
@@ -77,7 +71,6 @@
 |  [08]   | `OtlpExporterOptions.BatchExportProcessorOptions` | batch            | batch processor tuning (traces)                 |
 
 [ENTRYPOINT_SCOPE]: environment variable keys
-
 - rail: telemetry
 
 | [INDEX] | [ENV_VAR]                               | [SURFACE]    | [RAIL]                              |
@@ -97,7 +90,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OTLP_TOPOLOGY]:
-
 - primary public namespaces: `OpenTelemetry`, `OpenTelemetry.Exporter`
 - internal namespaces (not for direct use): `...Implementation`, `...Implementation.ExportClient`, `...Implementation.Serializer`, `...Implementation.Transmission`
 - signal exporters: `OtlpTraceExporter`, `OtlpMetricExporter`, `OtlpLogExporter` — all extend `BaseExporter<T>`
@@ -108,13 +100,11 @@
 - env vars are parsed during `OtlpExporterOptions` construction; per-signal env vars override the base set and disable signal-path appending on their endpoint
 
 [LOCAL_ADMISSION]:
-
 - Prefer `UseOtlpExporter()` at composition for all-signal OTLP export; use per-signal `AddOtlpExporter` only when signals require distinct endpoints or protocols.
 - Drive endpoint, protocol, compression, and header configuration through env vars or `OtlpExporterOptions` properties in the composition root.
 - `HttpClientFactory` override applies when custom certificate handling or `HttpClient` lifetime management is required.
 
 [RAIL_LAW]:
-
 - Package: `OpenTelemetry.Exporter.OpenTelemetryProtocol`
 - Owns: OTLP signal export (traces, metrics, logs)
 - Accept: `UseOtlpExporter` on `IOpenTelemetryBuilder`; `OtlpExporterOptions` property and env-var configuration

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `bodong.PropertyModels`
-
 - package: `bodong.PropertyModels`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/PropertyModels.dll`); the package multi-targets net8.0 / net9.0 / net10.0
@@ -14,7 +13,6 @@
 - rail: inspectors
 
 [PACKAGE_SURFACE]: `bodong.Avalonia.PropertyGrid`
-
 - package: `bodong.Avalonia.PropertyGrid` (floor-pinned over its open `>= 12.0.0` range)
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Avalonia.PropertyGrid.dll`)
@@ -25,7 +23,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [REACTIVE_TYPES]: reactive base objects — `PropertyModels.ComponentModel`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]             | [KIND]     | [RAIL]                                                              |
@@ -35,7 +32,6 @@
 |  [03]   | `ReactiveObject`     | base class | `MiniReactiveObject` + `[DependsOnProperty]` dependency propagation |
 
 [COMMAND_TYPES]: cancelable command and undo recorder — `PropertyModels.ComponentModel`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]                    | [KIND]           | [RAIL]                                                        |
@@ -51,7 +47,6 @@
 |  [09]   | `CommandHistoryViewModel`   | undo view model  | `CanUndo`, `CanRedo`, queue views, bindable commands          |
 
 [COLLECTION_TYPES]: checked, selectable, and checked-mask collections — `PropertyModels.Collections` / `PropertyModels.ComponentModel`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]           | [KIND]         | [RAIL]                                                                               |
@@ -63,7 +58,6 @@
 |  [05]   | `CheckedMaskModel` | reactive model | `ICheckedMaskModel` over `MiniReactiveObject` (bit-mask multi-select editor backing) |
 
 [ANNOTATION_TYPES]: editor-hint attributes — `PropertyModels.ComponentModel`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]                          | [RAIL]                                                  |
@@ -82,7 +76,6 @@
 |  [12]   | `ControlClassesAttribute`         | apply Avalonia style classes to the editor              |
 
 [ANNOTATION_TYPES]: validation, condition, path, and enum-filter attributes — `PropertyModels.ComponentModel.DataAnnotations`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]                                                     | [RAIL]                                                          |
@@ -99,7 +92,6 @@
 |  [10]   | `EnumProhibitNamesAttribute` / `EnumProhibitValuesAttribute` | enum deny-list by name / value                                  |
 
 [LOCALIZATION_TYPES]: localization contracts — `PropertyModels.Localization`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]               | [KIND]        | [RAIL]                                          |
@@ -109,7 +101,6 @@
 |  [03]   | `AbstractCultureData`  | abstract base | `ICultureData` base                             |
 
 [INSPECTOR_TYPES]: grid, context, and filter surfaces — `Avalonia.PropertyGrid.Controls` / `…ViewModels`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]                     | [KIND]                                                     |
@@ -128,7 +119,6 @@
 |  [12]   | `FilterChangedEventArgs`     | filter-change args (`ViewModels`)                          |
 
 [EDITOR_TYPES]: editor controls and list view models — `Avalonia.PropertyGrid.Controls` / `…ViewModels`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]                                                      | [KIND]                                     |
@@ -145,7 +135,6 @@
 |  [10]   | `SingleSelectListViewModel` / `SingleSelectListItemViewModel` | single-select list models (`ViewModels`)   |
 
 [FACTORY_AND_SERVICE_TYPES]: editor factory contract + service registries — `Avalonia.PropertyGrid.Controls.Factories` / `…Services`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]                     | [KIND]                                                                                        |
@@ -159,7 +148,6 @@
 The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`/`String`/`Path`/`Expandable` cell-edit factories), `CellEditFactoryCollection`, `PropertyGridViewModel`, and `AssemblyJsonAssetLocalizationService` are INTERNAL to the assembly — extend through a public `AbstractCellEditFactory` subclass registered with `CellEditFactoryService`, never by referencing an internal factory type.
 
 [EVENT_TYPES]: routed inspector event args — `Avalonia.PropertyGrid.Controls`
-
 - rail: inspectors
 
 | [INDEX] | [SYMBOL]                                                   | [KIND]                                |
@@ -171,7 +159,6 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 ## [03]-[ENTRYPOINTS]
 
 [REACTIVE_ENTRYPOINTS]: `PropertyModels.ComponentModel` reactive + command surfaces
-
 - rail: inspectors
 
 | [INDEX] | [SURFACE]                                                                | [SURFACE_ROOT]              | [RAIL]                          |
@@ -196,7 +183,6 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 |  [18]   | `ClearCommand`                                                           | `CommandHistoryViewModel`   | bindable clear                  |
 
 [COLLECTION_ENTRYPOINTS]: checked list operations — `PropertyModels.Collections`
-
 - rail: inspectors
 
 | [INDEX] | [SURFACE]                                    | [SURFACE_ROOT] | [RAIL]               |
@@ -209,7 +195,6 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 |  [06]   | `Items` / `SourceItems`                      | `ICheckedList` | selected / all items |
 
 [LOCALIZATION_ENTRYPOINTS]: `ILocalizationService` culture management
-
 - rail: inspectors
 
 | [INDEX] | [SURFACE]                                                       | [SURFACE_ROOT]         | [RAIL]                   |
@@ -222,7 +207,6 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 |  [06]   | `OnCultureChanged`                                              | `ILocalizationService` | culture change event     |
 
 [GRID_ENTRYPOINTS]: property grid state and layout — `Avalonia.PropertyGrid.Controls.PropertyGrid`
-
 - rail: inspectors
 
 `PropertyGrid.DataContext` binds the inspected object; the control exposes no public `ViewModel` property.
@@ -250,7 +234,6 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 `CategoryOrderStyle` and `PropertyOrderStyle` carry `PropertyGridOrderStyle`; `PropertyOperationVisibility` carries the identically named enum.
 
 [FACTORY_ENTRYPOINTS]: editor factory contract + registry operations
-
 - rail: inspectors
 
 `ICellEditFactoryCollection` registry operations resolve through `CellEditFactoryService.Default`.
@@ -276,7 +259,6 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 - Signature: `HandlePropagateVisibility(object?, PropertyCellContext, IPropertyGridFilterContext, …) : PropertyVisibility?`
 
 [EVENT_ENTRYPOINTS]: routed inspector event surfaces — `PropertyGrid`
-
 - rail: inspectors
 
 | [INDEX] | [SURFACE]                                | [SURFACE_ROOT] | [RAIL]                                |
@@ -290,7 +272,6 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 |  [07]   | `NameWidthChanged`                       | `PropertyGrid` | name-column width change              |
 
 [EDITOR_ENTRYPOINTS]: list, color, and slider editor operations
-
 - rail: inspectors
 
 | [INDEX] | [SURFACE]                                  | [SURFACE_ROOT]           | [RAIL]                           |
@@ -305,34 +286,29 @@ The concrete built-in factories (`Boolean`/`Color`/`Collection`/`Enum`/`Numeric`
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MODELS_LAW]:
-
 - Package: `bodong.PropertyModels`
 - Owns: reactive base objects, the cancelable command/undo recorder, checked/selectable/checked-mask collections, editor-hint attributes (`PropertyModels.ComponentModel`), validation/condition/enum-filter attributes (`PropertyModels.ComponentModel.DataAnnotations`), localization contracts, and descriptor extensions.
 - Accept: application view models inherit `ReactiveObject` or `MiniReactiveObject`; command pipelines use `CancelableCommandRecorder` + `CommandHistoryViewModel`; multi-select editors back onto `CheckedList`/`CheckedMaskModel`.
 - Reject: hand-rolling `INotifyPropertyChanged`, per-screen undo stacks, or string-keyed property registries; declaring editor-hint attributes under `DataAnnotations` (they live in `PropertyModels.ComponentModel`).
 
 [RECORDER_LAW]:
-
 - `ICancelableCommand` is a two-delegate command: `Execute()` runs the forward and `Cancel()` runs the inverse, both `bool`, gated by `CanExecute()`/`CanCancel()`; `GenericCancelableCommand(name, executeFunc, cancelFunc, canExecuteFunc?, canCancelFunc?)` binds them as `Func<bool>?`.
 - `CancelableCommandRecorder` owns the queue lifecycle: `PushCommand` enqueues a command whose forward already applied (clearing the redo queue), `ExecuteCommand` runs the forward then enqueues, `Undo()` pops the head and runs its `Cancel`, `Redo()` re-runs its `Execute`, `Clear()` empties both queues; `CanUndo`/`CanRedo` read the head command's `CanCancel`/`CanExecute`, `MaxCommand` (default 20) bounds the window, and the `OnNewCommandAdded`/`OnCommandRedo`/`OnCommandCanceled`/`OnCommandCleared` events drive an `INotifyPropertyChanged`-free undo HUD (`CommandHistoryViewModel` wraps the recorder as bindable `UndoCommand`/`RedoCommand`/`ClearCommand`).
 - A revert that resolves an op without driving `Undo()`/`Redo()` leaves the inverse unapplied — the recorder, not a hand-rolled stack, owns pop-and-apply.
 
 [INSPECTOR_LAW]:
-
 - Package: `bodong.Avalonia.PropertyGrid`
 - Owns: typed property inspection (`Avalonia.PropertyGrid.Controls.PropertyGrid`), the editor-factory registry, property operations, list editing, localization services, and routed inspector events.
 - Accept: the inspected object binds through the control's `DataContext`; inspectors project product state through typed rows, factories, filters, commands, and routed events; layout/order/visibility drive off the `PropertyGridLayoutStyle`/`PropertyGridOrderStyle`/`PropertyVisibility`/`CellEditAlignmentType` enums.
 - Reject: reflection UI as public model; referencing the internal `PropertyGridViewModel` or internal concrete factories; assuming a public `ViewModel` property where the binding is `DataContext`.
 
 [EDITOR_LAW]:
-
 - Package: `bodong.Avalonia.PropertyGrid`
 - Owns: editor selection by `ICellEditFactory.Accept(object accessToken)` match ranked by `ImportPriority` (higher processed first) through the `CellEditFactoryService.Default : ICellEditFactoryCollection` registry.
 - Accept: a custom editor is a public `AbstractCellEditFactory` subclass registered through `CellEditFactoryService.Default.AddFactory(factory)` with an `ImportPriority` above the built-ins it overrides; panels, companion windows, sidecars, diagnostics, and support views share one inspector rail.
 - Reject: per-screen reflection editors; subclassing or referencing an internal built-in factory instead of `AbstractCellEditFactory`; assuming `Accept` takes a typed `PropertyCellContext` (it takes the `object` access token; the `PropertyCellContext` arrives on `HandleNewProperty`/`HandlePropertyChanged`).
 
 [ANNOTATION_LAW]:
-
 - `[ConditionTarget]` + `[PropertyVisibilityCondition]` + `[DependsOnProperty]` on model properties drive visibility and dependency without code-behind; `[DependsOnProperty]` is propagated automatically by `ReactiveObject`, no manual wiring required.
 - Editor presentation is attribute-driven: `[Watermark]`, `[Unit]`, `[Progress]`, `[Trackable]`, `[FloatPrecision]`, `[IntegerIncrement]`, `[MultilineText]`, `[ControlClasses]`, `[CustomPropertyOrder]`, `[EnumDisplayName]`/`[EnumExclude]` (in `PropertyModels.ComponentModel`) and `[PathBrowsable]`, `[EnumPermit*]`/`[EnumProhibit*]`, `[FileNameValidation]`, `[ImagePreviewMode]` (in `PropertyModels.ComponentModel.DataAnnotations`) select and shape the editor.
 - Attribute classes live in `PropertyModels`; do not re-declare annotation contracts locally, and route each attribute to its real namespace (editor-hint -> `ComponentModel`, validation/condition/enum-filter -> `ComponentModel.DataAnnotations`).

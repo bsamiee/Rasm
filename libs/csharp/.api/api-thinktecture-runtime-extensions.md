@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions`
-
 - package: `Thinktecture.Runtime.Extensions`
 - assembly: `Thinktecture.Runtime.Extensions`
 - bound asset: `lib/net9.0` for `net10.0` consumers
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: declaration attributes
-
 - rail: generated-domain-owners
 - `SmartEnumAttribute<TKey>` and `ValueObjectAttribute<TKey>` require `TKey : notnull`; `ObjectFactoryAttribute<T>` admits `T : allows ref struct`; and `ValidationErrorAttribute<TValidationError>` requires `TValidationError : class, IValidationError<TValidationError>`.
 
@@ -39,7 +37,6 @@
 |  [13]   | `UseDelegateFromConstructorAttribute`        | constructor attribute | delegates construction        |
 
 [PUBLIC_TYPE_SCOPE]: generated owner contracts and validation
-
 - rail: generated-domain-owners
 - `IValidationError<out T>` requires `T : class`; `IConvertible<out T>` requires `T : notnull, allows ref struct`; and `IKeyedObject<TKey>` requires `TKey : notnull`.
 - `IObjectFactory<T, TValue, out TValidationError>` requires `TValue : notnull, allows ref struct` and `TValidationError : class, IValidationError<TValidationError>`.
@@ -57,7 +54,6 @@
 |  [09]   | `ThinktectureTypeConverter`                       | conversion bridge    | converts generated owners |
 
 [PUBLIC_TYPE_SCOPE]: serialization, comparison, and generator policy
-
 - rail: generated-domain-owners
 - `IComparerAccessor<in T>` exposes `static abstract IComparer<T> Comparer { get; }`, and `IEqualityComparerAccessor<in T>` exposes `static abstract IEqualityComparer<T> EqualityComparer { get; }`.
 - `KeyMemberComparerAttribute<TAccessor, TKey>` requires `TAccessor : IComparerAccessor<TKey>` and `TKey : notnull`; the equality counterpart requires `TAccessor : IEqualityComparerAccessor<TKey>`.
@@ -80,7 +76,6 @@
 |  [13]   | `NestedUnionParameterNameGeneration`                  | generator policy   | selects nested names         |
 
 [PUBLIC_TYPE_SCOPE]: metadata consumed by companion packages
-
 - rail: generated-domain-owners
 
 | [INDEX] | [SYMBOL]                | [NAMESPACE]             | [CAPABILITY]                                 |
@@ -93,7 +88,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: generated-owner declaration
-
 - rail: generated-domain-owners
 - `ISmartEnum<TKey, T, out TValidationError>` requires `TKey : notnull`, `T : ISmartEnum<TKey>`, and `TValidationError : class, IValidationError<TValidationError>`.
 - The smart-enum contract exposes `static abstract IReadOnlyList<T> Items { get; }`, `[return: NotNullIfNotNull("key")] static abstract T? Get(TKey? key)`, and `static abstract bool TryGet(TKey? key, [MaybeNullWhen(false)] out T item)`.
@@ -121,24 +115,20 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OWNER_SELECTION]:
-
 - A single-key domain owner is a Thinktecture `[ValueObject<T>]` or keyed `[SmartEnum<TKey>]`; its equality, conversion, validation, and codec metadata come from this generator.
 - A multi-case closed vocabulary is a Thinktecture `[Union]` when generated exhaustive dispatch and codec metadata are required.
 - Multi-member structural record equality belongs to `Generator.Equals`, not to a generated key owner. Do not stack both ownership models on the same type.
 
 [CODEC_HANDSHAKE]:
-
 - `Thinktecture.Runtime.Extensions.Json` and `Thinktecture.Runtime.Extensions.MessagePack` consume the metadata and factory contracts from this package. They are serialization adapters over generated owners, not declaration owners.
 - `SerializationFrameworks` selects which generated object factories participate in companion codecs. Codec packages must filter through generated metadata rather than rediscovering attributes.
 
 [LOCAL_ADMISSION]:
-
 - Generated owners are declared once in the domain package that owns the vocabulary. Downstream code consumes their generated key projection, validation, conversion, and dispatch surfaces.
 - The workspace uses the central injected package identity so generated owners, JSON, MessagePack, EF, and mapper adapters all agree on the same public contracts.
 - Hand-written parse/validate/switch/key-conversion helpers beside a generated owner are defects unless they are the explicit partial validation seam the generator calls.
 
 [RAIL_LAW]:
-
 - Package: `Thinktecture.Runtime.Extensions`
 - Owns: declaration attributes, generated owner contracts, generated validation/factory/key projection, generator policy enums, and metadata consumed by companion packages.
 - Accept: `[ValueObject<T>]`, `[SmartEnum<TKey>]`, `[ComplexValueObject]`, `[Union]`, `[ObjectFactory<T>]`, generated `Validate`, `ToValue`, `Switch`, and `Map`.

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LiveChartsCore.SkiaSharpView.Avalonia`
-
 - package: `LiveChartsCore.SkiaSharpView.Avalonia`
 - assembly: `LiveChartsCore.SkiaSharpView.Avalonia` (the single shipped assembly; `LiveChartsGeneratedCode` is a NAMESPACE inside it, not a separate assembly)
 - namespace: `LiveChartsCore.SkiaSharpView.Avalonia` — `Xaml*`, `*Collection`, `*Extension`, and the public `CartesianChart`/`PieChart`/`PolarChart`/`GeoMap`/`MotionCanvas`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [CHART_CONTROLS]: chart and canvas controls
-
 - rail: charts
 - public charts (namespace `LiveChartsCore.SkiaSharpView.Avalonia`) derive from the source-generated `SourceGen*` bases (namespace `LiveChartsGeneratedCode`); bind to the public type and read the generated properties off the base
 
@@ -38,7 +36,6 @@
 [CONTROL_BASES]: The public Avalonia controls derive respectively from `SourceGenCartesianChart`, `SourceGenPieChart`, `SourceGenPolarChart`, and `SourceGenMapChart`; `MotionCanvas` derives from `UserControl`. In `LiveChartsGeneratedCode`, `SourceGenChart` derives from `UserControl` and implements `IChartView` plus `ICustomHitTest`, while `SourceGenMapChart` implements `IGeoMapView`.
 
 [AXIS_AND_SECTION_TYPES]: axes, sections, and visual collections
-
 - rail: charts
 
 | [INDEX] | [SYMBOL]              | [RAIL]                |
@@ -55,7 +52,6 @@
 |  [10]   | `VisualsCollection`   | visual collection     |
 
 [SERIES_TYPES]: XAML series families
-
 - rail: charts
 - every `Xaml*Series` is generic `<TModel, TVisual, TLabel>` (`TVisual : *Geometry`, `TLabel : BaseLabelGeometry`) implementing `IXamlWrapper<…Series<…>>` over the `LiveChartsCore` runtime series; non-generic and single-arg convenience subclasses default `TVisual`/`TLabel` (e.g. `XamlColumnSeries<TModel>`)
 
@@ -79,7 +75,6 @@
 |  [16]   | `XamlStackedRowSeries`      | `StackedRowSeries`              | stacked row        |
 
 [GAUGE_TYPES]: gauge series and visual elements
-
 - rail: charts
 
 | [INDEX] | [SYMBOL]                    | [WRAPS]                               | [RAIL]                |
@@ -93,7 +88,6 @@
 |  [07]   | `XamlRectangularSection`    | `RectangularSection`                  | axis band / threshold |
 
 [EXTENSION_TYPES]: XAML `MarkupExtension` value providers (namespace `LiveChartsCore.SkiaSharpView.Avalonia`)
-
 - rail: charts
 - all derive from `BaseExtension : MarkupExtension`; the paint trio derives from `BaseSkiaPaintExtention`
 
@@ -112,7 +106,6 @@
 |  [11]   | `ValuesExtension`                        | inline series-values literal        |
 
 [GEO_TYPES]: map chart binding surfaces (defined in transitive `LiveChartsCore.Geo`, bound through `GeoMap`/`SourceGenMapChart`)
-
 - rail: charts
 
 | [INDEX] | [SYMBOL]        | [OWNER_ASSEMBLY] | [RAIL]                                             |
@@ -124,7 +117,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [CHART_ENTRYPOINTS]: chart control properties
-
 - rail: charts
 
 | [INDEX] | [SURFACE]         | [SURFACE_ROOT]            | [RAIL]                               |
@@ -142,7 +134,6 @@
 |  [11]   | `SyncContext`     | generated charts          | cross-chart sync scope (shared lock) |
 
 [PRESENTATION_ENTRYPOINTS]: legend, tooltip, paint, and animation properties
-
 - rail: charts
 
 | [INDEX] | [SURFACE]                   | [SURFACE_ROOT]            | [RAIL]           |
@@ -159,7 +150,6 @@
 |  [10]   | `VisualElementsPointerDown` | `SourceGenChart`          | visual event     |
 
 [SERIES_ENTRYPOINTS]: series and gauge properties
-
 - rail: charts
 
 | [INDEX] | [SURFACE]                | [SURFACE_ROOT]    | [RAIL]           |
@@ -171,7 +161,6 @@
 |  [05]   | `Invalidate`             | `XamlGaugeSeries` | series refresh   |
 
 [GEO_ENTRYPOINTS]: map chart binding members
-
 - rail: charts
 - surface-root: `SourceGenMapChart`
 
@@ -186,27 +175,23 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GENERATED_TOPOLOGY]:
-
 - The package is a three-assembly stack: `LiveChartsCore` owns the chart math, the `ISeries`/`ICartesianAxis`/`IChartElement` model, and the Skia draw kernel (`MotionCanvas`, `DrawnMap`, `MapProjection` live here under `LiveChartsCore.Geo`); `LiveChartsCore.SkiaSharpView` owns the `SolidColorPaint`/`LinearGradientPaint` concretes; this package owns only the Avalonia `UserControl` + XAML-markup layer.
 - Chart controls are source-generated: `SourceGen*` bases (namespace `LiveChartsGeneratedCode`) carry every chart property as a `UIProperty`/`AvaloniaProperty`, and the public `CartesianChart`/`PieChart`/`PolarChart`/`GeoMap` (namespace `LiveChartsCore.SkiaSharpView.Avalonia`) derive from them — bind to the public type, read the property off the generated base. The chart owns no `IChartView` reimplementation; it is the generated control.
 - Series/axes are XAML wrappers over the core model: every `Xaml*Series<TModel,TVisual,TLabel>` implements `IXamlWrapper<…Series<…>>` and exposes its built runtime series via `WrappedSeries`; a code-path that needs the live `ISeries` reads `WrappedSeries`, while XAML declares the `Xaml*` shell. `ValuesMap`/`Values` projects the bound model collection into chart points.
 
 [CHART_LAW]:
-
 - Package: `LiveChartsCore.SkiaSharpView.Avalonia`
 - Owns: retained Avalonia charts, source-generated chart properties, XAML axes/series/gauges/sections/visual elements, and Skia paint markup extensions
 - Accept: chart intent maps to explicit series, axes, sections, visuals, legends, tooltips, and animation state through the generated property surface; paints declared via the `*PaintExtension` markup extensions
 - Reject: hand-drawn chart controls; a reimplemented `IChartView`; mutating the bound values collection outside the live-data rail
 
 [VISUALIZATION_LAW]:
-
 - Package: `LiveChartsCore.SkiaSharpView.Avalonia`
 - Owns: dense product charts for panels, companion windows, sidecars, diagnostics, support views, and downstream shells
 - Accept: chart state remains data-driven and composable through one chart rail
 - Reject: one-off drawing code for chart semantics
 
 [STACKING]:
-
 - Live data into series: a `DynamicData` `SourceCache.Connect().Transform(...).ToCollection()` (or a bound `ObservableCollectionExtended`) is the `ISeries.Values` source, so a chart redraws off the same change-set the grid and aggregate tiles read — the cache is the one source of truth, the chart a projection. `XamlSeries.ValuesMap`/`Values` binds that collection into chart points without a copy.
 - Aggregate tiles share the rail: `DynamicData.Aggregation` (`Count`/`Sum`/`Maximum`/`Minimum`/`StdDev`) feeds gauge `XamlGaugeSeries.GaugeValue` and KPI labels from the same cache, so a dashboard tile and its chart never diverge.
 - Skia stack alignment: this package binds against `SkiaSharp` 3.119.x (the central-pinned runtime family shared with `Avalonia.Skia`, `Svg.Skia`, and `SkiaSharp.HarfBuzz`); paints are declared as `*PaintExtension` markup, never hand-built `SKPaint`, so theme colour tokens flow through `ColorExtension`/`SolidColorPaintExtension` into one paint family.

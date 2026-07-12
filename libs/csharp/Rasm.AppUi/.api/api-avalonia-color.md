@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Controls.ColorPicker`
-
 - package: `Avalonia.Controls.ColorPicker`
 - assembly: `Avalonia.Controls.ColorPicker`
 - namespace: `Avalonia.Controls`
@@ -19,7 +18,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [COLOR_CONTROLS]: editor controls and slider/spectrum primitives
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]         | [BASE]             | [RAIL]                                           |
@@ -31,7 +29,6 @@
 |  [05]   | `ColorPreviewer` | `TemplatedControl` | hover/preview swatch primitive (`Primitives`)    |
 
 [COLOR_MODELS]: model/component vocabularies and the change event
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                  | [KIND]      | [RAIL]                                          |
@@ -47,7 +44,6 @@
 |  [09]   | `ColorChangedEventArgs`   | `EventArgs` | `OldColor` / `NewColor` on a color change       |
 
 [PALETTE_TYPES]: pluggable palette families over `IColorPalette`
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                   | [KIND]           | [RAIL]                                      |
@@ -61,7 +57,6 @@
 |  [07]   | `SixteenColorPalette`      | palette          | fixed 16-color grid                         |
 
 [CONVERTERS]: public value converters (the consumable conversion surface)
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                      | [KIND]            | [RAIL]                                                              |
@@ -73,7 +68,6 @@
 |  [05]   | `ColorHelper`                 | static class      | `GetRelativeLuminance`/`ToDisplayName` color metadata               |
 
 [INTERNAL_PRIMITIVES]: `internal`, not consumable — listed so a design page does not compose them
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                        | [VISIBILITY] | [NOTE]                                                               |
@@ -85,7 +79,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [EDITOR_STATE]: `ColorView` selected-color, model, and subview-visibility surface
-
 - rail: controls
 - surface: `ColorView` (inherited unchanged by `ColorPicker`)
 
@@ -112,7 +105,6 @@ All entries are styled properties except the `ColorChanged` event.
 |  [17]   | `MinHue` / `MinSaturation` / `MinValue`                   | lower HSV bounds        |
 
 [PALETTE_AND_CONVERTER_OPS]: palette lookup and the hex/luminance statics
-
 - rail: controls
 
 | [INDEX] | [SURFACE]                                                  | [SURFACE_ROOT]        | [CAPABILITY]       |
@@ -128,7 +120,6 @@ All entries are styled properties except the `ColorChanged` event.
 [HEX_SERIALIZATION_SIGNATURE]: `ToHexString(Color, AlphaComponentPosition, bool includeAlpha = true, bool includeSymbol = false)` controls alpha and prefix emission.
 
 [SLIDER_AND_SPECTRUM_OPS]: primitive control state
-
 - rail: controls
 
 | [INDEX] | [SURFACE]                                                         | [SURFACE_ROOT]  | [RAIL]                                       |
@@ -143,13 +134,11 @@ All entries are styled properties except the `ColorChanged` event.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COLOR_EDITOR_LAW]:
-
 - `ColorView` is the editor; `ColorPicker` is the flyout wrapper that inherits the entire `ColorView` surface and adds only `Content`/`ContentTemplate` — a design that needs an inline editor binds `ColorView`, one that needs a popup binds `ColorPicker`.
 - The selected color is dual-represented: `Color` (Avalonia.Media `Color`) and `HsvColor` (Avalonia.Media `HsvColor`) stay in sync, and `ColorChanged` carries `OldColor`/`NewColor` — the product color state is a typed framework value, never a string.
 - Subview visibility is a property family (`Is*Visible`/`Is*Enabled`), so a constrained editor (e.g. spectrum-only, no alpha) is configured by toggling rows, never by forking a control.
 
 [STACKING_LAW]:
-
 - Color↔hex transport is the static codec, not a hand-rolled formatter: `ColorToHexConverter.ToHexString(color, alphaPosition, includeAlpha, includeSymbol)` and `ParseHexString(text, alphaPosition)` are the canonical hex rail — a settings persistence layer or a swatch import reads/writes hex through these statics, and the same converter binds in XAML for live hex fields.
 - Conversion between RGB and HSV uses Avalonia.Media's framework types (`Color.ToHsv()`/`HsvColor.ToRgb()` live on the framework value types), not this package's `internal` `Hsv`/`Rgb` structs — a design page composing those internal primitives is composing a non-surface and is the rejected form.
 - Palette swatches stack with the app theme: an `IColorPalette` implementation feeds `ColorView.Palette` and the grid lays out by `ColorCount`×`ShadeCount` with `PaletteColumnCount` columns, so a brand palette is a data source, not a templated fork.
@@ -157,7 +146,6 @@ All entries are styled properties except the `ColorChanged` event.
 - The `ColorView` editor is the inspector's color-value row (`Editing/inspector.md`, the `EditorFactory` color editor) — selected color crosses as an Avalonia.Media `Color`/`HsvColor`, mapped at the boundary onto the inspector's typed value.
 
 [MODEL_LAW]:
-
 - Package: `Avalonia.Controls.ColorPicker`
 - Owns: color editor controls, the `ColorModel`/`ColorViewTab`/component vocabularies, the `IColorPalette` grid contract, the public hex codec, and the color-change event flow.
 - Accept: color choices enter typed editors with explicit `ColorModel`, palette, alpha, and spectrum state; selected color crosses as Avalonia.Media `Color`/`HsvColor`; hex transport goes through the `ColorToHexConverter` statics.

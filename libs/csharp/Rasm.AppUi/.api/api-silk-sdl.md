@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.SDL`
-
 - package: `Silk.NET.SDL`
 - license: `MIT`
 - assembly: `Silk.NET.SDL`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and native handles
-
 - rail: input
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]   | [RAIL]                        |
@@ -29,7 +27,6 @@
 |  [04]   | `GameController` | native handle   | mapped game-controller device |
 
 [PUBLIC_TYPE_SCOPE]: haptic effect carriers
-
 - rail: input
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY]    | [RAIL]                           |
@@ -44,7 +41,6 @@
 |  [08]   | `HapticDirection` | direction struct | polar/cartesian/spherical vector |
 
 [PUBLIC_TYPE_SCOPE]: identity and device enums
-
 - rail: input
 
 | [INDEX] | [SYMBOL]               | [KIND] | [RAIL]                         |
@@ -62,7 +58,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: API root and subsystem lifecycle
-
 - rail: input
 
 | [INDEX] | [SURFACE]             | [SURFACE_ROOT] | [RAIL]                      |
@@ -74,7 +69,6 @@
 |  [05]   | `QuitSubSystem(uint)` | `Sdl`          | subsystem teardown          |
 
 [ENTRYPOINT_SCOPE]: haptic device lifecycle and query
-
 - rail: input
 
 | [INDEX] | [SURFACE]                              | [SURFACE_ROOT] | [RAIL]                     |
@@ -94,7 +88,6 @@
 |  [13]   | `HapticClose(Haptic*)`                 | `Sdl`          | device close               |
 
 [ENTRYPOINT_SCOPE]: effect upload, run, and simple rumble
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                | [SURFACE_ROOT] | [RAIL]                       |
@@ -115,7 +108,6 @@
 |  [14]   | `HapticRumbleStop(Haptic*)`                              | `Sdl`          | stop simple rumble           |
 
 [ENTRYPOINT_SCOPE]: controller and joystick rumble shortcut
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                                    | [SURFACE_ROOT] | [RAIL]                      |
@@ -129,7 +121,6 @@
 |  [07]   | `JoystickHasRumble(Joystick*)` / `JoystickHasRumbleTriggers(Joystick*)`      | `Sdl`          | rumble capability           |
 
 [ENTRYPOINT_SCOPE]: device GUID identity surface
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                                           | [SURFACE_ROOT] | [RAIL]                           |
@@ -145,7 +136,6 @@
 |  [09]   | `GameControllerAddMapping(string)` / `GameControllerAddMappingsFromRW(RWops*, int)` | `Sdl`          | register mapping(s)              |
 
 [ENTRYPOINT_SCOPE]: native-status error lift
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                 | [SURFACE_ROOT] | [RAIL]                                |
@@ -158,7 +148,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SDL_TOPOLOGY]:
-
 - `Sdl.GetApi()` returns the native function-table root; every native call is an unsafe instance method on that `Sdl` object taking raw pointers — the call site marshals `stackalloc`/`Span<T>` structs and passes pointers, never a managed wrapper object.
 - `Init(InitHaptic)` (`4096u`) or `InitSubSystem(InitHaptic)` arms the haptic subsystem before any `HapticOpen` call; `WasInit` confirms and `QuitSubSystem` tears down.
 - `HapticEffect` is the tagged union over `HapticConstant`, `HapticPeriodic`, `HapticCondition`, `HapticRamp`, `HapticLeftRight`, and `HapticCustom`; its leading `ushort Type` field selects the active member and must match one of the `HapticConstant`=`1`, `HapticSine`=`2`, `HapticLeftright`=`4`, `HapticTriangle`=`8`, `HapticSawtoothup`=`16`, `HapticSawtoothdown`=`32`, `HapticSpring`=`128`, `HapticDamper`=`256`, `HapticInertia`=`512`, `HapticFriction`=`1024`, `HapticCustom`=`2048` constants.
@@ -169,7 +158,6 @@
 - `GUID` is a 16-byte `fixed byte Data[16]` value that survives reconnect; `JoystickGetDeviceGUID` reads identity before open and `JoystickGetGUID` after, with `GetJoystickGUIDInfo` decomposing vendor, product, version, and CRC for device matching against the `GameControllerMappingForGUID` mapping database.
 
 [LOCAL_ADMISSION]:
-
 - One `Sdl` instance binds the native runtime per process; the InputFabric shares the single SDL2 native bundle with `Silk.NET.Input`, so the boundary capsule owns exactly one `Sdl.GetApi()` handle rather than reloading the binding.
 - The SDL2 haptic rail composes with the SDL2 gamepad stream, HidSharp SpaceMouse stream, and DryWetMidi device stream under one InputFabric edge that lifts every device into canonical input shapes.
 - Haptic devices, joysticks, and controllers open through their `XxxOpen` call and close through `HapticClose`/`JoystickClose`/`GameControllerClose` matched in a scoped fold; there is no `IDisposable` on the native handles.
@@ -177,7 +165,6 @@
 - Device identity persists as the `GUID` byte value, not the volatile device or instance index; reconnect matching resolves through `GetJoystickGUIDInfo` plus `GameControllerMappingForGUID`/`GameControllerMappingForGUIDS`.
 
 [RAIL_LAW]:
-
 - Package: `Silk.NET.SDL`
 - Owns: the managed SDL2 binding for force-feedback (`SDL_Haptic` open/close, effect upload/run, simple rumble, controller and joystick rumble) and the joystick and game-controller `GUID` identity surface.
 - Accept: raw-pointer unsafe calls on the single `Sdl.GetApi()` function-table root; `InitHaptic` subsystem arming before device open; native-handle scoped open-and-close pairs at the boundary capsule; native int-status lifted through `GetErrorAsException()`/`GetErrorS()`; composition under the one InputFabric edge beside `api-silk-input`, `api-hidsharp`, and `api-drywetmidi`.

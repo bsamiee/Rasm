@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Clipper2`
-
 - package: `Clipper2`
 - license: `BSL-1.0` (Boost-1.0)
 - assembly: `Clipper2Lib`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: coordinate primitives
-
 - rail: geometry
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY]    | [CAPABILITY]                       |
@@ -27,7 +25,6 @@
 |  [04]   | `RectD`   | double rectangle | bounding box in double coordinates |
 
 [PUBLIC_TYPE_SCOPE]: path collections
-
 - rail: geometry
 
 | [INDEX] | [SYMBOL]  | [TYPE_FAMILY]   | [CAPABILITY]                         |
@@ -38,7 +35,6 @@
 |  [04]   | `PathsD`  | `List<PathD>`   | polygon set (double)                 |
 
 [PUBLIC_TYPE_SCOPE]: clipping enumerations
-
 - rail: geometry
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY] | [CAPABILITY]                    |
@@ -50,7 +46,6 @@
 |  [05]   | `EndType`  | end enum      | open-path end cap style         |
 
 [PUBLIC_TYPE_SCOPE]: clipping engines
-
 - rail: geometry
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [CAPABILITY]                      |
@@ -64,7 +59,6 @@
 |  [07]   | `ReuseableDataContainer64` | int64 reuse cache | retains precomputed clip input    |
 
 [PUBLIC_TYPE_SCOPE]: poly-tree result carriers
-
 - rail: geometry
 
 | [INDEX] | [SYMBOL]       | [TYPE_FAMILY]      | [CAPABILITY]                        |
@@ -76,7 +70,6 @@
 |  [05]   | `PolyPathBase` | abstract base      | shared node enumeration and depth   |
 
 [PUBLIC_TYPE_SCOPE]: result and error types
-
 - rail: geometry
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [CAPABILITY]                      |
@@ -88,7 +81,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: static Boolean operations — `Clipper` facade
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY]   | [CAPABILITY]                  |
@@ -109,7 +101,6 @@
 |  [14]   | `BooleanOp(.. PolyTreeD, FillRule, precision)`      | tree-output clip | double Boolean into PolyTreeD |
 
 [ENTRYPOINT_SCOPE]: static offset and geometry — `Clipper` facade
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                                        |
@@ -131,7 +122,6 @@
 |  [15]   | `Triangulate(PathsD, decPlaces, out PathsD, useDelaunay)` | triangulation  | double Delaunay triangulation `[!]` buggy, kept out |
 
 [ENTRYPOINT_SCOPE]: precision-bearing Minkowski — `Minkowski` facade
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                    |
@@ -142,7 +132,6 @@
 |  [04]   | `Diff(PathD pattern, PathD path, isClosed, decimalPlaces)` | morphology     | double Minkowski difference at caller precision |
 
 [ENTRYPOINT_SCOPE]: static path measurement and analysis — `Clipper` facade
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CAPABILITY]                     |
@@ -165,7 +154,6 @@
 |  [16]   | `StripDuplicates(Path64, isClosedPath)`         | cleanup        | consecutive duplicate removal    |
 
 [ENTRYPOINT_SCOPE]: static path conversion and transform — `Clipper` facade
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                                     | [ENTRY_FAMILY] | [CAPABILITY]                        |
@@ -181,7 +169,6 @@
 |  [09]   | `PolyTreeToPathsD(PolyTreeD)`                                 | tree flatten   | nested result to flat PathsD        |
 
 [ENTRYPOINT_SCOPE]: stateful clipping — `Clipper64` engine
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                                   | [ENTRY_FAMILY] | [CAPABILITY]            |
@@ -197,7 +184,6 @@
 |  [09]   | `PreserveCollinear` / `ReverseSolution`                     | property       | selects result behavior |
 
 [ENTRYPOINT_SCOPE]: stateful clipping — `ClipperD` engine
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY] | [CAPABILITY]                  |
@@ -212,7 +198,6 @@
 |  [08]   | `Execute(ClipType, FillRule, PolyTreeD, PathsD open)`     | operation      | tree + open double result     |
 
 [ENTRYPOINT_SCOPE]: reusable subject/clip precompute — `ReuseableDataContainer64`
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                     | [ENTRY_FAMILY] | [CAPABILITY]               |
@@ -223,7 +208,6 @@
 |  [04]   | `Clipper64.AddReuseableData(container)`       | consume        | reuses clipping input      |
 
 [ENTRYPOINT_SCOPE]: offset engine — `ClipperOffset`
-
 - rail: geometry
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CAPABILITY]                            |
@@ -242,7 +226,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COORDINATE_TOPOLOGY]:
-
 - `int64` path: `Point64.X` and `Point64.Y` are `long`; coordinates must be pre-scaled before clipping when originating from floating-point geometry
 - `double` path: `PointD.x` / `PointD.y` are `double`; `ClipperD` internally scales by `10^precision` before executing and descales the result
 - `ClipperD` precision range: integers `−8` through `8`; values outside this range raise `ClipperLibException`
@@ -253,12 +236,10 @@
 - `Rect64` layout: `left`, `top`, `right`, `bottom` as `long`; `IsEmpty` returns true when `bottom <= top` or `right <= left`
 
 [STACK_INTEGRATION]:
-
 - `Rasm.Fabrication` (toolpath/nest/offset): the `ClipperOffset` inflation drives kerf/tool-radius offset, the Boolean facade the sheet-layout clip, and `Minkowski.Sum`/`Diff` the no-fit-polygon nesting kernel; `ReuseableDataContainer64` precomputes one recurring part-set's scanbeam structure ONCE and folds the per-position `Clipper64.Execute` over it (the placement-scan reuse rail), routing NFP construction through the deeper `Minkowski.Sum`/`Diff(PathD, PathD, isClosed, decimalPlaces)` facade at the owner's precision, never the precision-dropping shorthand.
 - `Rasm.Compute` circulation (`[V12]`): the `Analysis/circulation` egress runner composes `InflatePaths`/`ClipperOffset` for corridor-width offset and clearance envelopes, the Boolean facade for occupant-area intersection, and `Area`/`PointInPolygon` for occupant-load computation — the planar-path side of the egress discipline, the flow/topology algebra being `QuikGraph`/`Google.OrTools.Graph`'s.
 
 [LOCAL_ADMISSION]:
-
 - Use `Clipper` static methods for one-shot operations; prefer `Clipper64`/`ClipperD` stateful engines only when re-using subject/clip state across multiple `Execute` calls.
 - Scale floating-point geometry to int64 via `Clipper.ScalePaths64(paths, scale)` where `scale = Math.Pow(10, precision)` before passing to `Clipper64`; descale results with `Clipper.ScalePathsD`.
 - `ClipperOffset.Execute` writes directly into the caller-supplied `Paths64`/`PolyTree64`; clear or allocate a fresh container before each call.
@@ -267,7 +248,6 @@
 - `Clipper.Triangulate`/`TriangulateResult` are public surface but stay OUT of every consumer: the triangulation module is author-flagged buggy (open infinite-loop defects in the internal `Delaunay` kernel); route triangulation through the kernel triangulation owner instead.
 
 [RAIL_LAW]:
-
 - Package: `Clipper2` (Clipper2Lib, BSL-1.0, pure-managed netstandard2.0)
 - Owns: 2D polygon Boolean operations, path offsetting, rect clipping, Minkowski operations, and path utilities (the buggy `Triangulate` surface excluded)
 - Accept: `Path64`/`Paths64` for int64 geometry; `PathD`/`PathsD` with explicit precision for double geometry — the fabrication toolpath/nest/offset plane and the circulation corridor-offset/occupant-area plane

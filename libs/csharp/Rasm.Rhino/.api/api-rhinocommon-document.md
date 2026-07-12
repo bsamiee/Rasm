@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon`
-
 - package: `RhinoCommon`
 - license: proprietary host SDK
 - namespace: `Rhino`, `Rhino.DocObjects`, `Rhino.DocObjects.Tables`, `Rhino.DocObjects.Custom`, `Rhino.Collections`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document root and identity
-
 - rail: host
 
 | [INDEX] | [SYMBOL]               | [KIND] | [CAPABILITY]                                                               |
@@ -29,7 +27,6 @@
 |  [07]   | `ArchivableDictionary` | class  | option payload for headless open and custom document state                 |
 
 [PUBLIC_TYPE_SCOPE]: the component-table roster
-
 - rail: host
 
 | [INDEX] | [SYMBOL]                      | [KIND] | [CAPABILITY]                                                              |
@@ -60,7 +57,6 @@
 |  [24]   | `ManifestTable`               | table  | cross-table component manifest keyed by `ModelComponentType`              |
 
 [PUBLIC_TYPE_SCOPE]: object carriers and query
-
 - rail: host
 
 | [INDEX] | [SYMBOL]                   | [KIND]     | [CAPABILITY]                                             |
@@ -75,7 +71,6 @@
 |  [08]   | `PickContext`              | class      | pick projection consumed by `PickObjects`                |
 
 [PUBLIC_TYPE_SCOPE]: event and undo carriers
-
 - rail: host
 
 - `DocumentOpenEventArgs` / `DocumentSaveEventArgs` / `DocumentEventArgs` — lifecycle open, save, and document-scope payloads
@@ -89,7 +84,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: identity and lifecycle
-
 - rail: host
 
 - `RhinoDoc.RuntimeSerialNumber : uint` — the stable document key
@@ -105,7 +99,6 @@
 - `RhinoDoc.TimeoutActiveGet() : void` — cancel an active interactive get on the document
 
 [ENTRYPOINT_SCOPE]: component-table accessors
-
 - rail: host
 
 - `RhinoDoc.Objects : ObjectTable` / `Layers : LayerTable` / `Materials : MaterialTable` / `Groups : GroupTable`
@@ -118,7 +111,6 @@
 - `LinetypeTable.PurgeUnused() : int` / `DimStyleTable.PurgeUnused() : int` / `HatchPatternTable.PurgeUnused() : int` / `InstanceDefinitionTable.PurgeUnused() : int`
 
 [ENTRYPOINT_SCOPE]: units and tolerances
-
 - rail: host
 
 - `RhinoDoc.ModelAbsoluteTolerance` / `ModelRelativeTolerance` / `ModelAngleToleranceRadians` / `ModelAngleToleranceDegrees : double`
@@ -133,7 +125,6 @@
 - `RhinoDoc.SetCustomUnitSystem(bool modelUnits, string customUnitName, double metersPerCustomUnit, bool scale) : bool`
 
 [ENTRYPOINT_SCOPE]: undo records
-
 - rail: host
 
 - `RhinoDoc.BeginUndoRecord(string description) : uint` / `EndUndoRecord(uint undoRecordSerialNumber) : bool` — bracket a mutation into one record
@@ -143,7 +134,6 @@
 - `RhinoDoc.UndoRecordingEnabled : bool` (get/set) / `UndoRecordingIsActive : bool` / `CurrentUndoRecordSerialNumber : uint` — record enlistment state
 
 [ENTRYPOINT_SCOPE]: object-table mutation
-
 - rail: host
 
 - `ObjectTable.Add(GeometryBase geometry, ObjectAttributes attributes, HistoryRecord history, bool reference) : Guid`
@@ -162,7 +152,6 @@
 - `LayerTable.PurgeUnused() : int` / `GroupTable.PurgeUnused() : int`
 
 [ENTRYPOINT_SCOPE]: view and named-view tables
-
 - rail: host
 
 - `ViewTable.ImportPageView(string filename, Guid mainViewportId, string pageName) : bool` — import a page view from an archive
@@ -177,7 +166,6 @@
 - `PageViewGroupTable.FindName(string name) : PageViewGroup` / `FindIndex(int index) : PageViewGroup` / `Add(PageViewGroup group, IEnumerable<RhinoPageView> pages) : int`; `PageViewGroup.Name` / `Index`
 
 [ENTRYPOINT_SCOPE]: named layer states and named positions
-
 - rail: host
 
 - `NamedLayerStateTable.Save(string name, Guid viewportId) : int` / `Restore(string name, RestoreLayerProperties properties, Guid viewportId) : bool`
@@ -187,7 +175,6 @@
 - `RestoreLayerProperties` — the host restore-scope flags carrier consumed by `NamedLayerStateTable.Restore`
 
 [ENTRYPOINT_SCOPE]: per-viewport layer overrides and clipping planes
-
 - rail: host
 
 - `Layer.SetPerViewportColor(Guid viewportId, Color color)` / `DeletePerViewportColor(Guid viewportId)`
@@ -203,7 +190,6 @@
 - `ClippingPlaneSurface.ViewportIds() : Guid[]` / `SetClipParticipation(IEnumerable<Guid> objectIds, IEnumerable<int> layerIndices, bool isExclusionList)`
 
 [ENTRYPOINT_SCOPE]: earth anchor and document state
-
 - rail: host
 
 - `RhinoDoc.EarthAnchorPoint : EarthAnchorPoint` (get/set, disposable) / `Modified : bool` / `Name : string` / `Path : string` / `RenderSettings.Sun : Sun`
@@ -214,7 +200,6 @@
 - `Sun.Latitude` / `Longitude` / `North : double` (get/set)
 
 [ENTRYPOINT_SCOPE]: lifecycle events
-
 - rail: host
 
 - `RhinoDoc.BeginOpenDocument` / `EndOpenDocument` / `EndOpenDocumentInitialViewUpdate : EventHandler<DocumentOpenEventArgs>`
@@ -223,7 +208,6 @@
 - `RhinoDoc.UnitsChangedWithScaling : EventHandler<UnitsChangedWithScalingEventArgs>` / `WorksessionFileChanged : EventHandler<WorksessionFileChangedEventArgs>`
 
 [ENTRYPOINT_SCOPE]: object and table events
-
 - rail: host
 
 - `RhinoDoc.AddRhinoObject` / `DeleteRhinoObject : EventHandler<RhinoObjectEventArgs>` / `ReplaceRhinoObject : EventHandler<RhinoReplaceObjectEventArgs>`
@@ -241,7 +225,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DOCUMENT_TOPOLOGY]:
-
 - one `RhinoDoc` handle keyed by `RuntimeSerialNumber` projects every table; `FromRuntimeSerialNumber` re-resolves that handle inside a host callback where the reference is not carried
 - live and headless documents expose one identical table, event, and undo surface; `IsHeadless` is the only discriminant a consumer branches on
 - every table component is a `ModelComponent` keyed by `ModelComponentType`; the owning table mutates, and the component never writes itself back
@@ -249,19 +232,16 @@
 - undo is a bracketed record between `BeginUndoRecord` and `EndUndoRecord`, and `AddCustomUndoEvent` folds non-geometry state into that same record
 
 [STACKING]:
-
 - `LanguageExt`(`libs/csharp/.api/api-languageext.md`): the out-`bool` and out-parameter table lookups fold to `Fin<A>`/`Option<A>`, and a multi-object mutation batch accumulates failures through `Validation<Error, A>` where a single edit short-circuits on `Fin`
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): `UnitSystem`, `ObjectType`, and `ModelComponentType` wrap as keyed `SmartEnum` policy owners, and `RuntimeSerialNumber` wraps as a `ValueObject` document key so the host `uint` never leaks
 - `Hashing`(`libs/csharp/.api/api-hashing.md`): document and table content keys derive from `XxHash128` for the persistence artifact index
 
 [LOCAL_ADMISSION]:
-
 - the document handle is admitted at the host-boundary tier as the single owner of live and headless document identity
 - table mutation enters through the owning table accessor, never a raw component write
 - event subscription enters through one watcher composition that binds the lifecycle, object, and table families together, never a scattered per-event handler
 
 [RAIL_LAW]:
-
 - Package: `RhinoCommon`
 - Owns: document identity, the component-table roster, lifecycle and mutation events, undo records, unit and tolerance regimes, object-table mutation
 - Accept: live and headless document state, structural mutation, table query and selection

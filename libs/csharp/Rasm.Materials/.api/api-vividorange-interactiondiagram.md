@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.InteractionDiagram`
-
 - package: `VividOrange.InteractionDiagram`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.InteractionDiagram`
@@ -24,7 +23,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the capacity-surface engine (the only consumer-callable types)
-
 - rail: profiles
 
 `InteractionDiagram` accepts an `IConcreteSection` with optional `DiagramSettings`, runs the strain-plane fibre sweep, and exposes the capacity hull through `IForceMomentMesh Mesh`. `DiagramSettings` owns concrete and rebar mesh refinement plus sweep resolution through `ConcreteMaximumFaceArea`, `ConcreteMinimumAngle`, `RebarMaximumFaceArea`, `RebarMinimumAngle`, `RebarDivisions`, and `Steps`.
@@ -35,7 +33,6 @@
 |  [02]   | `DiagramSettings`    | class  | solver policy        |
 
 [PUBLIC_TYPE_SCOPE]: `.Utility` solver internals — NOT consumer-callable (`internal`)
-
 - rail: profiles
 - gate: every `.Utility` type is `internal` to this assembly.
 - machinery: `AnalyticalFace` is the meshed fibre struct, `Meshing` binds the Triangle.NET `GenericMesher().Triangulate` and MIConvexHull `ConvexHull.Create` kernels, and `ConvexHullVertex` / `ConvexHullFace` adapt MIConvexHull `IVertex` / `ConvexFace<,>`.
@@ -70,7 +67,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: engine construction — the capacity surface from a concrete section
-
 - rail: profiles
 - construction law: the constructor RUNS the full solve eagerly (`Initialise` + the `Parallel.For` sweep + hull
   assembly) and populates `Mesh`; there is no separate `Solve()` call. Construction is the expensive operation.
@@ -84,7 +80,6 @@ The default constructor uses 30 steps with 250/200 mm² concrete/rebar maximum f
 |  [03]   | `diagram.Mesh`                                                               | property | N-M-M capacity hull |
 
 [ENTRYPOINT_SCOPE]: `DiagramSettings` — solver knobs
-
 - rail: profiles
 - default law: defaults are `ConcreteMaximumFaceArea = 250 mm²`, `ConcreteMinimumAngle = 25°`,
   `RebarMaximumFaceArea = 200 mm²`, `RebarMinimumAngle = 25°`, `RebarDivisions = 16`, `Steps = 30`. The
@@ -121,7 +116,6 @@ The property surface carries one solver setting per row. `Steps` drives a quadra
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RC_COMPOSITION_PATH]:
-
 - The `IConcreteSection` input AND its reinforcement payload ARE reachable from the admitted Materials set — this
   engine is NOT admission-gated (this CORRECTS the `api-vividorange-sections-sectionproperties.md` `[ADMISSION_GATE]`
   note, which predates the `VividOrange.Sections` admission and wrongly claims the reinforcement floor is unrestored).
@@ -140,7 +134,6 @@ The property surface carries one solver setting per row. `Steps` drives a quadra
   specific.
 
 [FIBRE_INTEGRATION_CONTRACT]:
-
 - `Initialise`: meshes the concrete `Perimeter(section.Profile)` and each rebar (a `Circle(rebar.Diameter)` polygon
   of `RebarDivisions` segments) into `AnalyticalFace` fibres via Triangle.NET (`GenericMesher().Triangulate` with
   the per-material `ConcreteMaximumFaceArea`/`MinimumAngle` quality constraints), with rebar contours as voids in the
@@ -155,14 +148,12 @@ The property surface carries one solver setting per row. `Steps` drives a quadra
   strain-limit curvature cap), so it is the design CAPACITY hull, not a moment-curvature analysis.
 
 [INTERNAL_GATE]:
-
 - `AnalyticalFace`, `Meshing`, `ConvexHullVertex`, `ConvexHullFace` are `internal` — a consumer CANNOT call
   `Meshing.Create`/`CreateHull` or read an `AnalyticalFace`. The ONLY public surface is `InteractionDiagram` +
   `DiagramSettings` + `Mesh`. The Triangle.NET / MIConvexHull substrate is encapsulated; a design page composes the
   capacity hull through the constructor, never the meshing kernel.
 
 [LOCAL_ADMISSION]:
-
 - A Materials RC/steel column-capacity owner admits this engine through the boundary that computes a column's biaxial
   capacity surface: build an `IConcreteSection` from the admitted Profiles/Sections/Materials owners, choose
   `DiagramSettings` (sweep resolution + mesh refinement), construct `new InteractionDiagram(section, settings)`, and
@@ -173,7 +164,6 @@ The property surface carries one solver setting per row. `Steps` drives a quadra
   caches the `Mesh`, never re-solves per query.
 
 [STACK]:
-
 - section seam: the `IConcreteSection` input is the admitted `VividOrange.Sections` `ConcreteSection` +
   `VividOrange.Sections.Reinforcement` (`api-vividorange-sections.md`) — the engine is the COMPUTATION over the
   reinforced-section DATA, meeting it at the `IConcreteSection` contract ([01]-[RC_COMPOSITION_PATH]).
@@ -196,7 +186,6 @@ The property surface carries one solver setting per row. `Steps` drives a quadra
   so a computed capacity hull serializes to a TS/Python peer as canonical SI scalar plus unit token.
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.InteractionDiagram` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the RC column biaxial N-M-M capacity-surface ENGINE — Triangle.NET section meshing into `AnalyticalFace`
   fibres, the `Parallel.For` strain-plane fibre-stress sweep, and MIConvexHull assembly of the (N, My, Mz) points

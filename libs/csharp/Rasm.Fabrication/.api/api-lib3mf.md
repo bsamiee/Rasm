@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `lib3mf`
-
 - package: `lib3mf` (vendored — no NuGet artifact; the ACT binding source stages compile-excluded at `vendor/sdk/Lib3MF.cs` and compiles into `Rasm.Fabrication` at realization, the RID-keyed natives ride `vendor/runtimes` through the folder `.csproj`'s `Exists`-gated `Content` group, LFS-carried, outside NuGet restore)
 - license: `BSD-2-Clause`
 - assembly: the vendored ACT-generated `Lib3MF.cs` compiled into `Rasm.Fabrication`; the native core is a RID-keyed `lib3mf` shared library
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: model + resource handles
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [CAPABILITY]                                                  |
@@ -31,7 +29,6 @@
 |  [08]   | `CMetaData` / `CMetaDataGroup` | metadata        | typed key/namespace metadata                                  |
 
 [PUBLIC_TYPE_SCOPE]: beam-lattice + additive property groups
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [CAPABILITY]                                              |
@@ -44,7 +41,6 @@
 |  [06]   | `CSlice`                  | slice layer      | one Z-layer polygon set + top-Z                           |
 
 [PUBLIC_TYPE_SCOPE]: serialization + value types
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]   | [CAPABILITY]                                 |
@@ -65,7 +61,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory + model lifecycle — `Lib3MF.Wrapper` / `CModel`
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CAPABILITY]                                           |
@@ -87,7 +82,6 @@
 |  [15]   | `model.QueryWriter(keyword)` / `QueryReader(keyword)`      | serialize      | mint a `3mf`/`stl` `CWriter`/`CReader`                 |
 
 [ENTRYPOINT_SCOPE]: mesh + beam-lattice authoring — `CMeshObject` / `CBeamLattice`
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CAPABILITY]                                    |
@@ -107,7 +101,6 @@
 |  [13]   | `lattice.AddBeamSet()` / `GetBeamSet(i)`                | grouping       | named beam subsets                              |
 
 [ENTRYPOINT_SCOPE]: serialization — `CWriter` / `CReader` / `CSliceStack`
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                                       | [ENTRY_FAMILY] | [CAPABILITY]                                        |
@@ -123,13 +116,11 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [NATIVE_TOPOLOGY]:
-
 - every `C…` handle wraps an `IntPtr` over the native `lib3mf` core; the binding marshals through `Internal.Lib3MFWrapper` and lifts native error codes via `CheckError` into `Lib3MFException` — the boundary owner catches that binding exception ONCE and lowers it to the `Additive` `ThreeMfWriteRejected` 2747 `(EgressKind target, string native)` arm on the `Fin` rail; a CLR defect propagates
 - the native shared library is RID-keyed and ALC-firebreaks: keep it sidecar/host-side, never referenced from a type that must load in an in-Rhino plugin ALC
 - extension support is capability-probed through `Wrapper.GetSpecificationVersion` (production `.../production/2015/06`, beam-lattice `.../beamlattice/2017/02`, slice `.../slice/2015/07`); a required-but-unsupported extension raises `Additive` `Unsupported3mfExtension` 2725 `(ThreeMfExtension extension, EgressKind target)` at the boundary
 
 [LOCAL_ADMISSION]:
-
 - `Additive/production#Production.Plan` owns the 3MF egress: the oriented `MeshSpace` result marshals to `mesh.SetGeometry`, machine profiles set `model.SetUnit`/base-material rows, `AddBuildItem` places the oriented part with its build transform, and `QueryWriter("3mf").WriteToBuffer` produces the content-keyed package — the STL-implied hand-off dies for the typed 3MF writer
 - the PicoGK `Lattice` beam/node set maps DIRECTLY onto `CBeamLattice`: `Additive/implicit` beam-support and scaffold geometry lowers to `lattice.SetBeams(sBeam[])` + `lattice.SetBalls(sBall[])` on the build mesh's `BeamLattice()`, never an STL tessellation of the lattice — the beam-lattice extension is the native carrier
 - resin/powder planar layer stacks route through `CSliceStack.AddSlice` when the 3MF slice extension is the hand-off target; the PicoGK `.cli`/grayscale vector path stays `Additive/implicit`'s and is orthogonal to this writer
@@ -137,7 +128,6 @@
 - golden-fixture gated: the writer admits only against a committed round-trip 3MF golden fixture (write → `CReader.ReadFromFile` → structural compare) per RID
 
 [RAIL_LAW]:
-
 - Package: `lib3mf` (vendored ACT-generated binding + RID-keyed native, BSD-2)
 - Owns: 3MF core/production/beam-lattice/slice READ + WRITE — the additive build-hand-off document
 - Accept: an oriented `MeshSpace` + machine profile + optional PicoGK `Lattice` from `Additive/production`

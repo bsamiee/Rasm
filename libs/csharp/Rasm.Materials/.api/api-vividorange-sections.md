@@ -7,7 +7,6 @@ The resulting `ConcreteSection` supplies the `IConcreteSection` consumed by the 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Sections`
-
 - package: `VividOrange.Sections`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.Sections`
@@ -24,7 +23,6 @@ The resulting `ConcreteSection` supplies the `IConcreteSection` consumed by the 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the section carriers (`IProfile` + `IMaterial` -> a section)
-
 - rail: profiles / connection
 
 | [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]     |
@@ -44,7 +42,6 @@ The resulting `ConcreteSection` supplies the `IConcreteSection` consumed by the 
 - Consumer: the RC capacity and transformed-section solvers accept this `IConcreteSection`.
 
 [PUBLIC_TYPE_SCOPE]: reinforcement bar primitives (`VividOrange.Sections.Reinforcement`)
-
 - rail: connection (reinforcement) / profiles
 - material: each bar carries the EN rebar grade as `IMaterial` and accepts a raw `Length` or catalogued `BarDiameter`.
 
@@ -70,7 +67,6 @@ The resulting `ConcreteSection` supplies the `IConcreteSection` consumed by the 
 - Constructors: `(IRebar, ILocalPoint2d)` and `(IMaterial, Length, ILocalPoint2d)`.
 
 [PUBLIC_TYPE_SCOPE]: reinforcement layout strategies + face/perimeter layer engines
-
 - rail: connection (reinforcement) / profiles
 - layout: `ReinforcementLayoutByCount` and `ReinforcementLayoutBySpacing` define bar count or spacing.
 - layer: `FaceReinforcementLayer` and `PerimeterReinforcementLayer` bind a layout to a section face or perimeter; `GetPath(IProfile, offset)` derives the bar line and `GetRebars(path)` materializes positioned bars.
@@ -112,7 +108,6 @@ The resulting `ConcreteSection` supplies the `IConcreteSection` consumed by the 
 - Calculation: `GetMinimumReinforcementSpacing(Length barDiameter) -> Length`.
 
 [PUBLIC_TYPE_SCOPE]: `VividOrange.Geometry` concrete section-plane carriers (the `ILocalPoint2d`/`ILocalPolyline2d` impls)
-
 - rail: profiles / connection
 - construction: a parametric `IProfile` perimeter assembles its outer and void loops from these carriers before `new Perimeter(outer, voids)`.
 - coordinates: the section plane is Y-Z, so `LocalPoint2d` carries `{ Length Y; Length Z; }`, not an X-Y pair.
@@ -135,7 +130,6 @@ The resulting `ConcreteSection` supplies the `IConcreteSection` consumed by the 
 - Derived reads: `GetArea() -> Area`, `GetBarycenter() -> LocalPoint2d`, `Offset(Length) -> ILocalPolyline2d`, and `Domain() -> ILocalDomain2d`.
 
 [PUBLIC_TYPE_SCOPE]: boundary exceptions (`VividOrange.Sections.Exceptions`)
-
 - rail: profiles / connection
 - gate: the public `Exception` subclasses throw only at the section-construction boundary and do not constitute a `Fin` or `Validation` rail. The Materials owner traps them there and lowers them onto the canonical typed section error rail before entering an interior domain signature.
 
@@ -151,7 +145,6 @@ The `internal` `VividOrange.Sections.Reinforcement.Utility` static class owns th
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build a section
-
 - rail: profiles / connection
 
 | [INDEX] | [ENTRY]         | [CALL_SHAPE] |
@@ -179,7 +172,6 @@ The `internal` `VividOrange.Sections.Reinforcement.Utility` static class owns th
 [COLLECTED_REBAR]: `concreteSection.Rebars` returns the `IList<ILongitudinalReinforcement>` materialized from the layers for the RC capacity and transformed-section solvers.
 
 [ENTRYPOINT_SCOPE]: build the reinforcement
-
 - rail: connection (reinforcement) / profiles
 
 | [INDEX] | [ENTRY]             | [CALL_SHAPE]         |
@@ -213,7 +205,6 @@ The `internal` `VividOrange.Sections.Reinforcement.Utility` static class owns th
 [MINIMUM_SPACING]: `new MinimumReinforcementSpacing(NationalAnnex na)` selects the annex, and `.GetMinimumReinforcementSpacing(Length barDiameter) -> Length` returns the EC2 minimum clear spacing.
 
 [ENTRYPOINT_SCOPE]: build the section-plane geometry (`VividOrange.Geometry`)
-
 - rail: profiles / connection
 - note: a parametric `IProfile` perimeter assembles its outer and void loops from these concrete carriers before `new Perimeter(outer, voids)`; positions use Y-Z `Length` coordinates.
 
@@ -229,7 +220,6 @@ The `internal` `VividOrange.Sections.Reinforcement.Utility` static class owns th
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SECTION_ALGEBRA]:
-
 - root: `Section(IProfile, IMaterial)` is the section identity — a profile (the geometry, from `CatalogueFactory` or a
   parametric `IProfile`) plus a material (an EN grade). `ConcreteSection: Section` extends it with the reinforcement
   payload (rebar layers, links, cover, min-spacing).
@@ -246,14 +236,12 @@ The `internal` `VividOrange.Sections.Reinforcement.Utility` static class owns th
   EN-10080 D6..D50 catalogue (a catalogued diameter resolves to a `Length`).
 
 [BOUNDARY_EXCEPTION_LAW]:
-
 - Section construction + layout validation throw `InvalidMaterialTypeException` / `InvalidProfileTypeException` at the
   boundary (an illegal material type for the section, an `IProfile` shape that has no valid face-reinforcement layout).
   These are NOT a typed rail. A Materials RC owner traps them at the in-folder boundary and lowers them onto the
   canonical typed section error rail (`LanguageExt.Fin`) — the throw NEVER reaches an interior domain signature.
 
 [LOCAL_ADMISSION]:
-
 - The reinforced section + reinforcement is admitted through the Materials boundary that owns the RC section + the
   `Connection/reinforcement` seam: build a `ConcreteSection` from an `IProfile` (Profiles) + an `EnConcreteMaterial`
   (Materials) + an `EnRebarMaterial`-backed `Rebar`/layer arrangement, mapped onto the canonical Materials
@@ -263,7 +251,6 @@ The `internal` `VividOrange.Sections.Reinforcement.Utility` static class owns th
   `MinimumReinforcementSpacing.GetMinimumReinforcementSpacing`, never an inline EC2 constant.
 
 [STACK]:
-
 - material seam: every `Rebar`/`Link` carries an `IMaterial` — the admitted `VividOrange.Materials` `EnRebarMaterial`
   (`MaterialType.Reinforcement`, `api-vividorange-materials.md`); the `ConcreteSection.Material` is an
   `EnConcreteMaterial`. The Sections reinforcement geometry and the Materials grade DATA meet at the `IMaterial`
@@ -289,7 +276,6 @@ The `internal` `VividOrange.Sections.Reinforcement.Utility` static class owns th
   the `$type` tag, so a TS/Python peer reconstructs the exact reinforcement arrangement.
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.Sections` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the concrete reinforced-section + reinforcement DATA — the `Section`/`ConcreteSection` carriers, the
   `Rebar`/`Link`/`LongitudinalReinforcement` bar primitives over the EN-10080 `BarDiameter` catalogue, the

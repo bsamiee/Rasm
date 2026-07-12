@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ReactiveUI.Avalonia`
-
 - package: `ReactiveUI.Avalonia`
 - license: `MIT`
 - assembly: `ReactiveUI.Avalonia`
@@ -56,7 +55,6 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 |  [06]   | `UseReactiveUIWithDIContainer<TContainer>`       | custom Splat resolver |
 
 [BUILDER_SIGNATURES]:
-
 - Use: `UseReactiveUI(this AppBuilder, Action<ReactiveUIBuilder> withReactiveUIBuilder) : AppBuilder`
 - Register: `WithAvalonia(this IReactiveUIBuilder) : IReactiveUIBuilder`
 - Explicit assemblies: `RegisterReactiveUIViews(this AppBuilder, params Assembly[]) : AppBuilder`
@@ -97,7 +95,6 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 |  [08]   | `GetBindingSubject<T>`               | `AvaloniaObjectReactiveExtensions` | typed binding state     |
 
 [LIFETIME_BINDING_SIGNATURES]:
-
 - Lifetime: `AutoSuspendHelper(IApplicationLifetime lifetime)` / `OnFrameworkInitializationCompleted()`
 - Activation: `GetActivationForView(IActivatableView) : IObservable<bool>` / `GetAffinityForView(Type) : int`
 - Object property: `GetSubject(this AvaloniaObject, AvaloniaProperty, BindingPriority = LocalValue) : ISubject<object?>`
@@ -108,12 +105,10 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ADMISSION_TOPOLOGY]:
-
 - `UseReactiveUI(builder, b => ...)` defers to `AfterPlatformServicesSetup`: it creates a `ReactiveUIBuilder` via `RxAppBuilder.CreateReactiveUIBuilder()`, calls `WithAvalonia()` on it, runs the consumer callback, then `BuildApp()` unless the app is already built. `WithAvalonia()` composes the builder chain `WithMainThreadScheduler(AvaloniaScheduler.Instance) -> WithTaskPoolScheduler(TaskPoolScheduler.Default) -> WithRegistration(splat => { RegisterConstant<IActivationForViewFetcher>(new AvaloniaActivationForViewFetcher()); RegisterConstant<IPropertyBindingHook>(new AutoDataTemplateBindingHook()); RegisterConstant<ICreatesCommandBinding>(new AvaloniaCreatesCommandBinding()); RegisterConstant<ICreatesObservableForProperty>(new AvaloniaObjectObservableForProperty()); }) -> WithSuspensionHost<Unit>()` — so the UI scheduler is installed through `WithMainThreadScheduler` (setting `RxApp.MainThreadScheduler`), not a bare field assignment. `RegisterReactiveUIViews*` add `IViewFor<T>` registrations to `AppLocator.CurrentMutable`; `UseReactiveUIWithDIContainer<TContainer>` is the only path that assigns `RxSchedulers.MainThreadScheduler = AvaloniaScheduler.Instance` directly, after swapping the Splat locator to the supplied container's `IDependencyResolver`.
 - `AvaloniaCreatesCommandBinding` and `AvaloniaObjectObservableForProperty` are `internal`: they are resolver-registered services, not types a consumer references. Consume their behavior through ReactiveUI's `BindCommand`/`WhenAnyValue`, never by constructing them.
 
 [STACKING]:
-
 - View bases stack with `ReactiveUI`: a `ReactiveUserControl<TVm>` / `ReactiveWindow<TVm>` pairs with a `ReactiveObject` (or `ReactiveValidationObject` from `ReactiveUI.Validation`) view-model, and the code-behind body is `this.WhenActivated(d => { this.Bind(...).DisposeWith(d); this.BindCommand(...).DisposeWith(d); })` — the `WhenActivated` block is fed by `AvaloniaActivationForViewFetcher` and every disposable is tied to the view's `Loaded`/`Unloaded` lifetime.
 - `RoutedViewHost` stacks with `ReactiveUI` routing: bind `Router` to a view-model `RoutingState`; the host resolves `CurrentViewModel` through the registered (or per-host `ViewLocator`) resolver and transitions content. `ViewModelViewHost` is the non-stack variant for a single bound view-model. Both honor `ViewContract` to disambiguate multiple views of one view-model.
 - The property-subject bridge stacks with `DynamicData` and `System.Reactive`: `GetSubject<T>` exposes any `AvaloniaProperty` as an `ISubject<T>`, so an Avalonia control property serves as a source/sink in a DynamicData change-set pipeline or a `ReactiveCommand` `canExecute` stream, with `BindingPriority` controlling precedence against styles/animations.
@@ -121,14 +116,12 @@ Every builder entrypoint is rooted at `AppBuilderExtensions`.
 - Docking stacks via `Dock.Model.ReactiveUI`: dock documents/tools are ReactiveUI view-models hosted through the same `IViewFor<T>` + `ViewModelViewHost` resolution path this assembly registers — one view-resolution contract spans the shell's dock layout, routed screens, and direct hosts.
 
 [ACTIVATION_LAW]:
-
 - Package: `ReactiveUI.Avalonia`
 - Owns: Avalonia builder admission, activation, command binding, property observation, routing, and UI scheduling
 - Accept: bindings terminate at activated Avalonia views and typed view hosts; every subscription disposes with the activation scope
 - Reject: undisposed subscriptions; binding outside `WhenActivated`
 
 [HOST_LAW]:
-
 - Package: `ReactiveUI.Avalonia`
 - Owns: one reactive binding + view-resolution rail for panels, companion windows, sidecars, diagnostics, dock layouts, and downstream shells
 - Accept: routed screens, dock documents, and direct view-model hosts share one `IViewFor<T>` resolution contract registered once at startup

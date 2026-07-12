@@ -5,7 +5,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: installed macOS bindings
-
 - host: Grasshopper 2 inside the Rhino WIP macOS process
 - assemblies: `Microsoft.macOS.dll`; `Eto.macOS.dll`
 - namespaces: `AppKit`, `CoreAnimation`, `CoreGraphics`, `CoreImage`, `Foundation`, `ObjCRuntime`, `Eto.Mac`, `Eto.Mac.Forms`
@@ -15,7 +14,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: views, screens, events, gestures, and pressure
-
 - rail: UI-affine native interop
 
 | [INDEX] | [SYMBOL]                                                                    | [KIND] | [CAPABILITY]                            |
@@ -29,7 +27,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 |  [07]   | `NSPressureConfiguration`; `NSPressureBehavior`                             | family | pressure behavior                       |
 
 [PUBLIC_TYPE_SCOPE]: layer graph, timing, and conversion
-
 - rail: UI-affine native interop
 
 | [INDEX] | [SYMBOL]                                                                  | [KIND] | [CAPABILITY]                               |
@@ -46,7 +43,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 |  [10]   | `IMacControlHandler`; `IMacViewHandler`                                   | family | native view roles                          |
 
 [PUBLIC_TYPE_SCOPE]: chrome, accessibility, and observation
-
 - rail: UI-affine native interop
 
 | [INDEX] | [SYMBOL]                                                                                | [CAPABILITY]                          |
@@ -59,7 +55,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Eto-to-AppKit extraction
-
 - rail: runtime-nullable native extraction
 
 | [INDEX] | [SURFACE]                                                             | [DECLARED_RETURN]    | [RUNTIME]     |
@@ -73,7 +68,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 `GetMacControl`, `GetMacViewHandler`, and `GetContainerView` carry non-null signatures in the installed Eto assembly but return null for absent controls or handlers. `GetContainerView` follows nested Eto controls and finally accepts a direct `NSView` control object. `IMacViewHandler` inherits the five `IMacControlHandler` roles and declares no `Control` property; `IMacWindow.Control` is the separate `NSWindow` property on the window-handler interface. `Grasshopper2.UI.Canvas.Canvas.ControlObject` remains a runtime object and yields a native anchor only when it is an `NSView`.
 
 [ENTRYPOINT_SCOPE]: view, window, and screen
-
 - rail: AppKit view attachment and display facts
 
 | [INDEX] | [TYPE]     | [MEMBERS]                                                               | [ACCESS_ABI]                 |
@@ -96,7 +90,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 `CADisplayLink`, `NSView.GetDisplayLink`, and `NSScreen.GetDisplayLink` carry `SupportedOSPlatform("macos14.0")`. The display-link getters are declared non-null, while the native result still requires runtime validation. `NSWindow.Screen` is likewise declared non-null but resolves to native null before the window belongs to a screen. A view-bound pacing decision reads `view.Window?.Screen`; `NSScreen.MainScreen` describes the application main screen rather than the view's hosting display.
 
 [ENTRYPOINT_SCOPE]: local event monitor ABI
-
 - rail: AppKit callback
 
 | [INDEX] | [MEMBER]                                             | [ABI]                 |
@@ -113,7 +106,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 `LocalEventHandler` is declared as `NSEvent LocalEventHandler(NSEvent theEvent)`. `NSEvent.AddLocalMonitorForEventsMatchingMask(NSEventMask, LocalEventHandler)` returns an `NSObject` token, and `NSEvent.RemoveMonitor(NSObject)` removes it. Returning the original event preserves delivery; returning runtime null absorbs it despite the delegate's non-null return annotation. Removal and token disposal are distinct inverse steps.
 
 [ENTRYPOINT_SCOPE]: gesture and pressure ABI
-
 - rail: AppKit recognizers
 
 | [INDEX] | [TYPE]                             | [CONSTRUCTION_AND_STATE]                                                 |
@@ -130,7 +122,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 `NSGestureRecognizer.Action`, `Target`, and `State` are public get/set properties; the generated binding advises that only recognizer subclasses set `State`. `NSGestureRecognizer.PressureConfiguration` is declared non-null and settable, while `NSView.PressureConfiguration` is nullable and accepts null to remove a view configuration. `NSGestureRecognizer.View` is declared non-null but remains runtime-null before attachment.
 
 [ENTRYPOINT_SCOPE]: display link and run loop
-
 - rail: CoreAnimation pacing
 
 | [INDEX] | [TYPE]             | [MEMBERS]                                                                      | [ACCESS_ABI]         |
@@ -146,7 +137,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 `CADisplayLink.AddToRunLoop` and `RemoveFromRunLoop` each expose `(NSRunLoop, NSString)` and `(NSRunLoop, NSRunLoopMode)` overloads. `NSRunLoop.Main` plus `NSRunLoopMode.Common` is the typed common-mode attachment. `CADisplayLink.Create(NSObject, Selector)` is also public, while `NSView.GetDisplayLink` and `NSScreen.GetDisplayLink` bind the link to a display source. Teardown removes the link from the same loop and mode, invalidates it, then disposes the link and callback target.
 
 [ENTRYPOINT_SCOPE]: layer, animation, and filter state
-
 - rail: CoreAnimation composition
 
 | [INDEX] | [TYPE]          | [MEMBERS]                                                                             | [NULLABILITY]    |
@@ -163,7 +153,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 `CABasicAnimation.FromKeyPath(string?)` and `CAKeyFrameAnimation.FromKeyPath(string?)` are public nullable-key factories. `CAKeyFrameAnimation.GetFromKeyPath(string)` is the installed non-null-key wrapper. `CAMediaTimingFunction` exposes the four-float control-point constructor and `FromName(NSString)`. A transaction pairs `Begin()` with `Commit()`; `CompletionBlock` is nullable.
 
 [ENTRYPOINT_SCOPE]: geometry, colour, marshal, and Eto conversions
-
 - rail: native value conversion
 
 | [INDEX] | [OWNER]             | [SURFACE]                                                             |
@@ -180,7 +169,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 `MacConversions.ToEto(CGPoint, NSView)` treats the point as window coordinates, converts it through `NSView.ConvertPointFromView(point, null)`, and flips the Y coordinate when the view is not flipped. `MacConversions.ToNS(CGColor)` and `CGConversions.ToCG(NSColor)` carry non-null signatures but return runtime null for null inputs. `CGConversions.ToCG(IMatrix)` returns identity for a runtime-null matrix. `CGConversions.ToEto(CGColor)` throws for unsupported component layouts. Conversion ownership remains in `Eto.Mac`; the native catalogue does not define parallel conversion helpers.
 
 [ENTRYPOINT_SCOPE]: accessibility and display notifications
-
 - rail: AppKit observation
 
 `NSWorkspace.SharedWorkspace` exposes `AccessibilityDisplayShouldDifferentiateWithoutColor`, `AccessibilityDisplayShouldIncreaseContrast`, `AccessibilityDisplayShouldInvertColors`, `AccessibilityDisplayShouldReduceMotion`, and `AccessibilityDisplayShouldReduceTransparency`. `NSWorkspace.Notifications.ObserveDisplayOptionsDidChange` and `NSApplication.Notifications.ObserveDidChangeScreenParameters` each expose unfiltered and `NSObject objectToObserve` overloads returning an `NSObject` observer token. Disposing each token releases its notification registration.
@@ -188,7 +176,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 ## [04]-[IMPLEMENTATION_LAW]
 
 [NATIVE_BOUNDARY]:
-
 - `MacGate` admits the seam only after both the macOS process check and a valid active `Eto.Mac.Platform` check; installed AppKit types do not provide that application-level admission themselves.
 - `IMacControlHandler` owns the five Eto-native view roles. `GetContainerView` owns nullable convenience extraction, and canvas extraction remains the explicit `Canvas.ControlObject as NSView` runtime branch.
 - AppKit view, event, recognizer, pressure, screen, and workspace calls remain UI-affine. A retained monitor, recognizer, pressure configuration, notification token, display link, callback target, or native layer resource carries its exact inverse and disposal order.
@@ -196,7 +183,6 @@ The macOS-native catalogue covers the installed `Microsoft.macOS.dll` bindings u
 - `CATransaction` owns mutation batching, `CADisplayLink` owns native pacing, `NSRunLoop` owns callback scheduling, and `Eto.Mac` owns managed/native conversion.
 
 [RAIL_LAW]:
-
 - Surface: installed `Microsoft.macOS.dll` and `Eto.macOS.dll` bindings
 - Owns: AppKit extraction, ABI-faithful input, gesture and pressure attachment, display facts, accessibility observation, layer composition, display-link pacing, and native conversion
 - Accept: explicit view roles, runtime-null validation, exact numeric carriers, paired native lifecycles, screen-local pacing, and installed conversion owners

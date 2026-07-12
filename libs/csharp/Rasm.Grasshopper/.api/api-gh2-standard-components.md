@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grasshopper2` 'Rhino 9 WIP Grasshopper2 SDK'
-
 - assembly: `Grasshopper2.dll` (`Grasshopper2Plugin.rhp`; in-process)
 - namespaces: `Grasshopper2.Components.Standard`, `Grasshopper2.Components`, `Grasshopper2.Doc`, `Grasshopper2.Parameters.Special`, `Grasshopper2.Undo`, `Grasshopper2.Interop`
 - public composites: `Cluster`, `Chain`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: composite objects and control enums
-
 - rail: composite document objects and GH1 hosting
 - note: `Cluster`, `Chain`, and `GH1InteropComponent` are public sealed `Component` subclasses; `Cluster` and `Chain` also implement `IDocumentParent` and `IPinCushion`.
 
@@ -31,7 +29,6 @@
 ## [03]-[PUBLIC_ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cluster construction and boundary maps
-
 - rail: composite document objects
 - note: the object-array constructor duplicates its input objects. `inputMapping[i]` names the inner parameter ids whose input lists migrate for cluster input `i`; `outputMapping[i]` names the inner parameter ids whose output lists migrate for cluster output `i`.
 
@@ -49,7 +46,6 @@ The full construction signature is `Cluster(IDocumentObject[] objects, out Guid[
 `EnsureMaps` assumes the outer parameters and inner boundary objects already agree. Its array references are populated, but individual entries are runtime-null when a match is absent despite the oblivious `Listen[]`/`Shout[]` metadata. It has no success result. `ClearMaps`, `CreateListeners`, `CreateShouters`, `FindAllListeners`, `FindAllShouters`, `ExternalSequences`, and `ExpireFull` are private implementation members.
 
 [ENTRYPOINT_SCOPE]: chain construction and connection migration
-
 - rail: composite document objects
 - note: the object-array constructor requires a causally sorted linear sequence and duplicates the objects into an inert inner document; it does not publish its endpoint objects.
 
@@ -68,7 +64,6 @@ The full construction signature is `Chain(Guid leadingId, Guid trailingId, param
 `OrderChainLinks(IDocumentObject[] objects) : IDocumentObject[]?` returns `null` for a null array or fewer than two objects; every other input returns a one-element array containing only `objects[0]`. The declared validation signature is `ValidateChain(IDocumentObject[] chain, out IDocumentObject first, out IDocumentObject last, out string message) : bool`; nullable annotations are disabled, while runtime behavior is nullable. It initializes `first` and `last` to `null`, never assigns either output, and never succeeds because private `ValidateLinearity` unconditionally returns `false`; `message` carries the first failed admission diagnostic or the linearity diagnostic. These members preserve their public signatures as catalogue facts but supply no ordering or validation capability. `LeadingObject` and `TrailingObject` are private, `ObjectFromIndex` is internal, and `UnmigrateConnections` is private; none is a consumer surface.
 
 [ENTRYPOINT_SCOPE]: GH1 wrapper and host component
-
 - rail: GH1 hosting
 - note: `Grasshopper2.Interop.IGH_Component` is a public sealed wrapper class around a live object implementing the GH1 `Grasshopper.Kernel.IGH_Component` interface; it is not an interface.
 
@@ -86,7 +81,6 @@ The wrapper constructor normalizes missing GH1 name and XML text to empty string
 ## [04]-[INTERNAL_LOOP_BOUNDARY]
 
 [INTERNAL_TYPE_SCOPE]: loop implementation
-
 - rail: assembly implementation only
 - note: public-looking members on an internal declaring type remain inaccessible to `Rasm.Grasshopper`.
 
@@ -109,7 +103,6 @@ No external package surface accepts or returns `Loop`, `LoopingIteration`, `Loop
 ## [05]-[IMPLEMENTATION_LAW]
 
 [STANDARD_TOPOLOGY]:
-
 - `Cluster` duplicates selected objects into its hosted document. Outer inputs align with `Listen` rows, outer outputs align with `Shout` rows, and `EnsureMaps` returns those cached arrays by `out` without validation or a verdict.
 - Assigning or mutating `InnerDocument` does not rebuild cluster parameters automatically. Boundary-array length and non-null entries require explicit admission after `EnsureMaps`.
 - `Chain` duplicates a preordered object sequence into an inert hosted document. `Links` exposes borrowed hosted objects; `MigrateConnections` is the sole public direction of connection transfer.
@@ -117,7 +110,6 @@ No external package surface accepts or returns `Loop`, `LoopingIteration`, `Loop
 - `GH1InteropComponent` is a host, not an upgrader. It requires a loadable GH1 runtime during processing and persists the XML state consumed by that runtime.
 
 [LOCAL_ADMISSION]:
-
 - public composition admits `Cluster`, `Chain`, `GH1InteropComponent`, `Accumulation`, `ClusterBoundary`, and `LoopContinuation` only
 - internal loop types and private cluster/chain helpers never appear in public signatures, generated vocabularies, factories, or operation rails
 - `EnsureMaps` lifts as a void host call followed by explicit array and element admission; it never lifts as a boolean confirmation
@@ -125,7 +117,6 @@ No external package surface accepts or returns `Loop`, `LoopingIteration`, `Loop
 - `IGH_Component` is admitted as a wrapper class around an already validated live GH1 component object, its nullable parameter/icon reads remain explicit, and transfer index pairs are range-admitted before invocation
 
 [RAIL_LAW]:
-
 - Package: `Grasshopper2.dll` (`Grasshopper2.Components.Standard`; in-process)
 - Owns: public cluster nesting and maps, public chain construction and connection migration, public control enums, GH1 wrapper-backed hosting, and the internal loop implementation behind clusters
 - Accept: duplicated composite ownership, explicit map admission, caller-preordered chain construction with explicit endpoint ids, borrowed hosted objects and icons, and GH1 execution through the serialized host component

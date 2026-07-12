@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto`
-
 - package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP)
 - license: BSD-3-Clause
 - assembly: `Eto` (`Eto.dll`)
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: application dispatch and timers
-
 - rail: native UI
 
 `Application` exposes static `Instance` and the `MainForm`, `Windows`, `Name`, `IsUIThread`, `QuitIsSupported`, `CommonModifier`, `AlternateModifier`, `BadgeLabel`, `IsActive`, and `UIThreadCheckMode` properties. `UITimer` exposes `Interval`, `Started`, `Start()`, `Stop()`, and `Elapsed`.
@@ -31,7 +29,6 @@
 |  [06]   | `UnhandledExceptionEventArgs` | event-args | unhandled-exception payload     |
 
 [PUBLIC_TYPE_SCOPE]: keyboard, mouse, and cursor state
-
 - rail: native UI
 
 `Keyboard` exposes static `Modifiers`, `SupportedLockKeys`, `IsKeyLocked(Keys)`, and `ModifiersChanged`; `SupportedLockKeys` is an `IEnumerable<Keys>` membership set rather than flags. `Mouse` exposes static `IsSupported`, settable `Position` as `PointF`, and `Buttons`. `Cursors` exposes `Default`, `Arrow`, `Crosshair`, `Pointer`, `IBeam`, `Move`, `NotAllowed`, `SizeAll`, eight directional size cursors, and `GetCursor(CursorType)`.
@@ -49,7 +46,6 @@
 |  [09]   | `TextInputEventArgs` | event-args  | composed-text event payload |
 
 [PUBLIC_TYPE_SCOPE]: typed data transfer
-
 - rail: native UI
 
 `Clipboard` exposes static `Instance`; `Types`, `ContainsText`, `ContainsHtml`, `ContainsImage`, and `ContainsUris`; `Text`, `Html`, `Image`, and `Uris`; and `Clear()`. Its typed access surface comprises `SetData(byte[], type)`, `GetData(type)`, `SetDataStream`, `GetDataStream`, `SetString`, `GetString`, `SetObject`, `GetObject<T>`, and `Contains(type)`. `DataObject` mirrors the typed and format accessors under the `IDataObject` contract. `Control.DoDragDrop(DataObject, DragEffects[, Image, PointF])` initiates a copy, move, or link drag and returns `void`; the settled effect arrives on `Control.DragEnd`.
@@ -63,7 +59,6 @@
 |  [05]   | `DragEventArgs` | event-args | drag payload                    |
 
 [PUBLIC_TYPE_SCOPE]: notifications and screen metrics
-
 - rail: native UI
 
 `Notification` exposes `Title`, `Message`, `Icon`, `ContentImage`, string `UserData`, `RequiresTrayIndicator`, and `Activated`; `NotificationEventArgs` carries string `ID` and `UserData`. `TrayIndicator` exposes `Title`, `Image`, `Menu`, `Visible`, and `Activated`. `Screen` exposes static `PrimaryScreen` and `Screens` plus `Bounds`, `WorkingArea`, `DisplayBounds`, `LogicalPixelSize`, `DPI`, `RealDPI`, `Scale`, `RealScale`, `BitsPerPixel`, and `IsPrimary`.
@@ -78,7 +73,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: application dispatch
-
 - rail: native UI
 
 | [INDEX] | [SURFACE]                             | [RESULT]  | [CAPABILITY]                 |
@@ -99,7 +93,6 @@
 |  [14]   | `Application.UnhandledException`      | event     | unhandled-exception hook     |
 
 [ENTRYPOINT_SCOPE]: timer, input, and clipboard
-
 - rail: native UI
 
 | [INDEX] | [SURFACE]                               | [RESULT] | [CAPABILITY]          |
@@ -115,7 +108,6 @@
 |  [09]   | `Clipboard.GetDataStream(type)`         | `Stream` | raw stream read       |
 
 [ENTRYPOINT_SCOPE]: notification and screen resolution
-
 - rail: native UI
 
 | [INDEX] | [SURFACE]                           | [KIND]     | [CAPABILITY]              |
@@ -130,7 +122,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISPATCH_TOPOLOGY]:
-
 - `Application.Instance` is the one UI-thread seam: `Invoke` blocks for a result, `AsyncInvoke` fire-and-forgets, `InvokeAsync` awaits; a host callback that mutates a control off-thread routes through one of these, never a raw thread hop
 - `UITimer` owns the repeating UI-thread tick; a paint or animation cadence subscribes `Elapsed` and toggles `Started`
 - input state is read live: `Keyboard.Modifiers` and `Mouse.Position`/`Buttons` are ambient reads, distinct from the per-event `MouseEventArgs`/`KeyEventArgs` snapshots a control raises
@@ -138,20 +129,17 @@
 - `Screen` carries the density facts (`LogicalPixelSize`, `Scale`, `DPI`) a panel reads once per paint to place logical geometry into device pixels
 
 [STACKING]:
-
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): a UI-thread result marshal is an `Eff<A>` deferred until `Application.Instance.Invoke(() => eff.Run())`, landing on `Fin<A>`; a clipboard read null-gates through `Optional(Clipboard.Instance.GetString(type)).ToFin(error)`; a repeating `UITimer` cadence drives an `IO<A>` step chain per tick
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the transfer `DataFormats` identifiers project onto a `[SmartEnum<string>]` payload-kind owner carrying its parse/serialize behaviour; `UIThreadCheckMode`, `DragEffects`, and `MouseButtons` are the host enum vocabularies a smart-enum owner wraps where the panel attaches routing
 - `api-eto-forms`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-forms.md`): control invalidation and dialog presentation are the panel-side consumers that marshal through `Application.Instance`
 - `api-macos-native`(`libs/csharp/Rasm.Grasshopper/.api/api-macos-native.md`): `Application.Invoke`, `UITimer`, and `Screen.LogicalPixelSize` are the host-neutral boundary the macOS layer replaces with `CADisplayLink` pacing and `NSScreen` refresh metrics for high-cadence work
 
 [LOCAL_ADMISSION]:
-
 - `Eto.Forms` runtime is host-provided and composed directly — a cross-thread marshal calls `Application.Instance` and a tick uses `UITimer`, never a hand-rolled `SynchronizationContext` capture or `System.Threading.Timer` beside them
 - transfer payloads ride the typed `Clipboard`/`DataObject` accessors keyed by `DataFormats`, never a stringly-parsed blob
 - display density is read from `Screen`, never a hardcoded scale constant
 
 [RAIL_LAW]:
-
 - Package: `Eto`
 - Owns: UI-thread dispatch, timers, live input and cursor state, typed clipboard and drag payloads, notifications, and screen metrics for GH2-hosted panels
 - Accept: cross-thread marshalling, repeating ticks, input and modifier reads, typed data transfer, OS alerts, per-display density resolution

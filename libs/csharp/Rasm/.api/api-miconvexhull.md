@@ -39,7 +39,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 |  [18]   | `ConvexHullGenerationException`            | exception     | exceptional hull result |
 
 [TYPE_CONTRACTS]:
-
 - `IVertex` exposes `double[] Position`, while `IVertex2D` exposes `double X` and `double Y` for the planar fast path.
 - `DefaultVertex` exposes `double[] Position`; `DefaultVertex2D` accepts `double[]` or `double x, double y` when the consumer has no native vertex type.
 - `ConvexHullCreationResult<TVertex, TFace>` carries `Result`, `Outcome`, and `ErrorMessage`; the planar specialization returns `IList<TVertex>` through `Result`.
@@ -51,7 +50,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 - `ConvexHullGenerationException` carries `Error` and `ErrorMessage` for the exceptional path.
 
 [ENTRYPOINT_FAMILIES]:
-
 - `ConvexHull` exposes `Create<TVertex, TFace>`, `Create<TVertex>`, `Create(IList<double[]>)`, `Create2D<TVertex>`, and `Create2D(IList<double[]>)`.
 - `Triangulation` exposes `CreateDelaunay<TVertex>`, `CreateDelaunay<TVertex, TFace>`, `CreateDelaunay(IList<double[]>)`, and the `CreateVoronoi` overload family.
 - `VoronoiMesh` exposes `Create<TVertex, TCell, TEdge>`, `Create<TVertex>`, and `Create(IList<double[]>)`.
@@ -71,7 +69,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 |  [07]   | `ConvexHull<TVertex>`        | result            | ordered boundary        |
 
 [HULL_SIGNATURES]:
-
 - `ConvexHull.Create<TVertex, TFace>(IList<TVertex> data, double tolerance = 1E-10)` returns `ConvexHullCreationResult<TVertex, TFace>` for `TFace: ConvexFace`.
 - `ConvexHull.Create<TVertex>(IList<TVertex> data, double tolerance = 1E-10)` returns `ConvexHullCreationResult<TVertex, DefaultConvexFace<TVertex>>`.
 - `ConvexHull.Create(IList<double[]> data, double tolerance = 1E-10)` returns `ConvexHullCreationResult<DefaultVertex, DefaultConvexFace<DefaultVertex>>`.
@@ -92,7 +89,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 |  [04]   | `ITriangulation<TVertex, TCell>` | result            | simplex collection   |
 
 [DELAUNAY_SIGNATURES]:
-
 - `Triangulation.CreateDelaunay<TVertex>(IList<TVertex> data, double PlaneDistanceTolerance = 1E-10)` returns `ITriangulation<TVertex, DefaultTriangulationCell<TVertex>>`.
 - `Triangulation.CreateDelaunay<TVertex, TFace>(IList<TVertex> data, double PlaneDistanceTolerance = 1E-10)` accepts `TFace: TriangulationCell` for domain data on each simplex.
 - `Triangulation.CreateDelaunay(IList<double[]> data, double PlaneDistanceTolerance = 1E-10)` consumes raw coordinates.
@@ -112,7 +108,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 |  [06]   | `VoronoiMesh<TVertex, TCell, TEdge>` | result            | cells and edges      |
 
 [VORONOI_SIGNATURES]:
-
 - `VoronoiMesh.Create<TVertex>(IList<TVertex> data, double PlaneDistanceTolerance = 1E-10)` returns `VoronoiMesh<TVertex, DefaultTriangulationCell<TVertex>, VoronoiEdge<...>>`.
 - `VoronoiMesh.Create<TVertex, TCell, TEdge>(...)`, `Create<TVertex, TCell>(...)`, and `Create(IList<double[]>, ...)` expose custom-cell, custom-edge, and raw-coordinate overloads.
 - `Triangulation.CreateVoronoi<...>(...)` exposes the same overload family and result as `VoronoiMesh.Create`.
@@ -121,7 +116,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 ## [05]-[IMPLEMENTATION_LAW]
 
 [VALUE_PROFILE]:
-
 - Representation: every entrypoint is generic over `IVertex`, `IVertex2D`, and a face or cell type; the consumer's native type remains the hull or cell vertex, so payload and connectivity survive through `Faces`, `Cells`, and `Edges`.
 - Result: `ConvexHull.Create` and `Create2D` return `ConvexHullCreationResult` with `Outcome` and `ErrorMessage`; the kernel folds the outcome into `Fin` or `Validation` at the boundary.
 - Dimensionality: `Create` rejects 2D with `DimensionTwoWrongMethod`; `Create2D` returns the ordered hull-boundary polygon, while `CreateDelaunay` and `CreateVoronoi` remain dimension-agnostic.
@@ -130,7 +124,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 - Boundary: the object-model API uses `IList<TVertex>` and `double[]`, without `System.Numerics` generic math or `Span`-first kernels.
 
 [LOCAL_ADMISSION]:
-
 - `MIConvexHull` is the kernel's `[COMPUTATIONAL_GEOMETRY]` owner and direct `PackageReference` for convex hull, Delaunay, and Voronoi.
 - The central pin is also the Materials `InteractionDiagram` transitive floor for assembling N-M-M structural-capacity vertices into a closed onion hull.
 - The kernel implements `IVertex` on its point type or adapts `Rasm.Spatial`, carries its index and payload on the vertex or custom face, and reads connectivity from `Faces`, `Cells`, or `Edges`.
@@ -139,7 +132,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 - `Create2D` owns planar-section and interaction-curve hulls because the N-dimensional `Create` returns `DimensionTwoWrongMethod` for 2D input.
 
 [STACKING_LAW]:
-
 - Vendored NURBS engine: `Parametric/nurbs` carries no hull concern, so `MIConvexHull` remains the kernel hull owner.
 - Kernel Delaunay: `Meshing/delaunay` owns constrained Delaunay over planar straight-line graphs, including boundary and hole recovery over the exact-predicate floor and Ruppert-style quality refinement; `MIConvexHull` owns unconstrained N-dimensional point-cloud Delaunay without boundary constraints or quality refinement.
 - Spatial queries: `Supercluster.KDTree` answers nearest-neighbour queries over a fixed cloud without connectivity; `CreateDelaunay` returns the cloud's cell complex.
@@ -147,7 +139,6 @@ The public vocabulary comprises static entrypoints, vertex contracts, typed resu
 - Voronoi: the `Meshing/delaunay` dual and `Meshing/mesh` restricted power diagram own constrained and restricted exact lanes; `VoronoiMesh` owns the N-dimensional Delaunay-dual cell and edge graph.
 
 [RAIL_LAW]:
-
 - Package: `MIConvexHull`
 - Owns: typed-result N-dimensional Quickhull through `ConvexHull.Create<TVertex, TFace>`, `Create<TVertex>`, and `Create(IList<double[]>)`
 - Owns: typed-result planar monotone-chain hulls through `Create2D<TVertex>` and `Create2D(IList<double[]>)`

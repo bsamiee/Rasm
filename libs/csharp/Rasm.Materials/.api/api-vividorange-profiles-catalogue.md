@@ -7,7 +7,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Profiles.Catalogue`
-
 - package: `VividOrange.Profiles.Catalogue`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.Profiles.Catalogue`
@@ -23,7 +22,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: catalogue factory + contracts
-
 - rail: profiles
 
 `CatalogueFactory.CreateAmerican(American)` and `CatalogueFactory.CreateEuropean(European)` mint singleton `ICatalogue` instances through the factory switch. Both profile contracts compose `ICatalogue`, `IProfile`, and `ITaxonomySerializable`; their `Shape` property carries the matching family enum.
@@ -35,12 +33,10 @@
 |  [03]   | `IEuropeanCatalogue` | profile contract | European catalogue entry |
 
 [SHAPE_PROPERTIES]:
-
 - `IAmericanCatalogue`: `AmericanShape Shape`
 - `IEuropeanCatalogue`: `EuropeanShape Shape`
 
 [PUBLIC_TYPE_SCOPE]: section-identity + shape-family enums
-
 - rail: profiles
 
 `American` keys `CreateAmerican`, and `European` keys `CreateEuropean`; the family enums carry the published family vocabularies.
@@ -57,7 +53,6 @@
 [EUROPEAN_SHAPE]: `IPEAA` `IPEA` `IPE` `IPEO` `IPEV` `HEAA` `HEA` `HEB` `HEC` `HEM` `HE` `HL` `HLZ` `HD` `HP` `UBP` `UB` `UC` `IPN` `J` `UPE` `PFC` `UPN` `U` `CH`.
 
 [PUBLIC_TYPE_SCOPE]: inherited geometry contracts (transitive floor, consumed not redefined)
-
 - rail: profiles
 
 The geometry these catalogue entries carry is the transitive `VividOrange.IProfiles` floor. Each concrete profile implements its family contracts, so `AmericanShape` or `EuropeanShape` selects the valid cast: `II` and `IIParallelFlange` for W, HEA, and IPE; `IChannel` for C, MC, and UPE; `ITee` for WT, MT, and ST; `IAngle` or `IDoubleAngle` for L and DoubleL; and `IRectangularHollow` or `ICircularHollow` with `IHollowStructuralSection` for HSS and Pipe. Casting a non-I family to `II` raises `InvalidCastException`; the section-property solver (`api-vividorange-sections-sectionproperties.md`) instead consumes the polymorphic `IProfile` perimeter and integrates every family uniformly.
@@ -84,12 +79,10 @@ The geometry these catalogue entries carry is the transitive `VividOrange.IProfi
 |  [18]   | `ITaxonomySerializable`     | serialization        |
 
 [BASE_CONTRACTS]:
-
 - `IProfile`: `string Description` plus `ITaxonomySerializable` for every profile
 - `ICatalogue`: `Catalogue Catalogue` for provenance, `Enum Type` for identity, and `string Label`
 
 [GEOMETRY_MEMBERS]: all dimension members are `UnitsNet.Length`.
-
 - I-family: `Height`, `Width`, `FlangeThickness`, and `WebThickness`; `IIParallelFlange` adds `FilletRadius` for W, HEA, and IPE, while `IITaperFlange` carries the S and HP taper-flange variant
 - Channel: `Height`, `Width`, `WebThickness`, and `FlangeThickness` for C, MC, UPE, PFC, and UPN
 - Tee: `Height`, `Width`, `FlangeThickness`, and `WebThickness` for WT, MT, and ST through `ICutTeeParallelFlange` or `ICutTeeTaperFlange`
@@ -102,7 +95,6 @@ The geometry these catalogue entries carry is the transitive `VividOrange.IProfi
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: catalogue construction
-
 - rail: profiles
 
 Factory calls return geometry-bearing `ICatalogue` instances; the property surfaces expose their family, identity, label, and provenance.
@@ -118,7 +110,6 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
 |  [07]   | `ICatalogue.Catalogue`                      | property     | standard provenance |
 
 [DIMENSION_SURFACES]: every accessor returns `UnitsNet.Length` through its family contract.
-
 - I-family: `((II)catalogue).Height`, `.Width`, `.FlangeThickness`, `.WebThickness`, and `.FilletRadius` expose W, HEA, and IPE dimensions through `II` or `IIParallelFlange`
 - C, WT, L, and DoubleL: `((IChannel)c).WebThickness`, `((ITee)c).FlangeThickness`, `((IAngle)c).Width`, and `((IDoubleAngle)c).BackToBackDistance`
 - HSS and Pipe: `((IRectangularHollow)c).Height`, `((ICircularHollow)c).Diameter`, and `((IHollowStructuralSection)c).Thickness` expose envelope and wall thickness
@@ -126,7 +117,6 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CATALOGUE_ALGEBRA]:
-
 - identity root: the `American` (2299) / `European` (558) section-name enums
 - family root: `AmericanShape` (13 AISC families) / `EuropeanShape` (EN families)
 - factory root: `CatalogueFactory.CreateAmerican` / `CreateEuropean`
@@ -134,7 +124,6 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
 - provenance root: `ICatalogue.Catalogue` + `ITaxonomySerializable`
 
 [GEOMETRY_CONTRACT]:
-
 - Every concrete profile is a sealed singleton over a CRTP base: `W44x408: SingletonAmericanBase<W44x408>` and `IPE100: SingletonEuropeanBase<IPE100>` both derive `SingletonCatalogueBase<T>`.
 - Each singleton implements its family geometry contracts: `W44x408: IIParallelFlange, II`; `HSS…: IRoundedRectangularHollow, IHollowStructuralSection`; `Pipe…: ICircularHollow, IHollowStructuralSection`; `C…: IChannel`; `L…: IAngle`; and `WT…: ITee`.
 - Identity equality is reference equality; the base folds `Type => Shape` and `Catalogue`, and geometry remains immutable published data rather than a mutable record.
@@ -147,7 +136,6 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
   section discriminant (13 American / 25 European families), not a parallel enum.
 
 [LOCAL_ADMISSION]:
-
 - The factory is admitted ONLY through the Materials Profiles boundary that seeds the steel/EN section families;
   the `American`/`European` enum and the `ICatalogue` instance map onto the canonical Profile owner at the edge.
 - Geometry is read as `UnitsNet.Length` and never converted inside an interior signature — the `MaterialUnits`
@@ -157,7 +145,6 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
   section reads it from the catalogue, never from an inline dimension table.
 
 [STACK]:
-
 - section-property seam: `CatalogueFactory.CreateAmerican(American.W44x408)` produces an `IProfile`, which
   `new SectionProperties(IProfile)` (`api-vividorange-sections-sectionproperties.md`) consumes to compute
   `Area`/`MomentOfInertiaYy`/`ElasticSectionModulusZz` — the DATA package and the COMPUTATION package meet at
@@ -175,7 +162,6 @@ Factory calls return geometry-bearing `ICatalogue` instances; the property surfa
 - wire payload seam: the codec carries the `American` or `European` identity token plus dimensions normalized to one boundary wire unit for TS and Python peers; the package taxonomy JSON and raw mixed Inch/Millimeter quantities remain outside the wire.
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.Profiles.Catalogue` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the published AISC (2299) + EN 10365 (558) section database as typed sealed-singleton profile
   classes carrying `UnitsNet.Length` geometry, the `American`/`European` identity enums, the `AmericanShape`/

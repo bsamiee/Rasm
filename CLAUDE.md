@@ -9,7 +9,6 @@ BEFORE ANY ACTION IN REPO, LIST ALL ROOT-LEVEL FILES; BE AWARE OF ALL CONFIGS, T
 Read: `README.md` + `tools/assay/README.md`
 
 [CRITICAL]:
-
 - The project is in a long-term planning phase, working strictly within design/spec-sheets, not code files. List all files in `libs/.planning`, and read them fully: `libs/.planning/planning-targets.md`, `libs/.planning/campaign-method.md`, `libs/.planning/README.md`, `libs/.planning/architecture.md`.
 - [ALWAYS]: Load the `docgen` skill before authoring, editing, reviewing, or rewriting ANY durable markdown in this planning phase — index docs, specs, `.api` catalogs, standards, briefs, tool docs. It owns the register, the defect catalog, the file-kind templates, and the prose gate; work on durable prose without it loaded is a process defect, and every touched doc passes its gate before the turn ends.
 - Work within `libs/` stays task-scoped. Critique and adversarial review run when the user requests them, heavy code or logic benefits from an independent pass, or `libs/.planning/campaign-method.md` explicitly assigns that workflow role.
@@ -49,7 +48,6 @@ How to apply:
 - Inside workflows the model parameter takes only Claude models, so a codex leg rides a thin sonnet wrapper making ONE blocking `codex` MCP call, labeled with the real worker (`terra:`/`sol:`/`luna:`/`gemini:`); the wrapper contract, batching economics, and receipt law are the workflow-creator codex-lanes reference, and codex tokens stay invisible to `budget.spent()`.
 
 [WORKFLOW_ENGINE]:
-
 - Workflows launch by `scriptPath` (the absolute path to `.claude/workflows/<name>.js`), never by registry `name`: name-resolution serves a session-start snapshot and silently runs a stale contract after any in-session workflow edit; `scriptPath` reads the current disk file. After editing a workflow, verify the launch summary echoes the edited contract before trusting the run shape.
 - `ls .claude/workflows/` enumerates the standing engine roster and each script's `meta` block states its own contract — the roster is never restated in prose. `rebuild.js` is the standing hostile rebuild engine over any mix of `libs/` planning targets; `/prime` grounds a planning session before campaign entry.
 - A campaign needing a shape the roster lacks gets a one-off workflow authored via `.claude/skills/workflow-creator` and deleted after landing.
@@ -57,7 +55,6 @@ How to apply:
 - Workflow runs resume only in the launching session: capture a run ledger (run ID, scriptPath, args, resume command) at every launch; never edit a launched script while its run is resumable; a campaign brief travels as a PATH, so editing the brief means a fresh run, never a resume.
 
 [IMPORTANT]:
-
 - [ALWAYS]: Hold both forces of the DEPTH-OVER-SURFACE law at once, in every folder, file, and fence. INTERIOR MAXIMALISM: every domain owner models its full domain — every attribute, sub-kind, state, relationship, invariant, and operation the concept carries, every admitted package mined to modern operator depth — no gaps, no underutilized capability, no thin slices. EXTERIOR FOCUS: capability reaches consumers through FEW dense unified entry points — one polymorphic entry per rail discriminating on input shape (single|batch|stream absorbed by input detection, forward and inverse directions on one surface wherever the domain admits an inverse), with policy resolution, routing, retries, telemetry, and lifecycle internalized so a consumer composes outcomes and never orchestrates internals, imports dozens of symbols, or learns provider nuance. Variation lives in input shape, policy values, and table rows — never in parallel exports, knob/ceremony spam, or modality-named siblings. The surface narrows by ABSORPTION, never by omission: flexibility and capability are never reduced to make the surface small.
 - [ALWAYS]: Aggressively rebuild code and planning docs GROUND/ROOT-UP, tear apart any existing patterns to achieve the optimized/advanced code surface density without losing functionality; new functionality is always made as if it was there from the start, never as tacked-on/flat-code spam.
 - [ALWAYS]: Create monorepo code as polymorphic, agnostic, and universal by default, ALWAYS PARAMETERIZE INPUTS/OUTPUTS + INGRESS/EGRESS.
@@ -93,7 +90,6 @@ Use the route-owned standard for the file being edited:
 - `docs/laws/` is the repo-wide maintenance-law corpus — coupling topology, cross-branch pattern rows, and the scar ledger; substantive passes read it at source (it stays small by law), a diff touching a `topology.md` `[SURFACE]` lands its obligated counterparts in the same change, and durable lessons land ONLY through a run's terminal doctrine stage under the `docs/laws/README.md` admission law: harden an existing clause before extending a file before minting one, `docgen` + `skill-writer` loaded for every landing, and landing nothing is a first-class verdict.
 
 [SKILL_CONCERT]: The visualization skills compose; each owns one medium and hands off at the seam.
-
 - Interviewing owns elicitation and its schema instances; a comparative, scored, or spatial ruling renders through the html-studio type rows, and an interactive carrier (quiz, wargame board, direction picker) runs served through the html-studio return channel so user verdicts come back as submission receipts.
 - html-studio owns single-file interactive HTML pages including their inline-SVG diagrams; mermaid-diagramming owns mermaid fences inside markdown; the dataviz skill owns chart-mark and chart-palette decisions in any medium.
 - Durable artifact pages home at `docs/atlas/` as `<kind>.<scope>[.<slug>].html`; session-scoped pages stay in scratch space and never commit.
@@ -111,7 +107,6 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [04]-[DEPENDENCY_POLICY]
 
 [IMPORTANT]: External libraries, manifests, and host APIs are implementation surfaces.
-
 - [ALWAYS]: Treat dependencies declared in `pyproject.toml`, `pnpm-workspace.yaml`, `Directory.Packages.props`, project files, lockfiles, and equivalent manifests as first-class material.
 - [ALWAYS]: Mine admitted packages to their full useful capability before writing local kernels.
 - [ALWAYS]: Prefer ecosystem libraries that already own the domain concern over lower-level reinvention.
@@ -127,7 +122,6 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [05]-[IMPLEMENTATION_CONSTRAINTS]
 
 [CRITICAL]:
-
 - [NEVER]: Use weak, unbounded, or erased types where the language can express the domain precisely.
 - [NEVER]: Use exception-style control flow in domain logic; use typed error rails and the required route's recovery patterns.
 - [NEVER]: Use imperative branching when a bounded vocabulary, dispatch table, generated switch, match, fold, or monadic rail can own the variation.
@@ -139,7 +133,6 @@ Folders, namespaces, and source files follow each branch language's standard cas
 - [NEVER]: Add comments that carry task, session, subagent, review-label, proof, history, or process narration.
 
 [IMPORTANT]:
-
 - [ALWAYS]: Frame all comments and prose within code files, code-fences and docs in general to be AGENT FIRST/ONLY/FOCUSED, the only useful comments/prose are those that IMPLICITLY guide agentic coding/management/maintenance.
 - [ALWAYS]: Collapse related variants into one polymorphic surface before adding entrypoints.
 - [ALWAYS]: Drive logic with data, bounded vocabularies, discriminants, table rows, and reusable projections.
@@ -151,7 +144,6 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [06]-[BEHAVIOR]
 
 [IMPORTANT]:
-
 - [ALWAYS]: Tools over internal knowledge: read files, search code, verify assumptions through source, manifests, docs, and tool output.
 - [ALWAYS]: Parallelize independent searches, reads, and checks.
 - [ALWAYS]: Use bounded subagents at the agent's discretion when independent exploration, research, verification, or disjoint implementation materially improves the result; never force them as lifecycle ceremony.
@@ -159,7 +151,6 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [07]-[OWNER_ROUTING]
 
 [IMPORTANT]:
-
 - [ALWAYS]: Resolve external library, framework, SDK, or host-API usage through `Context7` before internalizing into a canonical owner: `Context7` also indexes this repo's own packages, so resolve internal API shape through it before opening source, while `uv run python -m tools.assay api` answers which members verifiably exist locally; verified-local wins on conflict. The web/docs research selection law is the user-global doctrine, not restated here.
 - [ALWAYS]: Dependency graph facts live in manifests, package-manager configuration, lockfiles, project files, and the tool owner that consumes them.
 - [ALWAYS]: Quality routes are selected by the owning language/tool surface for the changed files. Root policy owns intent, not command catalogs.
@@ -181,7 +172,6 @@ Folders, namespaces, and source files follow each branch language's standard cas
 ## [08]-[DOCUMENTATION_AND_OUTPUT]
 
 [IMPORTANT]:
-
 - [ALWAYS]: Use `backticks` for file paths, symbols, and CLI commands.
 - [ALWAYS]: Keep responses actionable and lead with what changed.
 - [ALWAYS]: Treat durable docs, prompts, standards, skills, examples, and templates as agent-facing declarative law.
@@ -227,7 +217,6 @@ Canonical order, omitting unused sections: `TYPES` -> `CONSTANTS` -> `MODELS` ->
 - `[EXPORTS]`: named exports, `__all__`, or language-equivalent public surface declarations.
 
 [IMPORTANT]:
-
 - [ALWAYS]: Apply ordering as `section` -> `owner block` -> `runtime/declaration dependency` -> `semantic rank` -> `kind` -> `smaller-to-larger` -> `alphabetical`.
 - [ALWAYS]: Prefer concept discovery order from stable declarations to composition: vocabulary, constants, models, failures, services, operations, wiring, exports.
 - [ALWAYS]: Treat one generated type, smart enum, value object, schema/model family, wire model family, kernel, registry, catalog, table, dispatcher, query family, or composition root as an owner block; sort inside the owner instead of flattening its members into unrelated top-level sections.

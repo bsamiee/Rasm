@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Dock.Serializer.SystemTextJson`
-
 - package: `Dock.Serializer.SystemTextJson` (the Dock 12 docking framework; model interfaces ship transitively under `Dock.Model.ReactiveUI`)
 - license: MIT
 - floor: `net10.0` consumer; the package multi-targets net6.0 / net8.0 / net10.0 (`lib/<tfm>/Dock.Serializer.SystemTextJson.dll`)
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [SERIALIZER_TYPES]: IDockSerializer implementation and options factory
-
 - rail: docking
 
 | [INDEX] | [SYMBOL]                           | [VISIBILITY]    | [RAIL]                     |
@@ -32,7 +30,6 @@
 `DockModelPolymorphicTypeResolver` subclasses `DefaultJsonTypeInfoResolver` and supplies the default `TypeInfoResolver` through the `DockSerializer()` constructor. `DockSerializerOptionsFactory` produces the configured `JsonSerializerOptions` consumed by every `DockSerializer` constructor.
 
 [ATTRIBUTE_TYPES]: source-generation registration
-
 - rail: docking
 
 | [INDEX] | [SYMBOL]                            | [RAIL]                              |
@@ -43,7 +40,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [DOCKSERIALIZER_CONSTRUCTORS]: `DockSerializer` construction surface
-
 - rail: docking
 
 | [INDEX] | [SURFACE]                                              | [SURFACE_ROOT]   | [RAIL]                                        |
@@ -54,7 +50,6 @@
 |  [04]   | `DockSerializer(IJsonTypeInfoResolver)`                | `DockSerializer` | `ObservableCollection<>` + explicit resolver  |
 
 [IDOCKSERIALIZER_SURFACE]: load/save/serialize contract
-
 - rail: docking
 
 | [INDEX] | [SURFACE]                         | [SURFACE_ROOT]   | [RAIL]                        |
@@ -65,7 +60,6 @@
 |  [04]   | `Save<T>(Stream stream, T value)` | `DockSerializer` | serialize to UTF-8 stream     |
 
 [OPTIONS_DEFAULTS]: `JsonSerializerOptions` produced by the internal factory
-
 - rail: docking
 
 | [INDEX] | [OPTION]                 | [VALUE]                                                                                 |
@@ -80,7 +74,6 @@
 ## [04]-[POLYMORPHIC_RESOLVER]
 
 [POLYMORPHIC_BASE_TYPES]: interfaces resolved polymorphically by `DockModelPolymorphicTypeResolver`
-
 - rail: docking
 
 | [INDEX] | [BASE_TYPE]         | [UNKNOWN_DERIVED_HANDLING]  |
@@ -93,19 +86,16 @@
 |  [06]   | `IToolTemplate`     | `FallBackToNearestAncestor` |
 
 [RESOLVER_BEHAVIOR]:
-
 - Type discriminator property name: `$type`; value: `Type.FullName ?? Type.Name`; `IgnoreUnrecognizedTypeDiscriminators = true`. The resolver overrides `GetTypeInfo` and attaches a cloned `JsonPolymorphismOptions` only for the six base types (dynamic per `GetTypeInfo` so a freshly-loaded plugin assembly's derived types appear without rebuilding the resolver).
 - Derived types are discovered at runtime from every non-dynamic loaded assembly (`AppDomain.CurrentDomain.GetAssemblies()`), filtered to `IsClass && !IsAbstract && !ContainsGenericParameters && (IsPublic || IsNestedPublic)` and `baseType.IsAssignableFrom`, then ordered by `FullName` under `StringComparer.Ordinal` — open generics and non-public types are excluded, and `ReflectionTypeLoadException` degrades to its partial `Types` rather than throwing.
 - Properties marked `[IgnoreDataMember]` or whose type is assignable to `ICommand` are stripped from serialized output, and the strip also walks every interface the polymorphic base inherits (`BuildInterfaceIgnoredMembers`) so an `ICommand`/`[IgnoreDataMember]` member declared on an inherited interface is removed too — view-model command bindings never serialize.
 
 [CONVERTER_BEHAVIOR]:
-
 - `JsonConverterFactoryList(Type listType)` is a `JsonConverterFactory` whose `CanConvert` matches exactly `IList<>` (open-generic check); `CreateConverter` reads the element type and `Activator.CreateInstance`s `JsonConverterList<element>` passing the caller's `listType`, so every `IList<T>` member deserializes into the concrete list type (default `ObservableCollection<>`) the dock model expects for change tracking.
 
 ## [05]-[SOURCE_GENERATOR]
 
 [GENERATOR_SURFACE]: `Dock.Serializer.SystemTextJson.Generators` analyzer
-
 - rail: docking
 
 | [INDEX] | [SYMBOL]                  | [RAIL]                         |
@@ -113,7 +103,6 @@
 |  [01]   | `DockJsonSourceGenerator` | Roslyn `IIncrementalGenerator` |
 
 [GENERATOR_EMISSION]: generated artifacts per assembly
-
 - `[assembly: DockJsonSourceGenerationAttribute]` triggers the generator.
 - `[assembly: DockJsonSerializableAttribute(typeof(MyType))]` registers additional types.
 - Generator emits `internal sealed partial class DockSystemTextJsonContext : JsonSerializerContext`.
@@ -124,7 +113,6 @@
 ## [06]-[IMPLEMENTATION_LAW]
 
 [SERIALIZER_LAW]:
-
 - Package: `Dock.Serializer.SystemTextJson`
 - Owns: `IDockSerializer` JSON implementation, polymorphic type resolution for all core dock model interfaces, and the source-generation pipeline
 - Accept: construct `DockSerializer()` for default reflection-based serialization; pass a source-generated `IJsonTypeInfoResolver` for AOT-safe serialization
@@ -141,7 +129,6 @@
 [SOURCE_GENERATION]: `[assembly: DockJsonSourceGenerationAttribute]` and one `[assembly: DockJsonSerializableAttribute(typeof(T))]` per extra type make the analyzer emit `DockSystemTextJsonContext : JsonSerializerContext`. Passing that context to `DockSerializer(IJsonTypeInfoResolver)` replaces the runtime-reflection `DockModelPolymorphicTypeResolver` with source-generated metadata for trimmed and NativeAOT layout serialization. The configuration preserves `ReferenceHandler.Preserve`, `WhenWritingNull`, `AllowNamedFloatingPointLiterals`, and the `IList<T>` factory.
 
 [CONVERTER_LAW]:
-
 - `JsonConverterFactoryList` and `JsonConverterList<T>` handle `IList<T>` properties using the caller-supplied concrete list type (default `ObservableCollection<>`).
 - Accept: pass the generic type definition (e.g. `typeof(ObservableCollection<>)`) as `listType`; the converter closes it at runtime per element type.
 - Reject: registering a separate `IList<T>` converter outside this factory surface.

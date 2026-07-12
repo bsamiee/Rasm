@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Skia`
-
 - package: `Avalonia.Skia` (MIT)
 - assembly: `Avalonia.Skia` (consumer-bound `lib/net8.0`; net10 binds this asset)
 - namespace: `Avalonia` (`UseSkia`, `SkiaOptions`, `SkiaPlatform`)
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [BACKEND_TYPES]: backend boot and options (`Avalonia` namespace)
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY] | [RAIL]                                          |
@@ -27,7 +25,6 @@
 |  [03]   | `SkiaPlatform`              | static class  | manual `Initialize` + `DefaultDpi` anchor       |
 
 [LEASE_TYPES]: SkiaSharp API lease contracts (`Avalonia.Skia` namespace)
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]               | [RAIL]                                              |
@@ -38,7 +35,6 @@
 |  [04]   | `ISkiaSurface`                       | disposable surface contract | platform-render owned surface handle                |
 
 [HELPER_TYPES]: conversion and render helpers (`Avalonia.Skia.Helpers` namespace)
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]               | [TYPE_FAMILY] | [RAIL]                                                 |
@@ -51,7 +47,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [BACKEND_ENTRYPOINTS]: backend boot and tuning
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                               | [SURFACE_ROOT]              | [RAIL]                                     |
@@ -63,7 +58,6 @@
 |  [05]   | `DefaultDpi` (`Vector` 96×96)                           | `SkiaPlatform`              | DPI anchor for render helpers              |
 
 [LEASE_ENTRYPOINTS]: raw SkiaSharp access through render-interface leases
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                              | [SURFACE_ROOT]                       | [RAIL]                                                   |
@@ -77,7 +71,6 @@
 |  [07]   | `Context` (`IPlatformGraphicsContext`) | `ISkiaSharpPlatformGraphicsApiLease` | host-shared GPU context handle                           |
 
 [CONVERSION_ENTRYPOINTS]: Avalonia-to-SkiaSharp value bridges (`SkiaSharpExtensions`)
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                                            | [RAIL]                     |
@@ -97,7 +90,6 @@
 |  [13]   | `Clone(SKPath?)` -> `SKPath?`                                                        | null-tolerant path copy    |
 
 [RENDER_ENTRYPOINTS]: visual rendering onto raw canvases (`Avalonia.Skia.Helpers`)
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                  | [SURFACE_ROOT]         | [RAIL]                                        |
@@ -112,7 +104,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BACKEND_LAW]:
-
 - Package: `Avalonia.Skia`
 - Owns: the Skia render-backend selection (`UseSkia`), the Ganesh GPU-resource policy (`SkiaOptions`), and the raw SkiaSharp lease surface
 - Stacks: `SkiaSharp` 3 is the drawing substrate (`.api/api-skiasharp.md`); the GPU pipeline leases the host-shared `GRContext` through `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi()` rather than constructing `GRContext.CreateMetal`/`CreateVulkan`, the borrowed-draw path leases the in-flight canvas through `ISkiaSharpApiLeaseFeature.Lease()`, and `Avalonia.Headless` selects this backend with `UseHeadlessDrawing=false` so render-hash proof lanes hash real Skia pixels
@@ -120,7 +111,6 @@
 - Reject: a parallel render backend beside Skia; out-of-lease canvas mutation; a pass body naming a backend `GRContext` factory at a call site (`Render/pipeline` PROHIBITION host-API-in-arm)
 
 [CONVERSION_LAW]:
-
 - Package: `Avalonia.Skia`
 - Owns: every Avalonia-primitive-to-SkiaSharp value conversion (`SkiaSharpExtensions`) and the visual-to-canvas/encode helpers
 - Stacks: a leased-canvas draw composes `ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions` to translate Avalonia geometry/paint into Skia calls without a hand-rolled converter; `ToSkColorType`/`ToAvalonia(SKColorType)` and `PixelFormatHelper.ResolveColorType` own the pixel-format round-trip the offscreen color-managed encode rail keys on
@@ -128,7 +118,6 @@
 - Reject: re-deriving an Avalonia<->Skia value converter that `SkiaSharpExtensions` already owns; documenting `PenHelper`/`SKPathHelper` (both `internal`) as consumer surface
 
 [INTERNAL_SURFACE_LAW]:
-
 - Package: `Avalonia.Skia`
 - Owns: `PlatformRenderInterface`, `DrawingContextImpl`, the GPU render targets (`SurfaceRenderTarget`, `FramebufferRenderTarget`, `GlRenderTarget`, `SkiaGpuRenderTarget`), the bitmap impls (`ImmutableBitmap`, `WriteableBitmapImpl`, `RenderTargetBitmapImpl`), `SkiaContext`, `FontManagerImpl`, and `ISkiaGpu`/`IDrawableBitmapImpl` as internal types
 - Accept: render-interface behavior is reached through Avalonia composition and the public lease; the public surface is `UseSkia` + `SkiaOptions` + `SkiaPlatform` + the lease/conversion/helper trio

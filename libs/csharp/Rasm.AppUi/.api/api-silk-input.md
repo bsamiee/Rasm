@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.Input`
-
 - package: `Silk.NET.Input` (MIT, meta — no assembly; nuspec deps are `Silk.NET.Input.Common`/`.Glfw`/`.Sdl`, all `exclude=Build,Analyzers`)
 - package: `Silk.NET.Input.Common` (MIT — carries the assembly; consumer net10 binds `lib/net5.0`)
 - package: `Silk.NET.Input.Glfw` (— `[InputPlatform]` backend, reflection-loaded)
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: context and device contracts
-
 - rail: input
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]    | [RAIL]                                                    |
@@ -34,7 +32,6 @@
 |  [09]   | `IInputPlatform` | backend contract | `IsApplicable(IView)` + `CreateInput(IView)`              |
 
 [PUBLIC_TYPE_SCOPE]: input value carriers (immutable poll state)
-
 - rail: input
 
 | [INDEX] | [SYMBOL]      | [TYPE_FAMILY]         | [RAIL]                                                |
@@ -48,7 +45,6 @@
 |  [07]   | `ScrollWheel` | struct (`IEquatable`) | `X`/`Y` scroll delta                                  |
 
 [PUBLIC_TYPE_SCOPE]: bounded vocabularies
-
 - rail: input
 
 | [INDEX] | [SYMBOL]         | [KIND] | [RAIL]                                            |
@@ -63,7 +59,6 @@
 |  [08]   | `StandardCursor` | enum   | named OS cursor shapes                            |
 
 [PUBLIC_TYPE_SCOPE]: backend registration and extensions
-
 - rail: input
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY] | [RAIL]                                                               |
@@ -75,7 +70,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: context creation and platform registry
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]          | [RAIL]                                         |
@@ -87,7 +81,6 @@
 |  [05]   | `TryAdd(string assemblyName)`                    | `InputWindowExtensions` | reflective backend load                        |
 
 [ENTRYPOINT_SCOPE]: gamepad named accessors (`GamepadExtensions`)
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]      | [RAIL]               |
@@ -100,7 +93,6 @@
 |  [06]   | `LeftThumbstick` / `RightThumbstick`             | `GamepadExtensions` | `Thumbstick` lookup  |
 
 [ENTRYPOINT_SCOPE]: device state and event streams
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                                   | [ROOT]                 | [RAIL]                      |
@@ -128,7 +120,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [INPUT_TOPOLOGY]:
-
 - Single public namespace `Silk.NET.Input`; the meta-package carries no assembly and folds to empty under decompile, so the consumable types (10 interfaces, 8 enums, 7 value-carrier structs, 3 static/attribute owners) live in `Silk.NET.Input.Common`.
 - Lifecycle is `IView` -> `CreateInput()` -> `IInputContext` -> device lists; `IInputContext` is `IDisposable` and `Handle` (`nint`) exposes the native backend pointer.
 - `IInputContext` enumerates `Gamepads`/`Joysticks`/`Keyboards`/`Mice`/`OtherDevices` as `IReadOnlyList<T>`; each device carries `Name`/`Index`/`IsConnected` from `IInputDevice` and raises through device-level `event Action<...>` delegates rather than a callback registry.
@@ -138,7 +129,6 @@
 - `Hat.Position` is the `Position2D` bitfield (`Up|Left = UpLeft`); `Thumbstick` derives polar `Position = √(x²+y²)` / `Direction = atan2(y,x)` from `X`/`Y`; `Trigger`/`Axis` carry a single normalized `Position`; `IMouse.Position` is `Vector2` from `System.Numerics`.
 
 [LOCAL_ADMISSION]:
-
 - The backend is reflection-loaded: `InputWindowExtensions.Platforms` lazily calls `TryAdd("Silk.NET.Input.Sdl")` and `TryAdd("Silk.NET.Input.Glfw")` for `[InputPlatform]`-marked assemblies, so the AppUi Shell references `Silk.NET.Input.Sdl` to make the SDL2 osx-arm64 backend resolvable before the first `CreateInput()`; `ShouldLoadFirstPartyPlatforms(false)` (which throws if platforms already loaded) plus explicit `Add` pins a single backend.
 - The reflection-loaded `Silk.NET.Input.Sdl` backend and the `Silk.NET.SDL` (`.api/api-silk-sdl.md`) `Sdl.GetApi()` haptic root P/Invoke one shared SDL2 native runtime, and InputFabric binds one SDL2 native bundle per process.
 - The controller stream from `IInputContext` and the `SDL_Haptic` force-feedback rail consume that binding without reloading it. The reciprocal `api-silk-sdl` shared-native-bundle law names the same bundle, and the boundary capsule owns its binding.
@@ -147,7 +137,6 @@
 - Rumble routes through `IGamepad.VibrationMotors[i].Speed`; haptic intensity beyond linear motor speed is a `Silk.NET.SDL` force-feedback concern (`.api/api-silk-sdl.md`), not this abstraction.
 
 [RAIL_LAW]:
-
 - Package: `Silk.NET.Input` (+ `Silk.NET.Input.Common`, `Silk.NET.Input.Sdl`)
 - Owns: the input device abstraction — `IInputContext` aggregation, `IGamepad`/`IJoystick`/`IKeyboard`/`IMouse` state and event streams, `Deadzone` policy, and the `CreateInput` entrypoint over the reflection-loaded SDL2 backend for osx-arm64.
 - Stacks: the `DeviceDriver` `[Union]` (`Shell/input` `[07]-[DEVICE_DRIVERS]`) folds `Gamepad(Silk.NET.Input controller)` and `Haptic(Silk.NET.SDL force-feedback)` cases into one driver union beside `Hid(HidSharp SpaceMouse)` (`api-hidsharp.md`) and `Midi(Melanchall.DryWetMidi)` (`api-drywetmidi.md`); all four capsules bind delegate columns on the single `InputFabric` edge that folds every device onto the one `CommandIntent` table — the gamepad poll state and the SDL2 haptic rail are two cases on the same edge, not two edges. A gamepad fault maps to the `InputDriverFault` `DeviceAbsent`/`OpenRejected` rows in the 4150 code band; the polled state carriers fold into the same canonical input fact the HID/MIDI/haptic drivers emit. The `Gamepad` and `Haptic` cases share one SDL2 native binding because `Silk.NET.Input.Sdl` and `Silk.NET.SDL` P/Invoke the same runtime.

@@ -5,7 +5,6 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: RhinoCommon geometry-crossing surface
-
 - host: `RhinoCommon` (Rhino host runtime, in-process)
 - assembly: `RhinoCommon`
 - namespaces: `Rhino.Geometry`
@@ -16,7 +15,6 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: crossing owners
-
 - rail: geometry-crossing
 
 | [INDEX] | [SYMBOL]                  | [KIND]          | [CAPABILITY]                                                                |
@@ -29,7 +27,6 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 |  [06]   | `TransformSimilarityType` | enum            | the orientation-preserving classification returned by `DecomposeSimilarity` |
 
 [PUBLIC_TYPE_SCOPE]: value carriers the crossing rides
-
 - rail: geometry-crossing
 
 | [INDEX] | [SYMBOL]               | [KIND]       | [CAPABILITY]                                                  |
@@ -41,7 +38,6 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 ## [03]-[ENTRYPOINTS]
 
 [GEOMETRY_IDENTITY]:
-
 - `Rhino.Geometry.GeometryBase.DuplicateShallow() : GeometryBase` — shares the underlying native pointer without a deep copy.
 - `Rhino.Geometry.GeometryBase.IsShallowDuplicate : bool` — whether this instance shares another's native pointer.
 - `Rhino.Geometry.GeometryBase.Duplicate() : GeometryBase` — deep-copies the geometry off document control.
@@ -50,27 +46,23 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 - `Rhino.Geometry.GeometryBase.DataCRC(uint currentRemainder) : uint` — content hash for change and identity detection.
 
 [GEOMETRY_TRANSFORM]:
-
 - `Rhino.Geometry.GeometryBase.Transform(Transform xform) : bool` — applies a transform in place.
 - `Rhino.Geometry.GeometryBase.Translate(Vector3d translationVector) : bool` — translates in place.
 - `Rhino.Geometry.GeometryBase.Scale(double scaleFactor) : bool` — uniformly scales in place.
 - `Rhino.Geometry.GeometryBase.Rotate(double angleRadians, Vector3d rotationAxis, Point3d rotationCenter) : bool` — rotates in place about an axis.
 
 [GEOMETRY_BOUNDS]:
-
 - `Rhino.Geometry.GeometryBase.GetBoundingBox(bool accurate) : BoundingBox` — world-aligned bounds, tight or estimated.
 - `Rhino.Geometry.GeometryBase.GetBoundingBox(Transform xform) : BoundingBox` — bounds of the geometry under a transform.
 - `Rhino.Geometry.GeometryBase.GetBoundingBox(Plane plane, out Box worldBox) : BoundingBox` — plane-aligned bounds with the oriented world box.
 
 [USER_STRINGS]:
-
 - `Rhino.Geometry.GeometryBase.SetUserString(string key, string value) : bool` — writes a key-value user string onto the geometry.
 - `Rhino.Geometry.GeometryBase.GetUserString(string key) : string` — reads a user string by key.
 - `Rhino.Geometry.GeometryBase.GetUserStrings() : NameValueCollection` — the full user-string collection.
 - `Rhino.Geometry.GeometryBase.DeleteUserString(string key) : bool` — removes a user string by key.
 
 [TRANSFORM_FACTORY]:
-
 - `Rhino.Geometry.Transform.Translation(Vector3d motion) : Transform` — translation transform.
 - `Rhino.Geometry.Transform.Scale(Plane plane, double xScaleFactor, double yScaleFactor, double zScaleFactor) : Transform` — non-uniform scale about a plane.
 - `Rhino.Geometry.Transform.PlaneToPlane(Plane plane0, Plane plane1) : Transform` — rigid mapping between two frames.
@@ -78,7 +70,6 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 - `Rhino.Geometry.Transform.ProjectAlong(Plane plane, Vector3d direction) : Transform` — oblique projection onto a plane.
 
 [TRANSFORM_DECOMPOSITION]:
-
 - `Rhino.Geometry.Transform.DecomposeSimilarity(out Vector3d translation, out double dilation, out Transform rotation, double tolerance) : TransformSimilarityType` — splits a similarity into translation, dilation, and rotation.
 - `Rhino.Geometry.Transform.DecomposeRigid(out Vector3d translation, out Transform rotation, double tolerance) : int` — splits a rigid transform into translation and rotation.
 - `Rhino.Geometry.Transform.DecomposeAffine(out Vector3d translation, out Transform linear, out Transform rotation, out Vector3d diagonal) : bool` — splits an affine transform into its linear, rotation, and scaling factors.
@@ -86,7 +77,6 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 - `Rhino.Geometry.Transform.TryGetInverse(out Transform inverse) : bool` — the inverse transform when invertible.
 
 [BOUNDING_BOX]:
-
 - `Rhino.Geometry.BoundingBox.Center : Point3d` — box center.
 - `Rhino.Geometry.BoundingBox.Diagonal : Vector3d` — min-to-max diagonal vector.
 - `Rhino.Geometry.BoundingBox.Inflate(double xAmount, double yAmount, double zAmount) : void` — grows the box per axis.
@@ -95,7 +85,6 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 - `Rhino.Geometry.BoundingBox.Transform(Transform xform) : bool` — transforms the box corners in place.
 
 [CLIP_PARTICIPATION]:
-
 - `Rhino.Geometry.ClippingPlaneSurface.PlaneDepth : double` — the finite clip depth below the plane.
 - `Rhino.Geometry.ClippingPlaneSurface.PlaneDepthEnabled : bool` — whether the finite clip depth is active.
 - `Rhino.Geometry.ClippingPlaneSurface.ParticipationListsEnabled : bool` — whether the participation lists are active.
@@ -108,24 +97,20 @@ This catalog owns the host-bound `GeometryBase` crossing — the native-geometry
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CROSSING_TOPOLOGY]:
-
 - `GeometryBase` is the native crossing owner: `DuplicateShallow` shares the native pointer (`IsShallowDuplicate` reports it), `Duplicate` lifts geometry off `IsDocumentControlled` document ownership, and `DataCRC` is the content-identity hash. Geometry read from a document is document-controlled; a boundary that mutates or retains it duplicates first.
 - transform mutation (`Transform`/`Translate`/`Scale`/`Rotate`) and bounds derivation (`GetBoundingBox`) act on the native geometry, while the `Transform` value struct owns the frame factories and the decomposition/inverse surface; the decomposition splits a matrix into translation, rotation, dilation, and scaling, and the boundary reads the `TransformSimilarityType` classification rather than inspecting matrix entries.
 - clip participation is a triple on `ClippingPlaneSurface` — the clipped-viewport set, the object/layer participation lists (inclusion or exclusion), and the finite `PlaneDepth` — each gated by its `*Enabled` flag and mutated only through the participation members.
 
 [STACKING]:
-
 - `LanguageExt.Core`(`api-languageext`): a `bool` transform or user-string mutation projects to `Fin<Unit>`; a `TryGetInverse` and a nullable `GetUserString` lift to `Option<Transform>`/`Option<string>`; `GetUserStrings` and the clip participation lists land as `HashMap<string, string>` and `Seq<Guid>`/`Seq<int>`; `GetCorners`/`GetEdges` land as `Arr<Point3d>`/`Arr<Line>`; a `DecomposeSimilarity`/`DecomposeRigid`/`DecomposeAffine` fans its parallel out-parameters into one decomposition record on a `Fin` rail keyed by the classification.
 - `Thinktecture.Runtime.Extensions`(`api-thinktecture-runtime-extensions`): `ObjectType` and `TransformSimilarityType` wrap as `[SmartEnum<TKey>]` / `[Flags]`-backed owners; a `DataCRC` content key wraps as a `[ValueObject<T>]`; the clip participation state models as a `[Union]` over disabled, inclusion-list, and exclusion-list cases.
 - `Rasm` kernel: the pure linear algebra behind transform composition, decomposition, and bounding-box math is the kernel's; the boundary crosses the native `Transform`/`BoundingBox` at the wire and re-derives none of it.
 
 [LOCAL_ADMISSION]:
-
 - native geometry enters through the crossing owner: a document-controlled instance is `Duplicate`d before retention or mutation, keyed by its `DataCRC` content hash and carried user strings; a transform enters as a factory-built or decomposed `Transform` value and applies through the instance mutation members.
 - host geometry types never leak past the boundary; downstream code holds canonical `Rasm` geometry keyed by the content hash, and the crossing is the only place native `GeometryBase` state is read or written.
 
 [RAIL_LAW]:
-
 - Surface: `Rhino.Geometry` host-boundary crossing
 - Owns: native geometry identity and duplication, user-string carriage, `DataCRC` content hashing, instance transform mutation, bounding-box derivation, the `Transform` factory/decomposition/inverse surface, and clip participation.
 - Accept: document-control-aware duplication, content-keyed identity, transform composition and decomposition, plane and world bounds, and clip participation projected onto `Fin`/`Option` rails.

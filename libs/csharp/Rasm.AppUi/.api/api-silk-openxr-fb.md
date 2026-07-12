@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.OpenXR.Extensions.FB`
-
 - package: `Silk.NET.OpenXR.Extensions.FB`
 - license: MIT (expression)
 - assembly: `Silk.NET.OpenXR.Extensions.FB`
@@ -19,7 +18,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: extension function-table roots — every member is an instance method returning `Result`; each root has a paired `*Overloads` static-extension class and a private `_B` slot table
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]      | [RAIL]                                          |
@@ -49,7 +47,6 @@
 |  [23]   | `FBPassthroughKeyboardHands`  | extension API root | hand-masked passthrough over keyboard           |
 
 [PUBLIC_TYPE_SCOPE]: passthrough native handles, descriptor carriers, flags — all declared in `Silk.NET.OpenXR` core, pointer-passed into the `FBPassthrough` root
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                        | [KIND]        | [RAIL]                                  |
@@ -67,7 +64,6 @@
 |  [11]   | `PassthroughLayerPurposeFB`     | enum          | `ReconstructionFB` / `ProjectedFB`      |
 
 [PUBLIC_TYPE_SCOPE]: spatial-entity + scene carriers — core-declared, the anchor/scene-understanding surface the on-site review reads
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                               | [KIND]     | [RAIL]                                 |
@@ -84,7 +80,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: passthrough lifecycle, layer transport, style, and geometry-instance projection — every surface returns `Result`; Silk.NET ships 4 ptr/ref overloads of each pointer arg
-
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                                                      | [SURFACE_ROOT]  | [RAIL]              |
@@ -99,7 +94,6 @@
 |  [08]   | `Result DestroyPassthroughFB / DestroyPassthroughLayerFB / DestroyGeometryInstanceFB(handle)`  | `FBPassthrough` | native release      |
 
 [ENTRYPOINT_SCOPE]: spatial-entity anchors and scene understanding — the persistent world-lock and real-world geometry the BIM on-site review consumes
-
 - rail: viewport
 
 | [INDEX] | [SURFACE]                             | [SURFACE_ROOT]           | [OPERATION]                 |
@@ -121,7 +115,6 @@
 |  [15]   | `RequestSceneCaptureFB`               | `FBSceneCapture`         | trigger room scan           |
 
 [SIGNATURES]:
-
 - `CreateSpatialAnchorFB`: `Result CreateSpatialAnchorFB(Session, SpatialAnchorCreateInfoFB*, ulong* requestId)`
 - `GetSpaceUuidFB`: `Result GetSpaceUuidFB(Space, UuidEXT*)`
 - `SaveSpaceFB`: `Result SaveSpaceFB(Session, SpaceSaveInfoFB*, ulong* requestId)`
@@ -132,7 +125,6 @@
 - `RequestSceneCaptureFB`: `Result RequestSceneCaptureFB(Session, SceneCaptureRequestInfoFB*, ulong* requestId)`
 
 [ENTRYPOINT_SCOPE]: render-comfort and device surfaces — refresh rate, foveation, color space, render models, hand/body tracking
-
 - rail: viewport
 
 | [INDEX] | [SURFACE]                        | [SURFACE_ROOT]         | [OPERATION]               |
@@ -158,7 +150,6 @@
 |  [19]   | `…EndUpdateFB`                   | `FBTriangleMesh`       | complete mesh update      |
 
 [SIGNATURES]:
-
 - `CreateFoveationProfileFB`: `Result CreateFoveationProfileFB(Session, FoveationProfileCreateInfoFB*, FoveationProfileFB*)`
 - `DestroyFoveationProfileFB`: `Result DestroyFoveationProfileFB(…)`
 - `SetColorSpaceFB`: `Result SetColorSpaceFB(Session, ColorSpaceFB)`
@@ -167,7 +158,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FB_PASSTHROUGH_TOPOLOGY]:
-
 - Each `FB*` root loads against the live `XR` core instance through `new FBPassthrough(xr.Context)` or `xr.TryGetInstanceExtension(out FBPassthrough fb)` against the created `Instance`.
 - Every `FB_*` call is an instance method on its function-table root, returns `Result`, and takes raw pointers to the core-declared `*FB` descriptors. The `*Overloads` classes project `Span<T>` and `ref` extension-method forms over the same entrypoints.
 - Each `FB_*` extension name joins the `InstanceCreateInfo.EnabledExtensionNames` chain, and `xrEnumerateInstanceExtensionProperties` must advertise the extension.
@@ -177,7 +167,6 @@
 - `CreateGeometryInstanceFB` projects passthrough onto a `FBTriangleMesh` surface in a base space (the rejected form is a full-screen reconstruction layer where a windowed projected surface suffices), and `GeometryInstanceSetTransformFB` re-poses that instance each frame — the "passthrough porthole" cut into the virtual model is a geometry-instance, not a second layer.
 
 [FB_SPATIAL_TOPOLOGY]:
-
 - `CreateSpatialAnchorFB` mints the persistent world-lock at a `Posef` in a reference space, and `SetSpaceComponentStatusFB` activates its `Locatable`, `Storable`, and `Sharable` components.
 - `SaveSpaceFB` persists the anchor by the `UuidEXT` from `GetSpaceUuidFB`. The next session restores the physical registration through `QuerySpacesFB` and `RetrieveSpaceQueryResultsFB`.
 - Anchor operations return a `ulong` request identifier mapped from `XrAsyncRequestIdFB`, and the matching `EventDataSpace*CompleteFB` event retires each request on the event poll.
@@ -185,14 +174,12 @@
 - `FBSpatialEntitySharing` + `FBSpatialEntityUser` is the co-review seam: a shared anchor uuid lets a second headset on the same site load the identical world-lock, so two reviewers see the model in one registered position.
 
 [LOCAL_ADMISSION]:
-
 - All native handles (`PassthroughFB`, `PassthroughLayerFB`, `GeometryInstanceFB`, `FoveationProfileFB`, anchor `Space`s, `BodyTrackerFB`) are released through their matching `DestroyXxxFB` native call, not `IDisposable` — the owning boundary capsule pairs create-and-destroy in a scoped fold exactly as the `api-silk-openxr.md` session/swapchain handles do.
 - The package binds the host-installed OpenXR loader already loaded by `Silk.NET.OpenXR`; `Silk.NET.WebGPU` and `Silk.NET.OpenXR` share the `Silk.NET.Core` and `Silk.NET.Maths` runtime without restoring a second native asset.
 - The host runtime advertises the Meta Quest-class `FB_*` capabilities on Quest and Quest Link hardware. Unsupported extensions fold to their degraded forms on SteamVR, Varjo, and Monado hosts, while the absent macOS OpenXR loader folds the immersive surface to the flat viewport.
 - The package ships in lockstep with the core: Silk.NET generates and publishes its entire package set — core plus every `KHR`/`EXT`/`FB`/`WGPU` extension — from one monorepo release, so `Silk.NET.OpenXR.Extensions.FB` rides the same `2.23.0` line as `Silk.NET.OpenXR`/`Silk.NET.WebGPU` over the shared `Silk.NET.Core` floor with no version split and no pin. The `net5.0` asset is the bound one for the `net10.0` consumer (Silk.NET 2.x ships no `net10.0`/`net8.0` lib).
 
 [RAIL_LAW]:
-
 - Package: `Silk.NET.OpenXR.Extensions.FB`
 - Owns: the Meta/FB OpenXR vendor-extension binding — passthrough environment-blend (feature/layer/geometry-instance/style), spatial-entity world-locked anchors with local/cloud persistence and cross-user sharing, scene understanding (room layout, semantic labels, real-world bounds), foveation, color space, display-refresh-rate, render models, and body/hand/face/eye tracking — layered over the `api-silk-openxr.md` core session.
 - Accept: `Result`-returning raw-pointer `*FB` calls on the extension function-table roots with the descriptor structs resolved from `Silk.NET.OpenXR` core; native-handle scoped create-and-destroy pairs at the boundary capsule; async anchor/scene operations retired through the `ulong` request id on the `EventDataSpace*CompleteFB` event poll; per-extension capability probe folding each missing `FB_*` to its degraded form.

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Sigstore`
-
 - package: `Sigstore`
 - license: MIT (nuspec `license` expression)
 - assembly: `Sigstore`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: verifier entrypoint and artifact input
-
 - package: `Sigstore`
 - namespace: `Sigstore`
 - rail: supply-chain
@@ -35,7 +33,6 @@
 [HASH_ALGORITHM]: `HashAlgorithmType` carries `Unspecified`, `Sha256`, `Sha384`, `Sha512`, `Sha3256`, and `Sha3384` for `VerifyDigestAsync` and `ArtifactInput.FromDigest`.
 
 [PUBLIC_TYPE_SCOPE]: policy, identity, and result
-
 - package: `Sigstore`
 - namespace: `Sigstore`
 - rail: supply-chain
@@ -68,7 +65,6 @@
 [VERIFICATION_EXCEPTION]: Non-`TryVerify*` members throw `VerificationException` on policy or material failure; the `TryVerify*` mirrors fold it into `(false, null)`.
 
 [PUBLIC_TYPE_SCOPE]: bundle and attestation carriers
-
 - package: `Sigstore`
 - namespace: `Sigstore`
 - rail: supply-chain
@@ -110,7 +106,6 @@
 [TIMESTAMP_RESPONSE]: `TimestampResponse` carries the decoded timestamp source and instant.
 
 [PUBLIC_TYPE_SCOPE]: trust-root providers and validation seams
-
 - package: `Sigstore`
 - namespace: `Sigstore`
 - rail: supply-chain
@@ -151,7 +146,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SigstoreVerifier — verify (throwing + try mirrors)
-
 - package: `Sigstore`
 - namespace: `Sigstore`
 - rail: supply-chain
@@ -186,7 +180,6 @@ Every verify member is `async Task`. The `Verify*` members throw `VerificationEx
 [TRY_VERIFY_FILE_ASYNC]: `SigstoreVerifier.TryVerifyFileAsync(FileInfo, FileInfo, VerificationPolicy, ct)` returns `(bool, VerificationResult?)` for non-throwing file verification.
 
 [ENTRYPOINT_SCOPE]: bundle and policy construction
-
 - package: `Sigstore`
 - namespace: `Sigstore`
 - rail: supply-chain
@@ -215,24 +208,20 @@ Every verify member is `async Task`. The `Verify*` members throw `VerificationEx
 ## [04]-[IMPLEMENTATION_LAW]
 
 [VERIFY_GATE]:
-
 - the admit gate is a single `await verifier.TryVerify*Async(input, bundle, policy, ct)` returning `(Success, VerificationResult?)`; map `Success=false` (or a non-null `FailureReason`) to the supply-chain reject arm and lower onto `Fin<T>` — never let `VerificationException` escape the domain.
 - `policy.CertificateIdentity` (built via `CertificateIdentity.ForGitHubActions` or set directly) is what pins the EXPECTED signer; an empty policy verifies cryptographic integrity but asserts no identity, so the gate MUST set it.
 - thresholds (`TransparencyLogThreshold`, `SignedTimestampThreshold`, `RequireSignedCertificateTimestamps`) are the policy knobs; leave `RequireTransparencyLog`/`RequireSignedCertificateTimestamps` at their `true` defaults for keyless cosign bundles.
 - managed-key mode: set `policy.PublicKey` (DER SPKI) for a non-Fulcio raw-key signature instead of a `CertificateIdentity`.
 
 [OFFLINE_TRUST]:
-
 - air-gapped admission uses `FileTrustRootProvider(new FileInfo(pinnedTrustedRootJson))` or `TufTrustRootProvider(url, new TufTrustRootProviderOptions { CustomTrustedRoot = rootBytes, Cache = localCache })`; the verify path then performs NO network call.
 - `InMemoryTrustRootProvider(trustedRoot)` is the embedded/test anchor; inject any provider through `new SigstoreVerifier(provider, validator?)`.
 
 [ATTESTATION_LEG]:
-
 - a DSSE/in-toto provenance bundle (`SigstoreBundle.DsseEnvelope` set) yields a decoded `VerificationResult.Statement` (`InTotoStatement`); read `Statement.Subject` (`IReadOnlyList<InTotoSubject>`, each `Name` + `Digest` map) to bind the attested artifact to the package being admitted — one verify proves signature AND provenance.
 - the observed Fulcio claims (`VerifiedIdentity.Extensions` → `FulcioCertificateExtensions`) carry the SLSA build provenance (`BuildSignerUri`, `RunnerEnvironment`, `SourceRepositoryUri`/`Ref`/`Digest`); assert them either declaratively via `policy.CertificateIdentity.Extensions` (`CertificateExtensionPolicy`) or imperatively against the returned record.
 
 [INTEGRATION_STACK]:
-
 - semver leg: this gate is the SIGNATURE half of the admit decision; the sibling `NuGet.Versioning` (`api-nuget-versioning`, same SUPPLY_CHAIN manifest cluster) is the VERSION half — `NuGetVersion` + `VersionRange.Satisfies` performs the SemVer-2.0 contract-range check `System.Version` cannot. One admit row composes both: `TryVerify*Async` proves the artifact, then `VersionRange.Satisfies(NuGetVersion.Parse(...))` proves the version is in-contract before the package is bound.
 - identity leg: a passing `VerificationResult.SignerIdentity` (`VerifiedIdentity`) is the verified principal the AppHost `Agent/capability` GrantBroker can treat as a trusted publisher — distinct from the request-time `IdentityModel` JWT principal (`api-identitymodel-jwt`), but folded onto the same authorization decision when admitting third-party plugin/SDK artifacts.
 - identity-digest leg: hash the artifact once with `System.IO.Hashing` `XxHash3` (substrate, `api-hashing`) for the content-key, then pass the SHA-256/384 digest as `ArtifactInput.FromDigest(digest, HashAlgorithmType.Sha256)` to `VerifyDigestAsync` so the verify reuses the already-computed digest instead of re-reading the artifact stream.
@@ -241,12 +230,10 @@ Every verify member is `async Task`. The `Verify*` members throw `VerificationEx
 - telemetry leg: wrap the verify in an `Microsoft.Extensions.Telemetry` (`api-telemetry`) span and emit `VerificationResult.FailureReason` / `SignerIdentity.SubjectAlternativeName` as span attributes so a rejected admission is observable on the four-signal rail.
 
 [LOCAL_ADMISSION]:
-
 - supply-chain verification enters through `SigstoreVerifier.TryVerify*Async`; the trust anchor is selected once at composition by the injected `ITrustRootProvider` (file/TUF/in-memory).
 - bundle loading enters through `SigstoreBundle.LoadAsync`/`Deserialize`; identity expectation is built once via `CertificateIdentity.ForGitHubActions` or a literal `CertificateIdentity`.
 
 [RAIL_LAW]:
-
 - Package: `Sigstore`
 - Owns: offline cosign/Sigstore bundle verification (keyless cert identity + transparency-log inclusion + RFC 3161 timestamp + SCT) and DSSE/in-toto SLSA attestation decode
 - Accept: supply-chain admit gating, publisher-identity assertion, provenance extraction

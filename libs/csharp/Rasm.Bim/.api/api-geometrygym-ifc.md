@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `GeometryGymIFC_Core`
-
 - package: `GeometryGymIFC_Core`
 - assembly: `GeometryGymIFCcore`
 - namespace: `GeometryGym.Ifc`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: repository, factory, and serialization roots
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`, `GeometryGym.STEP`
 - rail: geometry
@@ -39,7 +37,6 @@
 [FACTORY_PRIMITIVES]: `FactoryIfc` owns canonical axes, origins, application, owner history, and placements; `RootPlacement` is an `IfcLocalPlacement` at world origin, and `XYPlanePlacement` is the default `IfcAxis2Placement3D` consumed by element and profile occurrence constructors.
 
 [PUBLIC_TYPE_SCOPE]: IFC schema vocabulary enums
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -91,7 +88,6 @@
 [WORK_SCHEDULE_VALUES]: `IfcWorkScheduleTypeEnum` carries `ACTUAL`, `BASELINE`, and `PLANNED` through `IfcWorkSchedule.PredefinedType` and the `WorkScheduleKind` reciprocal.
 
 [PUBLIC_TYPE_SCOPE]: IFC kernel root entities
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -113,7 +109,6 @@
 |  [13]   | `IfcPersonAndOrganization` | geometry | bound person + organization actor                                                      |
 
 [PUBLIC_TYPE_SCOPE]: spatial structure and type-object families
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -134,7 +129,6 @@
 |  [12]   | `IfcBuiltElementType`        | geometry | built-element type base                                                 |
 
 [PUBLIC_TYPE_SCOPE]: property-set, quantity, and material families
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -179,7 +173,6 @@
 [CONSTITUENT_SET_MEMBERS]: `IfcMaterialConstituentSet.MaterialConstituents` is a `Dictionary<string, IfcMaterialConstituent>` traversed through `.Values`.
 
 [PUBLIC_TYPE_SCOPE]: relationship families
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -208,7 +201,6 @@
 [CLASSIFICATION_ASSOCIATION_CTOR]: `IfcRelAssociatesClassification` constructs from `(IfcClassificationSelect classification, IfcDefinitionSelect related)`.
 
 [PUBLIC_TYPE_SCOPE]: architectural built-element family
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -237,7 +229,6 @@
 [BUILDING_ELEMENT_PROXY_MEMBERS]: `IfcBuildingElementProxy` extends `IfcBuiltElement`, constructs from `(IfcObjectDefinition host, IfcObjectPlacement, IfcProductDefinitionShape)`, and carries `PredefinedType` values including `COMPLEX`, `ELEMENT`, `PARTIAL`, and `PROVISIONFORVOID`.
 
 [PUBLIC_TYPE_SCOPE]: MEP distribution-element family
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -258,7 +249,6 @@
 [DISTRIBUTION_ELEMENT_PORTS]: `IfcDistributionElement.HasPorts` carries `IfcRelConnectsPortToElement` relationships.
 
 [PUBLIC_TYPE_SCOPE]: structural-analysis-domain family
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -294,7 +284,6 @@
 [STRUCTURAL_MEMBER_CONNECTION_MEMBERS]: `IfcRelConnectsStructuralMember` carries `RelatingStructuralMember` and `RelatedStructuralConnection`.
 
 [PUBLIC_TYPE_SCOPE]: grouping, zone, and distribution-system family
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -319,7 +308,6 @@
 [SPATIAL_REFERENCE_USE]: `IfcRelReferencedInSpatialStructure` references an element into a spatial structure that does not contain it.
 
 [PUBLIC_TYPE_SCOPE]: scheduling, cost, and resource family
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -353,7 +341,6 @@
 [REL_SEQUENCE_MEMBERS]: `IfcRelSequence` carries `RelatingProcess`, `RelatedProcess`, `TimeLag`, and `SequenceType`.
 
 [PUBLIC_TYPE_SCOPE]: georeferencing and map-conversion entities
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -371,7 +358,6 @@
 [PROJECTED_CRS_MEMBERS]: `IfcProjectedCRS` carries EPSG `Name`, `GeodeticDatum`, `VerticalDatum`, `MapProjection`, `MapZone`, and `MapUnit`.
 
 [PUBLIC_TYPE_SCOPE]: IFC4.3 infrastructure entities — alignment and facility
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -392,7 +378,6 @@
 |  [12]   | `IfcMarineFacility`           | geometry | marine facility                                  |
 
 [PUBLIC_TYPE_SCOPE]: IFC4.3 infrastructure entities — earthworks and geotechnics
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -408,7 +393,6 @@
 |  [07]   | `IfcBorehole`            | geometry | geotechnical borehole assembly                  |
 
 [PUBLIC_TYPE_SCOPE]: geometry representation entities
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -435,7 +419,6 @@
 [REPRESENTATION_MAP_MEMBERS]: `IfcRepresentationMap` carries `MappingOrigin` as `IfcAxis2Placement`, `MappedRepresentation` as `IfcRepresentation`, and `HasShapeAspects`; `IfcMappedItem.MappingSource` references it.
 
 [PUBLIC_TYPE_SCOPE]: parameterized profile-definition family
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -475,7 +458,6 @@
 [ARBITRARY_PROFILE_MEMBERS]: `IfcArbitraryClosedProfileDef` carries `OuterCurve` as `IfcCurve` for `DoubleL` and composite sections without a single parametric form; back-to-back sections ride a column.
 
 [PUBLIC_TYPE_SCOPE]: tessellation geometry — AP242/IFC4.3 mesh interchange
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -491,7 +473,6 @@
 |  [07]   | `IfcCartesianPointList2D` | geometry | packed 2D point list                                                                   |
 
 [PUBLIC_TYPE_SCOPE]: material appearance and presentation interchange
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -521,7 +502,6 @@
 [SURFACE_RENDERING_MEMBERS]: `IfcSurfaceStyleRendering` extends shading with PBR `DiffuseColour`, `SpecularColour`, and `ReflectanceMethod` as `IfcReflectanceMethodEnum`.
 
 [PUBLIC_TYPE_SCOPE]: units, presentation, and attributes
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -553,7 +533,6 @@
 [MONETARY_MEASURE_MEMBERS]: `IfcMonetaryMeasure` extends `IfcDerivedMeasureValue` and `IfcValue`, carries double `Measure`, and is the applied-cost narrow target for `IfcCostValue.AppliedValue`.
 
 [PUBLIC_TYPE_SCOPE]: structural-connection realizing-element surface
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -630,7 +609,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DatabaseIfc — construction and read
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -652,7 +630,6 @@
 |  [13]   | `DatabaseIfc.ReadXMLDoc`   | `(XmlDocument)`                          | loads IFC-XML from a DOM                               |
 
 [ENTRYPOINT_SCOPE]: DatabaseIfc — write and serialize
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -672,7 +649,6 @@
 |  [11]   | `DatabaseIfc.XmlString`        | `()` → `string`                             | serializes to IFC-XML text                  |
 
 [ENTRYPOINT_SCOPE]: DatabaseIfc — model access and policy
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -699,7 +675,6 @@
 [SCALE_SI_OVERLOADS]: `IfcUnitAssignment.ScaleSI` accepts `IfcUnitEnum` or `IfcDerivedUnitEnum` and lives on the context's `IfcUnitAssignment` rather than `DatabaseIfc`.
 
 [ENTRYPOINT_SCOPE]: BaseClassIfc — traversal and entity serialization
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -721,7 +696,6 @@
 |  [11]   | `IfcElement.SetMaterial`              | material assignment    | associates a material with an element               |
 
 [ENTRYPOINT_SCOPE]: ParserIfc — codec operations
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -736,7 +710,6 @@
 |  [06]   | `ParserIfc.IdentifyIfcClass` | `(string, out string predefinedConstant)` → `string` | splits class name and predefined type     |
 
 [ENTRYPOINT_SCOPE]: type-occurrence, predefined-type, and domain traversal
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -758,7 +731,6 @@
 [MAPPING_TARGET_TYPE]: `IfcMappedItem.MappingTarget` is an `IfcCartesianTransformationOperator` property.
 
 [ENTRYPOINT_SCOPE]: georeferencing, scheduling, and grouping traversal
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -784,7 +756,6 @@
 [PROCESS_DEPENDENCY_SURFACE]: `IfcProcess.IsSuccessorFrom` and `IfcProcess.IsPredecessorTo` carry predecessor and successor `IfcRelSequence` edges.
 
 [ENTRYPOINT_SCOPE]: structural-connection realizing-element construction and read
-
 - package: `GeometryGymIFC_Core`
 - namespace: `GeometryGym.Ifc`
 - rail: geometry
@@ -831,13 +802,11 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PLATFORM_BOUNDARY]:
-
 - ships a single managed `GeometryGymIFCcore.dll` per target framework; no P/Invoke runtime assets, no architecture-specific native binaries
 - STEP/IFC data object graph only; no tessellation, no BREP evaluation, no geometry kernel
 - I/O is text-format serialization (STEP physical file, IFC-XML, IFC-JSON) over `string`, `Stream`, and `TextReader`/`XmlDocument`; no binary IFC format
 
 [IFC_IO]:
-
 - read root: `new DatabaseIfc(path)` / `new DatabaseIfc(TextReader)` infer STEP/XML/JSON; `DatabaseIfc.ParseString` reads in-memory STEP/IFC text
 - format-explicit read: `ReadJSONFile`/`ReadJSON` for IFC-JSON, `ReadXMLFile`/`ReadXMLDoc` for IFC-XML
 - write root: `DatabaseIfc.WriteFile` emits STEP physical file; `DatabaseIfc.ToString(FormatIfcSerialization)` selects `STEP`, `XML`, or `JSON`
@@ -845,7 +814,6 @@
 - STEP physical-file header metadata is exposed via `STEPFileInformation` on `DatabaseSTEP<T>.OriginatingFileInformation`; fields: `FileDescriptionViewDefinition`/`FileDescriptionExchangeRequirements`/`FileDescriptions` (`List<string>`), `FileImplementationLevel` (`string`), `FileName` (`string`), `TimeStamp` (`DateTime`), `Author`/`Organization` (`List<string>`), `PreProcessorVersion`, `OriginatingSystem`, `Authorization` (`string`)
 
 [AP242_STEP_READ]:
-
 - The package reads all STEP physical file (`.ifc`, `.stp`) versions through `new DatabaseIfc(filePath)` without schema pre-selection; schema is auto-resolved from the file header
 - IFC4.3 (`ReleaseVersion.IFC4X3_ADD2`) is the delivered IFC schema mapped to the AP242 domain overlap for building infrastructure; select this `ReleaseVersion` for infrastructure interchange or alignment geometry
 - STEP read populates the in-memory entity graph; entities are accessible via `DatabaseIfc[stepId]` (integer), `DatabaseIfc[globalId]` (string), or full enumeration over `IEnumerable<BaseClassIfc>`
@@ -854,34 +822,29 @@
 - `IfcMaterialDefinitionRepresentation` binds an `IfcMaterial` to its `IfcStyledRepresentation`; retrieve via `material.HasRepresentation`
 
 [MODEL_GRAPH]:
-
 - repository: `DatabaseIfc` is the entity store, enumerable as `IEnumerable<BaseClassIfc>` and indexable by STEP id or GlobalId
 - context: `DatabaseIfc.Context` is the active `IfcContext`; `DatabaseIfc.Project` narrows to `IfcProject` when the context is a project
 - factory: `DatabaseIfc.Factory` (`FactoryIfc`) vends canonical axes, origins, placements, application, and owner history bound to that database
 - traversal: `BaseClassIfc.Extract<T>()` collects all reachable entities assignable to `T`; entity reflection uses `BaseClassIfc.GetType`/`Construct`
 
 [IDENTITY]:
-
 - every `IfcRoot` carries `GlobalId`, `Guid`, `OwnerHistory`, `Name`, `Description`
 - GlobalId codec lives on `ParserIfc`: `DecodeGlobalID`, `EncodeGuid`, `HashGlobalID`
 - ownership stamp is `IfcOwnerHistory`, sourced through `FactoryIfc.OwnerHistoryAdded`
 
 [GREENFIELD_AUTHORING]:
-
 - project bootstrap: `new IfcProject(IfcBuilding\|IfcSite\|IfcFacility\|IfcSpatialZone, name[, IfcUnitAssignment \| IfcUnitAssignment.Length])` or `new IfcProject(DatabaseIfc, name)`
 - spatial nesting: `IfcRelAggregates` via `IfcObjectDefinition.AddAggregated`; element placement via `IfcProduct.AddElement`
 - property attachment: `IfcRelDefinesByProperties` binds an `IfcPropertySet`/`IfcElementQuantity` to objects; resolve with `FindPropertySet`/`FindProperty`
 - material/type: `IfcRelAssociatesMaterial` and `IfcRelDefinesByType` bind material definitions and type objects to occurrences
 
 [LOCAL_ADMISSION]:
-
 - IFC import enters through `new DatabaseIfc(path\|stream)` or format-explicit `Read*` calls.
 - IFC export enters through `DatabaseIfc.WriteFile` or `DatabaseIfc.ToString(FormatIfcSerialization)`.
 - model queries enter through `DatabaseIfc` indexing/enumeration and `BaseClassIfc.Extract<T>`.
 - schema and model-view selection is database-level policy data, not a per-call argument.
 
 [RAIL_LAW]:
-
 - Package: `GeometryGymIFC_Core`
 - Owns: buildingSMART IFC object model, schema-versioned STEP/XML/JSON serialization
 - Accept: IFC data exchange, model authoring, model traversal and query

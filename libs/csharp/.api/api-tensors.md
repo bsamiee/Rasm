@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Numerics.Tensors`
-
 - package: `System.Numerics.Tensors`
 - assembly: `System.Numerics.Tensors`
 - license: MIT (.NET runtime library)
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: tensor shapes
-
 - rail: tensor
 
 | [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]  | [CAPABILITY]           |
@@ -34,7 +32,6 @@
 |  [10]   | `ReadOnlyTensorDimensionSpan<T>` | dimension view  | reads dimensions       |
 
 [PUBLIC_TYPE_SCOPE]: indexing and marshalling
-
 - rail: tensor
 
 | [INDEX] | [SYMBOL]           | [NAMESPACE]                      | [CAPABILITY]              |
@@ -47,7 +44,6 @@
 |  [06]   | `TensorPrimitives` | `System.Numerics.Tensors`        | runs SIMD span operators  |
 
 [PUBLIC_MEMBER_SCOPE]: native indexing and layout
-
 - rail: tensor
 
 | [INDEX] | [OWNER]       | [SURFACE]               | [CAPABILITY]              |
@@ -76,7 +72,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: tensor construction and shape
-
 - rail: tensor
 
 | [INDEX] | [SURFACE]                        | [KIND]        | [CAPABILITY]             |
@@ -107,7 +102,6 @@
 |  [24]   | `Tensor<T>.GetPinnableReference` | tensor member | exposes pinned ref       |
 
 [ENTRYPOINT_SCOPE]: shape-edit and remap operations
-
 - rail: tensor
 
 | [INDEX] | [SURFACE]                | [KIND] | [CAPABILITY]                |
@@ -124,7 +118,6 @@
 `TryBroadcastTo` returns `false` when the destination shape is not broadcast-compatible.
 
 [ENTRYPOINT_SCOPE]: tensor-level comparison and equality
-
 - rail: tensor
 - relational families return `Tensor<bool>` masks or write `TensorSpan<bool>` destinations and own `All` and `Any` aggregate companions
 
@@ -138,7 +131,6 @@
 |  [06]   | `SequenceEqual`      | aggregate   | tests structural equality |
 
 [ENTRYPOINT_SCOPE]: arithmetic and fused primitive operations
-
 - rail: tensor
 
 | [INDEX] | [SURFACE]              | [KIND]      | [CAPABILITY]            |
@@ -154,7 +146,6 @@
 |  [09]   | `Sum`                  | aggregation | reduces values          |
 
 [ENTRYPOINT_SCOPE]: aggregation, activation, transcendental, and conversion primitives
-
 - rail: tensor
 
 | [INDEX] | [SURFACE]           | [KIND]         | [CAPABILITY]            |
@@ -172,7 +163,6 @@
 |  [11]   | `ConvertSaturating` | conversion     | converts values         |
 
 [ENTRYPOINT_SCOPE]: elementwise, rounding, and transcendental primitives
-
 - rail: tensor
 
 | [INDEX] | [SURFACE]          | [KIND]         | [CAPABILITY]               |
@@ -195,7 +185,6 @@
 |  [16]   | `Atan2`            | transcendental | computes arctangent op     |
 
 [ENTRYPOINT_SCOPE]: reduction, similarity, bitwise, and conversion primitives
-
 - rail: tensor
 
 | [INDEX] | [SURFACE]              | [KIND]     | [CAPABILITY]                 |
@@ -212,7 +201,6 @@
 |  [10]   | `ConvertTruncating`    | conversion | converts values              |
 
 [ENTRYPOINT_SCOPE]: interpolation, reciprocal, hypot, and half-conversion primitives
-
 - rail: tensor
 - `Lerp` accepts span or scalar `amount` operands and writes into the caller destination
 
@@ -235,7 +223,6 @@
 |  [15]   | `Truncate`               | rounding       | truncates toward zero            |
 
 [ENTRYPOINT_SCOPE]: bitwise, population, and rotation primitives
-
 - rail: tensor
 - `BitwiseOr` and `Xor` accept span or scalar right operands; `PopCount` writes per-element counts or reduces to `long`
 
@@ -252,7 +239,6 @@
 |  [09]   | `RotateRight`       | bitwise | rotates bits right       |
 
 [ENTRYPOINT_SCOPE]: reduction, search, sign, and similarity primitives
-
 - rail: tensor
 - `MinNumber` and `MaxNumber` bind `INumber<T>`; each reduces one span or maps a span/scalar right operand into a destination
 
@@ -275,7 +261,6 @@
 `Sign` writes `-1`, `0`, or `1` to a `Span<int>` destination. `HammingBitDistance` returns the `long` bit-difference count across integral spans.
 
 [ENTRYPOINT_SCOPE]: predicate-mask primitives
-
 - rail: tensor
 - every predicate writes a `Span<bool>` mask and owns `All` and `Any` aggregate companions
 
@@ -301,7 +286,6 @@
 |  [18]   | `IsZero`             | `INumberBase<T>`   |
 
 [ENTRYPOINT_SCOPE]: marshalling operations
-
 - rail: tensor
 
 | [INDEX] | [SURFACE]                                | [KIND]  | [CAPABILITY]          |
@@ -313,7 +297,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TENSOR_SHAPES]:
-
 - namespace: `System.Numerics.Tensors`
 - tensor root: `Tensor<T>` with `Tensor` as the static factory and operation surface
 - span root: tensor spans and dimension spans
@@ -321,7 +304,6 @@
 - marshal root: `TensorMarshal` in `System.Runtime.InteropServices`
 
 [NUMERIC_PRIMITIVES]:
-
 - operation root: `TensorPrimitives`
 - operation families: arithmetic, fused, interpolation, reciprocal, reduction, aggregation, extrema, sign, activation, conversion, trigonometric, exponential, logarithmic, bitwise, population-count, rotation, predicate-mask
 - generic-math constraints: operators are generic over `T` bound by `INumberBase`, `IFloatingPointIeee754`, `IRootFunctions`, `IBinaryInteger`, `IBitwiseOperators`, or `IShiftOperators` as the family requires; integer-only families reject floating element types at the constraint
@@ -331,26 +313,22 @@
 - benchmark rule: primitive selection requires measured BenchmarkDotNet receipts for hot paths — the vectorized-vs-scalar speedup is proven per lane, never assumed
 
 [ABSENT_OPERATORS]:
-
 - `TensorPrimitives` exposes no `Normalize` operator; vector normalization composes from `Norm` (or `SumOfSquares` + `Sqrt`) followed by `Divide` against the reduced magnitude
 - a normalization owner row that names a single `TensorPrimitives.Normalize` call is unresolvable and stays SPIKE until expressed as the `Norm`/`Divide` composition
 
 [LOCAL_ADMISSION]:
-
 - Compute tensor lanes use package tensor shapes and primitives as first-class execution material.
 - Tensor operations stay rail-owned and cannot become loose numeric helpers.
 - Shape, rank, stride, slicing, and conversion rules are explicit execution policy.
 - Model and vector rails can consume tensor spans without redefining tensor ownership.
 
 [INTEGRATION_STACKING]:
-
 - Span feed: Existing coordinate buffers feed `TensorPrimitives` as `ReadOnlySpan<T>`, and `TensorMarshal.CreateTensorSpan` projects pinned raw buffers without copying. The buffer owner retains the only layout.
 - Fused rail: Destination aliasing chains vectorized stages in one buffer; fused primitives collapse multi-step arithmetic into one pass, and tensor-level mirrors carry the same operations over strided owners.
 - Receipt: A BenchmarkDotNet receipt admits a tensor primitive to a hot path only after measuring its win.
 - Predicate boundary: `TensorPrimitives` owns floating SIMD transforms, while exact geometric decisions stay on the exact-arithmetic predicate floor. Crossing and containment signs never route through floating reductions.
 
 [RAIL_LAW]:
-
 - Package: `System.Numerics.Tensors`
 - Owns: tensors, tensor spans, dimension spans, native-sized indexing, marshalling, and SIMD numeric primitives
 - Accept: measured tensor execution composing the kernel's existing span buffers through one fused vectorized rail

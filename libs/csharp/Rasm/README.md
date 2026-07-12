@@ -5,7 +5,6 @@
 ## [01]-[ROUTER]
 
 [DOMAIN]:
-
 - [01]-[RAILS](.planning/Domain/rails.md): The kernel ROP substrate — `Op` caller-member-name operation key, the `Expected`/`Fault` union, `Catch`/`Side` boundary-exception rail, `Lease<T>` resource rail, `IValidityEvidence` + the corpus-wide validity fold, the `GenerateUnionOps` generator contracts, and the one Op-threading law.
 - [02]-[CONTEXT](.planning/Domain/context.md): The tolerance/units substrate — tolerance value objects and the immutable `Context` bundle with validated builders; `Of(RhinoDoc)` is the one doc-coupled boundary adapter.
 - [03]-[IDENTITY](.planning/Domain/identity.md): The determinism owner — `ContentHash.Of` seed-zero XxHash128 federation content key plus the one splitmix64 deterministic-derivation owner.
@@ -15,7 +14,6 @@
 - [07]-[STATS](.planning/Domain/stats.md): The statistics substrate — `ScalarMetric` vocabulary, Welford `Stat`, tolerance-banded `Extrema`, `Distribution` quantiles, and the `SampleMoment` weighted mean/covariance owner.
 
 [NUMERICS]:
-
 - [08]-[PREDICATES](.planning/Numerics/predicates.md): Adaptive exact-predicate floor — planar and spatial orientation, in-circle and in-sphere tests, implicit constructed-point predicates over `Ssi`/`Lpi`/`Tpi`, and exact comparison. Each member walks the `Double`→`DoubleDouble`→`Interval`→`Expansion`→`Rational` ladder under `ErrorBound`, with independent `Fraction` and `EFloat` adjudicators.
 - [09]-[FAULTS](.planning/Numerics/faults.md): Consolidated `GeometryFault` union every geometry rail routes through — 25 cases sub-banded on the ratified 13-cluster partition (12 four-wide clusters + the 2-wide `parametric` tail) covering exactly 2400-2449, lowered to the `Error` rail through `ToError()`.
 - [10]-[ATOMS](.planning/Numerics/atoms.md): The typed vector-algebra primitive floor — dimension/magnitude value objects, `Direction`/`VectorSpan`/`VectorFrame`/`VectorCone`, and the promoted `AtomProjection`/`ProjectionRow` raw-to-typed projection dispatch every `.Project<TOut>` routes through.
@@ -25,7 +23,6 @@
 - [14]-[CALCULUS](.planning/Numerics/calculus.md): The sample-anywhere analytic math floor — the six-axis central-difference stencil (gradient/curl/divergence/Laplacian), `FieldNoise` procedural lattices, and the weight-kernel/falloff profile math.
 
 [SPATIAL]:
-
 - [15]-[INDEX](.planning/Spatial/index.md): Polymorphic `SpatialIndex` (SAH-BVH + Morton linear octree + agglomerative PLOC) over one frozen `NodeStore` behind ONE `Spatial.Apply(SpatialOp, Op?)` entry — the `SpatialQuery` range/ray/nearest/overlap/winding fold, persistent degradation-keyed refit, and the `Wire` node-array Compute seam.
 - [16]-[NAMING](.planning/Spatial/naming.md): Persistent topological naming behind ONE `Naming.Apply(NamingOp, Op?)` entry — one `TopoName` lineage algebra, the `NameTable` registry, and the `Track`/`Resolve` re-anchor-by-signature fold with overlap-fraction migration.
 - [17]-[RECONCILIATION](.planning/Spatial/reconciliation.md): Naming-to-hash fence behind ONE `Reconciliation.Apply(ReconcileOp, Op?)` entry — the `EncodeForm` {Mesh · Cloud · Parametric} frozen canonical byte streams, the `GeometryHash` content axis, the accumulating `Reconcile` traverse onto the `NamingHash` receipt Persistence consumes, and the `ONE_WIRE_FIXTURE_CORPUS` index.
@@ -36,7 +33,6 @@
 - [22]-[FIELDS](.planning/Spatial/fields.md): The implicit-field algebra — the `ScalarField`/`VectorField`/`TensorField` unions, the typed 12-primitive `SdfKind` family, the `BlendKind` smin algebra, and the status-tagged `SampleDetailed` sampling seam.
 
 [PARAMETRIC]:
-
 - [23]-[NURBS](.planning/Parametric/nurbs.md): THE vendored in-kernel NURBS engine — `Nurbs.Of(NurbsWire)` one polymorphic admission over four wire shapes, the normalized-clamped `KnotVector` algebra, De Boor evaluation with the fixed-convention `RationalDerivatives`, the Bezier-decomposed Gauss-Legendre arc-length engine, Wang-2008 RMF with closure correction, Piegl-Tiller curve AND surface fits, fundamental forms/curvature projections, and the `ToEncodeForm` identity projection.
 - [24]-[CURVE](.planning/Parametric/curve.md): The host-neutral curve op rail — one `ParametricOp` eight-case `[Union]` (`Evaluate`·`Measure`·`Divide`·`Stations`·`Split`·`Reconstruct`·`Offset`·`Intersect2D`) folded by `Parametric.Apply` over the vendored `NurbsForm.Curve`; the `StationField` SoA producer for the Generation SpineRef window, the promoted deviation-refined `Offset` with exact-lattice trim, and the `Fill` overlay delegation.
 - [25]-[SURFACE](.planning/Parametric/surface.md): The host-neutral surface op rail — one `SurfaceOp` six-case `[Union]` (`Tessellate`·`Isolines`·`Geodesics`·`NormalOffset`·`CurvatureSample`·`Pullback`) folded by `Surfaces.Apply`; `UvTessellation` the tier's UV-provenance carrier, real NURBS normal offsets through the Piegl-Tiller refit, and the kd-tree-seeded batch pullback.
@@ -48,7 +44,6 @@
 - [31]-[LOCATE](.planning/Parametric/locate.md): The curve/surface location algebra — `Locator`/`LocationValue`/`Division` with curvature sampling, orientation, containment, and perpendicular frames, routed by the analysis query.
 
 [MESHING]:
-
 - [32]-[DELAUNAY](.planning/Meshing/delaunay.md): Author-kernel constrained Delaunay owner — one `Tessellation` over a flat `SimplexStore`, Bowyer-Watson insertion on the exact `InCircle`/`InSphere` predicates, and predicate-guarded constraint recovery.
 - [33]-[ARRANGEMENT](.planning/Meshing/arrangement.md): Fully-managed exact-arithmetic mesh/polygon arrangement — implicit-point crossings, GWN inside/outside classification, `BooleanOp` cell welds, and the `BooleanReceipt`; retires the tier-3 native CSG gate.
 - [34]-[INTERSECT](.planning/Meshing/intersect.md): Predicate-exact intersection lattice — one `IntersectOp` over an exact-sign `Crossing` carrier with exact parametric ordering.
@@ -61,7 +56,6 @@
 - [41]-[RECONSTRUCT](.planning/Meshing/reconstruct.md): The implicit-reconstruction owner — RBF/MLS/Levin/APSS/screened-Poisson kernels, the unified signed-heat spine across three discretizations, the three mesh-SDF methods, and marching-cubes iso-extraction.
 
 [PROCESSING]:
-
 - [42]-[REPAIR](.planning/Processing/repair.md): Repair rail — `Heal.Repair(HealPlan, Op?)` folds the `HealOp` closed algebra (six author-kernels + the managed arrangement-boolean delegation) over the `MeshEdit` arena with Genus-tolerant topology threading and the typed `RebuildReceipt` chain.
 - [43]-[RECEIPTS](.planning/Processing/receipts.md): Typed `RebuildReceipt` family, the `ManifoldStatus` projection, and the `HealSession`/`RebuildLog` fold feeding the naming re-anchor.
 - [44]-[DECIMATE](.planning/Processing/decimate.md): Predicate-guarded decimation/LOD — one `SimplifyOp` four-case `[Union]` (`QuadricCollapse`/`ProgressiveMesh`/`VoxelRemesh`/`FeaturePreserve`) folded by `Simplify.Apply` over the Garland-Heckbert QEM collapse queue into the `DecimationResult` carrier.
@@ -76,17 +70,14 @@
 - [53]-[SEGMENT](.planning/Processing/segment.md): The spectral shape-analysis and restructure owner — HKS/WKS descriptors, feature-edge detection, the `MeshSegmentation` 6-algorithm union, Knöppel cross-fields + stripes, and the host-native QuadRemesh/Reduce/unwrap capture tier.
 
 [SOLVING]:
-
 - [54]-[SOLVER](.planning/Solving/solver.md): The one nonlinear least-squares owner — `Lm.Minimize(ILmModel, SolvePolicy, Op?)` the corpus's ONE damped Gauss-Newton λ-ladder, plus the geometric constraint solver: the closed 15-case `Constraint` residual/Jacobian algebra, QuikGraph island decomposition with the König-matching `DofReport`, the witness-rank `DofAnalysis`, and the island-folded `ConstraintSolver.Solve`.
 - [55]-[FIT](.planning/Solving/fit.md): Robust primitive-fit — one `Fit.Apply` over a kind-as-data `FitOp` (single or multi-kind detection), the MLESAC truncated-cost sampler with PROSAC/NAPSAC draw rows over the `Spatial/neighbors` kd-tree lane, and the orthogonal-distance refine instantiating `Lm.Minimize`, returning the typed `FitReceipt`.
 
 [DRAWING]:
-
 - [56]-[VIEW](.planning/Drawing/view.md): Exact hidden-line/silhouette projection — one `ViewOp` over an exact analytic quantitative-invisibility kernel returning the `DrawingProjection` visible/hidden segment carrier.
 - [57]-[PACK](.planning/Drawing/pack.md): Canonical geometry-encoding owner — one `PackOp` over the six-row `PackKind` modality axis (including the `field`/`toolpath` rows) and the eight-row `EncodingChannel` lattice into the dtype-strided byte arena, returning `EncodedGeometry` with a lossless round-trip witness.
 
 [ANALYSIS]:
-
 - [58]-[QUERY](.planning/Analysis/query.md): The measured-query runtime and the kernel's public analysis entry — the one `AnalysisQuery` request algebra (absorbing the geometry-request band), the `Operation<TGeometry,TOut>` Build/Reject/Service algebra, the `Env` reader, and the `Analyze` facade.
 - [59]-[MEASURE](.planning/Analysis/measure.md): The metrology owner — the `Measure` mass-property union, the `Bounds` union with Ritter enclosing fits and principal-frame OBB, and `ConformanceMetric` residual sampling.
 - [60]-[INSPECT](.planning/Analysis/inspect.md): The diagnostics owner — the `Topologies` union with genus/Euler folds and the `Meshes` union over the full defect/quality capture.
@@ -98,7 +89,6 @@
 The numeric solver and geometry host packages this folder consumes outside the C# substrate registry; versions are centralized in the one C# manifest, corroborated by `.api/`.
 
 [NUMERIC_SOLVERS]:
-
 - `CSparse`
 
 [EXACT_PRECISION]:
@@ -123,7 +113,6 @@ The NURBS engine is vendored in-kernel at `Parametric/nurbs`: Piegl-Tiller curve
 - `manifoldc` — in-house P/Invoke over `elalish/manifold`, Apache-2.0; tier-3 guaranteed-manifold SCALE companion behind `ArrangementPolicy.ScaleCeiling`
 
 [PROJECTS]:
-
 - `Rhino.Geometry` / `RhinoCommon` — the host compile surface; the kernel reads value structs + Mesh/Curve/Brep geometry, never `RhinoDoc`/`RhinoApp`/UI
 
 ## [03]-[SUBSTRATE_PACKAGES]
@@ -131,25 +120,20 @@ The NURBS engine is vendored in-kernel at `Parametric/nurbs`: Piegl-Tiller curve
 The C# substrate registry cards this folder consumes; full registry and substrate contracts live in `libs/csharp/.planning/README.md`, with shared API evidence in `libs/csharp/.api/`.
 
 [FUNCTIONAL_CORE]:
-
 - `LanguageExt.Core`
 - `Thinktecture.Runtime.Extensions`
 - `JetBrains.Annotations`
 
 [TIME_IDENTITY]:
-
 - `System.IO.Hashing`
 
 [NUMERIC_SUBSTRATE]:
-
 - `System.Numerics.Tensors`
 - `CommunityToolkit.HighPerformance` — `Span2D`/`MemoryOwner<T>`/`ParallelHelper` on the SoA build arenas, frozen or partition-disjoint spans only
 - `MathNet.Numerics` — the `Numerics/matrix` dense/sparse linear-algebra owner and distribution folds
 
 [GRAPH_ALGORITHM]:
-
 - `QuikGraph` — the bounded-lane graph-algorithm owner: MST normals, König-matching constraint islands; every graph RESULT leaves as a kernel-owned SoA wire
 
 [PERCEPTUAL_COLOR]:
-
 - `Wacton.Unicolour` — the perceptual color model behind the `Numerics/atoms` `PerceptualColor` owner: OKLab mix, ramp, contrast, perceptual gamut mapping, and normalized sRGB/Display-P3 egress over `BlendPath` and `RgbProfile` rows.

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CavalierContours`
-
 - package: `CavalierContours`
 - license: `ISC` (oberbichler/CavalierContours; permissive, no reciprocity)
 - assembly: `CavalierContours`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: polyline carriers (`CavalierContours.Polyline`)
-
 - rail: fabrication
 - note: a polyline is a vertex list where each `PlineVertex<T>` carries `(X, Y, Bulge)`; `Bulge = tan(theta/4)` of the arc from this vertex to the next (`0` = straight segment, sign = sweep direction), so one constant-radius arc is a single vertex pair. `IsClosed` wraps the last segment back to the first.
 - `Polyline<T>` implements `IPlineSourceMut<T>` with an indexer, `AddVertex`, `InsertVertex`, `Remove`, `Get`, `SetVertex`, `SetIsClosed`, `ExtendVertexes`, and `ulong UserData`. Its constructors accept no arguments, `bool isClosed`, capacity plus closure, or vertices plus closure.
@@ -36,7 +34,6 @@
 |  [07]   | `PlineOrientation`   | enum            | winding verdict   |
 
 [PUBLIC_TYPE_SCOPE]: offset and Boolean facades (`CavalierContours.Polyline`)
-
 - rail: fabrication
 - note: the offset/Boolean engines are static slice-pipeline facades, not instance methods on `Polyline<T>`; they consume an `IPlineSource<T>` plus an options record and emit `Polyline<T>`/slice lists. `BooleanOp` selects the set operation.
 - `PlineOffset` composes `ParallelOffset<O,T>` from `CreateRawOffsetPolyline` and `SlicesFromRawOffset`; `PlineBoolean` composes `PolylineBoolean<O,T>` from `ProcessForBoolean`, `PruneSlices`, `StitchSlicesIntoClosedPolylines`, and `FindIntersects`.
@@ -65,7 +62,6 @@
 |  [14]   | `ClosestPointResult<T>`        | result struct  | closest projection  |
 
 [PUBLIC_TYPE_SCOPE]: spatial index and geometry primitives (`CavalierContours.Spatial`, `.Core`)
-
 - rail: fabrication
 - note: `StaticAABB2DIndex<T>` is a flatbush (packed Hilbert R-tree) built once from a polyline's segment AABBs; the offset/Boolean engines consume it to prune the self-intersection scan. The `Core` structs are the value-type math floor.
 - `StaticAABB2DIndex<T>` exposes `Query`, `QueryIter`, `VisitQuery`, `VisitQueryWithStack`, `VisitNeighbors`, `VisitNeighborsWithQueue`, `Bounds`, `Count`, `ItemBoxes`, and `ItemIndices`; `StaticAABB2DIndexBuilder<T>` stages `Add(minX,minY,maxX,maxY)` before `Build()`.
@@ -87,7 +83,6 @@
 |  [11]   | `LineLineIntr`                | intersection struct | line pair         |
 
 [PUBLIC_TYPE_SCOPE]: multi-loop shape offset (`CavalierContours.Shape`)
-
 - rail: fabrication
 - note: `Shape` is the higher-level multi-loop owner — a set of CCW outer loops and CW hole loops offset together with island/hole topology preserved, the form a real pocket-with-islands clearing toolpath needs.
 - `Shape<T>` exposes `CcwPlines`, `CwPlines`, `PlinesIndex`, `FromPlines(IEnumerable<Polyline<T>>)`, `Empty()`, and `ParallelOffset(T, ShapeOffsetOptions<T>)`.
@@ -104,7 +99,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: polyline construction and mutation — `Polyline<T>`
-
 - rail: fabrication
 - The constructors accept closure alone, capacity plus closure, or `IEnumerable<PlineVertex<T>>` plus closure; `CreateFrom<O,T>` and `CreateFromRemoveRepeat<O,T>` materialize any `IPlineSourceMut<T>` with a parameterless constructor.
 
@@ -132,7 +126,6 @@
 |  [20]   | `CreateFromRemoveRepeat<O,T>(source, eps)`      | factory        | deduplicated materialization |
 
 [ENTRYPOINT_SCOPE]: measure, query, and arc handling — `PlineSourceExtensions` (extension methods on `IPlineSource<T>`)
-
 - rail: fabrication
 - note: this is the bulk of the consumer surface — every measurement, containment, index build, and arc densification is an extension on the read interface, so they apply uniformly to `Polyline<T>`, `PlineView<T>`, and any custom `IPlineSource<T>`.
 - `ClosestPoint(Vector2<T>, T)` returns `ClosestPointResult<T>?`; `Extents()` returns `AABB<T>?`; `FindPointAtPathLength(T)` returns `(bool, int SegIndex, Vector2<T>, T AccLength)`.
@@ -166,7 +159,6 @@
 |  [24]   | `Last()`                              | read           | terminal vertex       |
 
 [ENTRYPOINT_SCOPE]: parallel offset — `PlineOffset`
-
 - rail: fabrication
 - note: `ParallelOffset<O,T>` is the single-call high-level entry returning the finished (trimmed, arc-preserving) offset polylines; internally it is a two-stage slice pipeline (raw un-trimmed offset → trim against the original via the AABB index) and the raw stages are exposed for an adaptive-clearing walk that needs the intermediate. A single inward offset can split a concave loop into SEVERAL result loops — hence `List<O>`.
 - `ParallelOffset<O,T>(IPlineSource<T>, T, PlineOffsetOptions<T>)` returns `List<O>` where `O : IPlineSourceMut<T>, new()`.
@@ -182,7 +174,6 @@
 |  [05]   | `PointValidForOffset<T>`          | predicate      | collision test     |
 
 [ENTRYPOINT_SCOPE]: Boolean and containment — `PlineBoolean` / `PlineContains` / `PlineIntersects`
-
 - rail: fabrication
 - note: the closed-polyline Boolean is a slice-and-stitch pipeline keyed on `BooleanOp`; it operates in exact arc-space, so a union of two arc-walled pockets keeps its fillet arcs rather than chord-approximating them.
 - `PolylineBoolean<O,T>(IPlineSource<T>, IPlineSource<T>, BooleanOp, PlineBooleanOptions<T>)` returns `BooleanResult<O,T>` where `O : IPlineSourceMut<T>, new()`.
@@ -205,14 +196,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [POLYLINE_TOPOLOGY]:
-
 - a polyline is `IsClosed` + an ordered `PlineVertex<T>` list; each vertex is `(X, Y, Bulge)` where `Bulge = tan(theta/4)` of the arc to the NEXT vertex — `Bulge == 0` is a straight segment, `Bulge > 0` sweeps CCW, `Bulge < 0` sweeps CW, and `|Bulge| == 1` is a semicircle. ONE constant-radius arc is one vertex pair; this is the whole reason to choose `CavalierContours` over `Clipper2` for an arc-walled profile
 - the generic constraint is `T : struct, IFloatingPointIeee754<T>, IMinMaxValue<T>` — instantiate `Polyline<double>` and `Vector2<double>`; the library never assumes `double` internally, so a `Half`/`float` consumer is type-legal but `double` is the fabrication instantiation
 - `Orientation()` returns `Open` for an open polyline; a closed CCW polyline has positive `Area()` and `CounterClockwise` orientation — the offset sign convention follows this (positive offset of a CCW closed loop inflates outward)
 - `WindingNumber`/`ClosestPoint`/`Area`/`PathLength` are all ARC-AWARE — they integrate over the true arc, not a chord approximation; only `ArcsToApproxLines(errorDistance)` deliberately chord-approximates, and it is the explicit bridge when a downstream consumer (a line-only `Clipper2` op, a mesh tessellator) cannot accept bulge
 
 [LOCAL_ADMISSION]:
-
 - build a profile as `Polyline<double>` carrying bulge directly from the `Ingress/profile` `ACadSharp` arc/`Spline` entities (an arc DXF entity → one `PlineVertex` pair with the bulge computed from its sweep), never densifying the arc to a line fan at ingest
 - the offset is the single-call static `PlineOffset.ParallelOffset<Polyline<double>, double>(src, offset, options)` → `List<Polyline<double>>` (a single inward offset of a concave loop legitimately returns several loops); reach for the raw `CreateRawOffsetPolyline` → `SlicesFromRawOffset` stages ONLY when an adaptive-clearing walk needs the un-trimmed intermediate — do NOT hand-spell the pipeline for an ordinary offset
 - the closed-polyline Boolean is the single-call `PlineBoolean.PolylineBoolean<Polyline<double>, double>(p1, p2, BooleanOp.Not, options)` → `BooleanResult<…>` keyed on `BooleanOp { Or, And, Not, Xor }`; `Not` is the kerf-inflated remnant difference the `Nesting/nfp` `Remnant` lineage producer needs in arc-space (the three-stage `ProcessForBoolean` → `PruneSlices` → `StitchSlicesIntoClosedPolylines` is the internal decomposition, not the call-site shape)
@@ -222,7 +211,6 @@
 - arc-length sampling for lead-in placement and feed-point emission is `FindPointAtPathLength(targetPathLength)`, never a manual chord walk; the result carries the segment index and accumulated length so the posting biarc refit reads the true arc parameter
 
 [INTEGRATION_STACK]:
-
 - `Polygon` offset substrate: this is the ARC-NATIVE peer of the line-only `Clipper2` (`api-clipper2`) — `Clipper2` owns int64/`PathD` Boolean + `ClipperOffset` line offset and Minkowski; `CavalierContours` owns the bulge-carrying offset/Boolean `Clipper2` structurally CANNOT express (a `Clipper2` offset emits straight segments + an arc-approximating fan at corners, never a constant-radius arc segment). They are NOT a duplicate: route a kerf-comp arc, a lead-arc, or a morphed-spiral adaptive pass through `CavalierContours` in arc-space; route a pure-polygon clip/Minkowski-NFP construction through `Clipper2`. The bridge in EITHER direction is `ArcsToApproxLines(errorDistance)` → `Clipper2` `PathD`, and a `Clipper2` `PathD` result re-fit to arcs via `g3.BiArcFit2` (`api-geometry3sharp`) ONLY when the source was line-only — when the source carries bulge, stay in `CavalierContours` and skip the refit entirely (the retirement the README records)
 - `g3.BiArcFit2` retirement: the `Toolpath/motion`/`skeleton` lead-arc and adaptive-clearing rails previously offset with `Clipper2` then refit the polyline to biarcs with `geometry3Sharp` `g3.BiArcFit2`; with `CavalierContours` carrying bulge through the offset, the lead-arc and spiral passes are produced in exact arc-space and the `g3.BiArcFit2` refit is needed ONLY on a genuinely line-sourced path — `g3.BiArcFit2` stays the SOLE biarc owner for that residual case, never re-implemented here
 - `Posting/program` arc emit: a `PlineVertex<T>.Bulge` maps directly to a `G2`/`G3` arc move — the bulge IS `tan(theta/4)`, so the arc center and radius derive from the vertex pair without a refit; the `Move.ArcCenter` the posting biarc refit carries is read straight from the `CavalierContours` segment rather than re-fitting a densified path
@@ -231,7 +219,6 @@
 - kernel atoms: a `CavalierContours.Core.Vector2<double>` and `AABB<double>` map at the boundary to the kernel `Rasm` `Point3d`/`Vector3d` (z-dropped) and the `Geometry2D` box — plan-cs boundary-maps at the `Polyline<double>` ⇄ `Loop` seam, the bulge preserved into the canonical `Loop` arc-segment representation rather than flattened
 
 [RAIL_LAW]:
-
 - Package: `CavalierContours` (ISC, pure-managed `lib/net10.0` AnyCPU IL, zero deps; generic over `T: IFloatingPointIeee754<T>, IMinMaxValue<T>`, instantiated `double`)
 - Owns: arc-native (bulge) 2D polyline parallel offset, closed-polyline Boolean (`Or`/`And`/`Not`/`Xor`), containment/winding, closest-point, arc-aware area/path-length/extents, arc-length sampling, arc-to-line densification, and the flatbush `StaticAABB2DIndex` over open/closed/self-intersecting polylines
 - Accept: a `Polyline<double>` carrying real `Bulge` from the `ACadSharp` arc ingest; the static `PlineOffset`/`PlineBoolean` slice pipelines with a once-built `StaticAABB2DIndex` threaded through the options; the `BooleanOp` set op; the ref-struct `IQueryVisitor` for the hot index loop

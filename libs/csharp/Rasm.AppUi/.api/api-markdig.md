@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Markdig`
-
 - package: `Markdig`
 - assembly: `Markdig`
 - namespace: `Markdig`
@@ -24,7 +23,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PIPELINE_TYPES]: pipeline and parser surfaces
-
 - rail: markdown
 
 | [INDEX] | [SYMBOL]                  | [RAIL]               |
@@ -39,7 +37,6 @@
 |  [08]   | `RendererBase`            | renderer base        |
 
 [BLOCK_TYPES]: block AST family
-
 - rail: markdown
 
 | [INDEX] | [SYMBOL]                                           | [RAIL]                                            |
@@ -64,7 +61,6 @@
 |  [18]   | `Extensions.Tables.TableCell` (`: ContainerBlock`) | table cell (`ColumnIndex`/`ColumnSpan`/`RowSpan`) |
 
 [INLINE_TYPES]: inline AST family
-
 - rail: markdown
 
 | [INDEX] | [SYMBOL]                                         | [RAIL]                         |
@@ -84,7 +80,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [PARSE_ENTRYPOINTS]: parse and render operations
-
 - rail: markdown
 - surface-root: `Markdown`
 
@@ -98,7 +93,6 @@
 |  [06]   | `Markdown.Version` | assembly file-version string (`"1.3.2"`)                                                                     |
 
 [BUILDER_ENTRYPOINTS]: pipeline configuration
-
 - rail: markdown
 
 `MarkdownPipelineBuilder` owns pipeline construction and parser state.
@@ -130,7 +124,6 @@
 |  [12]   | `Use<TExtension>` / `Configure(string)`                     | custom and string-named configuration |
 
 [AST_ENTRYPOINTS]: AST traversal and node evidence for folding
-
 - rail: markdown
 
 | [INDEX] | [SURFACE]                                             | [SURFACE_ROOT]                                  |
@@ -154,7 +147,6 @@
 |  [17]   | `TryGetAttributes() -> HtmlAttributes?`               | `HtmlAttributesExtensions` on `IMarkdownObject` |
 
 [AST_EVIDENCE]:
-
 - [01]-[WALK]: Full pre-order `IEnumerable<MarkdownObject>` walk.
 - [02]-[TYPED_WALK]: Typed walk with start-node narrowing through the `ContainerBlock` and `ContainerInline` overloads.
 - [03]-[SPAN]: `Span` is a `SourceSpan` field, and `ToPositionText()` renders its diagnostic position.
@@ -176,21 +168,18 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PIPELINE_LAW]:
-
 - Package: `Markdig`
 - Owns: Markdown parsing, extension configuration, and rendering through one immutable pipeline
 - Accept: a `MarkdownPipeline` is built once and reused across parses
 - Reject: regex or line-split Markdown handling beside the pipeline
 
 [AST_LAW]:
-
 - Package: `Markdig`
 - Owns: the block/inline AST as the only Markdown document model
 - Accept: document folds drive off `Descendants<T>` projections with `Span` evidence; the fold reads node-typed evidence (`HeadingBlock.Level`, `FencedCodeBlock.Info`, `LinkInline.Url`/`IsImage`) and annotates via `SetData`/`GetData`
 - Reject: parallel Markdown node models duplicating the syntax tree; regex extraction of headings/links the AST already exposes
 
 [STACKING]:
-
 - Outline into the live-data rail: `document.Descendants<HeadingBlock>()` projects to `(Level, text, Span)` rows that seed a `DynamicData` `SourceCache` keyed by `Span.Start`; `TransformToTree` (using `Level` as the parent-depth key) folds the flat heading stream into a collapsible document-outline `Node` tree bound to a `TreeDataGrid` — the outline shares the one change-set rail with every other panel.
 - Editor integration: `MarkdownObject.Span`/`Line`/`Column` map fold nodes back to source offsets in the `Avalonia.AvaloniaEdit` document, so an outline-row click scrolls the editor and an editor caret resolves to the enclosing block via the span; `FencedCodeBlock.Info` selects the `AvaloniaEdit.TextMate` grammar for the fence body.
 - One built pipeline, reused: a single `MarkdownPipelineBuilder.UseAdvancedExtensions()....Build()` is constructed once at composition and threaded as the `pipeline` argument to every `Parse`/`ToHtml`; `MarkdownParserContext.Properties` carries cross-document state (link-reference resolution, asset rewrites) without a second parse pass, and `DocumentProcessed` hooks post-parse AST rewrites onto the same pipeline.

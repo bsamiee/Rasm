@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon`
-
 - package: `RhinoCommon`
 - license: proprietary host SDK
 - namespace: `Rhino.FileIO`, `Rhino.DocObjects` (`EarthAnchorPoint`), `Rhino` (`RhinoDoc` document-attached I/O)
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the standalone archive
-
 - rail: host
 
 | [INDEX] | [SYMBOL]                         | [KIND]     | [CAPABILITY]                                                             |
@@ -39,7 +37,6 @@
 |  [17]   | `EarthAnchorPoint`               | class      | earth-to-model georeference read from the header                         |
 
 [PUBLIC_TYPE_SCOPE]: the direct format-engine roster
-
 - rail: host
 
 | [INDEX] | [SYMBOL]               | [DIRECTION]      | [CAPABILITY]                                                |
@@ -85,7 +82,6 @@
 Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`Export`/`ExportSelected` instead receive `ArchivableDictionary?`, and only option types that declare `ToDictionary()` project into that lane. `FileObjReadOptions(FileReadOptions)`, `FileObjWriteOptions(FileWriteOptions)`, and `FilePlyWriteOptions(FileWriteOptions)` consume the shared host carriers without declaring `ToDictionary()`. Exchange-relevant knobs include `File3dsWriteOptions.SaveViews`/`SaveLights`; the AI/EPS model-scale fields; the OBJ and PLY grouping, material, normal, and mesh fields; the DWG surface/color fields; `FileStlWriteOptions.BinaryFile`; the FBX object/view/light/normal fields; the SketchUp grouping field; the VRML/X3DV texture-coordinate and normal fields; the text/CSV column fields; the glTF Draco family; `FileUsdWriteOptions.ForceMeshes`/`IncludeUserStrings`/`BlockHandling`/`ModelName`; and `FileXamlWriteOptions.UseExistingRenderMeshes`.
 
 [PUBLIC_TYPE_SCOPE]: PDF page authoring and document-attached I/O
-
 - rail: host
 
 | [INDEX] | [SYMBOL]                | [KIND]     | [CAPABILITY]                                                               |
@@ -100,7 +96,6 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: archive reads — filtered, metadata, and byte
-
 - rail: host
 
 - runtime-nullable `public static File3dm? File3dm.Read(string path)` / `Read(string path, File3dm.TableTypeFilter tableTypeFilterFilter, File3dm.ObjectTypeFilter objectTypeFilter)`; a missing path throws `FileNotFoundException`, while a native read failure returns `null`
@@ -114,7 +109,6 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - runtime-nullable `public static Bitmap? File3dm.ReadPreviewImage(string path)` / `public static DimensionStyle[]? ReadDimensionStyles(string path)`; an absent path throws for both
 
 [ENTRYPOINT_SCOPE]: archive writes, serialization, and validity
-
 - rail: host
 
 - `public static bool File3dm.WriteOneObject(string path, GeometryBase geometry)` / `public static bool WriteMultipleObjects(string path, IEnumerable<GeometryBase> geometry)` create standalone minimal archives
@@ -125,7 +119,6 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - runtime-nullable `public Bitmap? File3dm.GetPreviewImage()` / `public void SetPreviewImage(Bitmap? image)`; the returned bitmap is caller-owned, `null` clears the stored preview, and a non-null image is copied into native storage during the call
 
 [ENTRYPOINT_SCOPE]: archive tables and write options
-
 - rail: host
 
 - `File3dm.Settings : File3dmSettings` / `Manifest : ManifestTable` / `Objects : File3dmObjectTable`
@@ -147,7 +140,6 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - `public void File3dmWriteOptions.EnableRenderMeshes(ObjectType objectType, bool enable)` / `public void EnableAnalysisMeshes(ObjectType objectType, bool enable)` mutate the per-kind flags; render meshes principally apply to brep, extrusion, and SubD, while analysis meshes additionally apply to mesh
 
 [ENTRYPOINT_SCOPE]: document-attached exchange
-
 - rail: host
 
 - `public bool RhinoDoc.Import(string filePath)` / `public bool Import(string filePath, ArchivableDictionary? options)`; `public bool Export(string filePath)` / `public bool Export(string filePath, ArchivableDictionary? options)`; `public bool ExportSelected(string filePath)` / `public bool ExportSelected(string filePath, ArchivableDictionary? options)`
@@ -158,7 +150,6 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - `FileWriteOptions`: `UpdateDocumentPath`, `WriteSelectedObjectsOnly`, `IncludeRenderMeshes`, `IncludePreviewImage`, `IncludeBitmapTable`, `IncludeHistory`, `SuppressDialogBoxes`, `SuppressAllInput`, `WriteGeometryOnly`, `WriteUserData`, `CreateBackupFiles`, `CreateOtherBackupFiles`, and `UseCompression` are public mutable booleans; `WriteAsTemplate` is get-only
 
 [ENTRYPOINT_SCOPE]: direct format engines
-
 - rail: host
 
 - `public static WriteFileResult FileObj.Write(string filename, RhinoDoc doc, FileObjWriteOptions options)` / `public static bool FileObj.Read(string filename, RhinoDoc doc, FileObjReadOptions options)`
@@ -175,7 +166,6 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - `public static bool FileSvg.Read(string path, RhinoDoc doc, FileSvgReadOptions options)`
 
 [ENTRYPOINT_SCOPE]: PDF page authoring
-
 - rail: host
 
 - runtime-nullable `public static FilePdf? FilePdf.Create()`; the PDF plug-in lookup can return `null`
@@ -192,7 +182,6 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FILEIO_TOPOLOGY]:
-
 - `File3dm` is document-free: it reads, mutates, serializes, and writes the archive without opening a `RhinoDoc`, and `TableTypeFilter`/`ObjectTypeFilter` bound a partial read to the required tables and object kinds
 - the metadata reads (`ReadNotes`, `ReadArchiveVersion`, `ReadRevisionHistory`, `ReadEarthAnchorPoint`, `ReadApplicationData`, `ReadPreviewImage`) touch the header without materializing geometry
 - byte serialization through `FromByteArray`/`ToByteArray` is runtime-nullable in both directions, and a consumer admits the value before hashing or dereferencing it
@@ -200,19 +189,16 @@ Direct engines receive their typed option carrier directly; `RhinoDoc.Import`/`E
 - `FilePdf` authors vector pages directly, groups layers as optional content, and stamps every page through the static `PreWrite` hook before `Write` commits the document
 
 [STACKING]:
-
 - `LanguageExt`(`libs/csharp/.api/api-languageext.md`): nullable archive/bitmap/style/byte returns and engine `bool`/`WriteFileResult` outcomes fold to `Option<T>`/`Fin<T>`, while nonempty `ReadWithLog`/`WriteWithLog`/`IsValidWithLog` diagnostics remain typed evidence or fault detail
 - `Thinktecture.Runtime.Extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the format-engine roster wraps as a `Union` format vocabulary, `TableTypeFilter`/`ObjectTypeFilter` wrap as flag `SmartEnum` read policy, and the archive write version wraps as a `ValueObject`
 - `Hashing`(`libs/csharp/.api/api-hashing.md`): `File3dm.ToByteArray` feeds the `XxHash128` content key the persistence artifact index dedupes archives on
 
 [LOCAL_ADMISSION]:
-
 - standalone archive work enters through `File3dm`; document-attached I/O enters through the `RhinoDoc` operations, and the two paths never fork the same read
 - direct conversion enters through the owning engine's `Write`/`Read` with its typed options carrier
 - PDF page authoring enters through `FilePdf.Create` then the page and draw surface
 
 [RAIL_LAW]:
-
 - Package: `RhinoCommon`
 - Owns: the standalone `.3dm` archive, direct format conversion, PDF page authoring, document-attached exchange
 - Accept: filtered, metadata, and byte archive access, typed-option conversion, vector PDF authoring

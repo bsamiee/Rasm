@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.ObjectPool`
-
 - package: `Microsoft.Extensions.ObjectPool`
 - assembly: `Microsoft.Extensions.ObjectPool`
 - namespace: `Microsoft.Extensions.ObjectPool`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pool family
-
 - rail: pooling
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [RAIL]                 |
@@ -37,7 +35,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: pool operations
-
 - rail: pooling
 
 | [INDEX] | [SURFACE]                      | [ENTRY_FAMILY]     | [RAIL]                    |
@@ -57,7 +54,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [POOL_TOPOLOGY]:
-
 - namespaces: `Microsoft.Extensions.ObjectPool`
 - pool contracts: `ObjectPool<T>`, `ObjectPoolProvider`, `IPooledObjectPolicy<T>`
 - policy contracts: create object, decide return, reset object
@@ -66,13 +62,11 @@
 - diagnostics: leak-tracking pool provider is diagnostic-only material
 
 [LOCAL_ADMISSION]:
-
 - Pools are injected policy values for bounded allocation lanes.
 - Returned objects reset through `IResettable` or policy-owned cleanup.
 - Pooled instances never carry request, document, host, or user state across returns.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.ObjectPool`
 - Owns: bounded resource reuse
 - Accept: pools are runtime policy inputs

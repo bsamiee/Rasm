@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HotAvalonia`
-
 - package: `HotAvalonia`
 - license: `MIT` (file `LICENSE.md`)
 - assembly: no managed runtime assembly (no `lib/`)
@@ -20,7 +19,6 @@
 ## [02]-[PACKAGE_ASSETS]
 
 [BUILD_ASSETS]: package payload
-
 - rail: hot-reload
 
 | [INDEX] | [ASSET]                                | [RAIL]                           |
@@ -31,7 +29,6 @@
 |  [04]   | `tools/HotAvalonia.Remote.dll`         | HARFS file server (out-of-proc)  |
 
 [DEPENDENCY_ASSETS]: dependency fan-out (all `include="All"`)
-
 - rail: hot-reload
 
 | [INDEX] | [ASSET]                                   | [RAIL]                                                                   |
@@ -42,7 +39,6 @@
 |  [04]   | `Avalonia.Markup.Xaml.Loader` (v`11.0.0`) | runtime XAML compile (`api-avalonia-xaml-loader`) — kept unless excluded |
 
 [MSBUILD_TASKS]: tasks in `tasks/netstandard2.0/HotAvalonia.dll`
-
 - rail: hot-reload
 
 | [INDEX] | [TASK]                                           | [RAIL]                                           |
@@ -54,7 +50,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [GATE_KNOBS]: master gate and mode knobs
-
 - rail: hot-reload
 - surface-root: `HotAvalonia.targets`
 
@@ -68,7 +63,6 @@
 |  [06]   | `HotAvaloniaMinLogLevel`                   | runtime log level runtimeconfig     |
 
 [INJECTION_KNOBS]: source-injection and patching knobs
-
 - rail: hot-reload
 - surface-root: `HotAvalonia.targets`
 
@@ -84,7 +78,6 @@
 |  [08]   | `HotAvaloniaIncludeXamlLoader`                                  | keep/strip `Avalonia.Markup.Xaml.Loader` |
 
 [HARFS_KNOBS]: remote file-server knobs
-
 - rail: hot-reload
 - surface-root: `HotAvalonia.targets`
 
@@ -98,7 +91,6 @@
 |  [06]   | `HarfsConfigOutputPath` (`Avalonia\HotAvalonia.Remote.xml`)   | intermediate config sink  |
 
 [COMPILER_CONSTANTS]: `DefineConstants` set by the gate
-
 - rail: hot-reload
 - surface-root: `HotAvalonia.targets`
 
@@ -110,7 +102,6 @@
 |  [04]   | `HOTAVALONIA_EXCLUDE_EXTENSIONS`     | extensions not injected |
 
 [RUNTIME_OPTIONS]: `runtimeconfig.json` host options read by the injected runtime
-
 - rail: hot-reload
 
 | [INDEX] | [OPTION]                                                                     | [RAIL]                   |
@@ -122,7 +113,6 @@
 |  [05]   | `HotAvalonia.RemoteFileSystemAddress` / `HotAvalonia.RemoteFileSystemSecret` | HARFS client             |
 
 [INJECTED_ENTRYPOINTS]: `AvaloniaHotReloadExtensions` injected source surface
-
 - rail: hot-reload
 
 | [INDEX] | [SURFACE]          | [SURFACE_ROOT]          | [RAIL]         |
@@ -136,27 +126,23 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BUILD_FLOW_LAW]:
-
 - The gate is `$(HotAvalonia)`: `true` when `Configuration == Debug` or explicitly `enable`. With the gate on, `DefineConstants` gains `HOTAVALONIA_ENABLE` (and `_USE_REMOTE_FILE_SYSTEM`/`_ENABLE_LITE`/`_EXCLUDE_EXTENSIONS` per knob), `CompileAvaloniaXaml` runs before the weave, and `HotAvaloniaGenerateFodyConfig` injects a `<HotAvalonia>` element into Fody's `WeaverConfiguration` so `HotAvalonia.Fody` patches the XAML-load methods.
 - `HotAvaloniaGenerateRuntimeConfig` (when `GenerateRuntimeConfigurationFiles == true`) emits `RuntimeHostConfigurationOption` rows (`HotAvalonia.InjectionType`, `.SkipInitialPatching`, `.Timeout`, `.Mode`, `.Hotkey`, `.MinLogLevel`, `.RemoteFileSystemAddress`, `.RemoteFileSystemSecret`) into the app `runtimeconfig.json`; the injected runtime reads them at startup.
 - Remote (HARFS) path: when `HotAvaloniaRemote` is on, `GenerateFileSystemServerConfigTask` writes the server config to `$(IntermediateOutputPath)\Avalonia\HotAvalonia.Remote.xml`, `GetFileSystemClientConfigTask` resolves the client address/secret, and `StartFileSystemServerTask` launches `tools/HotAvalonia.Remote.dll` after build to serve source files to a non-desktop Android, iOS, or Browser target. iOS additionally forces the Mono interpreter and disables AOT.
 - Reference stripping: with the gate on, `HotAvaloniaProcessReferences` defaults false (preserve), but `HotAvaloniaExcludeReferences` always lists `HotAvalonia;HotAvalonia.Core;HotAvalonia.Fody`, and adds `Avalonia.Markup.Xaml.Loader` only when `HotAvaloniaIncludeXamlLoader == false`. On Release the gate is off and the weave/strip removes the dev-loop assemblies, so no hot-reload code ships.
 
 [STACKING_LAW]:
-
 - Avalonia startup (`api-avalonia`, `api-avalonia-desktop`): the injected `UseHotReload` chains onto the `AppBuilder` returned by `AppBuilder.Configure<App>()` in the app entry point — it composes with the desktop lifetime, the Fluent theme, and the GPU/Skia render seam without any hand-written bootstrap. `AutoEnable` weaves the `UseHotReload` call in automatically when `HotAvaloniaAutoEnable` is set on an exe.
 - XAML loader (`api-avalonia-xaml-loader`): `Avalonia.Markup.Xaml.Loader` is the runtime XAML-compile dependency `HotAvalonia.Core` drives to re-parse changed `.axaml`; the workspace overrides its transitive pin to `12.0.5` to match the Avalonia `12.0.x` core.
 - The reference is `PrivateAssets="all"` and unconditional so the lockfile is configuration-independent; the package's own Debug gate — not an MSBuild `Condition` on the reference — decides whether any hot-reload asset is active.
 
 [BUILD_ASSET_LAW]:
-
 - Package: `HotAvalonia`
 - Owns: Debug-gated XAML hot-reload wiring through MSBuild knobs, the three MSBuild tasks (Fody weave + HARFS launch), the runtimeconfig option set, and Release reference stripping
 - Accept: the gate is `$(HotAvalonia)`; injection lands in the `AvaloniaHotReloadExtensions` source; the reference is unconditional `PrivateAssets="all"`; Release strips `HotAvalonia.Core`/`Extensions`/`Fody`
 - Reject: a hand-written hot-reload bootstrap beside the injected extensions; a `Condition` on the package reference that breaks lockfile determinism; documenting the meta-package as a public managed type surface
 
 [API_BOUNDARY_LAW]:
-
 - Package: `HotAvalonia`
 - Owns: build orchestration and weave only — no `lib/` managed surface
 - Accept: callable surface lives in the injected `AvaloniaHotReloadExtensions` source and `HotAvalonia.Core`

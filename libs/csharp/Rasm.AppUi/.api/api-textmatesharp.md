@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `TextMateSharp`
-
 - package: `TextMateSharp`
 - license: `MIT`
 - assembly: `TextMateSharp`
@@ -16,7 +15,6 @@
 - depends: `Onigwrap` (`1.0.10`, transitive) — Oniguruma native regex engine; the `IGrammar` match loop is native, not managed. No pure-managed regex path; the native binary must ship with the app.
 
 [PACKAGE_SURFACE]: `TextMateSharp.Grammars`
-
 - package: `TextMateSharp.Grammars`
 - license: `MIT`
 - assembly: `TextMateSharp.Grammars`
@@ -29,7 +27,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [REGISTRY_TYPES]: the locator contract, its bundled reference implementation, and the tokenizer engine (`TextMateSharp.Registry`, `TextMateSharp.Grammars`)
-
 - rail: tokenizer
 
 | [INDEX] | [SYMBOL]           | [KIND]      | [RAIL]            |
@@ -47,7 +44,6 @@
 `IRegistryOptions` is the entire seam `AvaloniaEdit.TextMate.InstallTextMate` requires: four members the host must answer. `RegistryOptions` is the ready-made implementation backed by the 50 embedded grammars and 21 themes; a Rasm-DSL host that adds custom scopes implements the four members itself (or composes over a `RegistryOptions` and overrides `GetGrammar` for its own scopes).
 
 [GRAMMAR_TYPES]: the scope-tagged tokenize surface — what `Registry.LoadGrammar(scope)` returns (`TextMateSharp.Grammars`)
-
 - rail: tokenizer
 
 | [INDEX] | [SYMBOL]                           | [KIND]            | [RAIL]              |
@@ -71,7 +67,6 @@
 `TokenizeLine(LineText)` returns `IToken[]` where each `IToken.Scopes` is the full TextMate scope stack at that span (`["source.cs","keyword.control.cs"]`); `TokenizeLine2` returns the VS Code binary encoding (foreground/background/fontStyle packed into each `int`) for tight color application. Pass the prior line's `IStateStack` (`result.RuleStack`) to the next line's `TokenizeLine(line, prevState, timeLimit)` so multi-line constructs (block comments, string interpolation) carry across lines. `LineText`'s implicit `string` conversion means `grammar.TokenizeLine("…")` is the call site; the `ReadOnlyMemory<char>` overload avoids the substring copy for a rope/slice source.
 
 [THEME_TYPES]: scope-to-color resolution (`TextMateSharp.Themes`)
-
 - rail: tokenizer
 
 | [INDEX] | [SYMBOL]                           | [KIND]         | [RAIL]           |
@@ -91,7 +86,6 @@
 `IRawTheme` is the parsed-but-uncompiled theme JSON (what `RegistryOptions.LoadTheme(ThemeName)` returns and `InstallTextMate`'s `SetTheme` consumes). `Theme.CreateFromRawTheme` compiles it against the locator into a scope-trie; `Theme.Match(scopeStack)` returns the winning `ThemeTrieElementRule` (color id + `FontStyle`) for a token's scope stack, and `GetColor(id)` resolves the id to the hex string. `GetGuiColorDictionary()` exposes editor-chrome colors (`"editor.background"`, `"editorLineNumber.foreground"`) so a host can paint the surrounding UI to match the grammar theme — this is the data behind AvaloniaEdit.TextMate's `TryGetThemeColor`.
 
 [CORPUS_MODEL_TYPES]: the VS Code grammar-extension model `RegistryOptions` decodes (`TextMateSharp.Grammars`)
-
 - rail: tokenizer
 
 | [INDEX] | [SYMBOL]                | [KIND]  | [RAIL]             |
@@ -124,7 +118,6 @@
 `LanguageConfiguration` is the load-bearing model for editor behavior beyond color: `Comments.LineComment`/`BlockComment` feed a comment-toggle command, `Brackets`/`AutoClosingPairs`/`SurroundingPairs` feed bracket matching and auto-close, and `Folding.Markers` feeds a marker-based folding strategy. `RegistryOptions.GetLanguageByExtension(".cs").Configuration` reaches it for any bundled language without re-parsing JSON.
 
 [MODEL_TYPES]: the background incremental tokenizer (`TextMateSharp.Model`) — what AvaloniaEdit.TextMate's `TextEditorModel`/`DocumentSnapshot` adapt
-
 - rail: tokenizer
 
 | [INDEX] | [SYMBOL]                      | [KIND]      | [RAIL]         |
@@ -146,7 +139,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [REGISTRY_ENTRYPOINTS]: `RegistryOptions` corpus query, theme load, and custom-grammar loading
-
 - rail: tokenizer
 
 | [INDEX] | [SURFACE]                        | [RAIL]              |
@@ -179,7 +171,6 @@
 `new RegistryOptions(ThemeName.DarkPlus)` is the single construction the editor stack passes to `InstallTextMate`; `GetScopeByExtension(".cs")` yields the scope the editor's `SetGrammar` then selects. `LoadFromLocalDir`/`LoadFromLocalFile` ingest a VS Code grammar extension folder (a `package.json` + `.tmLanguage.json` + language-configuration) so the Rasm-DSL grammar registers from disk WITHOUT a custom `IRegistryOptions` — the simpler path than reimplementing the four members when the grammar is file-backed.
 
 [REGISTRY_ENGINE_ENTRYPOINTS]: standalone `Registry` tokenization (no editor)
-
 - rail: tokenizer
 
 | [INDEX] | [SURFACE]                 | [RAIL]           |
@@ -205,7 +196,6 @@
 `new Registry(registryOptions).LoadGrammar("source.cs").TokenizeLine(line)` is the complete non-editor tokenization rail: no `TextEditor`, no `TextView` — just scope-tagged `IToken` runs over a string. The livedata/log/inspector pages that color text in a virtualized list (not an editable surface) drive THIS, then map `IToken.Scopes` + `Registry.GetTheme().Match(scopes)` to a brush, instead of mounting an editor.
 
 [GRAMMAR_TOKENIZE_ENTRYPOINTS]: `IGrammar` line tokenization and state carry-forward
-
 - rail: tokenizer
 
 | [INDEX] | [SURFACE]           | [RAIL]            |
@@ -227,7 +217,6 @@
 Feed line N's `result.RuleStack` (an `IStateStack`) as line N+1's `prevState` to tokenize a document line-by-line with correct multi-line construct continuation; the `TimeSpan timeLimit` bounds a pathological line. `TokenizeLine2`'s `int[]` packs color metadata per the VS Code binary scheme for hosts that resolve color from the packed value rather than re-matching `Scopes` against the theme.
 
 [THEME_NAMES]: the 21 bundled `ThemeName` cases (`TextMateSharp.Grammars`)
-
 - rail: tokenizer
 
 `Abbys` (sic), `Dark`, `DarkPlus`, `DimmedMonokai`, `KimbieDark`, `Light`, `LightPlus`, `OneDark`, `Monokai`, `QuietLight`, `Red`, `SolarizedDark`, `SolarizedLight`, `TomorrowNightBlue`, `HighContrastLight`, `HighContrastDark`, `Dracula`, `AtomOneLight`, `AtomOneDark`, `VisualStudioLight`, `VisualStudioDark`.
@@ -235,7 +224,6 @@ Feed line N's `result.RuleStack` (an `IStateStack`) as line N+1's `prevState` to
 Enum order is the load-bearing declaration order (note `Abbys` is the genuine spelling and `OneDark` precedes `Monokai`, not alphabetical); `DarkPlus`/`LightPlus` are the VS Code default dark/light themes. `LoadTheme(ThemeName.X)` maps each to its embedded JSON; an unmapped case returns `null`.
 
 [BUNDLED_GRAMMARS]: the 50 grammars `RegistryOptions` pre-registers (`TextMateSharp.Grammars`)
-
 - rail: tokenizer
 
 `Asciidoc`, `Bat`, `Clojure`, `CoffeeScript`, `Cpp`, `CSharp`, `CSS`, `Dart`, `Diff`, `Docker`, `FSharp`, `Git`, `Go`, `Groovy`, `HandleBars`, `HLSL`, `HTML`, `Ini`, `Java`, `Javascript`, `Json`, `Julia`, `Latex`, `Less`, `Log`, `Lua`, `Make`, `MarkdownBasics`, `MarkdownMath`, `ObjectiveC`, `Pascal`, `Perl`, `PHP`, `PowerShell`, `Pug`, `Python`, `R`, `Razor`, `Ruby`, `Rust`, `SCSS`, `ShaderLab`, `ShellScript`, `SQL`, `Swift`, `TypescriptBasics`, `Typst`, `VB`, `XML`, `YAML`.
@@ -243,7 +231,6 @@ Enum order is the load-bearing declaration order (note `Abbys` is the genuine sp
 The corpus that matters for this workspace: `CSharp` (`source.cs`), `Cpp`/`HLSL`/`ShaderLab` (shader/GLSL-adjacent scopes), `Json` (`source.json`), `Python`/`Rust`/`FSharp`, `Log` (`Log` grammar → log-line scopes, the basis for colorizing host/build output in livedata), and `MarkdownBasics`/`MarkdownMath`. A scope absent from this list (the Rasm-DSL `source.rasm`/`source.rasm-expression`) must be added by a custom `IRegistryOptions.GetGrammar` or `LoadFromLocalFile`.
 
 [MODEL_ENTRYPOINTS]: standalone `TMModel` incremental tokenization (`TextMateSharp.Model`)
-
 - rail: tokenizer
 
 | [INDEX] | [SURFACE]                       | [RAIL]          |
@@ -273,19 +260,16 @@ The corpus that matters for this workspace: `CSharp` (`source.cs`), `Cpp`/`HLSL`
 ## [04]-[INTEGRATION_LAW]
 
 [LOCATOR_RAIL_LAW]:
-
 - Stack: tokenization config is one `IRegistryOptions`. The bundled path is `new RegistryOptions(ThemeName.DarkPlus)` (50 grammars + 21 themes ready); the Rasm-DSL path either (a) implements the four members — `GetGrammar(scope)` returns the raw `source.rasm`/`source.rasm-expression` grammar, `GetTheme`/`GetDefaultTheme` return a `RegistryOptions`-loaded `IRawTheme`, `GetInjections` returns `null` — or (b) calls `RegistryOptions.LoadFromLocalFile` to ingest a file-backed grammar extension. One locator instance owns all scopes the app tokenizes.
 - Accept: every grammar/theme handle flows from one `IRegistryOptions`; scope strings are corpus scopes (`"source.cs"`, `"source.json"`) or registered custom scopes (`"source.rasm"`); themes are `ThemeName` cases resolved through `LoadTheme`.
 - Reject: a second locator per scope; hardcoded color literals where `Theme.Match`/`GetColor` resolves the scope; treating `IRegistryOptions`/`ThemeName`/`IRawTheme` as AvaloniaEdit types (they are `TextMateSharp` — `api-avaloniaedit.md`'s `InstallTextMate`/`SetTheme`/`SetGrammar` only forward them).
 
 [EDITOR_STACK_LAW]:
-
 - Stack: when the surface IS an editable code pane, the locator feeds `editor.InstallTextMate(registryOptions)` (catalogued in `api-avaloniaedit.md`) -> `installation.SetGrammar(registryOptions.GetScopeByExtension(".cs"))` -> `installation.SetTheme(registryOptions.LoadTheme(ThemeName.DarkPlus))`. AvaloniaEdit.TextMate's `TextEditorModel` wraps `TMModel` over the editor's `TextDocument`, so the host never touches `TMModel`/`IModelLines` directly — it only supplies the `IRegistryOptions` and reacts to the `AppliedTheme` event for chrome alignment via `TryGetThemeColor` (which reads `Theme.GetGuiColorDictionary`).
 - Accept: editor tokenization rides one `TextMate.Installation` over an `IRegistryOptions`; custom scopes register on the SAME locator the editor installs.
 - Reject: instantiating a separate `Registry`/`TMModel` alongside an `InstallTextMate` editor (the installation already owns one) — the standalone `Registry`/`TMModel` rail is for NON-editor surfaces only.
 
 [STANDALONE_TOKEN_RAIL_LAW]:
-
 - Stack: when the surface is read-only and NOT an `AvaloniaEdit` editor (a virtualized log/livedata list, an inspector value preview), tokenize through `new Registry(registryOptions).LoadGrammar(scope)` then either `IGrammar.TokenizeLine(line)` per line (carrying `RuleStack` forward) for a one-shot pass, or a `TMModel` over an `IModelLines` for an incremental large source. Map `IToken.Scopes` to a brush via `registry.GetTheme().Match(scopes)` -> `GetColor(id)` (+ the `FontStyle` flags), so the SAME `ThemeName` palette the editor uses paints the non-editor surface — no second color table.
 - Accept: non-editor syntax coloring derives from the shared locator + `Theme.Match`; multi-line state carries via `IStateStack`; the native `Onigwrap` engine ships with the app (no managed fallback).
 - Reject: a hand-rolled regex tokenizer for log/DSL coloring where a bundled or custom TextMate grammar exists; re-deriving color from raw scope strings instead of `Theme.Match`; assuming a managed regex path when `Onigwrap`'s native binary is absent (tokenization fails without it).

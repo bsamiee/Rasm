@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodeEditorAvalonia.Model`
-
 - package: `NodeEditorAvalonia.Model`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/NodeEditorAvalonia.Model.dll`); multi-targets net8.0 / net10.0, `net10.0` bound
@@ -14,7 +13,6 @@
 - rail: graph-editing
 
 [PACKAGE_SURFACE]: `NodeEditorAvalonia`
-
 - package: `NodeEditorAvalonia`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/NodeEditorAvalonia.dll`); multi-targets net8.0 / net10.0, `net10.0` bound
@@ -27,7 +25,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [GRAPH_CONTRACTS]: framework-agnostic model graph — `NodeEditor.Model`
-
 - rail: graph-editing
 
 | [INDEX] | [SYMBOL]               | [KIND]                  |
@@ -111,7 +108,6 @@
 - Ownership: connect, disconnect, clipboard, and `ConnectionValidationContext` validation
 
 [GRAPH_ENUMS]: `NodeEditor.Model` graph vocabulary
-
 - rail: graph-editing
 
 | [INDEX] | [SYMBOL]                    | [KIND]               |
@@ -142,7 +138,6 @@
 The ink vocabulary binds the `EnableInk` layer.
 
 [GRAPH_EVENTS]: `NodeEditor.Model` typed event-args family
-
 - rail: graph-editing
 
 | [INDEX] | [SYMBOL]                                                           | [KIND]                   |
@@ -158,7 +153,6 @@ The ink vocabulary binds the `EnableInk` layer.
 `IDrawingNodeSettings` or a validator raises `ConnectionRejectedEventArgs`. `ConnectorExtensions` carries connector geometry and orientation helpers.
 
 [CANVAS_CONTROLS]: `NodeEditor.Controls` Avalonia layer
-
 - rail: graph-editing
 
 | [INDEX] | [SYMBOL]                    | [ROLE]                      |
@@ -190,7 +184,6 @@ The ink vocabulary binds the `EnableInk` layer.
 `Editor` binds `Drawing`, `Templates`, `InputSource`, `ZoomControl`, and `AdornerCanvas` through `StyledProperty` values. `NodeZoomBorder` hosts the canvas as a `PanAndZoom` `ZoomBorder` subclass.
 
 [CANVAS_UTILITIES]: `NodeEditor.*` graph algorithms + behaviors
-
 - rail: graph-editing
 
 | [INDEX] | [SYMBOL]                  | [ROLE]                  |
@@ -228,7 +221,6 @@ The ink vocabulary binds the `EnableInk` layer.
 `BoolInvertConverter`, …
 
 [CANVAS_SERVICES]: `NodeEditor.Services` IO + export
-
 - rail: graph-editing
 
 | [INDEX] | [SYMBOL]         | [ROLE]         |
@@ -243,7 +235,6 @@ The ink vocabulary binds the `EnableInk` layer.
 ## [03]-[ENTRYPOINTS]
 
 [DRAWING_COMMANDS]: `IDrawingNode` editing operations — the canvas mutates HERE, not by hand-moving controls
-
 - rail: graph-editing
 
 | [INDEX] | [SURFACE]                                         | [ROLE]                      |
@@ -281,7 +272,6 @@ The ink vocabulary binds the `EnableInk` layer.
 The press and move operations drive the pointer-based connector-drag state machine. The notification operations raise the typed events, and the serializer accessors bind graph persistence plus clipboard round trips.
 
 [ENGINE_OPERATIONS]: `DrawingNodeEditor` headless engine — host-free graph editing + validation
-
 - rail: graph-editing
 
 | [INDEX] | [SURFACE]                                                               | [ROLE]                |
@@ -297,7 +287,6 @@ The press and move operations drive the pointer-based connector-drag state machi
 `Clone<T>` uses `INodeSerializer` for paste and duplication. The connection-state operations honor `IDrawingNodeSettings`, and the validation context admits directional, bus-width, self-connection, and duplicate-connection validators before commit.
 
 [EXPORT_PERSIST]: `ExportRenderer` + `StorageService` + `INodeSerializer`
-
 - rail: graph-editing
 
 | [INDEX] | [SURFACE]                                  | [SURFACE_ROOT]    | [ROLE]             |
@@ -322,14 +311,12 @@ The press and move operations drive the pointer-based connector-drag state machi
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MODEL_LAW]:
-
 - Package: `NodeEditorAvalonia.Model`
 - Owns: the framework-agnostic graph core — `IDrawingNode`/`INode`/`IConnector`/`IPin`/`IConnectablePin` contracts, the `DrawingNodeEditor` headless engine, `IDrawingNodeSettings` connection policy, `INodeSerializer` round-trip, `IUndoRedoHost`, the `INodeTemplate`/`INodeFactory` palette contracts, and the typed `{Node,Pin,Connector}*EventArgs` family + enums.
 - Accept: product view-models implement `IDrawingNode`/`INode`/`IConnector`/`IPin` on the admitted `ReactiveUI` rail (`ReactiveObject`-backed, `api-reactiveui-avalonia.md`); the `Shell/Editing` parametric and dependency-graph surfaces drive editing through the `IDrawingNode` commands and the `DrawingNodeEditor` engine; connection rules (`RequireDirectionalConnections`/`RequireMatchingBusWidth`/`AllowSelfConnections`/`AllowDuplicateConnections`) live in `IDrawingNodeSettings`, with `IConnectablePin.Direction`/`BusWidth` typing the ports.
 - Reject: implementing the model on `CommunityToolkit.Mvvm` (not admitted); hand-rolling a node/connector graph type the model already owns; mutating the graph by repositioning controls instead of through the `IDrawingNode`/`DrawingNodeEditor` operations; a bespoke undo stack where `IUndoRedoHost` (with `Begin`/`EndUndoBatch`) owns coalesced history.
 
 [CANVAS_LAW]:
-
 - Package: `NodeEditorAvalonia`
 - Owns: the Avalonia layer — the `Editor`/`DrawingNode`/`Node`/`Pin`/`Connector` controls bound to the model graph, the `Xaml.Behaviors` interaction behaviors, `NodeZoomBorder` (the `PanAndZoom` viewport), the `OrthogonalRouter`+`RTree` routing/hit-test, the ink layer + adorners, and the `ExportRenderer`/`StorageService` IO.
 - Accept: `Editor.Drawing` binds an `IDrawingNode` and `Editor.Templates` a palette; pan/zoom is RULED `NodeZoomBorder` (the package's own distinct `Avalonia.Controls.PanAndZoom` asset — NOT the separately admitted `PanAndZoom.dll`/`ZoomBorder` from `api-panandzoom.md`, which keeps its five page consumers — so both restore without collision and no dup exists); connector routing is `ConnectorRoutingAlgorithm`/`ConnectorStyle` over `OrthogonalRouter`, never a hand-rolled path layout; the `LoroTree` co-edit bridge (`api-loro.md`) discriminates `EventTriggerKind.Local`/`Import`/`Checkout` so a local UI mutation commits as tree ops without re-applying its own echo and a remote `Import` applies to the ReactiveUI graph model without re-emitting.

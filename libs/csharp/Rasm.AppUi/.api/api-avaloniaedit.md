@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.AvaloniaEdit`
-
 - package: `Avalonia.AvaloniaEdit`
 - license: `MIT`
 - assembly: `AvaloniaEdit` (note: assembly name ≠ package id; compiled-XAML resources embedded)
@@ -15,7 +14,6 @@
 - rail: editor
 
 [PACKAGE_SURFACE]: `AvaloniaEdit.TextMate`
-
 - package: `AvaloniaEdit.TextMate`
 - license: `MIT`
 - assembly: `AvaloniaEdit.TextMate`
@@ -31,7 +29,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [EDITOR_TYPES]: control, options, editing surface, and rope document model
-
 - rail: editor
 
 | [INDEX] | [SYMBOL]                                   | [SIGNATURE]                                                   | [RAIL]          |
@@ -49,7 +46,6 @@
 |  [11]   | `TextViewPosition`                         | `struct` (`Line`, `Column`, `VisualColumn`)                   | visual position |
 
 [FEATURE_TYPES]: folding, highlighting, completion, search, snippets, and indentation
-
 - rail: editor
 
 | [INDEX] | [SYMBOL]                        | [KIND]                                   | [ROLE]               |
@@ -82,7 +78,6 @@
 |  [26]   | `CSharpIndentationStrategy`     | C# implementation                        | indentation          |
 
 [FEATURE_MEMBER_SHAPES]:
-
 - `FoldingManager`: static `Install(TextArea)`
 - `FoldingSection`: `IsFolded` and `Title`
 - `NewFolding`: `StartOffset`, `EndOffset`, `Name`, and `DefaultClosed`
@@ -102,7 +97,6 @@
 - `IIndentationStrategy`: `IndentLine` and `IndentLines`; `CSharpIndentationStrategy` implements C# indentation.
 
 [RENDERING_TYPES]: the `TextView` extension surface for custom visuals (`AvaloniaEdit.Rendering`)
-
 - rail: editor
 
 | [INDEX] | [SYMBOL]                     | [KIND]            | [ROLE]              |
@@ -116,13 +110,11 @@
 |  [07]   | `BackgroundGeometryBuilder`  | geometry builder  | overlay geometry    |
 
 [RENDERING_MEMBER_SHAPES]:
-
 - `TextView`: `LineTransformers`, `BackgroundRenderers`, `ElementGenerators`, and `Redraw`
 - `VisualLineElementGenerator`: `GetFirstInterestedOffset` and `ConstructElement`
 - `IVisualLineTransformer`: `Transform(ITextRunConstructionContext, IList<VisualLineElement>)`
 
 [COMMAND_TYPES]: routed-command surface for keybinding/menu wiring (`AvaloniaEdit`)
-
 - rail: editor
 
 | [INDEX] | [SYMBOL]               | [KIND]                  | [ROLE]          |
@@ -135,7 +127,6 @@
 |  [06]   | `SearchCommands`       | `RoutedCommand` statics | search keys     |
 
 [COMMAND_MEMBERS]:
-
 - `ApplicationCommands`: `Copy`, `Cut`, `Paste`, `Delete`, `SelectAll`, `Undo`, `Redo`, `Find`, and `Replace`
 - `EditingCommands`: caret and selection movement, indentation, and casing
 - `AvaloniaEditCommands`: `ToggleOverstrike`, `DeleteLine`, `ConvertTabsToSpaces`, …
@@ -143,7 +134,6 @@
 - `SearchCommands`: `FindNext`, `FindPrevious`, `ReplaceNext`, `ReplaceAll`, and `CloseSearchPanel`
 
 [TEXTMATE_TYPES]: TextMate tokenizer adapter (`AvaloniaEdit.TextMate`)
-
 - rail: editor
 
 | [INDEX] | [SYMBOL]                      | [SIGNATURE]                                                                | [RAIL]              |
@@ -158,7 +148,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [EDITOR_ENTRYPOINTS]: `TextEditor` content, state, IO, and change-grouping operations
-
 - rail: editor
 
 | [INDEX] | [SURFACE]            | [SIGNATURE]                                                | [ROLE]             |
@@ -205,7 +194,6 @@
 Wrap multi-edit refactors in `using (editor.DeclareChangeBlock())` (or `BeginChange()`/`EndChange()`) so the `UndoStack` records one reversible step. `Load(Stream)` auto-detects encoding into `Encoding`; `IsModified` drives the dirty indicator.
 
 [FOLDING_ENTRYPOINTS]: `FoldingManager` lifecycle and query
-
 - rail: editor
 
 | [INDEX] | [SURFACE]               | [SIGNATURE]                                                          | [ROLE]          |
@@ -224,7 +212,6 @@ Wrap multi-edit refactors in `using (editor.DeclareChangeBlock())` (or `BeginCha
 `UpdateFoldings` takes a `firstErrorOffset` (folds past a syntax error are dropped); pass `-1` when the whole range is valid. A custom folding strategy produces `NewFolding` rows and calls `UpdateFoldings` — `XmlFoldingStrategy` is the built-in example.
 
 [COMPLETION_ENTRYPOINTS]: IntelliSense popup and item contract
-
 - rail: editor
 
 | [INDEX] | [SURFACE]                    | [SHAPE]                  | [ROLE]         |
@@ -240,7 +227,6 @@ Wrap multi-edit refactors in `using (editor.DeclareChangeBlock())` (or `BeginCha
 |  [09]   | `OverloadInsightWindow.Show` | `void`                   | popup open     |
 
 [COMPLETION_MEMBER_SHAPES]:
-
 - `CompletionData`: `IList<ICompletionData> CompletionList.CompletionData { get; }`
 - `Complete`: `void ICompletionData.Complete(TextArea, ISegment completionSegment, EventArgs)`
 - `Provider`: `IOverloadProvider OverloadInsightWindow.Provider { get; set; }`
@@ -250,7 +236,6 @@ Wrap multi-edit refactors in `using (editor.DeclareChangeBlock())` (or `BeginCha
 Implement `ICompletionData` per suggestion (an `Image`/`Content`/`Description`/`Priority` row whose `Complete` mutates the `TextArea` over the trigger `ISegment`), add rows to `CompletionList.CompletionData`, then `Show()`. The shell command rail (Compute-receipt-backed suggestions) feeds these rows; insertion runs through `Complete`, not direct document mutation.
 
 [SEARCH_ENTRYPOINTS]: regex search/replace panel and strategy
-
 - rail: editor
 
 | [INDEX] | [SURFACE]      | [SIGNATURE]                                                                               | [ROLE]           |
@@ -268,7 +253,6 @@ Implement `ICompletionData` per suggestion (an `Image`/`Content`/`Description`/`
 `SearchCommands.*` (`RoutedCommand` statics with default `KeyGesture`s — Ctrl+F/F3/Ctrl+H) are the keybinding entrypoints the shell command page binds; a programmatic count uses `ISearchStrategy.FindAll` directly.
 
 [SNIPPET_AND_INDENT_ENTRYPOINTS]: template insertion and auto-indent
-
 - rail: editor
 
 | [INDEX] | [SURFACE]     | [SIGNATURE]                                                        | [ROLE]             |
@@ -283,7 +267,6 @@ Implement `ICompletionData` per suggestion (an `Image`/`Content`/`Description`/`
 Build a `Snippet` from `SnippetTextElement` + `SnippetReplaceableTextElement` (tab-stops) + `SnippetCaretElement` parts, then `Insert(textArea)` drives the interactive placeholder session. Assign `TextArea.IndentationStrategy = new CSharpIndentationStrategy(editor.Options)` for newline re-indent.
 
 [TEXTMATE_ENTRYPOINTS]: grammar/theme session bound to one editor
-
 - rail: editor
 
 | [INDEX] | [SURFACE]          | [SHAPE]                | [ROLE]            |
@@ -299,7 +282,6 @@ Build a `Snippet` from `SnippetTextElement` + `SnippetReplaceableTextElement` (t
 |  [09]   | `Dispose`          | `void`                 | session teardown  |
 
 [TEXTMATE_MEMBER_SHAPES]:
-
 - `InstallTextMate`: `Installation InstallTextMate(this TextEditor, IRegistryOptions, bool initCurrentDocument = true, Action<Exception>? exceptionHandler = null)`
 - `SetGrammar`: `void Installation.SetGrammar(string scopeName)`, such as `"source.cs"`
 - `SetGrammarFile`: `void Installation.SetGrammarFile(string path)`
@@ -315,13 +297,11 @@ Build a `Snippet` from `SnippetTextElement` + `SnippetReplaceableTextElement` (t
 ## [04]-[INTEGRATION_LAW]
 
 [EDITOR_RAIL_LAW]:
-
 - Stack: a code surface is `TextEditor` + `Document` (`TextDocument`) wrapped in a `ReactiveUserControl`; `FoldingManager.Install(TextArea)` + a folding strategy own structure; `SearchPanel.Install(editor)` owns find/replace; a `CompletionWindow` populated with `ICompletionData` rows (sourced from Compute receipts) owns IntelliSense; `CSharpIndentationStrategy` owns newline indent. Edits are grouped through `DeclareChangeBlock()` for one undo step.
 - Accept: code-view intent maps to `TextEditor` over `TextDocument` state with the feature owners installed onto its `TextArea`/`TextView`.
 - Reject: `TextBox`-derived custom code editors; direct document mutation that bypasses `ICompletionData.Complete` / the `UndoStack`.
 
 [GRAMMAR_RAIL_LAW]:
-
 - Stack: tokenization is `editor.InstallTextMate(registryOptions)` -> `installation.SetGrammar(scope)` -> `installation.SetTheme(registryOptions.LoadTheme(ThemeName.…))`, where `registryOptions`, scope strings, and theme handles all come from `TextMateSharp.Grammars` (`api-textmatesharp.md` — `[REGISTRY_ENTRYPOINTS]` owns `RegistryOptions`/`GetScopeByExtension`/`LoadTheme`, and the custom `IRegistryOptions` that registers `source.rasm`/`source.rasm-expression` is its `[LOCATOR_RAIL_LAW]`). The single `Installation` owns the `TextMateColoringTransformer` on `TextView.LineTransformers`; theme changes raise `AppliedTheme` for the surrounding shell to follow (chrome colors read `Theme.GetGuiColorDictionary` via `TryGetThemeColor`).
 - Accept: grammar and theme flow through one `Installation` against an `IRegistryOptions`; the editor `SyntaxHighlighting` (xshd) path and the TextMate path are mutually exclusive per editor — TextMate replaces xshd colorization. A non-editor surface that needs the same coloring drives the standalone `Registry`/`IGrammar.TokenizeLine` rail from `api-textmatesharp.md`, never a second `InstallTextMate`.
 - Reject: per-keystroke manual recolorization outside the installation transformers; treating `IRegistryOptions`/`ThemeName` as AvaloniaEdit types (they are `TextMateSharp`); leaking the `Installation` (it must be disposed when the editor unloads — wire it through `WhenActivated`'s `CompositeDisposable`).

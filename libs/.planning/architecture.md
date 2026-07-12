@@ -6,34 +6,29 @@ The canonical monorepo hierarchy law — the strata, the dependency direction, t
 
 The repository is one tri-language AEC platform organized into strict strata. Each stratum depends only upward; each package is a genuine higher-order domain, never a weak or mini sibling. The C# branch carries the durable host-bound source and the geometry/AEC capability; Python and TypeScript are host-free peer runtimes that consume the wire.
 
-[KERNEL]
-
+[KERNEL]:
 - Folder(s): `Rasm`
 - The RhinoCommon-aware geometry/numeric kernel — planning-scoped, one `.planning/` root spanning the Domain, Numerics, Spatial, Parametric, Meshing, Processing, Solving, Drawing, and Analysis sub-domains, each a folder-true namespace. The branch base: referenced by every higher stratum, references none.
 
-[AEC-DOMAIN]
-
+[AEC-DOMAIN]:
 - Folder(s): the lowest-AEC element seam `Rasm.Element`, then the AEC peers `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`.
 - `Rasm.Element` is the shared lowest-AEC sub-stratum: the canonical `ElementGraph` property-graph (entity + objectified relationships + typed property/quantity/material/assessment/coverage payloads) plus the `IElementProjection`/`IGraphConstraint` contracts the peers depend up on and implement. It references the kernel only, owns no IFC stack and no host geometry (geometry is referenced by content hash), and re-mints nothing the kernel owns (one `XxHash128` seed).
 - The AEC peers carry host-neutral AEC capability: profiles/appearance/construction, the BIM object-model + IFC/glTF/STEP exchange, and portable fabrication (HLR/CAM/nesting).
 - Each AEC peer depends up on `{Rasm, Rasm.Element}` and projects its foreign source (GeometryGym in Bim, VividOrange in Materials) onto the shared `ElementGraph` through an `IElementProjection`; the peers never reference each other.
 - AEC peer alignment travels through seam contracts and the content-keyed wire, the same shape as depending on the kernel, so each package stays fully usable in isolation.
 
-[APP-PLATFORM]
-
+[APP-PLATFORM]:
 - Folder(s): `Rasm.AppHost`, `Rasm.Compute`, `Rasm.Persistence`, `Rasm.AppUi`
 - Generic application capability: runtime spine, measured execution, durable stores, product UI. Composes the kernel and AEC-domain and owns no geometry, BIM semantics, or fabrication algorithms — it consumes them.
 - Target: `Rasm.Generation` — the layout/generation/assembly orchestration library.
 - `Rasm.Generation` owns the orchestration that turns a sited occurrence, inherited `Component` generative data, construction primitives, and bond/layout policy into host-neutral kernel geometry.
 - It composes the kernel's geometry operations rather than owning geometry primitives, depends up on `{Rasm, Rasm.Element, Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`, and leaves live-document bake to the host boundary.
 
-[HOST-BOUNDARY]
-
+[HOST-BOUNDARY]:
 - Folder(s): `Rasm.Rhino`, `Rasm.Grasshopper`
 - Self-contained, host-bound RhinoCommon/GH2 boundaries. Reference only the kernel; admitted only at the app roots, never as an interior dependency of a host-neutral package.
 
-[APP]
-
+[APP]:
 - Folder pattern: `apps/<concern>` product shells.
 - Compose APP-PLATFORM + HOST-BOUNDARY into product shells that declare intent, bind host edges, and emit output.
 

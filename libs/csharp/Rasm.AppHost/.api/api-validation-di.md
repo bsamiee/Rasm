@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FluentValidation.DependencyInjectionExtensions`
-
 - package: `FluentValidation.DependencyInjectionExtensions`
 - assembly: `FluentValidation.DependencyInjectionExtensions`
 - namespace: `FluentValidation`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: registration family
-
 - rail: validation
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]          | [RAIL]                 |
@@ -27,7 +25,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
-
 - rail: validation
 
 | [INDEX] | [SURFACE]                                   | [ENTRY_FAMILY]    | [RAIL]                     |
@@ -43,7 +40,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [VALIDATION_REGISTRATION_TOPOLOGY]:
-
 - namespaces: `FluentValidation`
 - scan source: assembly, assemblies, marker type
 - scan result: validator interface type plus validator implementation type
@@ -51,14 +47,12 @@
 - service shape: validators register as `IValidator<T>`
 
 [LOCAL_ADMISSION]:
-
 - Validator scanning happens at composition roots.
 - Lifetimes are explicit policy; validators with scoped dependencies do not register as singleton.
 - Scan filters are deterministic and package-owned.
 - Validator resolution goes through the service provider directly; validator factories stay rejected.
 
 [RAIL_LAW]:
-
 - Package: `FluentValidation.DependencyInjectionExtensions`
 - Owns: validator registration
 - Accept: validators enter composition roots

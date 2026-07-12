@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.Json`
-
 - package: `Thinktecture.Runtime.Extensions.Json`
 - assembly: `Thinktecture.Runtime.Extensions.Json`
 - bound asset: `lib/net9.0` for `net10.0` consumers
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: converter factory family
-
 - rail: wire-json
 
 | [INDEX] | [SYMBOL]                                                            | [KIND]          | [CAPABILITY]             |
@@ -27,7 +25,6 @@
 |  [04]   | `ThinktectureSpanParsableJsonConverterFactory<T, TValidationError>` | span factory    | builds span converters   |
 
 [PUBLIC_TYPE_SCOPE]: converter family
-
 - rail: wire-json
 
 | [INDEX] | [SYMBOL]                                                     | [PACKAGE_ROLE]   | [CAPABILITY]                                    |
@@ -37,7 +34,6 @@
 |  [03]   | `ThinktectureSpanParsableJsonConverter<T, TValidationError>` | span converter   | zero-allocation UTF-8 validation read           |
 
 [PUBLIC_TYPE_SCOPE]: reader, writer, and metadata seam family
-
 - rail: wire-json
 
 | [INDEX] | [SYMBOL]                                    | [NAMESPACE]                            | [CAPABILITY]            |
@@ -53,7 +49,6 @@ The per-numeric-type key converters (`ByteKeyConverter`/`SByteKeyConverter`/`Sho
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: factory registration and converter selection
-
 - rail: wire-json
 
 | [INDEX] | [SURFACE]                                                   | [KIND]   | [CAPABILITY]                 |
@@ -65,7 +60,6 @@ The per-numeric-type key converters (`ByteKeyConverter`/`SByteKeyConverter`/`Sho
 |  [05]   | `CreateConverter(Type, JsonSerializerOptions)`              | override | selects the converter family |
 
 [ENTRYPOINT_SCOPE]: conversion operations
-
 - rail: wire-json
 
 | [INDEX] | [SURFACE]                                         | [KIND]        | [CAPABILITY]                 |
@@ -82,30 +76,25 @@ The per-numeric-type key converters (`ByteKeyConverter`/`SByteKeyConverter`/`Sho
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GENERATOR_HANDSHAKE]:
-
 - The core `Thinktecture.Runtime.Extensions` generator emits the owner metadata, `IObjectFactory<T, TKey, TValidationError>`, key conversion, and validation contracts these converters bind. This package does not own declaration attributes or generated domain owners; it owns their STJ projection.
 - The non-generic `ThinktectureJsonConverterFactory` is the options-level route. Generated owners may also carry a typed `[JsonConverter]` factory attribute. Both paths terminate in the same converter family.
 
 [VALIDATION_RAIL]:
-
 - Deserialization decodes the JSON key and calls the generated static `Validate` rail. A non-null validation error surfaces at the serializer edge as `JsonException` rather than bypassing the generated owner invariant.
 - Span-parsable owners use the UTF-8 span converter path so hot wire reads avoid an intermediate `string`; a string-keyed owner opts out via `DisableSpanBasedJsonConversion`, and the factory's `Func<Type, bool>?` callback opts out per type.
 - `IDisallowDefaultValue` owners reject null and null-key payloads during read. The metadata factory declines `Nullable<T>` and defers to the framework's nullable wrapper.
 
 [STACKING]:
-
 - `api-thinktecture-runtime-extensions.md` owns the core source-generator contracts and generated owner surface.
 - `api-thinktecture-messagepack.md` owns the binary MessagePack bridge over the same generated metadata.
 - `api-nodatime-stj.md` owns NodaTime semantic-time converters. A shared options profile may register both NodaTime and Thinktecture converters because their type spaces are distinct.
 
 [LOCAL_ADMISSION]:
-
 - Register the non-generic factory once on an STJ options profile when generated owners cross that wire without per-owner attribute wiring.
 - Keep key conversion inside the converter. Callers do not pre-convert keys, bypass validation, or post-validate generated owners.
 - Do not hand-roll STJ converters for generated Value Objects, Smart Enums, or Unions.
 
 [RAIL_LAW]:
-
 - Package: `Thinktecture.Runtime.Extensions.Json`
 - Owns: System.Text.Json conversion for Thinktecture-generated owners.
 - Accept: validation-railed key conversion through the factory/converter family; `JsonNumberHandling`-aware numeric key codecs; property-name codecs for dictionary keys.

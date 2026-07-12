@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `UnitsNet`
-
 - package: `UnitsNet` (MIT-0, © Andreas Gullberg Larsen)
 - assembly: `UnitsNet`
 - namespace: `UnitsNet`, `UnitsNet.Units` (unit enums)
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: quantity contracts and value carriers
-
 - rail: units
 
 `IQuantity` owns boxed projection and conversion; its generic forms progressively bind the unit, scalar, and self type. `QuantityValue` preserves each admitted scalar as `double` or `decimal` and projects to either primitive only by explicit cast.
@@ -33,7 +31,6 @@
 |  [09]   | `BaseUnits`                                 | sealed class         | nullable SI unit policy    |
 
 [PUBLIC_TYPE_SCOPE]: admitted quantity families (each a `readonly struct` with native operators)
-
 - rail: units
 
 Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `TemperatureDelta` carries affine temperature differences. Material-specific heat capacity carries a consumer-minted identity beside its shared dimension instead of reusing `SpecificEntropy`.
@@ -68,7 +65,6 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 |  [26]   | `RotationalSpeed`         | `RadianPerSecond`          | angular velocity          |
 
 [PUBLIC_TYPE_SCOPE]: admitted unit enum families (`UnitsNet.Units`)
-
 - rail: units
 
 `[BASE_UNIT]` is each quantity type's `BaseUnit`; `[DISPLAY]` is the local projection policy.
@@ -103,7 +99,6 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 |  [26]   | `RotationalSpeedUnit`         | `RadianPerSecond`          | `RevolutionPerMinute` |
 
 [PUBLIC_TYPE_SCOPE]: parsing, conversion, metadata, and setup
-
 - rail: units
 
 | [INDEX] | [SYMBOL]                 | [SHAPE]            | [CAPABILITY]                |
@@ -128,7 +123,6 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: quantity contracts and scalar metadata
-
 - rail: units
 
 | [INDEX] | [SURFACE]                                          | [CAPABILITY]                |
@@ -168,7 +162,6 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 |  [33]   | `BaseUnits.Undefined`                              | undefined policy            |
 
 [ENTRYPOINT_SCOPE]: typed quantity construction, conversion, and operators
-
 - rail: units
 - surface-root: per-quantity struct (e.g. `Length`)
 
@@ -216,7 +209,6 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 |  [40]   | `Length.DefaultConversionFunctions`          | conversion registry         |
 
 [ENTRYPOINT_SCOPE]: typed and dynamic parsing
-
 - rail: units
 
 | [INDEX] | [SURFACE]                                                                                   | [CAPABILITY]                      |
@@ -236,7 +228,6 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 |  [13]   | `UnitParser.Default.TryParse<TUnit>(string?, IFormatProvider?, out TUnit)`                  | guarded unit-enum parse           |
 
 [ENTRYPOINT_SCOPE]: conversion, aggregation, metadata, and setup
-
 - rail: units
 
 | [INDEX] | [SURFACE]                                                                                        | [CAPABILITY]                |
@@ -281,14 +272,12 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 ## [04]-[IMPLEMENTATION_LAW]
 
 [UNIT_ALGEBRA]:
-
 - Every quantity is a `readonly struct` implementing generic-math static-abstract interfaces; native operators preserve quantity identity across same-quantity, scalar, ratio, and cross-quantity algebra. Cross-quantity operators produce typed results at compile time, while a bare `double` carries no unit contract.
 - `QuantityValue` preserves an admitted scalar as `double` or `decimal` until construction. `IValueQuantity<TValue>` fixes each quantity family's backing scalar, so the family rather than the input literal determines stored precision; primitive projection remains a boundary operation.
 - Conversion dispatch follows input shape and reuse: typed structs convert directly, runtime-selected pairs route through `UnitConverter`, and repeated pairs reuse a `ConversionFunction`.
 - `UnitSystem` projects policy through the units selected by `BaseUnits`, so a receipt declares one unit system for every quantity. `BaseDimensions` is the physical signature for derived-quantity discovery through `Quantity.GetQuantitiesWithBaseDimensions`.
 
 [NAMED_IDENTITY]:
-
 - `QuantityInfo.Name` is the stable quantity-type identity keyed by `Quantity.ByName`; boxed quantities expose it through `q.QuantityInfo.Name`.
 - `QuantityInfo.Name` is the discriminator, while `BaseDimensions` is the physical signature for derived-dimension algebra and same-dimension validity.
 - Same-dimension quantities remain distinct because dispatch uses `QuantityInfo.Name`, while `BaseDimensions` validates physical compatibility.
@@ -297,21 +286,18 @@ Each row binds one `QuantityInfo.Name` to its `BaseUnit` and physical concern. `
 - `q.Dimensions.IsDimensionless()` partitions SI reprojection. Dimensional quantities call `ToUnit(UnitSystem.SI)`; zero-vector quantities retain their constructed unit because unit-system reprojection raises `ArgumentException` when no unit matches the policy.
 
 [LOCAL_ADMISSION]:
-
 - Compute numeric inputs and receipts carry explicit quantity structs whenever units affect meaning; the quantity type carries unit identity with the scalar.
 - Unit conversion is boundary rail policy, and culture-aware parse and format cross through `IFormatProvider` at the same boundary.
 - Collection aggregation flows through `UnitMath`, which folds quantities in the selected unit without collapsing their type.
 - Quantity metadata drives diagnostics, support output, and receipt projection; the `Quantity` and `IQuantity` façade is the reflection seam for a runtime-selected family.
 
 [STACKING]:
-
 - `Angle` bridges the `Rasm` geometry kernel: kernel rotation policy selects `AngleUnit.Radian`, so `Angle.FromDegrees(d).Radians` projects a degree input without reimplementing the conversion.
 - `System.Text.Json` / Thinktecture-JSON (`api-thinktecture-json.md`): persist a measured receipt as `{ value, unit }` (the `IQuantity.Value` + `IQuantity.Unit` pair) and rehydrate through `Quantity.From(value, unitEnum)` — the dynamic façade is the deserialization entry. Never serialize the struct's private fields.
 - Avalonia binding (`api-reactiveui-avalonia.md`): a view-model exposes `length.ToString(" mm", culture)` for display and parses user text through `Length.TryParse(text, culture, out _)`; an `IValueConverter` wrapping `As` and `Parse` is the XAML seam. `UnitAbbreviationsCache.Default` localizes culture-keyed abbreviations.
 - `NodaTime` (`api-nodatime.md`): a `Duration` quantity (physical seconds) is distinct from a NodaTime `Duration` (a clock span) — keep the unit-bearing UnitsNet `Duration` for measured physical durations on receipts and the NodaTime type for wall-clock intervals; they meet only where a physical second is reinterpreted as elapsed time.
 
 [RAIL_LAW]:
-
 - Package: `UnitsNet`
 - Owns: typed quantity algebra, registry identity, boundary conversion, unit-system policy, and typed aggregation.
 - Accept: unit-aware execution inputs and receipts; `QuantityInfo.Name` identity with `BaseDimensions` validation; boundary conversion; `UnitMath` aggregation; `{ value, unit }` wire projection.

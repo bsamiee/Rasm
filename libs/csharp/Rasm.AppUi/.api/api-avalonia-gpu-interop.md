@@ -5,7 +5,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia` 'compositor'
-
 - package: `Avalonia`
 - license: MIT
 - floor: `net10.0` consumer; the GPU-interop surface resolves from the `ref/net10.0` reference assembly (`Avalonia.Base.dll`)
@@ -17,7 +16,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: compositor and GPU-interop owners — `Avalonia.Rendering.Composition`
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                                                 | [KIND]            | [RAIL]                |
@@ -35,7 +33,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 |  [11]   | `CompositionGpuImportedImageSynchronizationCapabilities` | flags enum        | synchronization modes |
 
 [PUBLIC_TYPE_SCOPE]: external-image and handle vocabulary — `Avalonia.Platform`
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                                            | [KIND]             | [RAIL]                   |
@@ -49,7 +46,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: compositor acquisition, GPU-interop query, surface/visual factories — `Compositor` / `ElementComposition`
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                            | [SURFACE_ROOT]       | [RAIL]                 |
@@ -66,7 +62,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 |  [10]   | `RequestCompositionUpdate(Action)`                                   | `Compositor`         | pre-commit callback    |
 
 [ENTRYPOINT_SCOPE]: external image and semaphore import + sync-capability query — `ICompositionGpuInterop`
-
 - rail: visuals
 
 | [INDEX] | [MEMBER]                         | [FORM]                   | [RESULT]           |
@@ -88,7 +83,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 [SYNC_CAPABILITY_QUERY]: `GetSynchronizationCapabilities(string imageHandleType) : CompositionGpuImportedImageSynchronizationCapabilities` returns the update-mode flags for one handle type.
 
 [ENTRYPOINT_SCOPE]: synchronization-discriminated surface update family — `CompositionDrawingSurface`
-
 - rail: visuals
 
 | [INDEX] | [MEMBER]                            | [SYNC_CAP]           | [PRIMITIVE]      |
@@ -110,7 +104,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 [SURFACE_TEARDOWN]: `Dispose()` tears down the surface, and `~CompositionDrawingSurface()` posts finalizer disposal to the dispatcher.
 
 [ENTRYPOINT_SCOPE]: GPU-interop capability properties + imported-handle lifetime — `ICompositionGpuInterop` / `ICompositionGpuImportedObject`
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                   | [TYPE]                  | [RAIL]                                                              |
@@ -124,7 +117,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 |  [07]   | `IsLost` (imported handle)  | `bool`                  | per-imported-object device-context loss                             |
 
 [ENTRYPOINT_SCOPE]: imported-image shape — `PlatformGraphicsExternalImageProperties` (record struct)
-
 - rail: visuals
 
 | [INDEX] | [FIELD]         | [TYPE]                                | [RAIL]                                           |
@@ -137,7 +129,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 |  [06]   | `TopLeftOrigin` | `bool`                                | origin convention; false flips the sampled frame |
 
 [ENTRYPOINT_SCOPE]: known handle-type constants — `KnownPlatformGraphicsExternalImageHandleTypes` / `…SemaphoreHandleTypes`
-
 - rail: visuals
 
 | [INDEX] | [CONSTANT]                                       | [OWNER]                | [RAIL]                                                   |
@@ -153,7 +144,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 ## [04]-[IMPLEMENTATION_LAW]
 
 [INTEROP_TOPOLOGY]:
-
 - A control obtains its compositor through `ElementComposition.GetElementVisual(this)?.Compositor`. `GetElementVisual` returns `CompositionVisual?` and remains null until the control enters a render tree, so the capsule defers import to the first composition update.
 - `Compositor.TryGetCompositionGpuInterop()` returns `ValueTask<ICompositionGpuInterop?>`; a null or `IsLost` result folds to the `Software` Skia-raster path.
 - The settable `DeviceLuid` and `DeviceUuid` identify the compositor's graphics adapter. The external wgpu/D3D/Vulkan device matches these byte arrays through `Silk.NET.WebGPU` `InstanceRequestAdapter`, and a D3D import may set `DeviceLuid` to pin the target.
@@ -169,7 +159,6 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 - Each update returns a `Task` that completes when the render thread releases the image, so reuse or disposal follows the await.
 
 [STACKING]:
-
 - Stacks UNDER `api-silk-webgpu` / `api-silk-webgpu-wgpu`: the `Wgpu` `GpuBackend` `RenderTargetFactory` row enters through `WebGPU.GetApi()`, `CreateInstance`, and `InstanceRequestAdapter`, with the adapter matched to this interop's `DeviceLuid` or `DeviceUuid`.
 - `AdapterRequestDevice` and `DeviceGetQueue` establish execution; `CommandEncoder`, `RenderPassEncoder`, and `ComputePassEncoder` record mesh-shader and compute passes; `QueueSubmit` executes them. The rendered wgpu `Texture` exports as the platform handle consumed by this catalog's `ImportImage`.
 - The exported synchronization primitive selects the `UpdateWith*Async` method: a wgpu fence or timeline selects `UpdateWithTimelineSemaphoresAsync`, a D3D11 keyed mutex selects `UpdateWithKeyedMutexAsync`, and a Metal `IOSurface` selects `UpdateAsync`.
@@ -178,13 +167,11 @@ The Avalonia 12 compositor GPU-interop seam imports an externally-rendered GPU t
 - Consumed by `.planning/Render/pipeline.md` `[WGPU_BACKEND]` SPIKE: that page's `RenderTargetFactory` `Wgpu` row binds the wgpu swapchain and presents through this seam; the page's prior `CompositionDrawingSurface.UpdateWithExternalImageAsync` spelling resolves to the real `UpdateWith{KeyedMutex,Semaphores,TimelineSemaphores}Async`/`UpdateAsync` family this catalog documents, the method chosen by `GetSynchronizationCapabilities` per the backend's export format.
 
 [LOCAL_ADMISSION]:
-
 - The GPU-interop path is the compositor seam superseding the bare `ISkiaSharpApiLease.TryLeasePlatformGraphicsApi` for an external-backend render: the lease path shares Avalonia's own `GRContext`, the interop path imports an independently-rendered external texture. The `Wgpu` `GpuBackend` family renders with its own wgpu device and presents through `ImportImage`; the SkiaSharp Ganesh families render through the leased `GRContext`.
 - Imported images and semaphores are lifetime-scoped handles; both implement `IAsyncDisposable` and expose `ImportCompleted`/`IsLost` through `ICompositionGpuImportedObject`. The boundary capsule awaits `ImportCompleted` before freeing a non-owning source resource, pairs import-and-dispose per frame or per resize, and never leaks an imported handle across a device-lost (`IsLost`) transition on either the interop or the imported-object level.
 - All GPU-interop work runs on the compositor's render thread; the import calls return immediately-usable handles and the `Update*Async` calls complete on the compositor loop, so the boundary capsule awaits the `ValueTask`/`Task` rather than blocking the UI thread, and schedules tree mutations through `Compositor.RequestCompositionUpdate` when it must run after layout.
 
 [RAIL_LAW]:
-
 - Package: `Avalonia` (`Avalonia.Base` compositor + `Avalonia.Platform` handle vocabulary)
 - Owns: the GPU-interop seam — compositor acquisition, external GPU image/semaphore import, adapter identity match, the surface/visual factory + `SetElementChildVisual` attach, and the synchronization-discriminated `Update*Async` refresh for an externally-rendered (`Wgpu`) viewport frame.
 - Accept: `TryGetCompositionGpuInterop` query, `DeviceLuid`/`DeviceUuid` adapter match, `ImportImage`/`ImportSemaphore` shared-handle import, `GetSynchronizationCapabilities`-driven selection of the matching `UpdateWith{KeyedMutex,Semaphores,TimelineSemaphores}Async`/`UpdateAsync`, the `Surface`-slot + `SetElementChildVisual` tree attach.

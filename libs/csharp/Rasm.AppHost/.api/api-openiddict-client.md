@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenIddict.Client`
-
 - package: `OpenIddict.Client`
 - license: `Apache-2.0`
 - assembly: `OpenIddict.Client`
@@ -20,7 +19,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client service and configuration — `OpenIddict.Client`
-
 - rail: oidc-client
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                              |
@@ -32,7 +30,6 @@
 |  [05]   | `OpenIddictClientEndpointType` | enum               | redirection endpoint classification |
 
 [PUBLIC_TYPE_SCOPE]: request/result records — `OpenIddictClientModels`
-
 - rail: oidc-client
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]  | [RAIL]                                |
@@ -59,7 +56,6 @@
 |  [20]   | `InteractiveSignOutResult`               | result record  | nonce-carrying sign-out handle        |
 
 [PUBLIC_TYPE_SCOPE]: DI registration and builder — `Microsoft.Extensions.DependencyInjection`
-
 - rail: oidc-client
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY] | [RAIL]                                    |
@@ -70,7 +66,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: token-acquisition verbs — `OpenIddictClientService`
-
 - rail: oidc-client
 
 The challenge verbs emit a nonce-bearing handle that the matching authentication verb redeems. Each request record discriminates the target registration by `Issuer`, `ProviderName`, or `RegistrationId`; setting `RegistrationId` is mandatory when multiple registrations share an issuer or provider. `SignOutInteractivelyAsync` starts RP-initiated logout and returns an `InteractiveSignOutResult` nonce handle.
@@ -91,7 +86,6 @@ The challenge verbs emit a nonce-bearing handle that the matching authentication
 |  [12]   | `SignOutInteractivelyAsync(InteractiveSignOutRequest)`                           | sign-out handle       |
 
 [FLOW_DETAILS]:
-
 - `ChallengeInteractivelyAsync`: builds the authorization URL and returns its nonce handle
 - `ChallengeUsingDeviceAsync`: returns the user code, device code, and verification URI
 - `AuthenticateWithDeviceAsync`: polls the device code for a token bundle
@@ -101,7 +95,6 @@ The challenge verbs emit a nonce-bearing handle that the matching authentication
 - `RevokeTokenAsync`: returns the `RevocationResult`
 
 [ENTRYPOINT_SCOPE]: registration and metadata resolution — `OpenIddictClientService`
-
 - rail: oidc-client
 
 | [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]     | [RAIL]                                         |
@@ -115,7 +108,6 @@ The challenge verbs emit a nonce-bearing handle that the matching authentication
 |  [07]   | `GetServerConfigurationByRegistrationIdAsync(string, CT)` | metadata discovery | `OpenIddictConfiguration` by registration      |
 
 [ENTRYPOINT_SCOPE]: DI and builder wiring — `Microsoft.Extensions.DependencyInjection`
-
 - rail: oidc-client
 
 Credential member names denote their overload families; the development signing members supply development-only material.
@@ -155,7 +147,6 @@ Credential member names denote their overload families; the development signing 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CLIENT_TOPOLOGY]:
-
 - package boundary: `OpenIddict.Client` is the relying-party client; no `OpenIddict.Server` package participates in token acquisition
 - acquisition stack: `OpenIddict.Client` requests `Microsoft.IdentityModel.JsonWebTokens` `8.16.0` and the `Microsoft.IdentityModel.Protocols` `8.16.0` refresh-manager substrate
 - validation convergence: direct `Microsoft.IdentityModel.Protocols.OpenIdConnect` and `Microsoft.IdentityModel.JsonWebTokens` `8.19.1` pins unify the transitive IdentityModel graph to the lockfile-resolved `8.19.1` line
@@ -174,7 +165,6 @@ Credential member names denote their overload families; the development signing 
 - endpoint enum: `OpenIddictClientEndpointType` classifies inbound redirection (`Redirection`, `PostLogoutRedirection`, `Unknown`) for callback handling
 
 [LOCAL_ADMISSION]:
-
 - Resolve `OpenIddictClientService` from DI; never construct flow handlers directly.
 - Register the client through `services.AddOpenIddict().AddClient(...)`; enable exactly the flows the agent uses with the `Allow*Flow` builders, and register each provider once through `AddRegistration`.
 - Drive machine-to-machine acquisition through `AuthenticateWithClientCredentialsAsync`; refresh through `AuthenticateWithRefreshTokenAsync`; cross-service delegation through `AuthenticateWithTokenExchangeAsync`.
@@ -184,7 +174,6 @@ Credential member names denote their overload families; the development signing 
 - Read tokens and expiration from the typed result `required` members; treat the raw `OpenIddictResponse`/principals as the audit surface, the typed members as the contract.
 
 [RAIL_LAW]:
-
 - Package: `OpenIddict.Client`
 - Owns: OAuth 2.0 / OIDC relying-party token acquisition, RP-initiated interactive sign-out, introspection, revocation, registration resolution, and server-metadata discovery
 - Accept: flow-specific request records through `OpenIddictClientService`; provider identity through `OpenIddictClientRegistration`; flow and credential enablement through `OpenIddictClientBuilder`

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Dock.Avalonia`
-
 - package: `Dock.Avalonia`
 - license: MIT (expression)
 - assembly: `Dock.Avalonia`
@@ -21,7 +20,6 @@
 - rail: docking
 
 [PACKAGE_SURFACE]: `Dock.Model.ReactiveUI`
-
 - package: `Dock.Model.ReactiveUI`
 - license: MIT (expression)
 - assembly: `Dock.Model.ReactiveUI`
@@ -39,7 +37,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [DOCK_CONTROLS]: `Dock.Avalonia.Controls` visual tree
-
 - rail: docking
 
 | [INDEX] | [SYMBOL]                                    | [RAIL]                          |
@@ -58,7 +55,6 @@
 |  [12]   | `ToolPinnedControl`                         | pinned tools                    |
 
 [WINDOW_TARGET_OVERLAY_TYPES]: floating windows, managed-float layer, drop targets, selectors, overlays, MDI
-
 - rail: docking
 
 | [INDEX] | [SYMBOL]                       | [RAIL]                    |
@@ -93,24 +89,20 @@
 |  [28]   | `DockSelectorMode`             | selector scope            |
 
 [IDOCK_THEME_MANAGER]:
-
 - Namespace: `Dock.Avalonia.Themes`
 - Binding: the `Factory` override exposes `Func<IDockThemeManager>`
 - Effect: theme-variant changes update dock-owned brushes
 
 [IEXTERNAL_DOCK_SURFACE]:
-
 - Properties: `DockControl? DockControl { get; set; }` and `Control SurfaceControl { get; }`
 - Lifecycle: `DockControl.RegisterExternalDockSurface` attaches and `UnregisterExternalDockSurface` detaches the embedded surface
 
 [DOCK_SELECTOR_MODE]:
-
 - Namespace: `Dock.Avalonia.Selectors`
 - Values: `Documents`, `Tools`, and `All`
 - Consumer: `DockControl.ShowSelector`
 
 [MODEL_TYPES]: `Dock.Model.ReactiveUI` graph + `Dock.Model.Core`/`Controls` contracts
-
 - rail: docking
 
 | [INDEX] | [SYMBOL]                   | [RAIL]                |
@@ -144,27 +136,22 @@
 |  [27]   | `IDockDispatcher`          | UI-thread dispatch    |
 
 [IDOCK_MANAGER]:
-
 - Validation: `ValidateTool`, `ValidateDocument`, `ValidateDock`, and `ValidateDockable`
 - Inputs: source, target, `DragAction`, `DockOperation`, and execution state
 - Visibility: `IsDockTargetVisible`
 
 [IDOCK_STATE]:
-
 - Snapshot: `Save(IDock)`, `Restore(IDock)`, and `Reset()`
 
 [IDOCK_SERIALIZER]:
-
 - Methods: `Serialize<T>(T)`, `Deserialize<T>(string)`, `Load<T>(Stream)`, and `Save<T>(Stream,T)`
 - Implementation: `Dock.Serializer.SystemTextJson.DockSerializer` (`api-dock-serializer.md`)
 
 [IDOCK_DISPATCHER]:
-
 - Namespace: `Dock.Model.ReactiveUI.Services`
 - Operation: UI-thread post
 
 [MODEL_ENUMS]: `Dock.Model.Core` vocabulary
-
 - rail: docking
 
 | [INDEX] | [SYMBOL]                                                                   | [RAIL]                                 |
@@ -183,7 +170,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: `DockControl` wiring (`StyledProperty`-backed)
-
 - rail: docking
 
 | [INDEX] | [SURFACE]                                             | [TYPE]                | [RAIL]          |
@@ -205,7 +191,6 @@
 |  [15]   | `HideSelector()`                                      | method                | hide selector   |
 
 [FACTORY_CONSTRUCTION]: `Factory` (`IFactory`) layout construction — every `Create*` returns the typed `Dock.Model` contract
-
 - rail: docking
 
 | [INDEX] | [SURFACE]                           | [RETURNS]                   | [RAIL]          |
@@ -221,7 +206,6 @@
 |  [09]   | `CreateList<T>(params T[])`         | `IList<T>`                  | dockable list   |
 
 [FACTORY_OPERATIONS]: `IFactory` docking operations — the layout graph mutates HERE, not through view manipulation
-
 - rail: docking
 
 | [INDEX] | [SURFACE]                                   | [RAIL]           |
@@ -250,14 +234,12 @@
 |  [22]   | `DockableRestored`                          | event            |
 
 [RESTORE_DOCKABLE]:
-
 - Resolution: `RestoreDockable(string id)` resolves through `DockableLocator`
 - Ownership: the restored dockable rejoins the graph
 - Notification: `OnDockableRestored` raises `DockableRestored`
 - Counterpart: `IDockState.Restore`
 
 [FACTORY_REGISTRIES]: `IFactory` live `IDictionary`/`IList` registries the runtime maintains
-
 - rail: docking
 
 | [INDEX] | [SURFACE]                                                                    | [RAIL]                                    |
@@ -268,7 +250,6 @@
 |  [04]   | `DockableLocator : IDictionary<string, Func<IDockable?>>?`                   | id-to-dockable resolver (deserialization) |
 
 [MODEL_GRAPH_PROPERTIES]: `Dock.Model.Core`/`Controls` node + leaf properties the `Factory`-built graph assigns (every property is `get; set;`)
-
 - rail: docking
 
 | [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT]      | [RAIL]                        |
@@ -283,21 +264,18 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DOCKING_LAW]:
-
 - Package: `Dock.Avalonia`
 - Owns: the dock visual tree, drag/drop targets (`DockTarget`/`GlobalDockTarget`), OS and managed-in-window floating hosts (`HostWindow` / `ManagedWindowLayer` gated by `EnableManagedWindowLayer`), pinned docks, selector overlays, the overlay layer (dialog/confirmation/busy via `OverlayHost`), command-bar merge (`DockCommandBarManager`), MDI (`ClassicMdiLayoutManager`/`MdiDocumentControl`), and theme presets (`DockPresetThemeManagerBase`).
 - Accept: panel arrangement intent expressed as an `IDock` graph bound through `DockControl.Layout`; the `DockControl.DockManager` (`IDockManager`) validates every drag/drop and the `Factory` operations mutate the graph; data templates resolve `Document`/`Tool` view-models to views (auto-generated when `AutoCreateDataTemplates`).
 - Reject: hand-built splitter/tab arrangements for dockable panels; mutating the dock graph through view manipulation instead of the `IFactory` operations; a second selector/overlay layer beside `DockSelectorOverlay`/`OverlayHost`.
 
 [MODEL_LAW]:
-
 - Package: `Dock.Model.ReactiveUI` (over the `Dock.Model` host-neutral core)
 - Owns: the ReactiveUI binding of the dock model graph (`DockBase`/`DockableBase` are `ReactiveObject`s) and the `Factory : FactoryBase` override that constructs ReactiveUI-typed `RootDock`/`DocumentDock`/`ToolDock`/`Document`/`Tool` and carries the inherited `IFactory` operations and registries.
 - Accept: layout state lives in factory-created models; `DocumentDock.CanCreateDocument`/`CreateDocument` drives runtime document spawning; `IDockDispatcher.Invoke` (the `Dock.Model.ReactiveUI.Services` surface) marshals graph mutation onto the Avalonia UI thread; observed-property reactivity drives the bound `DockControl` without manual invalidation.
 - Reject: view-layer mutation of dock structure outside the factory surface; a hand-rolled `INotifyPropertyChanged` model duplicating `DockableBase`; a `Dock.Model.Avalonia`/`Dock.Model.Mvvm` parallel binding when the ReactiveUI binding is the admitted one.
 
 [PERSISTENCE_LAW]:
-
 - Graph: `IDockSerializer` round-trips the `IFactory` graph and registries through `Dock.Serializer.SystemTextJson.DockSerializer` (`api-dock-serializer.md`).
 - Snapshot: `IDockState.Save(IDock)` and `Restore(IDock)` capture and restore the live layout.
 - Discriminator: `DockModelPolymorphicTypeResolver` identifies the `IDockable`, `IDock`, and `IRootDock` graph by `$type`.

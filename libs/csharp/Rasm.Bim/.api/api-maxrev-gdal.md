@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MaxRev.Gdal.Core`
-
 - package: `MaxRev.Gdal.Core`
 - license: MIT (the bindings + `GdalBase` bootstrap); the underlying GDAL/OGR/PROJ corpus is its own permissive mix (MIT/X11-style), `gdal-data/LICENSE.TXT` ships in the runtime
 - assembly: `MaxRev.Gdal.Core`
@@ -22,7 +21,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: bootstrap
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `MaxRev.Gdal.Core`
 - rail: geometry
@@ -34,7 +32,6 @@
 - Bootstrap: `ConfigureAll()` registers every GDAL and OGR driver, wires the `gdal-data` and PROJ paths, and runs once before any `Gdal`, `Ogr`, or `Osr` call.
 
 [PUBLIC_TYPE_SCOPE]: GDAL raster
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `OSGeo.GDAL`
 - rail: geometry
@@ -120,13 +117,11 @@ Every raster public type belongs to the geometry rail.
 - Lifetime: `IDisposable`
 
 [GDAL_OPTIONS]:
-
 - Types: `GDALWarpAppOptions`, `GDALTranslateOptions`, `GDALVectorTranslateOptions`, `GDALDEMProcessingOptions`, `GDALGridOptions`, `GDALContourOptions`, `GDALRasterizeOptions`
 - Construction: Each type accepts the corresponding CLI flags as `string[]`; `new GDALWarpAppOptions(new[]{"-t_srs","EPSG:3857","-r","bilinear"})` carries warp options.
 - Consumer: `wrapper_GDAL*` and `Warp`
 
 [PUBLIC_TYPE_SCOPE]: OGR vector
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `OSGeo.OGR`
 - rail: geometry
@@ -153,7 +148,6 @@ Every OGR public type belongs to the geometry rail.
 - Error model: `UseExceptions` flips the SWIG model once after `GdalBase.ConfigureAll()`.
 
 [OGR_DRIVER]:
-
 - Members: `CreateDataSource`, `CopyDataSource`, `DeleteDataSource`, `Open`
 - Boundary: `Ogr.GetDriverByName` returns this vector driver, distinct from `OSGeo.GDAL.Driver`, for one GeoPackage, KML, GML, FileGDB, or `/vsimem` write path.
 
@@ -187,7 +181,6 @@ Every OGR public type belongs to the geometry rail.
 - Boundary: `WkbSize()` sizes the `ExportToWkb` buffer, and the topology members bind native `libgeos`.
 
 [FIELD_DEFINITIONS]:
-
 - `FieldDefn` exposes `GetName`, `GetFieldType`, `GetWidth`, and `GetPrecision`.
 - `FeatureDefn` carries the layer's field and geometry-field definitions.
 
@@ -202,7 +195,6 @@ Every OGR public type belongs to the geometry rail.
 - Bridge: `Geometry.ExportToWkb(byte[], wkbByteOrder)` uses `wkbNDR` for the NTS `WKBReader` bridge.
 
 [PUBLIC_TYPE_SCOPE]: OSR spatial reference (PROJ-backed)
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `OSGeo.OSR`
 - rail: geometry
@@ -250,7 +242,6 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: bootstrap and open
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `MaxRev.Gdal.Core`, `OSGeo.GDAL`, `OSGeo.OGR`
 - rail: geometry
@@ -307,7 +298,6 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 - Boundary: This SWIG build exposes `VSIFWriteL(string, …)` but no `VSIFReadL(byte[], …)`, so handle-level `/vsimem` byte read-back is absent.
 
 [ENTRYPOINT_SCOPE]: raster IO and algorithms
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `OSGeo.GDAL`
 - rail: geometry
@@ -375,7 +365,6 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 - Semantics: Builds a virtual mosaic over multiple sources without materializing pixels.
 
 [ENTRYPOINT_SCOPE]: band metadata and the palette/RAT legend lowering
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `OSGeo.GDAL`
 - rail: geometry
@@ -471,7 +460,6 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 - Consumer: Display normalization and unsupervised classification compose the distribution when `CoverageBand.Range` cannot drive a robust percentile stretch.
 
 [ENTRYPOINT_SCOPE]: vector iteration and the NTS bridge
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `OSGeo.OGR`
 - rail: geometry
@@ -530,7 +518,6 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 - Semantics: Returns a temporary query-result layer.
 
 [ENTRYPOINT_SCOPE]: OSR reprojection (PROJ pipeline)
-
 - package: `MaxRev.Gdal.Core`
 - namespace: `OSGeo.OSR`
 - rail: geometry
@@ -577,25 +564,21 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PLATFORM_BOUNDARY]:
-
 - the managed AnyCPU bindings bind `lib/net10.0` and P/Invoke `libgdal_wrap` and `libgdalconst_wrap`, which bind native `libgdal`, `libgeos`, and `libproj` from a separate RID-keyed runtime package.
 - osx-arm64 binds `MaxRev.Gdal.MacosRuntime.Minimal.arm64`; Windows and Linux publications bind their matching RID runtime.
 - a missing publish-RID runtime faults at `GdalBase.ConfigureAll` or the first `OSGeo.*` call, so the core and runtime pins track the same version.
 - `runtimes/any/native/gdal-data/**` is the PROJ/EPSG resource set (CSV/WKT/grid metadata) the `.targets` stages into the output and `GdalBase.ConfigureGdalData` points the `GDAL_DATA`/`PROJ_LIB` config at. CRS resolution and datum transforms fail without it even when the native libraries load.
 
 [BOOTSTRAP]:
-
 - `GdalBase.ConfigureAll()` is the mandatory once-per-process bootstrap: it registers every GDAL raster driver and OGR vector driver and resolves the `gdal-data`/PROJ paths. The canonical owner runs it exactly once at module init behind an idempotency guard (`GdalBase.IsConfigured`), never per-open.
 - follow it immediately with `Gdal.UseExceptions()` (and `Ogr`/`Osr` equivalents) so a failed open/transform throws rather than returning a `CPLErr` that silent-passes — the thrown exception is caught at the boundary and lowered onto `BimFault.CodecReject`. Domain code never branches on raw `CPLErr` return codes.
 
 [RASTER_IO]:
-
 - raster pixels move through `Dataset.ReadRaster<T>`/`Band.ReadRaster<T>` into a managed `T[]` whose element type matches the `Band.DataType` (`GDT_Byte`→`byte[]`, `GDT_Float32`→`float[]`, `GDT_Float64`→`double[]`). The `bufXSize`/`bufYSize` arguments differing from the window size trigger GDAL's on-read resampling (kernel selected by `RasterIOExtraArg`) — a DEM is downsampled to a working resolution in one call.
 - `Dataset.GetGeoTransform` + `Dataset.GetSpatialRef` together place the raster in georeferenced space; `Dataset.GetExtent(Envelope, srs)` fills the SWIG `OSGeo.OGR.Envelope` (NOT the NTS type — the bindings reference no NTS) with the whole-dataset bbox in the target CRS, its four doubles lowered onto an NTS `Envelope` at the boundary for the `STRtree`/site-model. A windowed or resampled read folds its tile extent off the window-re-anchored affine's four corners (rotation honored), never the source-dataset call.
 - raster output is `Driver.Create`/`Driver.CreateCopy` (e.g. the `"COG"` driver with creation options) or the `wrapper_GDALTranslate`/`Gdal.Warp` algorithms; `BuildOverviews` adds the pyramid a COG/3D-Tiles terrain layer needs.
 
 [BAND_SCHEMA_LOWERING]:
-
 - the host-neutral `CoverageGrid` projector reads the full `Band` metadata surface once per ingest and lowers it onto self-describing `CoverageBand` values; consumers never retain `OSGeo.GDAL` enums.
 - `Band.DataType` maps through `RasterSampleType.Parse`, while `GDT_Unknown` and `GDT_TypeCount` rail `BimFault.CodecReject`; `Band.GetColorInterpretation()` maps through generated `BandRole.TryGet` and defaults to `Undefined`.
 - `GetNoDataValue` maps to `Option<double>`, `GetOffset` and `GetScale` map to their namesake fields, and `GetUnitType()` maps to `Units`.
@@ -611,33 +594,28 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 - `CoverageGrid.Of` rejects a pyramid unless every level is coarser than its base and the set is strictly monotone.
 
 [VECTOR_INGEST]:
-
 - the OGR side is the universal vector reader: `Ogr.Open` (or `Gdal.OpenEx` with `GDAL_OF_VECTOR`) opens GeoPackage/FlatGeobuf/KML/GML/GeoJSON/FileGDB/PostGIS/shapefile/… through one API. Iterate `Layer.GetNextFeature` after applying `SetSpatialFilterRect` (bbox push-down) and `SetAttributeFilter` (WHERE) so the driver evaluates the filter server-side and only matching features cross the boundary.
 - `Layer.TestCapability(Ogr.OLCFastGetArrowStream)` reports whether a driver exposes the Arrow C-stream bulk path — the columnar fast read for a GeoParquet/FlatGeobuf source the `Rasm.Persistence` Arrow rail consumes without per-feature marshalling (the capability string is the `Ogr` constant; the stream itself is reached through the SWIG Arrow-array interface).
 
 [OGR_VS_NTS_GEOS]:
-
 - the native runtime bundles `libgeos`, so OGR `Geometry` exposes GEOS-backed `Intersection`, `Union`, `Buffer`, and `Simplify`.
 - managed `NetTopologySuite` owns the planar topology algebra, and GEOS remains inside the GDAL native boundary as one canonical planar engine.
 - ingest bridges OGR geometry into NTS through `ExportToWkb` and `WKBReader.Read`; write-back bridges NTS through `WKBWriter.Write` and `CreateFromWkb` only at the OGR boundary.
 - OGR-side boolean operations fragment the topology owner and remain outside the admitted path.
 
 [OSR_VS_PROJNET]:
-
 - OSR exposes a PROJ-backed reprojection engine parallel to managed `ProjNET`.
 - `ProjNET` owns CRS and datum transforms for geometry already in the managed planar algebra; OSR owns reprojection inside `Gdal.Warp`, `Geometry.TransformTo`, and `Dataset.GetExtent` GDAL pipelines.
 - transforms requiring PROJ datum grids or `IsDynamic` and `GetCoordinateEpoch` plate-motion handling escalate to a one-shot OSR `CoordinateTransformation`.
 - every OSR CRS applies `SetAxisMappingStrategy(OAMS_TRADITIONAL_GIS_ORDER)` to prevent the GDAL 3 latitude and longitude axis swap.
 
 [STACK_INTEGRATION]:
-
 - NTS seam: OGR `Geometry.ExportToWkb`/`CreateFromWkb` ↔ `NetTopologySuite.IO.WKBReader`/`WKBWriter` is the canonical bidirectional bridge. Universal vector ingest enters as OGR features, converts to NTS `Feature` at the boundary, and the planar algebra/index/predicates run on NTS.
 - shapefile seam: GDAL's `"ESRI Shapefile"` OGR driver reads the same `.shp` the managed `NetTopologySuite.IO.Esri.Shapefile` codec does; the managed codec is the default for shapefiles (no native dependency), GDAL is the path for the formats only it covers.
 - raster→vector seam: `wrapper_GDALContourDestName` and `RasterizeLayer` cross the raster/vector boundary — a DEM becomes contour `Layer`s (then NTS geometry), and NTS footprints rasterize into a `Band`.
 - virtual-filesystem seam: `Gdal.FileFromMemBuffer("/vsimem/...", bytes)` and the `/vsizip/`/`/vsicurl/` prefixes let a dataset open from an in-memory buffer or a remote/zipped source without a filesystem path — the `Rasm.Persistence` fsspec/stream ingest opens GDAL datasets over `/vsimem/`.
 
 [LOCAL_ADMISSION]:
-
 - bootstrap enters once through `GdalBase.ConfigureAll()` + `Gdal.UseExceptions()` at module init.
 - raster ingest enters through `Gdal.Open`/`OpenEx` → `Dataset.ReadRaster<T>`; raster transform through `Gdal.Warp`/`wrapper_GDAL*`.
 - vector ingest enters through `Ogr.Open` → `Layer` with `SetSpatialFilterRect`/`SetAttributeFilter` → `Feature.GetGeometryRef.ExportToWkb` → NTS.
@@ -645,7 +623,6 @@ Every OSR public type belongs to the geometry rail and binds PROJ.
 - the rejected forms: per-open `ConfigureAll`, branching on raw `CPLErr`, running planar boolean ops on the OGR/GEOS side, and using OSR for transforms `ProjNET` already covers.
 
 [RAIL_LAW]:
-
 - Package: `MaxRev.Gdal.Core` (paired with a RID-keyed `MaxRev.Gdal.*Runtime*`)
 - Owns: GDAL/OGR/OSR managed bindings — GeoTIFF/COG/DEM raster IO, the universal OGR vector driver set, the GDAL utility algorithms (warp/translate/DEM/grid/contour/rasterize), the virtual filesystem, and an escalation-path PROJ reprojection engine
 - Accept: raster ingest/transcode/reproject, universal vector ingest with server-side filters, raster↔vector conversion, exotic datum transforms PROJ-only grids require, in-memory/remote dataset open

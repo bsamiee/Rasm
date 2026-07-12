@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LoroCs`
-
 - package: `LoroCs`
 - assembly: `LoroCs` (single shipped managed assembly)
 - namespace: `LoroCs` (one flat namespace — containers, value/diff unions, FFI plumbing, and exceptions all live here)
@@ -19,7 +18,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [DOCUMENT_AND_CONTAINERS]: the document root and its six container kinds
-
 - rail: collaboration
 - every container is `class Loro* : ILoro*, IDisposable`; bind to the interface, hold the handle, dispose on detach. A container is created by `LoroDoc.Get<Kind>(ContainerIdLike)` (attach-or-create) or nested via a parent's `Insert*Container`/`GetOrCreate*Container`/`EnsureMergeable*`.
 
@@ -44,7 +42,6 @@
 - [08]-[UNKNOWN]: `LoroUnknown` round-trips a container kind newer than the binding opaquely.
 
 [VALUE_AND_DIFF_UNIONS]: the closed `record`-hierarchy discriminated unions (pattern-match the leaf)
-
 - rail: collaboration
 - these are sealed-by-construction `abstract record` roots with one leaf `record` per case — the dispatch surface the editing/diff rails fold over, never a parallel enum
 
@@ -73,7 +70,6 @@
 - [10]-[TREE_EXTERNAL_DIFF]: `Create(TreeParentId, uint, string)`, `Move(...)`, and `Delete(TreeParentId, uint)` form tree-change operations inside `TreeDiff`.
 
 [VALUE_CARRIERS_AND_HELPERS]: the version/identity/option value records and the collaboration helpers
-
 - rail: collaboration
 
 | [INDEX] | [SYMBOL]                                              | [ROLE]          |
@@ -103,7 +99,6 @@
 - [11]-[RECORD_CARRIERS]: `ChangeMeta`, `CommitOptions`, `UpdateOptions`, `ImportStatus`, `StyleConfig`, `IdSpan`, `TreeId`, `CounterSpan`, and `AbsolutePosition` carry commit, import, update, identifier, and span data.
 
 [ENUMS]: the bounded vocabularies
-
 - rail: collaboration
 
 | [INDEX] | [SYMBOL]                | [CASES]                           |
@@ -127,7 +122,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [DOC_LIFECYCLE]: import / export / commit / time-travel on `LoroDoc`
-
 - rail: collaboration
 
 | [INDEX] | [SURFACE]                                                                              | [ROLE]          |
@@ -159,7 +153,6 @@
 - [10]-[SHALLOW]: `ExportShallowSnapshot` drops operations before a cut, `IsShallow` identifies the trimmed form, and `ShallowSinceVv` returns its base.
 
 [CONTAINER_ACCESS]: the polymorphic container accessors on `LoroDoc`
-
 - rail: collaboration
 - one semantic per kind, two arities: `Get<Kind>(ContainerIdLike)` attaches-or-creates (throws on type mismatch); `TryGet<Kind>(ContainerIdLike)` returns null when absent/mismatched. `ContainerIdLike` accepts a root name string or a `ContainerId`.
 
@@ -180,7 +173,6 @@
 - [06]-[SNAPSHOT]: `GetValue`, `GetDeepValue`, and `GetDeepValueWithId` snapshot the document tree as `LoroValue`.
 
 [SUBSCRIPTIONS]: the diff and commit event streams on `LoroDoc`
-
 - rail: collaboration
 - every `Subscribe*` returns a `Subscription` (`IDisposable`); the callback delegate receives the typed event. Hold the subscription for its lifetime, dispose to detach.
 
@@ -195,7 +187,6 @@
 `SubscribeLocalUpdate` emits the bytes broadcast to peers, while every other callback receives its typed event.
 
 [CONTAINER_OPS]: the per-kind editing surface (the dense vocabularies the editing rail composes)
-
 - rail: collaboration
 
 | [INDEX] | [CONTAINER]       | [EDIT_MODEL]       |
@@ -208,7 +199,6 @@
 |  [06]   | `LoroCounter`     | PN-counter         |
 
 [LORO_TEXT]:
-
 - Mutation: `Insert(pos, s)`, `Delete(pos, len)`, `Splice(pos, len, s)`, and `Update(s, UpdateOptions)` apply direct and whole-document diff updates.
 - Marks: `Mark(from, to, key, value)` and `Unmark` edit rich-text marks.
 - Position: `GetCursor(pos, Side)` returns a stable cursor.
@@ -216,25 +206,21 @@
 - Encoding: Unicode, `*Utf8`, and `*Utf16` forms compose with `ConvertPos(index, PosType from, PosType to)`.
 
 [LORO_MAP]:
-
 - Values: `Insert(key, v)`, `Get(key)`, `Delete(key)`, `Keys()`, and `Values()` own key access.
 - Containers: `Ensure*Mergeable(key)` creates nested containers idempotently, while `Insert*Container` and `GetOrCreate*Container(key, child)` attach children.
 - Provenance: `GetLastEditor(key)` returns `ulong?` editor identity.
 
 [LORO_LIST]:
-
 - Values: `Insert(pos, v)`, `Push(v)`, `Pop()`, `Delete(pos, len)`, `Get(index)`, and `ToVec()` own sequence access.
 - Containers: `Insert*Container(pos, child)` attaches a nested container.
 - Position: `GetCursor(pos, Side)` returns a stable cursor, and `GetIdAt(pos)` returns `Id?` identity.
 
 [LORO_MOVABLE_LIST]:
-
 - Base: Every `LoroList` operation remains available.
 - Reorder: `Mov(from, to)` preserves stable identity, while `Set(pos, value)` and `Set*Container(pos, child)` replace values in place.
 - Provenance: `GetCreatorAt`, `GetLastEditorAt`, and `GetLastMoverAt(pos)` expose edit identity.
 
 [LORO_TREE]:
-
 - Lifecycle: `Create(parent)`, `CreateAt(parent, index)`, and `Delete(target)` own node lifetime.
 - Movement: `Mov`, `MovBefore`, `MovAfter`, and `MovTo(target, parent, index)` own hierarchy changes.
 - Traversal: `Children(parent)`, `Roots()`, `Nodes()`, and `Parent(target)` expose structure.
@@ -242,11 +228,9 @@
 - Ordering: `EnableFractionalIndex(jitter)` configures fractional ordering, and `FractionalIndex(target)` reads the node position.
 
 [LORO_COUNTER]:
-
 - Value: `Increment(double)`, `Decrement(double)`, and `GetValue()` own the counter.
 
 [COLLABORATION_HELPERS]: undo, presence, and ephemeral state
-
 - rail: collaboration
 
 | [INDEX] | [HELPER]         | [ROLE]            |
@@ -256,26 +240,22 @@
 |  [03]   | `Awareness`      | peer awareness    |
 
 [UNDO_MANAGER]:
-
 - Stack: `UndoManager(LoroDoc)` exposes `Undo()`, `Redo()`, `CanUndo()`, and `CanRedo()` while respecting remote operations.
 - Grouping: `GroupStart` and `GroupEnd` group transactions.
 - Policy: `SetOnPush(OnPush)`, `SetOnPop(OnPop)`, `SetMaxUndoSteps(uint)`, and `AddExcludeOriginPrefix(string)` bind hooks, depth, and origin exclusion.
 
 [EPHEMERAL_STORE]:
-
 - State: `EphemeralStore(long).Set(key, value)`, `Get(key)`, `Encode(key)`, `EncodeAll()`, and `Apply(byte[])` own cursor and selection presence.
 - Expiry: `RemoveOutdated()` evicts expired state.
 - Feed: `Subscribe(EphemeralSubscriber)` and `SubscribeLocalUpdate(...)` emit presence changes whose encoded bytes broadcast to peers.
 
 [AWARENESS]:
-
 - State: `Awareness(ulong peer, long).SetLocalState(value)` owns per-peer user and color state on a separate channel.
 - Wire: `Encode(peers)` and `Apply(byte[])` exchange state as `AwarenessPeerUpdate`.
 
 ## [04]-[ERROR_TAXONOMY]
 
 [BOUNDARY_FAULTS]: the `LoroException` hierarchy lifted at the collaboration edge
-
 - rail: collaboration
 - all throw types derive from `LoroException` (with `LoroEncodeException`, `CannotFindRelativePosition`, `ChangeTravelException`, `JsonPathException`, `UpdateTimeoutException` as intermediate roots); the boundary folds them to the editing rail's typed failures.
 
@@ -306,38 +286,32 @@
 [STACKING]:
 
 [LIVE_SESSION]:
-
 - Authority: `LoroCs` merges each local `SubscribeLocalUpdate` delta broadcast by the AppHost transport and imported by live peers, so `Collab/` carries no custom merge algebra.
 - Replacement: The document retires the bespoke `NotebookCrdt` LWW algebra.
 - Boundary: The Loro-native wire remains session-ephemeral, while the Persistence bit-parity law owns durable truth.
 - Catch-up: `ExportMode.Updates(VersionVector)` synchronizes a reconnecting active epoch, and a cold start seeds its epoch from the ledger replay window.
 
 [DURABLE_TRUTH]:
-
 - Stream: Persistence owns the typed edit-intent stream projected from AppUi domain operations onto `OpLogEntry` and `SyncOpKind` rows through the `Version/ledger` changefeed, generalizing the `RevertibleOp` to `SyncOpKind` discipline.
 - Accelerator: `LoroDoc.Export(Snapshot)` persists only as a derivable, deletable, content-keyed cold-start blob composed through `ContentHash.Of`, reconstructible from the op log, and never authoritative.
 - Hashing: A direct `System.IO.Hashing` `XxHash128` mint over snapshot bytes remains outside the design.
 - Load: A cold load decodes the ledger replay window into a fresh `LoroDoc` in log order, while `ExportShallowSnapshot(Frontiers)` bounds retained history.
 
 [PRESENCE]:
-
 - Cursor: `EphemeralStore` publishes TTL-expiring `Cursor` state, and `GetCursorPos(cursor)` returns `PosQueryResult` for remote caret and selection rendering.
 - Awareness: `Awareness` carries per-peer user and color identity on its own ephemeral topic.
 - Wire: Both channels encode to `byte[]` over the AppHost transport without entering the durable op log.
 
 [UNDO]:
-
 - Local: `UndoManager(doc)` binds local Shell/Editing/history undo, and `AddExcludeOriginPrefix` excludes programmatic `CommitOptions.Origin` values so remote operations remain intact.
 - Revert: `RevertTo(Frontiers)` appends forward inverse operations for an audited, history-preserving revert.
 
 [RICH_TEXT]:
-
 - Delta: `LoroText.ToDelta()` and `ApplyDelta(TextDelta[])` bind the Quill-shaped `AvaloniaEdit` document representation.
 - Marks: `Mark(from, to, key, value)` carries inline style spans.
 - Encoding: `ConvertPos` maps Avalonia UTF-16 offsets to Loro Unicode indices across the `Bytes`, `Unicode`, and `Utf16` `PosType` cases.
 
 [STRUCTURED_EDITING]:
-
 - Graph: `LoroTree` and its per-node `GetMeta` map bind the NodeEditor canvas through one bidirectional projection with echo suppression.
 - Events: `EventTriggerKind.Local`, `Import`, and `Checkout` route local tree commits and remote ReactiveUI updates without re-emission.
 - Inspector: The same tree and map projection backs inspector and outline surfaces.
@@ -345,7 +319,6 @@
 - Aggregate: `LoroCounter` carries conflict-free aggregate tiles.
 
 [RAIL_LAW]:
-
 - Packages: `LoroCs` (zero managed deps; native `loro.dylib`, outside-Rhino only)
 - Owns: the Shell/Editing collaboration op-log, presence, time-travel, and local undo — the document merge authority for notebook/annotation/table/live-data
 - Accept: one long-lived `LoroDoc` per collaborative document; `Get<Kind>(name)` to attach named root containers; `SubscribeLocalUpdate` → broadcast / `Import` → merge as the only sync path; `Export(Snapshot)` as the persisted content-keyed blob; `Cursor` via `EphemeralStore`/`Awareness` for presence; `UndoManager` with origin-exclusion for local undo; the `LoroValue`/`Diff`/`ExportMode` unions pattern-matched at their leaf

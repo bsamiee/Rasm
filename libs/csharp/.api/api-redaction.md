@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Compliance.Redaction`
-
 - package: `Microsoft.Extensions.Compliance.Redaction`
 - assembly: `Microsoft.Extensions.Compliance.Redaction`
 - contract assembly: `Microsoft.Extensions.Compliance.Abstractions` (`Redactor`, `IRedactionBuilder`, `IRedactorProvider`, `NullRedactor`, `DataClassification*`)
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [REDACTION_TYPES]: redactor and provider surfaces
-
 - rail: redaction
 
 | [INDEX] | [SYMBOL]              | [PACKAGE_ROLE]    | [CAPABILITY]                                  |
@@ -35,7 +33,6 @@
 `Redactor` (abstract, contract assembly) — overrides supply `Redact(ReadOnlySpan<char>, Span<char>) → int` and `GetRedactedLength(ReadOnlySpan<char>) → int`; the base implements `string Redact(ReadOnlySpan<char>)`, `string Redact(string?)`, `int Redact(string?, Span<char>)`, the generic `string Redact<T>(T value, string? format = null, IFormatProvider? provider = null)`, `int Redact<T>(T value, Span<char> destination, string? format, IFormatProvider?)`, `bool TryRedact<T>(T value, Span<char> destination, out int charsWritten, ReadOnlySpan<char> format, IFormatProvider?)`, and `int GetRedactedLength(string?)`. A typed classified value redacts at its value (not stringified first) on the span path. `ErasingRedactor`/`NullRedactor` are the two settled terminal redactors reachable as static `Instance` outside DI.
 
 [CLASSIFICATION_TYPES]: classification keys (contract assembly)
-
 - rail: redaction
 
 | [INDEX] | [SYMBOL]                      | [PACKAGE_ROLE]     | [CAPABILITY]                  |
@@ -51,7 +48,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration and policy operations
-
 - rail: redaction
 
 Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor calls use span inputs and return the redacted length or resolved `Redactor`.
@@ -72,7 +68,6 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 |  [12]   | `ErasingRedactor.Instance` / `NullRedactor.Instance` | singleton    | selects terminal redaction  |
 
 [ENTRYPOINT_SCOPE]: HMAC options
-
 - rail: redaction
 - call shape: `HmacRedactorOptions` property
 
@@ -84,7 +79,6 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [REDACTION_POLICY]:
-
 - namespace: `Microsoft.Extensions.Compliance.Redaction`
 - provider root: `IRedactorProvider` resolves the redactor for a `DataClassificationSet`
 - builder root: `IRedactionBuilder` maps each classification set to its redactor via `SetRedactor<T>`; `SetHmacRedactor` rides `RedactionExtensions`
@@ -92,7 +86,6 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 - redactor root: erasing, HMAC, and null redactors with a fail-closed fallback; `GetRedactedLength` sizes the buffer, then `Redact`/`TryRedact` writes the redacted span
 
 [LOCAL_ADMISSION]:
-
 - The `DataClassification` axis drives redactor selection through its `RedactorKind` column; `RedactionRegistration.Bind` folds each row to `SetRedactor` or `SetHmacRedactor`.
 - `SetFallbackRedactor<ErasingRedactor>()` is the fail-closed default for unmapped classifications, so an unclassified value erases rather than leaks.
 - `SetHmacRedactor` carries `EXTEXP0002`; the fold registers it without a suppression because the HMAC row is a declared policy value, not an ruled opt-in at the call site.
@@ -100,7 +93,6 @@ Registration calls target `IServiceCollection` or `IRedactionBuilder`; redactor 
 - `GetRedactor` is the provider read seam that resolves a `Redactor` from a `DataClassificationSet` at every exporter/bundle egress; `DataClassification` crosses to Persistence as VALUE fields on landed rows (`Element/codec` `SnapshotCatalogRow.Classification`, `Element/identity`), never a guard symbol — the once-cited Persistence `ClassificationGuard` is a phantom absent from the landed corpus; it never re-registers a second redaction builder.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.Compliance.Redaction`
 - Owns: redaction provider and redactor surfaces
 - Accept: declared redaction classes and HMAC key identity

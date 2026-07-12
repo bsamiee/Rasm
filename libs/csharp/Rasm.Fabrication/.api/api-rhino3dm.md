@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Rhino3dm`
-
 - package: `Rhino3dm`
 - license: MIT
 - assembly: `Rhino3dm`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: file and document tables
-
 - rail: fabrication-3dm
 
 | [INDEX] | [SYMBOL]               | [CAPABILITY]                               |
@@ -31,7 +29,6 @@
 |  [08]   | `ObjectAttributes`     | object metadata, layer/material assignment |
 
 [PUBLIC_TYPE_SCOPE]: geometry carriers crossing the 3dm boundary
-
 - rail: fabrication-3dm
 
 | [INDEX] | [SYMBOL]        | [CAPABILITY]                    |
@@ -50,7 +47,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: file read and write
-
 - rail: fabrication-3dm
 
 | [INDEX] | [SURFACE]                                                         | [CALL_SHAPE] | [CAPABILITY]                      |
@@ -65,7 +61,6 @@
 |  [08]   | `File3dm.WriteMultipleObjects(string, IEnumerable<GeometryBase>)` | static write | writes multiple geometry objects  |
 
 [ENTRYPOINT_SCOPE]: object table additions
-
 - rail: fabrication-3dm
 
 | [INDEX] | [SURFACE]                                                | [CALL_SHAPE] | [CAPABILITY]                     |
@@ -81,19 +76,16 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ALIAS_BOUNDARY]:
-
 - `Aliases="R3"` keeps Rhino3dm symbols behind `extern alias R3`.
 - Fabrication treats Rhino3dm as the file-transfer lane; RhinoCommon remains the host lane.
 - A type crossing the 3dm boundary is projected through the `R3::Rhino.*` surface at ingress and egress only.
 
 [LOCAL_ADMISSION]:
-
 - `.3dm` import reads `File3dm` and lowers object-table geometry into Fabrication-owned carriers.
 - `.3dm` export builds a `File3dm`, adds `GeometryBase` instances through `File3dmObjectTable`, and writes through `File3dm.Write`.
 - Host-bound RhinoCommon objects never leak through this catalog; the alias boundary keeps the two type identities explicit.
 
 [RAIL_LAW]:
-
 - Package: `Rhino3dm`
 - Owns: pure-managed 3dm file read/write, document tables, object attributes, and Rhino3dm geometry carriers
 - Accept: file boundary import/export over `File3dm` and `R3::Rhino.Geometry.*`

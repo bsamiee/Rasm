@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour.Datasets`
-
 - package: `Wacton.Unicolour.Datasets`
 - license: MIT (`github.com/waacton/Unicolour`)
 - assembly: `Wacton.Unicolour.Datasets`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reference and named-colour set carriers
-
 - rail: colour-datasets
 
 | [INDEX] | [SYMBOL]         | [PACKAGE_ROLE]    | [CAPABILITY]                                                                                |
@@ -32,7 +30,6 @@
 |  [09]   | `ArtistPaint`    | pigment set       | Golden artist-paint `Pigment` reflectance set                                               |
 
 [PUBLIC_TYPE_SCOPE]: perceptual colourmap carriers
-
 - rail: colour-datasets
 
 | [INDEX] | [SYMBOL]          | [PACKAGE_ROLE]     | [CAPABILITY]                                   |
@@ -58,7 +55,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Colourmap` sampling
-
 - rail: colour-datasets
 
 `Colourmap.Map` samples `[0, 1]`, and `MapWithClipping` substitutes boundary colours outside that interval.
@@ -79,14 +75,12 @@ Lookup-backed maps expose their source tables, while `Cubehelix.Map` computes sa
 |  [08]   | `Cubehelix.Map`             | static method   | procedural colour sample |
 
 [PARAMETERS]:
-
 - `Colourmap.Map`: `double x`
 - `Colourmap.MapWithClipping`: `double x`; `Unicolour? lowerClipColour = null`; `Unicolour? upperClipColour = null`
 - `Colourmap.Palette`: `int count`
 - `Cubehelix.Map`: `double x`; `double start`; `double rotations`; `double hue`; `double gamma`
 
 [ENTRYPOINT_SCOPE]: `Colourmaps` registry handles
-
 - rail: colour-datasets
 
 | [INDEX] | [SURFACE]                                     | [CALL_SHAPE] | [CAPABILITY]                      |
@@ -94,7 +88,6 @@ Lookup-backed maps expose their source tables, while `Cubehelix.Map` computes sa
 |  [01]   | `Colourmaps.Viridis`.. `Colourmaps.Cubehelix` | static field | named `Colourmap` instance handle |
 
 [ENTRYPOINT_SCOPE]: reference and named-colour set members
-
 - rail: colour-datasets
 
 Every reference and named-colour member below is static.
@@ -137,7 +130,6 @@ Every reference and named-colour member below is static.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DATASET_TOPOLOGY]:
-
 - namespace: `Wacton.Unicolour.Datasets`; every dataset is a static table of `Unicolour` or `Pigment` values built on the main `Wacton.Unicolour` colour owner.
 - colourmap: `Colourmap` is abstract; the 14 lookup-backed concrete maps carry a static `Lookup` `IEnumerable<Unicolour>` and override `Map(double x)` by interpolating the lookup table in `Rgb` with `HueSpan.Shorter`; `Cubehelix` computes procedurally through `Cubehelix.Map(double x, double start, double rotations, double hue, double gamma)`.
 - sampling: `Map` accepts `x` in `[0, 1]`; `MapWithClipping` clamps below to `Black` (or `lowerClipColour`) and above to `White` (or `upperClipColour`); `Palette(count)` emits evenly spaced samples.
@@ -146,26 +138,22 @@ Every reference and named-colour member below is static.
 - working space: each set fixes its own `Configuration` for the source measurement — `Colourmap.Config` is sRGB/`XyzConfiguration.D65`, `Macbeth` is sRGB/`Illuminant.D50`/`Observer.Degree2`, `ArtistPaint.Configuration` is sRGB/`XyzConfiguration.D50`; a consumer reads the set's own `Configuration` rather than assuming the global `Configuration.Default`.
 
 [BOUNDARY]:
-
 - This package carries named-colour lists, ColorChecker / Macbeth reference sets, perceptual colourmaps, and academic reference datasets only.
 - Observer colour-matching functions, illuminant spectral power distributions, and generic reflectance live on the main `Wacton.Unicolour` owner (`Spd`, `SpectralCoefficients`, `Pigment`, `Illuminant`, `Observer`), not here.
 - Spectral upsampling and measured-spectral construction consume the main `Wacton.Unicolour` colour owner; this package supplies validation and named-reference colour tables.
 
 [LOCAL_ADMISSION]:
-
 - Material colour validation reads a reference `Unicolour` from `Macbeth`, `MacAdam`, or an academic set rather than re-encoding patch coordinates.
 - Library material rows resolve named colours through `Css`, `Xkcd`, or `Nord` instead of hand-keyed hex literals.
 - Perceptual ramps sample a `Colourmap` through `Map` or `Palette`; lookup-backed maps read the lookup table, and `Cubehelix` uses its public procedural `Map`.
 - Pigment reflectance for paint mixing reads `ArtistPaint` `Pigment` values and mixes through the main `Wacton.Unicolour` Kubelka-Munk constructor.
 
 [STACK]:
-
 - finish seam: `finish#FINISH` `FinishPigment` builds a `FrozenDictionary<string, Pigment>` from `ArtistPaint.All`, then `finish#FINISH` mixes the selected `Pigment[]` through the MAIN owner's `new Unicolour(pigments, weights)` Kubelka-Munk constructor under `ArtistPaint.Configuration` (sRGB/D50) — this package supplies the measured Golden pigment table, the main `Wacton.Unicolour` owner runs the mix.
 - graph seam: `graph#MATERIAL_LIBRARY` `NearestChecker` measures a candidate `MaterialParameters` base colour against `Macbeth.All` patches through the main owner's `Difference(patch, DeltaE.Ciede2000)`, returning the `(Patch, DeltaE)` drift pair — the reference patches live here, the metric runs on the main owner.
 - colourmap seam: a perceptual ramp samples a `Colourmap` through `Map(x)`/`Palette(count)` (each lookup-backed map interpolates its static `Lookup` `IEnumerable<Unicolour>` in `Rgb` with `HueSpan.Shorter`, while `Cubehelix` computes procedurally under `Colourmap.Config`) — the lookup is read, never re-derived; the produced `Unicolour` values flow to the main owner for any further conversion or gamut check.
 
 [RAIL_LAW]:
-
 - Package: `Wacton.Unicolour.Datasets` (MIT, `netstandard2.0`, depends on `Wacton.Unicolour`)
 - Owns: named-colour lists (`Css.All` 148 plus `Css.Transparent`, `Xkcd` 949, `Nord` 16), ColorChecker / Macbeth reference set (24 patches), academic reference sets (`MacAdam`, `EbnerFairchild`, `HungBerns`, `IsccNbs` 267), the 15 perceptual `Colourmap` instances, and the Golden `ArtistPaint` 19-pigment table — all as static `Unicolour`/`Pigment` tables built on the main owner
 - Accept: a reference patch, named colour, colourmap sample position, or pigment lookup, each read with its set's own `Configuration`

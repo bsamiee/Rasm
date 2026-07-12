@@ -17,7 +17,6 @@ A hook binds a handler — shell command, HTTP endpoint, MCP tool call, single-t
 ## [01]-[ROUTING]
 
 [REFERENCES]:
-
 - [01]-[EVENTS](references/events.md): the full event census for both providers, per-event matcher values, input payload, exit-2 blockability, and decision-control fields; open when selecting an event or writing its input handling.
 - [02]-[CONFIG](references/config.md): configuration placement and scopes, matcher-evaluation law, the five handler types with all fields, exec versus shell form, and the JSON output contract; open when wiring the settings entry.
 - [03]-[DUAL_PROVIDER](references/dual-provider.md): the one-canonical-body plus thin-adapter pattern, the portable exit-2 path, the per-event output-dialect divergence, Codex discovery and trust, and the component-hook port; open when a hook must serve both Claude Code and Codex.
@@ -28,7 +27,6 @@ A hook binds a handler — shell command, HTTP endpoint, MCP tool call, single-t
 - [08]-[RECIPES](references/recipes.md): the advanced-move catalog — command decomposition, value rewrite, priority-banded dispatch, the completion loop, data-driven injection, hot-path offload, the telemetry chain, standing permission, durable state, and the paired audit — each move's hinge and the naive form it beats; open when composing a non-trivial hook body.
 
 [TEMPLATES]:
-
 - [01]-[PRETOOLUSE_GATE](templates/pretooluse-gate.py): typed PreToolUse validator, per-command semantic dispatch, sandbox admission, fail-closed exit-2 block.
 - [02]-[POSTTOOLUSE_FORMAT](templates/posttooluse-format.py): MODE-polymorphic PostToolUse owner formatting through the `fmt` router and redacting tool output.
 - [03]-[SESSION_CONTEXT](templates/session-context.py): SessionStart injector with gated probes, the session-to-pane routing capture, and env persistence.
@@ -38,7 +36,6 @@ A hook binds a handler — shell command, HTTP endpoint, MCP tool call, single-t
 - [07]-[CODEX_ADAPTER](templates/codex-adapter.sh): thin per-provider adapter piping a Codex payload into one canonical body.
 
 [EXAMPLES]: complete droppable exemplars, each composing several recipe moves into one production hook.
-
 - [01]-[DISPATCH_DAEMON](examples/dispatch-daemon.py): priority-banded handler registry served behind a session-scoped Unix-socket daemon, with an in-process fallback when none answers.
 - [02]-[REDTEAM_HARNESS](examples/redteam-harness.py): dual-mode paired-corpus auditor, subprocess or in-process, reporting each fixture against its benign twin.
 - [03]-[TELEMETRY_TRANSMITTER](examples/telemetry-transmitter.py): async CloudEvents or private-tier transmitter chained after policy, fail-open by construction.

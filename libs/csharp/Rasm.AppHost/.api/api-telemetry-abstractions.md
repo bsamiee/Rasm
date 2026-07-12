@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Telemetry.Abstractions`
-
 - package: `Microsoft.Extensions.Telemetry.Abstractions`
 - assembly: `Microsoft.Extensions.Telemetry.Abstractions`
 - namespace: `Microsoft.Extensions.Logging`
@@ -21,7 +20,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: structured logging family
-
 - rail: observability
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                           |
@@ -35,7 +33,6 @@
 |  [07]   | `LoggingSampler`             | sampler base        | per-entry sampling decision            |
 
 [PUBLIC_TYPE_SCOPE]: buffering and enrichment family
-
 - rail: observability
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]     | [CAPABILITY]                     |
@@ -48,7 +45,6 @@
 |  [06]   | `IEnrichmentTagCollector` | collector contract | enrichment tag emission target   |
 
 [PUBLIC_TYPE_SCOPE]: latency context family
-
 - rail: observability
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]    | [CAPABILITY]                           |
@@ -67,7 +63,6 @@
 |  [12]   | `NullLatencyContext`         | null object       | no-op latency context                  |
 
 [PUBLIC_TYPE_SCOPE]: metrics and request metadata family
-
 - rail: observability
 
 | [INDEX] | [SYMBOL]                          | [PACKAGE_ROLE]      | [CAPABILITY]                     |
@@ -83,7 +78,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: service registration
-
 - rail: observability
 
 | [INDEX] | [SURFACE]                 | [CALL_SHAPE]                     | [CAPABILITY]                   |
@@ -96,10 +90,10 @@
 |  [06]   | `AddNullLatencyContext`   | `IServiceCollection` extension   | installs no-op latency context |
 
 [ENTRYPOINT_SCOPE]: buffering runtime operations
-
 - rail: observability
 
 [BUFFERING_RUNTIME]:
+
 | [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
 | :-----: | :------------- | :-------------------- | :-------------------------- |
 | [01] | `TryEnqueue` | buffered log entry | buffers a log record |
@@ -107,6 +101,7 @@
 | [03] | `ShouldSample` | `in LogEntry<TState>` | per-entry sampling decision |
 
 [LATENCY_RUNTIME]:
+
 | [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
 | :-----: | :------------------- | :--------------- | :---------------------------- |
 | [01] | `GetCheckpointToken` | name lookup | resolves checkpoint token |
@@ -119,6 +114,7 @@
 | [08] | `Freeze` | context command | seals latency data for export |
 
 [REQUEST_METADATA_RUNTIME]:
+
 | [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
 | :-----: | :-------------------------------- | :------------------- | :---------------------------------- |
 | [01] | `SetRequestMetadata` | context mutation | sets outgoing request route |
@@ -127,7 +123,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ABSTRACTION_TOPOLOGY]:
-
 - attribute surface: `[LogProperties]`, `[TagProvider]`, `[TagName]`, and metric attributes drive source generators
 - redaction surface: `LoggerMessageState.ClassifiedTag` carries data classification for redaction-aware sinks; `HttpRouteParameterRedactionMode` scopes route parameter redaction
 - enrichment surface: `ILogEnricher` and `IStaticLogEnricher` feed `IEnrichmentTagCollector`
@@ -137,14 +132,12 @@
 - implementation split: policy implementations and enricher registrations live in `Microsoft.Extensions.Telemetry`, where `AddApplicationLogEnricher` is current and `AddServiceLogEnricher` is its obsolete predecessor
 
 [LOCAL_ADMISSION]:
-
 - Generator attributes annotate logging surfaces at the owning module; tags stay bounded dimensions.
 - Latency names are pre-registered at composition; runtime code records through tokens only.
 - Buffering and sampling contracts are policy seams; sinks and rules bind in the implementation package.
 - Request metadata is boundary material for outgoing dependency calls, not domain state.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.Telemetry.Abstractions`
 - Owns: telemetry contracts and generator attributes
 - Accept: enrichment, buffering, sampling, latency, and metric contracts as composition seams

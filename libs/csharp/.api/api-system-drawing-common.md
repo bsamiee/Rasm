@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.Drawing.Common`
-
 - package: `System.Drawing.Common`
 - license: MIT
 - assembly: `System.Drawing.Common`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: image and drawing carriers
-
 - rail: host-ui-compile
 
 | [INDEX] | [SYMBOL]                       | [CAPABILITY]                        |
@@ -33,7 +31,6 @@
 |  [10]   | `Pen` / `Brush` / `SolidBrush` | drawing style carriers              |
 
 [PUBLIC_TYPE_SCOPE]: imaging and transform contracts
-
 - rail: host-ui-compile
 
 | [INDEX] | [SYMBOL]        | [CAPABILITY]                      |
@@ -48,7 +45,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: host UI image seam
-
 - rail: host-ui-compile
 
 | [INDEX] | [SURFACE]                                                       | [CALL_SHAPE] | [CAPABILITY]                 |
@@ -65,19 +61,16 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMPILE_ONLY]:
-
 - The package reference excludes runtime assets.
 - `NeedsRhinoHostUiSurface` binds the host reference through `HintPath`.
 - The seam compiles against `System.Drawing` types where Rhino/Eto APIs expose them; it does not select or deploy a runtime provider.
 
 [LOCAL_ADMISSION]:
-
 - Host UI interop may name `Bitmap`, `Image`, `Icon`, `Graphics`, and primitive drawing values at the boundary.
 - Library logic does not depend on `System.Drawing.Common` runtime behavior.
 - Image processing, rendering, and platform graphics ownership stay with their dedicated surfaces; this catalog is only the host compile contract.
 
 [RAIL_LAW]:
-
 - Package: `System.Drawing.Common`
 - Owns: compile-time `System.Drawing`/imaging type names for the Rhino/Eto host seam
 - Accept: host compile references to bitmap, icon, graphics, drawing value, and imaging contracts

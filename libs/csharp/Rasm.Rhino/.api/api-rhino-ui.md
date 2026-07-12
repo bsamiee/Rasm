@@ -5,7 +5,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon` + `Rhino.UI` (host UI bridge)
-
 - package: `RhinoCommon` (with `Rhino.UI` companion assembly)
 - license: proprietary McNeel SDK (host-provided, not centrally pinned)
 - assembly: `Rhino.UI.dll` (`RhinoEtoApp`, `EtoExtensions`, dialog and control hosts)
@@ -19,7 +18,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: panels, pages, and the Eto host bridge
-
 - rail: host-boundary native-ui
 
 `Panels` owns registration, opening, sibling opening, floating, closing, visibility, dock bars, icons, and show/close events. `RhinoEtoApp` resolves the application- or document-owned `Eto.Forms.Window` that parents an Eto surface.
@@ -41,7 +39,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [13]   | `LocalizeStringPair`            | localized label | English/localized caption pair        |
 
 [PUBLIC_TYPE_SCOPE]: dialogs, gumball, and mouse interaction
-
 - rail: host-boundary native-ui
 
 `Dialogs` owns color, message, text, list-box, multi-list, check-list, property-list, edit-box, number-box, layer, linetype, print-width, and sun dialogs. `GumballDisplayConduit` drives pre-, gumball-, and total transforms. `MouseCallback` owns move, down, up, double-click, enter, hover, and leave hooks with begin/end pairs.
@@ -63,7 +60,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [13]   | `WaitCursor`                | cursor          | scoped wait cursor               |
 
 [PUBLIC_TYPE_SCOPE]: in-viewport UI objects
-
 - rail: host-boundary native-ui
 
 | [INDEX] | [SYMBOL]                           | [KIND]            | [CAPABILITY]                  |
@@ -79,7 +75,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [09]   | `CommandPromptChangedEventArgs`    | prompt state      | prompt, default, and options  |
 
 [PUBLIC_TYPE_SCOPE]: status, toolbar, and resources
-
 - rail: host-boundary native-ui
 
 `StatusBar` owns command-prompt, message, distance, number, point, and progress panes. `DrawingUtilities` owns SVG, bitmap, icon, mesh-preview, curve-preview, and linetype-preview resources.
@@ -98,7 +93,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Panels`, pages, and the Eto host bridge
-
 - rail: host-boundary native-ui
 
 | [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE] | [CAPABILITY]                   |
@@ -177,7 +171,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 `ThemeSettings.ThemeChanged` is a public static `EventHandler` field subscribed through `+=`; the notifier behind `EtoExtensions` is private.
 
 [ENTRYPOINT_SCOPE]: dialogs, gumball, and mouse callbacks
-
 - rail: host-boundary native-ui
 
 | [INDEX] | [SURFACE]                                                                                 | [CALL_SHAPE] | [CAPABILITY]              |
@@ -203,7 +196,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [19]   | `MouseCursor.SetToolTip(string)`                                                          | read         | set cursor tooltip        |
 
 [ENTRYPOINT_SCOPE]: in-viewport UI objects
-
 - rail: host-boundary native-ui
 
 | [INDEX] | [SURFACE]                                                                 | [CALL_SHAPE] | [CAPABILITY]                  |
@@ -240,7 +232,6 @@ The `Rhino.UI` boundary owns host integration for native chrome: panel and page 
 |  [30]   | `MouseState.View`                                                         | state        | read picked view              |
 
 [ENTRYPOINT_SCOPE]: status, toolbar, resources, and UI thread
-
 - rail: host-boundary native-ui
 
 The trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx` selects `0` dash fill, `1` curve-shape stroke, or `2` text-shape even-odd fill.
@@ -270,26 +261,22 @@ The trailing `kind` channel of `DrawingUtilities.CreateLinetypePreviewGeometryEx
 ## [04]-[IMPLEMENTATION_LAW]
 
 [UI_TOPOLOGY]:
-
 - Native chrome registers once per plug-in and lives in one owner: `Panels.RegisterPanel` seats a panel type, `StackedDialogPage`/`OptionsDialogPage`/`ObjectPropertiesPage` seat pages, and the returned host resolves instances through `GetPanel`/`GetPanels<T>` — a second registration of the same type is the collapsed form.
 - The Eto host bridge is the only path from an Eto surface to a Rhino window: `RhinoEtoApp` resolves the document-owned parent, `EtoExtensions.UseRhinoStyle` applies native styling, and `ShowSemiModal`/`Show` present it against a document; the Eto control tree itself is authored through the folder Eto catalogs, and the bridge never re-implements a control.
 - Interaction has two tiers: `MouseCallback` is the document-wide viewport mouse hook (begin/end phase pairs), while a `UserInterfaceObjectBase` and its grip/slider subclasses are registered in-viewport widgets that draw through the display pipeline and receive a picked `MouseState`. The gumball is the third, dedicated manipulator — a `GumballDisplayConduit` seated from a `GumballObject`, never a hand-rolled grip cluster.
 - Every host callback runs on the UI thread: work that touches document or UI state from a background context marshals through `RhinoApp.InvokeOnUiThread`/`InvokeAndWait`, gated by `IsOnMainThread` — a direct cross-thread UI mutation is the deleted form.
 
 [STACKING]:
-
 - `api-eto-forms.md` / `api-eto-drawing.md` / `api-eto-runtime.md`: the Eto framework is the folder's own sub-domain; this boundary composes it through the host bridge only. A panel or dialog's content is an Eto control tree from those catalogs; `Rhino.UI` supplies the window ownership, native styling, and semi-modal presentation the tree lacks on its own.
 - `api-languageext.md`(`../../.api/api-languageext.md`): panel registration, page activation, dialog results, and resource loads are trapped onto the rail — `Try.lift(() => Panels.RegisterPanel(...)).Run()` and `Optional(Dialogs.ShowColorDialog(...)).ToFin(error)`; a dialog result or a loaded preview image crosses as `Fin<A>`, never as a nullable host handle.
 - `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): the host UI enums (`PanelType`, `FloatPanelMode`, `ShowPanelReason`, `MouseButton`, `GumballMode`, `PropertyPageType`, the dialog button/icon selectors) map at the edge to `[SmartEnum]` owners, and a panel/page `Guid` is a `[ValueObject<Guid>]`; the domain composes the bounded owner.
 - `api-rhinocommon-display.md`: the in-viewport `UserInterfaceObjectBase.OnDraw` receives a `DrawEventArgs` and draws through the same `DisplayPipeline` the display catalog owns, and the gumball is a display conduit — the UI widget is a pipeline participant, not a private renderer.
 
 [LOCAL_ADMISSION]:
-
 - The `Rhino.UI` types are host handles trapped and mapped at the boundary; a `Panels` registration id, a `Dialogs` result, or a `MouseState` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - One panel type, one page host, one gumball conduit, and one mouse hook own their concern; a parallel registration or a second hook drawing the same overlay is the collapsed form.
 
 [RAIL_LAW]:
-
 - Package: `RhinoCommon` + `Rhino.UI` (host UI bridge)
 - Owns: panel and page registration and lifecycle, the Eto host bridge (window ownership, native styling, semi-modal, position), native dialogs, the gumball manipulator, mouse callbacks and in-viewport UI objects, status/toolbar/RUI state, SVG and preview resources, and UI-thread marshaling
 - Accept: a panel/page registered once and resolved through the host, an Eto surface hosted through `RhinoEtoApp`/`EtoExtensions`, a gumball conduit or in-viewport widget drawing through the display pipeline, host handles trapped through `Try.lift(...).Run()`, and UI work marshaled onto the main thread

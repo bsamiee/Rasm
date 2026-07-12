@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MessagePack`
-
 - package: `MessagePack` (MessagePack-CSharp / neuecc)
 - license: `MIT`
 - assemblies: `MessagePack` (engine) + `MessagePack.Annotations` (the attribute marker set)
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: serializer facade, options, and zero-copy primitives — `MessagePack`
-
 - rail: appearance-interchange
 
 `MessagePackSerializer` spans byte arrays, streams, buffers, sequences, asynchronous operations, and the JSON bridge. `MessagePackReader`, a `ref struct` over `ReadOnlySequence<byte>`, owns typed reads, skipping, and peeking; `MessagePackWriter`, a `ref struct` over `IBufferWriter<byte>`, owns typed writes, headers, and raw payloads. `MessagePackCompression` admits `None`, `Lz4Block`, and `Lz4BlockArray`; `MessagePackSecurity` admits `TrustedData` and `UntrustedData` with depth and decompression caps. `MessagePackStreamReader` reads consecutive top-level messages from a `Stream`, and extension types carry custom binary embeddings as type-code and payload pairs.
@@ -40,7 +38,6 @@
 |  [14]   | `FormatterNotRegisteredException`   | error rail           | missing formatter         |
 
 [PUBLIC_TYPE_SCOPE]: formatter + resolver contracts — `MessagePack` / `MessagePack.Formatters`
-
 - rail: appearance-interchange
 
 `IFormatterResolver.GetFormatter<T>()` maps types to formatters. `IMessagePackFormatter<T>` owns `Serialize(ref Writer, T, options)` and `Deserialize(ref Reader, options)`, while `IMessagePackSerializationCallbackReceiver` binds `OnBeforeSerialize` and `OnAfterDeserialize` to the serialized type.
@@ -52,7 +49,6 @@
 |  [03]   | `IMessagePackSerializationCallbackReceiver` | lifecycle hook    | serialization callbacks |
 
 [PUBLIC_TYPE_SCOPE]: resolver catalog — `MessagePack.Resolvers`
-
 - rail: appearance-interchange
 - Resolvers are composed in priority order; `CompositeResolver.Create` is the chain builder and the seam where the Thinktecture bridge is stacked ahead of the standard fallback.
 
@@ -76,7 +72,6 @@
 |  [14]   | `NativeDecimalResolver`                | native           | `decimal` encoding    |
 
 [PUBLIC_TYPE_SCOPE]: modeling attributes — `MessagePack` (`MessagePack.Annotations`)
-
 - rail: appearance-interchange
 
 `MessagePackObjectAttribute(bool keyAsPropertyName = false)` exposes `AllowPrivate` and `SuppressSourceGeneration`. `KeyAttribute` accepts compact positional `int` keys or map-form `string` keys. `UnionAttribute` accepts `(int key, Type subType)` or `(int key, string subType)` for base-type or interface dispatch. `MessagePackFormatterAttribute(Type formatterType, params object?[]? arguments)` binds an `IMessagePackFormatter<T>` to a type or member. `SerializationConstructorAttribute` selects the deserialization constructor for immutable records. `GeneratedMessagePackResolverAttribute` marks the `[GeneratedMessagePackResolver]` partial-class resolver, which is AOT-safe and exposes `UseMapMode`.
@@ -95,7 +90,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: serialize / deserialize — `MessagePackSerializer`
-
 - rail: appearance-interchange
 - The generic `<T>` family is the default; every form takes an optional `MessagePackSerializerOptions`. The `ref MessagePackWriter`/`ref MessagePackReader` and `IBufferWriter<byte>`/`ReadOnlySequence<byte>` overloads are the zero-copy path off a pooled buffer — never a `byte[]` round-trip when a sequence is in hand.
 
@@ -117,7 +111,6 @@
 |  [12]   | `DefaultOptions { get; set; }`                                           | global config  | process default            |
 
 [ENTRYPOINT_SCOPE]: JSON bridge + typeless — `MessagePackSerializer`
-
 - rail: appearance-interchange
 
 `ConvertToJson` and `SerializeToJson` return `string`, while `ConvertFromJson` returns `byte[]`. The typeless pair embeds type data for heterogeneous `object` graphs, and the runtime-`Type` pair mirrors the generic family.
@@ -134,7 +127,6 @@
 |  [08]   | `Deserialize(Type, …)`                                       | non-generic    | runtime-type deserialization |
 
 [ENTRYPOINT_SCOPE]: options builder — `MessagePackSerializerOptions`
-
 - rail: appearance-interchange
 - The options object is IMMUTABLE; each `With*` returns a new instance. `Standard` is the base; layer the resolver, compression, and security in one fluent chain.
 
@@ -153,7 +145,6 @@
 |  [09]   | `WithAllowAssemblyVersionMismatch(bool)`  | builder        | typeless metadata           |
 
 [ENTRYPOINT_SCOPE]: resolver composition + hardening — `Resolvers` / `MessagePackSecurity`
-
 - rail: appearance-interchange
 
 `CompositeResolver.Create` accepts resolver params or paired `IReadOnlyList<IMessagePackFormatter>` and `IReadOnlyList<IFormatterResolver>` inputs; custom formatters precede resolver fallbacks. `IFormatterResolver.GetFormatter<T>()` selects the formatter, and `IMessagePackFormatter<T>.Serialize` and `.Deserialize` own the custom codec for a non-attributed type.
@@ -176,38 +167,32 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [WIRE_PROFILE]:
-
 - facade: `MessagePackSerializer` is the ONE entry; the generic `<T>` family is the default, `Type`-keyed and `Typeless` mirrors only at a heterogeneous boundary.
 - options: `MessagePackSerializerOptions` is immutable — build ONE options instance per wire profile (resolver + compression + security) and reuse it; never construct options per call.
 - compression: `MessagePackCompression.Lz4BlockArray` is the streaming-friendly array form (preferred for large graphs); `Lz4Block` is the single-block form. `CompressionMinLength` (default 64) gates small payloads out of compression.
 - zero-copy: deserialize off a multi-segment `ReadOnlySequence<byte>` and serialize into an `IBufferWriter<byte>`; the `ref MessagePackReader`/`ref MessagePackWriter` overloads compose a custom `IMessagePackFormatter<T>` into the parent graph without a `byte[]` round-trip.
 
 [THINKTECTURE_BRIDGE]:
-
 - the decisive integration: `Thinktecture.Runtime.Extensions.MessagePack` ships `ThinktectureMessageFormatterResolver` (an `IFormatterResolver`) plus the `ThinktectureMessagePackFormatter`/`ThinktectureStructMessagePackFormatter` codecs that serialize Thinktecture `[SmartEnum]`/`[ValueObject]`/`[Union]` types by their key value.
 - compose it AHEAD of the standard fallback: `CompositeResolver.Create(ThinktectureMessageFormatterResolver.Instance, StandardResolver.Instance)`, then `MessagePackSerializerOptions.Standard.WithResolver(that).WithCompression(MessagePackCompression.Lz4BlockArray).WithSecurity(MessagePackSecurity.UntrustedData)`. The folder's material/appearance identity value-objects then serialize with no hand-written formatter — the bridge resolver is the seam, `CompositeResolver` the chain.
 - the bridge resolver serializes the generated identity types; the folder's DIRECT `MessagePack` reference is earned by the `interchange#MATERIAL_WIRE` design composing `MessagePackSerializer`, the `[MessagePackObject]`/`[Key]` modeling, and the `[GeneratedMessagePackResolver]` source-gen resolver beyond the bridge-resolved value-objects.
 
 [MODELING_AND_AOT]:
-
 - model appearance/material records with `[MessagePackObject]` + `[Key(int)]` (positional, the compact array form) and `[SerializationConstructor]` for immutable record constructors; reserve `[Key(string)]` (map form) for forward-compatible schemas.
 - the polymorphic `BsdfLobe`/appearance hierarchy serializes through `[Union(key, subType)]` on the base type/interface — the MessagePack discriminated-union dispatch that mirrors the Thinktecture `[Union]` lobe family; each arm gets a stable integer key.
 - prefer the SOURCE-GENERATED resolver: a `[GeneratedMessagePackResolver]` partial class is filled by the MessagePack source generator at compile time (AOT-safe, IL-emit-free), the host-neutral posture's resolver — NOT the runtime-reflection `DynamicObjectResolver`. The `MessagePackAnalyzer` (pinned beside the engine) enforces `[Key]` coverage and union completeness at compile time.
 
 [SECURITY_AND_FAILURE]:
-
 - any external/untrusted wire applies `MessagePackSecurity.UntrustedData` (depth cap 500, decompression-size cap, collision-resistant comparers) via `WithSecurity`; the default `TrustedData` is for in-process self-produced bytes only.
 - failure is the typed `MessagePackSerializationException` / `FormatterNotRegisteredException` rail; lower it into the folder's `LanguageExt` `Fin`/`Validation` boundary rather than letting it escape.
 
 [LOCAL_ADMISSION]:
-
 - MessagePack owns the COMPACT BINARY wire only; the human-readable JSON wire is the `Thinktecture.Runtime.Extensions.Json` + `UnitsNet.Serialization.JsonNet` peer leg. `ConvertToJson`/`SerializeToJson` are DIAGNOSTIC bridges (debug/inspection), not the JSON system of record.
 - this is the neuecc `MessagePack-CSharp` engine; `Nerdbank.MessagePack` (PolyType-based, in the bridge closure via StreamJsonRpc) is a DIFFERENT package — never mix their attributes, resolvers, or formatters.
 - build ONE shared `MessagePackSerializerOptions` for the appearance-interchange profile; resolver/compression/security are wire-profile policy, not per-call arguments.
 - `UnitsNet` quantities and `Wacton.Unicolour` colors serialize as member values through the standard resolver or a small `IMessagePackFormatter<T>`; do not re-mint a quantity/color codec the standard chain already covers.
 
 [RAIL_LAW]:
-
 - Package: `MessagePack` (MessagePack-CSharp / neuecc)
 - Owns: the compact binary appearance/material interchange wire — `MessagePackSerializer` over `[MessagePackObject]`/`[Key]`/`[Union]`-modelled records, resolver composition, LZ4 compression, and untrusted-input hardening
 - Accept: the generic `MessagePackSerializer.Serialize/Deserialize<T>` family (byte[]/`Stream`/`IBufferWriter`/`ReadOnlySequence`/`ref Reader`/`ref Writer` + async); one shared immutable `MessagePackSerializerOptions`; `CompositeResolver.Create(ThinktectureMessageFormatterResolver.Instance, StandardResolver.Instance)` for the Thinktecture identity bridge; `[GeneratedMessagePackResolver]` AOT source-gen; `MessagePackSecurity.UntrustedData` on external wire; the typed `MessagePackSerializationException` rail

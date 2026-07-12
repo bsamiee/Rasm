@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto.Forms`
-
 - package: `Eto.Forms` — host-provided, resolved from the Rhino host assembly set, not a central `PackageReference`
 - assembly: `Eto`
 - namespace: `Eto.Forms`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: document, presentation, and settings
-
 - namespace: `Eto.Forms`
 - rail: eto-printing
 
@@ -35,7 +33,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: document lifecycle
-
 - rail: eto-printing
 
 `PrintDocument` constructs empty or over a `Control` whose visual is the page source; `Print` runs the render silently; the three `On*` callbacks bracket the job and paginate it, with `OnPrintPage` receiving the `Graphics` to paint each page.
@@ -51,7 +48,6 @@
 |  [07]   | `PrintDocument.OnPrinted`   | `(EventArgs)`          | job-complete lifecycle callback          |
 
 [ENTRYPOINT_SCOPE]: presentation and progress
-
 - rail: eto-printing
 
 `PrintDialog` and `PrintPreviewDialog` present the same `PrintDocument`; `Taskbar.SetProgress` projects the render's completion fraction under a `TaskbarProgressState`.
@@ -67,25 +63,20 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PIPELINE_LAW]:
-
 - `PrintDocument` is the one render job every entrypoint composes with: a dialog presents it, a preview wraps it, the settings configure it, and the taskbar mirrors its progress. Construction is empty or over a `Control` whose rendered visual is the page source. The render lifecycle is `OnPrinting` → `OnPrintPage` per page → `OnPrinted`; `OnPrintPage` receives a `PrintPageEventArgs` carrying the `Graphics` (`api-eto-drawing`) the page paints into, so a page is drawn with the identical primitive set a `Drawable` uses on screen.
 - `Print` runs the job silently against the configured printer; `PrintDialog.ShowDialog` gates the same job behind the OS printer, copy-count, and range chooser; `PrintPreviewDialog` renders it to screen without committing to hardware. `PageSettings` and `PrintSettings` are the geometry and job-configuration inputs a document renders under.
 
 [PROGRESS_LAW]:
-
 - `Taskbar.SetProgress` is independent of the document and the dialogs: it projects a completion fraction under a `TaskbarProgressState` onto the OS taskbar or dock, the ambient signal for a long render that runs beside — never inside — the page pipeline.
 
 [STACKING]:
-
 - `LanguageExt`(`.api/api-languageext`): a print job composes as an effect — `PrintDocument.Print` and the `On*` callbacks fold into an `Eff<A>`/`IO<A>` pipeline whose per-page render is a step, and the `PrintDialog.ShowDialog`/`PrintPreviewDialog.ShowDialog` result folds to `Fin<A>` (a cancelled `DialogResult` is a typed rail, never a control-flow branch). The `PrintDocument` is resource-scoped through the `use` rail so a job's construction and disposal bracket exactly one scope. `Option<A>` lifts an unselected printer or a null `PrintSettings` so an unconfigured job is `None`, not a null probe.
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions`): `TaskbarProgressState` binds as a `[SmartEnum]` routed by generated `Switch`/`Map`, so a progress transition dispatches over the closed vocabulary rather than a raw enum compare; `DialogResult` binds the same way where the print dialogs' outcome drives downstream dispatch.
 
 [LOCAL_ADMISSION]:
-
 - `Eto.Forms` printing is host-provided and never re-declared; a Rasm owner internalizes document output behind one canonical rail so downstream code composes a print effect and a page-render callback, never a raw `PrintDocument` lifecycle, a stringy dialog-result branch, or a hand-threaded taskbar update.
 
 [RAIL_LAW]:
-
 - Package: `Eto.Forms`
 - Owns: `PrintDocument` lifecycle and page callbacks, `PrintDialog`/`PrintPreviewDialog` presentation, `PageSettings`/`PrintSettings`, `Taskbar` progress projection
 - Accept: paginated document rendering, printer and preview presentation, page geometry and job configuration, ambient taskbar/dock progress

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Irihi.Ursa`
-
 - package: `Irihi.Ursa`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.dll`); the package multi-targets net8.0 / net10.0 and the `net10.0` asset is bound
@@ -15,7 +14,6 @@
 - rail: controls
 
 [PACKAGE_SURFACE]: `Irihi.Ursa.Themes.Semi`
-
 - package: `Irihi.Ursa.Themes.Semi`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.Themes.Semi.dll`)
@@ -28,7 +26,6 @@
 - rail: controls
 
 [PACKAGE_SURFACE]: `Irihi.Ursa.ReactiveUIExtension`
-
 - package: `Irihi.Ursa.ReactiveUIExtension`
 - license: MIT
 - floor: `net10.0` consumer (`lib/net10.0/Ursa.ReactiveUIExtension.dll`); its `ReactiveUI.Avalonia >= 11.3.0` floor rises to the admitted 12.x line
@@ -40,7 +37,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [NAVIGATION_CONTROLS]: navigation + wayfinding — `Ursa.Controls`
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                                        | [KIND]                                                        |
@@ -54,7 +50,6 @@
 |  [07]   | `TitleBar`                                      | custom window title bar (chromeless host)                     |
 
 [FEEDBACK_CONTROLS]: toast, notification, banner, message, busy — `Ursa.Controls`
-
 - rail: controls
 
 The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `MessageBox` exposes `ShowAsync` and `ShowOverlayAsync`.
@@ -86,7 +81,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 |  [23]   | `PopConfirm`                | `PopConfirmTriggerMode` prompt |
 
 [OVERLAY_CONTROLS]: in-canvas dialog + drawer host layer — `Ursa.Controls`
-
 - rail: controls
 
 `OverlayDialogHost` is the registered-id target for `OverlayDialog`, `Drawer`, and `MessageBox.ShowOverlayAsync`. `OverlayDialogManager` owns `RegisterHost`, `UnregisterHost`, and `GetHost(id, hash)`.
@@ -118,7 +112,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [STANDARD_OVERLAY_SHELLS]: `StandardDialogControl` and `StandardDrawerControl` are titled, buttoned shells.
 
 [DATA_ENTRY_CONTROLS]: form, numeric, masked, gesture, tag entry — `Ursa.Controls`
-
 - rail: controls
 
 `Numeric<T>UpDown` admits `Byte`, `SByte`, `Short`, `UShort`, `Int`, `UInt`, `Long`, `ULong`, `Float`, `Double`, and `Decimal`. `<T>Displayer` admits `Double`, `Int32`, and `Int64`.
@@ -150,7 +143,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [TIME_BOX_MODES]: `TimeBoxInputMode` selects components, and `TimeBoxDragOrientation` selects drag direction.
 
 [SELECTION_CONTROLS]: multi-select, combo, rating, button-group — `Ursa.Controls`
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                            | [KIND]                      |
@@ -176,7 +168,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [SELECTION_EVENT]: `SelectionChangingEventArgs` carries `SelectionList` changes.
 
 [DISPLAY_CONTROLS]: timeline, avatar, badge, marquee, descriptions, QR — `Ursa.Controls`
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                | [KIND]                  |
@@ -209,7 +200,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [QR_POLICY]: `QRCode` consumes `EccLevel` and vendors `Gma.QrCodeNet` internally.
 
 [PICKER_CONTROLS]: full date / time / range picker family — `Ursa.Controls`
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                       | [KIND]                   |
@@ -241,7 +231,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [CALENDAR_POLICY]: `DatePickerCalendarViewMode` governs the calendar surface.
 
 [SHELL_CONTROLS]: window + view bases — `Ursa.Controls` / `Ursa.ReactiveUIExtension`
-
 - rail: controls
 
 `Ursa.ReactiveUIExtension` binds `ReactiveUrsaWindow` and `ReactiveUrsaView` to `UrsaWindow` and `UrsaView` as the admitted MVVM bases.
@@ -265,7 +254,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [THEME_SELECTOR_POLICY]: `ThemeSelectorMode` governs theme-variant selection.
 
 [CONTROL_ENUMS]: `Ursa.Controls` / `Ursa.Common` vocabulary
-
 - rail: controls
 
 | [INDEX] | [SYMBOL]                     | [RAIL]                  |
@@ -308,7 +296,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 ## [03]-[ENTRYPOINTS]
 
 [DIALOG_DISPATCH]: `Dialog` (windowed) + `OverlayDialog` (in-canvas) static dispatch — vm-first, owner/host-id targeted, sync + async mirrors
-
 - rail: controls
 
 | [INDEX] | [MEMBER]                                    | [ROOT]                 | [MODE]             | [RESULT]             |
@@ -351,7 +338,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [DIALOG_SIGNATURE_12]: `UnregisterHost(id, hash)`.
 
 [DRAWER_DISPATCH]: `Drawer` slide-in panel dispatch — same vm-first shape, host-id targeted
-
 - rail: controls
 
 | [INDEX] | [MEMBER]                                    | [MODE]       | [RESULT]             |
@@ -367,7 +353,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [DRAWER_SIGNATURE_03]: `ShowCustomModal<TView,TViewModel,TResult>(vm, hostId, DrawerOptions?) : Task<TResult?>`.
 
 [MESSAGEBOX_DISPATCH]: `MessageBox` windowed + overlay confirmation — message/title/icon/button-first
-
 - rail: controls
 
 | [INDEX] | [MEMBER]           | [MODE]          | [RESULT]                 |
@@ -383,7 +368,6 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 [MESSAGEBOX_SIGNATURE_03]: `ShowOverlayAsync(string message, string? title, string? hostId, MessageBoxIcon, MessageBoxButton, int? toplevelHashCode, string?) : Task<MessageBoxResult>`.
 
 [TOAST_NOTIFICATION_DISPATCH]: `IToastManager` / `INotificationManager` queue managers (installed onto a host visual, then `Show`)
-
 - rail: controls
 
 `WindowToastManager` implements `IToastManager`, `WindowNotificationManager` implements `INotificationManager`, and `IMessage` is the base of `IToast` and `INotification`.
@@ -408,26 +392,22 @@ The toast and notification managers expose `Show`, `Close`, and `CloseAll`; `Mes
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONTROLS_LAW]:
-
 - Package: `Irihi.Ursa`
 - Owns: the extended-control families the curated Avalonia + `bodong.PropertyGrid` + `Dock` + `DataGrid` roster does not — navigation (`NavMenu`/`Breadcrumb`/`Pagination`/`Anchor`/`ToolBar`), feedback (`Toast`/`Notification`/`Banner`/`MessageBox`/`Loading`/`Skeleton`/`PopConfirm`), overlay (`OverlayDialogHost`/`Drawer`), data entry (`Form`/the typed `NumericUpDown` family/`PinCode`/`IPv4Box`/`TimeBox`/`TagInput`/`KeyGestureInput`/`PathPicker`), selection (`MultiComboBox`/`TreeComboBox`/`SelectionList`/`Rating`/`RangeSlider`), display (`Timeline`/`Avatar`/`Badge`/`Marquee`/`Descriptions`/`QRCode`), and the full date/time/range picker family.
 - Accept: `Shell/Controls` composes Ursa controls for these families and reuses `Ursa.Common` placement (`Position`/`ItemAlignment`/`CornerPosition`) and the per-control enums as the policy vocabulary; the typed `Numeric<T>UpDown` variant matching the bound CLR type is used, never a string-parsed generic spinner.
 - Reject: hand-rolling a nav menu, timeline, OTP field, masked IP/time box, multi-select combo, or rating control that Ursa already owns; declaring a parallel placement enum where `Ursa.Common`/the control enum already names the axis.
 
 [OVERLAY_LAW]:
-
 - The overlay families are the in-canvas counterpart to `DialogHost.Avalonia` (`api-dialoghost.md`): one `OverlayDialogHost` registered per shell region (id via `OverlayDialogManager.RegisterHost`), and view-models raise dialogs/drawers/confirms through the static `OverlayDialog.*`/`Drawer.*`/`MessageBox.ShowOverlayAsync` dispatch against that id — never by instantiating a popup or mutating the visual tree.
 - Accept: the awaited `ShowModal`/`ShowCustomModal<TResult>`/`ShowStandardAsync` overloads return `Task<DialogResult>`/`Task<TResult?>` and bind into a LanguageExt `Eff`/`OptionT` rail at the boundary, threading the supplied `CancellationToken` through the overlay's lifetime; `DialogOptions`/`OverlayDialogOptions`/`DrawerOptions` carry button set, modality, placement, and resize policy.
 - Reject: a second overlay-host layer beside `OverlayDialogHost` (or beside `DialogHost`); blocking on `.Result` instead of awaiting the dispatch; constructing dialog views by hand instead of the `<TView,TViewModel>` vm-first generic overloads.
 
 [FEEDBACK_LAW]:
-
 - `WindowToastManager`/`WindowNotificationManager`/`WindowMessageManager` are installed once onto a host visual; product code resolves the matching `IToastManager`/`INotificationManager` and calls `Show(IToast/INotification)`/`Close`/`CloseAll`. Each message implements `IMessage` (`Type` severity, `Expiration`, `OnClick`, `OnClose(Action<MessageCloseReason>)`), so transient feedback is queued through one manager rather than ad-hoc adorners.
 - Accept: notification severity maps from the product `Status`/`ControlIntent` vocabulary onto `IMessage.Type` (Avalonia's `NotificationType`); `OnClose` receives `MessageCloseReason` (user vs timeout vs programmatic) to drive analytics or follow-up.
 - Reject: per-screen toast stacks; raising a `Notification`/`Toast` control directly into the visual tree instead of through its manager; ignoring `MessageCloseReason` where dismissal cause is load-bearing.
 
 [THEME_BRIDGE_LAW]:
-
 - Package: `Irihi.Ursa.Themes.Semi` + `Irihi.Ursa.ReactiveUIExtension`
   [URSA_SEMI_THEME]:
   `Irihi.Ursa.Themes.Semi` is the `UrsaSemiTheme: Styles` compiled-AXAML control-theme dictionary (`<semi:UrsaSemiTheme/>`, plus the thin `Locale`/`OverrideLocaleResources` code surface and the public `Ursa.Themes.Semi.Converters` set). It sits at the END of the single `Application.Styles` chain `FluentTheme floor -> <semi:SemiTheme/> -> the per-control Semi.Avalonia.* skins -> <semi:UrsaSemiTheme/>` so every Ursa control resolves the shared OKLCH token system the `Wacton.Unicolour` pipeline materializes into the `SemiTheme` slots.

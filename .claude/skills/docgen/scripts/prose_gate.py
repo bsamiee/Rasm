@@ -45,6 +45,7 @@ class Check(StrEnum):
     HEADING_ORDER = "heading-order"
     HEADING_SPACING = "heading-spacing"
     HEDGE = "hedge"
+    LABEL_GAP = "label-gap"
     LIST_BLOAT = "list-bloat"
     LIST_LEADER = "list-leader"
     LIST_MARKER = "list-marker"
@@ -157,6 +158,10 @@ FENCE = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>`{3,}|~{3,})(?P<info>.*)$")
 EMOJI = re.compile(r"[\U0001F000-\U0001FAFF\u2600-\u27BF\u2B50\u2139\uFE0F]")
 PROMPT_LINE = re.compile(r"^\s*(?:\$|\u276F|PS>)\s+\S")
 GROUP_LABEL = re.compile(r"^\[[A-Z][A-Z0-9_]*\]:\s*$")
+# A bracketed label lead — `[X]:`, `[X]: value`, `[X]-[Y]: ...`, or `[X] — sentence ...:` — hugs its list; a table keeps its blank.
+LABEL_LEAD = re.compile(r"^\[[A-Z][A-Z0-9_-]*\](?:-\[[A-Z][A-Z0-9_-]*\])*(?::(?:\s|$)|.*—.*:\s*$)")
+# A floating bracketed label — no colon, alone on its line — that introduces a list or table lacks the colon a list label carries.
+FLOATING_LABEL = re.compile(r"^\[[A-Z][A-Z0-9_-]*\]\s*$")
 GLYPHS = ("│", "├", "└", "⇄")
 HEADER_CELL = re.compile(r"^\[[A-Z][A-Z0-9_]*\]$")
 HEADING = re.compile(r"^(?P<level>#{1,6})\s+(?P<title>.+?)\s*$")
@@ -244,7 +249,9 @@ class Repair(StrEnum):
     INDEX = "index-column"
     ENTRY = "index-entry"
     ALIGN = "alignment"
+    COLON = "label-colon"
     HEADING = "heading-number"
+    HUG = "label-hug"
     LEADER = "list-leader"
     DIVIDER = "section-divider"
     SPACING = "table-spacing"
@@ -520,6 +527,18 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
                 rows.append(row(path, number, Check.HEADING_SPACING, "fail", "heading is not followed by a blank line"))
         elif GROUP_LABEL.match(line.strip()) and line.strip() == f"[{last_rubric}]:":
             rows.append(row(path, number, Check.GROUP_LABEL, "warn", f"[{last_rubric}]: echoes its section heading; the label is phantom structure"))
+        elif (floating := bool(FLOATING_LABEL.match(line))) or LABEL_LEAD.match(line):
+            after = raw[n + 1] if n + 1 < len(raw) else ""
+            gap = not after.strip()
+            follow = (raw[n + 2] if n + 2 < len(raw) else "") if gap else after
+            intro_list = bool(LIST_ITEM.match(follow)) and not follow.lstrip().startswith("|")
+            intro_table = follow.lstrip().startswith("|")
+            if floating and (intro_list or intro_table):
+                rows.append(row(path, number, Check.LABEL_GAP, "fail", "floating label lacks its colon; a list or record label carries [LABEL]:"))
+            elif not floating and gap and intro_list:
+                rows.append(row(path, number, Check.LABEL_GAP, "fail", "blank gap between the label and its list; hug the list"))
+            elif not floating and not gap and intro_table:
+                rows.append(row(path, number, Check.LABEL_GAP, "fail", "label sits directly on a table; keep one blank line before the grid"))
         if SETEXT.match(line) and n > 0 and raw[n - 1].strip() and not TABLE_SEP.match(line):
             rows.append(row(path, number, Check.SETEXT_HEADING, "fail", "setext heading marker"))
         if line.lstrip().startswith("|") and n + 1 < len(raw) and TABLE_SEP.match(raw[n + 1]):
@@ -1104,6 +1123,59 @@ def repaired_lines(lines: list[str], skip_until: int) -> tuple[list[str], tuple[
     return out, tuple(changes)
 
 
+def hugged_labels(lines: list[str]) -> tuple[list[str], tuple[Change, ...]]:
+    out: list[str] = []
+    changes: list[Change] = []
+    fence: tuple[str, int, int] | None = None
+    index, total = 0, len(lines)
+    while index < total:
+        line = lines[index]
+        matched = FENCE.match(line)
+        if fence is None and matched:
+            fence = (matched.group("marker")[0], len(matched.group("marker")), len(matched.group("indent")))
+            out.append(line)
+            index += 1
+            continue
+        if fence is not None:
+            if (
+                matched
+                and matched.group("marker")[0] == fence[0]
+                and len(matched.group("marker")) >= fence[1]
+                and not matched.group("info").strip()
+                and len(matched.group("indent")) <= fence[2] + 3
+            ):
+                fence = None
+            out.append(line)
+            index += 1
+            continue
+        # A bracketed label hugs its list: a floating label first earns the colon a list label carries; a table keeps the blank the grid demands.
+        floating = bool(FLOATING_LABEL.match(line))
+        if floating or LABEL_LEAD.match(line):
+            after = lines[index + 1] if index + 1 < total else ""
+            gap = not after.strip()
+            follow = (lines[index + 2] if index + 2 < total else "") if gap else after
+            intro_list = bool(LIST_ITEM.match(follow)) and not follow.lstrip().startswith("|")
+            intro_table = follow.lstrip().startswith("|")
+            if floating and (intro_list or intro_table):
+                labeled = line.rstrip() + ":"
+                changes.append(Change(index + 1, Repair.COLON, line.strip(), labeled.strip()))
+                out.append(labeled)
+                if intro_list and gap:
+                    changes.append(Change(index + 2, Repair.HUG, "<blank gap>", "<hugged to list>"))
+                    index += 2
+                    continue
+                index += 1
+                continue
+            if not floating and gap and intro_list:
+                out.append(line)
+                changes.append(Change(index + 2, Repair.HUG, "<blank gap>", "<hugged to list>"))
+                index += 2
+                continue
+        out.append(line)
+        index += 1
+    return out, tuple(changes)
+
+
 def repaired_source(path: Path, text: str) -> tuple[str, tuple[Change, ...]]:
     marker = MARKERS[path.suffix]
     changes: list[Change] = []
@@ -1140,6 +1212,8 @@ def repaired_text(path: Path, text: str, cap: int) -> tuple[str, tuple[Change, .
     if not template:
         lines, line_changes = repaired_lines(lines, frontmatter_end(tuple(lines)))
         changes.extend(line_changes)
+    lines, hug_changes = hugged_labels(lines)
+    changes.extend(hug_changes)
     doc, _ = lex(path, "\n".join(lines), cap)
     for table in reversed(doc.tables):
         target = table

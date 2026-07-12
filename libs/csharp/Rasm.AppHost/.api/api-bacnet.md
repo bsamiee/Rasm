@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `BACnet`
-
 - package: `BACnet`
 - license: `MIT`
 - assembly: `BACnet`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: client and transport surfaces
-
 - rail: live-wire
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]   | [RAIL]                                                              |
@@ -31,7 +29,6 @@
 |  [06]   | `BacnetEthernetProtocolTransport` | transport       | raw Ethernet (requires SharpPcap/libpcap)                           |
 
 [PUBLIC_TYPE_SCOPE]: address, object, and value surfaces
-
 - rail: live-wire
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY] | [RAIL]                                                         |
@@ -46,7 +43,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifecycle and discovery
-
 - rail: live-wire
 
 | [INDEX] | [MEMBER]                                   | [KIND] | [RETURN]       |
@@ -62,14 +58,12 @@
 |  [09]   | `BacnetClient.RegisterAsForeignDevice`     | call   | `void`         |
 
 [OVERLOADS]:
-
 - `new BacnetClient(IBacnetTransport transport, int timeout = 1000, int retries = 3)`: binds the supplied transport.
 - `new BacnetClient(int port = 47808, int timeout = 1000, int retries = 3)`: binds the default BACnet/IP UDP transport.
 - `BacnetClient.WhoIs(int lowLimit = -1, int highLimit = -1, BacnetAddress receiver = null, BacnetAddress source = null)`: broadcasts device discovery.
 - `BacnetClient.RegisterAsForeignDevice(string bbmdIp, short ttl, int port = 47808)`: registers a foreign device with a BBMD for routed networks.
 
 [ENTRYPOINT_SCOPE]: property read/write and COV
-
 - rail: live-wire
 
 | [INDEX] | [MEMBER]                      | [KIND]     | [RETURN]       |
@@ -82,7 +76,6 @@
 |  [06]   | `ReadRangeRequest`            | trend read | `bool`         |
 
 [SIGNATURES]:
-
 - `ReadPropertyRequest(BacnetAddress adr, BacnetObjectId objectId, BacnetPropertyIds propertyId, out IList<BacnetValue> valueList, byte invokeId = 0)`
 - `BeginReadPropertyRequest(BacnetAddress address, BacnetObjectId objectId, BacnetPropertyIds propertyId, bool waitForTransmit, byte invokeId = 0)`
 - `ReadPropertyMultipleRequest(BacnetAddress address, IList<BacnetReadAccessSpecification> properties, out IList<BacnetReadAccessResult> values, byte invokeId = 0)`
@@ -93,7 +86,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IMPLEMENTATION_LAW]: client semantics
-
 - rail: live-wire
 
 - `BacnetClient` binds one `IBacnetTransport`; the AppHost binding uses `BacnetIpUdpProtocolTransport` (BACnet/IP, no native dependency) — the raw-Ethernet transport (SharpPcap/libpcap) and MS/TP serial transport stay recorded growth options behind a companion process where the host lacks the native line. `Start()` opens the transport; the client is `IDisposable` and holds in the same token-gated state cell the OPC-UA/MQTT/serial clients ride, so a reconnect replaces the whole cell.
@@ -103,7 +95,6 @@
 - a confirmed-request failure (`bool false`, timeout, or a BACnet-Error/Reject/Abort) surfaces at the boundary as `WireFault.ReadFailed`/`WriteRejected`, never propagating into the interior; `RegisterAsForeignDevice` handles BBMD-routed networks where the device is not on the local broadcast domain.
 
 [IMPLEMENTATION_LAW]: AppHost usage
-
 - rail: live-wire
 
 - the live-wire `bacnet` transport row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` with COV subscribe, `Writable: true`, an `OutboundHop.CompanionSpawn`/direct-UDP hop) and one `LiveClient` case wrapping `BacnetClient` — no second BACnet surface, no bespoke poller.
@@ -111,7 +102,6 @@
 - the named forward consumer is the Compute inverse-UQ / twin-calibration lane's metered-data ingress (`RASM-CS-COMPUTE-BRIEF.md` `[V12]` recorded growth): building-automation observations (temperature, occupancy, energy) decode at this seam exactly as MTConnect machine-tool observations (`api-mtconnect.md`) feed Fabrication — one decode boundary, the observation crossing as a wire row.
 
 [RAIL_LAW]:
-
 - Package: `BACnet`
 - Owns: BACnet/IP device discovery, property read/write, and COV subscription as one live-wire transport row
 - Accept: a `BacnetIpUdpProtocolTransport`-bound `BacnetClient`, a point map as binding-spec policy, and COV push decoded to `ExternalValue` at the boundary

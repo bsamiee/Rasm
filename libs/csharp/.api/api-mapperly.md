@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Riok.Mapperly`
-
 - package: `Riok.Mapperly` (Apache-2.0, © Riok / Mapperly contributors)
 - assembly: `Riok.Mapperly.Abstractions` (runtime attributes/enums); `Riok.Mapperly` (Roslyn analyzer/generator, never referenced at runtime)
 - namespace: `Riok.Mapperly.Abstractions`, `Riok.Mapperly.Abstractions.ReferenceHandling`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: mapper declaration, defaults, and composition (class/assembly level)
-
 - rail: mapping
 
 `MapperDefaultsAttribute` inherits the mapper policy. `UseMapperAttribute` delegates accessible static and instance mappings from an annotated field or property, while the repeatable `UseStaticMapperAttribute` delegates static mappings from its named type. `ObjectFactoryAttribute` admits generic non-void factories with zero or one parameter.
@@ -56,7 +54,6 @@ Every `MapperAttribute` policy property is also settable through `MapperDefaults
 |  [17]   | `AutoUserMappings`                   | `bool`                          | `true`          | user-mapping discovery       |
 
 [PUBLIC_TYPE_SCOPE]: per-mapping-method configuration (method level)
-
 - rail: mapping
 
 `MapPropertyAttribute` renames, flattens, or unflattens member paths. `MapPropertyFromSourceAttribute` maps the whole source, and `MapNestedPropertiesAttribute` flattens a nested source onto the target root. Paired constructor arguments are ordered source then target.
@@ -108,7 +105,6 @@ Each row records one named policy member extracted from the method-level configu
 |  [18]   | `MapperIgnoreTargetValueAttribute` | `TargetValue`                    | target enum value           |
 
 [PUBLIC_TYPE_SCOPE]: member/parameter markers
-
 - rail: mapping
 
 `FormatProviderAttribute.Default` selects the implicit `IFormattable` provider. Multi-target attributes retain one row per exact `AttributeUsage` target.
@@ -124,7 +120,6 @@ Each row records one named policy member extracted from the method-level configu
 |  [07]   | `ReferenceHandlerAttribute` | parameter | reference-handler binding  |
 
 [PUBLIC_TYPE_SCOPE]: strategy and conversion enums
-
 - rail: mapping
 
 `RequiredMappingStrategy`, `IgnoreObsoleteMembersStrategy`, `MemberVisibility`, and `MappingConversionType` are flag vocabularies. `MemberVisibility.All` and `Private` reach non-public members through `UnsafeAccessor` where the target framework exposes it; explicit values remain part of the declaration.
@@ -183,7 +178,6 @@ Each row records one named policy member extracted from the method-level configu
 |  [50]   | `MappingConversionType`         | `All = -1`                           |
 
 [PUBLIC_TYPE_SCOPE]: reference handling (`Riok.Mapperly.Abstractions.ReferenceHandling`)
-
 - rail: mapping
 
 `IReferenceHandler` resolves targets through `TryGetReference<TSource,TTarget>(TSource source, out TTarget? target)` and records them through `SetReference<TSource,TTarget>(TSource source, TTarget target)`; both methods constrain source and target to `notnull`. `PreserveReferenceHandler` is generator-owned and keys source objects by reference identity.
@@ -196,7 +190,6 @@ Each row records one named policy member extracted from the method-level configu
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the generation contract — declare a `partial` method, the generator emits the body
-
 - rail: mapping
 - surface-root: a `[Mapper] partial class` (instance) or `[Mapper] static partial class` (static/extension)
 
@@ -216,7 +209,6 @@ Each row is one generated method shape. Repeatable `MapDerivedTypeAttribute` ins
 |  [10]   | `partial TTarget Map(TSource source, TContext context);`                             | additional value mapping |
 
 [ENTRYPOINT_SCOPE]: composition and instantiation
-
 - rail: mapping
 
 Each row shows one mapper composition or activation surface. Object-factory type parameters may represent the source, target, or both; member-target alternatives remain owned by the public-type registry.
@@ -240,20 +232,17 @@ Each row shows one mapper composition or activation surface. Object-factory type
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GENERATION_MODEL]:
-
 - Mapperly emits ordinary C# bodies at compile time: direct assignments, construction and initialization, element loops, and derived-type switches remain inspectable in the generated partial. `IQueryable` projection emits a static expression tree; no mapping engine, runtime expression compilation, or reflection remains, and target construction owns per-map allocation.
 - The runtime footprint is `Riok.Mapperly.Abstractions` only, and every attribute is `[Conditional("MAPPERLY_ABSTRACTIONS_SCOPE_RUNTIME")]` — absent that symbol the attribute calls are erased, so the attributes carry zero IL weight in the shipped assembly. Reference the package analyzer-style (`PrivateAssets="all"`); a consumer that declares no mapper still inherits nothing.
 - Unmapped members are a build-time diagnostic (`RMG` codes), not a silent drop: `RequiredMappingStrategy`/`MapperRequiredMapping` tune severity and `[MapperIgnoreSource]`/`[MapperIgnoreTarget]` waive a member explicitly. A mapping that does not round-trip is a compiler warning, surfaced where it is written.
 
 [LOCAL_ADMISSION]:
-
 - Mapperly owns boundary transcription only: `ElementGraph`/`Node`/`Relationship`/`PropertyValue` ↔ protobuf DTOs, DuckDB/Marten row shapes, and external import/export records. It never owns identity, content hashing, equality, or the result rail — `NodeId`/`ContentAddress` and `XxHash128` stay in the kernel, equality stays in `Generator.Equals`, and the failure rail stays in LanguageExt `Fin`/`Validation`.
 - A mapper is a thin generated capsule, not a domain owner: it declares partial method shapes and configuration attributes, and the generated body is the whole implementation. Do not hand-roll a `switch`/assignment mapper where `[Mapper]` + `[MapDerivedType]` generates it; do not wrap the generated mapper in a forwarding adapter.
 - `[Union]` and `[SmartEnum]` owners map through their generated key/case surface: a `[Union]` lowers via `[MapDerivedType]` (one attribute per case → a total type-switch) ONLY when the wire cases share a base type — a protobuf `oneof` envelope's case messages do not, so there the dispatch rides the union's generated `Switch` (encode) and the generated `PayloadCase` enum (decode) while Mapperly keeps the per-case field mapping; a `[ValueObject<T>]`/`[SmartEnum<TKey>]` maps via its key (`MappingConversionType.Constructor`/`ParseMethod`/`StaticConvertMethods`, or a `[UseStaticMapper]` over the Thinktecture key codec). Tighten `EnabledConversions` (e.g. `All & ~ToStringMethod`) when an implicit conversion does mask a real mismatch.
 - Boundary policy (culture, null strictness, enum naming) is declared on the mapper attribute, never hidden in an interior helper: `[FormatProvider(Default = true)]` carries the culture; `ThrowOnPropertyMappingNullMismatch`/`AllowNullPropertyAssignment` carry the null contract; `EnumNamingStrategy.SerializationEnumMemberAttribute` aligns enum strings with the wire schema.
 
 [STACKING]:
-
 - `Generator.Equals` (`api-generator-equals.md`): the same DTO/wire records Mapperly produces carry `[Equatable]` structural equality, so a mapped target compares by content for the diff/dedup lane — Mapperly transcribes the shape, `Generator.Equals` decides identity, neither reimplements the other.
 - `Google.Protobuf` (`api-protobuf.md`): the protobuf-generated message classes are the wire DTOs Mapperly maps to/from; a `oneof` envelope's case messages share no base type, so the `Node`/`Relationship`/`PropertyValue` case dispatch rides the union's generated total `Switch` (encode) and the generated `PayloadCase` closed enum (decode) while Mapperly owns the per-case field-by-field transcription the protobuf runtime does not; existing-target `[UserMapping]` update methods fill the get-only `RepeatedField`/`MapField` members.
 - Thinktecture (`api-thinktecture-runtime-extensions.md`): a `[ValueObject<string>]` `NodeId` or `[SmartEnum]` `Discipline` maps through its generated key — `[UseStaticMapper]` over the Thinktecture factory/key accessor, or `MappingConversionType.Constructor`/`StaticConvertMethods` resolving `IObjectFactory.Create`. Mapperly never re-parses a value object by hand.
@@ -261,7 +250,6 @@ Each row shows one mapper composition or activation surface. Object-factory type
 - Marten / DuckDB (`api-marten.md`, `api-duckdb.md`): a `static partial IQueryable<TDto> ProjectTo(this IQueryable<T>)` projection inlines an EF/LINQ-translatable expression tree for the columnar read lane, so the projection executes in-store (SQL) rather than materializing the graph; pair it with `IReferenceHandler` only on the in-memory object path, never on the `IQueryable` path (reference handling and projection are mutually exclusive by design).
 
 [RAIL_LAW]:
-
 - Package: `Riok.Mapperly`
 - Owns: compile-time object-to-object mapping — `[Mapper]` partial-method generation, member rename/flatten/unflatten, constant/computed value injection, enum mapping (by value/name, naming strategies, explicit value maps), polymorphic `[MapDerivedType]` type-switches, `IQueryable` projection, existing-target update, generic dispatch, mapper composition (`[UseMapper]`/`[UseStaticMapper]`), object-factory activation, and `IReferenceHandler` cycle preservation.
 - Accept: boundary transcription between the canonical graph/value vocabulary and wire/DTO/row shapes; the `[Union]`→wire-case switch via `[MapDerivedType]` where the wire cases share a base type (a `oneof` envelope dispatches through the union's own generated `Switch`/`PayloadCase`); the in-store projection via a `ProjectTo` partial; activation through the `IObjectFactory` mint via `[ObjectFactory]`.

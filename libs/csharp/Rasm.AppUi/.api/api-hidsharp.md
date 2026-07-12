@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HidSharp`
-
 - package: `HidSharp` (version `2.6.4`, Apache-2.0)
 - assembly: `HidSharp` (single asset `lib/netstandard2.0`; no multi-target ambiguity — netstandard2.0 is what the `net10.0` consumer binds)
 - namespace: `HidSharp`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: device enumeration and access
-
 - rail: input
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]    | [RAIL]                          |
@@ -31,7 +29,6 @@
 |  [07]   | `DeviceFilterHelper` | static matcher   | vendor/product/serial predicate |
 
 [PUBLIC_TYPE_SCOPE]: open configuration
-
 - rail: input
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]      | [RAIL]                        |
@@ -43,7 +40,6 @@
 |  [05]   | `DeviceFilter`      | predicate delegate | enumeration filter            |
 
 [PUBLIC_TYPE_SCOPE]: report descriptor and typed decoding
-
 - rail: input
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]    | [RAIL]                             |
@@ -59,7 +55,6 @@
 |  [09]   | `Usage`            | enum             | HID usage-page constants           |
 
 [PUBLIC_TYPE_SCOPE]: input-report receivers
-
 - rail: input
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [RAIL]                          |
@@ -70,7 +65,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: enumeration and filtering
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                                          | [SURFACE_ROOT]       | [RAIL]                     |
@@ -85,7 +79,6 @@
 |  [08]   | `MatchHidDevices(device, vendorID?, productID?, releaseNumberBcd?, serialNumber?)` | `DeviceFilterHelper` | reusable filter predicate  |
 
 [ENTRYPOINT_SCOPE]: open and stream lifecycle
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                           | [SURFACE_ROOT]      | [RAIL]                    |
@@ -101,7 +94,6 @@
 |  [09]   | `Dispose()`                                                         | `DeviceStream`      | release the open handle   |
 
 [ENTRYPOINT_SCOPE]: report I/O
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                             | [SURFACE_ROOT] | [RAIL]                       |
@@ -117,7 +109,6 @@
 |  [09]   | `GetMaxFeatureReportLength()`                         | `HidDevice`    | feature report buffer size   |
 
 [ENTRYPOINT_SCOPE]: descriptor parse and typed decode
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                  | [SURFACE_ROOT]          | [RAIL]                         |
@@ -141,7 +132,6 @@
 |  [17]   | `Usages` / `DataItem` / `DataIndex` / `Report` / `IsValid` | `DataValue`             | field identity and usage codes |
 
 [ENTRYPOINT_SCOPE]: field model and callback decode (descriptor introspection)
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                                           | [SURFACE_ROOT] | [RAIL]                      |
@@ -154,7 +144,6 @@
 |  [06]   | `IsVariable` / `IsArray` / `IsRelative` / `IsAbsolute` / `IsConstant` / `IsBoolean` | `DataItem`     | flag-derived field class    |
 
 [ENTRYPOINT_SCOPE]: event-driven receiver
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                        | [SURFACE_ROOT]           | [RAIL]                      |
@@ -167,7 +156,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [HIDSHARP_TOPOLOGY]:
-
 - `DeviceList.Local` is the process-wide enumeration root; `GetHidDevices` returns `IEnumerable<HidDevice>` and the `vendorID`/`productID`/`releaseNumberBcd`/`serialNumber` overload filters at the source through `DeviceFilterHelper.MatchHidDevices`, so SpaceMouse selection passes the 3DConnexion vendor id rather than post-filtering a full list.
 - `HidDevice` carries identity (`VendorID`, `ProductID`, `ReleaseNumber`, `Manufacturer`, `ProductName`, `SerialNumber`) and report capacities (`MaxInputReportLength`, `MaxOutputReportLength`, `MaxFeatureReportLength`) without opening the device; `Open` is the only call that acquires the OS handle.
 - `HidDevice.Open` returns a `HidStream` (the `HidDevice`-typed override of the `Device.Open` -> `DeviceStream` base), and `HidStream` is a `System.IO.Stream`: `Read(byte[])` blocks for one input report up to `ReadTimeout` (default 3000 ms, `Timeout.Infinite` disables), `Write(byte[])` sends one output report, and `GetFeature`/`SetFeature` issue Get/Set Feature control transfers off the report path.
@@ -178,7 +166,6 @@
 - `HidDeviceInputReceiver` from `ReportDescriptor.CreateHidDeviceInputReceiver()` is the event-driven alternative to a manual `Read` loop: `Start(stream)` pumps reports on a background thread, `Received` fires per report, `TryRead` dequeues buffered reports, and `WaitHandle` gates a consumer that parks until data arrives. `Report.Read(buffer, offset, callback)` is the parser-free decode path (a `ReportValueCallback`/`ReportScanCallback` visits each field) where the descriptor is known and the full `DeviceItemInputParser` value-table is not needed.
 
 [STACKING]:
-
 - The `Shell/input` `DeviceDriver.Hid` capsule (`[07]-[DEVICE_DRIVERS]`) is the only AppUi consumer; it enumerates through `DeviceList.Local.GetHidDevices(vendorId, productId)` and opens a scoped `HidStream`.
 - The capsule projects the `HidDeviceInputReceiver.Received` event, or a `Read` loop gated by `WaitHandle`, into an `IObservable<Seq<DeviceAxis>>` through `System.Reactive` `Observable.FromEventPattern`/`Create` (`api-reactive.md`). Per-report decoding runs off the render thread, and normalized axes marshal once at the bind edge.
 - The `Hid` case shares the single `InputFabric` edge with the `Gamepad(Silk.NET.Input)`/`Haptic(Silk.NET.SDL)` (`api-silk-input.md`, `api-silk-sdl.md`) and `Midi(Melanchall.DryWetMidi)` (`api-drywetmidi.md`) device streams. Every device lifts onto the same `CommandIntent` table through one fold, so the SpaceMouse HID stream raises the existing viewport intents through the sole device-to-intent edge.
@@ -187,7 +174,6 @@
 - Hot-plug stacks onto `DeviceList.Changed`: the capsule re-enumerates on that event rather than re-opening a stale handle, and the open/dispose pair is one scoped fold (`Open` -> `HidStream` -> `Dispose`) tracked by the `DeviceSession.Teardown` disposable.
 
 [LOCAL_ADMISSION]:
-
 - Device enumeration uses `DeviceList.Local.GetHidDevices(vendorID, productID)` with the target vendor and product ids; the boundary capsule never enumerates the full device set and post-filters.
 - `Open` and `TryOpen` results are scoped: the `HidStream` is a `Stream` and the boundary capsule pairs `Open` with `Dispose` in a scoped fold, never leaking the OS handle past the read loop.
 - Raw report bytes cross the boundary once: `HidStream.Read` fills a buffer sized by `GetMaxInputReportLength()`, and decoding lives entirely inside `DeviceItemInputParser`/`DataValue`, so canonical 6-DOF axis values leave the capsule, not raw HID byte arrays.
@@ -195,7 +181,6 @@
 - Hot-plug is observed through `DeviceList.Changed`; the InputFabric re-enumerates on that event rather than re-opening a stale handle.
 
 [RAIL_LAW]:
-
 - Package: `HidSharp`
 - Owns: cross-platform raw HID device access — enumeration, open/configuration, raw input/output/feature report I/O, report-descriptor parsing, and typed multi-axis value decoding for the InputFabric `Hid` input source.
 - Accept: `DeviceList.Local` enumeration with source-side vendor/product filters; scoped `HidStream` open-and-dispose pairs; descriptor-driven decoding through `DeviceItemInputParser` and `DataValue`; composition as the `Hid` case on the single `InputFabric` edge beside the `Gamepad`/`Haptic`/`Midi` peers (`api-silk-input.md`, `api-silk-sdl.md`, `api-drywetmidi.md`), folding normalized `DeviceAxis` samples onto the one `CommandIntent` table.

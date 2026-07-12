@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto`
-
 - package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP)
 - license: BSD-3-Clause
 - assembly: `Eto` (`Eto.dll`)
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: binding carriers and the bindable seam
-
 - rail: native UI
 
 `IBindable` owns `DataContext`, `DataContextChanged`, and its live `BindingCollection`; propagation walks this seam across descendants, and the collection updates on `DataContext` changes. `DirectBinding<T>` fixes the control source, while `IndirectBinding<T>` and `IIndirectBinding<T>` read and write a supplied model object. `BindableBinding<T,TValue>` fuses an `IBindable` owner property to a model value, and binding construction joins the two halves into a live `DualBinding<T>` that relays source and destination updates.
@@ -43,7 +41,6 @@
 |  [16]   | `BindingCollection`                    | collection       | live binding set                |
 
 [PUBLIC_TYPE_SCOPE]: binding modes and update control
-
 - rail: native UI
 
 `DualBindingMode` admits `OneWay`, `OneWayToSource`, `TwoWay`, and `Manual`. `BindingUpdateMode` selects source-to-destination or destination-to-source for an explicit `Update` push. `BindableExtensions` owns `Bind` and `BindDataContext`; `BindingExtensions` owns `Convert`, `Cast`, and `Child`, while `BindingExtensionsNonGeneric` owns non-generic helpers.
@@ -57,7 +54,6 @@
 |  [05]   | `BindingExtensionsNonGeneric` | extension | non-generic helpers       |
 
 [PUBLIC_TYPE_SCOPE]: data-store collection binding
-
 - rail: native UI
 
 `IDataStore<T>` exposes `Count` and `this[int]`; views consume it through the `IList<T>` adapter `DataStoreVirtualCollection<T>`, never directly. `DataStoreVirtualCollection<T>` constructs from `(IDataStore<T> store)`, and `DataStoreExtensions` adds binding helpers over the store contract. `DataStoreCollection<T>` extends `ExtendedObservableCollection<T>`, and its mutations refresh the bound view. `ITreeGridStore<out T> : IDataStore<T> where T : ITreeGridItem` backs `TreeGridView.DataStore`.
@@ -74,7 +70,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: binding construction
-
 - rail: native UI
 
 `PropertyBinding<T>` constructs from `(string property)`, while `BindableBinding<T,TValue>` constructs from `(T owner, Func<T,TValue> get, Action<T,TValue> set, addChange, removeChange)`. `IBindable.DataContext` is get/set; assignment propagates to bound descendants and fires `DataContextChanged`.
@@ -91,7 +86,6 @@
 |  [08]   | `IBindable.DataContext`           | get/set      | model assignment       |
 
 [ENTRYPOINT_SCOPE]: two-way and data-context binding
-
 - rail: native UI
 
 `BindableExtensions.Bind<T>` takes `(IBindable, IndirectBinding<T>, DirectBinding<T>, DualBindingMode)` and returns `DualBinding<T>`. `BindableExtensions.Bind<TValue>` takes an `IBindable`, an `IndirectBinding<TValue>`, and an explicit `object dataContext`. Its model projection is `IndirectBinding<TValue> dcBinding`; its policy inputs are `DualBindingMode`, `TValue defaultControl`, and `TValue defaultContext`. It returns `DualBinding<TValue>`.
@@ -106,7 +100,6 @@
 |  [04]   | `BindableBinding.BindDataContext`       | bind   | fluent control-context binding |
 
 [ENTRYPOINT_SCOPE]: projection and exception guarding
-
 - rail: native UI
 
 `BindableBinding.Convert<TNewValue>` takes `Func<TValue,TNewValue> toValue` and optional `Func<TNewValue,TValue> fromValue = null`, then returns `BindableBinding<T,TNewValue>`. `BindableBinding.Cast<TNewValue>()` returns `BindableBinding<T,TNewValue>`, and `BindableBinding.Child<TNewValue>(IndirectBinding<TNewValue>)` returns the same projection type.
@@ -121,7 +114,6 @@
 |  [04]   | `BindableBinding.CatchException<TException>` | guard      | conversion-fault handling |
 
 [ENTRYPOINT_SCOPE]: data-store collection binding
-
 - rail: native UI
 
 `DataStoreCollection<T>` constructs with `()` or `(IEnumerable<T>)`. `GridView.DataStore` and `ListControl.DataStore` set `IEnumerable<object>`, while `TreeGridView.DataStore` sets `ITreeGridStore<ITreeGridItem>`. `ListControl.ItemTextBinding` and `ListControl.ItemKeyBinding` get or set `IIndirectBinding<...>`.
@@ -138,7 +130,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [BINDING_TOPOLOGY]:
-
 - a binding is two halves: an `IndirectBinding<T>` reads/writes the model value, a `DirectBinding<T>` reads/writes the control value, and `Bind`/`BindDataContext` join them into a live `DualBinding<T>`
 - `BindableBinding<T,TValue>` is the fluent control-side entry: a control exposes its `*Binding`, and `Convert`/`Cast`/`Child`/`CatchException` reshape the value before it reaches the model
 - `DualBindingMode` fixes direction — `TwoWay` relays both edges, `OneWay` pushes model-to-control, `OneWayToSource` pushes control-to-model, `Manual` defers to an explicit update
@@ -146,20 +137,17 @@
 - collection views bind through `IDataStore<T>`: `DataStoreCollection<T>` for eager sources, `DataStoreVirtualCollection<T>` for large ones, `ITreeGridStore<T>` for the tree
 
 [STACKING]:
-
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): a model-bound field validates in the `Convert` to-source direction through a `Validation<Error,A>` gate that exits `.ToFin()` before the model accepts; `CatchException<TException>` traps a conversion fault that the folder re-lands as an `Error` on `Fin<A>`; a `DataContext` swap is an `Eff` marshalled onto the UI thread
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the bound model field is a `[ValueObject<T>]` and `BindableBinding.Convert` maps the control primitive to and from it; a `[SmartEnum<TKey>]` case binds to a `DropDown`/`SegmentedButton` selection through `Convert`, the smart enum owning the display-label projection
 - `api-eto-forms`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-forms.md`): every control `*Binding` is the `BindableBinding` this rail consumes, and the grid/list/tree `DataStore` properties are the `IDataStore<T>` sinks it fills
 - `api-eto-runtime`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-runtime.md`): `DataContext` propagation and binding update run on the UI thread through `Application.Instance`
 
 [LOCAL_ADMISSION]:
-
 - binding is host-provided and composed directly — a field binds through its `*Binding` and `BindDataContext`, never a hand-rolled property-change observer beside the Eto binding
 - a bound model value is a typed `[ValueObject<T>]` or `[SmartEnum<TKey>]` reached through `Convert`, never a stringly round-trip
 - a collection view fills through `IDataStore<T>`, never a manual per-row control rebuild
 
 [RAIL_LAW]:
-
 - Package: `Eto`
 - Owns: the two-way data-binding rail and data-store collection binding for GH2-hosted panels
 - Accept: control-to-model property binding, `DataContext` propagation, two-way modes with conversion and exception guarding, grid/list/tree collection binding

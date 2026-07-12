@@ -9,7 +9,6 @@ The package carries no behaviour; the Materials RC-capacity owner reads this con
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.IForceMomentInteraction`
-
 - package: `VividOrange.IForceMomentInteraction`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.IForceMomentInteraction`
@@ -28,7 +27,6 @@ The package carries no behaviour; the Materials RC-capacity owner reads this con
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the N-M-M capacity-hull contract (interface floor)
-
 - rail: profiles
 - shape law: the three mesh axes are `Force` (axial), `Torque` (My), `Torque` (Mz) — the `ICartesianMesh<TVertex,
 TFace, TCoord, X, Y, Z>` generic binds `X = Force`, `Y = Torque`, `Z = Torque`, so the capacity surface is a
@@ -49,7 +47,6 @@ TFace, TCoord, X, Y, Z>` generic binds `X = Force`, `Y = Torque`, `Z = Torque`, 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the contract members a consumer reads (inherited from the `ICartesianMesh`/`ICartesianVertex` floor)
-
 - rail: profiles
 - note: the `VividOrange.ICartesianBase` generic floor defines these inherited properties, and the `IForceMoment*` specializations surface them. The concrete getters live in `api-vividorange-forcemomentinteraction.md`; a Materials capacity owner binds only this contract.
 
@@ -72,7 +69,6 @@ Every row is a property. `Verticies` preserves the package spelling, `X` spans a
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONTRACT_ALGEBRA]:
-
 - floor root: `VividOrange.ICartesianBase` `ICartesianMesh<TVertex, TFace, TCoord, X, Y, Z>` — the generic
   unit-typed mesh contract; this package binds `(IForceMomentVertex, IForceMomentTriFace, ICoordinate, Force,
 Torque, Torque)` and adds NO new members, only the closed specialization.
@@ -84,7 +80,6 @@ Torque, Torque)` and adds NO new members, only the closed specialization.
   the `UnitsNet` Json.NET converters (`api-vividorange-serialization.md` [TRANSITIVE_UNITSNET_JSONNET]).
 
 [AXIS_SEMANTICS]:
-
 - The mesh inhabits force-moment space rather than geometric length-space: `X` carries axial `Force` in kN, and `Y` and `Z` carry `Torque` in kNm.
 - An interior point is a safe N-My-Mz load combination, a surface point is at capacity, and an exterior point exceeds the section's biaxial capacity.
 - The `ILocalCartesian2d<Torque, Torque>` view is the P-M interaction curve at the vertex's axial level.
@@ -93,7 +88,6 @@ Torque, Torque)` and adds NO new members, only the closed specialization.
   as a structural quantity.
 
 [LOCAL_ADMISSION]:
-
 - A Materials RC/steel column-capacity owner reads the hull THROUGH this interface floor (`IForceMomentMesh`),
   never the `ForceMomentMesh` concrete — the engine returns `IForceMomentMesh`, and a capacity-check folds over
   `mesh.Verticies` / `mesh.Faces` reading the typed `Force`/`Torque` coordinates.
@@ -102,7 +96,6 @@ Torque, Torque)` and adds NO new members, only the closed specialization.
   `double` in an interior signature.
 
 [STACK]:
-
 - engine seam: `InteractionDiagram.Mesh` is `IForceMomentMesh` (`api-vividorange-interactiondiagram.md`) — the
   contract is the engine's OUTPUT type, so a Materials capacity owner composes `new InteractionDiagram(section).Mesh`
   and reads it through this floor with no dependency on the concrete assembly.
@@ -123,7 +116,6 @@ Torque, Torque)` and adds NO new members, only the closed specialization.
   canonical SI scalar plus unit token.
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.IForceMomentInteraction` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the N-M-M capacity-hull INTERFACE FLOOR — `IForceMomentMesh`/`IForceMomentVertex`/`IForceMomentTriFace` as
   a `VividOrange.Geometry` `ICartesianMesh` whose axes are `Force`/`Torque`/`Torque` `UnitsNet` quantities, with the

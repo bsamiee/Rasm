@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MTConnect.NET-Common`
-
 - package: `MTConnect.NET-Common`
 - license: `MIT`
 - assembly: `MTConnect.NET-Common`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: input and adapter surfaces
-
 - rail: live-wire
 
 Observation inputs carry `DeviceKey`, `DataItemKey`, and `Timestamp`; scalar inputs add `Values` and `IsUnavailable`.
@@ -36,7 +34,6 @@ Observation inputs carry `DeviceKey`, `DataItemKey`, and `Timestamp`; scalar inp
 |  [09]   | `MTConnect.Input.DeviceInput`                | input         | device model         |
 
 [PUBLIC_TYPE_SCOPE]: streams model, client-state, and asset surfaces
-
 - rail: live-wire
 
 `StreamsResponseDocument` groups observations by `DeviceStream` and then `ComponentStream`.
@@ -60,7 +57,6 @@ Each `Observation` carries the data-item value, timestamp, and sequence.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: SHDR adapter (observation relay)
-
 - rail: live-wire
 
 | [INDEX] | [MEMBER]                                                                            | [KIND] | [RETURN]           |
@@ -75,7 +71,6 @@ Each `Observation` carries the data-item value, timestamp, and sequence.
 |  [08]   | `MTConnectAdapter.SendChanged()` / `SendBuffer()`                                   | call   | `bool`             |
 
 [ENTRYPOINT_SCOPE]: consume path (poll + decode)
-
 - rail: live-wire
 
 The decode path traverses `StreamsResponseDocument` through `DeviceStream` and `ComponentStream` to each `Observation`.
@@ -92,7 +87,6 @@ The decode path traverses `StreamsResponseDocument` through `DeviceStream` and `
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IMPLEMENTATION_LAW]: model semantics
-
 - rail: live-wire
 
 - `-Common` is the MODEL slice: it owns the observation/device/asset/streams object graph and the `ResponseDocumentFormatter` (XML/JSON parse), NOT an HTTP or MQTT client. The AppHost `mtconnect` transport row fetches the agent document over its own `OutboundHop` (HTTP `/sample` poll or MQTT subscribe), and `-Common` decodes the document into observations — the transport is firewalled here per the `-Common` pin.
@@ -101,7 +95,6 @@ The decode path traverses `StreamsResponseDocument` through `DeviceStream` and `
 - the `MTConnectAdapter` (SHDR producer) is the relay case: where AppHost RE-PUBLISHES observations to a downstream MTConnect agent, `AddObservation`/`SendChanged` buffers and flushes on the SHDR line — a distinct row shape from the consume/poll case, sharing the one transport row's binding spec.
 
 [IMPLEMENTATION_LAW]: AppHost usage
-
 - rail: live-wire
 
 - the live-wire `mtconnect` transport row is one `ExternalTransport` `[SmartEnum<string>]` case with its `TransportRow` (`ReadShape.Poll` over an `OutboundHop.HttpApi` for the `/sample` cursor poll, or `Subscribe` for MQTT-relay agents, `Writable: false` for the pure-consume case) and one `LiveClient` case wrapping the poll-decode-cursor loop — no second MTConnect surface, no bespoke poller beyond the `OutboundHop`.
@@ -109,7 +102,6 @@ The decode path traverses `StreamsResponseDocument` through `DeviceStream` and `
 - the named forward consumers are Fabrication `Tooling/magazine` mid-job tool-life reload — decoding `CuttingToolAsset` life/wear observations — and `Verify/probing` measured-feature/work-offset observations; both pin the `-Common` model slice and firewall transport here, the observation crossing the seam as a wire row exactly as `api-bacnet.md` feeds the twin-calibration lane. OPC-UA/umati machine data stays on the kept `OPCFoundation` runtime, never re-homed here.
 
 [RAIL_LAW]:
-
 - Package: `MTConnect.NET-Common`
 - Owns: the MTConnect observation/device/asset/streams model, response-document parse, SHDR adapter relay, and incremental-poll cursor state
 - Accept: an agent document fetched over the AppHost `OutboundHop`, decoded to `ExternalValue` at the boundary, with `MTConnectClientInformation` as the durable sequence cursor

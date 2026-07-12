@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Xaml.Behaviors.Avalonia` (meta) -> seven managed assemblies
-
 - package: `Xaml.Behaviors.Avalonia`
 - license: MIT
 - asset: meta-package (no `lib/`); resolves to seven `lib/net8.0` assemblies + `Avalonia`
@@ -28,7 +27,6 @@ Assembly and namespace cells omit the shared `Xaml.Behaviors.` and `Avalonia.Xam
 ## [02]-[PUBLIC_TYPES]
 
 [KERNEL_TYPES]: `Avalonia.Xaml.Interactivity` — bases and attach point
-
 - rail: behaviors
 
 The kernel is the only surface internal Rasm code derives from; everything else is XAML-attached. Bases are `AvaloniaObject` or `StyledElement` subclasses, so they participate in styling, binding, and resource inheritance.
@@ -57,7 +55,6 @@ Every row belongs to the behaviors rail. `ComparisonConditionType` admits `Equal
 |  [18]   | `DisposingBehavior` / `DisposingTrigger`       | `IDisposable`-scoped bases                                  |
 
 [CORE_INTERACTION_TYPES]: `Avalonia.Xaml.Interactions.Core` — command, data, timing
-
 - rail: behaviors
 
 Every row belongs to the behaviors rail.
@@ -79,7 +76,6 @@ Every row belongs to the behaviors rail.
 |  [13]   | `DataTrigger` / `EventTrigger` / `MultiDataTrigger` | `StyledElementTrigger`    | action-carrying triggers   |
 
 [SYSTEM_ACTION_TYPES]: picker / clipboard / file-system / network surfaces
-
 - rail: behaviors
 
 These boundary-touching actions remain behind explicit command and permission boundaries. Pickers route through Avalonia `IStorageProvider`.
@@ -100,7 +96,6 @@ These boundary-touching actions remain behind explicit command and permission bo
 |  [12]   | `NetworkInformationTrigger`                                                | `…Interactions.Network`    | connectivity trigger |
 
 [DRAG_DROP_TYPES]: drag/drop, draggable layout, routed events, responsive
-
 - rail: behaviors
 
 | [INDEX] | [SYMBOL]                                                     | [NAMESPACE]    | [CONCERN]               |
@@ -122,7 +117,6 @@ These boundary-touching actions remain behind explicit command and permission bo
 ## [03]-[ENTRYPOINTS]
 
 [ATTACH_ENTRYPOINTS]: `Interaction` static accessor + base lifecycle
-
 - rail: behaviors
 
 XAML attaches a `BehaviorCollection` via `i:Interaction.Behaviors`; code paths use the static accessors. `Behavior` exposes a full virtual lifecycle beyond attach and detach, including visual-tree, logical-tree, loaded, unloaded, data-context, and theme-variant hooks that an Rx-scoped `DisposingBehavior` uses to key subscriptions.
@@ -143,7 +137,6 @@ XAML attaches a `BehaviorCollection` via `i:Interaction.Behaviors`; code paths u
 |  [12]   | `Execute(object? sender, object? parameter) -> object?`                                       | `IAction`      | action execution     |
 
 [COMMAND_ACTION_ENTRYPOINTS]: command, async-group, and timing properties
-
 - rail: behaviors
 
 `InvokeCommandActionBase` is the full MVVM command seam: it carries `Command`, `CommandParameter`, and an `IValueConverter` input pipeline that maps the event-args payload before invocation.
@@ -169,7 +162,6 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
 |  [15]   | `Actions`                                         | `ObservableStreamBehavior` | emitted action fan |
 
 [SYSTEM_ENTRYPOINTS]: picker, clipboard, file, drag, responsive properties
-
 - rail: behaviors
 
 `FileTypeFilter` strings are parsed through `FileFilterParser`.
@@ -191,7 +183,6 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
 ## [04]-[INTEGRATION]
 
 [STACK_REACTIVEUI_COMMANDS]:
-
 - `api-reactiveui.md` `ReactiveCommand<TIn,TOut>` (an `ICommand`) binds directly into
   `InvokeCommandAction.Command`; an `EventTriggerBehavior` on a control event fans the
   routed `EventArgs` through `InputConverter` into the command parameter, so a control
@@ -199,7 +190,6 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
   observables from ReactiveUI gate the action through the same `ICommand` contract.
 
 [STACK_RX_STREAMS]:
-
 - `ObservableStreamBehavior.Source` / `ObservableTriggerBehavior` accept any
   `IObservable<>`. `api-reactive.md` (`System.Reactive`) operators and
   `api-dynamicdata.md` change-set streams (`.ToCollection()`, `.QueryWhenChanged()`)
@@ -210,7 +200,6 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
   data-stream concern.
 
 [STACK_STORAGE_BOUNDARY]:
-
 - The picker actions resolve `IStorageProvider` from the attached control's `TopLevel`
   (`api-avalonia.md`). The selected `IStorageFile`/`IStorageFolder` is the canonical
   AppHost file-boundary token; AppUi maps it to a domain path at the command edge
@@ -218,7 +207,6 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
   and the file-system actions are gated behind the same permission boundary.
 
 [STACK_DRAG_TYPED]:
-
 - `TypedDragBehavior` + `IDropHandler`/`DropHandlerBase` carry a strongly-typed payload;
   `ManagedDragDropService` moves it across windows. Bind the drop handler to a
   view-model command so reorder/drop mutations route through the same `ReactiveCommand`
@@ -228,7 +216,6 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
 ## [05]-[IMPLEMENTATION_LAW]
 
 [RAIL_LAW]:
-
 - Package: `Xaml.Behaviors.Avalonia` (seven managed assemblies, MIT)
 - Owns: declarative behavior/trigger/action attachment across command, data, timing,
   picker, clipboard, file-system, network, drag/drop, routed-event, and responsive concerns
@@ -239,13 +226,11 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
   plumbing that an admitted behavior already owns
 
 [NAMESPACE_LAW]:
-
 - CLR namespaces are `Avalonia.Xaml.Interactivity` and `Avalonia.Xaml.Interactions.{Core,Custom,FileSystem,Network,DragAndDrop,Draggable,Events,Responsive}`; the
   `Xaml.Behaviors.*` tokens are package/assembly ids only and never appear in `using` or XAML `xmlns`
 - The kernel (`…Interactivity`) is the sole derive-from surface; all other assemblies are XAML-attached leaves
 
 [BASE_SELECTION_LAW]:
-
 - Derive Rasm behaviors from `StyledElementBehavior`/`StyledElementTrigger` (not `Behavior`/`Trigger`)
   when the behavior must participate in styling, resource inheritance, or `{Binding}` on its own
   properties; derive from `StyledElementAction` for actions
@@ -253,7 +238,6 @@ The timing types `ThrottleAction`, `DebounceAction`, `DelayAction`, and `TimerTr
   so attach/detach drives subscription lifecycle deterministically
 
 [CONDITION_LAW]:
-
 - Data gating is `DataTriggerBehavior` (single `ComparisonConditionType` predicate) or
   `MultiDataTriggerBehavior` (AND of conditions); `ComparisonConditionType` is the canonical
   comparator enum — never hand-roll value comparison in a converter

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto.Forms`
-
 - package: `Eto.Forms` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission)
 - license: BSD-3-Clause
 - assembly: `Eto.dll` (Rhino `RhCore` framework)
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: value and text input controls
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -37,7 +35,6 @@
 |  [13]   | `FilePicker`     | value input | inline file/folder path selector                     |
 
 [PUBLIC_TYPE_SCOPE]: choice, command, and media controls
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -57,7 +54,6 @@
 |  [12]   | `ProgressBar`     | indicator | determinate/indeterminate progress track    |
 
 [PUBLIC_TYPE_SCOPE]: container and host controls
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -76,7 +72,6 @@
 |  [11]   | `NativeControlHost` | container | host-native control embedding (`api-eto-platform.md`)                   |
 
 [PUBLIC_TYPE_SCOPE]: grid, tree, and cell families
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -101,7 +96,6 @@
 |  [15]   | `CustomCell`    | cell      | control-hosting cell over an arbitrary child                |
 
 [PUBLIC_TYPE_SCOPE]: control base and event surface
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -124,7 +118,6 @@ Control.DoDragDrop(DataObject data, DragEffects allowedEffects, Image image, Poi
 ```
 
 [PUBLIC_TYPE_SCOPE]: layout containers
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -143,7 +136,6 @@ The four layouts are distinct strategies, not overloads: `DynamicLayout` is a re
 |  [09]   | `Padding`         | value       | four-edge inset value                                      |
 
 [PUBLIC_TYPE_SCOPE]: windows, dialogs, and file/colour/font choosers
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -166,7 +158,6 @@ The four layouts are distinct strategies, not overloads: `DynamicLayout` is a re
 |  [15]   | `FontDialog`         | dialog | native font chooser                                                   |
 
 [PUBLIC_TYPE_SCOPE]: menus, toolbars, and commands
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -191,7 +182,6 @@ A `Command` is the shared invocation with enablement and shortcut, projected ide
 |  [15]   | `RadioCommand`      | command   | radio-grouped command                                        |
 
 [PUBLIC_TYPE_SCOPE]: data binding
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -211,7 +201,6 @@ Binding is a first-class surface: `IndirectBinding<T>` reads/writes a value agai
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DynamicLayout region building
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -230,7 +219,6 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 ```
 
 [ENTRYPOINT_SCOPE]: TableLayout and PixelLayout placement
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -246,7 +234,6 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 |  [08]   | `PixelLayout.Move(Control control, int x, int y)`                                        | repositions a placed control             |
 
 [ENTRYPOINT_SCOPE]: modal dialog result
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -257,7 +244,6 @@ DynamicLayout.AddAutoSized(Control control, Padding? padding = null, Size? spaci
 |  [03]   | `Dialog<T>.Close(T result)`               | instance call             | closes and sets the returned result         |
 
 [ENTRYPOINT_SCOPE]: binding construction and transform
-
 - namespace: `Eto.Forms`
 - rail: native-ui
 
@@ -300,7 +286,6 @@ BindableWidget.UpdateBindings(BindingUpdateMode mode = BindingUpdateMode.Source)
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FORMS_TOPOLOGY]:
-
 - Every widget derives from `Control` and resolves a backend handler through the ambient platform; the same construction code produces a native control on each host, and host divergence lives in the handler, never in the construction row.
 - The four layouts are orthogonal placement strategies: `DynamicLayout` opens nested regions and scales flags per region, `TableLayout` scales grid cells, `StackLayout` runs children on one axis with alignment, `PixelLayout` places absolutely. A screen composes them, never merges them.
 - `GridView`/`TreeGridView`/`TreeView` separate the bound store from the `GridColumn`+`Cell` presentation; the cell kind selects the in-cell editor, and one column definition drives every row.
@@ -308,19 +293,16 @@ BindableWidget.UpdateBindings(BindingUpdateMode mode = BindingUpdateMode.Source)
 - One `Command` projects into both a menu item and a tool item, so a command row drives the menu bar, the context menu, and the toolbar from a single enablement and shortcut definition.
 
 [STACKING]:
-
 - `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed control-kind, cell-kind, layout-strategy, and dialog-outcome vocabularies a generator-shaped UI layer folds to rows, and a `[Union]` owns the discriminated screen-element tree; the generated `Switch`/`Map` drives construction dispatch instead of a hand-written control-type ladder.
 - `LanguageExt.Core`(`../../.api/api-languageext.md`): `Fin<A>` rails `ShowModal`/`ShowModalAsync` outcomes and file-dialog results (cancellation is a `Fail`, not a null sentinel); `Option<A>` carries the nullable `bool?` scale flags and optional selection; `Eff<A>` wraps `DoDragDrop` and native-attach effects; `Seq<A>` is the child-collection carrier a layout region folds over.
 - `Wacton.Unicolour`(`../../.api/api-unicolour.md`): the canonical colour value behind `ColorPicker` and `ColorDialog`; an `Eto.Drawing.Color` maps to and from `Unicolour` at the view edge (`api-eto-drawing.md`) so theme ramps and perceptual selection stay in the perceptual model.
 - `api-eto-platform.md`: `NativeControlHost`, `Control.AttachNative`/`DetachNative`, and `TriggerStyleChanged` cross into the platform-handler and theme-transition seam.
 
 [LOCAL_ADMISSION]:
-
 - Eto is admitted from the Rhino-loaded `Eto.dll`; Rasm.Rhino references that instance so its widgets share the host application, dispatcher, and platform handler. A second Eto copy is never pulled through NuGet.
 - A screen is built once from generated element rows against these construction, layout, and binding surfaces; `Eto.Forms.*` types stay behind the Rasm.Rhino UI owner, and downstream code composes screen definitions rather than raw widget calls.
 
 [RAIL_LAW]:
-
 - Package: `Eto.Forms`
 - Owns: the native widget roster, the cell/item/grid families, the four layout containers, the window/dialog/menu/toolbar/command hierarchy, and the `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` data-binding surface.
 - Accept: native UI construction, layout composition, modal/modeless presentation, menu and command chrome, and control-to-model binding through `DataContext`.

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.Runtime`
-
 - package: `OpenTelemetry.Instrumentation.Runtime`
 - assembly: `OpenTelemetry.Instrumentation.Runtime`
 - namespace: `OpenTelemetry.Metrics`
@@ -14,7 +13,6 @@
 - rail: observability
 
 [PACKAGE_SURFACE]: `OpenTelemetry.Instrumentation.Http`
-
 - package: `OpenTelemetry.Instrumentation.Http`
 - assembly: `OpenTelemetry.Instrumentation.Http`
 - namespace: `OpenTelemetry.Trace`
@@ -26,7 +24,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: runtime instrumentation family
-
 - rail: observability
 
 | [INDEX] | [SYMBOL]                         | [PACKAGE_ROLE]    | [CAPABILITY]                        |
@@ -35,7 +32,6 @@
 |  [02]   | `RuntimeInstrumentationOptions`  | options value     | runtime metrics policy (memberless) |
 
 [PUBLIC_TYPE_SCOPE]: HttpClient instrumentation family
-
 - rail: observability
 
 | [INDEX] | [SYMBOL]                                                   | [PACKAGE_ROLE]    | [CAPABILITY]                                |
@@ -47,7 +43,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider registration
-
 - rail: observability
 
 Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter where available; runtimes without that meter use the package-local `RuntimeMetrics` path when options are supplied.
@@ -62,7 +57,6 @@ Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter wh
 |  [06]   | `AddHttpClientInstrumentation` | metrics HTTP + DNS   | —                                       | sub: HTTP and name-resolution meters   |
 
 [ENTRYPOINT_SCOPE]: HttpClient trace options
-
 - rail: observability
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]                             | [CAPABILITY]                                      |
@@ -77,7 +71,6 @@ Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter wh
 |  [08]   | `RecordException`               | `bool` property, default false           | records exceptions as `ActivityEvent`             |
 
 [ENTRYPOINT_SCOPE]: package-local runtime instruments (`OpenTelemetry.Instrumentation.Runtime` meter)
-
 - rail: observability
 
 | [INDEX] | [SURFACE]                                                  | [CALL_SHAPE]               | [CAPABILITY]                        |
@@ -103,7 +96,6 @@ Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter wh
 ## [04]-[IMPLEMENTATION_LAW]
 
 [INSTRUMENTATION_TOPOLOGY]:
-
 - runtime dispatch: runtimes that emit `System.Runtime` metrics use `AddMeter("System.Runtime")`; runtimes without that meter register the internal `RuntimeMetrics` meter named `OpenTelemetry.Instrumentation.Runtime`
 - runtime options: `RuntimeInstrumentationOptions` is memberless; the configurator exists for forward policy only and is ignored when the runtime-emitted meter is active
 - exception counting: the package-local exception counter subscribes `AppDomain.FirstChanceException` once per process, reference counted across instrumentation instances
@@ -113,14 +105,12 @@ Runtime instrumentation subscribes the runtime-emitted `System.Runtime` meter wh
 - redaction: URL query values are redacted by default; `OTEL_DOTNET_EXPERIMENTAL_HTTPCLIENT_DISABLE_URL_QUERY_REDACTION` binds from environment configuration to disable it
 
 [LOCAL_ADMISSION]:
-
 - Instrumentation registers at composition through provider builders; no manual listener wiring.
 - Filter and enrichment delegates are policy values on options, not call-site instrumentation code.
 - A throwing filter drops the request silently; filters stay total and side-effect free.
 - Runtime metric identity follows the runtime-emitter boundary; dashboards bind to one convention per deployment.
 
 [RAIL_LAW]:
-
 - Packages: `OpenTelemetry.Instrumentation.{Runtime,Http}`
 - Owns: runtime and `HttpClient` instrumentation admission
 - Accept: builder-registered instrumentation with options-bound policy

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Melanchall.DryWetMidi`
-
 - package: `Melanchall.DryWetMidi`
 - license: `MIT`
 - assembly: `Melanchall.DryWetMidi`
@@ -23,7 +22,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: multimedia devices, clock, and rails
-
 - rail: input
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]    | [RAIL]                     |
@@ -45,7 +43,6 @@
 |  [15]   | `InputDeviceProperty` / `OutputDeviceProperty` | device property  | capability query           |
 
 [PUBLIC_TYPE_SCOPE]: file, chunk, and lazy-token model
-
 - rail: input
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]    | [RAIL]                        |
@@ -63,7 +60,6 @@
 |  [11]   | `MidiTokensReader` / `MidiTokensWriter` | streaming token  | low-memory lazy IO            |
 
 [PUBLIC_TYPE_SCOPE]: event family
-
 - rail: input
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]   | [RAIL]                |
@@ -85,7 +81,6 @@
 |  [15]   | `SysExEvent`             | sysex base      | system-exclusive data |
 
 [PUBLIC_TYPE_SCOPE]: interaction, note, and detection model
-
 - rail: input
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                        |
@@ -105,7 +100,6 @@
 |  [13]   | `FourBitNumber`                    | bounded value    | 0..15 channel index           |
 
 [PUBLIC_TYPE_SCOPE]: high-level transform tools
-
 - rail: input
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [RAIL]                       |
@@ -120,7 +114,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: device intake, send, and hot-plug
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]     | [RAIL]                |
@@ -136,7 +129,6 @@
 |  [09]   | `Connect()` (`InputDevice`->`OutputDevice`)          | `DevicesConnector` | hardware MIDI-thru    |
 
 [ENTRYPOINT_SCOPE]: file read, write, and lazy tokens
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                                     | [SURFACE_ROOT] | [RAIL]                |
@@ -152,7 +144,6 @@
 |  [09]   | `Equals(file1, file2, [settings,] out string message)`                        | `MidiFile`     | structural compare    |
 
 [ENTRYPOINT_SCOPE]: event construction and compare
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                            | [SURFACE_ROOT]       | [RAIL]                      |
@@ -167,7 +158,6 @@
 |  [08]   | `Equals(event1, event2, out string message)`         | `MidiEvent`          | structural compare          |
 
 [ENTRYPOINT_SCOPE]: interaction extraction and timed model
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                 | [SURFACE_ROOT]                 | [RAIL]                 |
@@ -184,7 +174,6 @@
 |  [10]   | `GetTempoMap()`                                           | `MidiFile`                     | tempo-map source       |
 
 [ENTRYPOINT_SCOPE]: transform tools
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                               | [SURFACE_ROOT]       | [RAIL]          |
@@ -202,7 +191,6 @@
 |  [11]   | `Repeat(...)`                                           | `RepeaterUtilities`  | range repeat    |
 
 [ENTRYPOINT_SCOPE]: playback scheduling and capture
-
 - rail: input
 
 | [INDEX] | [SURFACE]                                                                              | [SURFACE_ROOT] | [RAIL]                  |
@@ -224,7 +212,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MIDI_TOPOLOGY]:
-
 - namespaces: `Multimedia` (devices, playback, recording, clock), `Core` (file, chunk, event model, lazy tokens), `Interaction` (timed/note/chord lens, `TimedObjectsManager`), `Tools` (quantize/split/merge/resize/repeat), `Common` (`SevenBitNumber`, `FourBitNumber` bounded bytes)
 - file model: `MidiFile` owns `TimeDivision` + `OriginalFormat` + a `ChunksCollection`; each `TrackChunk` owns an `EventsCollection` of raw `MidiEvent`. `ReadLazy`/`WriteLazy` stream through `MidiTokensReader`/`MidiTokensWriter` for files too large to hold in memory.
 - event hierarchy: `MidiEvent` -> `ChannelEvent` -> `NoteEvent` -> `NoteOnEvent`/`NoteOffEvent`, with `ControlChangeEvent`, `ProgramChangeEvent`, `PitchBendEvent`, `ChannelAftertouchEvent`, `NoteAftertouchEvent` as sibling channel events; `MetaEvent` and `SysExEvent` are non-channel branches.
@@ -237,7 +224,6 @@
 - time units: raw event positions are tick `long` values; metric, musical, and bar/beat projections route through `TempoMap` and `ITimeSpan`/`TimeSpanType` converters — `GetCurrentTime<MetricTimeSpan>()` etc.
 
 [LOCAL_ADMISSION]:
-
 - Native ABI gate: the high-precision multimedia clock has no Linux native, so the InputFabric arms the `Multimedia` device/playback/recording rails only on the macOS desktop host; the headless-Linux render path consumes only the managed `Core`/`Interaction`/`Tools` surface (file read/write, event model, timed projection, transforms) and never opens an `InputDevice`/`Playback`.
 - Device handles are lifecycle-scoped; the InputFabric disposes every `InputDevice`, `OutputDevice`, `DevicesWatcher`, `Recording`, and `Playback` it opens in a scoped fold (all are `IDisposable`).
 - Boundary intake reads `MidiEventReceivedEventArgs.Event` and maps it to the canonical InputFabric event shape at the edge.
@@ -248,7 +234,6 @@
 - Data-byte fields cross the boundary as `SevenBitNumber`/`FourBitNumber`; raw `int` velocity, pitch, channel, or program values are rejected before event construction.
 
 [RAIL_LAW]:
-
 - Package: `Melanchall.DryWetMidi`
 - Owns: MIDI device intake/send/hot-plug, file/chunk read/write (eager and lazy-token), the channel/meta event family, the timed note/event/chord interaction model, the quantize/split/merge/resize/repeat transform tools, and clock-driven playback/recording
 - Accept: lifecycle-scoped devices, `TempoMap`-anchored time projection, bounded-byte event fields, transform-tool grid operations, the macOS-only native-clock gate for the multimedia rails, and composition as the `Midi` case on the single `InputFabric` edge beside the `Gamepad`/`Haptic`/`Hid` peers (`api-silk-input.md`, `api-silk-sdl.md`, `api-hidsharp.md`), folding onto the one `CommandIntent` table

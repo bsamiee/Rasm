@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.AspNetCore.Authorization`
-
 - package: `Microsoft.AspNetCore.Authorization`
 - assembly: `Microsoft.AspNetCore.Authorization`
 - namespace: `Microsoft.AspNetCore.Authorization`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: evaluation and result family
-
 - rail: authorization
 
 | [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]      | [RAIL]                        |
@@ -30,7 +28,6 @@
 |  [06]   | `AuthorizationOptions`        | options            | named-policy registration     |
 
 [PUBLIC_TYPE_SCOPE]: handler and requirement family
-
 - rail: authorization
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]      | [RAIL]                     |
@@ -47,7 +44,6 @@
 |  [10]   | `AssertionRequirement`                         | requirement        | inline predicate           |
 
 [PUBLIC_TYPE_SCOPE]: policy construction and provider family
-
 - rail: authorization
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]   | [RAIL]                        |
@@ -60,7 +56,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: evaluation operations
-
 - rail: authorization
 
 | [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]       | [RAIL]                         |
@@ -73,7 +68,6 @@
 |  [06]   | `AuthorizeAsync(user, policyName)`             | extension evaluation | resourceless named evaluation  |
 
 [ENTRYPOINT_SCOPE]: context and result operations
-
 - rail: authorization
 
 | [INDEX] | [SURFACE]                                                    | [CAPABILITY]                  |
@@ -91,7 +85,6 @@
 [FAILURE_DETAILS]: A failed result's `Failure` exposes the unmet `IEnumerable<IAuthorizationRequirement>` set and its `IEnumerable<AuthorizationFailureReason>` reasons.
 
 [ENTRYPOINT_SCOPE]: policy construction and registration
-
 - rail: authorization
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]    | [RAIL]                         |
@@ -112,7 +105,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [AUTHORIZATION_TOPOLOGY]:
-
 - namespaces: evaluation core (`Microsoft.AspNetCore.Authorization`), built-in requirements (`Microsoft.AspNetCore.Authorization.Infrastructure`), DI registration (`Microsoft.Extensions.DependencyInjection`)
 - evaluation surface: `IAuthorizationService.AuthorizeAsync` accepts a `ClaimsPrincipal`, an optional `object?` resource, and either an `IEnumerable<IAuthorizationRequirement>` or a `string` policy name
 - result surface: `AuthorizationResult` carries `bool Succeeded` and a nullable `AuthorizationFailure?`; `[MemberNotNullWhen(false, "Failure")]` makes `Failure` non-null exactly when `Succeeded` is `false`
@@ -126,7 +118,6 @@
 - registration surface: `AddAuthorizationCore()` registers `IAuthorizationService` (`DefaultAuthorizationServiceImpl`), `IAuthorizationPolicyProvider`, `IAuthorizationHandlerProvider`, `IAuthorizationEvaluator`, `IAuthorizationHandlerContextFactory`, and the enumerable `PassThroughAuthorizationHandler` as transient services with no HTTP dependency
 
 [LOCAL_ADMISSION]:
-
 - The AppHost agent/policy rail consumes the evaluation core through `AddAuthorizationCore()`; the HTTP-coupled `AddAuthorization()` and middleware surface stay out of the host.
 - Authorization is an injected `IAuthorizationService` capability; evaluation passes a `ClaimsPrincipal`, a domain resource object, and requirements with no `HttpContext`.
 - Custom requirements implement `IAuthorizationRequirement` and pair with an `AuthorizationHandler<TRequirement>` (or the resource-typed arity) registered as `IAuthorizationHandler`.
@@ -134,7 +125,6 @@
 - Named policies register through `AuthorizationOptions`/`AuthorizationBuilder`; the resource-bound rail prefers explicit `AuthorizationPolicy` values and `OperationAuthorizationRequirement` over string policy names.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.AspNetCore.Authorization`
 - Owns: host-neutral ABAC requirement/policy evaluation
 - Accept: `IAuthorizationService` over claims, resources, and registered handlers

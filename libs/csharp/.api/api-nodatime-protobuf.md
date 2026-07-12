@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime.Serialization.Protobuf`
-
 - package: `NodaTime.Serialization.Protobuf`
 - assembly: `NodaTime.Serialization.Protobuf`
 - namespace: `NodaTime.Serialization.Protobuf`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: conversion extension owners
-
 - rail: remote-contracts
 
 | [INDEX] | [SYMBOL]             | [PACKAGE_ROLE]    | [CAPABILITY]                  |
@@ -26,7 +24,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: NodaTime to protobuf projection (`NodaExtensions`)
-
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]             | [CALL_SHAPE]                  | [CAPABILITY]              |
@@ -38,7 +35,6 @@
 |  [05]   | `ToProtobufDayOfWeek` | `IsoDayOfWeek` extension      | emits `DayOfWeek` enum    |
 
 [ENTRYPOINT_SCOPE]: protobuf to NodaTime projection (`ProtobufExtensions`)
-
 - rail: remote-contracts
 
 | [INDEX] | [SURFACE]        | [CALL_SHAPE]                  | [CAPABILITY]              |
@@ -52,7 +48,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONVERSION_CONTRACTS]:
-
 - namespace: `NodaTime.Serialization.Protobuf`
 - well-known root: `Instant`/`Duration` pair with `Google.Protobuf.WellKnownTypes.Timestamp`/`Duration` (the `Google.Protobuf` package owns the message types)
 - common-proto root: `LocalDate`/`LocalTime`/`IsoDayOfWeek` pair with `Google.Type.Date`/`TimeOfDay`/`DayOfWeek` — the `Google.Type` protos ship in the transitive `Google.Api.CommonProtos` dependency, not in `Google.Protobuf`
@@ -63,7 +58,6 @@
 - In-process: `RemoteTransport.InProcess` applies the same conversions through its in-memory handler, preserving the temporal wire contract without a live remote.
 
 [RANGE_CONTRACTS]:
-
 - `ToTimestamp` rejects instants before `NodaConstants.BclEpoch` (0001-01-01 CE) with `ArgumentOutOfRangeException`
 - `ToProtobufDuration` rejects durations outside the protobuf ±315576000000s window (~10,000 years) with `ArgumentOutOfRangeException`
 - `ToInstant` and `ToNodaDuration` reject invalid or null wire payloads with `ArgumentException`/`ArgumentNullException`
@@ -71,13 +65,11 @@
 - `ToIsoDayOfWeek` maps `Unspecified` to `IsoDayOfWeek.None` and rejects out-of-range enum values
 
 [LOCAL_ADMISSION]:
-
 - Temporal values cross remote Compute contracts as protobuf well-known and common-proto types, never as serialized NodaTime text.
 - Conversion happens at the wire boundary; internal code carries NodaTime values only.
 - Range failures are boundary faults to project onto typed rails at the call site; the package throws.
 
 [RAIL_LAW]:
-
 - Package: `NodaTime.Serialization.Protobuf`
 - Owns: NodaTime-to-protobuf temporal conversion
 - Accept: boundary extension calls on NodaTime and protobuf temporal values

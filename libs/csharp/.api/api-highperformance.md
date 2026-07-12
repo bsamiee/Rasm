@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `CommunityToolkit.HighPerformance`
-
 - package: `CommunityToolkit.HighPerformance`
 - assembly: `CommunityToolkit.HighPerformance`
 - namespaces: `CommunityToolkit.HighPerformance`, `.Buffers`, `.Enumerables`, `.Helpers` (the `.Streams` namespace types are package-internal)
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: memory shapes
-
 - rail: staging
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]  | [CAPABILITY]                    |
@@ -40,7 +38,6 @@
 |  [16]   | `StringPool`               | text pool       | interns staged text             |
 
 [PUBLIC_TYPE_SCOPE]: enumeration and helper shapes
-
 - rail: staging
 
 | [INDEX] | [SYMBOL]                    | [PACKAGE_ROLE]  | [CAPABILITY]                |
@@ -63,7 +60,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: allocation and ownership
-
 - rail: staging
 - `MemoryOwner<T>` and `SpanOwner<T>` return `.Empty` for zero-sized allocation and expose the same overload family. The pool form admits a named pool, and `AllocationMode` selects zero-on-rent.
 
@@ -84,25 +80,21 @@
 |  [13]   | `ArrayPoolBufferWriter<T>.Dispose`      | lifetime  | returns pooled storage       |
 
 [ALLOCATION_OVERLOADS]:
-
 - `(int size)`
 - `(int size, ArrayPool<T> pool)`
 - `(int size, AllocationMode mode)`
 - `(int size, ArrayPool<T> pool, AllocationMode mode)`
 
 [ARRAY_POOL_EXTENSIONS]:
-
 - `Resize<T>`: `static void Resize<T>(this ArrayPool<T> pool, [NotNull] ref T[]? array, int newSize, bool clearArray = false)`
 - `EnsureCapacity<T>`: `static void EnsureCapacity<T>(this ArrayPool<T> pool, [NotNull] ref T[]? array, int capacity, bool clearArray = false)`
 
 [STRING_POOL_OVERLOADS]:
-
 - `string GetOrAdd(string value)`
 - `string GetOrAdd(ReadOnlySpan<char> span)`
 - `string GetOrAdd(ReadOnlySpan<byte> span, Encoding encoding)`
 
 [ENTRYPOINT_SCOPE]: buffer-writer emit (the `IBufferWriter<byte>` seam)
-
 - rail: staging-and-streams#STREAM_POOL
 - `ArrayPoolBufferWriter<T>` and `MemoryBufferWriter<T>` are the `IBufferWriter<T>` codec-emit sink that stacks ONTO the suite serializers: a `Utf8JsonWriter`, a protobuf `CodedOutputStream`, or `IHybridCacheSerializer<T>.Serialize(value, IBufferWriter<byte>)` writes directly into the pooled writer, and the result reads back as `WrittenMemory`/`WrittenSpan` (= a `ReadOnlySequence<byte>` for the cache deserialize hop) with zero intermediate array.
 
@@ -120,7 +112,6 @@
 |  [10]   | `Clear()`                                      | `void`              | resets the write head         |
 
 [ENTRYPOINT_SCOPE]: projections and transforms
-
 - rail: staging
 - `T[,]` exposes whole-array and windowed `(row, column, height, width)` plane forms, and `T[,,]` exposes a `(depth)` slice.
 - `Memory<T>` and `ReadOnlyMemory<T>` expose `(height, width)` and padded `(offset, height, width, pitch)` plane forms.
@@ -143,7 +134,6 @@
 |  [12]   | `Enumerate`                  | exposes reference enumeration  |
 
 [ENTRYPOINT_SCOPE]: `AsStream` byte bridge (zero-copy IO edge)
-
 - rail: staging-and-streams#STREAM_POOL
 - `AsStream` extensions project already-materialized byte payloads without an intermediate array. The `IMemoryOwner<byte>` form transfers disposal to the stream, and the span-writing `Write<T>` overload admits only unmanaged elements.
 
@@ -158,7 +148,6 @@
 |  [07]   | `IBufferWriterExtensions.Write<T>(ReadOnlySpan<T>)` | `IBufferWriter<byte>`         | copies unmanaged span bytes |
 
 [ENTRYPOINT_SCOPE]: parallel partition operations
-
 - rail: staging
 
 | [INDEX] | [SURFACE]                               | [CALL_SHAPE]                                 | [CAPABILITY]                |
@@ -174,7 +163,6 @@
 |  [09]   | `ParallelHelper.ForEach<TItem,TAction>` | `ReadOnlyMemory2D<T>`                        | reads planes by reference   |
 
 [ENTRYPOINT_SCOPE]: action contract invocation
-
 - rail: staging
 
 | [INDEX] | [SURFACE]              | [CALL_SHAPE]   | [CAPABILITY]             |
@@ -185,7 +173,6 @@
 |  [04]   | `IRefAction<T>.Invoke` | mutable item   | handles one mutable item |
 
 [ENTRYPOINT_SCOPE]: `BitHelper` member signatures
-
 - source: `CommunityToolkit.HighPerformance` — `CommunityToolkit.HighPerformance.Helpers.BitHelper` surface
 - namespace: `CommunityToolkit.HighPerformance.Helpers`
 - rail: staging-and-streams#STREAM_POOL
@@ -215,26 +202,22 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [STAGING_MEMORY]:
-
 - namespaces: `CommunityToolkit.HighPerformance`, `CommunityToolkit.HighPerformance.Buffers`
 - ownership: pooled owners are the staging lifetime boundary
 - payload shape: spans and memory planes carry tensor, vector, codec, and remote buffers
 - release rule: every owned buffer returns through deterministic disposal
 
 [STAGING_STREAMS]:
-
 - bridge: memory, memory owners, buffer writers, and read-only sequences become streams only through the `AsStream` extension family at IO edges
 - implementation rule: stream implementation types (`CommunityToolkit.HighPerformance.Streams.*`) are package-internal and never appear in Compute vocabulary; only the `AsStream` extension surface is public
 - text rule: pooled text belongs to staging receipts, not domain values
 
 [SERIALIZER_STACKING]:
-
 - the `IBufferWriter<byte>` writers are the convergence seam where this package stacks onto the codec and cache rails: `ArrayPoolBufferWriter<byte>` is the `IHybridCacheSerializer<T>.Serialize(value, IBufferWriter<byte>)` target and its `WrittenMemory` reads back as the `ReadOnlySequence<byte>` source `IHybridCacheSerializer<T>.Deserialize` consumes, so an L2 cache payload codec never allocates an intermediate array
 - `MemoryOwner<byte>.DangerousGetArray` hands the rented `ArraySegment<byte>` to protobuf `UnsafeByteOperations.UnsafeWrap` for a zero-copy `ByteString`; the owner outlives the wrap and disposes after the send
 - content identity over a written payload routes through the `System.IO.Hashing` `XxHash128.HashToUInt128(writer.WrittenSpan)` form, never a package-local digest
 
 [PARALLEL_PARTITION]:
-
 - partition root: `ParallelHelper` static methods `For`, `For2D`, `ForEach` (in `CommunityToolkit.HighPerformance.Helpers`)
 - work shape: callers pass a `struct` action implementing `IAction` / `IAction2D` / `IInAction<T>` (read-only item) / `IRefAction<T>` (mutable item by ref); the `struct` constraint keeps the invoker allocation-free and inlinable
 - action seeding: every overload comes in a no-seed form (the `TAction` is `default`-constructed per partition — for a stateless kernel) and an `in TAction action` form (a pre-populated struct carrying captured state, copied per partition); the `in` form is the route for an action holding a span root or a config field
@@ -244,7 +227,6 @@
 - single-thread collapse: a partition count of one invokes the action inline on the calling thread
 
 [BIT_FLAGS]:
-
 - helper root: `BitHelper` static class in namespace `CommunityToolkit.HighPerformance.Helpers`
 - flag forms: `bool HasFlag(value, int n)`; `void SetFlag(ref value, int n, bool flag)` in-place and `value SetFlag(value, int n, bool flag)` value-returning
 - range forms: `value ExtractRange(value, byte start, byte length)`; `void SetRange(ref value, byte start, byte length, flags)` in-place and value-returning, `flags` typed to the word width
@@ -255,11 +237,9 @@
 - Byte projections require explicit codec and endianness ownership at the calling rail.
 
 [REJECTED]:
-
 - `HashCode<T>.Combine` is not admitted: the suite identity-hashing surface is a single monopoly held by `System.IO.Hashing` — `XxHash128` for whole-artifact and content-address identity and `Crc32` for per-frame integrity (the `FrameEdge`/`InterchangeIdentity` owners). A second hashing helper for value-span digests does mint a parallel hash owner that fragments the content-address identity, so the `HashCode<T>` span-combine path stays out of the package and every value digest routes through the XxHash/Crc32 monopoly.
 
 [RAIL_LAW]:
-
 - Package: `CommunityToolkit.HighPerformance`
 - Owns: pooled memory, span planes, ref views, stream projection
 - Accept: bounded execution payload staging

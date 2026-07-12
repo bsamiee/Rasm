@@ -7,7 +7,6 @@ The packers are STATEFUL and INCREMENTAL: each is constructed (or `Init`-reset) 
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RectangleBinPack.CSharp`
-
 - package: `RectangleBinPack.CSharp`
 - license: `MIT`
 - assembly: `RectangleBinPacking` (`lib/netstandard2.0/RectangleBinPacking.dll` — SINGLE TFM, the only asset; the assembly name diverges from the package id)
@@ -20,7 +19,6 @@ The packers are STATEFUL and INCREMENTAL: each is constructed (or `Init`-reset) 
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: packer classes and the rectangle struct
-
 - rail: fabrication
 
 `MaxRectsBinPack` maximizes general placement density through five heuristics and optional 90-degree rotation, and it exposes `UsedRectangles` and `FreeRectangles`. `SkylineBinPack` streams small uniform parts through bottom-left or minimum-waste placement and an optional Guillotine waste map. `GuillotineBinPack` enforces panel-saw straight cuts spanning the stock edge to edge through six free-rectangle choices, four split heuristics, and optional free-rectangle merging. `ShelfBinPack` owns the simplest row-stacked layout through an optional Guillotine waste map. `SingleBinPack.Insert(partWidth, partHeight, quantity)` returns the as-many-as-fit `List<Rect>` for a homogeneous cut list. `Rect` carries mutable placement fields, computed extents and area, containment and intersection predicates, and the universal `Height == 0` failure sentinel.
@@ -35,7 +33,6 @@ The packers are STATEFUL and INCREMENTAL: each is constructed (or `Init`-reset) 
 |  [06]   | `Rect`              | mutable struct  | placement value carrier     |
 
 [PUBLIC_TYPE_SCOPE]: `Rect` members
-
 - rail: fabrication
 
 The packers return positioned `Rect` instances, so the consumer rarely calls the constructor. `Insert` writes the mutable bottom-left position and extent fields, and `Height == 0` marks a part that did not fit. `Contains` supplies the post-pack within-bin check. `Intersects` supplies the pairwise post-pack no-overlap check because the suite has no batch `AnyIntersects` surface.
@@ -54,7 +51,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 |  [10]   | `bool Intersects(Rect other)`               | predicate         | AABB overlap test    |
 
 [PUBLIC_TYPE_SCOPE]: per-packer state and lifecycle members
-
 - rail: fabrication
 - note: every packer follows the same lifecycle — ctor sets the bin extent, `Init` re-resets it (clears the free/used lists), `Insert` places one part and mutates internal state. `MaxRectsBinPack` and `GuillotineBinPack` surface their placement lists publicly (`UsedRectangles`/`FreeRectangles`); `SkylineBinPack`/`ShelfBinPack` keep theirs private, so the consumer accumulates returned `Rect`s for those.
 
@@ -78,7 +74,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: per-algorithm incremental `Insert` — each takes that packer's own heuristic enum
-
 - rail: fabrication
 - note: every `Insert` returns the placed `Rect`; a `Rect` with `Height == 0` is the placement-failure sentinel (the part did not fit the remaining free area). No method throws on infeasibility.
 
@@ -93,7 +88,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 |  [05]   | `SingleBinPack.Insert`     | mass-cut yield   | homogeneous placements |
 
 [INSERT_SIGNATURES]:
-
 - `MaxRectsBinPack.Insert`: `(int width, int height, FreeRectChoiceHeuristic method)`
 - `SkylineBinPack.Insert`: `(int width, int height, LevelChoiceHeuristic method)`
 - `GuillotineBinPack.Insert`: `(int width, int height, bool merge, FreeRectChoiceHeuristic rectChoice, GuillotineSplitHeuristic splitMethod)`
@@ -103,7 +97,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 ## [04]-[HEURISTIC_VOCABULARY]
 
 [HEURISTIC_SCOPE]: `RectangleBinPacking.FreeRectChoiceHeuristic` 'TOP-LEVEL — the `MaxRectsBinPack.Insert` axis'
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]               | [ORDINAL] | [CAPABILITY]                                                          |
@@ -115,7 +108,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 |  [05]   | `RectContactPointRule` | 4         | maximize shared edge contact — densest interlocking, slowest          |
 
 [HEURISTIC_SCOPE]: `GuillotineBinPack.FreeRectChoiceHeuristic` 'NESTED — DISTINCT from the top-level enum above'
-
 - rail: fabrication
 - note: this nested enum is NOT interchangeable with the top-level `FreeRectChoiceHeuristic`; the consumer must reference `GuillotineBinPack.FreeRectChoiceHeuristic.*` explicitly for the guillotine `Insert`.
 
@@ -129,7 +121,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 |  [06]   | `RectWorstLongSideFit`  | 5         | maximize longer leftover side         |
 
 [HEURISTIC_SCOPE]: `GuillotineBinPack.GuillotineSplitHeuristic` 'the cut-axis selector — the panel-saw kerf-direction policy'
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                   | [ORDINAL] | [CAPABILITY]                                       |
@@ -142,7 +133,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 |  [06]   | `SplitLongerAxis`          | 5         | cut across the longer bin axis                     |
 
 [HEURISTIC_SCOPE]: `SkylineBinPack.LevelChoiceHeuristic` and `ShelfBinPack.ShelfChoiceHeuristic`
-
 - rail: fabrication
 
 `LevelBottomLeft` selects the lowest skyline landing, and `LevelMinWasteFit` selects the minimum skyline gap. `ShelfChoiceHeuristic` selects the row-band shelf policy.
@@ -162,7 +152,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 ## [05]-[IMPLEMENTATION_LAW]
 
 [STATEFUL_INCREMENTAL]:
-
 - Each packer is a MUTABLE, single-bin state machine: construct or `Init` to one bin extent, then call `Insert` per part. `Insert` mutates the packer's free/used geometry and returns the placed `Rect`. The consumer pre-sorts parts descending by area or longer side because placement quality is order-sensitive, then folds each returned `Rect.X` and `Rect.Y` into a scalar placement transform.
 - To pack across MULTIPLE sheets, the consumer opens a fresh packer through `Init` after a `Height == 0` failure and re-feeds the unplaced part because the suite has no built-in multi-bin driver.
 - The `Height == 0` sentinel is the ONLY infeasibility signal: no `Insert` throws a typed packing exception (the suite ships no exception type), so the consumer wraps the placement loop in a `Fin` rail and maps the zero-height return to the typed `FabricationFault.Nest` placement-failure case rather than catching.
@@ -171,7 +160,6 @@ The packers return positioned `Rect` instances, so the consumer rarely calls the
 - `SingleBinPack.Insert(w, h, quantity)` is the homogeneous mass-cut yield: it returns the `List<Rect>` of as-many-of-the-identical-part-as-fit on one sheet, the sheet-yield count being `list.Count`. The internal nesting machinery it uses (the private `Vector2d`/`MockPart`/`NestingSolution`/`OuterContourPoint` types) does NOT escape the API — only `List<Rect>` is the surface, so the consumer reads positions and count, nothing finer.
 
 [RAIL_LAW]:
-
 - Package: `RectangleBinPack.CSharp` (assembly `RectangleBinPacking`)
 - Owns: the academic axis-aligned 2D bin-packing suite — MaxRects (densest general), Skyline (fast streaming), Guillotine (panel-saw straight-cut), Shelf (row-band), and SingleBinPack (homogeneous mass-cut), each a stateful per-bin `Insert` stream over its own heuristic enum, all returning the `Rect` value struct
 - Accept: the `Nesting/stock` sheet/stock-material rectangle placement and material-utilization fold — part footprints and sheet extents ceiled to `int`, the algorithm chosen by the layout intent (`Guillotine` for saw-cut sheet goods, `MaxRects` for nest density, `SingleBinPack` for identical-part yield), utilization derived from `Rect.Area` sums, remnants read from `MaxRectsBinPack.FreeRectangles`/`GuillotineBinPack` post-merge

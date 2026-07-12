@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Materials`
-
 - package: `VividOrange.Materials`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.Materials`
@@ -39,7 +38,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: EN grade-record materials (the registered `grade -> property` DATA)
-
 - rail: profiles / connection
 - These are the structural-grade DATA carriers: each holds a `Grade` enum + an `IStandard` + the EN-tabulated
   partial factors and metadata. They are NOT the stress-strain law (that is the analysis-material family below) —
@@ -81,7 +79,6 @@
 - Construction: `EnSteelMaterial.Specification` and `TryCreateFromDesignition`; the `.ctor` is `internal`.
 
 [PUBLIC_TYPE_SCOPE]: constitutive ANALYSIS materials (the stress-strain LAWS an analysis consumes)
-
 - rail: profiles / connection
 - These are the material BEHAVIOUR carriers — the σ(ε) law a fibre integration or a section solver reads. A grade
   record is lowered to one of these by a factory; they are also directly constructible for a non-standard material.
@@ -121,7 +118,6 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
 - Behaviour: timber/composite directional stiffness.
 
 [PUBLIC_TYPE_SCOPE]: grade->property FACTORIES (the EN-tabulated `grade -> material` dispatchers)
-
 - rail: profiles / connection
 - These hold the EN data tables (the steel `Dictionary<Enum, Table3_1Properties>` set keyed by grade, the table selected
   by `EnSteelSpecification`) and the token-parse derivation formulae (`EnConcreteFactory`/`EnRebarFactory` parse the grade
@@ -161,7 +157,6 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: build an EN grade material (the registered grade DATA)
-
 - rail: profiles / connection
 
 | [INDEX] | [OWNER]              | [CALL]          |
@@ -173,34 +168,28 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
 |  [05]   | `EnRebarMaterial`    | ctor            |
 
 [CONCRETE_DEFAULT]:
-
 - Surface: `new EnConcreteMaterial(EnConcreteGrade grade, NationalAnnex na)`.
 - Result: concrete grade with annex EC2 partial factors and default exposure, cement, and cover.
 
 [CONCRETE_DURABILITY]:
-
 - Surface: `new EnConcreteMaterial(grade, na, EnConcreteExposureClass, Length maxAggregate, EnCementClass[, Length crackWidthLimit, Length minimumCover])`.
 - Result: full durability-detailed concrete grade.
 
 [STEEL_GRADE]:
-
 - Surface: `new EnSteelMaterial(EnSteelGrade grade, NationalAnnex na)`.
 - Result: steel grade with annex γ_M0/γ_M1/γ_M2.
 
 [STEEL_DESIGNATION]:
-
 - Surface: `EnSteelMaterial.TryCreateFromDesignition(string designition, NationalAnnex na, out EnSteelMaterial)`.
 - Parse: EN designations such as `"S355N"`, `"S355W"`, and `"S355H"` become a grade plus delivery/hollow/corrosion `Specification`.
 - Failure: the only non-throwing material constructor on this surface.
 - Spelling: the upstream member is `Designition`.
 
 [REBAR_GRADE]:
-
 - Surface: `new EnRebarMaterial(EnRebarGrade grade, NationalAnnex na)`.
 - Result: reinforcement grade (`MaterialType.Reinforcement`) consumed by `VividOrange.Sections` `Rebar` and `ConcreteSection`.
 
 [ENTRYPOINT_SCOPE]: lower a grade to a constitutive ANALYSIS material (the σ(ε) law)
-
 - rail: profiles / connection
 - the canonical path: build a grade record (above), then call a factory to get the `ILinearElasticMaterial` /
   `IBiLinearMaterial` / `IParabolaRectangleMaterial` an analysis or a fibre integral reads.
@@ -217,48 +206,39 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
 |  [08]   | `ParabolaRectangleMaterial` | stress ordinate    |
 
 [ANALYSIS_LINEAR]:
-
 - Surface: `AnalysisMaterialFactory.CreateLinearElastic(IStandardMaterial material)`.
 - Result: polymorphically lowers any EN concrete, steel, or rebar grade to `ILinearElasticMaterial` through the corresponding `En*Factory`.
 - Consumer: `VividOrange.InteractionDiagram`.
 
 [CONCRETE_LINEAR]:
-
 - Surface: `EnConcreteFactory.CreateLinearElastic<EnConcreteGrade>(grade)`.
 - Result: EC2 secant-modulus linear-elastic concrete, with `Ecm` derived from `fck`.
 
 [CONCRETE_PARABOLA_RECTANGLE]:
-
 - Surface: `EnConcreteFactory.CreateParabolaRectangleAnalysisMaterial(EnConcreteGrade grade)`.
 - Result: EC2 parabola-rectangle concrete σ(ε) law with `fcd`, ε_c2/ε_cu2, and the `n` exponent.
 
 [STEEL_LINEAR]:
-
 - Surface: `EnSteelFactory.CreateLinearElastic(IEnSteelMaterial[, Length elementThickness])`.
 - Result: linear-elastic steel from thickness-banded Table `f_y`.
 
 [STEEL_BILINEAR]:
-
 - Surface: `EnSteelFactory.CreateBiLinear(IEnSteelMaterial[, Length elementThickness])`.
 - Result: bilinear steel from Table `f_y` to `f_u` and ε_u.
 
 [REBAR_LINEAR]:
-
 - Surface: `EnRebarFactory.CreateLinearElastic<EnRebarGrade>(grade)`.
 - Result: linear-elastic reinforcement with `Es = 200 GPa`.
 
 [REBAR_BILINEAR]:
-
 - Surface: `EnRebarFactory.CreateBiLinear(EnRebarGrade)`.
 - Result: bilinear reinforcement with ductility k/ε_uk selected by class A/B/C.
 
 [PARABOLA_RECTANGLE_STRESS]:
-
 - Surface: `ParabolaRectangleMaterial.StressAt(Ratio strain) -> Pressure`.
 - Result: evaluates the concrete parabola-rectangle σ ordinate and clamps past `FailureStrain`.
 
 [ENTRYPOINT_SCOPE]: a non-standard constitutive material (direct construction, no grade table)
-
 - rail: properties (a measured/user material that is NOT an EN grade)
 
 | [INDEX] | [OWNER]                            | [CALL]         |
@@ -270,34 +250,28 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
 |  [05]   | `LinearElasticOrthotropicMaterial` | ctor           |
 
 [DIRECT_LINEAR]:
-
 - Surface: `new LinearElasticMaterial(MaterialType, Pressure elasticModulus, Pressure strength)`.
 - Result: directly specified linear-elastic material of any `MaterialType`.
 
 [DIRECT_BILINEAR]:
-
 - Surface: `new BiLinearMaterial(MaterialType, Pressure E, Pressure yield, Pressure ultimate, Ratio failureStrain)`.
 - Result: directly specified bilinear material.
 
 [PROMOTED_BILINEAR]:
-
 - Surface: `new BiLinearMaterial(ILinearElasticMaterial, Pressure ultimate, Ratio failureStrain)`.
 - Result: promotes a linear-elastic material to bilinear.
 
 [DIRECT_PARABOLA_RECTANGLE]:
-
 - Surface: `new ParabolaRectangleMaterial(MaterialType, Pressure yield, Ratio yieldStrain, Ratio failureStrain, double exponent)`.
 - Result: directly specified parabola-rectangle material.
 
 [DIRECT_ORTHOTROPIC]:
-
 - Surface: `new LinearElasticOrthotropicMaterial(MaterialType, Pressure Ex, Pressure Sx, Pressure Ey, Pressure Sy, Pressure Ez, Pressure Sz)`.
 - Result: directly specified orthotropic timber/composite material.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GRADE_DATA_ALGEBRA]:
-
 - root: a grade record (`EnConcreteMaterial`/`EnSteelMaterial`/`EnRebarMaterial`) is the DESIGN-GRADE identity + the
   EN partial-factor + durability/spec metadata; it carries a `Grade` enum and an `IStandard` (`En1992`/`En1993`), NOT
   a σ(ε) law.
@@ -315,7 +289,6 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
   applies to every read.
 
 [EN_TABLE_CONTRACT]:
-
 - `EnSteelFactory` holds the EN 1993-1-1 Table `f_y`/`f_u` as EIGHT private `Dictionary<Enum, Table3_1Properties>`
   tables keyed by `EnSteelGrade` — five solid (`…_AR`/`…_N`/`…_M`/`…_W`/`…_Q`) and three hollow (`…_ARH`/`…_NH`/`…_MH`);
   each `Table3_1Properties` value carries four `Pressure` bands (`F_y`/`F_u` at ≤40 mm and at 40–80 mm), with `E` fixed at
@@ -338,14 +311,12 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
   rules (throws `InvalidSteelSpecificationException`).
 
 [BOUNDARY_EXCEPTION_LAW]:
-
 - Boundary: construction and derivation throw `ArgumentException` for a non-EN body or unknown grade/class, `MissingNationalAnnexException` for an untabulated annex, and `InvalidSteelSpecificationException` for an illegal corrosion/delivery combination. These are NOT a typed `Fin`/`Validation` rail.
 - Lowering: a Materials owner traps these exceptions at the in-folder boundary and lowers them onto the canonical typed material-grade error rail (`LanguageExt.Fin`); an EN derivation throw NEVER propagates into an interior domain signature.
 - `EnSteelMaterial.TryCreateFromDesignition` is the ONE non-throwing entry (an `out` + `bool`); a designation-parse
   path uses it and maps `false` to the typed parse failure, rather than catching a throw.
 
 [LOCAL_ADMISSION]:
-
 - The grade DATA is admitted ONLY through the Materials boundary that needs a structural-material grade — the steel
   `Profile` family, the RC `ConcreteSection`, and the reinforcement `Rebar`. A design page NAMES an
   `EnConcreteGrade`/`EnSteelGrade`/`EnRebarGrade` + a `NationalAnnex` and reads the registered `fck`/`fy`/`E` + partial
@@ -357,7 +328,6 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
   a non-EN measured material is constructed directly, an EN grade is lowered through `AnalysisMaterialFactory`.
 
 [STACK]:
-
 - reinforcement seam: `EnRebarMaterial` (`MaterialType.Reinforcement`) is the `IMaterial` the admitted
   `VividOrange.Sections` `Rebar(IMaterial, Length\|BarDiameter)` / `ConcreteSection(IProfile, IMaterial, …)` consume
   (`api-vividorange-sections.md`) — the Materials grade DATA and the Sections reinforcement geometry meet at the
@@ -382,7 +352,6 @@ Every constitutive type implements `IAnalysisMaterial`, `IMaterial`, and `ITaxon
   shape.
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.Materials` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the EN/Eurocode structural-material grade DATA — the `EnConcreteMaterial`/`EnSteelMaterial`/`EnRebarMaterial`
   grade records (grade -> `fck`/`fy`/`E` + partial factors + durability/spec metadata over a `NationalAnnex`), the four

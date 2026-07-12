@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Google.Protobuf`
-
 - package: `Google.Protobuf` (version, direct pin)
 - license: BSD-3-Clause (`protocolbuffers/protobuf`)
 - assembly: `Google.Protobuf`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: message, codec, and buffer-context contracts
-
 - rail: remote-contracts
 
 `IBufferMessage` exposes `InternalMergeFrom(ref ParseContext)` and `InternalWriteTo(ref WriteContext)`, while `FieldCodec<T>` is the reusable read, write, and size unit behind each generated accessor. `WireFormat.MakeTag(int, WireFormat.WireType)` builds a field tag, while `GetTagWireType` and `GetTagFieldNumber` project its number and wire type.
@@ -56,7 +54,6 @@
 |  [06]   | `Fixed32`         |
 
 [PUBLIC_TYPE_SCOPE]: collection and reflection contracts
-
 - rail: remote-contracts
 
 | [INDEX] | [SYMBOL]                     | [PACKAGE_ROLE]      | [CAPABILITY]                   |
@@ -78,7 +75,6 @@
 |  [15]   | `OriginalNameAttribute`      | generated attribute | protocol-name preservation     |
 
 [PUBLIC_TYPE_SCOPE]: well-known contracts
-
 - rail: remote-contracts
 - note: namespace `Google.Protobuf.WellKnownTypes`; each row is a generated message, while temporal rows add CLR conversion helpers
 
@@ -110,7 +106,6 @@ Every scalar wrapper is a generated message over one CLR primitive.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stream and copy message operations
-
 - rail: remote-contracts
 - note: parser operations decode one typed message, parser policies drop unknown fields or bind an extension registry, and copy operations materialize owned bytes.
 
@@ -134,7 +129,6 @@ Every scalar wrapper is a generated message over one CLR primitive.
 |  [16]   | `IDeepCloneable<T>.Clone`                   | —                   | `T`                | structural deep copy         |
 
 [ENTRYPOINT_SCOPE]: buffer fast-path parse and write operations
-
 - rail: remote-contracts#ARTIFACT_SYNC
 - note: `ParseFrom` returns `T` without stream allocation. The extension operations bind `this IMessage`; `MergeFrom` mutates it, write operations emit it into pooled or pre-sized targets, and `WriteLengthPrefixedTo` adds a varint length prefix. The `lib/net5.0` asset carries these overloads, while `lib/netstandard2.0` does not.
 
@@ -149,7 +143,6 @@ Every scalar wrapper is a generated message over one CLR primitive.
 |  [07]   | `MessageExtensions.WriteLengthPrefixedTo` | `IBufferWriter<byte>`    | `void`   |
 
 [ENTRYPOINT_SCOPE]: `ByteString` and no-copy buffer ownership
-
 - rail: remote-contracts
 
 `ByteString` is the immutable wire-byte carrier. Copy factories own their bytes, `Span` and `Memory` expose zero-copy views, and `UnsafeByteOperations.UnsafeWrap` adopts caller-owned memory whose contents remain unchanged for the `ByteString` lifetime.
@@ -171,7 +164,6 @@ Every scalar wrapper is a generated message over one CLR primitive.
 |  [13]   | `UnsafeByteOperations.UnsafeWrap` | `ReadOnlyMemory<byte>`      | `ByteString`           |
 
 [ENTRYPOINT_SCOPE]: any-envelope, field-mask, and well-known operations
-
 - rail: remote-contracts
 - note: `Any.Unpack<T>` throws on a type mismatch, while `TryUnpack<T>` returns a boolean verdict. Typed `FieldMask.FromString<T>` validates the parsed comma-path mask, `Normalize` sorts, deduplicates, and prunes redundant subpaths, and `Merge` copies masked paths from source to destination with an optional policy.
 
@@ -215,7 +207,6 @@ Every scalar wrapper is a generated message over one CLR primitive.
 |  [03]   | `ReplacePrimitiveFields` | `bool` |
 
 [ENTRYPOINT_SCOPE]: JSON projection
-
 - rail: remote-contracts
 - note: `JsonFormatter`/`JsonParser` carry an immutable `Settings` builder; reuse one configured formatter, never per-call construction.
 
@@ -236,7 +227,6 @@ Formatting targets a string or `TextWriter`; parser overloads target a generic m
 |  [11]   | `JsonParser.Settings.WithIgnoreUnknownFields`        | `bool`                      | `Settings` |
 
 [ENTRYPOINT_SCOPE]: reflection descriptor graph
-
 - rail: remote-contracts#CONTRACT_EVOLUTION
 - note: the descriptor-diff contract-evolution law walks this surface to fold its `XxHash128` projection checksum.
 - note: `DescriptorBase` gives every descriptor `Name` and `FullName`; surface folds key on those properties
@@ -280,7 +270,6 @@ Formatting targets a string or `TextWriter`; parser overloads target a generic m
 |  [33]   | `MethodDescriptor.IsServerStreaming`  | `bool`                          | server-streaming flag |
 
 [ENTRYPOINT_SCOPE]: scalar `FieldCodec` factories
-
 - rail: remote-contracts
 - note: `uint tag` selects the wire field; each factory has a tag-only overload and a default-value overload of its `[VALUE]` type
 
@@ -303,7 +292,6 @@ Formatting targets a string or `TextWriter`; parser overloads target a generic m
 |  [15]   | `FieldCodec.ForDouble`   | `double`     | `FieldCodec<double>`     |
 
 [ENTRYPOINT_SCOPE]: generic and collection field-codec operations
-
 - rail: remote-contracts
 - note: generated accessors drive codecs by `ref` context, and repeated or map collections consume them for bulk wire flow. `CalculateSizeWithTag` includes the field tag.
 
@@ -320,7 +308,6 @@ Formatting targets a string or `TextWriter`; parser overloads target a generic m
 |  [09]   | `WireFormat.MakeTag`                 | `int fieldNumber, WireFormat.WireType`              | `uint`                         |
 
 [ENTRYPOINT_SCOPE]: `CodedInputStream` / `CodedOutputStream` limits and sizing
-
 - rail: remote-contracts
 - note: stream codecs back the non-buffer path. `CreateWithLimits` bounds payload depth and size, the constructor's `leaveOpen` flag retains the backing stream, and each static size member costs its matching wire value. `IMessage.CalculateSize()` sizes a direct `WriteTo(Span<byte>)`, while `SpaceLeft` reports the remaining fixed-buffer capacity.
 
@@ -357,14 +344,12 @@ Formatting targets a string or `TextWriter`; parser overloads target a generic m
 ## [04]-[IMPLEMENTATION_LAW]
 
 [WIRE_CONTRACTS]:
-
 - namespace: `Google.Protobuf`; generated messages implement `IMessage<T>` and expose a static `Parser` (`MessageParser<T>`) and `Descriptor` (`MessageDescriptor`).
 - codec root: `MessageParser<T>`, `CodedInputStream`/`CodedOutputStream`, and `FieldCodec<T>` own binary payload flow; JSON is an edge format, never a replacement for binary remote-contract ownership.
 - collection root: `RepeatedField<T>` and `MapField<TKey, TValue>` are generated-contract members, while their `AddEntriesFrom`, `WriteTo`, and `CalculateSize` operations and `MapField<TKey, TValue>.Codec` are the wire primitives a descriptor-driven walker composes
 - consumer TFM: the `net10.0` consumer binds `lib/net5.0`, which carries `ParseFrom(ReadOnlySpan<byte>)`, `MergeFrom(ReadOnlySequence<byte>)`, `WriteTo(IBufferWriter<byte>)`, and `WriteLengthPrefixedTo(IBufferWriter<byte>)`; `lib/netstandard2.0` does not
 
 [BUFFER_FAST_PATH]:
-
 - read entry: `MessageParser<T>.ParseFrom(ReadOnlySpan<byte>)` and `MessageParser<T>.ParseFrom(ReadOnlySequence<byte>)` parse pooled buffers without a stream allocation; `MessageExtensions.MergeFrom(ReadOnlySpan<byte>)` and `MessageExtensions.MergeFrom(ReadOnlySequence<byte>)` extend a live message in place
 - write entry: `MessageExtensions.WriteTo(IBufferWriter<byte>)`, `MessageExtensions.WriteTo(Span<byte>)`, and `MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` emit into pooled or pre-sized buffers; `IMessage.CalculateSize()` pre-sizes a direct `Span<byte>` write
 - no-copy aliasing: `UnsafeByteOperations.UnsafeWrap(ReadOnlyMemory<byte>)` adopts caller-owned memory into a `ByteString`; the caller owns buffer lifetime past the message's read window.
@@ -372,13 +357,11 @@ Formatting targets a string or `TextWriter`; parser overloads target a generic m
 - field codec: `FieldCodec<T>.Read(ref ParseContext)`, `WriteTagAndValue(ref WriteContext, T)`, and `CalculateSizeWithTag(T)` are the per-field ref-context operations behind generated accessors.
 
 [REFLECTION_CONTRACTS]:
-
 - namespace: `Google.Protobuf.Reflection`; the descriptor graph drives contract inspection
 - generated metadata: `GeneratedClrTypeInfo` binds generated CLR types, parsers, and oneof/property names to descriptors; `OriginalNameAttribute` preserves protocol names where C# names diverge.
 - contract evolution: `FileDescriptor.BuildFromByteStrings` reconstructs serialized descriptor payloads; `MessageDescriptor.Fields`, `FieldDescriptor.FieldNumber`, `FieldDescriptor.FieldType`, `FieldDescriptor.IsRepeated`, `FieldDescriptor.IsMap`, `FieldDescriptor.IsPacked`, and `ServiceDescriptor.Methods` feed the descriptor-diff `XxHash128` projection checksum
 
 [INTEGRATION_STACK]:
-
 - artifact frame: `IMessage.CalculateSize()` sizes the message, and `MessageExtensions.WriteLengthPrefixedTo(IBufferWriter<byte>)` writes its prefixed body into a `Microsoft.IO.RecyclableMemoryStream` sink. Protobuf owns the message body, while the frame envelope and hash remain outside its boundary.
 - frame integrity: `Crc32.HashToUInt32(ReadOnlySpan<byte>)` hashes the contiguous `ByteString` or segment span through `System.IO.Hashing`
 - artifact identity: `XxHash128` hashes the pooled `GetReadOnlySequence()` view through `HashToUInt128(ReadOnlySpan<byte>, long seed)` for one segment or incremental `Append` plus `GetCurrentHashAsUInt128` for several segments.
@@ -389,13 +372,11 @@ Formatting targets a string or `TextWriter`; parser overloads target a generic m
 - calendar seam: the same owner maps Google common date values through `ToDate()`, `ToTimeOfDay()`, `ToProtobufDayOfWeek()`, `ToLocalDate()`, `ToLocalTime()`, and `ToIsoDayOfWeek()`; these extension surfaces own temporal conversion
 
 [LOCAL_ADMISSION]:
-
 - Remote Compute contracts enter through generated `IMessage<T>` surfaces, and the protobuf codec stack exclusively owns their binary payloads.
 - JSON projection remains an edge format for diagnostics and browser-adjacent consumers; one reused `JsonFormatter` or `JsonParser` carries explicit `Settings` and `TypeRegistry` policy.
 - Reflection descriptors serve diagnostics, contract evolution, and read-only runtime dispatch.
 
 [RAIL_LAW]:
-
 - Package: `Google.Protobuf`
 - Owns: generated wire contracts, the codec stack, the buffer fast path, `FieldCodec<T>`, the reflection descriptor graph, the well-known type family, and JSON edge projection
 - Accept: generated message contracts over the Span/Sequence/`IBufferWriter` fast path stacked onto the `RecyclableMemoryStream` writer face and the `XxHash128`/`Crc32` content-identity law

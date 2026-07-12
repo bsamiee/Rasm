@@ -25,7 +25,6 @@ Branch-level pages beside this router: [component-system.md](component-system.md
 The cross-domain C# foundation every package builds on: rails, time/identity, the array substrate, the wire-codegen toolchain, and the test stack. Each folder `README.md` names the substrate rows it consumes under its own `## [03]-[SUBSTRATE_PACKAGES]`; domain additions live under `## [02]-[DOMAIN_PACKAGES]`.
 
 [FUNCTIONAL_CORE]:
-
 - `LanguageExt.Core` — every C# folder.
 - `Thinktecture.Runtime.Extensions` — every C# folder.
 - `Thinktecture.Runtime.Extensions.Json` — Element, Materials, Bim, AppHost, Compute, Persistence, AppUi.
@@ -33,38 +32,31 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `JetBrains.Annotations` — every C# folder.
 
 [TIME_IDENTITY]:
-
 - `NodaTime` — Element, Bim, Fabrication, AppHost, Compute, Persistence, AppUi.
 - `NodaTime.Serialization.SystemTextJson` — AppHost, Persistence.
 - `NodaTime.Serialization.Protobuf` — Element, Compute.
 - `System.IO.Hashing` — Rasm, Element, Bim, Fabrication, AppHost, Compute, Persistence, AppUi.
 
 [NUMERIC_SUBSTRATE]:
-
 - `CommunityToolkit.HighPerformance` — Rasm, Materials, Bim, Fabrication, Compute, Persistence.
 - `MathNet.Numerics` — Rasm, Compute, Materials, Fabrication: distribution fit, regression, and Monte-Carlo folds behind the kernel matrix owner, the Compute solvers, and the Fabrication capability/wear legs.
 - `System.Numerics.Tensors` — Rasm, Fabrication, AppHost, Compute, Persistence.
 - `UnitsNet` — Element, Bim, Compute, Fabrication, Materials, AppUi.
 
 [GRAPH_ALGORITHM]:
-
 - `QuikGraph` — Rasm, Rhino, AppUi, Bim, Compute, Element, Fabrication, Materials, Persistence: pure-managed graph containers + `AlgorithmExtensions` behind the MST/topology/CPM/version-DAG/setup-precedence walks.
 
 [PLANAR_GEOMETRY]:
-
 - `Clipper2` — Compute, Fabrication: the polygon offset/boolean algebra (`InflatePaths`, boolean clips) at the planar production boundary.
 - `NetTopologySuite` — Bim, Compute: the planar geometry algebra (predicates, isovist/visibility polygons, occupant areas) on the float production plane.
 
 [COLOR_SCIENCE]:
-
 - `Wacton.Unicolour` — Rasm, Materials, AppUi: the kernel perceptual-color owner and the material/UI color-space projection substrate; `Wacton.Unicolour.Datasets` stays a Materials folder addition.
 
 [RECENCY_CACHE]:
-
 - `Microsoft.Extensions.Caching.Hybrid` — AppHost, Compute, Persistence, Grasshopper: the tagged L1/L2 recency substrate behind application and host-session caches.
 
 [WIRE_CODEGEN]:
-
 - `Generator.Equals` — Bim, Compute, Element, Persistence (source-generated structural equality + member-level diff; runtime `Generator.Equals.Runtime`).
 - `Google.Protobuf` — Element (the `rasm.element.v1` graph wire messages), Compute.
 - `Grpc.AspNetCore` — AppHost (server hosting), Compute (measured-execution endpoints).
@@ -73,7 +65,6 @@ The cross-domain C# foundation every package builds on: rails, time/identity, th
 - `Riok.Mapperly` — Bim, Compute, Element, Fabrication, Materials, Persistence (compile-time graph↔DTO/proto/record mapping; runtime `Riok.Mapperly.Abstractions`).
 
 [TEST_SUBSTRATE]:
-
 - `xunit.v3.*` — assert/common/extensibility.core/mtp-v2.
 - `CsCheck`
 - `coverlet.MTP`

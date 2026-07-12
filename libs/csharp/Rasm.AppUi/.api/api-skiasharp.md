@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp`
-
 - package: `SkiaSharp` `3.119.4`
 - assembly: `SkiaSharp` (bound asset `lib/net10.0/SkiaSharp.dll`; multi-target package also ships `net10.0-{macos26.2,ios26.2,maccatalyst26.2,tvos26.2,android36.0,tizen10.0,windows10.0.19041}` — `net10.0` is the AppUi-consumed surface)
 - license: MIT
@@ -147,7 +146,6 @@
 |  [19]   | `DrawLine`                                 | `SKCanvas`     | `(SKPoint, SKPoint, SKPaint)` / `(x0, y0, x1, y1, SKPaint)` segment |
 
 [PATH_CONSTRUCTION_ENTRYPOINTS]: `SKPath` contour building, shape adds, and transform — rail: visuals
-
 - surface-root: `SKPath` (`new SKPath()` empty; `new SKPath(SKPath)` copy)
 
 | [INDEX] | [SURFACE]                           | [CALL]                                                                      |
@@ -279,42 +277,35 @@
 ## [04]-[INTEGRATION_STACKING]
 
 [CUSTOM_VISUAL_RAIL]: the canonical AppUi draw rail composes Skia onto the Avalonia backend lease — never a parallel renderer.
-
 - `Avalonia.Skia` `ISkiaSharpApiLeaseFeature.Lease()` yields an `ISkiaSharpApiLease` exposing the live `SkCanvas` (`SKCanvas`), `GrContext` (`GRContext`), and `SkSurface` (`SKSurface`); custom controls draw through that leased canvas so they share Avalonia's GPU context and present in-airspace (`api-avalonia-skia.md`).
 - `Avalonia.Skia.SkiaSharpExtensions` bridges `Avalonia`->`SkiaSharp` value types (`ToSKRect`/`ToSKMatrix`/`ToSKColor`/`ToSKSamplingOptions`); AppUi geometry crosses the boundary through those converters, then all interior math is `SKMatrix`/`SKPath`/`SKRect`.
 - Text in custom visuals shapes through `SkiaSharp.HarfBuzz` `SKShaper.Shape` (`api-skia-harfbuzz.md`) into an `SKTextBlob`, then draws via `SKCanvas.DrawTextBlob`; `SKFontManager.MatchCharacter` supplies font fallback before shaping. Direct `SKCanvas.DrawText` is reserved for diagnostics where shaping is not required.
 
 [OFFSCREEN_AND_CAPTURE_RAIL]: deterministic raster evidence stacks raster `SKSurface` + `SKImage.Encode` + `SKData`.
-
 - The capture/evidence rails (`Render/capture.md`, `Diagnostics/proof.md`) allocate a raster `SKSurface.Create(SKImageInfo)` (or a GPU surface from `GRRecordingContext` for compositor capture), draw, `Snapshot()` an `SKImage`, and `Encode(SKEncodedImageFormat.Png, …)` to an `SKData` payload — the byte buffer is the diffable visual receipt the bridge/Verify lane asserts on.
 - `SKColorSpace.CreateSrgb`/`CreateIcc` + `SKImageInfo.WithColorSpace` make capture color-managed so cross-host evidence is reproducible regardless of platform default `PlatformColorType`.
 - Animated/sequence evidence decodes through `SKCodec.FrameCount`/`GetFrameInfo` (one decode per frame) rather than per-format branching.
 
 [DRAFTING_AND_DOC_RAIL]: paged export stacks `SKDocument` + `SKCanvas` + `SKPath` SVG codec.
-
 - Sheet/drafting export (`Render/drafting.md`) drives `SKDocument.CreatePdf(stream, SKDocumentPdfMetadata)` -> per-sheet `BeginPage` -> draw -> `EndPage` -> `Close`, sharing the same paint/path stack as the live visual rail so on-screen and exported geometry are byte-identical.
 - `SKPath.ToSvgPathData`/`ParseSvgPathData` and `SKPath.Op(SKPathOp)` (boolean union/difference/intersect) own vector interchange and clip-region math; the DWG/DXF codecs in `api-drafting-export.md` consume the resolved `SKPath` outline, never their own geometry kernel.
 
 [RUNTIME_EFFECT_RAIL]: SkSL effects bind once and re-bind uniforms per frame.
-
 - Shading/theme surfaces (`Render/shading.md`, `Theme/motion.md`) compile an `SKRuntimeEffect.CreateShader(sksl, out errors)` once, then `BuildShader()` an `SKRuntimeShaderBuilder`, set named `Uniforms`/`Children`, and produce an `SKShader` assigned to `SKPaint.Shader` each frame — animation drives uniform values, not recompilation.
 - `SKPicture`/`SKPictureRecorder` memoize a static draw-op list once and replay via `SKCanvas.DrawPicture` so repeated overlays (grids, guides, watermarks) cost one record and N cheap replays; `SKDrawable` defers controls that must re-render lazily.
 
 [PAINT_AS_COMPOSITION_POINT]: one `SKPaint` is the single stacking surface for the whole effect pipeline.
-
 - A label-with-soft-shadow-under-a-color-managed-gradient is one paint: `Shader` = `SKShader.CreateLinearGradient(... SKColorF[], SKColorSpace ...)`, `MaskFilter` = `SKMaskFilter.CreateBlur(...)` for the glow, `ColorFilter` for tone, `BlendMode` for the layer, drawn via `SaveLayer(in SKCanvasSaveLayerRec)` for the offscreen group. AppUi composes effects onto the paint rather than fanning per-effect draw passes.
 
 ## [05]-[IMPLEMENTATION_LAW]
 
 [VISUALS_LAW]:
-
 - Package: `SkiaSharp`
 - Owns: raster + 2D-vector drawing, offscreen/GPU surfaces, animated codecs, picture recording, paged document export, color-managed spaces, the full shader/filter/effect/runtime-SkSL pipeline, and GPU backend contexts
 - Accept: custom visuals draw through a leased `SKCanvas` and emit deterministic `SKImage`/`SKData` evidence; effects compose onto one `SKPaint`; text shapes through HarfBuzz before it draws
 - Reject: GDI public vocabulary; parallel render backends bypassing the Avalonia lease; per-effect draw fan-out where one paint composes the pipeline; `SKFilterQuality` (deprecated — use `SKSamplingOptions`); phantom `SKImageFilter.CreateBlur` (mask blur is `SKMaskFilter.CreateBlur`)
 
 [ASSET_LAW]:
-
 - Package: `SkiaSharp`
 - Owns: managed bindings over native-backed disposable objects and explicit pixel ownership
 - Accept: every `SKSurface`/`SKImage`/`SKBitmap`/`SKCodec`/`SKData`/`GRContext`/`SKStream` is lifecycle-scoped (`using`/explicit `Dispose`); the native `libSkiaSharp` payload arrives from `SkiaSharp.NativeAssets.*`

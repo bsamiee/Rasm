@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore`
-
 - package: `Grpc.AspNetCore`
 - assembly: — (meta-package; no library DLL)
 - namespace: — (aggregates `Grpc.AspNetCore.Server.ClientFactory`, `Google.Protobuf`, `Grpc.Tools`)
@@ -13,7 +12,6 @@
 - rail: grpc-server
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore.HealthChecks`
-
 - package: `Grpc.AspNetCore.HealthChecks`
 - assembly: `Grpc.AspNetCore.HealthChecks`
 - namespace: `Grpc.AspNetCore.HealthChecks`, `Microsoft.Extensions.DependencyInjection`
@@ -21,7 +19,6 @@
 - rail: grpc-server
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore.Web`
-
 - package: `Grpc.AspNetCore.Web`
 - assembly: `Grpc.AspNetCore.Web`
 - namespace: `Grpc.AspNetCore.Web`, `Microsoft.AspNetCore.Builder`
@@ -29,7 +26,6 @@
 - rail: grpc-server
 
 [PACKAGE_SURFACE]: `Grpc.HealthCheck` 'transitive via `Grpc.AspNetCore.HealthChecks`'
-
 - package: `Grpc.HealthCheck`
 - assembly: `Grpc.HealthCheck`
 - namespace: `Grpc.HealthCheck` (`HealthServiceImpl`), `Grpc.Health.V1` (generated `Health`/`HealthCheckRequest`/`HealthCheckResponse`)
@@ -39,7 +35,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: server core — `Grpc.AspNetCore.Server`
-
 - rail: grpc-server
 
 | [INDEX] | [SYMBOL]                               | [TYPE_FAMILY] | [CAPABILITY]                                    |
@@ -59,7 +54,6 @@
 |  [13]   | `IServerCallContextFeature`            | interface     | exposes `ServerCallContext` via HTTP features   |
 
 [PUBLIC_TYPE_SCOPE]: health checks — `Grpc.AspNetCore.HealthChecks`
-
 - rail: grpc-server
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] | [CAPABILITY]                                    |
@@ -71,7 +65,6 @@
 |  [05]   | `HealthResult`             | sealed class  | resolved `ServingStatus` + entry count pair     |
 
 [PUBLIC_TYPE_SCOPE]: wire-health service — `Grpc.HealthCheck` (transitive)
-
 - rail: grpc-server
 
 `Grpc.HealthCheck.HealthServiceImpl` extends `Grpc.Health.V1.Health.HealthBase` and owns an internal per-service status map. `Grpc.Health.V1.HealthCheckResponse.Types.ServingStatus` assigns `Unknown=0`, `Serving=1`, `NotServing=2`, and `ServiceUnknown=3`.
@@ -82,7 +75,6 @@
 |  [02]   | `Grpc.Health.V1.HealthCheckResponse.Types.ServingStatus` | nested enum   | proto serving-status vocabulary    |
 
 [PUBLIC_TYPE_SCOPE]: gRPC-Web — `Grpc.AspNetCore.Web`
-
 - rail: grpc-server
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [CAPABILITY]                                       |
@@ -95,7 +87,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: DI registration — `Microsoft.Extensions.DependencyInjection`
-
 - rail: grpc-server
 
 | [INDEX] | [TARGET]             | [SURFACE]                                | [ENTRY_FAMILY]  | [CAPABILITY]                 |
@@ -107,7 +98,6 @@
 |  [05]   | `IServiceCollection` | `AddGrpcHealthChecks(configure)`         | DI registration | health-check options         |
 
 [ENTRYPOINT_SCOPE]: routing — `Microsoft.AspNetCore.Builder`
-
 - rail: grpc-server
 
 | [INDEX] | [TARGET]                | [SURFACE]                      | [ENTRY_FAMILY] | [CAPABILITY]                   |
@@ -122,7 +112,6 @@
 |  [08]   | endpoint convention     | `DisableGrpcWeb<TBuilder>()`   | convention     | disables gRPC-Web per endpoint |
 
 [ENTRYPOINT_SCOPE]: service options surface
-
 - rail: grpc-server
 
 | [INDEX] | [SURFACE]                                         | [ENTRY_FAMILY]  | [CAPABILITY]                                 |
@@ -140,12 +129,10 @@
 |  [11]   | `GrpcWebOptions.DefaultEnabled`                   | option property | enables gRPC-Web on all endpoints by default |
 
 [ENTRYPOINT_SCOPE]: server call context access
-
 - rail: grpc-server
 - surface: `ServerCallContextExtensions.GetHttpContext(this ServerCallContext)` — extension that retrieves `HttpContext` from `ServerCallContext`
 
 [ENTRYPOINT_SCOPE]: `HealthServiceImpl` wire-health operations — `Grpc.HealthCheck`
-
 - rail: grpc-server
 
 Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthCheckResponse.Types.ServingStatus`.
@@ -160,7 +147,6 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 |  [06]   | `Watch`                                           | RPC handler    | server-streaming health RPC         |
 
 [OPERATION_DETAILS]:
-
 - `new HealthServiceImpl()`: parameterless; creates an empty per-service status map and binds as a singleton.
 - `SetStatus`: returns `void` and notifies active `Watch` streams.
 - `ClearStatus` and `ClearAll`: return `void`.
@@ -169,33 +155,28 @@ Every surface belongs to `HealthServiceImpl`; `ServingStatus` denotes `HealthChe
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SERVER_TOPOLOGY]:
-
 - meta-package `Grpc.AspNetCore` has no lib DLL — it selects `Grpc.AspNetCore.Server.ClientFactory` + `Google.Protobuf` + `Grpc.Tools` as runtime dependencies
 - primary server assembly: `Grpc.AspNetCore.Server` version `2.80.0`; public surfaces live in `Grpc.AspNetCore.Server` and `Microsoft.Extensions.DependencyInjection` / `Microsoft.AspNetCore.Builder` extension namespaces
 - service activation: `IGrpcServiceActivator<TService>` controls per-request service instantiation; default uses DI scoping
 - interceptor order: `InterceptorCollection` is ordered; interceptors execute in list order on every call
 
 [GRPC_WEB_TOPOLOGY]:
-
 - middleware: `UseGrpcWeb()` must be placed between `UseRouting` and `MapGrpcService` in the pipeline
 - per-endpoint control: `EnableGrpcWebAttribute` / `DisableGrpcWebAttribute` override `GrpcWebOptions.DefaultEnabled`
 - content types handled: `application/grpc-web` and `application/grpc-web-text` (base64-framed)
 
 [HEALTH_SERVICE_TOPOLOGY]:
-
 - `Grpc.AspNetCore.HealthChecks` pulls `Grpc.HealthCheck` transitively (lockfile `Grpc.AspNetCore.HealthChecks` → `Grpc.HealthCheck`); `Grpc.HealthCheck.HealthServiceImpl` is the reference `grpc.health.v1` service extending the generated `Grpc.Health.V1.Health.HealthBase` and is registered as a singleton (`AddSingleton(new HealthServiceImpl)`) alongside `AddGrpcHealthChecks` / `MapGrpcHealthChecksService`
 - `HealthServiceImpl.SetStatus(service, status)` mutates an internal `Dictionary<string, ServingStatus>` and pushes to live `Watch` streams; capability-health projection calls it directly rather than re-deriving a parallel serving map
 - `Grpc.Health.V1.HealthCheckResponse.Types.ServingStatus` is the proto-grounded enum (`Unknown=0` / `Serving=1` / `NotServing=2` / `ServiceUnknown=3`); the canonical projection maps healthy and degraded → `Serving`, unhealthy → `NotServing`
 
 [LOCAL_ADMISSION]:
-
 - Registration entry: `services.AddGrpc()` → `IGrpcServerBuilder`; `AddServiceOptions<TService>()` on the builder sets per-service overrides
 - Mapping entry: `endpoints.MapGrpcService<TService>()` — `TService` is the protoc-generated service class
 - Health checks: `services.AddGrpcHealthChecks()` → configure `GrpcHealthChecksOptions.Services` mappings; `endpoints.MapGrpcHealthChecksService()` exposes the standard health protocol
 - gRPC-Web: admitted only when non-browser clients require it; production gRPC-first traffic uses native HTTP/2
 
 [RAIL_LAW]:
-
 - Package: `Grpc.AspNetCore` + `Grpc.AspNetCore.HealthChecks` + `Grpc.AspNetCore.Web` + `Grpc.HealthCheck` (transitive)
 - Owns: server DI registration, service routing, interceptor hosting, ASP.NET-Core health-check bridge, gRPC-Web middleware, and the reference `grpc.health.v1` `HealthServiceImpl` serving-status surface
 - Accept: generated service implementations, DI-resolved interceptors, ASP.NET Core pipeline composition, `HealthServiceImpl.SetStatus` serving-status projection

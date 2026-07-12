@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `DynamicData`
-
 - package: `DynamicData`
 - assembly: `DynamicData`
 - namespace: `DynamicData`
@@ -20,7 +19,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [CACHE_AND_LIST_TYPES]: mutable live data sources
-
 - rail: live-data
 
 | [INDEX] | [SYMBOL]                           | [RAIL]             |
@@ -35,7 +33,6 @@
 |  [08]   | `ChangeAwareCache<TObject,TKey>`   | change cache       |
 
 [CHANGE_SET_TYPES]: change records and stream contracts
-
 - rail: live-data
 
 | [INDEX] | [SYMBOL]                               | [RAIL]          |
@@ -52,7 +49,6 @@
 |  [10]   | `IVirtualChangeSet<TObject,TKey>`      | virtual changes |
 
 [BINDING_TYPES]: UI binding targets and adaptors
-
 - rail: live-data
 
 | [INDEX] | [SYMBOL]                                          | [RAIL]                     |
@@ -66,13 +62,11 @@
 |  [07]   | `SortAndBindOptions`                              | fused sort-and-bind policy |
 
 [BINDING_DETAILS]: collection and policy behavior
-
 - collection: `ObservableCollectionExtended<T>` is an Avalonia/WPF-friendly bound collection with suspendable notifications
 - binding-options: `BindingOptions` is `record struct(int ResetThreshold, bool UseReplaceForUpdates=true, bool ResetOnFirstTimeLoad=true)` with `NeverFireReset()`
 - sort-and-bind-options: `SortAndBindOptions` carries the reset threshold, reset behavior, and binary-search insertion policy
 
 [QUERY_TYPES]: sort, page, virtual, aggregate, and diagnostic model
-
 - rail: live-data
 
 | [INDEX] | [SYMBOL]                    | [RAIL]                                         |
@@ -91,7 +85,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [CACHE_ENTRYPOINTS]: cache mutation and connection operations
-
 - rail: live-data
 
 | [INDEX] | [SURFACE]              | [SURFACE_ROOT]                      | [RAIL]          |
@@ -106,7 +99,6 @@
 |  [08]   | `SuspendNotifications` | `INotifyCollectionChangedSuspender` | batch bind      |
 
 [QUERY_ENTRYPOINTS]: change-set query operations
-
 - rail: live-data
 - surface-root: `ObservableCacheEx`
 
@@ -132,7 +124,6 @@
 |  [18]   | `QueryWhenChanged`          | change-set to `IObservable<IReadOnlyCollection>` snapshot with cumulative query state |
 
 [BINDING_ENTRYPOINTS]: UI binding and disposal operations
-
 - rail: live-data
 
 | [INDEX] | [SURFACE]                          | [SURFACE_ROOT]            | [RAIL]                                                          |
@@ -149,7 +140,6 @@
 |  [10]   | `WhenAnyPropertyChanged`           | `NotifyPropertyChangedEx` | property-change stream off `INotifyPropertyChanged`             |
 
 [AGGREGATE_ENTRYPOINTS]: computed stream summaries
-
 - rail: live-data
 - surface-root: `DynamicData.Aggregation` — operators are extension methods on `IObservable<IChangeSet<…>>` spread across `CountEx` / `SumEx` / `AvgEx` / `MaxEx` / `StdDevEx`; each consumes a `Func<T,TValue>` value selector and emits `IObservable<TValue>`
 
@@ -167,21 +157,18 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [LIVE_DATA_LAW]:
-
 - Package: `DynamicData`
 - Owns: keyed cache, ordered list, binding, query, aggregate, page, virtual, and diagnostic change-set rails
 - Accept: state updates flow through change sets before they reach screens
 - Reject: manual observable collection mutation
 
 [PROJECTION_LAW]:
-
 - Package: `DynamicData`
 - Owns: filter, sort, group, transform, bind, dispose, aggregate, page, and virtualise operations
 - Accept: host panels, companion windows, sidecars, diagnostics, and downstream shells share one live projection rail; sorted binding uses the fused `SortAndBind`
 - Reject: separate collection mutation paths per view modality; the legacy `Sort().Bind()` two-operator chain where `SortAndBind` collapses it
 
 [HIERARCHY_LAW]:
-
 - `TransformToTree(parentKeySelector, predicateChanged?)` folds a flat parent-keyed cache into an `IObservable<IChangeSet<Node<TObject,TKey>,TKey>>` whose `Node<TObject,TKey>` carries `Item`, `Depth`, `Parent`, and a nested `Children` observable cache; its default root predicate is `IsRoot`, so it emits root nodes only and the consumer walks `Children` for descendants.
 - `TransformMany(manySelector, keySelector)` expands each source item into a child change-set, the operator a flatten composes onto to project a `Node` tree into flat indent rows.
 - The tree-flatten fold is one owner: `TransformToTree` plus the `Node` recursion is the hierarchical projection, never a per-surface tree control or a hand-sliced descendant collection.
@@ -189,12 +176,10 @@
 - The diff re-realizes only the changed indent rows without re-subscribing the tree transform; `expansion.Select(rebuild).Switch()` re-runs `TransformToTree` per toggle and incurs O(n) work.
 
 [SORTED_BIND_LAW]:
-
 - `SortAndBind(out var collection, comparer, SortAndBindOptions)` is the canonical bound-and-sorted projection — one operator computes the sorted insert position and writes it into the `ReadOnlyObservableCollection` in a single pass, replacing the legacy `Sort(comparer).Bind(out collection)` two-operator chain. A `SortExpressionComparer<T>.Ascending(x => x.A).ThenByDescending(x => x.B)` builds the multi-key comparer the operator consumes.
 - `BindingOptions`/`SortAndBindOptions` set `ResetThreshold` (a batch larger than the threshold fires one collection reset instead of N adds — the Avalonia/WPF virtualization-friendly path) and `UseReplaceForUpdates`; `BindingOptions.NeverFireReset()` forces incremental notifications when a downstream control mis-handles `Reset`.
 
 [STACKING]:
-
 - One change-set fans to every downstream rail: a single `SourceCache.Connect()` feeds `SortAndBind` (the `Avalonia.Controls.DataGrid`/`ItemsControl` source), `ToCollection()` (a snapshot for a `LiveChartsCore` `ISeries.Values` binding so a chart redraws off the same live projection), and the `DynamicData.Aggregation` operators (`Count`/`Sum`/`Maximum`) feeding dashboard tiles — the cache is the one source of truth and each surface is a projection, never a parallel mutation path.
 - Drive the constraint solver from the data rail: `Transform` projects layout-edit deltas into `(Variable, double)` pairs and the subscription calls `Kiwi.Solver.TrySuggestValue` per item then `Solve()` once per frame, so a `DynamicData` edit and a `Kiwi` re-solve share one observable.
 - `ReactiveUI`/`System.Reactive` interop: `WhenAnyPropertyChanged` and `AutoRefresh(x => x.Prop)` lift `INotifyPropertyChanged` view-model mutations into the change-set so an in-place edit re-flows the sort/filter/aggregate pipeline without a manual `Refresh` call; `BindToObservableList` targets a non-UI `IObservableList<T>` when the consumer is another rail rather than a control.

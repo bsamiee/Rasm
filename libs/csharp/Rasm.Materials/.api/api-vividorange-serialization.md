@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Serialization`
-
 - package: `VividOrange.Serialization`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.Serialization`
@@ -21,7 +20,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the round-trip extension surface (the only consumer-callable type)
-
 - rail: serialization
 
 `JsonSerializationExtensions` is the consumer-callable static extension owner. Both members constrain `T` with `ITaxonomySerializable`, accept optional `JsonSerializerSettings`, and use the taxonomy defaults when settings are `null`.
@@ -32,7 +30,6 @@
 |  [02]   | `FromJson<T>` | `string`   | `T?`     |
 
 [PUBLIC_TYPE_SCOPE]: the settings owner — NOT consumer-callable (`internal`)
-
 - rail: serialization
 - gate: `TaxonomyJsonSerializer` is internal, and its static `Settings` owns the default wire. Consumers customize the wire by passing their own `JsonSerializerSettings` to `ToJson` or `FromJson`; the internal settings remain immutable from the consumer boundary. `ToJson` writes with `Formatting.Indented`.
 
@@ -48,7 +45,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: round-trip a taxonomy object
-
 - rail: serialization
 
 The extension pair constrains `T` with `ITaxonomySerializable`. Default serialization emits indented JSON with polymorphic `$type` discrimination and SI-scalar-plus-unit quantities, while default deserialization reconstructs the precise concrete runtime type behind `T`. A settings argument replaces the taxonomy defaults with the consumer-owned converter and handling policy.
@@ -63,7 +59,6 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ROUNDTRIP_CONTRACT]:
-
 - The round-trip is ONE generic pair constrained `where T: ITaxonomySerializable` — there is no per-type serializer.
   Every VividOrange DATA type implements the marker, so `ToJson`/`FromJson` is the SINGLE polymorphic rail for the whole
   taxonomy: a material, a reinforced section, a standard, a catalogued profile, and a capacity mesh all serialize
@@ -75,7 +70,6 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   in-folder seam and lowers it onto the canonical typed wire-decode error rail.
 
 [POLYMORPHIC_TYPE_PRESERVATION]:
-
 - `TypeNameHandling.Objects` is load-bearing for the taxonomy: a `ConcreteSection` exposed through an `ISection`
   reference, an `EnConcreteMaterial` through an `IMaterial`, an `En1992` through an `IStandard`, and a `ForceMomentMesh`
   through an `IForceMomentMesh` all carry a `$type` tag, so the deserializer rebuilds the precise concrete type rather
@@ -87,7 +81,6 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   goes through the canonical Materials wire, not this `$type`-tagged round-trip.
 
 [WIRE_FIREBREAK]:
-
 - Newtonsoft.Json owns the internal VividOrange taxonomy round-trip. Thinktecture System.Text.Json and MessagePack generated codecs own the canonical cross-language wire and its SmartEnum, union, and value-object shapes.
 - A VividOrange object retained inside C# uses `ToJson` and `FromJson`; a cross-language Materials concept lowers to the canonical shape and its Thinktecture codec. The VividOrange `$type` shape remains inside the C# boundary.
 - The `UnitsNet.Serialization.JsonNet` converter ([TRANSITIVE_UNITSNET_JSONNET]) is the Json.NET sibling of
@@ -96,14 +89,12 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   serializers.
 
 [LOCAL_ADMISSION]:
-
 - The round-trip persists or clones a VividOrange data object inside the C# layer; the Thinktecture System.Text.Json owner governs the cross-language wire ([WIRE_FIREBREAK]).
 - The boundary traps `FromJson<T>` `null` results and Newtonsoft exceptions, then lowers them onto the typed wire-decode rail.
 - A consumer that needs a non-default wire passes its own `JsonSerializerSettings` (preserving `TypeNameHandling.Objects`
   and the UnitsNet converter, [POLYMORPHIC_TYPE_PRESERVATION]); it never mutates the `internal` `TaxonomyJsonSerializer`.
 
 [STACK]:
-
 - taxonomy seam: `ToJson<T>` and `FromJson<T>` form one round-trip for every `ITaxonomySerializable`.
 - admitted taxonomy: material grade records, reinforced sections and bars, section-property carriers, standards, catalogued profiles, and the N-M-M capacity mesh all use the same pair.
 - quantity seam: the `UnitsNetIQuantityJsonConverter` ([TRANSITIVE_UNITSNET_JSONNET]) serializes every
@@ -115,11 +106,9 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   ([MARKER_FLOOR_SPLIT]) — the floor declares the tag, this package is the behavior; a serializing page references both.
 
 [TRANSITIVE_UNITSNET_JSONNET]:
-
 - direct package: `VividOrange.Serialization` brings `UnitsNet.Serialization.JsonNet` and registers the quantity converter stack for taxonomy JSON.
 
 [CONVERTER_ALGEBRA]:
-
 - base root: `UnitsNetBaseJsonConverter<T>: JsonConverter<T>` — owns the `ValueUnit`/`ExtendedValueUnit` DTO model,
   the `decimal`-quantity path (serialize as string to keep `100` vs), the `ConvertIQuantity` / `ConvertValueUnit` / `ReadValueUnit` bridges, and the `RegisterCustomType` registry. A custom converter subclasses
   it and overrides `ReadJson`/`WriteJson`.
@@ -130,7 +119,6 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   (read-only `IComparable`) — the verbose object form for producer interop with producers that emit it.
 
 [DETERMINISM_CONTRACT]:
-
 - The abbreviated form's read/write resolves through a `UnitAbbreviationsCache`; the parameterless ctor uses
   `UnitAbbreviationsCache.Default` (culture-sensitive via `CurrentCulture`). For deterministic Materials wire the
   boundary INJECTS an invariant-configured abbreviations cache through the 3-arg ctor so the same JSON byte parses
@@ -141,12 +129,10 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   except for `decimal` quantities, which carry `ValueString`/`ValueType` to preserve precision.
 
 [LOCAL_ADMISSION]:
-
 - The Materials wire boundary registers this Json.NET `JsonConverter` on `JsonSerializerSettings`, and Json.NET dispatches every quantity through the registered converter.
 - `VividOrange.Serialization` requires this transitive floor. The interchange owner registers it once, and every `UnitsNet`-typed field round-trips through that setting.
 
 [STACK]:
-
 - serialization seam: `VividOrange.Serialization` is the `ITaxonomySerializable` JSON pipeline over `Newtonsoft.Json`; this converter handles its `UnitsNet` quantities.
 - settings seam: registering the converter on the taxonomy settings admits serialization of a capacity mesh carrying `Force` and `Torque` coordinates.
 - hull seam: the `InteractionDiagram` output mesh (`api-vividorange-iforcemomentinteraction.md` /
@@ -161,7 +147,6 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   path decodes the same form back to a typed `IQuantity`.
 
 [RAIL_LAW]:
-
 - Package: `UnitsNet.Serialization.JsonNet` (MIT-0, `netstandard2.0`-only, `net10.0` binds `netstandard2.0`)
 - Owns: the `UnitsNet` ↔ Json.NET converter set — `AbbreviatedUnitsConverter` (compact `"value unit"` form,
   culture/registry-aware), `UnitsNetIQuantityJsonConverter` / `UnitsNetIComparableJsonConverter` (object form
@@ -175,7 +160,6 @@ The extension pair constrains `T` with `ITaxonomySerializable`. Default serializ
   the unit
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.Serialization` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the polymorphic JSON round-trip IMPL for the VividOrange taxonomy — `JsonSerializationExtensions.ToJson<T>` /
   `FromJson<T>` (`T: ITaxonomySerializable`) over a Newtonsoft.Json + `UnitsNet.Serialization.JsonNet` settings stack

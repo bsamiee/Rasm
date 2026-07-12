@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Polly.Core`
-
 - package: `Polly.Core`
 - assembly: `Polly.Core`
 - namespace: `Polly`
@@ -22,7 +21,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: pipeline and execution family
-
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                      |
@@ -40,7 +38,6 @@
 |  [11]   | `FallbackActionArguments<T>`    | callback arguments  | fallback action carrier     |
 
 [PUBLIC_TYPE_SCOPE]: strategy and registry family
-
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]    | [RAIL]                                    |
@@ -62,7 +59,6 @@
 |  [15]   | `ChaosBehaviorStrategyOptions`     | chaos options    | Simmy behavior injection                  |
 
 [PUBLIC_TYPE_SCOPE]: telemetry and rejection family
-
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [RAIL]                     |
@@ -78,7 +74,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder operations
-
 - rail: resilience
 
 | [INDEX] | [SURFACE]               | [ENTRY_FAMILY]    | [RAIL]                    |
@@ -97,7 +92,6 @@
 |  [12]   | `AddChaosBehavior`      | builder extension | Simmy behavior strategy   |
 
 [ENTRYPOINT_SCOPE]: execution operations
-
 - rail: resilience
 
 | [INDEX] | [SURFACE]                      | [ENTRY_FAMILY] | [RAIL]                      |
@@ -110,7 +104,6 @@
 |  [06]   | `ResilienceContextPool.Return` | context return | pooled context return       |
 
 [ENTRYPOINT_SCOPE]: provider, predicate, and outcome operations
-
 - rail: resilience
 
 `ResiliencePipelineProvider<TKey>` resolves built pipelines by key; `PredicateBuilder<T>` composes `ShouldHandle`, and `Outcome.FromResult<TResult>` wraps result values.
@@ -125,19 +118,16 @@
 |  [06]   | `Outcome.FromResult<TResult>`                           | outcome factory   | result outcome     |
 
 [PIPELINE_LOOKUP]:
-
 - `GetPipeline(TKey)`: returns a built `ResiliencePipeline`.
 - `GetPipeline<TResult>(TKey)`: returns `ResiliencePipeline<TResult>`.
 - `TryGetPipeline(TKey, out …)`: returns a non-throwing `bool` probe.
 
 [PREDICATE_INPUT]:
-
 - `HandleResult`: accepts a `Func<T, bool>` or a value.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RESILIENCE_TOPOLOGY]:
-
 - namespaces: pipeline, retry, timeout, circuit breaker, hedging, fallback, registry, telemetry
 - builder surface: ordered strategy composition through pipeline builders
 - execution surface: pipeline execution over callbacks, cancellation, context, and state
@@ -152,7 +142,6 @@
 - fallback-carrier surface: `readonly struct FallbackActionArguments<T>` in namespace `Polly.Fallback` carries `ResilienceContext Context` and inbound `Outcome<T> Outcome` accessors and a `(ResilienceContext context, Outcome<T> outcome)` constructor; `FallbackStrategyOptions<T>.FallbackAction` is typed `Func<FallbackActionArguments<T>, ValueTask<Outcome<T>>>`
 
 [LOCAL_ADMISSION]:
-
 - Resilience policy is a composed value built once and injected as a boundary capability.
 - Retry, timeout, circuit breaker, fallback, hedging, and custom strategy order is explicit.
 - Context pooling requires strict get/return ownership; execution code does not retain contexts.
@@ -160,7 +149,6 @@
 - Pipeline registry keys are policy identities, not service-locator strings.
 
 [RAIL_LAW]:
-
 - Package: `Polly.Core`
 - Owns: shared and non-HTTP resilience pipelines
 - Accept: explicit strategy chains and keyed pipeline policy

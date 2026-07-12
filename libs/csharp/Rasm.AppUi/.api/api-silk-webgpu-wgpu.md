@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU.Extensions.WGPU`
-
 - package: `Silk.NET.WebGPU.Extensions.WGPU`
 - assembly: `Silk.NET.WebGPU.Extensions.WGPU`
 - namespace: `Silk.NET.WebGPU.Extensions.WGPU`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [EXTENSION_ROOT]: function-table root and its Span/managed overload mirror
-
 - rail: viewport
 
 `Wgpu` takes the core context, and `WgpuOverloads` supplies the `Span<T>` and managed-argument mirrors.
@@ -28,7 +26,6 @@
 |  [02]   | `WgpuOverloads` | static `this Wgpu` extension | managed overload mirror    |
 
 [ENUMS]: backend/log/chain-type/compiler vocabularies
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY] | [CAPABILITY]        |
@@ -44,7 +41,6 @@
 |  [09]   | `PipelineStatisticName` | enum          | statistic selector  |
 
 [ENUM_MEMBERS]:
-
 - `InstanceBackend`: `All`/`Vulkan`/`GL`/`Metal`/`DX12`/`DX11`/`BrowserWebGpu`/`Primary`/`Secondary`
 - `InstanceFlag`: `Default`/`Debug`/`Validation`/`DiscardHalLabels`
 - `LogLevel`: `Off`/`Error`/`Warn`/`Info`/`Debug`/`Trace`
@@ -54,7 +50,6 @@
 `NativeFeature` extends the standard `FeatureName`, `NativeQueryType` admits pipeline-statistics query sets, `Gles3MinorVersion` pins the GLES 3.x minor version for the GL backend, and `PipelineStatisticName` selects each reported statistic.
 
 [CALLBACKS]: native log delegate and its function-pointer wrapper
-
 - rail: viewport
 
 `PfnLogCallback` wraps the native function pointer, constructs through `From(LogCallback)` or implicit `nint`, and is the type `SetLogCallback` binds.
@@ -67,7 +62,6 @@
 [LOG_CALLBACK_SIGNATURE]: `void(LogLevel, byte* message, void* userdata)`
 
 [NEXT_CHAIN_STRUCTS]: `ChainedStruct`-headed descriptor extensions threaded through the standard descriptor `NextInChain`
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                     | [CAPABILITY]            |
@@ -86,7 +80,6 @@
 |  [12]   | `ShaderDefine`               | compile definition      |
 
 [NEXT_CHAIN_FIELDS]:
-
 - `InstanceExtras`: `Chain`, `Backends:InstanceBackend`, `Flags:uint`, `DxilPath`, `DxcPath`
 - `DeviceExtras`: `Chain`, `TracePath:byte*`
 - `RequiredLimitsExtras`: `Chain`, `Limits:NativeLimits`
@@ -101,7 +94,6 @@
 - `ShaderDefine`: name and value
 
 [NATIVE_VALUE_STRUCTS]: submission index, enumeration options, and the memory/registry report tree
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                          | [CAPABILITY]        |
@@ -114,7 +106,6 @@
 |  [06]   | `NativeLimits`                    | native limit values |
 
 [NATIVE_VALUE_FIELDS]:
-
 - `WrappedSubmissionIndex`: `Queue:Queue*`, `SubmissionIndex:ulong`
 - `InstanceEnumerateAdapterOptions`: `NextInChain:ChainedStruct*`, `Backends:InstanceBackend`
 - `GlobalReport`: top-level `GenerateReport` snapshot with per-backend `HubReport` values plus surface and instance counts
@@ -127,7 +118,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [LIFECYCLE_AND_DIAGNOSTICS]: load, queue poll, native log, version, and the memory report
-
 - rail: viewport
 
 Construction binds the core `WebGPU`; every remaining lifecycle and diagnostic entrypoint belongs to `Wgpu`.
@@ -144,7 +134,6 @@ Construction binds the core `WebGPU`; every remaining lifecycle and diagnostic e
 |  [08]   | `GenerateReport`     | allocation snapshot      |
 
 [LIFECYCLE_SIGNATURES]:
-
 - `new Wgpu(webgpu.Context)`
 - `webgpu.TryGetExtension(out Wgpu)`
 - `DevicePoll(Device*, Bool32 wait, ref/WrappedSubmissionIndex*) -> Bool32`
@@ -155,7 +144,6 @@ Construction binds the core `WebGPU`; every remaining lifecycle and diagnostic e
 - `GenerateReport(Instance*, ref/GlobalReport)`
 
 [ADAPTER_AND_SUBMISSION]: full-adapter enumeration and the submission-index handshake
-
 - rail: viewport
 
 Both entrypoints belong to `Wgpu`.
@@ -166,12 +154,10 @@ Both entrypoints belong to `Wgpu`.
 |  [02]   | `QueueSubmitForIndex`       | indexed submission  |
 
 [ADAPTER_AND_SUBMISSION_SIGNATURES]:
-
 - `InstanceEnumerateAdapters(Instance*, ref/InstanceEnumerateAdapterOptions*, ref/Adapter*) -> nuint`
 - `QueueSubmitForIndex(Queue*, nuint count, ref/CommandBuffer**) -> ulong`
 
 [GPU_DRIVEN_RENDERING]: indirect multi-draw, count-buffer culling, and push constants
-
 - rail: viewport
 
 Every GPU-driven entrypoint belongs to `Wgpu`.
@@ -186,7 +172,6 @@ Every GPU-driven entrypoint belongs to `Wgpu`.
 |  [06]   | `RenderPassEncoderSetPushConstants<T0>`          | typed push constants |
 
 [GPU_DRIVEN_SIGNATURES]:
-
 - `RenderPassEncoderMultiDrawIndirect(RenderPassEncoder*, Buffer*, ulong offset, uint count)`
 - `RenderPassEncoderMultiDrawIndexedIndirect(RenderPassEncoder*, Buffer*, ulong offset, uint count)`
 - `RenderPassEncoderMultiDrawIndirectCount(encoder, buffer, offset, Buffer* countBuffer, ulong countOffset, uint maxCount)`
@@ -195,7 +180,6 @@ Every GPU-driven entrypoint belongs to `Wgpu`.
 - `RenderPassEncoderSetPushConstants<T0>(encoder, stages, offset, sizeBytes, ref readonly T0) where T0:unmanaged`
 
 [PIPELINE_STATISTICS]: query-driven pass profiling
-
 - rail: viewport
 
 Every pipeline-statistics entrypoint belongs to `Wgpu`.
@@ -208,7 +192,6 @@ Every pipeline-statistics entrypoint belongs to `Wgpu`.
 |  [04]   | `ComputePassEncoderEndPipelineStatisticsQuery`   | compute | end      |
 
 [PIPELINE_STATISTICS_SIGNATURES]:
-
 - `RenderPassEncoderBeginPipelineStatisticsQuery(RenderPassEncoder*, QuerySet*, uint index)`
 - `RenderPassEncoderEndPipelineStatisticsQuery(RenderPassEncoder*)`
 - `ComputePassEncoderBeginPipelineStatisticsQuery(ComputePassEncoder*, QuerySet*, uint index)`
@@ -217,7 +200,6 @@ Every pipeline-statistics entrypoint belongs to `Wgpu`.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [WGPU_EXTENSION_TOPOLOGY]:
-
 - The extension loads through the Silk.NET `NativeExtension<WebGPU>` convention against the live core: `new Wgpu(webgpu.Context)` (or `webgpu.TryGetExtension(out Wgpu wgpu)`) — never `Wgpu.GetApi(...)`, which is the core `WebGPU.GetApi()` static, not an extension entrypoint. The result is a second function-table view over the one loaded `wgpu_native` runtime; a call site holds one `WebGPU` core and one `Wgpu` extension.
 - `DevicePoll(device, wait:false, submissionIndex)` advances submission completion once per frame, retires command buffers, and runs mapped-buffer callbacks without blocking the UI thread. `wait:true` drains during teardown, while `InstanceProcessEvents` supplies the standard blocking pump.
 - Core `WebGPU` records `CommandEncoderWriteTimestamp` or `RenderPassTimestampWrites` into a `QueryType.Timestamp` `QuerySet`, then `CommandEncoderResolveQuerySet` copies the ticks into a mappable buffer.
@@ -226,21 +208,18 @@ Every pipeline-statistics entrypoint belongs to `Wgpu`.
 - `InstanceEnumerateAdapters` returns every physical adapter (not the single power-preference adapter the standard `RequestAdapter` callback yields), so the compositor-adapter-LUID/UUID match the `ICompositionGpuInterop` seam demands selects the exact adapter the Avalonia compositor renders on. A power-preference single adapter ignoring the compositor LUID is the cross-adapter copy penalty.
 
 [GPU_DRIVEN_LAW]:
-
 - `MultiDrawIndirect`/`MultiDrawIndexedIndirect` issue one indirect multi-draw over the visible meshlet set rather than N per-meshlet draws; the `*Count` variants read the live draw count from a GPU buffer, so a compute culling pass writes the surviving-cluster count and the draw consumes it with zero CPU round-trip — this is the GPU-driven culling the `GEOMETRY_VIRTUAL` cluster owns.
 - `BindGroupEntryExtras`/`BindGroupLayoutEntryExtras` carry the bindless descriptor arrays (`Buffer**`/`Sampler**`/`TextureView**` plus `Count`) the meshlet bindless residency binds — one bind group references the whole resident texture/buffer table, indexed in-shader, so a per-meshlet rebind is the rejected form.
 - `SetPushConstants` feeds per-draw constants (view/cluster offsets) declared by `PipelineLayoutExtras.PushConstantRanges`, avoiding a per-draw uniform-buffer rebind; `QueueSubmitForIndex` returns the `WrappedSubmissionIndex` `DevicePoll` waits on, closing the submit->poll->retire loop.
 - `GenerateReport` snapshots per-registry allocation counts (`RegistryReport.NumAllocated`/`ElementSize`), so GPU-resource residency and leaks are a counted evidence row, not a guess — it stacks with the residency-budget rail as the device-side truth.
 
 [LOCAL_ADMISSION]:
-
 - The extension carries no native runtime of its own — it P/Invokes the `wgpu_native` binaries `Silk.NET.WebGPU.Native.WGPU` already restores, so admitting the extension adds the vendor function table at zero additional native-asset cost.
 - `InstanceExtras` selects the wgpu backend through `Backends`, the D3D12 compiler through `Dx12Compiler.Dxc` and the `DxcPath`/`DxilPath` fields, and validation through `InstanceFlag.Validation` or `Debug` packed into `Flags`.
 - `DeviceExtras` carries the device trace path, and `SurfaceConfigurationExtras` carries the present latency.
 - Every extra rides the standard `InstanceDescriptor.NextInChain`, `DeviceDescriptor.NextInChain`, or `SurfaceConfiguration.NextInChain` pointer.
 
 [RAIL_LAW]:
-
 - Package: `Silk.NET.WebGPU.Extensions.WGPU`
 - Owns: the wgpu-native vendor surface over the standard binding — non-blocking `DevicePoll`, native log routing through `PfnLogCallback`, full-adapter enumeration for the compositor-LUID match, indirect/count-buffer multi-draw and push constants for GPU-driven meshlet rendering, bindless descriptor arrays via the `Extras` chain, pipeline-statistics profiling, the `GenerateReport` residency snapshot, and the submission-index handshake.
 - Accept: `new Wgpu(webgpu.Context)`/`TryGetExtension` second function-table view over the one core; `DevicePoll` per-frame non-blocking advance; native log via `PfnLogCallback.From` into the receipt sink; `InstanceEnumerateAdapters` LUID-matched select; the `Extras` native `next`-chain on the standard descriptors; count-buffer GPU-driven draw counts.

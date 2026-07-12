@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ACadSharp`
-
 - package: `ACadSharp`
 - license: MIT (expression)
 - assembly: `ACadSharp`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: reader contract, document root, notification rail (`ACadSharp.IO` / `ACadSharp`)
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]   | [CAPABILITY]                                                                 |
@@ -32,7 +30,6 @@
 |  [07]   | `ACadSharp.CadDocument`                 | model root      | the read drawing — `Entities`/`ModelSpace`/`BlockRecords`/`Header`           |
 
 [PUBLIC_TYPE_SCOPE]: entity collections on the document
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]                                                                       |
@@ -44,7 +41,6 @@
 |  [05]   | `CadObjectCollection<T>`   | collection      | `IEnumerable<T>` + `Count`/`this[int]` (NOT `List<T>`) — enumerate via `toSeq`     |
 
 [PUBLIC_TYPE_SCOPE]: 2D profile entity types and their polymorphic discriminators (`ACadSharp.Entities`)
-
 - rail: fabrication
 
 The per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline2D`/`Arc`/`Circle` resolve in `[VERTEX_ACCESS]`, `Spline` in `[SPLINE_SAMPLER]`, and `Insert` in `[BLOCK_TRAVERSAL]`. The `[CAPABILITY]` cell carries the boundary role only. `IPolyline`/`ICurve` are the shape discriminators the `Admit` switch may match on instead of the concrete leaf when one tessellation arm spans both polyline forms.
@@ -64,7 +60,6 @@ The per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline
 |  [11]   | `Insert`            | block reference     | placed/arrayed nested-block reference with package-owned explode + transform         |
 
 [PUBLIC_TYPE_SCOPE]: curve sampling, bulge-to-arc factories, and block flatten (ACadSharp-owned, the tessellation the boundary composes)
-
 - rail: fabrication
 
 `PolygonalVertexes(int precision)` samples curves to the requested segment count. Arc and circle sampling return OCS vertices; spline sampling returns WCS vertices. `Arc.GetBoundingBox()` samples through `PolygonalVertexes(256)`. `Insert.Explode()` resolves `Block.Entities` and applies each child's placement transform.
@@ -91,7 +86,6 @@ The per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: file read — `DxfReader` / `DwgReader` facades (`ACadSharp.IO`)
-
 - rail: fabrication
 
 `DxfReader` and `DwgReader` file reads return `CadDocument`; instance reads subscribe `OnNotification` and `OnProgress` before `.Read()`.
@@ -112,7 +106,6 @@ The per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline
 |  [12]   | `DWG_SUMMARY`   | `DwgReader.ReadSummaryInfo` | DWG metadata   | read summary info  |
 
 [FILE_READ_SIGNATURES]:
-
 - `DXF_PATH`: `DxfReader.Read(string filename, NotificationEventHandler notification = null)` returns `CadDocument`; notification is optional.
 - `DXF_STREAM`: `DxfReader.Read(Stream stream, NotificationEventHandler notification = null)` returns `CadDocument`.
 - `DXF_CONFIG`: `DxfReader.Read(string filename, DxfReaderConfiguration configuration, NotificationEventHandler notification = null)` carries `Failsafe` and cache knobs.
@@ -127,7 +120,6 @@ The per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline
 - `DWG_SUMMARY`: `DwgReader.ReadSummaryInfo()` reads the summary-info block without a full document read.
 
 [ENTRYPOINT_SCOPE]: document traversal — `CadDocument` → top-level model-space entities
-
 - rail: fabrication
 
 `CadDocument.Entities` aliases `ModelSpace.Entities`, and `CadDocument.ModelSpace` aliases `BlockRecords["*Model_Space"]`. `BlockRecord.Entities` remains nested until an `Insert` resolves it.
@@ -141,39 +133,33 @@ The per-type member spelling is the row-owned axis below: `LwPolyline`/`Polyline
 ## [04]-[RATIFIED]
 
 [READER_RAIL]:
-
 - Surface: `ICadReader : IDisposable` owns `Read()`/`ReadHeader()` plus the `OnNotification` and `OnProgress` events. The canonical boundary call is `DxfReader.Read(path, notification)` or `DwgReader.Read(path, notification)`.
 - Resilience: `CadReaderConfiguration.Failsafe` is `true` by default, so recoverable corruption routes to `NotificationEventArgs(NotificationType, Message, Exception)` while the read completes. `Failsafe=false` promotes recoverable defects to throws at the same boundary.
 - Boundary: a hard reader throw lowers once to `GeometryFault.DegenerateInput`; the reader exception never escapes, and the subscribed notification stream folds into the admission receipt.
 
 [VERTEX_ACCESS]:
-
 - Lightweight polyline: `LwPolyline.Vertices` is `List<Vertex>`; `Vertex.Location` is `CSMath.XY`, `Vertex.Bulge` is the arc-column value, and `LwPolyline.IsClosed` owns closure.
 - Polyline2D: `Polyline2D.Vertices` is `SeqendCollection<Vertex2D>`; `Vertex2D.Location` is a plain `XYZ` property and there is no `Pt(XYZ)` provider member.
 - Curves: `Arc : Circle` carries `Center`, `Radius`, `StartAngle`, `EndAngle`, `Sweep`, and `GetEndVertices`; `Circle : Entity, ICurve` carries `Center`, `Radius`, `Normal`, and `Thickness`.
 - Sampler: `Arc.CreateFromBulge(XY p1, XY p2, double bulge)`, `Arc.PolygonalVertexes(int precision)`, and `Circle.PolygonalVertexes(int precision)` own bulge, arc, and circle tessellation.
 
 [SPLINE_SAMPLER]:
-
 - Surface: `Spline.PolygonalVertexes(int precision)` returns `List<XYZ>` in WCS, and `Spline.TryPolygonalVertexes(int precision, out List<XYZ>)` is the non-throwing probe.
 - Fit path: `ControlPoints`, `Knots`, `Weights`, `Degree`, and `FitPoints` are read-side properties; `UpdateFromFitPoints(uint iterationLimit = 255)` rebuilds fit-point-only splines before sampling.
 - Boundary: `PointOnSpline(double t)` and `TryPointOnSpline(double t, out XYZ)` own single-point evaluation; profile import never hand-rolls de Boor or control-polygon sampling.
 
 [BLOCK_TRAVERSAL]:
-
 - Model space: `CadDocument.Entities` is `ModelSpace.Entities` and does not flatten nested blocks.
 - Insert: `Insert.Block` references `BlockRecord.Entities`; `InsertPoint`, `XScale`, `YScale`, `ZScale`, `Rotation`, and `Normal` carry placement.
 - Flatten: `Insert.Explode()` resolves `Block.Entities` and applies placement per child in one package call; `Insert.GetTransform()` and `Insert.ApplyTransform(Transform)` expose the same affine.
 - Boundary: profile import recurses over the exploded child entities; a hand-built `Insert` matrix is the rejected form.
 
 [CONFIG_KNOBS]:
-
 - Surface: `DxfReader.Read(path, DxfReaderConfiguration, notification)` and `DwgReader.Read(path, DwgReaderConfiguration, notification)` own explicit reader configuration.
 - Shared knobs: `CadReaderConfiguration` carries `Failsafe`, `KeepUnknownEntities`, and `KeepUnknownNonGraphicalObjects`.
 - Format knobs: `DxfReaderConfiguration` adds `ClearCache` and `CreateDefaults`; `DwgReaderConfiguration` adds `CrcCheck` and `ReadSummaryInfo`.
 
 [RAIL_LAW]:
-
 - Package: `ACadSharp`, MIT, consumer-bound `lib/net9.0`, zero transitive deps at this floor
 - Owns: DXF/DWG file read into the `CadDocument` model and the 2D profile entity surface the profile-import boundary tessellates into `Loop` sets
 - Accept: file path or stream input, `ACadSharp.IO.NotificationEventHandler`, `OnNotification`, `OnProgress`, and optional `DxfReaderConfiguration` or `DwgReaderConfiguration`.

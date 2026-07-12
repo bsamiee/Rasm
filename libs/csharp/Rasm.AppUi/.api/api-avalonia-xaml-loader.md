@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Markup.Xaml.Loader`
-
 - package: `Avalonia.Markup.Xaml.Loader`
 - license: `MIT`
 - assembly: `Avalonia.Markup.Xaml.Loader`
@@ -40,7 +39,6 @@ All entrypoints are static members of `AvaloniaRuntimeXamlLoader`.
 |  [06]   | `Parse<T>`  | typed parse              |
 
 [LOAD_SIGNATURES]:
-
 - String: `Load(string xaml, Assembly? localAssembly = null, object? rootInstance = null, Uri? uri = null, bool designMode = false) : object` carries `[StringSyntax("Xml")]` and delegates UTF-8 data to the stream path.
 - Stream: `Load(Stream stream, Assembly? localAssembly = null, object? rootInstance = null, Uri? uri = null, bool designMode = false) : object` is the canonical resource-stream entry.
 - Document: `Load(RuntimeXamlLoaderDocument document, RuntimeXamlLoaderConfiguration? configuration = null) : object` controls design mode and compiled bindings explicitly.
@@ -50,20 +48,17 @@ All entrypoints are static members of `AvaloniaRuntimeXamlLoader`.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [XAML_LOADER_TOPOLOGY]:
-
 - One public surface (`AvaloniaRuntimeXamlLoader`) in `Avalonia.Markup.Xaml`; the remaining 21 internal namespaces are the `XamlIl` runtime compiler and Cecil-backed emit infrastructure, not consumer API.
 - `string` `Load`/`Parse` overloads decode UTF-8 into a `MemoryStream` and delegate to the stream path; the stream path builds a `RuntimeXamlLoaderDocument` and a `RuntimeXamlLoaderConfiguration`, then calls `AvaloniaXamlIlRuntimeCompiler.Load`. `LoadGroup` shares one compile context across documents.
 - `rootInstance` is the existing-object inflate channel (the catalog has no separate `Load(object,...)` overload — pass the live `x:Class` instance as `rootInstance`). `Parse<T>` is the typed projection of `Parse`.
 
 [LOCAL_ADMISSION]:
-
 - `AvaloniaRuntimeXamlLoader.Load` is the sole programmatic entry for runtime XAML inflation; `HotAvalonia` drives this surface (via `Load(Stream, localAssembly, rootInstance)`) during the hot-reload loop to re-inflate changed views into their live instances.
 - Pass the calling/owning assembly as `localAssembly` so `clr-namespace:` and relative `avares://` resource URIs resolve against the project that authored the XAML.
 - `Load(document, configuration)` is the integration entry when the hot-reload host needs explicit `DesignMode`/`UseCompiledBindingsByDefault` control; the bare string/stream overloads default both off.
 - Production release builds do not load XAML at runtime; the `[RequiresUnreferencedCode]` contract means a trimmed or NativeAOT publish cannot rely on this loader. Keep every call site behind a Debug / hot-reload gate.
 
 [RAIL_LAW]:
-
 - Package: `Avalonia.Markup.Xaml.Loader`
 - Owns: runtime XAML parse, batch parse, and inflate for dev-loop and hot-reload scenarios
 - Accept: XAML load from string, stream, or `RuntimeXamlLoaderDocument` via `AvaloniaRuntimeXamlLoader`, with `localAssembly` for resource/namespace resolution

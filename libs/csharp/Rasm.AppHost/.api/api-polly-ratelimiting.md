@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Polly.RateLimiting`
-
 - package: `Polly.RateLimiting`
 - assembly: `Polly.RateLimiting`
 - namespace: `Polly`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: rate-limit family
-
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]       | [RAIL]                |
@@ -30,7 +28,6 @@
 |  [06]   | `ConcurrencyLimiterOptions`                      | option value        | permit/queue policy   |
 
 [PUBLIC_TYPE_SCOPE]: companion limiter primitives — `System.Threading.RateLimiting`
-
 - rail: resilience
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]     | [ROLE]                     |
@@ -89,7 +86,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: limiter operations
-
 - rail: resilience
 
 | [INDEX] | [SURFACE]                                  | [ENTRY_FAMILY]    | [RAIL]                         |
@@ -104,7 +100,6 @@
 |  [08]   | `RetryAfter`                               | exception value   | retry-after projection         |
 
 [ENTRYPOINT_SCOPE]: companion limiter construction and acquisition — `System.Threading.RateLimiting`
-
 - rail: resilience
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY] | [ROLE]                        |
@@ -141,7 +136,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RATE_LIMIT_TOPOLOGY]:
-
 - namespaces: `Polly.RateLimiting`, `System.Threading.RateLimiting`
 - builder surface: concurrency limiter and rate limiter strategy admission
 - strategy surface: delegate-based limiter, default concurrency limiter options, rejection callback
@@ -160,14 +154,12 @@
 - retry delay: `RateLimiterRejectedException.RetryAfter` reads the rejection `RateLimitLease` metadata and feeds the retry `DelayGenerator`
 
 [LOCAL_ADMISSION]:
-
 - Rate limiting is a boundary policy in the resilience pipeline.
 - Queue limit and permit limit are explicit policy values, never ambient defaults.
 - Rejection callbacks observe and project rejection; they do not perform side-effect retries.
 - Rate limiter leases are owned by the strategy surface.
 
 [RAIL_LAW]:
-
 - Package: `Polly.RateLimiting`
 - Owns: Polly rate-limiter strategy integration
 - Accept: explicit concurrency and rate-limit policy

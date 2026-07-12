@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HanumanInstitute.LibMpv`
-
 - package: `HanumanInstitute.LibMpv`
 - package: `HanumanInstitute.LibMpv.Avalonia`
 - license: MIT (expression)
@@ -34,7 +33,6 @@
 |  [07]   | `MpvEventLoop`      | event-loop enum | loop strategy selection      |
 
 [PUBLIC_TYPE_SCOPE]: typed property and option wrappers — rail: media
-
 - `MpvOption<T> : MpvPropertyWrite<T,T> where T : struct`, so options inherit `Get`/`Set`/`GetAsync`/`SetAsync` from the property base — option and property are one wrapper hierarchy, not two.
 
 | [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY]   | [RAIL]                              |
@@ -86,7 +84,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: playback commands on `MpvContext`
-
 - rail: media
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]  | [RAIL]                    |
@@ -106,7 +103,6 @@
 |  [13]   | `Quit(exitCode)`                     | shutdown        | terminate the player      |
 
 [ENTRYPOINT_SCOPE]: transport and audio properties on `MpvContext`
-
 - rail: media
 
 | [INDEX] | [SURFACE]                             | [SURFACE_ROOT]             | [RAIL]                        |
@@ -128,12 +124,10 @@
 |  [15]   | `AbLoopA` / `AbLoopB` / `AbLoopCount` | `MpvOptionString`          | A-B section loop policy       |
 
 [LOOP_POLICY]:
-
 - `LoopFile` and `LoopPlaylist` admit `"inf"`, `"no"`, or a count string through the `loop-file` and `loop-playlist` properties.
 - `AbLoopA`, `AbLoopB`, and `AbLoopCount` carry the section bounds and repetition count.
 
 [ENTRYPOINT_SCOPE]: client core and render path on `MpvContextBase`
-
 - rail: media
 - The format/`void*`-based `RunCommand*`, `GetProperty*`, and `SetProperty*` families own the low-level command and property surface.
 - Property and option wrappers own typed async through `GetAsync` and `SetAsync`, which marshal through the base primitives.
@@ -158,7 +152,6 @@
 |  [15]   | `RequestLogMessages(minLevel)`                                                     | diagnostics    | enable log events           |
 
 [ENTRYPOINT_SCOPE]: typed property and option wrapper operations
-
 - rail: media
 
 | [INDEX] | [SURFACE]                | [SURFACE_ROOT]     | [RAIL]                   |
@@ -173,7 +166,6 @@
 |  [08]   | `Invoke` / `InvokeAsync` | `MpvCommand`       | dispatch a built command |
 
 [ENTRYPOINT_SCOPE]: Avalonia view and overlay surface
-
 - rail: media
 
 | [INDEX] | [SURFACE]                 | [SURFACE_ROOT] | [RAIL]                     |
@@ -192,7 +184,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MEDIA_TOPOLOGY]:
-
 - `HanumanInstitute.LibMpv` carries 280 types across `HanumanInstitute.LibMpv` and `HanumanInstitute.LibMpv.Core`; `HanumanInstitute.LibMpv.Avalonia` carries 17 types.
 - `MpvContextBase` owns the raw libmpv client: the `MpvContextBase(MpvEventLoop)` ctor + `Initialize`, the `RunCommand*` command primitives, the `GetProperty*`/`SetProperty*` property primitives, `ObserveProperty`, async control (`AbortAsyncCommand`/`WaitAsyncRequests`), event surfacing, and the render entrypoints. The `MpvEventLoop.Default` path drives an `MpvSimpleEventLoop` (caller-pumped); `MpvEventLoop.Thread` drives an `MpvThreadEventLoop` (dedicated event thread) — the surface selects one at construction.
 - `MpvContext` derives from `MpvContextBase` and projects the libmpv command set into named `MpvCommand` methods (`LoadFile`, `Seek`, `Screenshot`, ...) and the property/option set into hundreds of typed `MpvOption`, `MpvOptionEnum`, `MpvOptionWith*` sentinel, `MpvPropertyRead`, and `MpvPropertyWrite` members keyed to mpv property names such as `time-pos`, `volume`, and `pause` — the typed async on those wrappers (`GetAsync`/`SetAsync`) is the surface a UI binding awaits, not a base method.
@@ -203,7 +194,6 @@
 - Failures raise `MpvException` carrying the libmpv `MpvError` code (in `HanumanInstitute.LibMpv.Core`); `MpvCommandOptions` and `MpvAsyncOptions` set throw-on-error, response timeout, and wait-for-response behavior, and `MpvFormat`/`MpvNode` (also `.Core`) are the marshalling primitives `GetProperty`/`ObserveProperty`/`RunCommandNode` pass.
 
 [LOCAL_ADMISSION]:
-
 - The MediaSurface composes `MpvView` with `Renderer` set to `VideoRenderer.OpenGl`, taking the OpenGL render path so playback shares the Avalonia GL surface instead of a separate native window.
 - Playback control flows through the `MpvContext` exposed by the bound `IVideoView`: `LoadFile` for source intake, `Pause`/`Speed`/`Volume`/`Mute` options for transport and audio, and `TimePos`/`PercentPos` for seek.
 - Position and state surface through observed `MpvPropertyRead` members and `PropertyChanged`; the surface never polls libmpv on a timer.
@@ -212,7 +202,6 @@
 - Every `MpvContext`, view, and overlay is disposed through `IVideoView.Dispose` at teardown to free the render context.
 
 [RAIL_LAW]:
-
 - Package: `HanumanInstitute.LibMpv`, `HanumanInstitute.LibMpv.Avalonia`
 - Owns: managed libmpv playback, the typed property/command surface, and the Avalonia OpenGL render integration
 - Accept: media playback driven through `MpvContext` and hosted by `MpvView` on the OpenGL render path

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto` 'platform handler surface'
-
 - package: `Eto` (host-provided; bound in-place from the Rhino-loaded `Eto.dll`, never a second NuGet admission)
 - license: BSD-3-Clause
 - assembly: `Eto.dll` (Rhino `RhCore` framework); the theme notifier is `Rhino.UI.dll`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: platform identity and feature discovery
-
 - namespace: `Eto`
 - rail: platform-handler
 
@@ -36,7 +34,6 @@
 |  [10]   | `Platform.SupportedFeatures` | property            | the feature set the backend advertises                    |
 
 [PUBLIC_TYPE_SCOPE]: native-control hosting
-
 - namespace: `Eto.Forms`
 - rail: platform-handler
 
@@ -50,7 +47,6 @@
 |  [04]   | `Control.DetachNative()`  | member     | detaches from the native parent                      |
 
 [PUBLIC_TYPE_SCOPE]: style and theme-transition seam
-
 - namespace: `Eto`, `Eto.Forms`, `Rhino.UI`
 - rail: platform-handler
 
@@ -66,7 +62,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: feature-gated platform access
-
 - namespace: `Eto`
 - rail: platform-handler
 
@@ -84,7 +79,6 @@
 |  [08]   | `Platform.Invoke(Action action)`           | instance                 | runs an action under the platform context        |
 
 [ENTRYPOINT_SCOPE]: native-control lifecycle
-
 - namespace: `Eto.Forms`
 - rail: platform-handler
 
@@ -96,7 +90,6 @@
 |  [04]   | `Control.DetachNative()`                                                                       | detaches from the native parent |
 
 [ENTRYPOINT_SCOPE]: theme-transition notification
-
 - namespace: `Eto.Forms`, `Rhino.UI`
 - rail: platform-handler
 
@@ -108,25 +101,21 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PLATFORM_TOPOLOGY]:
-
 - Every `Widget` resolves a backend handler through the ambient `Platform`; the identity predicates (`IsMac`/`IsWinForms`/`IsWpf`/`IsGtk`) select platform-specific behaviour, and `Supports<T>` gates a capability before `Create<T>` builds its handler, so a missing feature is a discovery result rather than a construction failure.
 - `NativeControlHost` bridges a host-native control into the Eto tree either eagerly through the constructor or lazily through `OnCreateNativeControl`; `AttachNative`/`DetachNative` move an Eto control under an external native parent, which is the seam a Rhino-hosted panel uses to place Eto content inside a native dock.
 - The style seam is handler-level: `Style` registers named callbacks, `Widget.Style` selects one, and `TriggerStyleChanged` re-applies them; the Rhino `EtoExtensions.Get` notifier fires on host light/dark transitions so a control re-styles without polling the theme.
 
 [STACKING]:
-
 - `Thinktecture.Runtime.Extensions`(`../../.api/api-thinktecture-runtime-extensions.md`): a `[SmartEnum]` owns the closed platform-identity and advertised-feature vocabulary a generator-shaped UI layer branches on, replacing an `IsMac`/`IsWpf` predicate ladder with a generated `Switch`.
 - `LanguageExt.Core`(`../../.api/api-languageext.md`): `Option<A>` carries the result of `Supports<T>`/`Find<T>` where a feature or handler may be absent; `Eff<A>` wraps the native-attach lifecycle so `AttachNative`/`DetachNative` release deterministically; the theme-transition notifier feeds a `Fin<A>`-railed re-style.
 - `api-rhino-ui.md`: `EtoExtensions.Get` and the Rhino native windowing surface (`RhinoEtoApp`, `Panels`, `UseRhinoStyle`) are the host-integration counterpart this seam couples to; the platform handler places Eto content, and the Rhino UI owner docks and styles it.
 - `api-macos-native.md`: on the macOS backend a `NativeControlHost` bridges to an AppKit `NSView`, and `AppKit`/`CoreAnimation` native pacing composes there rather than in this seam.
 
 [LOCAL_ADMISSION]:
-
 - The ambient platform is the one the Rhino process already resolved for its loaded `Eto.dll`; Rasm.Rhino binds `Platform.Instance` and never calls `Initialize` against the host thread. A worker thread that must touch Eto scopes the platform through `ThreadStart`.
 - Feature discovery and native hosting stay behind the Rasm.Rhino UI owner; `Eto.Platform`, `NativeControlHost`, and the style seam project host capability into the UI owner, and `Eto.*` platform types never leak past it.
 
 [RAIL_LAW]:
-
 - Package: `Eto` (platform handler surface)
 - Owns: platform identity and feature discovery (`Supports`/`Create`/`Find`), the `NativeControlHost` and `AttachNative`/`DetachNative` native-hosting lifecycle, and the `Style`/`TriggerStyleChanged` plus Rhino `EtoExtensions.Get` theme-transition seam.
 - Accept: backend feature gating, native-control embedding, worker-thread platform scoping, and host theme-change notification.

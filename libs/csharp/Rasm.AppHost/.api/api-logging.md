@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Logging.Abstractions`
-
 - package: `Microsoft.Extensions.Logging.Abstractions`
 - assembly: `Microsoft.Extensions.Logging.Abstractions`
 - namespace: `Microsoft.Extensions.Logging`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: logging contracts
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]       | [RAIL]                |
@@ -31,7 +29,6 @@
 |  [09]   | `LogLevel`               | severity enum       | event severity        |
 
 [PUBLIC_TYPE_SCOPE]: generated and buffered family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]        | [RAIL]                  |
@@ -53,7 +50,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: event and scope operations
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                     | [ENTRY_FAMILY]       | [RAIL]                  |
@@ -73,7 +69,6 @@
 |  [13]   | `CreateLogger(Type)`          | factory extension    | runtime category logger |
 
 [ENTRYPOINT_SCOPE]: generated and batch operations
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                      | [ENTRY_FAMILY]     | [RAIL]                   |
@@ -90,7 +85,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [LOGGING_TOPOLOGY]:
-
 - namespaces: `Microsoft.Extensions.Logging`, `Microsoft.Extensions.Logging.Abstractions`
 - generator assets: logging generator analyzers under package analyzers
 - generated shape: partial methods marked with `LoggerMessageAttribute`
@@ -101,7 +95,6 @@
 - null implementations: null logger, null typed logger, null factory, null provider, null scope provider
 
 [LOCAL_ADMISSION]:
-
 - Logger methods are generated or precompiled delegates on hot paths.
 - Provider aliases are explicit package-facing names for telemetry projection.
 - Event identity is explicit and stable; string messages never define event identity.
@@ -109,7 +102,6 @@
 - Buffered logging is projection surface material and does not replace runtime receipts.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.Logging.Abstractions`
 - Owns: structured log contracts and event identity
 - Accept: logger handles enter runtime ports

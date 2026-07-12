@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.Net.Client`
-
 - package: `Grpc.Net.Client`
 - assembly: `Grpc.Net.Client`
 - namespace: `Grpc.Net.Client`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: channel and call contracts
-
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]  | [CAPABILITY]            |
@@ -31,7 +29,6 @@
 |  [09]   | `RetryThrottlingPolicy` | retry policy    | throttles retries       |
 
 [PUBLIC_TYPE_SCOPE]: resolver and balancer contracts
-
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                | [PACKAGE_ROLE]     | [CAPABILITY]             |
@@ -50,7 +47,6 @@
 |  [12]   | `PickResult`            | picker result      | carries selection result |
 
 [PUBLIC_TYPE_SCOPE]: transitive `Grpc.Core.Api` call contracts
-
 - rail: remote-client
 
 | [INDEX] | [SYMBOL]                   | [PACKAGE_ROLE]      | [CAPABILITY]                        |
@@ -74,7 +70,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: channel operations
-
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                              | [CALL_SHAPE]    | [CAPABILITY]                |
@@ -91,7 +86,6 @@
 |  [10]   | `ThrowOperationCanceledOnCancellation` | option property | controls cancellation       |
 
 [ENTRYPOINT_SCOPE]: channel-state and compression operations
-
 - rail: remote-client
 
 | [INDEX] | [SURFACE]                                 | [CALL_SHAPE]    | [CAPABILITY]                                          |
@@ -103,7 +97,6 @@
 |  [05]   | `grpc-internal-encoding-request`          | metadata key    | selects per-call request compression                  |
 
 [ENTRYPOINT_SCOPE]: `GrpcChannel` members
-
 - source: `Grpc.Net.Client` (`lib/net10.0`) — `Grpc.Net.Client.GrpcChannel` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -125,7 +118,6 @@
 `ConnectAsync`, `State`, and `WaitForStateChangedAsync` are unavailable when the channel wraps a caller-supplied `GrpcChannelOptions.HttpClient`; they require the handler-owned (`HttpHandler` / default) transport. Channel-internal defaults the remote-lane policy mirrors: `MaxReceiveMessageSize` 4 MiB (`4194304`), `MaxRetryAttempts` 5, `MaxRetryBufferSize` 16 MiB, `MaxRetryBufferPerCallSize` 1 MiB, `InitialReconnectBackoff` 1 s, `MaxReconnectBackoff` 120 s.
 
 [ENTRYPOINT_SCOPE]: interceptor override signatures
-
 - source: `Grpc.Core.Api` — `Grpc.Core.Interceptors.Interceptor` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -141,7 +133,6 @@ Every override is `virtual`, generic on `<TRequest,TResponse>`, and constrains b
 |  [05]   | `AsyncDuplexStreamingCall` | —                  | `AsyncDuplexStreamingCall<TRequest,TResponse>` |
 
 [ENTRYPOINT_SCOPE]: `ClientInterceptorContext` struct members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.Interceptors.ClientInterceptorContext<TRequest,TResponse>` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -154,7 +145,6 @@ Every override is `virtual`, generic on `<TRequest,TResponse>`, and constrains b
 |  [04]   | `ctor`    | `ClientInterceptorContext(Method<TRequest,TResponse> method, string? host, CallOptions options)` |
 
 [ENTRYPOINT_SCOPE]: `CallOptions` struct members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.CallOptions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -178,7 +168,6 @@ The first four members are get-only properties; every `With*` member returns `Ca
 `CallSpine.Options` threads `WithDeadline`/`WithCancellationToken` (+ a once-per-call `WithHeaders` re-stamp) on every shape; `WithWaitForReady` is the wait-vs-fail-fast knob (off on the Compute hot path, where the channel is pre-warmed via `ConnectAsync` and a transient failure must surface as a typed fault rather than block inside the budget).
 
 [ENTRYPOINT_SCOPE]: `Grpc.Core.Metadata` header-collection members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.Metadata` / nested `Grpc.Core.Metadata.Entry` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -205,7 +194,6 @@ The first four members are get-only properties; every `With*` member returns `Ca
 |  [16]   | `Metadata.BinaryHeaderSuffix` | `const string BinaryHeaderSuffix = "-bin"` |
 
 [ENTRYPOINT_SCOPE]: `RpcException` members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.RpcException` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -221,7 +209,6 @@ The first four members are get-only properties; every `With*` member returns `Ca
 |  [07]   | `ctor`       | `RpcException(Status status, Metadata trailers, string message)` |
 
 [ENTRYPOINT_SCOPE]: `StatusCode` enum members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.StatusCode` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -247,7 +234,6 @@ The first four members are get-only properties; every `With*` member returns `Ca
 |  [17]   | `Unauthenticated`    | `Unauthenticated = 16`   |
 
 [ENTRYPOINT_SCOPE]: credential composition members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.CallCredentials` / `Grpc.Core.ChannelCredentials` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -263,7 +249,6 @@ Every credential member is static; `Insecure` and `SecureSsl` are get-only prope
 |  [05]   | `ChannelCredentials.SecureSsl`    | `ChannelCredentials SecureSsl { get; }`                                                             |
 
 [ENTRYPOINT_SCOPE]: `CallInvokerExtensions` intercept factory members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.Interceptors.CallInvokerExtensions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -276,7 +261,6 @@ Every credential member is static; `Insecure` and `SecureSsl` are get-only prope
 |  [04]   | `InterceptingCallInvoker.ctor`    | `InterceptingCallInvoker(CallInvoker invoker, Interceptor interceptor)`                        |
 
 [ENTRYPOINT_SCOPE]: `AsyncAuthInterceptor` delegate and `AuthInterceptorContext` members
-
 - source: `Grpc.Core.Api` — `Grpc.Core.AsyncAuthInterceptor` / `Grpc.Core.AuthInterceptorContext` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -293,7 +277,6 @@ The context rows name `AuthInterceptorContext` members; its properties are get-o
 |  [06]   | `CancellationToken`    | `CancellationToken CancellationToken { get; }`                                                      |
 
 [ENTRYPOINT_SCOPE]: `SocketsHttpHandler` keepalive members (BCL — passed as `GrpcChannelOptions.HttpHandler`)
-
 - source: BCL `System.Net.Http` net10.0 — `System.Net.Http.SocketsHttpHandler` member surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -310,7 +293,6 @@ The context rows name `AuthInterceptorContext` members; its properties are get-o
 |  [06]   | `HttpKeepAlivePingPolicy.Always`                    | `Always = 1`                                                |
 
 [ENTRYPOINT_SCOPE]: compression provider types
-
 - source: `Grpc.Net.Common` — `Grpc.Net.Compression` namespace surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -328,7 +310,6 @@ The context rows name `AuthInterceptorContext` members; its properties are get-o
 |  [07]   | `DeflateCompressionProvider.EncodingName`        | `string EncodingName { get; }`                                                      |
 
 [ENTRYPOINT_SCOPE]: `GrpcChannelOptions` core properties
-
 - source: `Grpc.Net.Client` — `GrpcChannelOptions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -355,7 +336,6 @@ The context rows name `AuthInterceptorContext` members; its properties are get-o
 |  [18]   | `LoggerFactory`                           | `ILoggerFactory? LoggerFactory { get; set; }`                     |
 
 [ENTRYPOINT_SCOPE]: `GrpcChannelOptions` reconnect properties
-
 - source: `Grpc.Net.Client` — `GrpcChannelOptions` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -368,7 +348,6 @@ The context rows name `AuthInterceptorContext` members; its properties are get-o
 |  [02]   | `InitialReconnectBackoff` | `TimeSpan InitialReconnectBackoff { get; set; }` |
 
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Client.Configuration` service-config algebra
-
 - source: `Grpc.Net.Client` (`lib/net10.0`) — `Grpc.Net.Client.Configuration.*` surface
 - rail: remote-client#CALL_SPINE
 - consumer: `remote-lane#CALL_SPINE`
@@ -400,7 +379,6 @@ Every configuration type is a sealed class deriving from `ConfigObject`, a JSON-
 |  [21]   | `RoundRobinConfig`                         | `sealed class RoundRobinConfig : LoadBalancingConfig`      |
 
 [ENTRYPOINT_SCOPE]: `Grpc.Net.Client.Balancer` resolver and balancer extension surface
-
 - source: `Grpc.Net.Client` (`lib/net10.0`) — `Grpc.Net.Client.Balancer.*` surface
 - rail: remote-client#BALANCER (advanced — see admission)
 - consumer: `remote-lane#CALL_SPINE`
@@ -447,7 +425,6 @@ The Compute remote lane bypasses this surface for known AppHost endpoints: one w
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CHANNEL_POLICY]:
-
 - namespace: `Grpc.Net.Client`
 - channel root: `GrpcChannel`
 - policy root: `GrpcChannelOptions`
@@ -455,7 +432,6 @@ The Compute remote lane bypasses this surface for known AppHost endpoints: one w
 - payload bounds: send and receive message sizes are part of remote execution policy
 
 [INTERCEPTOR_SURFACE]:
-
 - namespace: `Grpc.Core.Interceptors`
 - base class: `abstract class Interceptor` in `Grpc.Core.Api`
 - client overrides: `BlockingUnaryCall`, `AsyncUnaryCall`, `AsyncServerStreamingCall`, `AsyncClientStreamingCall`, `AsyncDuplexStreamingCall` — each virtual with a matching continuation delegate type
@@ -465,13 +441,11 @@ The Compute remote lane bypasses this surface for known AppHost endpoints: one w
 - server overrides: `UnaryServerHandler`, `ClientStreamingServerHandler`, `ServerStreamingServerHandler`, `DuplexStreamingServerHandler` — out of scope for the Compute client rail
 
 [KEEPALIVE_POLICY]:
-
 - keepalive is owned by `SocketsHttpHandler` (BCL) when passed as `GrpcChannelOptions.HttpHandler`
 - properties: `SocketsHttpHandler.KeepAlivePingDelay`, `KeepAlivePingTimeout`, `KeepAlivePingPolicy` (`HttpKeepAlivePingPolicy.WithActiveRequests` / `Always`), `EnableMultipleHttp2Connections`
 - reconnect backoff: `GrpcChannelOptions.InitialReconnectBackoff` (default 1 s) and `MaxReconnectBackoff` (default 120 s) control exponential backoff between connection attempts
 
 [COMPRESSION_SURFACE]:
-
 - namespace: `Grpc.Net.Compression` (in `Grpc.Net.Common`)
 - interface: `ICompressionProvider` with `EncodingName`, `CreateCompressionStream`, `CreateDecompressionStream`
 - built-in providers: `GzipCompressionProvider(CompressionLevel)` → encoding `"gzip"`; `DeflateCompressionProvider(CompressionLevel)` → encoding `"deflate"` (wraps `ZLibStream`)
@@ -479,7 +453,6 @@ The Compute remote lane bypasses this surface for known AppHost endpoints: one w
 - per-call selection: `grpc-internal-encoding-request` metadata key
 
 [REMOTE_RESILIENCE]:
-
 - namespace: `Grpc.Net.Client.Configuration`; all rows are `ConfigObject` data, seeded onto `GrpcChannelOptions.ServiceConfig`, never generated-client surface.
 - retry: `RetryPolicy` carries `MaxAttempts`, `InitialBackoff`, `MaxBackoff`, `BackoffMultiplier`, and the `RetryableStatusCodes` (`IList<StatusCode>`) — bounded by the channel-level `MaxRetryAttempts`/`MaxRetryBufferSize`/`MaxRetryBufferPerCallSize` caps.
 - hedging: `HedgingPolicy` carries `MaxAttempts`, `HedgingDelay`, and `NonFatalStatusCodes`; a `MethodConfig` carries retry OR hedging, never both.
@@ -488,20 +461,17 @@ The Compute remote lane bypasses this surface for known AppHost endpoints: one w
 - Compute stance: this whole config tree is the second-retry-owner surface the remote-lane rejects — `DisableResolverServiceConfig = true` and an unset `ServiceConfig` keep the no-retry posture; the AppHost keyed pipeline owns the hop retry and a detected second owner emits Conflict evidence rather than stacking.
 
 [STACK_INTEGRATION]:
-
 - Single channel rail: one `GrpcChannel.ForAddress(Uri, GrpcChannelOptions)` per `ComputeEndpoint`, warmed with `ConnectAsync` before the first deadline-bearing call, observed by a `State` + `WaitForStateChangedAsync` connectivity fold. The options carry `Credentials` (`ChannelCredentials.Create`/`SecureSsl` projected from the credential axis), `CompressionProviders` (the registered `ICompressionProvider` rows), `MaxSend`/`MaxReceiveMessageSize`, `HttpHandler` (a `GrpcWebHandler`-wrapped or bare `SocketsHttpHandler` whose keepalive/pooling members are threaded from one channel-policy owner), and `HttpVersion`/`HttpVersionPolicy`.
 - Single call rail: one `Interceptor` (`CallSpine`) overriding all five client shapes stamps correlation, traceparent, the deadline budget, and the per-call credential/compression edges; `CallOptions.WithDeadline`/`WithCancellationToken`/`WithHeaders`/`WithCredentials` thread per call; `CallCredentials.FromInterceptor(AsyncAuthInterceptor)` (composed via `Compose`) mints per-call identity; the per-call `grpc-internal-encoding-request` key selects compression by value against the channel-side registration.
 - Single fault rail: a thrown `RpcException` (`Status`/`StatusCode`/`Trailers`) classifies at one fold onto the typed `WireFault` union — the seventeen-code `StatusCode` taxonomy keys by numeric value (non-sequential), and the server-side `google.rpc.Status` detail unpacks back onto the same rail. Server-streaming responses enumerate through `IAsyncStreamReader<T>.ReadAllAsync` (the `Grpc.Net.Common` extension).
 
 [LOCAL_ADMISSION]:
-
 - Compute remote calls enter through client-side channels only.
 - Server-side gRPC packages remain outside the Compute package graph.
 - The `Grpc.Net.Client.Balancer` resolver/balancer surface and the `ServiceConfig` retry/hedging/load-balancing tree are full-surface but admission-gated OUT of the Compute hot path: `DisableResolverServiceConfig = true`, `ServiceConfig` unset, node affinity rides endpoint-identity rows rather than a load-balancing policy.
 - Generated clients are typed edge adapters over Compute request and receipt algebra.
 
 [RAIL_LAW]:
-
 - Package: `Grpc.Net.Client`
 - Owns: client channels, call invocation, client policy
 - Accept: measured remote execution calls

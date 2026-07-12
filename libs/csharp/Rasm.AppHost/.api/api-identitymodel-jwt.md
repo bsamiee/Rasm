@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IdentityModel.JsonWebTokens`
-
 - package: `Microsoft.IdentityModel.JsonWebTokens`
 - assembly: `Microsoft.IdentityModel.JsonWebTokens`
 - namespace: `Microsoft.IdentityModel.JsonWebTokens`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: handler, parsed token, and constants — `Microsoft.IdentityModel.JsonWebTokens`
-
 - rail: jwt
 
 | [INDEX] | [SYMBOL]                  | [TYPE_FAMILY]    | [RAIL]                                      |
@@ -34,7 +32,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: token creation — `JsonWebTokenHandler`
-
 - rail: jwt
 
 The descriptor overload is the canonical creation entry; the `payload` string overloads are the low-level escape hatch. Signing, encryption, and compression compose into signed-only (JWS), encrypted-only (JWE), or nested signed-then-encrypted tokens, with optional `additionalHeaderClaims`/`additionalInnerHeaderClaims`.
@@ -51,7 +48,6 @@ The descriptor overload is the canonical creation entry; the `payload` string ov
 |  [08]   | `EncryptToken(string innerJwt, EncryptingCredentials, string algorithm)`                         | explicit-alg encryption |
 
 [ENTRYPOINT_SCOPE]: reading and validation — `JsonWebTokenHandler`
-
 - rail: jwt
 
 | [INDEX] | [SURFACE]                                                                  | [CAPABILITY]             |
@@ -67,7 +63,6 @@ The descriptor overload is the canonical creation entry; the `payload` string ov
 |  [09]   | `Task<string> DecryptTokenWithConfigurationAsync(JsonWebToken, TVP, CT)`   | discovery-key decryption |
 
 [ENTRYPOINT_SCOPE]: typed claim/header access — `JsonWebToken`
-
 - rail: jwt
 
 | [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY]    | [RAIL]                                    |
@@ -87,7 +82,6 @@ The descriptor overload is the canonical creation entry; the `payload` string ov
 ## [04]-[IMPLEMENTATION_LAW]
 
 [JWT_TOPOLOGY]:
-
 - handler contract: `JsonWebTokenHandler : TokenHandler, IResultBasedValidation`; `ValidateTokenAsync` is the async-first path and `Task<TokenValidationResult>` is the result carrier (`IsValid`, `ClaimsIdentity`, `SecurityToken`, `Issuer`, `TokenType`, `Exception`, `Claims`) — failures land on `Exception`, never thrown from the validate path
 - claim mapping: `MapInboundClaims` defaults to the static `DefaultMapInboundClaims`; set `false` to keep short JWT claim types (`sub`, `azp`) instead of the long ClaimTypes URIs — `InboundClaimTypeMap` is the per-handler remap table
 - creation algebra: `SecurityTokenDescriptor` (from the Tokens package) is the declarative creation input carrying `Subject`/`Claims`, `Issuer`, `Audience(s)`, `Expires`/`NotBefore`/`IssuedAt`, `SigningCredentials`, `EncryptingCredentials`, and `CompressionAlgorithm`; `IncludeKeyIdInHeader` and `SetDefaultTimesOnTokenCreation` control header `kid` emission and automatic lifetime stamping
@@ -97,7 +91,6 @@ The descriptor overload is the canonical creation entry; the `payload` string ov
 - decryption + discovery: `DecryptTokenWithConfigurationAsync` resolves decryption keys from the `BaseConfigurationManager` on `TokenValidationParameters` — concretely the `ConfigurationManager<OpenIdConnectConfiguration>` from `Microsoft.IdentityModel.Protocols` (cataloged at `api-identitymodel-protocols.md`) that the OIDC discovery rail refreshes — so encrypted-token keys follow JWKS rotation
 
 [LOCAL_ADMISSION]:
-
 - Resolve or construct one `JsonWebTokenHandler` (it is thread-safe and reusable); never instantiate the legacy `JwtSecurityTokenHandler`.
 - Validate inbound tokens through `ValidateTokenAsync(token, validationParameters)` and branch on `TokenValidationResult.IsValid`, projecting `Exception` into the host failure rail and `ClaimsIdentity` into the `Microsoft.AspNetCore.Authorization` evaluation core — never read claims before `IsValid` is confirmed.
 - Set `MapInboundClaims = false` so authorization requirements match the raw JWT claim types the OIDC provider emits.
@@ -106,7 +99,6 @@ The descriptor overload is the canonical creation entry; the `payload` string ov
 - Create host-issued tokens through `CreateToken(SecurityTokenDescriptor)` with `SigningCredentials` (and `EncryptingCredentials` for confidential payloads); supply `Claims`/`Subject` and lifetime on the descriptor rather than hand-assembling a payload string.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.IdentityModel.JsonWebTokens`
 - Owns: JWS/JWE creation, signing, encryption, compression, parsing, and validation of compact JWTs
 - Accept: `JsonWebTokenHandler` over `SecurityTokenDescriptor` (create) and `TokenValidationParameters`/`ValidationParameters` (validate); typed claim/header access through `JsonWebToken`

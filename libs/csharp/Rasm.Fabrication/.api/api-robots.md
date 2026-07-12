@@ -7,7 +7,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Robots`
-
 - package: `Robots` (visose)
 - license: `MIT`
 - assembly: `Robots` (`lib/net8.0/Robots.dll` — SINGLE TFM, the only lib asset; binds forward under `net10.0`)
@@ -20,7 +19,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the robot-cell and solve contracts
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]              | [TYPE_FAMILY]      |
@@ -59,7 +57,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 [Joint]: `int Index`, `Number`, `Interval Range`, `double MaxSpeed`, `Plane Plane`, and `Mesh Mesh` define one revolute or prismatic axis. `Range` carries the radian joint limit, and `RevoluteJoint` and `PrismaticJoint` carry the DH parameters.
 
 [PUBLIC_TYPE_SCOPE]: the target value family (the toolpath waypoint vocabulary)
-
 - rail: fabrication
 - note: `Target` is abstract and implements `IToolpath`; a `Program` is built over `IReadOnlyList<IToolpath>`. Every `TargetProperty` (`Tool`/`Frame`/`Speed`/`Zone`) ships a static `Default` and is an immutable `IEquatable` value with an `init`-only construction shape.
 
@@ -96,7 +93,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cell loading + the batch solve (the `RobotSystem` factory and kinematics call)
-
 - rail: fabrication
 - note: `FileIO` is the static cell/element factory — it parses the visose XML cell library + the `File3dm`-backed mechanism meshes into a concrete `RobotSystem`. `OnlineLibrary` async-fetches additional cell models. There is no public `RobotSystem` ctor.
 
@@ -126,7 +122,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 [Mechanism.Kinematics]: `Mechanism.Kinematics(Target, double[]? prevJoints, Plane? basePlane)` owns the public single-mechanism solve beneath the system solve. `MechanicalGroup` exposes `Robot`, `Externals`, and `Joints` for coordinated-chain inspection.
 
 [ENTRYPOINT_SCOPE]: program assembly, look-ahead motion planning, collision check, and post emit
-
 - rail: fabrication
 - note: `Program` IS the toolpath compiler — its ctor runs the look-ahead motion planner (`ProgramMotionPlanner`) over the toolpath, solving every waypoint and timing the trajectory. `Code` holds the emitted per-group / per-file string lists; `Save` writes the dialect files.
 
@@ -160,7 +155,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 [Program.WAYPOINTS]: `SystemTarget.Planes`, `Joints`, `TotalTime`, and `DeltaTime` describe the planned waypoint. `ProgramTarget.Kinematics` carries its `KinematicSolution`, while `WorldPlane`, `IsJointMotion`, and `ForcedConfiguration` complete the visualization and timing receipt.
 
 [ENTRYPOINT_SCOPE]: mesh posing, remote upload, and the online cell library
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                               | [ENTRY_FAMILY] |
@@ -185,7 +179,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 ## [04]-[IMPLEMENTATION_LAW]
 
 [KINEMATICS_LAW]:
-
 - The PUBLIC solve is the batch `RobotSystem.Kinematics(targets, prevJoints) -> List<KinematicSolution>`.
 - The analytic `SphericalWristKinematics` and `OffsetWristKinematics`, iterative `NumericalKinematics`, external-axis `TrackKinematics` and `PositionerKinematics`, and group `MechanicalGroupKinematics` solvers are `internal`, so a design page cannot name them as types.
 - The concrete `RobotSystem` cell loaded by `FileIO` selects the solver internally; public selection combines the cell with the `RobotConfigurations` branch hint on `CartesianTarget`.
@@ -196,7 +189,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 - Joint values are RADIANS internally; `MechanicalGroup.DegreeToRadian`/`RadianToDegree` and `RobotSystem.DegreeToRadian` convert at the boundary. The `Interval Range` on each `Joint` is the radian limit the solver validates against.
 
 [GEOMETRY_BOUNDARY_LAW]:
-
 - Every geometry parameter and result uses `Rhino3dm`'s `Rhino.Geometry.*`: `Plane`, `Mesh`, `Point3d`, `Transform`, `Interval`, and `File3dm`.
 - `Rhino3dm` and RhinoCommon expose binary-distinct `Rhino.Geometry.*` types from separate assemblies and namespaces.
 - `plan-cs` maps the canonical pose or frame to a `Rhino3dm` `Plane` at the kinematics ingress, then reads plain `Plane[]` and `double[]` values from `KinematicSolution.Planes` and `Joints` at egress.
@@ -204,7 +196,6 @@ The PUBLIC solve contract is `RobotSystem.Kinematics(IReadOnlyList<Target> targe
 - `Rhino3dm` (not `Robots`) is the package shipping the osx-arm64 native `librhino3dm_native.dylib`; `Robots` itself is pure-managed IL. `SSH.NET` + `BouncyCastle.Cryptography` are pulled only by the `IRemote` SFTP upload path (`RemoteUR`/`RemoteFranka`); a headless solve/post that never calls `IRemote.Upload` exercises neither.
 
 [RAIL_LAW]:
-
 - Package: `Robots` (visose; assembly `Robots`; geometry substrate `Rhino3dm`)
 - Owns: host-neutral serial-chain robot kinematics — the `FileIO`-loaded `RobotSystem` cell, the batch `Kinematics(targets, prevJoints) -> List<KinematicSolution>` FK/IK solve over `CartesianTarget`/`JointTarget` waypoints with `RobotConfigurations` branch selection and previous-pose continuation, the look-ahead-planned `Program` (jerk/accel-limited feedrate, `CheckCollisions`, per-`Manufacturers` post emit, `Save`), the `IRemote` upload/play/pause channel, and the `OnlineLibrary` cell roster
 - Accept: the `Kinematics/cell` solve consuming a kernel-canonical pose mapped to a `Rhino3dm` `Plane`/`double[]` joint vector, the result read back from `Program.Targets` / `KinematicSolution.Joints` / `Planes` / `Errors` / `Configuration` and folded to a `FabricationFault` on non-empty `Errors`; the cell-program emit through the matching `IPostProcessor` dialect; the shared `MotionDynamics` law mapped into target speed/blend policy at the Rhino3dm boundary

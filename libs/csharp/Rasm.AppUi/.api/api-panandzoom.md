@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `PanAndZoom`
-
 - package: `PanAndZoom` (MIT, © wieslawsoltes)
 - assembly: `PanAndZoom`
 - namespace: `Avalonia.Controls.PanAndZoom`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [VIEWPORT_TYPES]: viewport control, state carriers, and matrix algebra
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]            | [SHAPE]                         | [CAPABILITY]                                                                    |
@@ -29,7 +27,6 @@
 |  [06]   | `MatrixHelper`      | static algebra                  | `Translate`/`Scale`/`Rotation`/`ScaleAt`/`TransformPoint` matrix builders       |
 
 [MODE_TYPES]: behavior vocabularies (enums)
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                | [MEMBERS]                                                                          |
@@ -51,7 +48,6 @@
 - `ZoomIndicatorPosition`: Indicator placement
 
 [EVENT_TYPES]: change-notification args and delegate handlers
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                                                         | [KIND]          | [CAPABILITY]                                 |
@@ -66,7 +62,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ZOOM_ENTRYPOINTS]: zoom, pan, and drag operations
-
 - rail: viewport
 - surface-root: `ZoomBorder` (all take `bool skipTransitions = false` unless noted)
 
@@ -89,7 +84,6 @@
 `ZoomDeltaTo` applies `ZoomSpeed` and `PowerFactor`.
 
 [LAYOUT_ENTRYPOINTS]: stretch fitting, matrix, and rotation
-
 - rail: viewport
 - surface-root: `ZoomBorder`
 
@@ -109,7 +103,6 @@
 `AutoFit` raises `AutoFitApplied`.
 
 [TRANSFORM_ENTRYPOINTS]: coordinate mapping and visible-bounds queries
-
 - rail: viewport
 - surface-root: `ZoomBorder`
 
@@ -122,7 +115,6 @@
 |  [05]   | `IsPointVisible(Point)` / `IsRectangleVisible(Rect)`                | hit-test against the visible content bounds |
 
 [STATE_ENTRYPOINTS]: saved views, history, discrete levels, grid, and state export
-
 - rail: viewport
 - surface-root: `ZoomBorder`
 
@@ -148,7 +140,6 @@
 History navigation operates over the `ViewHistorySize`-bounded `ViewState` history. Discrete zoom requires `EnableDiscreteZoomLevels`; grid snapping requires `EnableSnapToGrid`. Accessibility refresh updates `ZoomLevelDescription` and `PanPositionDescription`.
 
 [COMMAND_ENTRYPOINTS]: `ICommand` MVVM bindings (no code-behind)
-
 - rail: viewport
 - surface-root: `ZoomBorder` (each a `DirectProperty<ZoomBorder, ICommand>`, lazily a `ZoomBorderCommand`)
 
@@ -159,7 +150,6 @@ History navigation operates over the `ViewHistorySize`-bounded `ViewState` histo
 |  [03]   | `NavigateBackCommand` / `NavigateForwardCommand`                                                  | history undo/redo                  |
 
 [PROPERTY_ENTRYPOINTS]: styled behavior properties (each a `StyledProperty`/`DirectProperty` for XAML + binding)
-
 - rail: viewport
 - surface-root: `ZoomBorder`
 
@@ -210,26 +200,22 @@ History navigation operates over the `ViewHistorySize`-bounded `ViewState` histo
 ## [04]-[IMPLEMENTATION_LAW]
 
 [VIEWPORT_TOPOLOGY]:
-
 - `ZoomBorder` is an Avalonia `Decorator`: it wraps one `Child` and applies the affine `Matrix` to it. The render surface (`Wgpu`/`Skia` swap-chain control, `api-silk-webgpu-wgpu.md`) is the `Child`; `ZoomBorder` owns the camera transform and the child owns the pixels — never compose a hand-rolled `MatrixTransform` on the render control when `ZoomBorder` already owns the affine.
 - The live transform is the read-only `Matrix`/`ZoomX`/`ZoomY`/`OffsetX`/`OffsetY` (`DirectProperty`); mutation flows only through the operation methods (`Zoom`/`Pan`/`Rotate`/`SetMatrix`/stretch fits), which raise the matching events. Bind `ZoomX`/`OffsetX` one-way to a status readout; never set them directly.
 - Coordinate mapping is the seam between input/picking and the rendered scene: `ViewportToContent`/`ScreenToContent` map a pointer hit or a screen-delta into content space for selection and measurement; `GetContentToScreenMatrix()` and its inverse expose the affine for a custom overlay (rulers, snap dots) that must track the camera. Pick in content space, render the overlay in viewport space.
 
 [STATE_AND_HISTORY]:
-
 - `ZoomBorderState` is the durable carrier: `ExportState()` snapshots `Matrix`/`Stretch`/`Rotation`/clamps/anim + `Timestamp`; `ImportState(state, animate)` restores it. Persist that struct through the same `System.Text.Json`/Thinktecture-JSON rail the rest of AppUi state uses (`libs/csharp/.api/api-thinktecture-json.md`, shared tier) — `SavedView`/`ViewState` are plain mutable structs with public setters, so they serialize directly. Never scrape private transform fields.
 - View history (`NavigateBack`/`NavigateForward` over a `ViewHistorySize`-bounded `ViewState` ring) and named `SavedView`s are two distinct registries: history is the implicit undo stack auto-pushed on view change (`ViewHistoryChanged` fires); saved views are explicit named bookmarks (`SaveView`/`RestoreView`).
 - Discrete zoom (`DiscreteZoomLevels` + `GetNext`/`GetPreviousDiscreteZoomLevel`) and snap-to-grid (`GridSize` + `SnapToGrid`) are opt-in ladders gated by `EnableDiscreteZoomLevels`/`EnableSnapToGrid`; with both off the control is continuous.
 
 [STACKING]:
-
 - ReactiveUI (`api-reactiveui-avalonia.md`): the ten `ICommand` properties (`ZoomInCommand`/`FitCommand`/`NavigateBackCommand`/…) bind straight to toolbar buttons in XAML — drive zoom/fit/history from the view-model with zero code-behind. For richer reactive flows wrap a `ReactiveCommand` and call the imperative method, or observe the change events (`ZoomChanged`/`MatrixChanged`/`StretchModeChanged`) as `IObservable` via `Observable.FromEventPattern` and project into the view-model.
 - The change events carry the post-change transform; a measurement/annotation tool subscribes `MatrixChanged`/`ZoomChanged` to invalidate its overlay cache, and `GestureStarted`/`GestureEnded` to gate live picking during a touch gesture.
 - `UnitsNet` (`libs/csharp/.api/api-unitsnet.md`, shared tier): when the viewport content is real-world geometry, map a content-space `Rect` through `GetVisibleContentBounds()` and project the extents into a `Length` for an on-screen scale-bar — the affine is the px/content ratio, `Length.ToUnit(UnitSystem.SI)` formats the bar label.
 - Avalonia accessibility: `ZoomLevelDescription`/`PanPositionDescription` feed the automation peer; call `UpdateAccessibilityDescriptions()` after a programmatic view change so screen readers track the camera, and honor `UseHighContrastMode` for the grid/indicator brushes.
 
 [VIEWPORT_LAW]:
-
 - Package: `PanAndZoom`
 - Owns: the viewport affine transform, input gestures (mouse/wheel/keyboard/touch), stretch fitting, constraint clamps, discrete-zoom and grid ladders, view history, named saved views, the `ICommand` rail, exportable `ZoomBorderState`, accessibility descriptions, and the zoom indicator.
 - Accept: viewport intent expressed as `ZoomBorder` operations, styled properties, bound `ICommand`s, and `ExportState`/`ImportState` round-trips; coordinate mapping through `ViewportToContent`/`GetContentToScreenMatrix`.

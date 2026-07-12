@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IdentityModel.Tokens`
-
 - package: `Microsoft.IdentityModel.Tokens`
 - assembly: `Microsoft.IdentityModel.Tokens`
 - namespace: `Microsoft.IdentityModel.Tokens`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: validation contracts
-
 - rail: tokens-core
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]     | [RAIL]                 |
@@ -41,7 +39,6 @@
 |  [16]   | `SecurityTokenDescriptor`           | creation input    | emission descriptor    |
 
 [VALIDATION_TYPE_DETAIL]:
-
 - `TokenValidationResult`: projects `IsValid`, `ClaimsIdentity`, `Exception`, `SecurityToken`, `Issuer`, and `Claims`.
 - `ValidationResult<TResult, TError>`: a `readonly record struct` outcome.
 - `ValidationError`: carries a stack trace.
@@ -50,7 +47,6 @@
 - `SecurityTokenHandler`: roots `XmlReader` handlers.
 
 [PUBLIC_TYPE_SCOPE]: keys, credentials, and crypto providers
-
 - rail: tokens-core
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [RAIL]                 |
@@ -80,7 +76,6 @@
 `SecurityKey` carries `KeyId`, `ComputeJwkThumbprint`, and `CryptoProviderFactory`; `JsonWebKeyConverter` bridges `SecurityKey` and `JsonWebKey`. `MlDsaSecurityKey` wraps the BCL `MLDsa` type, and `AuthenticatedEncryptionProvider` owns AES-GCM and AES-CBC-HMAC content encryption.
 
 [PUBLIC_TYPE_SCOPE]: legacy validation exceptions (throwing rail)
-
 - rail: tokens-core
 
 The legacy throwing `Validators.Validate*` overloads and `JsonWebTokenHandler.ValidateTokenAsync` surface these on `TokenValidationResult.Exception`; a consumer pattern-matches the concrete subtype, never a bare `Exception`.
@@ -98,7 +93,6 @@ The legacy throwing `Validators.Validate*` overloads and `JsonWebTokenHandler.Va
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: result-based validation — `Validators` + `ValidationParameters`
-
 - rail: tokens-core
 
 The result rail is pure ROP: every validator returns `ValidationResult<T, ValidationError>` (or its async `Task<…>` mirror) and never throws; `ValidationParameters` carries one `*Delegate` slot per facet that defaults to the matching `Validators` static. The signatures below share the `Validators` owner.
@@ -114,7 +108,6 @@ The result rail is pure ROP: every validator returns `ValidationResult<T, Valida
 |  [07]   | `ValidateTokenReplay`  | replay         | `DateTime?`             |
 
 [VALIDATOR_SIGNATURES]:
-
 - `ValidateAudience(IList<string>, SecurityToken?, ValidationParameters, CallContext)`.
 - `ValidateIssuerAsync(string?, SecurityToken?, ValidationParameters, CallContext?, CT)` returns the asynchronous mirror.
 - `ValidateLifetime(DateTime?, DateTime?, SecurityToken?, ValidationParameters, CallContext)`.
@@ -124,12 +117,10 @@ The result rail is pure ROP: every validator returns `ValidationResult<T, Valida
 - `ValidateTokenReplay(DateTime?, string, ValidationParameters, CallContext)`.
 
 [VALIDATION_RESULT]:
-
 - Projection: `ValidationResult<T, E>.Succeeded`, `.Result`, and `.Error` expose the discriminated outcome.
 - Lift: implicit `ValidationResult<T, E>(T)` and `(TError)` conversions lift success and error values.
 
 [ENTRYPOINT_SCOPE]: legacy validation contract — `TokenValidationParameters` + `Validators`
-
 - rail: tokens-core
 
 The throwing signatures share the `Validators` owner and abbreviate `TokenValidationParameters` as `TVP`.
@@ -143,7 +134,6 @@ The throwing signatures share the `Validators` owner and abbreviate `TokenValida
 |  [05]   | `Clone`                     | policy clone   | request copy    |
 
 [LEGACY_SIGNATURES]:
-
 - `ValidateIssuer(string, SecurityToken, TVP)` returns the validated issuer or throws.
 - `ValidateAudience(IEnumerable<string>, SecurityToken, TVP)` throws on mismatch.
 - `ValidateLifetime(DateTime?, DateTime?, SecurityToken, TVP)` throws on an `nbf` or `exp` violation.
@@ -155,7 +145,6 @@ The throwing signatures share the `Validators` owner and abbreviate `TokenValida
 [LEGACY_RESULT]: `TokenValidationResult` projects `SecurityToken` for a `JsonWebToken` cast, `IsValid`, `ClaimsIdentity`, and `Exception`; pattern matching `TokenValidationResult.Exception` against concrete `SecurityToken*Exception` subtypes classifies failures.
 
 [ENTRYPOINT_SCOPE]: keys, credentials, crypto, and encoding
-
 - rail: tokens-core
 
 `CryptoProviderFactory` owns the provider-creation surfaces in this grid.
@@ -180,7 +169,6 @@ The throwing signatures share the `Validators` owner and abbreviate `TokenValida
 |  [16]   | `Base64UrlEncoder.Decode`               | base64url        | string decoding   |
 
 [CRYPTO_SIGNATURES]:
-
 - Credentials: `new SymmetricSecurityKey(byte[])` and `new SigningCredentials(key, algorithm)`.
 - Identity: `SecurityKey.ComputeJwkThumbprint()` and `KeyId`.
 - JWKS: `JsonWebKeySet.Create(string json)` and `GetSigningKeys()`.
@@ -191,7 +179,6 @@ The throwing signatures share the `Validators` owner and abbreviate `TokenValida
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TOKENS_TOPOLOGY]:
-
 - two validation rails: the legacy rail is `TokenValidationParameters` (a wide knob bag — `ValidateIssuer`/`ValidateAudience`/`ValidateLifetime`/`ValidateIssuerSigningKey`/`RequireExpirationTime`/`RequireSignedTokens`/`ClockSkew`/`ValidIssuer(s)`/`ValidAudience(s)`/`IssuerSigningKey(s)` plus per-facet delegate slots) folded into `TokenValidationResult`; the result rail is `ValidationParameters` (the same facets as `*Delegate` slots, `SigningKeys`/`DecryptionKeys` as lazy `IList`, `CryptoProviderFactory`, `ConfigurationManager`) folded into `ValidationResult<T, ValidationError>` and the typed `ValidatedToken`
 - result-vs-throw: the result-based `Validators.Validate*` overloads return `ValidationResult<…>` (`Succeeded`, `Result`, `Error`) and the `readonly record struct` carries implicit lifts from both `TResult` and `TError` — the canonical ROP shape; the same-named legacy overloads throw `SecurityToken*Exception` subtypes, retained only for `TokenValidationParameters` consumers
 - error rail: `ValidationError` is the non-throwing failure and carries `FailureType`, `Message`, `InnerException`, `StackFrames`, `GetException()`, and `AddStackFrame`; `ValidationFailureType` is the abstract discriminator
@@ -206,7 +193,6 @@ The throwing signatures share the `Validators` owner and abbreviate `TokenValida
 - encoding: `Base64UrlEncoder` owns string and `Span<byte>`/`Span<char>` overloads plus generic `Decode<T>(…, Func<…>)` projections, the zero-allocation JOSE codec the JWT handler builds on
 
 [LOCAL_ADMISSION]:
-
 - Construct one `ValidationParameters` (result rail) per security context, set the per-facet `*Delegate` slots only to override a default `Validators` function, and consume `Validators.Validate*` results by branching on `ValidationResult.Succeeded` — project `ValidationError` into the host failure rail through `GetException()` only at the boundary, never as control flow.
 - Use `TokenValidationParameters` only where a `JsonWebTokenHandler.ValidateTokenAsync(token, TVP)` consumer requires it; populate `ValidIssuer(s)`/`ValidAudience(s)` explicitly, set `ClockSkew` deliberately, and prefer `Clone()` for per-request mutation over sharing a mutated instance.
 - Assign `ConfigurationManager` from the OIDC discovery rail and leave `IssuerSigningKeys` unset for rotating providers; set `ValidateWithLKG = true` so a transient JWKS fetch failure falls back to last-known-good rather than failing validation.
@@ -215,7 +201,6 @@ The throwing signatures share the `Validators` owner and abbreviate `TokenValida
 - Treat `MlDsaSecurityKey` as the post-quantum signing path on net10; dispose it, and gate its use on `CryptoProviderFactory.IsSupportedAlgorithm(alg, key)`.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.IdentityModel.Tokens`
 - Owns: security keys (incl. post-quantum ML-DSA and JWK), signing/encrypting credentials, crypto-provider factory/cache, ECDH-ES key agreement, base64url encoding, and the throwing + result-based token-validation contracts
 - Accept: result-based validation through `ValidationParameters` + `Validators` returning `ValidationResult<T, ValidationError>`; legacy validation through `TokenValidationParameters` + `TokenValidationResult`; discovery through a `BaseConfigurationManager`

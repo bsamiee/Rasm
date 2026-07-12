@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Caching.Hybrid`
-
 - package: `Microsoft.Extensions.Caching.Hybrid`
 - contract assembly: `Microsoft.Extensions.Caching.Abstractions` — owns `HybridCache`, `HybridCacheEntryOptions`, `HybridCacheEntryFlags`, `IHybridCacheSerializer<T>`, `IHybridCacheSerializerFactory`, `IBufferDistributedCache`
 - implementation assembly: `Microsoft.Extensions.Caching.Hybrid` — owns `HybridCacheOptions`, `IHybridCacheBuilder`, `HybridCacheServiceExtensions`, `HybridCacheBuilderExtensions`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cache contract and entry options
-
 - rail: runtime cache
 
 | [INDEX] | [SYMBOL]                        | [TYPE_FAMILY]       | [RAIL]                                                          |
@@ -45,7 +43,6 @@
 `IHybridCacheSerializer<T>` — `T Deserialize(ReadOnlySequence<byte> source)` / `void Serialize(T value, IBufferWriter<byte> target)`. `IHybridCacheSerializerFactory` — `bool TryCreateSerializer<T>(out IHybridCacheSerializer<T>? serializer)` (one factory yields a codec for every payload type; first registered factory that succeeds for `T` wins).
 
 [PUBLIC_TYPE_SCOPE]: registration and implementation options
-
 - rail: runtime cache
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY]      | [RAIL]                  |
@@ -58,7 +55,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cache operations
-
 - rail: runtime cache
 
 | [INDEX] | [SURFACE]          | [ENTRY_FAMILY]   | [RAIL]                    |
@@ -69,7 +65,6 @@
 |  [04]   | `RemoveByTagAsync` | tag invalidation | grouped eviction          |
 
 [ENTRYPOINT_SCOPE]: registration and policy
-
 - rail: runtime cache
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]       | [RAIL]                        |
@@ -89,7 +84,6 @@
 `HybridCacheOptions`: `HybridCacheEntryOptions? DefaultEntryOptions`; `long MaximumPayloadBytes` (default `1048576` = 1 MiB; a larger payload is returned uncached, not faulted); `int MaximumKeyLength` (default `1024`; an over-length key bypasses the cache); `bool DisableCompression`; `bool ReportTagMetrics` (per-tag hit/miss on the `HybridCache` EventSource); `object? DistributedCacheServiceKey` (selects which keyed `IDistributedCache` backs L2).
 
 [L2_BUFFER_CONTRACT]: `IBufferDistributedCache` zero-copy distributed backing (`*.Abstractions`, `Microsoft.Extensions.Caching.Distributed`)
-
 - rail: runtime cache
 - Selection: The runtime detects `IBufferDistributedCache` on its registered `IDistributedCache` and routes reads through `TryGetAsync(IBufferWriter<byte>)` plus writes through `ReadOnlySequence<byte>`.
 - Redis: `RedisCache` implements the buffer contract, preserving the zero-copy path through the redis tier.
@@ -100,7 +94,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CACHE_TOPOLOGY]:
-
 - namespaces: `Microsoft.Extensions.Caching.Hybrid`, `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.Caching.Distributed`
 - contract root: `HybridCache` abstract base from `*.Abstractions`; resolved from DI
 - read root: the polymorphic `GetOrCreateAsync` family — one abstract `(string key, TState, factory, …)` root with span and interpolated-handler key overloads and stateful/stateless factory mirrors; the `state` thread keeps the factory closure-free
@@ -112,7 +105,6 @@
 - invalidation surface: `RemoveAsync` (key) and `RemoveByTagAsync` (tag group), each singular and batched
 
 [LOCAL_ADMISSION]:
-
 - `HybridCache` is a runtime policy surface, not a domain repository; resolved from DI, never constructed (`DefaultHybridCache` is the internal implementation).
 - Cache keys, tags, entry options, flags, and serializer policy enter as values; the interpolated-handler key overloads keep key construction allocation-free.
 - Keyed cache registration (`AddKeyedHybridCache`) plus `DistributedCacheServiceKey` represent an admitted cache profile selecting its own L2, not ad hoc service lookup.
@@ -122,7 +114,6 @@
 - Tag invalidation is an explicit cache capability and never substitutes for durable store integrity; the singular and batch tag overloads are one capability, not two owners.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.Caching.Hybrid` (+ `Microsoft.Extensions.Caching.Abstractions` contracts)
 - Owns: L1+L2 hybrid cache registration, the abstract `HybridCache` read/write/tag contract, the zero-copy serializer chain, and the `IBufferDistributedCache` L2 seam
 - Accept: cache policy as runtime data — entry options, flags, tags, keyed L2 selection, and one serializer factory

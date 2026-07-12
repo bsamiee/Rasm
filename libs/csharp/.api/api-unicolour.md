@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Wacton.Unicolour`
-
 - package / license: `Wacton.Unicolour` / MIT
 - assembly: `Wacton.Unicolour`
 - namespace: `Wacton.Unicolour`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: ColourSpace enum — RGB and hue-based spaces
-
 - rail: colour
 
 `ColourSpace` is the discriminant for all construction and conversion. Display primaries (`DisplayP3`, `Rec2020`, `AdobeRGB`) are `RgbConfiguration` statics, not enum cases.
@@ -36,7 +34,6 @@
 |  [12]   | `Okhwb`     | —                             |
 
 [PUBLIC_TYPE_SCOPE]: ColourSpace enum — XYZ, Lab, and appearance model spaces
-
 - rail: colour
 
 `Lab` drives delta-E76/94/2000 and gamut mapping.
@@ -61,7 +58,6 @@
 |  [16]   | `Munsell` | —                           |
 
 [PUBLIC_TYPE_SCOPE]: ColourSpace enum — Oklab, Okl-derived, and video spaces
-
 - rail: colour
 
 `Oklab` drives `DeltaE.Ok` and gamut interpolation.
@@ -82,7 +78,6 @@
 |  [12]   | `Tsl`    | —                              |
 
 [PUBLIC_TYPE_SCOPE]: Unicolour — construction overloads
-
 - rail: colour
 
 Configured colour-space construction selects Display P3 or Rec2020 through `Configuration`, and `Spd` construction projects spectral power distribution to XYZ.
@@ -104,7 +99,6 @@ Configured colour-space construction selects Display P3 or Rec2020 through `Conf
 |  [13]   | `new Unicolour(Pigment[], double[])`                                                          | Kubelka-Munk pigment mixing           |
 
 [PUBLIC_TYPE_SCOPE]: Unicolour — conversion accessors (lazy-evaluated)
-
 - rail: colour
 
 `.Xyy` carries chromaticity and dominant-wavelength projection. `.Lab` owns delta-E input and perceptual sorting. `.Oklab` owns `DeltaE.Ok` input and perceptual interpolation. `.Ictcp` joins `DeltaE.Itp` to Rec.2100. `.Wxy` carries dominant-wavelength and excitation-purity projection. `Hct` serves Material callers and dynamic colour.
@@ -132,7 +126,6 @@ Configured colour-space construction selects Display P3 or Rec2020 through `Conf
 |  [19]   | `.IsInRgbGamut`                  | `bool`                 | gamut-check gate              |
 
 [PUBLIC_TYPE_SCOPE]: Unicolour — scalar and metadata accessors
-
 - rail: colour
 
 | [INDEX] | [MEMBER]              | [TYPE]          | [USED_BY]                |
@@ -149,7 +142,6 @@ Configured colour-space construction selects Display P3 or Rec2020 through `Conf
 |  [10]   | `.Configuration`      | `Configuration` | config round-trip        |
 
 [PUBLIC_TYPE_SCOPE]: DeltaE enum — metric vocabulary
-
 - rail: colour
 
 Called via `unicolour.Difference(reference, DeltaE.X)`.
@@ -170,7 +162,6 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 |  [12]   | `Cam16`             | appearance model                  |
 
 [PUBLIC_TYPE_SCOPE]: Configuration, RgbConfiguration, XyzConfiguration, DynamicRange
-
 - rail: colour
 
 `Configuration` carries RGB, XYZ, YBR, CAM, dynamic-range, and ICC working-space policy. RGB custom construction uses chromaticity primaries, a white point, transfer delegates, and a name; dynamic-range custom construction carries white, maximum, minimum, HLG white-level, and name values.
@@ -212,7 +203,6 @@ Called via `unicolour.Difference(reference, DeltaE.X)`.
 |  [03]   | `DynamicRange..ctor`    | range ctor   | custom HDR span |
 
 [PUBLIC_TYPE_SCOPE]: Spd, GamutMap, Chromaticity, WhitePoint
-
 - rail: colour
 
 `Spd` construction accepts measured coefficients at 0, 1, or 5 nm intervals.
@@ -238,7 +228,6 @@ Each `GamutMap` value binds one RGB-gamut policy.
 |  [02]   | `Unicolour.Palette` | interpolation set | generated colour sequence |
 
 [PUBLIC_TYPE_SCOPE]: blend, simulation, and ICC carriers
-
 - rail: colour
 
 Each public carrier owns one colour operation or configuration policy.
@@ -258,7 +247,6 @@ Each public carrier owns one colour operation or configuration policy.
 |  [11]   | `Configuration`                | `ConvertToConfiguration(Configuration)` target |
 
 [ICC_MEMBERS]:
-
 - Owner: `Icc`
 - Members:
     - `Channels`
@@ -276,7 +264,6 @@ Each public carrier owns one colour operation or configuration policy.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Unicolour — primary operations
-
 - rail: colour
 
 `Unicolour` constructors own each registered construction route.
@@ -299,19 +286,15 @@ Each operation binds one colour rail, and its keyed record carries the exact sig
 |  [04]   | `Palette`    | hue-aware palette generation |
 
 [DIFFERENCE]:
-
 - Signature: `double Difference(Unicolour reference, DeltaE deltaE)`
 
 [CONTRAST]:
-
 - Signature: `double Contrast(Unicolour other)`
 
 [MIX]:
-
 - Signature: `Unicolour Mix(Unicolour other, ColourSpace colourSpace, double amount = 0.5, HueSpan hueSpan = HueSpan.Shorter, bool premultiplyAlpha = true)`
 
 [PALETTE]:
-
 - Signature: `IEnumerable<Unicolour> Palette(Unicolour other, ColourSpace colourSpace, int count, HueSpan hueSpan = HueSpan.Shorter, bool premultiplyAlpha = true)`
 
 `HueSpan` enum (mix/palette hue-traversal axis): `Shorter`, `Longer`, `Increasing`, `Decreasing`. `Locus` enum (CCT-construction radiator): `Blackbody`, `Daylight`.
@@ -319,7 +302,6 @@ Each operation binds one colour rail, and its keyed record carries the exact sig
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COLOUR_TOPOLOGY]:
-
 - namespace: `Wacton.Unicolour`
 - primary type: `Unicolour` — immutable, lazy-evaluated per colour-space accessor
 - construction discriminant: `ColourSpace` enum
@@ -327,7 +309,6 @@ Each operation binds one colour rail, and its keyed record carries the exact sig
 - display primaries (DisplayP3, Rec2020, AdobeRGB) are `RgbConfiguration` statics, not `ColourSpace` cases
 
 [INTEGRATION]:
-
 - AppUi boundary: `Unicolour` is the canonical colour value; map to/from Avalonia `Color`/`HsvColor`
   (`api-avalonia-color.md`) only at the view edge — convert outbound values to `Configuration.Default`, read `.Rgb.Byte255`, and construct
   `new Unicolour(ColourSpace.Rgb255, r, g, b)` inbound, keeping all perceptual maths in `Unicolour`.
@@ -342,17 +323,14 @@ Each operation binds one colour rail, and its keyed record carries the exact sig
   second colour library.
 
 [GAMUT_LAW]:
-
 - public gamut mapping is `Unicolour.MapToRgbGamut(GamutMap gamutMap = GamutMap.OklchChromaReduction)`, `Unicolour.MapToPointerGamut()`, and `Unicolour.MapToMacAdamLimits()`
 - `GamutMap` is accepted only by `MapToRgbGamut`; Pointer and MacAdam mapping use zero-argument surfaces
 
 [SPD_LAW]:
-
 - `new Unicolour(config, Spd)` uses the internal SPD-to-XYZ path
 - reflectance mixing uses `Pigment[]`/`KubelkaMunk` with `Spd` illuminant, not the `Spd` ctor
 
 [RAIL_LAW]:
-
 - Package: `Wacton.Unicolour`
 - Owns: 40-space colour model, construction, conversion, delta-E, gamut mapping, spectral intake, mixing
 - Accept: colour construction from any `ColourSpace`, working-space configuration, perceptual metrics
@@ -492,7 +470,6 @@ The `RgbConfiguration` registry binds each static display, scene, log, or broadc
 |  [24]   | `Secam625`      | SECAM 625-line broadcast    |
 
 [CUSTOM_RGB]:
-
 - Surface: `RgbConfiguration..ctor`
 - Call shape: custom primaries
 - Capability: custom RGB working space

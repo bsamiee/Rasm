@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `MTConnect.NET-Common`
-
 - package: `MTConnect.NET-Common`
 - license: `MIT` (TrakHound/MTConnect.NET)
 - assembly: `MTConnect.NET-Common`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: cutting-tool asset graph (`MTConnect.Assets.CuttingTools`)
-
 - rail: fabrication
 - note: a `CuttingToolAsset` is the physical tool; its `CuttingToolLifeCycle` carries the in-use state (status, life, location, measurements); a `CuttingItem` is one insert/edge on the tool. Every model type is paired with an `I…` interface (`ICuttingToolAsset`/`ICuttingToolLifeCycle`/`ICuttingItem`/…) — bind to the interface in domain code.
 
@@ -40,7 +38,6 @@
 |  [14]   | `ToolingMeasurement`            | measurement     | ISO-13399 measurement    |
 
 [CUTTING_TOOL_ASSET_MEMBERS]:
-
 - `CuttingToolAsset : Asset`: `ToolId`, `SerialNumber`, `CuttingToolLifeCycle`, `CuttingToolDefinition`, `CuttingToolArchetypeReference`, `IsValid(Version)`, and `GenerateHash`.
 - `CuttingToolLifeCycle`: `CutterStatus`, `CuttingItems`, `Location`, `Measurements`, `ProcessFeedRate`, `ProcessSpindleSpeed`, `ProgramToolNumber`, `ProgramToolGroup`, `ReconditionCount`, `ToolLife`, and `ConnectionCodeMachineSide`.
 - `CuttingItem`: `ItemId`, `Indices`, `Grade`, `Manufacturers`, `CutterStatus`, `ItemLife`, `Measurements`, `Locus`, and `ProgramToolGroup`.
@@ -52,7 +49,6 @@
 - `Measurement`: `Type`, `Code`, `Value`, `Minimum`, `Maximum`, `Nominal`, `Units`, `NativeUnits`, and `SignificantDigits`; `ToolingMeasurement` adds the ISO-13399 `Code`.
 
 [PUBLIC_TYPE_SCOPE]: ISO-13399 measurement subtypes (`MTConnect.Assets.CuttingTools.Measurements`)
-
 - rail: fabrication
 - note: each subtype `: ToolingMeasurement` fixes its ISO-13399 `TypeId` and two-letter `CodeId` (e.g. `CornerRadius`/`RE`) and takes a `(double value)` ctor — the dimensional cutting-geometry vocabulary the toolpath generators read. The set is closed and named, not stringly-typed.
 
@@ -91,7 +87,6 @@
 |  [31]   | `ToolOrientationMeasurement`        | tool orientation        |
 
 [MEASUREMENT_CODES]:
-
 - `CuttingDiameterMeasurement` and `CuttingDiameterMaxMeasurement`: `DCx` and no declared code, respectively.
 - `CornerRadiusMeasurement`: `RE`.
 - `CuttingEdgeLengthMeasurement` and `UsableLengthMaxMeasurement`: no declared code and `LUX`, respectively.
@@ -102,7 +97,6 @@
 - The package spells `IncribedCircleDiameterMeasurement` without the second `s`.
 
 [PUBLIC_TYPE_SCOPE]: asset base, status, and enums (`MTConnect.Assets`, `.CuttingTools`)
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [CAPABILITY]          |
@@ -117,7 +111,6 @@
 |  [08]   | `MTConnectVersions`     | constants         | schema versions       |
 
 [ASSET_SUPPORT_DETAILS]:
-
 - `Asset`: `AssetId`, `Type`, `InstanceId`, `Timestamp`, `DeviceUuid`, `SerialNumber`, `Station`, `Model`, `Manufacturers`, `Hash`, `Removed`, and `Configuration`.
 - `AssetValidationResult`: the `IsValid(Version)` outcome struct exposes `bool IsValid` and `string Message`; its constructor is `(bool isValid, string message = null)`.
 - `CutterStatusType`: `NEW`, `AVAILABLE`, `USED`, `MEASURED`, `RECONDITIONED`, `EXPIRED`, `BROKEN`, `ALLOCATED`, `UNALLOCATED`, `NOT_REGISTERED`, `UNAVAILABLE`, and `UNKNOWN`.
@@ -129,7 +122,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cutting-tool authoring and read
-
 - rail: fabrication
 - note: the model is plain mutable POCOs with interface contracts; author a tool by setting the lifecycle, items, and measurements, read it back through the same properties. `Process()` normalizes a partially-populated lifecycle/item.
 
@@ -146,7 +138,6 @@
 |  [09]   | `cuttingItem.Process()`      | normalize      | item defaults      |
 
 [AUTHORING_SIGNATURES]:
-
 - `new CuttingToolAsset { ToolId, SerialNumber, CuttingToolLifeCycle }`.
 - `CuttingToolLifeCycle { CutterStatus, CuttingItems, Location, Measurements, ProcessFeedRate, ProcessSpindleSpeed, ToolLife, ProgramToolNumber }`.
 - `new CuttingItem { ItemId, Indices, Grade, Measurements, ItemLife }`.
@@ -155,7 +146,6 @@
 - `new ToolLife { Type = ToolLifeType.MINUTES, Limit, Warning, Value, CountDirection }`.
 
 [ENTRYPOINT_SCOPE]: content identity and validation
-
 - rail: fabrication
 - note: every asset and sub-component computes a deterministic content hash and validates against an MTConnect schema version — the content hash is the catalogue-key seam.
 
@@ -174,7 +164,6 @@ Provider digests are boundary evidence only; `ContentHash.Of` mints catalogue id
 |  [09]   | `asset.Timestamp`                   | read           | stamped time        |
 
 [DIGEST_AND_VALIDATION_SIGNATURES]:
-
 - `cuttingToolAsset.GenerateHash(bool includeTimestamp = true)` and static `CuttingToolAsset.GenerateHash(asset, includeTimestamp)` compute the asset digest.
 - `CuttingToolLifeCycle.GenerateHash(lifeCycle)`, `CuttingItem.GenerateHash(item)`, and `ToolLife.GenerateHash(toolLife)` compute component digests that never mint identity.
 - `cuttingToolAsset.IsValid(Version mtconnectVersion)` returns `AssetValidationResult`; the boundary reads `.IsValid` and passes `MTConnectVersions.Version24`.
@@ -182,7 +171,6 @@ Provider digests are boundary evidence only; `ContentHash.Of` mints catalogue id
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MODEL_TOPOLOGY]:
-
 - a `CuttingToolAsset : Asset` is the physical tool: `ToolId` (the program tool number space) + `SerialNumber` (the unique instance) + a `CuttingToolLifeCycle` (the in-use state) + optionally a `CuttingToolDefinition` (the ISO-13399 definition body) and a `CuttingToolArchetypeReference` (the shared template)
 - the `CuttingToolLifeCycle` carries the operational state: `CutterStatus` (a SET of `CutterStatusType` with simultaneous `AVAILABLE` and `MEASURED` states), `CuttingItems` (the inserts), `Location` (the magazine slot), `Measurements` (the body-level ISO-13399 geometry), the `ProcessFeedRate`/`ProcessSpindleSpeed` declared envelopes, `ToolLife` (the consumed/limit budget), and `ProgramToolNumber`/`ProgramToolGroup` (the NC program binding)
 - a `CuttingItem` is one insert/edge with its own `Indices`, `Grade`, `ItemLife`, and `Measurements` (the edge-level geometry) — a multi-insert tool body holds several
@@ -190,21 +178,18 @@ Provider digests are boundary evidence only; `ContentHash.Of` mints catalogue id
 - bind domain code to the `I…` interfaces (`ICuttingToolAsset`/`ICuttingToolLifeCycle`/`ICuttingItem`/`IToolingMeasurement`) — the concrete classes are the mutable authoring shapes
 
 [SCOPE_BOUNDARY]:
-
 - this assembly is the full MTConnect information model AND the in-process `MTConnect.Agents.MTConnectAgent` buffer; the fabrication folder consumes ONLY the `MTConnect.Assets.CuttingTools` slice and the `Asset` base — the devices/observations/streams/agent machinery is present but UNCONSUMED here
 - the XML/JSON wire (de)serialization is NOT in this package — `MTConnect.NET-Common` is the model + the `GenerateHash` structural digest + `IsValid` schema validation; round-tripping a `CuttingToolAsset` to the MTConnect XML/JSON wire requires the separate `MTConnect.NET-XML`/`-JSON` packages (not admitted — the fabrication rail holds the model in-memory, not over a wire)
 - the network TRANSPORT (HTTP agent, MQTT broker, SHDR adapter) lives in `MTConnect.NET-HTTP`/`-MQTT`/`-SHDR` — none admitted; the fabrication folder is not an MTConnect endpoint, it consumes the asset MODEL shape
 - the `ProcessFeedRate`/`ProcessSpindleSpeed` and the `Measurements.*` geometry are the SHAPE for feeds/speeds and cutting geometry — the package carries no published numeric feeds/speeds DATASET (the recorded gap), so a real machining-data source must populate the `Nominal`/`Value` fields; the model is the typed container, not the data
 
 [LOCAL_ADMISSION]:
-
 - the `Tooling/magazine` `ToolAssembly` composes a `CuttingToolAsset` as its tool-data model — the holder geometry the `Toolpath/guard` swept-volume reads is the in-folder geometry, the cutting parameters (diameter, corner radius, flute/edge length, feed/speed envelope, tool-life budget) are the `CuttingToolLifeCycle` measurements/process fields
 - the `Magazine` slot map reads the `Location` (`ToolMagazine`/`Turret`/`POT` + overlap) so the minimal-swap tool-change `Schedule` the posting `G43`/`M6` emits is keyed on the real magazine address, not an ad-hoc int
 - a typed cutting-geometry measurement is the named `Measurements.*` subtype (`CuttingDiameterMeasurement`, `CornerRadiusMeasurement`, …), never a `Measurement` with a stringly-set `Type`/`Code`
 - the tool-life budget is `ToolLife { Type, Limit, Warning, Value, CountDirection }` — the toolpath generator reads the remaining life against the `Limit` to decide a mid-program tool change, the `ToolLifeType` selecting minutes/part-count/wear
 
 [INTEGRATION_STACK]:
-
 - content identity seam: `CuttingToolAsset.GenerateHash(includeTimestamp: false)` yields the stable structural digest of a tool definition.
 - federation seam: the structural digest is never a second mint; the durable content key mints through the kernel `ContentHash.Of` seed-zero federation entry, which reaches `XxHash128.HashToUInt128` through itself.
 - second-hasher defect: the cutting-tool catalogue and the `Remnant`/`Stock` lineage share that single federation entry over their own canonical digests; raw `System.IO.Hashing` or raw `GenerateHash` identity mints are forbidden.
@@ -214,7 +199,6 @@ Provider digests are boundary evidence only; `ContentHash.Of` mints catalogue id
 - definition body: the `CuttingToolDefinition` carries a `Format`-tagged `Value` body (a vendor tool-library export — its `FormatType` naming the encoding) — the fabrication folder reads the structured `Measurements`/`CuttingItems` rather than re-parsing the raw `Value` string
 
 [RAIL_LAW]:
-
 - Package: `MTConnect.NET-Common` (centrally pinned, MIT, pure-managed highest-applicable AnyCPU IL; transitive floor `YamlDotNet` + `System.Text.Json` + `System.Buffers` + `System.Runtime.InteropServices.RuntimeInformation`)
 - Owns: the ISO-13399-aligned MTConnect cutting-tool asset MODEL — `CuttingToolAsset`/`CuttingToolLifeCycle`/`CuttingItem`, the typed `Measurements.*` ISO-13399 geometry family, `ToolLife`/`ItemLife`, `Location`, `ProcessFeedRate`/`ProcessSpindleSpeed`, `ReconditionCount`, `CutterStatusType`, the `Asset` base, and the `GenerateHash` structural digest + `IsValid` schema validation
 - Accept: a `CuttingToolAsset` authored through the lifecycle/items/measurements POCOs (bound by `I…` interface), the typed `Measurements.*` subtypes for cutting geometry, the `Location` for the magazine address, the `ToolLife` budget, and the `GenerateHash` structural digest feeding `ContentHash.Of` at the catalogue/persistence seam

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Diagnostics.Tracing.TraceEvent`
-
 - package: `Microsoft.Diagnostics.Tracing.TraceEvent`
 - license: `MIT`
 - assembly: `Microsoft.Diagnostics.Tracing.TraceEvent`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: source and dispatch surfaces
-
 - rail: observability
 - namespace: `Microsoft.Diagnostics.Tracing`; nested namespaces qualify their symbols below
 
@@ -31,12 +29,10 @@
 |  [05]   | `Session.TraceEventSession` | live session  | Windows real-time ETW    |
 
 [DISPATCH_DETAILS]:
-
 - `TraceEventDispatcher.Process()`: pumps events through parser callbacks.
 - `TraceEventSession.EnableProvider(...)` and `.Source`: bind real-time kernel and user providers.
 
 [PUBLIC_TYPE_SCOPE]: parser surfaces
-
 - rail: observability
 - namespace: `Microsoft.Diagnostics.Tracing.Parsers`
 
@@ -47,7 +43,6 @@
 |  [03]   | `DynamicTraceEventParser`        | parser        | dynamic provider events |
 
 [PARSER_DETAILS]:
-
 - `ClrTraceEventParser`: emits typed GC, exception, JIT, and allocation events.
 - `SampleProfilerTraceEventParser`: emits CPU stack samples from the profiler EventPipe provider.
 - `DynamicTraceEventParser`: resolves manifest and `EventSource` providers dynamically.
@@ -55,7 +50,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: stream decode (EventPipe — the AppHost path)
-
 - rail: observability
 
 | [INDEX] | [MEMBER]                                            | [KIND]   | [RETURN]                                                              |
@@ -68,7 +62,6 @@
 |  [06]   | `EventPipeEventSource.Dispose()`                    | resource | `void`                                                                |
 
 [ENTRYPOINT_SCOPE]: post-processing and live ETW (Windows)
-
 - rail: observability
 
 | [INDEX] | [MEMBER]                                                                   | [KIND]      | [RETURN]                                   |
@@ -79,28 +72,24 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TRACEEVENT_TOPOLOGY]:
-
 - the decode idiom is subscribe-then-pump: construct a `TraceEventDispatcher` (`EventPipeEventSource` for nettrace, `ETWTraceEventSource` for `.etl`), register typed callbacks on a parser (`source.Clr.GCHeapStats += e => ...`, `source.Dynamic.All += ...`), then `source.Process()` drives the stream to EOF firing every callback synchronously on the pump thread; the `TraceEvent` record passed to a callback is REUSED per event, so any retained field must be copied (`e.Clone()`).
 - `EventPipeEventSource` decodes nettrace format versions 3-6; it is cross-platform (netstandard2.0) and is the correct decoder for the `EventPipeSession.EventStream` on macOS/Linux/Windows. `ETWTraceEventSource`/`TraceEventSession` are Windows-only ETW paths; the AppHost host-neutral spine uses the EventPipe path and treats live ETW as a Windows-host capture option only.
 - `TraceLog.OpenOrConvert` builds the indexed `.etlx` (call stacks resolved, events time-ordered) when stack-attributed analysis is needed; the streaming `EventPipeEventSource.Process()` path is the low-overhead default for a bounded capture window.
 - GCDUMP BOUNDARY: this assembly ships NO managed-heap-graph reader — `DotNetHeapDumpGraphReader`, `GCHeapDump`, and `MemoryGraph` are absent from every shipped assembly (verified against the restored package). The `.gcdump` graph format has no owner in this catalog; a heap-object-graph artifact routes to its own maintained owner (the `dotnet-gcdump` tool), never a phantom type asserted here. This package owns event-STREAM decode, not heap-GRAPH capture.
 
 [LOCAL_ADMISSION]:
-
 - TraceEvent is the decode half of the support-bundle event artifact: `DiagnosticsClient.StartEventPipeSession` produces the `EventStream`, and `new EventPipeEventSource(stream)` here decodes it; the two compose one `event-trace` `SupportArtifact` row, never two capture paths.
 - the parser/provider selection (CPU sample profiler, GC keywords, exceptions) is policy DATA on the artifact row — the `EventPipeProvider` set passed to `StartEventPipeSession` and the callbacks subscribed here derive from the same row, so a capture profile is one data decision, never a call-site literal.
 - decode runs on a dedicated pump inside the capture window's `DeadlineClass` bound; a malformed or truncated stream ends `Process()` with the partial events already dispatched, folded to `SupportReceipt.Partial` — never a thrown decode exception aborting the bundle, and never a bare `Error.New`.
 - the decoded event summary (GC pause histogram, allocation top-N, exception counts) is written under the redaction/truncation law before it enters the manifest; raw event payloads never cross the wire un-redacted.
 
 [STACK]:
-
 - eventpipe seam: `api-diagnostics-client.md` `EventPipeSession.EventStream` → `new EventPipeEventSource(stream)` → parser callbacks → `Process()` is the single verified capture→decode hand-off; the `event-trace` artifact row binds both catalogs.
 - capture fan: the artifact row owns capture caps and redaction; TraceEvent contributes the decode+summarize step, not a second capture surface.
 - fault band: decode failures land as the typed `SupportFault` case in registry band 4810, the same band as the dump-capture faults.
 - manifest receipt: the decoded summary artifact is one `SupportReceipt` row content-hashed through the kernel `Rasm.Domain.ContentHash.Of` entry (`[V18]`).
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Diagnostics.Tracing.TraceEvent`
 - Owns: ETW/EventPipe event-STREAM decode into typed `TraceEvent` records for the support-bundle event artifact
 - Accept: the `EventPipeSession.EventStream`, a policy-driven parser/provider set, and a bounded pump inside the capture window

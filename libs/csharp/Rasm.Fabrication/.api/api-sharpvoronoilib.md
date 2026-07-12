@@ -7,7 +7,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SharpVoronoiLib`
-
 - package: `SharpVoronoiLib`
 - license: `MIT` ("MIT License, various authors"; `licenseUrl` `github.com/RudyTheDev/SharpVoronoiLib/blob/main/License.md`) — NOT ISC
 - assembly: `SharpVoronoiLib`
@@ -21,7 +20,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the orchestrator and the diagram graph
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]         | [CAPABILITY]               |
@@ -61,7 +59,6 @@
 - Winding: `Start` and `End` orient the edge clockwise for `VoronoiSite.ClockwiseEdgesWound`
 
 [PUBLIC_TYPE_SCOPE]: tessellation / generation / lookup vocabulary (enums)
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]   | [CAPABILITY]        |
@@ -98,7 +95,6 @@
 - Consumer: `VoronoiSiteMergeQuery`
 
 [PUBLIC_TYPE_SCOPE]: pluggable strategies — generation, RNG, merging, nearest-site
-
 - rail: fabrication
 - note: the strategy interfaces let a consumer inject custom site generation, determinism (seeded RNG for reproducible toolpaths), or cell-merge logic. The merge-algorithm interface itself (`ISiteMergingAlgorithm`) is INTERNAL — only the concrete `GenericSiteMergingAlgorithm` is public; merging is normally driven through `VoronoiPlane.MergeSites(VoronoiSiteMergeQuery)`.
 
@@ -119,7 +115,6 @@
 |  [13]   | `VoronoiLibValues`              | constant owner        | coordinate epsilon |
 
 [STRATEGY_DETAIL]:
-
 - `IPointGenerationAlgorithm`: `GenerateRandomSites(amount, algorithm, random)` accepts the custom site-cloud generator
 - `IRandomNumberGenerator`: `double NextDouble()` owns the deterministic draw seam
 - `SeededRandomNumberGenerator`: `(int seed)` produces reproducible stipple and engrave site clouds
@@ -131,7 +126,6 @@
 - `VoronoiLibValues`: `const double epsilon = 1E-12` defines coordinate-comparison tolerance
 
 [PUBLIC_TYPE_SCOPE]: typed faults — `SharpVoronoiLib.Exceptions`
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                                                     | [FAULT]                     |
@@ -149,7 +143,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the stateful pipeline — `VoronoiPlane`
-
 - rail: fabrication
 - note: the canonical flow is `new VoronoiPlane(minX, minY, maxX, maxY)` -> `SetSites(sites)` or `GenerateRandomSites(...)` -> `Tessellate(BorderEdgeGeneration)` -> read `Sites`/`Edges`/`Points` and navigate each cell -> optionally `Relax(...)` / `MergeSites(...)`. Navigation properties throw `VoronoiNotTessellatedException` before `Tessellate`.
 
@@ -167,57 +160,46 @@
 |  [10]   | `TessellateRandomSitesOnce`      | one-shot       | tessellate random sites |
 
 [VORONOI_PLANE]:
-
 - Signature: `VoronoiPlane(double minX, double minY, double maxX, double maxY)`
 - Effect: Binds the clipping and synthesized-border rectangle
 
 [SET_SITES]:
-
 - Signature: `SetSites(List<VoronoiSite> sites)`
 - Effect: Sets the explicit point-site seeds
 
 [GENERATE_RANDOM_SITES_METHOD]:
-
 - Signature: `GenerateRandomSites(int amount, PointGenerationMethod method = Uniform, IRandomNumberGenerator? random = null)`
 - Effect: Generates a uniform or Gaussian site cloud; `SeededRandomNumberGenerator` makes the result reproducible
 
 [GENERATE_RANDOM_SITES_ALGORITHM]:
-
 - Signature: `GenerateRandomSites(int amount, IPointGenerationAlgorithm algorithm, IRandomNumberGenerator? random = null)`
 - Effect: Delegates site creation to a custom generation strategy
 
 [TESSELLATE]:
-
 - Signature: `Tessellate(BorderEdgeGeneration borderGeneration = MakeBorderEdges)`
 - Effect: Runs the Fortune sweep, clips to the border, synthesizes border edges and corners, returns `List<VoronoiEdge>`, and populates `Sites` and `Points`
 
 [RELAX]:
-
 - Signature: `Relax(int iterations = 1, float strength = 1f, bool reTessellate = true)`
 - Effect: Moves each site toward `Centroid` by `strength` and optionally re-tessellates each iteration
 
 [MERGE_SITES]:
-
 - Signature: `MergeSites(VoronoiSiteMergeQuery mergeQuery)`
 - Effect: Folds the predicate over adjacent cells according to `VoronoiSiteMergeDecision`
 
 [GET_NEAREST_SITE_TO]:
-
 - Signature: `GetNearestSiteTo(double x, double y, NearestSiteLookupMethod lookupMethod = KDTree)`
 - Effect: Assigns a point through the bundled kd-tree or a brute-force scan
 
 [TESSELLATE_ONCE]:
-
 - Signature: `static TessellateOnce(List<VoronoiSite> sites, minX, minY, maxX, maxY, BorderEdgeGeneration = MakeBorderEdges)`
 - Effect: Tessellates an explicit site set without retaining an orchestrator
 
 [TESSELLATE_RANDOM_SITES_ONCE]:
-
 - Signature: `static TessellateRandomSitesOnce(int numberOfSites, minX, minY, maxX, maxY, BorderEdgeGeneration = MakeBorderEdges)`
 - Effect: Tessellates a generated site set without retaining an orchestrator
 
 [ENTRYPOINT_SCOPE]: cell navigation — `VoronoiSite` / `VoronoiEdge`
-
 - rail: fabrication
 - note: after `Tessellate`, walk each `VoronoiSite` as a closed cell polygon for toolpath/region generation.
 
@@ -242,14 +224,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DIAGRAM_TOPOLOGY]:
-
 - Coordinates are `double`; the engine is a FLOATING-POINT Fortune sweep with `epsilon = 1E-12` coincidence tolerance. Coincident sites are SKIPPED (counted in `VoronoiPlane.DuplicateCount`, optionally surfacing `VoronoiSiteSkippedAsDuplicateException`), so the consumer pre-dedups or reads `DuplicateCount` to reconcile the input/output site counts.
 - `BorderEdgeGeneration.MakeBorderEdges` is the DEFAULT and the one the CAM rail wants: it clips every cell to the `[MinX,MinY]..[MaxX,MaxY]` rectangle and synthesizes the four border edges + corner `VoronoiPoint`s so EVERY cell is a closed polygon (`Closed == true`) directly machinable. `DoNotMakeBorderEdges` leaves boundary cells open (infinite-ray cells truncated, no synthesized border) — use it only when the border is handled downstream.
 - `VoronoiPoint.BorderLocation` classifies each vertex's border position (`NotOnBorder` for interior vertices, else the clockwise `BottomLeft..Bottom` slot); a cell's `ClockwisePoints` interleaves interior Voronoi vertices and border/corner vertices into the closed ring.
 - `Relax` mutates the plane IN PLACE (re-sites toward centroids and, by default, re-tessellates each iteration); capture the returned edge list per iteration if intermediate states matter. `strength` in [0,1] damps the move (1 = full centroid snap).
 
 [STACKING_LAW]:
-
 - A tessellated, relaxed, or region-merged cell set is the Fabrication CAM partition.
 - Each `ClockwisePoints` ring becomes a `Clipper2` `Path64` or `PathD`, scaled to int64 at `Precision.Digits`, or a `CavalierContours` polyline for arc-native offsetting.
 - `SharpVoronoiLib` produces regions, and the offset and Boolean owners machine them.
@@ -262,7 +242,6 @@
 - A region partition requiring border closure and relaxation uses `SharpVoronoiLib`; an existing mesh requiring its Voronoi dual uses `Triangle`.
 
 [RAIL_LAW]:
-
 - Package: `SharpVoronoiLib` (assembly `SharpVoronoiLib`, with a vendored `Supercluster.KDTree`)
 - Owns: the 2D Fortune's-sweepline point-site Voronoi diagram with border clipping + synthesized border edges (`Tessellate`/`BorderEdgeGeneration`), Lloyd's relaxation (`Relax`), cell merging under a caller predicate (`MergeSites`/`VoronoiSiteMergeQuery`), random uniform/Gaussian site generation with a seeded-RNG determinism seam, kd-tree nearest-site query (`GetNearestSiteTo`), and the fully-navigable cell/edge/vertex graph — all in the `double` domain
 - Accept: the CAM tessellation concern — toolpath region partitioning, spiral-pocket seed centroids, even-spacing region decomposition, and Lloyd-relaxed stipple/engrave/pen-plot site fields, with cells handed to `Clipper2`/`CavalierContours` for machining

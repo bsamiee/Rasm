@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.IO.Hashing`
-
 - package: `System.IO.Hashing`
 - assembly: `System.IO.Hashing`
 - namespace: `System.IO.Hashing`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [HASH_TYPES]: hashing surfaces
-
 - rail: snapshot-identity
 
 | [INDEX] | [SYMBOL]                        | [KIND]             | [WIDTH] | [CAPABILITY]               |
@@ -32,7 +30,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: static one-shot
-
 - rail: snapshot-identity
 
 Width-typed statics live on the concrete algorithm, never on the base; each algorithm exposes only its own width. `XxHash3` exposes `HashToUInt64` (no `HashToUInt32`); `XxHash128` exposes `HashToUInt128`; CRCs expose no 128-bit form. The `seed` overload is `int` on `XxHash32`, `long` elsewhere; CRCs are unseeded.
@@ -48,7 +45,6 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 |  [07]   | `Hash(ReadOnlySpan<byte>, Span<byte>, seed = 0)`                | static `int`     | digest into caller buffer; returns bytes written |
 
 [ENTRYPOINT_SCOPE]: incremental lifecycle (`NonCryptographicHashAlgorithm`)
-
 - rail: snapshot-identity
 
 `Append` accepts span, `byte[]`, or `Stream`; the no-alloc value read is the per-type `GetCurrentHashAsUIntNN`, not a base-level `HashToUIntNN`. `Clone()` (concrete) snapshots running state to fork an independent continuation.
@@ -68,7 +64,6 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IDENTITY_PROFILE]:
-
 - namespace: `System.IO.Hashing`
 - base root: `NonCryptographicHashAlgorithm` is an abstract accumulator (NOT a `Stream`, no public `Write`/`WriteAsync`) — a large payload drains in via `Append(Stream)`/`AppendAsync(Stream)`, which internally copy through a private write-only bridge, so no bytes stage
 - call-shape discriminant: ONE algorithm owns three modes — static one-shot for a buffer in hand, incremental `Append`+`GetCurrentHashAsUIntNN` for a chunked or streamed payload, and `AppendAsync(Stream)` for an async source; selection is the input shape, never a parallel algorithm
@@ -76,7 +71,6 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 - snapshot root: `Clone()` forks a running accumulation so a shared prefix is hashed once and continued into divergent suffixes (per-variant snapshot identity over a common header)
 
 [STACK]:
-
 - Content identity: `ContentHash.Of(ReadOnlySpan<byte>)` applies `XxHash128.HashToUInt128` with seed zero as the single cross-runtime content digest.
 - Projection: The resulting `UInt128` flows directly into content-key values without an intermediate byte allocation.
 - Boundary: `XxHash3.HashToUInt64` remains a process-local non-identity fingerprint and never substitutes for `ContentHash`.
@@ -85,13 +79,11 @@ Width-typed statics live on the concrete algorithm, never on the base; each algo
 - A hashed `Stream` payload (snapshot blob, support bundle) stacks the algorithm as the sink of `hash.AppendAsync(payloadStream, ct)`, threading the same `CancellationToken` the surrounding anyio/Task scope carries
 
 [LOCAL_ADMISSION]:
-
 - Hashing creates non-cryptographic identity, cache, and correlation values only; redaction, security, and tamper evidence use separate declared rails
 - Hash algorithm, output width, seed, and input domain are receipt facts; a snapshot identity cannot hide codec, compression, schema, or retention policy
 - The instance value read is `GetCurrentHashAsUIntNN`; `HashToUIntNN` is the static one-shot — a per-call-site mix of the two over the same algorithm is the named defect (one accumulation owns one finalize)
 
 [RAIL_LAW]:
-
 - Package: `System.IO.Hashing`
 - Owns: non-cryptographic snapshot identity, cache/receipt fingerprints, stream-fed digests
 - Accept: span/array/stream payloads, seeded variants, no-alloc `Try*`/`GetCurrentHashAsUIntNN` reads, `Clone` continuation

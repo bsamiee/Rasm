@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `FFmpeg.AutoGen`
-
 - package: `FFmpeg.AutoGen` (the self-contained meta binding — it ships its OWN generated bindings and dynamic loader; the `FFmpeg.AutoGen.Abstractions` + `FFmpeg.AutoGen.Bindings.*` split is the MAUI-oriented alternative, NOT admitted)
 - license: MIT (expression) — the binding is MIT; the native FFmpeg build carries its own GPL/LGPL license
 - assembly: `FFmpeg.AutoGen`
@@ -86,7 +85,6 @@ The hub resolves FFmpeg shared-library members from `ffmpeg.RootPath`, and `ffmp
 ## [03]-[ENTRYPOINTS]
 
 [ENCODE_PIPELINE]: the ordered libav\* encode fold on `ffmpeg`
-
 - rail: encode
 - Verified `public static` facade methods appear in flythrough-encode order: open, configure, allocate, convert, send, receive, mux, finalize, and release.
 
@@ -134,7 +132,6 @@ The hub resolves FFmpeg shared-library members from `ffmpeg.RootPath`, and `ffmp
 [FINALIZE]: `av_write_trailer` closes the container contract, `avio_closep` closes the sink, and the unref/free surfaces release every native handle.
 
 [RUNTIME_BINDING]: native provisioning + version probe on the hub
-
 - rail: encode
 
 | [INDEX] | [SURFACE]                      | [SURFACE_ROOT]              |
@@ -156,14 +153,12 @@ The hub resolves FFmpeg shared-library members from `ffmpeg.RootPath`, and `ffmp
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ENCODE_LAW]:
-
 - Package: `FFmpeg.AutoGen`
 - Owns: the in-process video-encode deliverable — the libavformat muxer (`avformat_alloc_output_context2`/`avformat_write_header`/`av_interleaved_write_frame`/`av_write_trailer`), the libavcodec H.264 encoder (`avcodec_find_encoder`/`avcodec_alloc_context3`/`avcodec_open2`/`avcodec_send_frame`/`avcodec_receive_packet`), the libswscale RGBA→YUV420P convert (`sws_getContext`/`sws_scale`), and the `AVFrame`/`AVPacket`/`AVCodecContext` model plus the `av_dict_set` x264 option bag.
 - Accept: `Render/capture.md` streams the compositor/path-trace RGBA frames into a single encode owner that fills an `AVFrame` (`av_image_fill_arrays` + `av_frame_make_writable`), converts to YUV420P through the persistent `SwsContext`, stamps `pts` on the encoder time-base, runs the `send_frame`/`receive_packet` loop, rescales with `av_rescale_q`, and muxes to MP4 — the flythrough deliverable; x264 `preset`/`crf`/`profile` are `av_dict_set` policy rows on `avcodec_open2`; `ThrowErrorIfFunctionNotFound = true` makes a missing native symbol a loud fault.
 - Reject: shelling out to an `ffmpeg` CLI process where the in-process bindings own the pipeline; hand-rolling an MP4 muxer or an H.264 bitstream where libavformat/libavcodec own them; a second RGBA→YUV path where `SwsContext` owns the convert; leaking an `AVFrame`/`AVPacket`/`AVCodecContext`/`AVFormatContext` where the `av_*_free`/`avformat_free_context` teardown is mandatory (the unsafe surface has no finalizer); confusing this encode owner with the `libmpv` decode/playback owner — encode-out versus decode-in is the seam.
 
 [STACKING]:
-
 - Complements `api-libmpv.md`: `libmpv` owns media DECODE + on-screen OpenGL render (the Editing MediaSurface); `FFmpeg.AutoGen` owns the ENCODE-out path (the Render capture deliverable). Both bind external FFmpeg-family natives at the app-host distribution layer and never bundle them.
 - Feeds the raster deliverable set: the RGBA ingress is the same compositor output that `api-avalonia-gpu-interop.md` / `api-skiasharp.md` produce; the MP4 output is the motion-deliverable peer to the still-image and vector-PDF exports (`api-pdfsharp.md`).
 

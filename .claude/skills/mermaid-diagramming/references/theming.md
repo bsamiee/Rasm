@@ -31,79 +31,66 @@ Yellow sits at OKLCH `0.89 0.139 90` — true gold, clear of the green-adjacent 
 Every token carries its role on two surfaces at once: the `themeVariables` that spend it diagram-wide and the `classDef` or `linkStyle` rail that spends it per node and per edge. A token holding a role with no rail is unspendable, so every token names both surfaces. Same meaning, same token, across every diagram in a corpus; a role outside this set composes from the nearest listed role, never a new hex.
 
 [BACKGROUND]:
-
 - Role: canvas + bright-fill text
 - Theme carriers: `background`, bright-ordinal `*Label*`, `sequenceNumberColor`
 - Class or rail: `color:#282A36` on every bright translucent class
 
 [DARKER]:
-
 - Role: recessed container + dormant / done + label backing
 - Theme carriers: `clusterBkg`, `compositeBackground`, `tertiaryColor`, `doneTaskBkgColor`, `sectionBkgColor`, `edgeLabelBackground`, `labelBackgroundColor`, `labelBoxBkgColor`, `relationLabelBackground`
 - Class or rail: `recessed` class; recessed label backing
 
 [SELECTION]:
-
 - Role: neutral fill + activation + neutral note
 - Theme carriers: `mainBkg`, `primaryColor`, `actorBkg`, `taskBkgColor`, `noteBkgColor`, `activationBkgColor`, `altBackground`, `compositeTitleBackground`
 - Class or rail: `primary` fill
 
 [COMMENT]:
-
 - Role: secondary rail + muted stroke + neutral-note border
 - Theme carriers: `secondaryColor`, `gridColor`, `noteBorderColor`, `actorLineColor`, `git7`
 - Class or rail: `annotation` stroke; dashed trace rail
 
 [FOREGROUND]:
-
 - Role: label text
 - Theme carriers: every `*TextColor`, `textColor`
 - Class or rail: `color:#F8F8F2` on dark and deep-translucent classes
 
 [CYAN]:
-
 - Role: external system / typed interface
 - Theme carriers: `git2`, `pie2`, `cScale1`, `plotColorPalette`
 - Class or rail: `external` class; external rail
 
 [GREEN]:
-
 - Role: success / executed
 - Theme carriers: `git3`, `pie3`, `cScale2`
 - Class or rail: `success` class; success rail
 
 [LAVENDER]:
-
 - Role: container boundary + container title ink
 - Theme carriers: `clusterBorder`, `compositeBorder`, `titleColor`, `labelBoxBorderColor`, `archGroupBorderColor`
 - Class or rail: the 1px dashed container border and its title, every container family, both skills
 
 [ORANGE]:
-
 - Role: data store / durable fact
 - Theme carriers: `git4`, `pie4`, `cScale3`
 - Class or rail: `data` class; data rail
 
 [PINK]:
-
 - Role: primary control flow + terminus marks
 - Theme carriers: `lineColor`, `arrowheadColor`, `signalColor`, `transitionColor`, `todayLineColor`
 - Class or rail: `primary` stroke; default rail; arrowheads, pseudostate discs, terminal rings, lollipop rings
 
 [PURPLE]:
-
 - Role: node ownership border / focus
 - Theme carriers: `nodeBorder`, `primaryBorderColor`, `actorBorder`, `taskBorderColor`, `activationBorderColor`, `git0`
 - Class or rail: `boundary` stroke; solid on nodes, never on containers
 
 [RED]:
-
 - Role: error / rejection / forbidden
 - Theme carriers: `critBkgColor`, `critBorderColor`, `git5`, `pie6`, `cScale5`
 - Class or rail: `error` class; error rail on every fault edge
 
 [YELLOW]:
-
 - Role: payload / literal / tag / attention note
 - Theme carriers: `tagLabelBackground`, `git6`, `pie7`, `cScale6`, class-diagram `noteBkgColor`
 - Class or rail: `payload` class; payload rail; class-note chip; gitgraph tag; treeview highlight; railroad terminal — every carrier translucent gold under Foreground ink

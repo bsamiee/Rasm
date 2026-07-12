@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grasshopper2` 'installed Rhino WIP Grasshopper 2 SDK'
-
 - assembly: `Grasshopper2.dll` from the managed `Grasshopper2Plugin.rhp` payload
 - namespace: `Grasshopper2.Parameters.Special`
 - adjacent namespaces: `Grasshopper2.Data`, `Grasshopper2.Parameters`, `Grasshopper2.Types.Colour`, `Grasshopper2.UI`, `GrasshopperIO`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES_AND_CONSTRUCTION]
 
 [CONSTRUCTION_SCOPE]: value inputs
-
 - rail: public constructors
 - note: every row also exposes a public `#ctor(IReader)` deserialization constructor.
 
@@ -30,7 +28,6 @@
 |  [07]   | `ColourSwatchObject` | `Parameter<Colour>` | `()`; `(string userName, Colour colour, string palette = null, bool discrete = false)` |
 
 [CONSTRUCTION_SCOPE]: editors, samplers, pickers, and lists
-
 - rail: public constructors
 - note: `params Complex[]` is the declared final parameter of `ComplexPickerObject`; every row also exposes a public `#ctor(IReader)` constructor.
 
@@ -51,7 +48,6 @@
 |  [13]   | `ValueListObject`      | `Parameter`                  | `()`                                                |
 
 [CONSTRUCTION_SCOPE]: data, utility, and routing objects
-
 - rail: public constructors
 - note: every row exposes `()` and `(IReader reader)` as its complete public constructor set.
 
@@ -69,7 +65,6 @@
 ## [03]-[PUBLIC_STATE]
 
 [STATE_SCOPE]: value inputs
-
 - rail: public members
 - note: access is stated explicitly because several properties expose mutable host objects while withholding a property setter.
 
@@ -95,7 +90,6 @@
 `ButtonObject(IPear up, IPear down)` accepts null pears; a null pear leaves the corresponding tree unset, and a null `down` selects `ButtonAction.Single`. `ValueObject.AssignTextAndValue` normalizes null or empty text to `Text == string.Empty` and `Value == null`. `TextInputObject.Values` returns an empty array rather than null, and `Contents` reads as an empty string when its backing value is null. `ColourSwatchObject` rejects a null constructor colour, while `SetColour` accepts a null colour at runtime.
 
 [STATE_SCOPE]: editors and samplers
-
 - rail: public members
 - note: reference values accepted as `null` are normalized by the installed implementation where stated.
 
@@ -117,7 +111,6 @@
 `GradientEditorObject.Interaction` normalizes null to the `Matter` interaction. `FunctionEditorObject.Editor` is a read-only property carrying a mutable editor. `MaterialEditorObject.Material` replaces null lazily with a default material. `ImageSamplerObject.ImageUri` and `DisplayImage` are nullable; public image mutation is URI based.
 
 [STATE_SCOPE]: pickers and lists
-
 - rail: public members
 - note: selected preset names and list values use distinct public mutation surfaces.
 
@@ -138,7 +131,6 @@
 `ValueListObject.Items` exposes value/meta pears only. The installed `ValueListItem` carrier is internal, `Set(ValueListItem[], bool)` is internal, and `RepairSelection()` is private. The SDK therefore has no public item-list replacement surface; public code can inspect items and mutate selection only.
 
 [STATE_SCOPE]: data and utility objects
-
 - rail: public members
 
 | [INDEX] | [TYPE]               | [MEMBERS]                                                              | [ACCESS]        |
@@ -157,7 +149,6 @@
 `TimerObject.TargetIds` returns an empty array rather than `null`, while `Targets` omits unresolved identifiers and yields no values when the timer has no document. `PathMapperObject.Notation` normalizes `null` to an empty string. `TreeViewerObject.DisplayGradient` is nullable. In the installed build, `DataRecorderObject.IsEmpty` evaluates `_buckets.Count > 0`; its returned value is therefore true when recorded buckets exist despite the member name and XML summary.
 
 [STATE_SCOPE]: connection routing
-
 - rail: public members
 
 | [INDEX] | [TYPE]   | [MEMBERS]                                                   | [ACCESS]        |

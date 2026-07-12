@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Thinktecture.Runtime.Extensions.MessagePack`
-
 - package: `Thinktecture.Runtime.Extensions.MessagePack`
 - assembly: `Thinktecture.Runtime.Extensions.MessagePack`
 - bound asset: `lib/net8.0` for `net10.0` consumers
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: resolver and formatter surface
-
 - rail: wire-messagepack
 
 | [INDEX] | [SYMBOL]                                                            | [KIND]       | [CAPABILITY]             |
@@ -30,7 +28,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resolver registration and lookup
-
 - rail: wire-messagepack
 
 | [INDEX] | [SURFACE]                                       | [KIND]      | [CAPABILITY]                 |
@@ -42,7 +39,6 @@
 |  [05]   | `CompositeResolver.Create`                      | composition | orders resolver precedence   |
 
 [ENTRYPOINT_SCOPE]: formatter operation
-
 - rail: wire-messagepack
 
 | [INDEX] | [FORMATTER]                                                         | [OPERATION]   | [CAPABILITY]          |
@@ -55,24 +51,20 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RESOLVER_TOPOLOGY]:
-
 - Compose `ThinktectureMessageFormatterResolver.Instance` ahead of the standard/source-generated MessagePack fallback so generated owners resolve through Thinktecture metadata first.
 - `GetFormatter<T>()` returns `null` for types that are not Thinktecture-generated owners or that must be skipped because an explicit `[MessagePackFormatter]` owns them.
 - Reference owners route through `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`; value-type owners route through `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>`.
 
 [GENERATOR_HANDSHAKE]:
-
 - The formatter family depends on `Thinktecture.Runtime.Extensions` metadata, generated `Validate`, generated `ToValue`, and validation-error contracts. It does not declare generated owners itself.
 - The MessagePack bridge and the STJ bridge are sibling adapters over one generated owner model. Use transport requirements to choose JSON or binary MessagePack; do not duplicate owner types.
 
 [LOCAL_ADMISSION]:
-
 - A MessagePack wire profile registers one resolver chain. Per-type generated-owner formatters are derived by the resolver and cache, not hand-authored beside each value object or smart enum.
 - Keep the neuecc `MessagePack` engine catalogue in `api-messagepack.md`; this page owns only the Thinktecture bridge package.
 - A type carrying an explicit `[MessagePackFormatter]` is skipped by resolver policy so the explicit formatter remains the owner.
 
 [RAIL_LAW]:
-
 - Package: `Thinktecture.Runtime.Extensions.MessagePack`
 - Owns: MessagePack resolver and formatter projection for Thinktecture-generated owners.
 - Accept: `ThinktectureMessageFormatterResolver.Instance` in a `CompositeResolver`, generated-owner key serialization, generated validation on read, and resolver deferral for non-generated or explicitly formatted types.

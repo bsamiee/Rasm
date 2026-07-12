@@ -5,7 +5,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: host assembly `Grasshopper2`
-
 - package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
 - assembly: `Grasshopper2`
 - namespace: `Grasshopper2.UI.Animation`
@@ -17,7 +16,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: animation value vocabulary
-
 - namespace: `Grasshopper2.UI.Animation`
 - rail: host-grasshopper
 
@@ -36,7 +34,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 |  [09]   | `IAnimatedStroke` | interface     | one animated-path stroke            |
 
 [PUBLIC_TYPE_SCOPE]: the IFlexControl seam
-
 - namespace: `Grasshopper2.UI.Flex`, `Grasshopper2.UI`
 - rail: host-grasshopper
 
@@ -51,7 +48,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 |  [05]   | `ZoomThreshold`    | struct    | animated zoom threshold          |
 
 [PUBLIC_TYPE_SCOPE]: response dispatch
-
 - namespace: `Grasshopper2.UI.Flex`
 - rail: host-grasshopper
 
@@ -65,7 +61,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: Animated<T> construction and evaluation
-
 - namespace: `Grasshopper2.UI.Animation`
 - rail: host-grasshopper
 
@@ -78,7 +73,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 |  [05]   | `Animated<T>.Motion` / `State` / `ValueNow` | properties        | curve, lifecycle, current value |
 
 [ENTRYPOINT_SCOPE]: easing and typed animators
-
 - namespace: `Grasshopper2.UI.Animation`
 - rail: host-grasshopper
 
@@ -90,7 +84,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 |  [04]   | `Animators.Unfinished`         | `(from, to, Duration, Motion)` per typed overload   | an animating typed `Animated<T>`              |
 
 [ENTRYPOINT_SCOPE]: AnimatedPath feedback factories
-
 - namespace: `Grasshopper2.UI.Animation`
 - rail: host-grasshopper
 
@@ -103,7 +96,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 |  [05]   | `AnimatedPath.Draw`                           | four overloads | time-parameterized draw |
 
 [ENTRYPOINT_SCOPE]: IFlexControl coordinate, navigation, and redraw seam
-
 - namespace: `Grasshopper2.UI.Flex`
 - rail: host-grasshopper
 
@@ -121,7 +113,6 @@ The Grasshopper2 flex/animation substrate splits generic value interpolation (`G
 |  [10]   | `FloatingButtons`                               | property        | floating-button collection |
 
 [ENTRYPOINT_SCOPE]: response dispatch
-
 - namespace: `Grasshopper2.UI.Flex`
 - rail: host-grasshopper
 
@@ -139,7 +130,6 @@ Each handler returns a `Response`; the relay forms thread a caller handler throu
 ## [04]-[IMPLEMENTATION_LAW]
 
 [FLEX_TOPOLOGY]:
-
 - two namespaces, one seam: `Grasshopper2.UI.Animation` is generic value interpolation and `Grasshopper2.UI.Flex` is control projection + dispatch; they meet where `IFlexControl.Animate` consumes an `Animated<T>`
 - `Animated<T>` is a two-state curve: `CreateUnfinished(from, to, span, motion, interpolate)` animates and `CreateFinished` holds a settled value; `Evaluate(DateTime)` samples, `State` reports `Pending`/`Busy`/`Finished`, and `Chain` appends the next leg
 - `MotionEquations.Blend(Motion, double)` is the single easing evaluator every `Animated<T>` and `Animators` factory routes through; `Motion` is the closed nine-kind easing vocabulary and `Duration` the five-step named span
@@ -148,20 +138,17 @@ Each handler returns a `Response`; the relay forms thread a caller handler throu
 - `AnimatedPath` models a named feedback-stroke set with time-parameterized `Draw` — the notice/overlay glyph the canvas and chrome compose
 
 [STACKING]:
-
 - `api-thinktecture-runtime-extensions.md`(`.api/api-thinktecture-runtime-extensions.md`): `Motion`, `Duration`, `State`, and `Response` lower onto `SmartEnum` owners; the easing kind and dispatch verdict become closed generated vocabularies
 - `api-languageext.md`(`.api/api-languageext.md`): a `Response`-returning handler folds through a `Fin`-shaped verdict, `ScheduleRedraw`/`Animate` ride `Eff`, `Animated<T>.Evaluate` yields a pure sample, and the responsive registry is a `Seq`/`HashMap`
 - `api-unicolour.md`(`.api/api-unicolour.md`): `Animators.Finished`/`Unfinished(Color, …)` blends the `Eto.Drawing.Color` endpoints in a perceptual space
 - Rasm kernel: the easing/interpolation math the host `Motion` enum names composes the kernel motion owner (`MotionInterpolation`), never a second in-folder easing derivation
 
 [LOCAL_ADMISSION]:
-
 - animation enters through `Animated<T>` + `Animators`; pacing is `MotionEquations.Blend`, never a hand-rolled tween loop
 - redraw is `IFlexControl.ScheduleRedraw`; there is no host repaint-request or subscription object to carry it
 - coordinate conversion is `IFlexControl.Map`; a parallel content/control transform is the deleted form
 
 [RAIL_LAW]:
-
 - Package: `Grasshopper2` (host assembly)
 - Owns: the `IFlexControl` coordinate/redraw/navigation seam, the animation value vocabulary, the easing evaluator, `Animated<T>`, `AnimatedPath` feedback factories, and the response mouse/key/text dispatch family
 - Accept: value animation, viewport navigation, coordinate mapping, redraw scheduling, responsive registration, event dispatch

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.WebGPU`
-
 - package: `Silk.NET.WebGPU`
 - package: `Silk.NET.WebGPU.Native.WGPU` (native `wgpu_native` runtime, RID-fanned)
 - license: MIT (expression)
@@ -21,7 +20,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and device lifecycle owners
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]   | [TYPE_FAMILY]   | [RAIL]                        |
@@ -34,7 +32,6 @@
 |  [06]   | `Surface`  | native handle   | swapchain present target      |
 
 [PUBLIC_TYPE_SCOPE]: resource and pipeline owners
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY] | [RAIL]                    |
@@ -56,7 +53,6 @@
 |  [15]   | `SurfaceTexture`     | struct        | per-frame swapchain image |
 
 [PUBLIC_TYPE_SCOPE]: descriptor and enum value carriers
-
 - rail: visuals
 
 | [INDEX] | [SYMBOL]                                   | [KIND]       | [RAIL]                    |
@@ -96,7 +92,6 @@
 |  [33]   | `QueryType`                                | enum         | query family              |
 
 [DESCRIPTOR_FIELDS]:
-
 - `InstanceDescriptor`: instance creation options.
 - `RequestAdapterOptions`: power preference and compatible surface.
 - `DeviceDescriptor`: requested limits and features.
@@ -105,7 +100,6 @@
 - `QuerySetDescriptor`: timestamp and pipeline-statistics query sets.
 
 [ENUM_VALUES]:
-
 - `TextureFormat`: surface and texture pixel formats.
 - `PresentMode`: swapchain present modes.
 - `BackendType`: D3D12, Vulkan, Metal, OpenGL, and WGPU.
@@ -115,7 +109,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: API root and instance creation
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                                                  | [SURFACE_ROOT] | [RAIL]                 |
@@ -131,7 +124,6 @@
 |  [09]   | `DeviceSetUncapturedErrorCallback / DevicePushErrorScope / DevicePopErrorScope`            | `WebGPU`       | validation error scope |
 
 [ENTRYPOINT_SCOPE]: surface, swapchain, and present
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT] | [RAIL]              |
@@ -144,7 +136,6 @@
 |  [06]   | `SurfaceGetCapabilities(Surface*, Adapter*, SurfaceCapabilities*)` | `WebGPU`       | format/mode query   |
 
 [ENTRYPOINT_SCOPE]: command recording and submission
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                                 | [SURFACE_ROOT] | [RAIL]                |
@@ -159,7 +150,6 @@
 |  [08]   | `QueueWriteBuffer / QueueWriteTexture`                                    | `WebGPU`       | host-to-GPU upload    |
 
 [ENTRYPOINT_SCOPE]: resource and pipeline creation
-
 - rail: visuals
 
 | [INDEX] | [SURFACE]                                                          | [SURFACE_ROOT] | [RAIL]                |
@@ -172,7 +162,6 @@
 |  [06]   | `DeviceCreateBindGroup(Device*, BindGroupDescriptor*)`             | `WebGPU`       | bind group            |
 
 [ENTRYPOINT_SCOPE]: timing and pipeline-statistics queries
-
 - rail: evidence
 
 The core query set admits `QueryType.Timestamp` and `QueryType.Occlusion`.
@@ -192,7 +181,6 @@ The core query set admits `QueryType.Timestamp` and `QueryType.Occlusion`.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [WEBGPU_TOPOLOGY]:
-
 - `WebGPU.GetApi()` returns the function-table root; every native call is an instance method on that `WebGPU` object taking raw pointers to descriptor structs — Silk.NET binds the C `webgpu.h` surface directly, so a call site marshals `Span<T>`/`stackalloc` descriptor structs and passes pointers, never a managed wrapper object.
 - The lifecycle is `Instance` -> `Adapter` (async request through a callback) -> `Device` + `Queue` -> resources; the adapter/device requests complete through native callbacks that Silk.NET surfaces as `PfnRequestAdapterCallback`/`PfnRequestDeviceCallback` delegate pointers.
 - `Surface` is created by `InstanceCreateSurface(instance, surfaceDescriptor)` where the `SurfaceDescriptor.NextInChain` carries the platform-source struct for the window handle — `SurfaceDescriptorFromMetalLayer` (a `CAMetalLayer` from `Platforms.MacOS.NSWindow`), `SurfaceDescriptorFromWindowsHWND`, `SurfaceDescriptorFromXlibWindow`/`…FromWaylandSurface`/`…FromXcbWindow`, or `…FromAndroidNativeWindow` — then configured with a `SurfaceConfiguration` (format, present mode, usage, width, height); each frame `SurfaceGetCurrentTexture` yields a `SurfaceTexture` whose `Texture` is viewed, rendered into through a `RenderPassEncoder`, and presented through `SurfacePresent`. The Avalonia path imports the rendered texture through `ICompositionGpuInterop.ImportImage` (`api-avalonia-gpu-interop.md`) rather than presenting a swapchain beside Avalonia's.
@@ -210,13 +198,11 @@ The core query set admits `QueryType.Timestamp` and `QueryType.Occlusion`.
 - Measure: the resolved per-pass GPU duration is the measured timeline beside the encoder-projected CPU duration, never a busy-wait fence.
 
 [LOCAL_ADMISSION]:
-
 - All native handles (`Instance`, `Adapter`, `Device`, `Queue`, `Surface`, `Buffer`, `Texture`, pipelines, encoders) are released through their matching `XxxRelease`/`XxxDestroy` native call, not `IDisposable` — the owning boundary capsule pairs create-and-release in a `using`-equivalent scoped fold.
 - `Silk.NET.WebGPU.Native.WGPU` supplies the native `wgpu_native` runtime for win-x64/win-arm64/linux-x64/linux-arm64/osx-x64/osx-arm64 — the one native asset this binding P/Invokes. There is no admitted Dawn package; `BackendType` selects D3D12/Vulkan/Metal under `wgpu_native`, and the wgpu-native-only entrypoints (poll, log, indirect multi-draw, push-constants) come from `Silk.NET.WebGPU.Extensions.WGPU` (`api-silk-webgpu-wgpu.md`), a second function-table view over the same runtime.
 - The WebGPU surface integrates with Avalonia 12 through the compositor GPU-interop seam (`api-avalonia-gpu-interop.md`): the wgpu-rendered texture imports into a `CompositionDrawingSurface` through `ICompositionGpuInterop.ImportImage`, never a second swapchain composited beside Avalonia's.
 
 [RAIL_LAW]:
-
 - Package: `Silk.NET.WebGPU` (+ `Silk.NET.WebGPU.Native.WGPU`, with the `Silk.NET.WebGPU.Extensions.WGPU` vendor surface as the second function-table view)
 - Owns: the managed `wgpu_native` binding — instance/adapter/device lifecycle, feature/limit negotiation, surface-from-window-handle and swapchain, buffer/texture/sampler allocation, WGSL shader compile, render/compute pipeline create, command recording, queue submission, error-scope validation, and timestamp query timing for the `Wgpu` `GpuBackend` family.
 - Accept: raw-pointer descriptor calls on the `WebGPU.GetApi()` function-table root; `InstanceCreateSurface` with a platform-source `next` chain; feature/limit query before device request; error-scope-bracketed validation into the receipt sink; native-handle scoped create-and-release pairs at the boundary capsule; texture import into the Avalonia compositor via `ICompositionGpuInterop.ImportImage`.

@@ -5,7 +5,6 @@ The Grasshopper2 `Canvas` is the document-hosting `ControlObject` that renders t
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: host assembly `Grasshopper2`
-
 - package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
 - assembly: `Grasshopper2`
 - namespace: `Grasshopper2.UI.Canvas`
@@ -18,7 +17,6 @@ The Grasshopper2 `Canvas` is the document-hosting `ControlObject` that renders t
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: canvas control, paint arguments, and action policy
-
 - namespace: `Grasshopper2.UI.Canvas`
 - rail: host-grasshopper
 
@@ -32,7 +30,6 @@ The Grasshopper2 `Canvas` is the document-hosting `ControlObject` that renders t
 |  [04]   | `CanvasActions`                  | policy     | 13 gates and two wire predicates             |
 
 [PUBLIC_TYPE_SCOPE]: wire geometry, snapping, and alignment
-
 - namespace: `Grasshopper2.UI.Canvas`
 - rail: host-grasshopper
 
@@ -45,7 +42,6 @@ The Grasshopper2 `Canvas` is the document-hosting `ControlObject` that renders t
 |  [05]   | `SnappingSettings`    | policy | rules and feedback derivation           |
 
 [PUBLIC_TYPE_SCOPE]: skinning and sparkle overlays
-
 - namespace: `Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Sparkles`
 - rail: host-grasshopper
 
@@ -60,7 +56,6 @@ The Grasshopper2 `Canvas` is the document-hosting `ControlObject` that renders t
 |  [07]   | `ISparkle`      | seam    | public custom-overlay contract             |
 
 [PUBLIC_TYPE_SCOPE]: composed flex seam
-
 - namespace: `Grasshopper2.UI.Flex`
 - rail: host-grasshopper
 
@@ -71,7 +66,6 @@ The Grasshopper2 `Canvas` is the document-hosting `ControlObject` that renders t
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the eight ordered paint events
-
 - namespace: `Grasshopper2.UI.Canvas`
 - rail: host-grasshopper
 
@@ -85,7 +79,6 @@ The four layers paint in fixed order — background, groups, wires, objects — 
 |  [04]   | `Canvas.BeforePaintObjects` / `AfterPaintObjects`       | `event CanvasPaintEventArgs`           | fences the object-capsule layer  |
 
 [ENTRYPOINT_SCOPE]: picking, capture, and bitmap
-
 - namespace: `Grasshopper2.UI.Canvas`
 - rail: host-grasshopper
 
@@ -101,7 +94,6 @@ The four layers paint in fixed order — background, groups, wires, objects — 
 |  [06]   | `Canvas.DocumentChanged` / `DocumentModified` | events           | document and dirty-state facts |
 
 [ENTRYPOINT_SCOPE]: hosted editors, window-select gates, and snap axes
-
 - namespace: `Grasshopper2.UI.Canvas`
 - rail: host-grasshopper
 
@@ -113,7 +105,6 @@ The four layers paint in fixed order — background, groups, wires, objects — 
 |  [04]   | `Canvas.SkinLit` / `SkinDim` / `Skin` | properties | lit, dimmed, active palettes |
 
 [ENTRYPOINT_SCOPE]: WireShape geometry
-
 - namespace: `Grasshopper2.UI.Canvas`
 - rail: host-grasshopper
 
@@ -129,7 +120,6 @@ The four layers paint in fixed order — background, groups, wires, objects — 
 |  [08]   | `WireShapeDefault.CreateSpline` | `(PointF, PointF)` → `BezierF`                 | the default spline curve factory            |
 
 [ENTRYPOINT_SCOPE]: snapping and alignment
-
 - namespace: `Grasshopper2.UI.Canvas`
 - rail: host-grasshopper
 
@@ -146,7 +136,6 @@ The four layers paint in fixed order — background, groups, wires, objects — 
 |  [09]   | `SnappingSettings.With*`                           | derivation    | rule and feedback variants |
 
 [ENTRYPOINT_SCOPE]: skin interpolation and sparkle draws
-
 - namespace: `Grasshopper2.UI.Skinning`, `Grasshopper2.UI.Sparkles`
 - rail: host-grasshopper
 
@@ -162,7 +151,6 @@ The four layers paint in fixed order — background, groups, wires, objects — 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CANVAS_TOPOLOGY]:
-
 - the paint pipeline is four layers in fixed order (background → groups → wires → objects), each fenced by a `Before`/`After` event pair; a hook attaches to the pair, and the phase is the event, never a `CanvasPaintPhase` enum
 - picking is a two-surface contract: `DrawPickMap` renders the offscreen id buffer, `ResolvePick(point, …gates)` reads it back with per-category admission
 - every paint arg carries `Canvas` + `Skin` + `Graphics`; the skin rows (`SkinLit`/`SkinDim`/`Skin`) supply the interpolated palette and `Graphics` is the `Eto.Drawing` target
@@ -172,20 +160,17 @@ The four layers paint in fixed order — background, groups, wires, objects — 
 - skin interpolation is value-parametric: `Skin.Interpolate`/`WireSkin.Interpolate` blend at a parameter and `WireSkin.ResolveColours` emits the wire end-colour pair by state
 
 [STACKING]:
-
 - `api-gh2-flex.md`(`.api/api-gh2-flex.md`): the `IFlexControl` seam owns projection (`Map`), navigation (`Navigate`), window-select (`BeginWindowSelect`/`EndWindowSelect`), responsive registration, redraw scheduling (`ScheduleRedraw`), and `Animate`; the canvas composes it and holds no parallel viewport transform
 - `api-languageext.md`(`.api/api-languageext.md`): `ResolvePick` lands as `Option<Pick>`, paint hooks and pick reads ride `Eff`/`Fin`, and the snap candidates fold as a `Seq<SnappingAction>` reduced through `SmallerMagnitude`
 - `api-thinktecture-runtime-extensions.md`(`.api/api-thinktecture-runtime-extensions.md`): `WireShape.ShapeType` and the sparkle set lower onto a `SmartEnum`/`Union`, and `CanvasActions` is a `ValueObject` policy record
 - `api-unicolour.md`(`.api/api-unicolour.md`): `Skin.Interpolate` and `WireSkin.ResolveColours` blend in a perceptual space, crossing the `Eto.Drawing.Color` pen boundary at the edge
 
 [LOCAL_ADMISSION]:
-
 - the canvas surface is admitted only through the host `Canvas`/`Flex` seam; a paint hook attaches to the eight `Canvas` events, never a re-derived phase enum
 - `WireShape`/`Skin`/`Sparkle` are composed as host types; a parallel in-folder wire route, palette, or overlay is the deleted form
 - perceptual blending and easing math compose the Rasm kernel motion/colour owner, never a second in-folder derivation
 
 [RAIL_LAW]:
-
 - Package: `Grasshopper2` (host assembly)
 - Owns: the canvas paint pipeline, pick-map resolution, wire-route geometry, snapping/alignment, skin interpolation, sparkle overlays, canvas-hosted inline/value editors
 - Accept: paint-event composition, pick resolution, window selection, wire/skin rendering, snap solving

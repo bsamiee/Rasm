@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grpc.AspNetCore`
-
 - package: `Grpc.AspNetCore` (meta-package; no DLL assets, `lib/<tfm>/_._`)
 - license: Apache-2.0
 - transitive bundle (net10.0 dependency group): `Grpc.AspNetCore.Server.ClientFactory`
@@ -30,7 +29,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: in-process channel + stub invocation — source: `Grpc.Net.Client` / `Grpc.Core.Api`
-
 - rail: grpc
 
 | [INDEX] | [SYMBOL]             | [SOURCE]          | [TYPE_FAMILY]   | [CAPABILITY]                |
@@ -44,7 +42,6 @@
 |  [07]   | `CallOptions`        | `Grpc.Core.Api`   | call options    | per-call policy             |
 
 [PUBLIC_TYPE_SCOPE]: in-process server handler — source: `Microsoft.AspNetCore.TestHost`
-
 - rail: grpc
 
 | [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [CAPABILITY]            |
@@ -56,7 +53,6 @@
 |  [05]   | `TestServerOptions`               | server options      | request feature policy  |
 
 [PUBLIC_TYPE_SCOPE]: grpc-web in-process wrapping — source: `Grpc.Net.Client.Web`
-
 - rail: grpc
 
 `GrpcWebMode.GrpcWeb` selects binary framing, and `GrpcWebMode.GrpcWebText` selects base64 text framing.
@@ -67,7 +63,6 @@
 |  [02]   | `GrpcWebMode`    | enum          | framing-mode choice |
 
 [PUBLIC_TYPE_SCOPE]: server hosting options — source: `Grpc.AspNetCore.Server` (transitive)
-
 - rail: grpc
 
 `GrpcServiceOptions<TService>` derives from `GrpcServiceOptions`. `InterceptorCollection` derives from `Collection<InterceptorRegistration>`, and `GrpcServiceEndpointConventionBuilder` implements `IEndpointConventionBuilder`.
@@ -81,7 +76,6 @@
 |  [05]   | `GrpcServiceEndpointConventionBuilder` | endpoint builder    | endpoint conventions |
 
 [PUBLIC_TYPE_SCOPE]: server-side grpc-web middleware — source: `Grpc.AspNetCore.Web` (direct admission)
-
 - rail: grpc
 
 | [INDEX] | [SYMBOL]                                     | [TYPE_FAMILY]      | [CAPABILITY]       |
@@ -93,7 +87,6 @@
 |  [05]   | `DisableGrpcWebAttribute`                    | endpoint metadata  | opt-out marker     |
 
 [PUBLIC_TYPE_SCOPE]: gRPC health service — source: `Grpc.AspNetCore.HealthChecks` (direct admission)
-
 - rail: grpc
 
 | [INDEX] | [SYMBOL]                                         | [TYPE_FAMILY]     | [CAPABILITY]          |
@@ -108,7 +101,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: in-process channel construction
-
 - rail: grpc
 
 | [INDEX] | [SURFACE]                                                                    | [ENTRY_FAMILY]  | [CAPABILITY]                     |
@@ -135,7 +127,6 @@
 |  [20]   | `GrpcChannel.Dispose()`                                                      | disposal        | channel teardown                 |
 
 [ENTRYPOINT_SCOPE]: in-process server lifecycle (`Microsoft.AspNetCore.TestHost`)
-
 - rail: grpc
 
 | [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY]  | [OUTPUT]             | [CAPABILITY]         |
@@ -160,7 +151,6 @@
 |  [03]   | `BaseAddress`              | `Uri`  | get/set  | client base address    |
 
 [ENTRYPOINT_SCOPE]: grpc-web in-process wrapping (`Grpc.Net.Client.Web`)
-
 - rail: grpc
 
 | [INDEX] | [SURFACE]                                                               | [ENTRY_FAMILY] | [CAPABILITY]         |
@@ -170,7 +160,6 @@
 |  [03]   | `GrpcWebHandler.GrpcWebMode`                                            | property       | framing-mode control |
 
 [ENTRYPOINT_SCOPE]: server hosting registration + options
-
 - source: `Grpc.AspNetCore.Server` (transitive) surface
 - rail: grpc
 
@@ -214,7 +203,6 @@ Every `GrpcEndpointRouteBuilderExtensions` row extends `IEndpointRouteBuilder` a
 |  [02]   | `Add`               | `Type interceptorType` | `params object[] args` |
 
 [ENTRYPOINT_SCOPE]: server-side grpc-web middleware
-
 - source: `Grpc.AspNetCore.Web` surface
 - rail: grpc
 
@@ -230,7 +218,6 @@ Every `GrpcEndpointRouteBuilderExtensions` row extends `IEndpointRouteBuilder` a
 `GrpcWebOptions.DefaultEnabled` (`bool`, get/set) selects the default for endpoints without explicit opt-in or opt-out metadata.
 
 [ENTRYPOINT_SCOPE]: gRPC health service
-
 - source: `Grpc.AspNetCore.HealthChecks` surface
 - rail: grpc
 
@@ -281,7 +268,6 @@ Every `GrpcEndpointRouteBuilderExtensions` row extends `IEndpointRouteBuilder` a
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IN_PROCESS_PATTERN] — canonical in-process gRPC test wiring (all admitted packages):
-
 1. Stand up the server with `Microsoft.AspNetCore.TestHost`: `new HostBuilder().ConfigureWebHost(web => web.UseTestServer().Configure(app => { app.UseRouting();
 app.UseEndpoints(e => e.MapGrpcService<TService>()); }).ConfigureServices(s => s.AddGrpc()))`, then `host.Start()` and `TestServer server = host.GetTestServer()`.
 2. `HttpMessageHandler handler = server.CreateHandler()` (concrete `ClientHandler`, no TCP socket).
@@ -293,24 +279,20 @@ app.UseEndpoints(e => e.MapGrpcService<TService>()); }).ConfigureServices(s => s
 - grpc-web: wrap once — `HttpHandler = new GrpcWebHandler(GrpcWebMode.GrpcWeb, server.CreateHandler())`.
 
 [SERVER_SURFACE_CONSTRAINT]:
-
 - `Grpc.AspNetCore` has zero DLL assets; `AddGrpc`, `MapGrpcService<T>`, `GrpcServiceOptions`, and interceptor registration (`InterceptorCollection.Add<TInterceptor>`) live in `Grpc.AspNetCore.Server.dll`, pulled in transitively via `Grpc.AspNetCore.Server.ClientFactory`.
 - the server compression axis is `GrpcServiceOptions.CompressionProviders` (`IList<ICompressionProvider> { get; set; }`) — the server-side mirror of the client `GrpcChannelOptions.CompressionProviders`; both register the same `Grpc.Net.Common` provider rows (`gzip`/`deflate`). `GrpcServiceOptions.ResponseCompressionAlgorithm` selects the default response encoding; per-write `WriteOptions.NoCompress` overrides it.
 - in-process surface types in §2/§3 are member against `Grpc.Net.Client`, `Grpc.Core.Api`, `Microsoft.AspNetCore.TestHost`, and `Grpc.Net.Client.Web`; the server-hosting, grpc-web-middleware, and health-service members are member against the consumer-bound `lib/net10.0` `Grpc.AspNetCore.Server.dll`, `Grpc.AspNetCore.Web.dll`, and `Grpc.AspNetCore.HealthChecks.dll`.
 
 [SERVER_GRPC_WEB] — server-side grpc-web translation (`Grpc.AspNetCore.Web`):
-
 - `app.UseGrpcWeb()` (after `UseRouting`, before `UseEndpoints`) installs `GrpcWebMiddleware`, which unframes `application/grpc-web[-text]` requests into HTTP/2 gRPC and re-frames responses; a browser or `Grpc.Net.Client.Web` `GrpcWebHandler` client speaks grpc-web against the same service.
 - opt-in is per-endpoint by default: `endpoints.MapGrpcService<T>().EnableGrpcWeb()` adds `EnableGrpcWebAttribute` metadata; `GrpcWebOptions.DefaultEnabled = true` flips the default so every service is grpc-web-enabled and `.DisableGrpcWeb()` opts a single endpoint out.
 - the server middleware is the inbound counterpart of the client `GrpcWebHandler` (§2 grpc-web in-process wrapping): one grpc-web framing contract, server-decode and client-encode.
 
 [HEALTH_SERVICE] — gRPC `Health` service (`Grpc.AspNetCore.HealthChecks` → transitive `Grpc.AspNetCore.Server` + `Grpc.HealthCheck`):
-
 - `services.AddGrpcHealthChecks()` registers the `grpc.health.v1.Health` `HealthServiceImpl` (from the transitive `Grpc.HealthCheck`) as a singleton, registers `GrpcHealthChecksPublisher` as an `IHealthCheckPublisher` (the bridge that pushes `Microsoft.Extensions.Diagnostics.HealthChecks` results into the gRPC health protocol), and calls `services.AddHealthChecks()`; `endpoints.MapGrpcHealthChecksService()` maps the `Check`/`Watch` endpoint.
 - the default registration maps the empty-string service name to every health check; narrow it with `options.Services.Map("compute.v1.Solver", ctx => ctx.Tags.Contains("solver"))` so a per-service health probe reports `SERVING` only when the matching tagged checks are healthy — `HealthCheckMapContext` carries the registered check `Name`/`Tags`. `UseHealthChecksCache` serves the last published snapshot instead of re-running checks on every probe.
 
 [STACKING] — single dense remote/wire rail with sibling Compute libs:
-
 - contracts compile with `Grpc.Tools` (build-only) from `.proto`; `Google.Protobuf` owns the `IMessage` wire types the stubs serialize. `NodaTime.Serialization.Protobuf` round-trips `Instant`/`Duration`/`LocalDate` through `google.protobuf.Timestamp`/`Duration` so Compute time fields cross the wire without bespoke converters.
 - payload sizing: `Microsoft.IO.RecyclableMemoryStream` backs large request/response buffers; lift `GrpcChannelOptions.MaxReceiveMessageSize`/`MaxSendMessageSize` for mesh/tensor payloads that exceed the 4 MB gRPC default rather than chunking by hand.
 - resilience/telemetry: `GrpcChannelOptions.ServiceConfig` carries the retry/hedging policy and `LoggerFactory` threads the channel into the Compute logging/OTel surface.
@@ -318,7 +300,6 @@ app.UseEndpoints(e => e.MapGrpcService<TService>()); }).ConfigureServices(s => s
 - health + grpc-web on the same host: `MapGrpcHealthChecksService()` and `app.UseGrpcWeb()` compose on the same `AddGrpc()` host as the Compute services; the health publisher reflects the Compute `Microsoft.Extensions.Diagnostics.HealthChecks` registrations into `grpc.health.v1` without a bespoke status DTO, and grpc-web exposes the identical services to a browser/`GrpcWebHandler` client.
 
 [LOCAL_ADMISSION]:
-
 - Compute test projects stand up gRPC servers with `UseTestServer()` and consume `TestServer.CreateHandler()`; no real network is required and `WebApplicationFactory` is not used.
 - `GrpcChannelOptions.HttpHandler` (or `HttpClient`) is the sole injection point for the in-process handler; do not subclass `GrpcChannel`.
 - generated stubs take a `Grpc.Core.Api` `CallInvoker` or `ChannelBase`; build them from `GrpcChannel.CreateCallInvoker()`.
@@ -327,7 +308,6 @@ app.UseEndpoints(e => e.MapGrpcService<TService>()); }).ConfigureServices(s => s
 - the gRPC health surface is `AddGrpcHealthChecks()` + `MapGrpcHealthChecksService()`; service-name mapping uses `GrpcHealthChecksOptions.Services.Map(name, ctx => …)` over `HealthCheckMapContext`, never a hand-rolled health proto — the `Microsoft.Extensions.Diagnostics.HealthChecks` registrations are the single source of health truth.
 
 [RAIL_LAW]:
-
 - Package: `Grpc.AspNetCore` (meta) + `Grpc.AspNetCore.Web` + `Grpc.AspNetCore.HealthChecks` (direct)
 - Owns: the gRPC ASP.NET server-hosting rail — `AddGrpc`/`GrpcServiceOptions`/`MapGrpcService<T>` (transitive `Grpc.AspNetCore.Server`), server-side grpc-web translation (`UseGrpcWeb`), and the gRPC `Health` service (`AddGrpcHealthChecks`/`MapGrpcHealthChecksService`)
 - Server options: `AddGrpc(o => o.CompressionProviders…/ResponseCompressionAlgorithm/MaxReceiveMessageSize/ Interceptors.Add<T>())`; `AddServiceOptions<TService>` for per-service overrides

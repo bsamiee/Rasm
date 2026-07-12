@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ReactiveUI.Validation`
-
 - package: `ReactiveUI.Validation`
 - license: `MIT`
 - assembly: `ReactiveUI.Validation`
@@ -70,7 +69,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [RULE_ENTRYPOINTS]: validation rule operations
-
 - rail: validation-ui
 
 | [INDEX] | [SURFACE]              | [SURFACE_ROOT]                   | [RAIL]                    |
@@ -92,7 +90,6 @@
 [OBSERVE_FOR]: `ObserveFor<TVM,TProp>(expr, bool strict = true)` returns `IObservable<IList<IValidationState>>`.
 
 [CONTEXT_ENTRYPOINTS]: context and component operations
-
 - rail: validation-ui
 
 | [INDEX] | [SURFACE]                                                  | [SURFACE_ROOT]         | [RAIL]                            |
@@ -104,7 +101,6 @@
 |  [05]   | `ValidationStatusChange` (`IObservable<IValidationState>`) | `IValidationComponent` | per-component change stream       |
 
 [BINDING_ENTRYPOINTS]: view and helper binding operations
-
 - rail: validation-ui
 
 | [INDEX] | [SURFACE]                                                      | [SURFACE_ROOT]             | [RAIL]                         |
@@ -121,7 +117,6 @@
 [VALIDATION_HELPER]: `Message` carries `IValidationText`.
 
 [TEXT_ENTRYPOINTS]: text and formatter operations
-
 - rail: validation-ui
 
 | [INDEX] | [SURFACE]        | [SURFACE_ROOT]                | [RAIL]             |
@@ -145,7 +140,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [VALIDATION_LAW]:
-
 - Package: `ReactiveUI.Validation`
 - Owns: observable input validation — the `ValidationContext` component aggregator, the polymorphic `ValidationRule` registrar, `IValidationText` typed messages, `IValidationState` change streams, and `BindValidation` view projection
 - Stacks: the AppUi forms rail lifts each `FormField` rule into the suite-wide `Validation<Error,T>` applicative so independent field errors accumulate rather than short-circuit, then feeds the all-valid fold into the `Gate` context-validity stream the command table reads; the `ValidationContext.Valid` stream and `IsValid<TViewModel>()` join command availability through a `CommandIntent` gated on the valid fold, and `IValidationText` is the one validation vocabulary panels, companion windows, sidecars, and diagnostics share
@@ -153,14 +147,12 @@
 - Reject: detached validation bags; a second per-view validation scheme beside the one `Validation<Error,T>` lift
 
 [AOT_TRIM_LAW]:
-
 - Package: `ReactiveUI.Validation`
 - Owns: the expression-tree rule path — `ValidationRule`/`ClearValidationRules`/`BindValidation` carry `[RequiresDynamicCode]` + `[RequiresUnreferencedCode]` because they route through ReactiveUI `WhenAnyValue` expression trees
 - Accept: under the AppUi `net10.0` desktop posture (JIT) the expression-tree rules resolve normally; a future trimmed/AOT publish must preserve the validated members or shift those rules to the observable (`IObservable<TValue>`) `ValidationRule` overloads that avoid expression trees
 - Reject: assuming the property-expression `ValidationRule` overloads are trim-safe; silently trimming validated view-model members
 
 [TEXT_LAW]:
-
 - Package: `ReactiveUI.Validation`
 - Owns: validation text as typed `IValidationText` data (`SingleValidationText`/`ArrayValidationText` under `.Collections`), not freeform string side channels; `ValidationText.None`/`Empty` are the canonical empty sentinels and `SingleLineFormatter.Default` is the default line projection
 - Accept: panels, companion windows, sidecars, diagnostics, and support views share one validation vocabulary projected through `IValidationTextFormatter<T>`

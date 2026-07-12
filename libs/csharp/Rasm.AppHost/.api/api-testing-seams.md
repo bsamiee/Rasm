@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.TimeProvider.Testing`
-
 - package: `Microsoft.Extensions.TimeProvider.Testing`
 - assembly: `Microsoft.Extensions.TimeProvider.Testing`
 - namespace: `Microsoft.Extensions.Time.Testing`
@@ -13,7 +12,6 @@
 - rail: testing seams
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Diagnostics.Testing`
-
 - package: `Microsoft.Extensions.Diagnostics.Testing`
 - assembly: `Microsoft.Extensions.Diagnostics.Testing`
 - namespace: `Microsoft.Extensions.Logging.Testing`
@@ -23,7 +21,6 @@
 - rail: testing seams
 
 [PACKAGE_SURFACE]: `NodaTime.Testing`
-
 - package: `NodaTime.Testing`
 - assembly: `NodaTime.Testing`
 - namespace: `NodaTime.Testing`
@@ -35,7 +32,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: deterministic time family
-
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]      | [CAPABILITY]                              |
@@ -44,7 +40,6 @@
 |  [02]   | `FakeClock`        | `IClock` fake       | programmable NodaTime instant source      |
 
 [PUBLIC_TYPE_SCOPE]: log capture family
-
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]                                | [PACKAGE_ROLE]    | [CAPABILITY]                     |
@@ -58,7 +53,6 @@
 |  [07]   | `FakeLoggerBuilderExtensions`           | builder extension | logging builder registration     |
 
 [PUBLIC_TYPE_SCOPE]: metric capture family
-
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]                  | [PACKAGE_ROLE]    | [CAPABILITY]                         |
@@ -68,7 +62,6 @@
 |  [03]   | `MeasurementExtensions`   | query extension   | tag filtering and counter evaluation |
 
 [PUBLIC_TYPE_SCOPE]: NodaTime fake zone family
-
 - rail: testing seams
 
 | [INDEX] | [SYMBOL]                       | [PACKAGE_ROLE]     | [CAPABILITY]                    |
@@ -82,7 +75,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: time control
-
 - rail: testing seams
 
 | [INDEX] | [SURFACE]           | [CALL_SHAPE]                   | [CAPABILITY]                           |
@@ -97,7 +89,6 @@
 |  [08]   | `Reset`             | `Instant` value                | rebases the fake clock                 |
 
 [ENTRYPOINT_SCOPE]: log and metric capture
-
 - rail: testing seams
 
 | [INDEX] | [SURFACE]                     | [CALL_SHAPE]                            | [CAPABILITY]                      |
@@ -117,7 +108,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SEAM_TOPOLOGY]:
-
 - restore scope: all three packages restore under the AppHost test closure only
 - time seam: `FakeTimeProvider` substitutes the runtime `TimeProvider` contract; `FakeClock` substitutes NodaTime `IClock`
 - log seam: `FakeLogger` implements `ILogger` and `IBufferedLogger`; the collector owns record retention and filtering
@@ -125,14 +115,12 @@
 - zone seam: fake zone sources and transition zones script `DateTimeZone` behavior
 
 [LOCAL_ADMISSION]:
-
 - Testing seams never enter production composition; production code depends on `TimeProvider` and `IClock` contracts.
 - Deterministic spring and scheduling specs drive time exclusively through fake advancement.
 - Log and metric assertions read captured snapshots, never sink output text.
 - Zone-sensitive specs construct scripted zones instead of depending on tzdb contents.
 
 [RAIL_LAW]:
-
 - Packages: `Microsoft.Extensions.TimeProvider.Testing`, `Microsoft.Extensions.Diagnostics.Testing`, `NodaTime.Testing`
 - Owns: deterministic test substitutes for time, logging, metrics, and zones
 - Accept: contract-shaped fakes injected at test composition

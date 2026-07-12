@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenTelemetry`
-
 - package: `OpenTelemetry`
 - assembly: `OpenTelemetry`
 - api_assembly: `OpenTelemetry.Api`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider and resource family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]     | [RAIL]                |
@@ -33,7 +31,6 @@
 |  [10]   | `BaseProvider`          | provider base     | provider lifetime     |
 
 [PUBLIC_TYPE_SCOPE]: processor exporter and reader family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY]      | [RAIL]                 |
@@ -52,7 +49,6 @@
 |  [12]   | `MetricReaderOptions`            | reader options     | reader policy          |
 
 [PUBLIC_TYPE_SCOPE]: signal model family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]   | [RAIL]                   |
@@ -75,7 +71,6 @@
 |  [16]   | `LogRecordAttributeList`     | log attributes  | log attribute payload    |
 
 [PUBLIC_TYPE_SCOPE]: context and propagation family
-
 - rail: telemetry
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]       | [RAIL]                  |
@@ -93,7 +88,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: provider builder operations
-
 - rail: telemetry
 
 Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
@@ -119,7 +113,6 @@ Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
 |  [17]   | `Build`                                       | provider factory      | provider construction   |
 
 [ENTRYPOINT_SCOPE]: signal operations
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]    | [RAIL]                  |
@@ -138,7 +131,6 @@ Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
 |  [12]   | `MetricReader.ForceFlush`    | metric drain      | reader flush            |
 
 [ENTRYPOINT_SCOPE]: processor exporter and propagation operations
-
 - rail: telemetry
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]     | [RAIL]              |
@@ -157,13 +149,11 @@ Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
 |  [12]   | `GetBaggage`                           | baggage access     | ambient lookup      |
 
 [BAGGAGE_ADMISSION]:
-
 - sequence: `Baggage.Current` receives inbound baggage after `Extract`
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TELEMETRY_TOPOLOGY]:
-
 - namespaces: `OpenTelemetry`, `OpenTelemetry.Trace`, `OpenTelemetry.Metrics`, `OpenTelemetry.Logs`, `OpenTelemetry.Resources`
 - context namespaces: `OpenTelemetry.Context`, `OpenTelemetry.Context.Propagation`
 - signal rails: traces, metrics, logs
@@ -176,7 +166,6 @@ Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
 - sampling rail: `AlwaysOnSampler`, `AlwaysOffSampler`, `ParentBasedSampler(Sampler root[, remote/local sampled/notSampled])`, `TraceIdRatioBasedSampler(double probability)`, set through `SetSampler` on the tracer-provider builder
 
 [LOCAL_ADMISSION]:
-
 - Runtime code emits signals through provider builders and processor chains.
 - Force-flush and shutdown are drain actions tied to unload receipts.
 - Resource identity is required before provider construction.
@@ -184,7 +173,6 @@ Every `SetSampler` overload binds a `Sampler` to `TracerProviderBuilder`.
 - Projection failures never mutate runtime state directly.
 
 [RAIL_LAW]:
-
 - Package: `OpenTelemetry`
 - Owns: trace and metric provider construction
 - Accept: signals project through providers

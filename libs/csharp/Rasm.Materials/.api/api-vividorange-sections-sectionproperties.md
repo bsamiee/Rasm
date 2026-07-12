@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Sections.SectionProperties`
-
 - package: `VividOrange.Sections.SectionProperties`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.Sections.SectionProperties`
@@ -24,7 +23,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: section-property carriers
-
 - rail: profiles
 
 `SectionProperties` implements `ISectionProperties` over `IProfile` or `ISection`. `ConcreteSectionProperties` extends `SectionProperties` and implements `IConcreteSectionProperties`; its reinforcement members operate over `IConcreteSection`, and its `SectionFace` argument resolves from the admitted `VividOrange.ISections` floor ([01]-[RC_COMPOSITION_PATH]). Both floor contracts live outside this assembly, `ISectionProperties` implements `ITaxonomySerializable`, and `IConcreteSectionProperties` extends `ISectionProperties` with `EffectiveDepth(SectionFace)` and `ReinforcementArea(SectionFace)`.
@@ -37,7 +35,6 @@
 |  [04]   | `IConcreteSectionProperties` | floor contract | reinforcement queries    |
 
 [PUBLIC_TYPE_SCOPE]: static polygon-integral kernels (`.Utility`)
-
 - rail: profiles
 
 The lazy property getters delegate to these `.Utility` static kernels, and a caller can invoke one kernel without constructing a carrier. The integral decomposes the perimeter into `.Utility.Parts` implementations of `IPart`: `TrapezoidalPart` integrates straight edges, while `EllipseQuarterPart` integrates fillets, rounded-rectangle HSS corners, and circular or elliptical edges without polygonization. The internal `ProfileParts` and `PerimeterProfiles` builders expose no consumer-callable surface. `Rebars` accepts admitted `VividOrange.Sections.Reinforcement` and `IConcreteSection` types, so it is directly callable ([01]-[RC_COMPOSITION_PATH]).
@@ -54,7 +51,6 @@ The lazy property getters delegate to these `.Utility` static kernels, and a cal
 |  [08]   | `Rebars`            | RC reinforcement results  |
 
 [KERNEL_CALLS]: each call takes the stated profile or section and returns the stated quantity.
-
 - `Areas`: `CalculateArea(IProfile)` -> `Area`; shoelace integral with void subtraction
 - `Centroids`: `CalculateCentroid(IProfile)` -> `ILocalPoint2d`; first moment divided by area
 - `Inertiae`: `CalculateInertiaYy(IProfile)` / `CalculateInertiaZz(IProfile)` -> `AreaMomentOfInertia`; second moment with parallel-axis transfer
@@ -67,7 +63,6 @@ The lazy property getters delegate to these `.Utility` static kernels, and a cal
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solver construction + properties
-
 - rail: profiles
 
 The carrier evaluates properties lazily; `Centroid` and `Extends` cache their results.
@@ -88,7 +83,6 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
 |  [12]   | `SectionProperties.Extends`                 | property    | `ILocalDomain2d`      | cached bounding extents     |
 
 [ENTRYPOINT_SCOPE]: reinforced-concrete surface (`ConcreteSectionProperties`) — FIRST-CLASS COMPOSABLE ([01]-[RC_COMPOSITION_PATH])
-
 - rail: profiles
 - composition law: every entry below takes an `IConcreteSection`/`SectionFace` from the admitted `VividOrange.Sections`/`ISections` floor (`api-vividorange-sections.md`) — build a `ConcreteSection` (profile + EN material + rebar layers) and construct `new ConcreteSectionProperties(section)`; the same section also feeds the `VividOrange.InteractionDiagram` capacity engine
 
@@ -107,7 +101,6 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
 |  [11]   | `.CrossSectionalShearReinforcementArea`           | property    | `UnitsNet.Area`             | link/stirrup shear area          |
 
 [ENTRYPOINT_SCOPE]: direct kernel calls (single-property, no carrier)
-
 - rail: profiles
 
 | [INDEX] | [SURFACE]                                                 | [RETURN]              | [CAPABILITY]          |
@@ -125,7 +118,6 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SOLVER_ALGEBRA]:
-
 - carrier root: `SectionProperties(IProfile\|ISection)` -> lazy `UnitsNet`-typed property getters
 - concrete extension (FIRST-CLASS COMPOSABLE, [01]-[RC_COMPOSITION_PATH] — the `IConcreteSection`/reinforcement floor is admitted via `VividOrange.Sections`): `ConcreteSectionProperties(IConcreteSection)` -> reinforcement properties + `SectionFace` queries
 - kernel root: the `.Utility` `static` Green's-theorem integrals (`Areas`/`Inertiae`/`SectionModuli`/`Centroids`/`RadiusOfGyrations`/`PerimeterLengths`)
@@ -133,7 +125,6 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
 - output root: `UnitsNet` quantities (`Area`, `Volume`, `AreaMomentOfInertia`, `Length`, `Ratio`) + `ILocalPoint2d`/`ILocalDomain2d` geometry
 
 [POLYGON_INTEGRAL_CONTRACT]:
-
 - The solver is ONE Green's-theorem integral over the `IProfile` perimeter — outer boundary minus void edges, with
   parallel-axis transfer to the elastic centroid — so it runs over ANY closed section (catalogued steel, parametric
   timber/CMU/masonry/composite) without per-family literals. The kernels take `IProfile`, not a shape enum.
@@ -145,7 +136,6 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
   calls the `.Utility` kernel directly (`Areas.CalculateArea(profile)`) without constructing a carrier.
 
 [LOCAL_ADMISSION]:
-
 - The solver is admitted ONLY through the Materials Profiles boundary that computes section properties for the
   family axis; the `IProfile` input and the `UnitsNet` outputs map onto the canonical Profile/section owner at the edge.
 - Properties are read as `UnitsNet` quantities and never reduced to `double` inside an interior signature; an
@@ -154,7 +144,6 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
   `MomentOfInertia` computes it from the perimeter, never from an inline closed-form constant.
 
 [STACK]:
-
 - catalogue seam: `new SectionProperties(CatalogueFactory.CreateAmerican(American.W44x408))`
   (`api-vividorange-profiles-catalogue.md`) — the DATA package produces the `IProfile`, this COMPUTATION package
   consumes it; the two meet at the `IProfile` contract, so one solver computes `Area`/`MomentOfInertiaYy`/
@@ -180,7 +169,6 @@ The carrier evaluates properties lazily; `Centroid` and `Extends` cache their re
   `IPerimeter` (outer polyline + void edges), so user-defined sections compute identically to catalogued ones.
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.Sections.SectionProperties` (MIT, pure-managed AnyCPU, `net10.0` binds `net9.0`, PRE-1.0 contract)
 - Owns: the arbitrary-closed-polygon section-property solver (shoelace/Green's-theorem integral with void
   subtraction + parallel-axis transfer) over any `IProfile`, the `SectionProperties`/`ConcreteSectionProperties`

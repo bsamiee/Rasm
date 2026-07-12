@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `OpenCAMLib`
-
 - package: `OpenCAMLib` (vendored — no NuGet artifact; the `extern "C"` shim + `[LibraryImport]` bindings compile into `Rasm.Fabrication`, the RID-keyed SHARED `libocl` rides `vendor/runtimes` through the folder `.csproj`'s `Exists`-gated `Content` group, LFS-carried, outside NuGet restore)
 - license: `LGPL-2.1` — dynamic-link P/Invoke through the separate replaceable `libocl.dylib`/`.so`/`.dll` satisfies §6; `libocl` stays dynamically linked, never statically folded into the shim
 - assembly: managed `Rasm.Fabrication` P/Invoke shim (source-generated `[LibraryImport]`); no managed assembly ships upstream
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: milling-cutter hierarchy — the `CutterForm` axis map
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]  | [CAPABILITY]                                                                    |
@@ -34,7 +32,6 @@
 |  [11]   | `ConeConeCutter` | composite      | `ConeConeCutter(diameter, angle1, majorLength, angle2)` → `CutterForm.Compound` |
 
 [PUBLIC_TYPE_SCOPE]: geometry primitives — flat-buffer marshalling
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]   | [CAPABILITY]                                                                |
@@ -53,7 +50,6 @@
 |  [12]   | `Interval`/`Fiber` | push-cutter     | fiber-intersection interval + fiber (`BatchPushCutter`/`Waterline`)         |
 
 [PUBLIC_TYPE_SCOPE]: operations — the shared `ocl::Operation` lifecycle
-
 - rail: fabrication
 
 | [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]     | [CAPABILITY]                                              |
@@ -71,7 +67,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: shared operation lifecycle — every `Operation` subclass
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY] | [CAPABILITY]                                          |
@@ -84,7 +79,6 @@
 |  [06]   | `getCLPoints()`                      | output         | cutter-location result cloud (`std::vector<CLPoint>`) |
 
 [ENTRYPOINT_SCOPE]: drop-cutter Z-sampling — `BatchDropCutter` / `PathDropCutter` / `AdaptivePathDropCutter`
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                                           | [ENTRY_FAMILY] | [CAPABILITY]                                       |
@@ -98,7 +92,6 @@
 |  [07]   | `getCalls()` / `setBucketSize`/`getBucketSize`      | tuning         | KD-tree bucket + call-count instrumentation        |
 
 [ENTRYPOINT_SCOPE]: waterline extraction — `Waterline` / `AdaptiveWaterline`
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                     | [ENTRY_FAMILY] | [CAPABILITY]                                             |
@@ -111,7 +104,6 @@
 |  [06]   | `reset()`                     | reset          | clear fibers/loops for re-run                            |
 
 [ENTRYPOINT_SCOPE]: push-cutter fibers — `BatchPushCutter`
-
 - rail: fabrication
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY] | [CAPABILITY]                                  |
@@ -124,14 +116,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SHIM_ABI]:
-
 - The exported C++ ABI is mangled and by-reference (`STLSurf&`/`CLPoint&`/`std::vector<CLPoint>`); a managed `[LibraryImport]` binds ONLY through the `extern "C"` C-shim — ~18-24 flat functions, all blittable: opaque `void*` handles for `Operation`/`MillingCutter`/`STLSurf`, and flat `double[]` buffers for triangle vertices and CL-points
 - The shim mirrors the `ocl::Operation` lifecycle: `ocl_op_create(kind)` → `ocl_op_set_stl(op, double* tris, int nTris)` → `ocl_op_set_cutter(op, cutterHandle)` → `ocl_op_set_sampling`/`ocl_op_set_threads` → `ocl_op_run(op)` → `ocl_op_get_clpoints(op, double* out, int* n)` → `ocl_op_destroy(op)`; the `MillingCutter` ctor map is `ocl_cutter_cyl(d, l)`/`ocl_cutter_ball(d, l)`/`ocl_cutter_bull(d, r, l)`/`ocl_cutter_cone(d, angle, l)`/composite variants — one shim ctor per `CutterForm` row
 - `libocl` stays a separate dynamically-linked SHARED archive (LGPL-2.1 §6); NEVER static-fold it into the shim; two admission routes doubly cover the RID matrix — consume the shipped SHARED archives OR build `libocl`+shim from source per RID (`BUILD_CXX_LIB=ON`), Forge-provisioned like the kernel Z3 precedent
 - The Boost.Python binding files (`ocl_cutters.cpp`/`ocl_dropcutter.cpp`/`ocl_algo.cpp`/`ocl_geometry.cpp`) are the exact member-by-member shim blueprint — Boost.Python, NOT pybind11/emscripten; the shim re-exports exactly the members those files expose
 
 [LOCAL_ADMISSION]:
-
 - `Toolpath/surface#SurfacePath.Sample` owns cutter POSITIONING through this engine: the `CutterForm` axis picks the `MillingCutter` ctor at the P/Invoke edge (`CylCutter`/`BallCutter`/`BullCutter`/`ConeCutter`/`Comp…`), and the `MeshSpace` triangle buffer marshals to `setSTL`
 - The strategy row picks the operation: waterline roughing → `Waterline`/`AdaptiveWaterline` `getLoops`, drop-cutter finishing → `BatchDropCutter`/`PathDropCutter` `getCLPoints`, adaptive-error → `AdaptivePathDropCutter` `setCosLimit`
 - Path LAYOUT is NEVER this engine's: geodesic-parallel/constant-stepover isolines, flowline/morph streamlines, and flank/swarf cross-field orientation compose the kernel on-mesh machinery (`geodesics.md`/`extract.md`/`flow.md`/`segment.md`); OCL owns only the Z-height/contact sampling AT the laid-out sample points — a Fabrication-side on-mesh re-implementation is the forbidden `[V2]` defect
@@ -140,7 +130,6 @@
 - Golden-fixture gated: the shim + native asset admit only against a committed cutter-location golden fixture per RID (the LGPL native-engine admission gate)
 
 [RAIL_LAW]:
-
 - Package: `OpenCAMLib` (vendored SHARED native, LGPL-2.1 dynamic-link)
 - Owns: exact 3-axis cutter-location geometry — drop-cutter Z-sampling, push-cutter fibers, waterline Z-level loops — for arbitrary `MillingCutter` forms against a triangle mesh
 - Accept: a `MeshSpace` triangle buffer + a `CutterForm` row + a `SurfaceStrategy` from `Toolpath/surface`, marshalled through the `extern "C"` shim

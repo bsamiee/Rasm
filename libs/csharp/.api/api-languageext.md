@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `LanguageExt.Core`
-
 - package: `LanguageExt.Core` (; license MIT)
 - assembly: `LanguageExt.Core` (`lib/net10.0`)
 - namespace: `LanguageExt`, `LanguageExt.Common` (`Error`), `LanguageExt.Traits` (`K<F, A>` + type classes)
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: result, validation, and effect rails
-
 - rail: functional substrate
 
 | [INDEX] | [SYMBOL]                       | [SHAPE]                         | [CAPABILITY]                                   |
@@ -33,7 +31,6 @@
 |  [10]   | `Pure<A>` / `Fail<E>`          | polymorphic lift carriers       | rail-agnostic success and failure literals     |
 
 [PUBLIC_TYPE_SCOPE]: collections and state
-
 - rail: functional substrate
 
 | [INDEX] | [SYMBOL]                                   | [SHAPE]                         | [CAPABILITY]                        |
@@ -46,7 +43,6 @@
 |  [06]   | `Atom<A>`                                  | lock-free CAS cell              | `Value`, `Swap`, `SwapIO`, `Change` |
 
 [PUBLIC_TYPE_SCOPE]: trait system (`LanguageExt.Traits`)
-
 - rail: functional substrate
 
 | [INDEX] | [SYMBOL]                      | [KIND]      | [CAPABILITY]                             |
@@ -60,7 +56,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `Fin` construction, matching, and conversion
-
 - rail: functional substrate
 
 | [INDEX] | [SURFACE]                                          | [SHAPE]    | [CAPABILITY]                  |
@@ -76,7 +71,6 @@
 |  [09]   | implicit lifts / `operator \|`                     | conversion | first-success alternative     |
 
 [ENTRYPOINT_SCOPE]: `Option`, `Validation`, and `Error`
-
 - rail: functional substrate
 
 `Validation.Match` binds `Fail` FIRST (`Match<B>(Func<F, B> Fail, Func<A, B> Succ)`) — the mirror image of `Fin.Match`; positional lambdas that assume success-first are the named defect.
@@ -94,7 +88,6 @@
 |  [09]   | `Error.Is` / `IsType` / `HasCode` / `Filter`          | instance   | classification and egress    |
 
 [ENTRYPOINT_SCOPE]: `Try`, `Eff`, `IO` — the deferred tiers
-
 - rail: functional substrate
 
 | [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                    |
@@ -109,7 +102,6 @@
 |  [08]   | `IO.Fork` / `Timeout` / `RepeatUntil` / `RetryUntil` | instance  | structured scheduled execution  |
 
 [ENTRYPOINT_SCOPE]: `Seq` — construction, transform, and the INDEXED-MAP argument-order law
-
 - rail: functional substrate
 
 The instance and module indexed maps take their lambda arguments in OPPOSITE order: `Seq<A>.Map<B>(Func<A, int, B> f)` is `(value, index)`; the module `Seq.map<A, B>(Seq<A> list, Func<int, A, B> map)` is `(index, value)`. Kernel pages compose the INSTANCE form — `points.Map((p, i) =>...)` — so a mechanical rewrite to the module spelling silently transposes the arguments.
@@ -129,7 +121,6 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 |  [11]   | no `FindIndex`                                    | absence   | compose indexed `Map` and `Choose`  |
 
 [ENTRYPOINT_SCOPE]: `Arr`, `HashMap`, `Atom`, `Iterable`, prelude gates, and the applicative fan-in
-
 - rail: functional substrate
 
 | [INDEX] | [SURFACE]                                            | [SHAPE]   | [CAPABILITY]                     |
@@ -146,7 +137,6 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 ## [04]-[IMPLEMENTATION_LAW]
 
 [RAIL_TOPOLOGY]:
-
 - one result rail: domain operations return `Fin<A>`; `Fin.Succ`/`Fin.Fail` are the only success/failure spellings, and `Error` (usually a domain `Fault` record deriving it) is the only failure payload
 - accumulation is a mode switch, not a second rail: independent gates lift `.ToValidation`, fan in through the tuple `.Apply(...)`, and exit `.ToFin` — `Validation<Error, A>` exists exactly between those two conversions
 - deferral tiers: `Try.lift(...).Run()` traps a throwing boundary into `Fin<A>` synchronously; `Eff`/`IO` defer the same shape for composed/async execution and land on `Fin<A>` at `Run()` — the tier is chosen by WHEN the effect runs, never by which failure type it carries
@@ -154,20 +144,17 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 - `Match` argument order is per-rail law: `Fin.Match(Succ, Fail)` but `Validation.Match(Fail, Succ)` — named lambdas (`Succ:`, `Fail:`) make the transposition impossible
 
 [COLLECTION_TOPOLOGY]:
-
 - `Seq<A>` is the default ordered carrier crossing rail seams (`Fin<Seq<A>>`); `Arr<A>` is the indexed/random-access carrier built by collection expressions; `Iterable<A>` is the lazy LINQ seam that materializes via `ToSeq()`
 - lookups are `Option`-shaped: `HashMap.Find`, `Seq.Head`/`Last` — an indexer or `First()` that can throw is the deleted form
 - the indexed enumerate is the INSTANCE `Map((value, index) =>...)`; module `Seq.map` transposes to `(index, value)` and is not interchangeable
 - `Atom<A>.Swap` owns shared mutable state — a `lock` block around an immutable-collection swap re-implements it
 
 [TRAIT_TOPOLOGY]:
-
 - `K<F, A>` is the seam that makes `Apply`/`Traverse`/`Bind` rail-generic; concrete code re-lands with the family `.As()` immediately — trait-shaped values do not travel through domain signatures
 - `Traverse` inverts effect and shape (`Seq<Fin<A>> → Fin<Seq<A>>` via `Traverse(identity)`-shaped calls); a hand-rolled loop that folds a result list with early-exit re-implements it
 - `Error: Monoid<Error>` is why `Validation<Error, A>` accumulates: `+`/`Combine` join failures into one carrier that `Head`/`Tail`/`Count` re-enumerate
 
 [STACK]:
-
 - boundary trap → rail: `Try.lift(() => hostCall()).Run()` is the one spelling that moves a throwing host/native call onto `Fin<A>`; catching and re-wrapping by hand is the deleted form
 - null-gate: `Optional(candidate).ToFin(error)` admits a nullable in one expression — `candidate is null ? Fin.Fail...: Fin.Succ...` is its re-derivation
 - accumulate-then-exit: `(gateA.ToValidation(), gateB.ToValidation()).Apply(static (a, b) => shape(a, b)).As().ToFin()` reports every failed gate in one verdict, then rejoins the short-circuit rail
@@ -175,13 +162,11 @@ The instance and module indexed maps take their lambda arguments in OPPOSITE ord
 - alternatives: `Fin`'s `operator \|` takes the first success (fallback chains); `Validation`'s `operator \|` accumulates — pick by whether the failures must survive
 
 [LOCAL_ADMISSION]:
-
 - Rails, collections, and traits are composed directly — no local `Result<T>`/`Maybe<T>`/`Either` re-mints, no wrapper that renames `Fin` members
 - Domain failure types derive `Error` (record inheritance) so they ride `Fin`/`Validation` natively; a parallel exception hierarchy beside the rail is the deleted form
 - `using static LanguageExt.Prelude;` is assumed in rail code — `Some`/`None`/`Optional`/`guard`/`Seq`/`toSeq`/`unit`/`Atom` are unqualified vocabulary
 
 [RAIL_LAW]:
-
 - Package: `LanguageExt.Core`
 - Owns: the typed error rail (`Fin`), accumulating validation (`Validation`), presence (`Option`), deferred/effectful execution (`Try`/`Eff`/`IO`), failure vocabulary (`Error`), immutable collections (`Seq`/`Arr`/`HashMap`/`Set`/`Lst`/`Iterable`), lock-free state (`Atom`), and the trait system that unifies them
 - Accept: `Fin<A>`-returning domain operations, `Validation` fan-ins that exit `.ToFin()`, `Try.lift(...).Run()` boundary traps, `Seq`/`Arr` carriers across seams, `Option`-shaped lookups, `guard(...).ToFin()` admission gates

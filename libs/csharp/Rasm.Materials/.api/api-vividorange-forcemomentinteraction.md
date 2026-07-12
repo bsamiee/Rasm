@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.ForceMomentInteraction`
-
 - package: `VividOrange.ForceMomentInteraction`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.ForceMomentInteraction`
@@ -23,7 +22,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the N-M-M capacity-hull concrete; every class implements its matching `api-vividorange-iforcemomentinteraction.md` floor. `ForceMomentMesh` carries vertices, triangular faces, index topology, render brush, and the topology kernel. `ForceMomentVertex.X`, `.Y`, and `.Z` carry `Force`, `Torque`, and `Torque`; `TextureCoordinate` carries `ICoordinate`. `ForceMomentTriFace` binds A/B/C and lazily computes its mean `Center` and Heron `Ratio` `Area`.
-
 - rail: profiles
 
 | [INDEX] | [SYMBOL]             | [PACKAGE_ROLE] | [CAPABILITY]                     |
@@ -35,7 +33,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `ForceMomentVertex` construction — the unit-typed (N, My, Mz) capacity point
-
 - rail: profiles
 - normalization law: the `(Force x, Torque y, Torque z)` ctors RE-EXPRESS `z` into `y.Unit` so My and Mz share one
   torque unit; the `(double, double, double, ForceUnit, TorqueUnit)` ctor is the raw-scalar form the engine uses
@@ -54,7 +51,6 @@
 |  [08]   | `ForceMomentVertex.TextureCoordinate`                                        | property     | render texture `ICoordinate` |
 
 [ENTRYPOINT_SCOPE]: `ForceMomentMesh` construction + the topology kernel
-
 - rail: profiles
 - note: the engine constructs `new ForceMomentMesh(vertices, faces)` from the hull; a consumer that holds the mesh
   drives the topology kernel below to extract edges/outlines for rendering or to flip winding for a viewer.
@@ -80,7 +76,6 @@
 |  [15]   | `mesh.Opacity`                                                               | property        | `double` render opacity               |
 
 [ENTRYPOINT_SCOPE]: `ForceMomentTriFace` — the lazily computed facet
-
 - rail: profiles
 - facet law: A/B/C are read-only boundary vertices. `Center` memoizes their coordinate mean, and `Area` memoizes their Heron-formula `UnitsNet` `Ratio` meshing weight.
 
@@ -96,7 +91,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [HULL_ALGEBRA]:
-
 - vertex root: `ForceMomentVertex` — a `(Force X, Torque Y, Torque Z)` carrier; the `(Force, Torque, Torque)` ctors
   normalize `Z` into `Y.Unit` so the two moment axes are unit-consistent. `AddVertex<V>` is polymorphic over any
   `ICartesian3d<Force, Torque, Torque>`, so the engine's vertices and a user-supplied point append identically.
@@ -108,7 +102,6 @@
   renderable-mesh surface a viewer consumes.
 
 [TOPOLOGY_CONTRACT]:
-
 - `GetOuterEdges` returns edges referenced by exactly ONE face — for a CLOSED capacity onion this is empty; on an
   open/clipped hull it is the boundary. `GetMeshOutlines` walks those outer edges into ordered vertex loops (the
   silhouette curves a 2D section-view or a P-M curve slice reads).
@@ -118,7 +111,6 @@
   engine emits the hull with inward winding.
 
 [LOCAL_ADMISSION]:
-
 - A Materials capacity owner holds the hull through the `IForceMomentMesh` floor (`api-vividorange-iforcemomentinteraction.md`),
   not this concrete class — the engine returns the floor type. This catalog's concrete surface is read when the
   owner MUTATES the mesh for rendering (brush/opacity, `ReverseFaceDirections`, `GetMeshOutlines`) or builds a hull
@@ -127,7 +119,6 @@
   interior signature; the facet `Area` `Ratio` is a meshing weight, not a structural quantity.
 
 [STACK]:
-
 - engine seam: `InteractionDiagram` (`api-vividorange-interactiondiagram.md`) constructs `new ForceMomentVertex(N, My, Mz, ForceUnit.Kilonewton, TorqueUnit.KilonewtonMeter)` per strain-plane sample and `new ForceMomentMesh(vertices, faces)` from the MIConvexHull result — this package is the engine's output DATA, the engine is the producer.
 - contract seam: every class implements its `api-vividorange-iforcemomentinteraction.md` floor interface, so a
   consumer depends on the floor and this concrete is swappable (a decimated/clipped hull can re-implement it).
@@ -142,7 +133,6 @@
   converters (`api-vividorange-serialization.md` [TRANSITIVE_UNITSNET_JSONNET]) as canonical SI scalar plus unit token for a TS/Python peer.
 
 [TRANSITIVE_CONVEX_HULL]:
-
 - direct package: `VividOrange.InteractionDiagram` brings `MIConvexHull` and drives the capacity-hull construction.
 
 [STACKING_LAW]:
@@ -157,21 +147,18 @@
 - `Rasm` kernel (the direct owner): `MIConvexHull` is the unconstrained-hull + Voronoi-dual primitive layered BESIDE the authored exact `Tessellation` (constrained Delaunay) and `Arrangement` (mesh boolean). The kernel `Drawing/` fill leg and the unconstrained-point-set Delaunay/Voronoi concerns compose `MIConvexHull`; the constrained-PSLG path stays on the authored Bowyer-Watson + `Triangle` (Triangle.NET). A consumer's own kernel vertex (carrying an exact-coordinate payload) implements `IVertex` so the SAME point type rides both the `double` `MIConvexHull` fast path and the exact authored mesher.
 
 [CONCERN_PARTITION]: `Triangle`, `MIConvexHull`, and `SharpVoronoiLib` remain disjoint.
-
 - `Triangle`: CONSTRAINED/conforming Delaunay over a PSLG with segments, holes, and quality refinement.
 - `MIConvexHull`: UNCONSTRAINED point-set Delaunay and N-D Voronoi-as-Delaunay-dual without border clipping.
 - `SharpVoronoiLib`: 2D point-site Fortune Voronoi with border clipping and Lloyd relaxation.
 - Route: bounded or clipped 2D Voronoi uses `SharpVoronoiLib`; the N-D dual or hull-lift Delaunay uses `MIConvexHull`.
 
 [RAIL_LAW]:
-
 - Package: `MIConvexHull` (assembly `MIConvexHull`)
 - Owns: the dimension-generic convex hull (`Create`/`Create2D`), the hull-lift unconstrained Delaunay (`Triangulation.CreateDelaunay`), and the Delaunay-dual Voronoi mesh (`CreateVoronoi`/`VoronoiMesh.Create`), all over the open `IVertex`/`IVertex2D` contracts returning typed `ConvexHullCreationResult` carriers in the `double` domain at a coplanarity tolerance
 - Accept: the kernel's unconstrained-hull / Voronoi-dual / fast-`double`-Delaunay concern with a consumer-owned vertex type implementing `IVertex`/`IVertex2D`; the transitive `VividOrange.InteractionDiagram` N-M-M capacity-onion hull build
 - Reject: any direct `MIConvexHull` call minted in the `Rasm.Materials` AEC-DOMAIN folder (it consumes the welded `IForceMomentMesh`, never the raw hull); using `MIConvexHull` where the input is near-degenerate and exact robustness is required (route to the kernel `Adaptive.Resolve` Bowyer-Watson); duplicating the constrained-PSLG Delaunay (`Triangle` owns it) or the clipped 2D point-site Voronoi (`SharpVoronoiLib` owns it); calling the ND `Create` on planar data (returns `DimensionTwoWrongMethod` — use `Create2D`); and catching `ConvexHullGenerationException` at a call site (it never escapes — match `Outcome` instead)
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.ForceMomentInteraction` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract)
 - Owns: the N-M-M capacity-hull CONCRETE — `ForceMomentMesh` (with the unique/outer/outline edge-extraction +
   winding-reversal topology kernel), `ForceMomentVertex` (the unit-typed (N, My, Mz) point with unit-normalizing

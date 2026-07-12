@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `System.IO.Ports`
-
 - package: `System.IO.Ports`
 - assembly: `System.IO.Ports`
 - namespace: `System.IO.Ports`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: port and policy surfaces
-
 - rail: live-wire
 
 | [INDEX] | [SYMBOL]          | [TYPE_FAMILY] | [RAIL]                                                  |
@@ -29,7 +27,6 @@
 |  [07]   | `SerialPinChange` | enum          | `CtsChanged`/`DsrChanged`/`CDChanged`/`Ring`/`Break`    |
 
 [PUBLIC_TYPE_SCOPE]: event-argument surfaces
-
 - rail: live-wire
 
 | [INDEX] | [SYMBOL]                       | [TYPE_FAMILY] | [RAIL]                          |
@@ -41,7 +38,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: lifecycle and configuration
-
 - rail: live-wire
 
 | [INDEX] | [MEMBER]                                                                        | [KIND]      | [RETURN]     |
@@ -57,7 +53,6 @@
 |  [09]   | `SerialPort.DtrEnable` / `RtsEnable`                                            | property    | flow control |
 
 [ENTRYPOINT_SCOPE]: read/write and events
-
 - rail: live-wire
 
 | [INDEX] | [MEMBER]                                                 | [KIND]   | [RETURN]                          |
@@ -77,7 +72,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IMPLEMENTATION_LAW]: port semantics
-
 - rail: live-wire
 
 - `SerialPort` is `IDisposable`; the AppHost binding holds it in the same token-gated state cell the OPC-UA/MQTT held clients ride, so a reconnect replaces the whole cell and a stale teardown never disposes a fresh port.
@@ -87,7 +81,6 @@
 - a frame/overrun/parity error surfaces through `ErrorReceived`; the AppHost binding projects it to `WireFault.ReadFailed`, never propagating into the interior.
 
 [IMPLEMENTATION_LAW]: AppHost usage
-
 - rail: live-wire
 
 - the live-wire `serial` transport row binds `SerialPort` behind the one `TransportRow.Read`/`Write` adapter; the serial leg uses the companion-control spawn-attach boundary where the device lives behind a companion process, or binds the port directly where the host owns the line.

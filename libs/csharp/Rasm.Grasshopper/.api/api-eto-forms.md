@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto`
-
 - package: `Eto` (the cross-platform Eto.Forms UI framework, host-provided by RhinoWIP)
 - license: BSD-3-Clause
 - assembly: `Eto` (`Eto.dll`)
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: control base and the panel-field roster
-
 - rail: native UI
 
 | [INDEX] | [SYMBOL]               | [KIND]       | [CAPABILITY]                                             |
@@ -69,7 +67,6 @@
 |  [46]   | `MaskedTextStepper<T>` | control      | format-masked stepper over a typed provider              |
 
 [PUBLIC_TYPE_SCOPE]: data views — grid, tree, list, property grid
-
 - rail: native UI
 
 | [INDEX] | [SYMBOL]                    | [KIND]       | [CAPABILITY]                                        |
@@ -113,7 +110,6 @@
 |  [37]   | `TreeGridViewDragInfo`      | property     | `Item`/`Parent`/`Position`/`InsertIndex`            |
 
 [PUBLIC_TYPE_SCOPE]: containers and rich controls
-
 - rail: native UI
 
 | [INDEX] | [SYMBOL]              | [KIND]     | [CAPABILITY]                                      |
@@ -158,7 +154,6 @@
 |  [38]   | `NativeControlHost`   | control    | host-native view embedding seam                   |
 
 [PUBLIC_TYPE_SCOPE]: layout owners
-
 - rail: native UI
 
 | [INDEX] | [SYMBOL]                          | [KIND]   | [CAPABILITY]                                 |
@@ -192,7 +187,6 @@
 |  [27]   | `Size` (`Eto`)                    | value    | integer extent                               |
 
 [PUBLIC_TYPE_SCOPE]: windows, dialogs, and native pickers
-
 - rail: native UI
 
 | [INDEX] | [SYMBOL]                   | [KIND]      | [CAPABILITY]                                      |
@@ -241,7 +235,6 @@
 |  [42]   | `DialogDisplayMode`        | enum        | modal-display vocabulary                          |
 
 [PUBLIC_TYPE_SCOPE]: menus and commands
-
 - rail: native UI
 
 | [INDEX] | [SYMBOL]                      | [KIND]   | [CAPABILITY]                            |
@@ -268,7 +261,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: control lifecycle, input, and drag
-
 - rail: native UI
 
 | [INDEX] | [SURFACE]                          | [CALL_SHAPE]                                 | [CAPABILITY]                              |
@@ -288,7 +280,6 @@
 |  [13]   | `Control.Load`/`Shown`             | `EventHandler`                               | attach lifecycle                          |
 
 [ENTRYPOINT_SCOPE]: grid and tree selection, edit, and reload
-
 - rail: native UI
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]                               | [CAPABILITY]                      |
@@ -312,7 +303,6 @@
 |  [17]   | `TreeGridView.GetDragInfo`      | `(DragEventArgs)` → `TreeGridViewDragInfo` | drop-target resolution            |
 
 [ENTRYPOINT_SCOPE]: window, dialog, and picker presentation
-
 - rail: native UI
 
 `Dialog<T>.Result` carries the typed outcome from either modal presentation surface.
@@ -332,7 +322,6 @@
 |  [11]   | `Window.SetOwner`               | `(Window)`                              | owner assignment        |
 
 [ENTRYPOINT_SCOPE]: layout composition and command dispatch
-
 - rail: native UI
 
 | [INDEX] | [SURFACE]                       | [CALL_SHAPE]              | [CAPABILITY]             |
@@ -357,14 +346,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [CONSTRUCTION_TOPOLOGY]:
-
 - a hosted panel is an `Eto.Forms` control composition: a `Panel`/`Scrollable` root holds a layout owner (`DynamicLayout`/`TableLayout`/`PixelLayout`/`StackLayout`), and the layout holds the field, data-view, and container roster
 - one control owns one concern: a field carries its typed value plus a `*Binding`, a data view carries a data store plus selection, a container carries children plus split/tab/expand state
 - the enum vocabularies (`Orientation`, `WindowState`, `WindowStyle`, `DialogDisplayMode`, `DockPosition`, `GridLines`, `HorizontalAlignment`, `VerticalAlignment`) are the closed discriminants layout and window construction switch on
 - `Grid` is the shared base of `GridView` and `TreeGridView`; column definitions, cell renderers, selection, edit, and format events are Grid-level and inherited, with `TreeGridView` adding the expand/collapse and tree-drag surface
 
 [STACKING]:
-
 - `api-languageext`(`libs/csharp/.api/api-languageext.md`): a dialog show, file-dialog result, or control-property mutation that throws at the host boundary lands on `Fin<A>` through `Try.lift(() => dialog.ShowModal(owner)).Run()`; `Optional(grid.SelectedItem).ToFin(error)` null-gates a selection read; independent field reads lift `.ToValidation`, fan in through the tuple `.Apply(...)`, and exit `.ToFin()` before a panel commits its edit
 - `api-thinktecture-runtime-extensions`(`libs/csharp/.api/api-thinktecture-runtime-extensions.md`): the host enum vocabularies project onto `[SmartEnum<TKey>]` owners where a panel attaches behaviour or a display label to a case; a bounded field value (a titled numeric range, a validated text token, a colour channel) is a `[ValueObject<T>]` the control `*Binding` reads and writes
 - `api-eto-binding`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-binding.md`): every field and view exposes its `*Binding` (`TextBinding`, `CheckedBinding`, `ValueBinding`, `SelectedItemBinding`, `SelectedIndexBinding`), the seam the binding rail fuses to a `DataContext` model
@@ -372,13 +359,11 @@
 - `api-eto-runtime`(`libs/csharp/Rasm.Grasshopper/.api/api-eto-runtime.md`): dialog presentation, control invalidation, and cross-thread mutation marshal through `Application.Instance`
 
 [LOCAL_ADMISSION]:
-
 - `Eto.Forms` is host-provided and composed directly — a panel subclasses a control or composes the roster, never a local wrapper that renames or partially re-exports Eto members
 - a new control capability is a subclass or a composition of the admitted roster, never a re-implemented native widget
 - boundary faults ride the LanguageExt rail; the panel never carries an exception-style control flow beside it
 
 [RAIL_LAW]:
-
 - Package: `Eto`
 - Owns: native control construction, layout, windows and dialogs, menus and commands for GH2-hosted panels
 - Accept: panel chrome, form fields, grid/tree/list/property data views, modal and modeless dialogs, native file/colour/font pickers

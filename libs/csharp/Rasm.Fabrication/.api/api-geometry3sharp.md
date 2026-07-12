@@ -5,7 +5,6 @@ The fabrication rail admits `geometry3Sharp` only for line-sourced biarc fitting
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `geometry3Sharp`
-
 - Package: `geometry3Sharp`
 - License: `Boost-1.0`
 - Assembly: `geometry3Sharp`

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.DependencyInjection`
-
 - package: `Microsoft.Extensions.DependencyInjection`
 - assembly: `Microsoft.Extensions.DependencyInjection`
 - contract_assembly: `Microsoft.Extensions.DependencyInjection.Abstractions`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: provider implementation
-
 - rail: composition
 
 | [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]     | [RAIL]               |
@@ -27,7 +25,6 @@
 |  [04]   | `ServiceProviderOptions`                      | validation policy | provider proof       |
 
 [PUBLIC_TYPE_SCOPE]: composition contracts
-
 - rail: composition
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]          | [RAIL]                  |
@@ -53,7 +50,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
-
 - rail: composition
 
 | [INDEX] | [SURFACE]                     | [CAPABILITY]                 |
@@ -78,7 +74,6 @@
 [LIFETIME_DESCRIPTOR_OVERLOADS]: `ServiceDescriptor.Singleton` exposes `Singleton(Type, object)` plus generic instance and factory overloads, with parallel `Scoped` and `Transient` factories.
 
 [ENTRYPOINT_SCOPE]: resolution and activation operations
-
 - rail: composition
 
 | [INDEX] | [SURFACE]                    | [ENTRY_FAMILY]        | [RAIL]                    |
@@ -99,7 +94,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMPOSITION_TOPOLOGY]:
-
 - namespaces: `Microsoft.Extensions.DependencyInjection`, `Microsoft.Extensions.DependencyInjection.Extensions`
 - lifetime families: singleton, scoped, transient, keyed
 - descriptor shapes: implementation type, factory, instance
@@ -109,7 +103,6 @@
 - activation law: `ActivatorUtilities` is boundary activation, not hidden service lookup
 
 [KEYED_TOPOLOGY]:
-
 - key input: `object` service key
 - parameter attributes: `FromKeyedServicesAttribute`, `ServiceKeyAttribute`
 - lookup modes: explicit key, inherited key, no inherited key
@@ -117,7 +110,6 @@
 - factory shape: keyed factories receive `IServiceProvider` and the service key
 
 [LOCAL_ADMISSION]:
-
 - AppHost ports are constructor-visible dependencies registered at composition roots.
 - Keyed services model bounded policy variants where the key is part of AppHost policy.
 - Descriptor mutation is allowed only in composition assembly setup.
@@ -125,7 +117,6 @@
 - Runtime code receives dependencies through explicit records and constructors, never provider lookups.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.DependencyInjection`
 - Owns: composition and lifetime scopes
 - Accept: registrations stay at composition roots

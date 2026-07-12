@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia`
-
 - package: `Avalonia` (version `12.0.5`, MIT)
 - assembly: `Avalonia.Base` (object model, input, data-transfer, threading, styling)
 - assembly: `Avalonia.Controls` (controls, notifications, name scope)
@@ -19,7 +18,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [BASE_OBJECTS]: retained property and element model
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]                           | [RAIL]                |
@@ -35,7 +33,6 @@
 |  [09]   | `BindingValue<T>`                  | binding-value carrier |
 
 [ELEMENT_TREE]: styled, logical, visual, and layout participation
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]        | [RAIL]                   |
@@ -49,7 +46,6 @@
 |  [07]   | `IResourceHost` | resource owner           |
 
 [CONTROL_SURFACES]: product surface and shell controls
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]         | [RAIL]                                  |
@@ -67,7 +63,6 @@
 |  [11]   | `TreeView`       | hierarchy surface                       |
 
 [STATE_AND_STYLE]: binding, resources, styles, and templates
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]                   | [RAIL]             |
@@ -86,7 +81,6 @@
 |  [12]   | `DataTemplate`             | data presentation  |
 
 [THEME_VARIANT_TYPES]: the variant key that scopes resource resolution
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]                                 | [RAIL]            |
@@ -98,7 +92,6 @@
 |  [05]   | `Avalonia.Controls.ThemeVariantScope`    | subtree override  |
 
 [THEME_VARIANT_DETAILS]:
-
 - `Avalonia.Styling.ThemeVariant`: sealed record carrying `Key`, `InheritVariant`, the `Light`/`Dark`/`Default` statics, the `(object key, ThemeVariant? inheritVariant)` inheritance constructor, and explicit conversions to and from `PlatformThemeVariant`.
 - `Avalonia.Platform.PlatformThemeVariant`: OS light/dark value projected through `IPlatformSettings` and `PlatformColorValues`.
 - `StyledElement.RequestedThemeVariant`: settable `StyledProperty<ThemeVariant?>` also carried by `Application` and `TopLevel`.
@@ -106,7 +99,6 @@
 - `Avalonia.Controls.ThemeVariantScope`: `Decorator` subtree boundary carrying its own `RequestedThemeVariant`.
 
 [INPUT_AND_FOCUS_TYPES]: key gestures, bindings, focus, and modifiers
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]                                   | [RAIL]                                         |
@@ -121,7 +113,6 @@
 |  [08]   | `Dispatcher`                               | `UIThread` render-thread marshal               |
 
 [METADATA_ATTRIBUTES]: XAML and template metadata
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]                        | [RAIL]            |
@@ -133,7 +124,6 @@
 |  [05]   | `ControlTemplateScopeAttribute` | template scope    |
 
 [NOTIFICATION_TYPES]: transient notification surfaces
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]                      | [RAIL]           |
@@ -145,7 +135,6 @@
 |  [05]   | `NotificationPosition`        | placement enum   |
 
 [DATA_TRANSFER_TYPES]: Avalonia 12 clipboard and drag data-transfer surfaces
-
 - rail: retained-ui
 
 | [INDEX] | [SYMBOL]                                      | [RAIL]                                                  |
@@ -167,7 +156,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [PROPERTY_OPERATIONS]: retained property registration and observation
-
 - rail: retained-ui
 
 | [INDEX] | [SURFACE]                                | [SURFACE_ROOT]             | [RAIL]                      |
@@ -181,7 +169,6 @@
 |  [07]   | `GetPropertyChangedObservable(property)` | `AvaloniaObjectExtensions` | change-args stream          |
 
 [ASSET_LOOKUP_OPERATIONS]: resource and name lookup
-
 - rail: retained-ui
 
 | [INDEX] | [SURFACE]         | [SURFACE_ROOT]           | [RAIL]             |
@@ -194,7 +181,6 @@
 |  [06]   | `Add`             | `ResourceDictionary`     | resource admission |
 
 [INPUT_AND_ROUTE_OPERATIONS]: focus, key binding, routed events, and dispatch
-
 - rail: retained-ui
 
 | [INDEX] | [SURFACE]                                                      | [SURFACE_ROOT]          | [RAIL]                     |
@@ -209,7 +195,6 @@
 |  [08]   | `CheckAccess()` / `VerifyAccess()`                             | `Dispatcher`            | thread-affinity guard      |
 
 [XAML_AND_RENDER_OPERATIONS]: XAML load and visual invalidation
-
 - rail: retained-ui
 
 | [INDEX] | [SURFACE]                       | [SURFACE_ROOT]       | [RAIL]           |
@@ -221,7 +206,6 @@
 |  [05]   | `InvalidateArrange`             | `Layoutable`         | arrange refresh  |
 
 [HOST_BUILD_OPERATIONS]: application-builder option admission and native host handle
-
 - rail: retained-ui
 
 | [INDEX] | [SURFACE]                                    | [SURFACE_ROOT] | [RAIL]               |
@@ -231,13 +215,11 @@
 |  [03]   | `TryGetPlatformHandle() -> IPlatformHandle?` | `TopLevel`     | native window handle |
 
 [HOST_BUILD_DETAILS]:
-
 - `AppBuilder.With<T>` registers platform and options values, including `UseSkia().With(SkiaOptions)`.
 - `AppBuilder.SetupWithoutStarting()` builds and configures the application without entering a run loop.
 - `TopLevel.TryGetPlatformHandle()` returns `IPlatformHandle?`; `IPlatformHandle.Handle` is `nint`, and `HandleDescriptor` is `string?`.
 
 [THEME_VARIANT_OPERATIONS]: variant request, resolution, and OS-probe read
-
 - rail: retained-ui
 - `RequestedThemeVariant` accepts `ThemeVariant?` on each owning surface.
 
@@ -252,7 +234,6 @@
 |  [07]   | `Palettes[ThemeVariant]` (`ColorPaletteResources`) | `FluentTheme`       | palette key         |
 
 [NOTIFICATION_OPERATIONS]: toast presentation surfaces
-
 - rail: retained-ui
 
 | [INDEX] | [SURFACE]            | [SURFACE_ROOT]              | [RAIL]            |
@@ -263,7 +244,6 @@
 |  [04]   | `MaxItems`           | `WindowNotificationManager` | queue cap         |
 
 [DATA_TRANSFER_OPERATIONS]: clipboard and drag data-transfer composition
-
 - rail: retained-ui
 - Avalonia owns and disposes the transfer handed to `IClipboard.SetDataAsync`.
 
@@ -292,14 +272,12 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OBJECT_MODEL_LAW]:
-
 - Package: `Avalonia`
 - Owns: retained object, property, style, resource, input, routed-event, drag-drop, data-transfer, and render contracts.
 - Accept: product UI concepts enter through typed retained surfaces; property state is observed through `GetObservable`, never a manual `PropertyChanged` handler chain.
 - Reject: untyped wrapper layers over controls, properties, resources, or events; the legacy `DataObject`/`DataFormats`/`IDataObject` clipboard surface (obsolete in Avalonia 12 — `IDataTransfer`/`DataTransferItem`/`DataFormat` replace it).
 
 [STACKING]:
-
 - Property state feeds the reactive rail: `AvaloniaObjectExtensions.GetObservable(property)` / `GetPropertyChangedObservable` emit `IObservable<T>` consumed by `System.Reactive` operators (`api-reactive.md`) and ReactiveUI `WhenAnyValue`; a control-state reaction is `GetObservable(prop).Throttle(...).DistinctUntilChanged().Subscribe(...)` under a `CompositeDisposable`, and `AvaloniaObject.Bind(property, observable)` pushes a stream back into a property.
 - The render-thread hop is one boundary shared by two owners: Avalonia's `Dispatcher.UIThread` (imperative marshal) and `System.Reactive`'s `SynchronizationContextScheduler` (stream marshal). A live-data bind composes `ObserveOn(SynchronizationContextScheduler)` once at the bind edge; an imperative cross-thread UI write uses `Dispatcher.UIThread.Post`/`InvokeAsync`. `CheckAccess`/`VerifyAccess` guard the affinity.
 - Hotkeys derive from the command table onto Avalonia primitives: a value-equal `KeyGesture` carries `(Key, KeyModifiers)` with `Parse`/`Matches`, and `KeyBinding` rows carry `Gesture`/`Command` through the surface root's `InputElement.KeyBindings` collection (`Shell/input` `HOTKEY_DERIVATION`).
@@ -317,14 +295,12 @@
 - `ThemeVariant` remains the wire key, and `ThemeVariantRow` remains the domain vocabulary that projects onto it.
 
 [SHELL_LAW]:
-
 - Package: `Avalonia`
 - Owns: application roots, top levels, windows, screens, and panels behind the one `SurfaceHost` axis.
 - Accept: host, sidecar, companion, diagnostics, and downstream shells share one UI rail; `TopLevel.GetTopLevel(control)` resolves the per-surface `Clipboard`/`FocusManager`/`StorageProvider`.
 - Reject: separate UI families per host modality.
 
 [XAML_LAW]:
-
 - Package: `Avalonia`
 - Owns: XAML load, style include, resource include, template metadata, compiled-binding generation, and namescope identity.
 - Accept: generated and handwritten surfaces share the same namescope and resource rail; `AvaloniaXamlLoader.Load`/`Parse` materialize markup into the retained tree.

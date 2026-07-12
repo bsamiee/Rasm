@@ -20,7 +20,6 @@ Antigravity is an external Gemini call admitted only where it adds capability be
 ## [01]-[ROUTING]
 
 [SCRIPTS]:
-
 - [01]-[RUNNER](scripts/agy.py): the wrapper this skill invokes; `prompt` and `models` subcommands.
 
 ## [02]-[CAPABILITY]

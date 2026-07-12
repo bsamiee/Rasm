@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.macOS`
-
 - package: `HarfBuzzSharp.NativeAssets.macOS` (MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
@@ -15,7 +14,6 @@
 - rail: typography
 
 [PACKAGE_SURFACE]: `HarfBuzzSharp.NativeAssets.Linux`
-
 - package: `HarfBuzzSharp.NativeAssets.Linux` (MIT, `requireLicenseAcceptance=true`, © Microsoft Corporation)
 - assembly: no managed runtime assembly
 - namespace: no managed namespace
@@ -25,7 +23,6 @@
 - rail: typography
 
 [RESTORE_FLOOR]: `HarfBuzzSharp.NativeAssets.Win32`, `HarfBuzzSharp.NativeAssets.WebAssembly`
-
 - not an AppUi `PackageReference`: present only in the transitive restore graph, never copy-local for the macOS/headless-Linux AppUi posture
 - Win32 (MIT): `runtimes/win-{x64,x86,arm64}/native/libHarfBuzzSharp.dll`, `buildTransitive/{net462,net48}` copy targets, `lib/<tfm>/_._` markers
 - WebAssembly (MIT): no `runtimes/<rid>/native` payload — static `libHarfBuzzSharp.a` archives keyed by Emscripten version and threading/SIMD flavor under `buildTransitive/netstandard1.0/libHarfBuzzSharp.a/`, plus `.props` + `.targets`
@@ -34,7 +31,6 @@
 ## [02]-[PACKAGE_ASSETS]
 
 [MACOS_NATIVE_ASSETS]: macOS HarfBuzz payload (`runtimes/osx/native`)
-
 - rail: typography
 
 | [INDEX] | [ASSET]                                                                               | [RAIL]                        |
@@ -48,7 +44,6 @@
 |  [07]   | `lib/{net9.0,net9.0-macos15.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._` | compile markers               |
 
 [LINUX_NATIVE_ASSETS]: Linux HarfBuzz payload (14 RIDs)
-
 - rail: typography
 
 | [INDEX] | [ASSET]                                                                              | [RAIL]                       |
@@ -61,7 +56,6 @@
 |  [06]   | `lib/{net10.0,net9.0,net6.0,net462,net48,netstandard2.0,netstandard2.1}/_._`         | compile markers              |
 
 [WASM_RESTORE_FLOOR]: WebAssembly Emscripten static-archive floor (out-of-posture)
-
 - rail: typography
 - no `runtimes/<rid>/native` payload; static `libHarfBuzzSharp.a` archives keyed by Emscripten version and threading/SIMD flavor under `buildTransitive/netstandard1.0/libHarfBuzzSharp.a/`
 
@@ -78,7 +72,6 @@
 ## [03]-[ASSET_ENTRYPOINTS]
 
 [LOAD_MECHANISM]: Native entrypoints bind build placement, RID selection, and typography evidence.
-
 - rail: typography
 
 | [INDEX] | [SURFACE]                          | [ROOT]                    | [ROLE]         |
@@ -103,7 +96,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [NATIVE_ASSET_LAW]:
-
 - Package: `HarfBuzzSharp.NativeAssets.macOS` + `HarfBuzzSharp.NativeAssets.Linux` (the two AppUi-admitted text natives)
 - Owns: per-platform HarfBuzz load identity, the `buildTransitive` copy targets, and per-RID output asset presence for the live-macOS + headless-Linux posture
 - Stacks: `SkiaSharp.HarfBuzz` (`.api/api-skia-harfbuzz.md`) is the managed shaper that P/Invokes the native these packages place; one resolved `libHarfBuzzSharp` serves both the retained Avalonia text stack and the `SKShaper`/`Font.Shape` shaped rail; the first shaped draw folds the native version, path, and RID into the typography evidence stream alongside the `libSkiaSharp` identity
@@ -111,21 +103,18 @@
 - Reject: a system HarfBuzz dependency; documenting any native asset as a public managed type; treating Win32/WebAssembly as AppUi copy-local assets
 
 [LOAD_MECHANISM_LAW]:
-
 - Package: `HarfBuzzSharp.NativeAssets.macOS` + `HarfBuzzSharp.NativeAssets.Linux`
 - Owns: the divergence between full-framework copy (`net462`/`net48` targets run the `_NativeHarfBuzzSharpFile` glob under `ShouldIncludeNativeHarfBuzzSharp`) and SDK-managed copy (`net10.0` resolves the native through the SDK RID-asset graph; the matching `buildTransitive/net10.0-*`/`net9.0-*` targets are deliberately empty)
 - Accept: the AppUi `net10.0` consumer binds the RID-asset path; `ShouldIncludeNativeHarfBuzzSharp=False` is the supported opt-out when a higher layer (app-host distribution) owns native placement
 - Reject: assuming the macOS/Linux `buildTransitive` targets file carries copy logic on net10 (it does not); hand-copying the dylib/so beside the RID-asset graph
 
 [WASM_FLOOR_LAW]:
-
 - Package: `HarfBuzzSharp.NativeAssets.WebAssembly` (restore-floor only, not AppUi-referenced)
 - Owns: the Emscripten static-archive floor — no shared library, no RID payload, archives selected by Emscripten version (`2.0.23`/`3.1.7`/`3.1.12`/`3.1.34`/`3.1.56`) and `st`/`mt`/`,simd` flavor through the package `.props`/`.targets`
 - Accept: a Blazor/wasm consumer links the flavor-matched `.a` at AOT publish through the package props and targets
 - Reject: treating wasm `.a` archives as copy-local runtime libraries; admitting this package into the AppUi macOS/Linux posture
 
 [API_BOUNDARY_LAW]:
-
 - Package: all four `HarfBuzzSharp.NativeAssets.*` packages
 - Owns: native payload, copy targets, and lib compile placeholders only
 - Accept: every managed shaping API fact (`HarfBuzzSharp.Blob`/`Face`/`Font`/`Buffer`/`Feature`, `SkiaSharp.HarfBuzz.SKShaper`) stays in `.api/api-skia-harfbuzz.md`

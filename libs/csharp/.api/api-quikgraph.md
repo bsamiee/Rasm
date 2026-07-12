@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `QuikGraph`
-
 - Package: `QuikGraph`
 - License: `MS-PL`
 - Assembly: `QuikGraph`
@@ -35,7 +34,6 @@ Every graph algorithm accepts edges implementing `IEdge<TVertex>`.
 |  [06]   | `STaggedEdge<TVertex, TTag>` | tagged struct    | value payload edge             |
 
 [EDGE_CONTRACT]:
-
 - Source: `TVertex Source`
 - Target: `TVertex Target`
 - Tag: `TTag Tag` on tagged edges
@@ -51,18 +49,15 @@ Container construction, mutation, and lookup remain on each graph instance.
 |  [03]   | `UndirectedGraph<TVertex, TEdge>`    | symmetric     | undirected neighborhood |
 
 [ADJACENCY_GRAPH]:
-
 - Construction: `allowParallelEdges`, vertex capacity, edge capacity
 - Mutation: `AddVertex`, `AddVertexRange`, `AddEdge`, `AddVerticesAndEdge`
 - Query: `ContainsEdge`, `TryGetEdge`, `TryGetEdges`, `OutDegree`, `OutEdges`
 
 [BIDIRECTIONAL_GRAPH]:
-
 - Construction: `allowParallelEdges`, vertex capacity, edge capacity
 - Query: `InDegree`, `InEdge`, `InEdges`, `Degree`
 
 [UNDIRECTED_GRAPH]:
-
 - Query: `AdjacentDegree`, `AdjacentEdge`, `AdjacentEdges`, `TryGetEdge`
 
 [PUBLIC_TYPE_SCOPE]: delegates and traversal recorders
@@ -77,18 +72,15 @@ Traversal algorithms expose event delegates and attachable path observers.
 |  [04]   | `VertexPredecessorRecorderObserver<TVertex, TEdge>` | observer | predecessor path recovery |
 
 [TRY_FUNC]:
-
 - Return: `bool`
 - Match: `out TResult`
 
 [VERTEX_PREDECESSOR_RECORDER]:
-
 - State: `VerticesPredecessors`
 - Attach: `Attach(ITreeBuilderAlgorithm<TVertex, TEdge>)`
 - Match: `TryGetPath(TVertex, out IEnumerable<TEdge>)`
 
 [TRAVERSAL_EVENTS]:
-
 - Vertex: `DiscoverVertex`, `FinishVertex`
 - Edge: `ExamineEdge`, `TreeEdge`
 
@@ -110,7 +102,6 @@ Topological extensions return vertex orderings and reject cyclic input with `Non
 |  [08]   | `IsDirectedAcyclicGraph(edges)`           | edge sequence              | acyclicity predicate |
 
 [BIDIRECTIONAL_TOPOLOGICAL_ORDER]:
-
 - Result: `IEnumerable<TVertex>`
 - Direction: `TopologicalSortDirection`
 - Default: `Forward`
@@ -145,22 +136,18 @@ Component extensions label supplied component maps; closure extensions return bi
 |  [08]   | `ComputeTransitiveReduction`                           | bidirectional graph | redundant-edge removal   |
 
 [OFFLINE_LEAST_COMMON_ANCESTOR]:
-
 - Input: graph, root, `IEnumerable<SEquatableEdge<TVertex>>`
 - Result: `TryFunc<SEquatableEdge<TVertex>, TVertex>`
 
 [COMPONENT_LABELING]:
-
 - Mutation: supplied `IDictionary<TVertex, int>`
 - Result: component count
 
 [TRANSITIVE_CLOSURE]:
-
 - Input: edge-list graph plus edge factory
 - Result: `BidirectionalGraph<TVertex, TEdge>`
 
 [STRONG_CONDENSATION]:
-
 - Result: `IMutableBidirectionalGraph<TGraph, CondensedEdge<TVertex, TEdge, TGraph>>`
 
 [ENTRYPOINT_SCOPE]: weighted paths, spanning tree, flow
@@ -181,24 +168,20 @@ Shortest-path extensions return `TryFunc<TVertex, IEnumerable<TEdge>>`; spanning
 |  [10]   | `MaximumBipartiteMatchingAlgorithm<TVertex, TEdge>` | bipartite partitions     | bipartite maximum matching |
 
 [BELLMAN_FORD]:
-
 - Result: `TryFunc<TVertex, IEnumerable<TEdge>>`
 - Verdict: `out bool hasNegativeCycle`
 
 [DIJKSTRA]:
-
 - Input: directed or undirected graph, edge weights, root
 - Result: `TryFunc<TVertex, IEnumerable<TEdge>>`
 
 [MAXIMUM_FLOW]:
-
 - Input: positive capacities, source, sink, edge factory, reversed-edge augmentor
 - Precondition: `ReversedEdgeAugmentorAlgorithm.AddReversedEdges()` completed
 - Mutation: auxiliary reversed edges remain until caller cleanup
 - Result: `double` plus `out TryFunc<TVertex, TEdge>`
 
 [MAXIMUM_BIPARTITE_MATCHING]:
-
 - Input: mutable graph, vertex partitions, vertex factory, edge factory
 - Mutation: temporary super-terminal and reversed-edge augmentation
 - Cleanup: augmentation rolls back before `Compute()` returns
@@ -207,14 +190,12 @@ Shortest-path extensions return `TryFunc<TVertex, IEnumerable<TEdge>>`; spanning
 ## [04]-[IMPLEMENTATION_LAW]
 
 [QUIKGRAPH_TOPOLOGY]:
-
 - `TVertex` carries domain identity, and `TEdge` implements `IEdge<TVertex>` with domain payload where required.
 - `AddVerticesAndEdge` admits both endpoints, while `AddVertexRange` preserves isolated vertices.
 - `BidirectionalGraph<TVertex, TEdge>` serves predecessor access, and `UndirectedGraph<TVertex, TEdge>` serves symmetric adjacency.
 - A materialized graph keys on domain content; a memoized result also keys on every algorithm input.
 
 [STACKING]:
-
 - Geometry partitions disconnected kNN graphs and runs `MinimumSpanningTreePrim` once per component before its BFS sign fold.
 - Constraint analysis composes `ConnectedComponents` for islands and `MaximumBipartiteMatchingAlgorithm<TVertex, TEdge>` for structural rank.
 - Snapshot topology composes content-keyed `BidirectionalGraph<TVertex, TEdge>` views beside the domain incidence index.
@@ -224,13 +205,11 @@ Shortest-path extensions return `TryFunc<TVertex, IEnumerable<TEdge>>`; spanning
 - Typed receipts retain domain algebra after every graph projection.
 
 [LOCAL_ADMISSION]:
-
 - `AlgorithmExtensions` owns the standard entry rail over a domain-folded graph and projects its result onto a typed receipt.
 - An algorithm object binds when traversal events, mutable component state, or augmentation lifecycle form part of the result contract.
 - `OfflineLeastCommonAncestor` binds rooted trees; a multi-parent DAG retains BFS closure intersection as its domain merge-base fold.
 
 [RAIL_LAW]:
-
 - Package: `QuikGraph`
 - Owns: generic graph containers, edge shapes, and graph algorithms
 - Accept: domain-folded graphs with explicit weight, capacity, root, partition, and factory inputs

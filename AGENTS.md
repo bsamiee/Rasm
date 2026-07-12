@@ -5,7 +5,6 @@
 ## [01]-[LOAD_ORDER]
 
 [REQUIRED]:
-
 - List all files in `docs/stacks/csharp` + `docs/stacks/python` + `docs/stacks/typescript`, including sub-folders — an awareness pass of the standards inventory, not a reading pass.
 - Read ALL of `docs/stacks/csharp/README.md` + `docs/stacks/python/README.md` + `docs/stacks/typescript/README.md` as foundational grounding. When working on files (code or code fences in a `.md`) in a language, read the FULL root of `docs/stacks/<language>/` and follow every standard there; `docs/stacks/csharp/domain/` is conditional — read only when relevant.
 - Use `loc <path>` for true LOC and complexity score — the heavy-file signal that scopes attention and delegation.

@@ -22,7 +22,6 @@ The chooser routes a need to its move; the hinge is the one field or invariant t
 ## [02]-[COMMAND_DECOMPOSITION]
 
 [LEAF_CLASSIFIER]:
-
 - Use: a `PreToolUse` Bash gate where an attacker or a confused model wraps, quotes, chains, newline-splits, env-prefixes, substitutes, or nests the same call many ways.
 - Law: the string decomposes into leaf `argv` lists before any classify — `$IFS` de-obfuscation, a quote-aware split treating an unquoted newline as `;`, command-substitution and backtick descent, leading `NAME=value` and wrapper stripping, and clustered-flag shell descent — so a per-`argv` classifier judges the real command, never the bytes.
 - Law: an inline interpreter one-liner is opaque, so it denies fail-closed rather than admitting through a keyword denylist that lets `os.system` pass by omission; an unbalanced quote raises to the fail-closed seam.
@@ -48,7 +47,6 @@ def leaves(command: str, /, *, depth: int = 0) -> list[list[str]]:  # descend su
 ## [03]-[VALUE_REWRITE]
 
 [SPREAD_AND_OVERRIDE]:
-
 - Use: the right move fixes the call rather than refusing it — sandbox a stray path, redact an outbound secret, steer without an error frame.
 - Law: outbound rewriting rides `PreToolUse` `updatedInput`; the field replaces the entire input object, so the body spreads the full original `tool_input` and overrides exactly one key. Inbound redaction rides `PostToolUse` `updatedToolOutput` with a shape-preserving replacement — a built-in validates the value against its output schema and keeps the original on a mismatch, so a `Bash` scrub re-emits `{stdout, stderr, interrupted, isImage}` masked, never a bare string.
 - Boundary: telemetry and side effects already fired when the rewrite lands, so a rewrite corrects only what the model next reads, never what the tool already did.
@@ -64,7 +62,6 @@ def sandbox(tool_input: ToolInput, sandbox_root: str, /) -> Rewrite:  # PreToolU
 ## [04]-[EVENT_DISPATCH]
 
 [PRIORITY_REGISTRY]:
-
 - Use: several handlers compose on one event — a safety gate, a quality check, an advisory nudge — and per-event scripts fork the payload model and the logger.
 - Law: one executable routes every event through a priority-banded registry; each handler declares a `matches` predicate, a `handle` verdict, an integer band, and a `terminal` flag, and the dispatcher sorts ascending and short-circuits at the first terminal deny. A new capability is one row, so a fleet registers few settings entries.
 - Law: where per-invocation interpreter spawn dominates the hot path, the same registry relocates behind a Unix-socket daemon and thin forwarders, so admission cost is paid once at load and a fifty-handler project costs the same per call as a five-handler one.
@@ -85,7 +82,6 @@ def dispatch(raw: bytes, /) -> int:  # sort by band, run each match, stop at the
 ## [05]-[COMPLETION_LOOP]
 
 [TOKEN_CONTINUATION]:
-
 - Use: a run must loop until an objective is provably met and the completion signal has to survive automation, resume, and a thinking-block emission.
 - Law: completion keys on a session token the assistant emits, detected on `last_assistant_message` first and then a bounded scan restricted to assistant and thinking transcript entries, because the transcript is flushed asynchronously and lags the turn — the field is authoritative, the scan a lagging fallback.
 - Law: two orthogonal bounds cap the loop — the harness `stop_hook_active` counts consecutive blocks and resets each turn, a durable session-keyed counter counts cumulative blocks across turns — and the body releases on `stop_hook_active` first, ahead of its own counter, so the bounds never fight; the counter read fails safe to the harness cap, never an exit 1 that breaks the loop. A `Stop` handler discriminates `SubagentStop` on `hook_event_name` and `agent_type`, never on `agent_id` presence or a transcript-length guess that misclassifies a subagent and livelocks it.
@@ -102,7 +98,6 @@ def done(token: str, last_message: str, transcript_path: str, /) -> bool:  # fie
 ## [06]-[DATA_DRIVEN_INJECTION]
 
 [NUDGE_TABLE]:
-
 - Use: injection rules multiply, each new one must land as data not code, and a false fire must cost only a few ignored tokens.
 - Law: nudge rows decode from a JSON table at body top, each keyed by a `target` field with `match` and `exclude` regex arrays and a priority; a fired nudge injects `additionalContext` on the landing events (`UserPromptSubmit`, `SessionStart`) and phrases the miss as cheaply dismissible, since a miss costs a correction loop while a false fire costs a few tokens.
 - Boundary: static conventions live in the memory hierarchy that loads without a script; a nudge injects only dynamic state — branch, target, results, fetched data — and reads as a factual statement, never an out-of-band imperative that trips injection defenses.
@@ -119,7 +114,6 @@ def fired(payload: NudgeInput, rows: tuple[Nudge, ...], /) -> list[str]:  # a ne
 ## [07]-[HOT_PATH_OFFLOAD]
 
 [DETACHED_HARVEST]:
-
 - Use: the verification is authoritative but slow — a full suite, a CI probe, a deploy smoke test — and blocking the loop for it stalls every turn.
 - Law: the check runs under `asyncRewake`, letting the triggering action proceed and waking the session later only on failure, where exit 2 surfaces stderr as a system reminder; the wake rides exit-2 stderr, never `additionalContext`, and never wires to `SessionStart`, where the wake leaks a prior run's stale output into a fresh conversation.
 - Law: a scan that outlives the command-hook timeout forks — the firing spawns a detached process that writes its result to a session-keyed file and returns immediately, and a later firing wakes only on findings new since the last acknowledged set; this detached lane is also the dual-provider fallback, since Codex parses `async` and skips it, so a portable guardrail runs synchronously or splits its slow leg to the same detached process.
@@ -128,7 +122,6 @@ def fired(payload: NudgeInput, rows: tuple[Nudge, ...], /) -> list[str]:  # a ne
 ## [08]-[ATTENTION_STREAM]
 
 [TELEMETRY_CHAIN]:
-
 - Use: a multi-agent fleet needs an event stream — a dashboard, a registry, an attention feed — that must never gate the loop.
 - Law: a transmitter chains after the policy hook on the same event array, wired `async: true`, so the gate decides and the transmitter forwards without touching the verdict; the whole body sits under one broad exception swallow and an unconditional exit 0, because a narrow `(DecodeError, HTTPError)` catch lets `httpx.InvalidURL` and `StreamError` escape as a non-zero exit that blocks the loop.
 - Law: a private sink takes the raw payload nested whole with the hot query keys hoisted flat beside it; a shared bus takes a CloudEvents envelope whose `source` derives from the provider brand so a dual-provider fleet self-identifies, and whose `time` is a true-UTC stamp, never a local `strftime` suffixed `Z`.
@@ -144,7 +137,6 @@ def envelope(event: Event, raw: bytes, source: str, /) -> dict[str, object]:  # 
 ## [09]-[STANDING_PERMISSION]
 
 [DURABLE_RULE]:
-
 - Use: a repetitive safe operation — a read-only probe, a scoped `git` call — prompts every invocation and one clearance settles it.
 - Law: a `PermissionRequest` hook approves the matched-safe call and persists a standing rule through an `addRules` `PermissionUpdate` entry with a `localSettings` destination, so the same call auto-approves without re-prompting; a `setMode` entry switches the session mode instead. The matcher stays narrow — a broad one auto-clears the file writes and shell commands the author never inspected — and approval keys on tool identity and argument shape, never a free-text command substring.
 - Boundary: the durable rule is Claude-only — Codex `PermissionRequest` accepts only `decision.behavior` and fails closed on `updatedPermissions`, `updatedInput`, and `interrupt`, so the adapter strips them and a portable rewrite moves to `PreToolUse`.
@@ -153,7 +145,6 @@ def envelope(event: Event, raw: bytes, source: str, /) -> dict[str, object]:  # 
 ## [10]-[DURABLE_STATE]
 
 [SESSION_KEYED_CELL]:
-
 - Use: a control-flow hook counts, dedupes, or carries a receipt across turns, or a bootstrap computes a value once that later turns reread.
 - Law: state writes to a session-keyed file under a durable root, reads on the next firing, and clears on completion — a read-modify-write keyed on `session_id` so parallel sessions on one shared worktree never clobber each other, idempotent by `turn_id` against a double firing.
 - Law: a one-time computation caches an `export` line into `$CLAUDE_ENV_FILE` so later turns read the value rather than recomputing, and state that must survive a plugin update rides `$CLAUDE_PLUGIN_DATA`; a value written to the env file passes `shlex.quote`, since the file is sourced into bash.
@@ -172,7 +163,6 @@ def bump(session_id: str, turn_id: str, /) -> State:  # read-modify-write; idemp
 ## [11]-[PAIRED_AUDIT]
 
 [TWIN_CORPUS]:
-
 - Use: a hook enforces security and both a miss (a dangerous payload that passes) and a false alarm (a benign payload that blocks) must be caught, or a foreign hook must be proven before it is trusted.
 - Law: one harness runs any hook against a paired fixture corpus in two modes — a spawned subprocess for fidelity, an in-process call for speed — and reports each row as rule, case, expected, and actual, naming the offending policy on a miss; a benign fixture that blocks is the same defect class as a dangerous fixture that passes.
 - Law: the corpus is disciplined by pairing, not volume — every dangerous fixture ships its benign twin, and the merge gate binds a new or changed policy row to its paired fixture, so the corpus grows with the rules and never behind them.

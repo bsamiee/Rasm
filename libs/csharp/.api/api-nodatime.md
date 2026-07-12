@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime`
-
 - package: `NodaTime`
 - assembly: `NodaTime` (binds `lib/net8.0`; multi-targets `net8.0`/`netstandard2.0`, the `net10.0` consumer takes `net8.0` — the asset carrying the generic-math operator interfaces)
 - namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.Calendars`, `NodaTime.Extensions`, `NodaTime.Xml`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: time value family
-
 - rail: time
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]      | [RAIL]                |
@@ -41,7 +39,6 @@
 `Instant` and `Duration` implement the `System.Numerics` generic-math operator interfaces — `IAdditionOperators<Instant,Duration,Instant>`, `ISubtractionOperators` (instant−instant→duration), `IComparisonOperators`, `IEqualityOperators`, and `IMinMaxValue` — so an `Instant`/`Duration` slots into a generic-constrained numeric algorithm and into `MinValue`/`MaxValue` saturation directly.
 
 [PUBLIC_TYPE_SCOPE]: zone calendar and clock family
-
 - rail: time
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]     | [RAIL]                   |
@@ -66,7 +63,6 @@
 |  [18]   | `SkippedTimeException`     | mapping exception | skipped local time       |
 
 [PUBLIC_TYPE_SCOPE]: text + BCL-interop family (`.Text`, `.Extensions`, `.Xml`)
-
 - rail: time
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]       | [RAIL]                                                    |
@@ -97,7 +93,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: instant local and span operations
-
 - rail: time
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]     | [RAIL]                              |
@@ -123,7 +118,6 @@
 |  [19]   | `Interval.Contains`                          | interval predicate | receipt-window membership           |
 
 [ENTRYPOINT_SCOPE]: zone calendar and resolver operations
-
 - rail: time
 - `Resolvers.CreateMappingResolver` composes one `AmbiguousTimeResolver` with one `SkippedTimeResolver`.
 
@@ -153,7 +147,6 @@
 |  [22]   | `Resolvers.CreateMappingResolver`      | composite resolver     | composes resolver policy   |
 
 [ENTRYPOINT_SCOPE]: text and interop operations
-
 - rail: time
 
 | [INDEX] | [SURFACE]                             | [ENTRY_FAMILY]          | [RAIL]                    |
@@ -189,7 +182,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [TIME_TOPOLOGY]:
-
 - namespaces: `NodaTime`, `NodaTime.Text`, `NodaTime.TimeZones`, `NodaTime.Calendars`, `NodaTime.Extensions`, `NodaTime.Xml`
 - instant types: `Instant`, `OffsetDateTime`, `ZonedDateTime` (all generic-math operator-bearing)
 - local types: `LocalDate`, `LocalTime`, `LocalDateTime`, `AnnualDate`, `YearMonth`
@@ -201,7 +193,6 @@
 - interop surfaces: `Extensions` BCL bridges, `XmlSerializationSettings`, `Text.TypeConverterSettings`
 
 [LOCAL_ADMISSION]:
-
 - Receipts store semantic instants, not local wall-clock values.
 - Calendar and time-zone values stay explicit wherever persisted or exported.
 - Local date-times require an explicit zone and resolver before they become instants.
@@ -209,7 +200,6 @@
 - Elapsed timing and delays remain `TimeProvider` work; calendar truth remains NodaTime work.
 
 [RAIL_LAW]:
-
 - Package: `NodaTime`
 - Owns: semantic timestamps and calendar values
 - Accept: receipts store instants and zones

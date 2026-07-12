@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `SkiaSharp.HarfBuzz`
-
 - package: `SkiaSharp.HarfBuzz`
 - license: `MIT`
 - assembly: `SkiaSharp.HarfBuzz`
@@ -84,34 +83,29 @@
 |  [04]   | `Width : float`       | total advance              |
 
 [RESULT_CONSTRUCTOR]:
-
 - Surface: `Result(uint[] codepoints, uint[] clusters, SKPoint[] points, float width)`
 - Shape: synthesizes or transforms runs outside the shaper
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SHAPING_PIPELINE]:
-
 - `SKShaper(SKTypeface)` opens the typeface stream, converts it via `ToHarfBuzzBlob`, builds a `HarfBuzzSharp.Face`/`Font`, sets the internal `FONT_SIZE_SCALE` (512) HarfBuzz scale, and selects OpenType functions — all face setup happens once per shaper.
 - `Shape(...)` runs `hbFont.Shape(buffer, Array.Empty<Feature>())`, then rescales HarfBuzz integer advances by `font.Size / 512 * font.ScaleX` into `Result.Points`/`Width`. The `string` overloads `AddUtf8` + `GuessSegmentProperties` on a transient buffer; the `Buffer` overloads trust caller-prepared script/direction/language.
 - `DrawShapedText` shapes the run, allocates a positioned run on `SKTextBlobBuilder.AllocateRawPositionedRun(font, count, null)`, copies `Codepoints`->`Glyphs` and `Points`->`Positions`, builds an `SKTextBlob`, applies the `SKTextAlign` offset (`Left`=0, `Center`=-Width/2, `Right`=-Width), and draws via `SKCanvas.DrawText`.
 
 [STACKING]:
-
 - One `SKShaper` per typeface is the reuse unit: a custom-control text rail, a chart-axis labeler, an SVG `<text>` flow, and a diagnostics overlay all hold a shaper per face and call the shaper-reuse `DrawShapedText` overload — the one-shot `string` overload reloads the face on every draw and is for incidental labels only.
 - For typeset layout (line breaking, bidi runs, ligature-aware caret hit-testing), drive `Shape(Buffer, SKFont)` with a caller-prepared `HarfBuzzSharp.Buffer` (explicit `Direction`/`Script`/`Language`, feature tags) and consume `Result.Clusters` for the source-index map; the `string` convenience path discards that control by calling `GuessSegmentProperties`.
 - The shaped `Result` is the seam between this rail and the GPU/raster render path: feed `Codepoints`+`Points` straight into `SKTextBlobBuilder` (or an Avalonia `GlyphRun`) rather than re-shaping, so shaping cost is paid once and the render backend (Skia GL/Vulkan via `Avalonia.Skia`) only rasterizes.
 - Font-stream-to-blob (`ToHarfBuzzBlob`) is the single admitted path from a Skia typeface to HarfBuzz face bytes; it binds the blob's release to the asset's `Dispose`, so the caller must keep the `SKStreamAsset` alive for the shaper's lifetime — `SKShaper` already owns this internally.
 
 [TYPOGRAPHY_LAW]:
-
 - Package: `SkiaSharp.HarfBuzz`
 - Owns: HarfBuzz-backed shaping for Skia text, glyph runs, and rendered labels
 - Accept: typography roles shape through one `SKShaper` per face, reuse it across draws, and bind the `SKFont`/`SKTextAlign` overloads
 - Reject: the `[Obsolete]` `SKPaint` overloads; manual glyph placement; re-shaping a stable string per frame
 
 [VISUAL_TEXT_LAW]:
-
 - Package: `SkiaSharp.HarfBuzz`
 - Owns: shaped-text output for custom controls, chart labels, SVG text, diagnostics, and rendered evidence
 - Accept: text shaping is one typography rail across all AppUi modalities, with `Result` as the shared shaped-run record

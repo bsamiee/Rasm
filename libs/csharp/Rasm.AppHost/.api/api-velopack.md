@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Velopack`
-
 - package: `Velopack`
 - assembly: `Velopack`
 - namespace: `Velopack`
@@ -18,7 +17,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: startup hook gate
-
 - rail: runtime provisioning and update
 
 | [INDEX] | [SYMBOL]       | [PACKAGE_ROLE] | [CAPABILITY]                      |
@@ -27,7 +25,6 @@
 |  [02]   | `VelopackHook` | hook delegate  | versioned startup-event callback  |
 
 [PUBLIC_TYPE_SCOPE]: update manager and feed values
-
 - rail: runtime provisioning and update
 
 | [INDEX] | [SYMBOL]            | [PACKAGE_ROLE]  | [CAPABILITY]                         |
@@ -38,7 +35,6 @@
 |  [04]   | `VelopackAssetType` | asset kind enum | full/delta/portable/installer/msi    |
 
 [PUBLIC_TYPE_SCOPE]: option and locator contracts
-
 - rail: runtime provisioning and update
 
 | [INDEX] | [SYMBOL]           | [PACKAGE_ROLE]   | [CAPABILITY]                          |
@@ -51,7 +47,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: startup gate (`VelopackApp`, `Velopack`; `VelopackHook` = `void (SemanticVersion version)`)
-
 - rail: runtime provisioning and update
 
 | [INDEX] | [SURFACE]                                          | [ENTRY_FAMILY]    | [RAIL]                                           |
@@ -71,11 +66,9 @@
 |  [13]   | `Run()`                                            | gate dispatch     | `--veloapp-*` dispatch; once at earliest startup |
 
 [ENTRYPOINT_SCOPE]: update manager (`UpdateManager`, `Velopack`)
-
 - rail: runtime provisioning and update
 
 [UPDATE_MANAGER_SIGNATURES]:
-
 - URL/path constructor: `new UpdateManager(string urlOrPath, UpdateOptions? = null, IVelopackLocator? = null)`
 - source constructor: `new UpdateManager(IUpdateSource source, UpdateOptions? = null, IVelopackLocator? = null)`
 - synchronous download: `DownloadUpdates(UpdateInfo, Action<int>? progress)`
@@ -105,7 +98,6 @@ Feed checks return `UpdateInfo?`; null denotes no newer release on the resolved 
 |  [15]   | `WaitExitThenApplyUpdates` | apply          | deferred apply on process exit         |
 
 [ENTRYPOINT_SCOPE]: feed values and options (`UpdateInfo`/`VelopackAsset`/`VelopackAssetType`/`UpdateOptions`, `Velopack`)
-
 - rail: runtime provisioning and update
 
 | [INDEX] | [SURFACE]                                             | [ENTRY_FAMILY]   | [RAIL]                                                |
@@ -123,7 +115,6 @@ Feed checks return `UpdateInfo?`; null denotes no newer release on the resolved 
 |  [11]   | `UpdateOptions.MaximumDeltasBeforeFallback`           | option value     | delta-chain cap before full-package fallback (`int?`) |
 
 [ENTRYPOINT_SCOPE]: locator contract (`IVelopackLocator`, `Velopack.Locators`)
-
 - rail: runtime provisioning and update
 
 Identity and install-path reads return `string?`.
@@ -149,14 +140,12 @@ Identity and install-path reads return `string?`.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [GATE_TOPOLOGY]:
-
 - `VelopackApp.Build()` opens a fluent gate that registers install, update, obsolete, uninstall, first-run, and restart hooks before `Run()`.
 - `Run()` reads `--veloapp-*` command arguments, dispatches the matching `VelopackHook`, applies pending updates when auto-apply is on, then returns control to normal startup.
 - `Run()` must execute once at the earliest point of process startup; a second call corrupts locator state.
 - `SetAutoApplyOnStartup` is on by default; install/update fast callbacks run inside the hook process and stay non-blocking.
 
 [UPDATE_TOPOLOGY]:
-
 - `UpdateManager` binds to a feed URL/path or `IUpdateSource` with optional `UpdateOptions` and `IVelopackLocator`.
 - `CheckForUpdatesAsync` returns `UpdateInfo?`; null signals no newer release on the resolved channel.
 - `UpdateInfo` carries `TargetFullRelease`, the `BaseRelease`/`DeltasToTarget` delta chain, and an `IsDowngrade` flag.
@@ -164,19 +153,16 @@ Identity and install-path reads return `string?`.
 - `ApplyUpdatesAndRestart` hands off to the bootstrapper and relaunches; `ApplyUpdatesAndExit` and `WaitExitThenApplyUpdates` cover headless apply paths.
 
 [OPTION_LAW]:
-
 - `ExplicitChannel` selects a non-default release channel; `AllowVersionDowngrade` admits older targets.
 - `MaximumDeltasBeforeFallback` caps the delta chain before a full-package fallback.
 - Channel and version policy bind at composition; domain code never sets channel strings ad hoc.
 
 [LOCAL_ADMISSION]:
-
 - Provisioning and self-update are host-level concerns; domain code never constructs `UpdateManager` directly.
 - Install paths, current version, and channel are read through `IVelopackLocator`, not from the filesystem.
 - `VelopackAsset` hashes and `VelopackAssetType` are read-only release evidence; the apply decision lives in the owning update policy surface.
 
 [RAIL_LAW]:
-
 - Package: `Velopack`
 - Owns: desktop application provisioning, self-update lifecycle, and release-feed evidence
 - Accept: hook-gated startup, feed-checked update apply, and locator-resolved install state

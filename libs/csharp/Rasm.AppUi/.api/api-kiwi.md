@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Kiwi`
-
 - package: `Kiwi`
 - assembly: `Kiwi`
 - namespace: `Nanoray.Kiwi`
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: solver and constraint owners
-
 - rail: layout
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]         | [RAIL]                            |
@@ -28,7 +26,6 @@
 |  [04]   | `RelationalOperator` | enum                  | equality/inequality selector      |
 
 [PUBLIC_TYPE_SCOPE]: linear expression carriers
-
 - rail: layout
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY]          | [RAIL]                          |
@@ -40,7 +37,6 @@
 |  [05]   | `VariableStore`  | sealed class           | default in-memory value store   |
 
 [PUBLIC_TYPE_SCOPE]: operator cases
-
 - rail: layout
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY] | [RAIL]                      |
@@ -50,7 +46,6 @@
 |  [03]   | `RelationalOperator.GreaterThanOrEqual` | enum case     | left bounded below by right |
 
 [PUBLIC_TYPE_SCOPE]: solver failure rails
-
 - rail: layout
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY] | [RAIL]                            |
@@ -66,7 +61,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: solver constraint and edit-variable operations
-
 - rail: layout
 
 | [INDEX] | [SURFACE]                                    | [ENTRY_FAMILY]   | [RAIL]                          |
@@ -85,7 +79,6 @@
 |  [12]   | `TrySuggestValue(Variable, double)`          | guarded suggest  | non-throwing suggest            |
 
 [ENTRYPOINT_SCOPE]: solver evaluation
-
 - rail: layout
 
 | [INDEX] | [SURFACE]           | [ENTRY_FAMILY] | [RAIL]                                       |
@@ -94,7 +87,6 @@
 |  [02]   | `UpdateVariables()` | flush          | write solved row constants into each `Store` |
 
 [ENTRYPOINT_SCOPE]: constraint construction
-
 - rail: layout
 
 | [INDEX] | [SURFACE]                                                          | [ENTRY_FAMILY] | [RAIL]                            |
@@ -108,7 +100,6 @@
 |  [07]   | `Constraint.Expression` / `Operator` / `Strength` / `Violated`     | property       | constraint inspection             |
 
 [ENTRYPOINT_SCOPE]: expression assembly
-
 - rail: layout
 
 `Term.Coefficient` defaults to `1.0`, and `Expression.Constant` defaults to `0.0`.
@@ -144,7 +135,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [KIWI_TOPOLOGY]:
-
 - Linear-form assembly is operator-driven: `Variable * double` yields a `Term`, `Term + double`/`Variable + Variable`/`Term + Variable` yield an `Expression`, and every arithmetic operator (`+`, `-`, `*`, `/`, unary `-`) on `Variable`/`Term`/`Expression` returns one of those three carriers, so layout expressions compose without builder calls.
 - `Variable`, `Term`, and `double` each carry an `implicit operator Expression`, so a bare carrier passes directly into `Constraint.Equal`/`LessEqual`/`GreaterEqual`/`Make` and `AddEditVariable` without an explicit wrap.
 - `Term` is a `readonly record struct (Variable Variable, double Coefficient = 1.0)` whose `Value` is `Variable.Value * Coefficient`; `Expression` is a `readonly struct` whose public `Terms` is `IReadOnlyList<Term>` (backed by an internal `ImmutableArray<Term>`) plus a `double Constant`, with `Value` summing each `Term.Value` and the constant, and `IsConstant` true when no terms remain.
@@ -155,21 +145,18 @@
 - Variable storage is indirected through `IVariableStore`: `Variable.Value` reads and writes `Store.Value`, the default `VariableStore` is a plain in-memory `double` cell, and a custom `IVariableStore` lets a layout node observe solved values without polling.
 
 [LOCAL_ADMISSION]:
-
 - Layout geometry edges (panel left/top/width/height) are `Variable` values; layout rules compose as `Expression` operator algebra and bind through `Constraint.Equal`/`LessEqual`/`GreaterEqual` at the matching `Strength`, never through hand-built tableau rows.
 - Fixed structural rules use `Strength.Required`; competing preferences use `Strong`/`Medium`/`Weak` so the dual-simplex relaxes the lower-priority constraint instead of throwing.
 - Runtime drag, resize, and content-size changes flow through `AddEditVariable` plus `SuggestValue`; the layout pass calls `Solve` once and reads solved positions from each `Variable.Value` (or a custom `IVariableStore` bound to the visual node).
 - Boundary intake of constraint edits uses the `Try*` family (`TryAddConstraint`, `TryRemoveEditVariable`, `TrySuggestValue`); `UnsatisfiableConstraintException` and the duplicate/unknown rails never cross the layout-update boundary as exceptions.
 
 [STACKING]:
-
 - Live drive from the data rail projects `DynamicData` drag and resize deltas from `SourceCache.Edit` through `Transform` into `(Variable, double)` pairs; the subscription calls `Solver.TrySuggestValue` per delta and `Solver.Solve` once per frame.
 - The visual collection and `Solve()` pass share one `Connect().Bind(...)` observable, so each edit re-flows both and the constraint solve remains the live-data rail's sole mutation sink.
 - Custom `IVariableStore` as the observation seam: implement `IVariableStore` over an Avalonia visual node's geometry (or a `ReactiveUI` property) so `UpdateVariables` writes solved row constants straight into the bound property on `Solve`, eliminating the post-solve polling loop; the layout owner reads positions from the node, not from a side dictionary.
 - Strength-priority composition mirrors UI intent ranking: required structural invariants (`Strength.Required`), then theme/preference rules (`Strong`/`Medium`/`Weak`) so the dual-simplex relaxes a soft preference rather than throwing — the `Strength.Create(a,b,c,w)` lexicographic packing lets a screen express a continuum of competing constraints that map onto the same priority order a token/theme rail already defines.
 
 [RAIL_LAW]:
-
 - Package: `Kiwi`
 - Owns: incremental linear-arithmetic constraint solving — `Variable`/`Term`/`Expression` linear-form algebra, `Constraint` binding at named `Strength` priorities, and the `Solver` dual-simplex with edit-variable `SuggestValue` runtime drive.
 - Accept: operator-composed `Expression` constraints bound through `Equal`/`LessEqual`/`GreaterEqual`/`Make`; guarded `Try*` edits at the boundary; solved values read from `IVariableStore`.

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Eto.Forms`
-
 - package: `Eto.Forms` — host-provided, resolved from the Rhino host assembly set, not a central `PackageReference`
 - assembly: `Eto`
 - namespace: `Eto.Forms`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: application dispatch and clock
-
 - namespace: `Eto.Forms`
 - rail: eto-runtime
 
@@ -27,7 +25,6 @@
 |  [02]   | `UITimer`     | timer             | repeating UI-thread clock with `Interval`/`Elapsed`           |
 
 [PUBLIC_TYPE_SCOPE]: input and display state
-
 - namespace: `Eto.Forms`
 - rail: eto-runtime
 
@@ -44,7 +41,6 @@
 |  [07]   | `Cursors`      | static roster     | the built-in cursor handle set                               |
 
 [PUBLIC_TYPE_SCOPE]: typed data transfer and drag
-
 - namespace: `Eto.Forms`
 - rail: eto-runtime
 
@@ -59,7 +55,6 @@
 |  [05]   | `DragEventArgs` | event args | drop location, `Data`, `AllowedEffects`, resolved `Effects`   |
 
 [PUBLIC_TYPE_SCOPE]: notification and tray
-
 - namespace: `Eto.Forms`
 - rail: eto-runtime
 
@@ -73,7 +68,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: UI-thread dispatch and iteration
-
 - rail: eto-runtime
 
 The three dispatch shapes are the boundary between a background thread and the control tree; `EnsureUIThread` asserts affinity and `RunIteration` pumps one message pass for a synchronous modal wait.
@@ -91,7 +85,6 @@ The three dispatch shapes are the boundary between a background thread and the c
 |  [09]   | `UITimer.Start` / `UITimer.Stop` | `()`                        | run and halt the repeating clock               |
 
 [ENTRYPOINT_SCOPE]: display, input, and cursor state
-
 - rail: eto-runtime
 
 `Screen` enumerates displays and resolves the screen under a point or rectangle; `Mouse`/`Keyboard` read live device state; `Mouse.SetCursor` overrides the pointer glyph.
@@ -109,7 +102,6 @@ The three dispatch shapes are the boundary between a background thread and the c
 |  [09]   | `Keyboard.IsKeyLocked`     | `(Keys) → bool`         | lock-key state                        |
 
 [ENTRYPOINT_SCOPE]: typed transfer, drag, and tray
-
 - rail: eto-runtime
 
 `Clipboard` and `DataObject` expose the identical typed accessor set; a payload is set and read under one MIME `type` string. `DragEventArgs.SetDropDescription` annotates the OS drag cursor; `TrayIndicator` and `Notification` deliver tray presence.
@@ -136,25 +128,20 @@ The three dispatch shapes are the boundary between a background thread and the c
 ## [04]-[IMPLEMENTATION_LAW]
 
 [THREAD_AFFINITY]:
-
 - Every control-tree read or write executes on the UI thread; a background producer crosses through exactly one `Application` dispatch shape. Synchronous `Invoke`/`Invoke<T>` blocks the caller and returns the UI-side result; `AsyncInvoke` posts without a completion signal; `InvokeAsync`/`InvokeAsync<T>` returns a `Task` awaited off-thread. `EnsureUIThread` is the guard a UI-only method opens with; `RunIteration` pumps the loop for a hand-rolled synchronous wait rather than blocking it.
 - `UITimer` is the framework clock and fires `Elapsed` on the UI thread; it is the portable fallback pace where a platform has no higher-fidelity display-link (`api-macos-native` owns the macOS display-link pace).
 
 [TRANSFER_CONTRACT]:
-
 - `Clipboard` and `DataObject` are the same typed-payload shape under two lifetimes: the clipboard is process-external and persistent, the data object is drag-scoped. A payload is always keyed by a MIME `type` string, and `SetString`/`SetData`/`SetDataStream`/`SetObject` pair one-to-one with the `Get*` readers plus `Contains`. Drag negotiation carries the `DataObject` on `DragEventArgs.Data`, declares `AllowedEffects`, and resolves the committed `Effects`.
 
 [STACKING]:
-
 - `LanguageExt`(`.api/api-languageext`): a UI-thread dispatch wraps into `Eff<A>`/`IO<A>` so the boundary composes marshalled work as an effect and folds the outcome to `Fin<A>` — `Application.Invoke<T>`/`InvokeAsync<T>` become effectful reads, never raw blocking calls threaded through domain code. `Option<A>` lifts every nullable transfer read (`Clipboard.GetString(type)`, `DataObject.GetObject<T>(type)` gated by `Contains(type)`) so an absent MIME payload is `None`, not a null. `UITimer` and `TrayIndicator` are resource-scoped through the `use` rail: `Start`/`Show` acquire, `Stop`/`Hide` release, so the clock and the tray icon never leak past their owning scope.
 - `Thinktecture.Runtime.Extensions`(`.api/api-thinktecture-runtime-extensions`): the `Cursors` roster, `DragEffects`, and `MouseButtons` bind as `[SmartEnum]`/flag owners routed by generated `Switch`/`Map` instead of raw static-field reads and bitwise tests; a clipboard MIME `type` binds as a `[ValueObject<string>]` so transfer access is keyed by a validated owner rather than a bare `string type` argument.
 
 [LOCAL_ADMISSION]:
-
 - `Eto.Forms` runtime state is host-provided and never re-declared; a Rasm owner internalizes a dispatch, transfer, timer, or tray concern behind one canonical rail so downstream code composes a marshalled effect or a keyed payload, never `Application.Instance`, a stringy MIME argument, or a raw static-field cursor lookup.
 
 [RAIL_LAW]:
-
 - Package: `Eto.Forms`
 - Owns: `Application` UI-thread dispatch and loop iteration, `UITimer`, `Screen`/`Mouse`/`Keyboard`/`Cursors` device and display state, `Clipboard`/`DataObject` typed transfer, `DragEffects`/`DragEventArgs`, `Notification`, `TrayIndicator`
 - Accept: UI-thread marshalling, clock pacing, live input/display projection, typed clipboard and drag payloads, tray presence and toast delivery

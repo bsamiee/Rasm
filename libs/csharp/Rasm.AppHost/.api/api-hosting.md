@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Hosting`
-
 - package: `Microsoft.Extensions.Hosting`
 - assembly: `Microsoft.Extensions.Hosting`
 - contract_assembly: `Microsoft.Extensions.Hosting.Abstractions`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: host implementation family
-
 - rail: bootstrap
 
 | [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [RAIL]               |
@@ -30,7 +28,6 @@
 |  [07]   | `BackgroundServiceExceptionBehavior` | exception policy | hosted loop failure  |
 
 [PUBLIC_TYPE_SCOPE]: host contract family
-
 - rail: bootstrap
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY]        | [RAIL]                  |
@@ -50,7 +47,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder operations
-
 - rail: bootstrap
 
 | [INDEX] | [SURFACE]                            | [ENTRY_FAMILY]         | [RAIL]                  |
@@ -73,7 +69,6 @@
 |  [16]   | `Build`                              | host factory           | root host construction  |
 
 [ENTRYPOINT_SCOPE]: runtime operations
-
 - rail: bootstrap
 
 | [INDEX] | [SURFACE]                                      | [CAPABILITY]           |
@@ -99,7 +94,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [HOSTING_TOPOLOGY]:
-
 - namespaces: `Microsoft.Extensions.Hosting`
 - builder path: create builder, configure host, configure app, register services, configure container, build host
 - builder state: environment, configuration, services, logging, metrics, properties
@@ -110,7 +104,6 @@
 - console policy: `ConsoleLifetimeOptions.SuppressStatusMessages`
 
 [LOCAL_ADMISSION]:
-
 - Process-backed integrations boot through Generic Host.
 - Hosted services adapt external lifetimes into runtime state transitions with ordered lifecycle hooks.
 - Host configuration, app configuration, logging, and metrics enter through the builder rail.
@@ -118,7 +111,6 @@
 - Host lifetime events feed receipts; they never become a second runtime state machine.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.Hosting`
 - Owns: process bootstrap
 - Accept: Generic Host feeds runtime ports

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Avalonia.Desktop`
-
 - package: `Avalonia.Desktop` `12.0.5`
 - assembly: `Avalonia.Desktop` (bound asset `lib/net10.0/Avalonia.Desktop.dll`; also ships `lib/net8.0`)
 - license: MIT
@@ -38,7 +37,6 @@ Note: the four `Use*` extensions above live in their respective backend assembli
 [BUILDER_ENTRYPOINT]: the single boot entry — rail: desktop-shell
 
 [USE_PLATFORM_DETECT]:
-
 - Surface: `UsePlatformDetect`
 - Owner: `AppBuilderDesktopExtensions`
 - Signature: `(this AppBuilder) -> AppBuilder`
@@ -57,30 +55,25 @@ Note: the four `Use*` extensions above live in their respective backend assembli
 ## [04]-[INTEGRATION_STACKING]
 
 [ONE_BOOT_RAIL]: `UsePlatformDetect` collapses host-substrate selection into the shared AppUi boot.
-
 - The AppUi boot (`Shell/hosts.md`) configures the `AppBuilder` (from `Avalonia` core — `AppBuilder.Configure<App>()`, `api-avalonia.md`) then chains `.UsePlatformDetect()` and the classic-desktop lifetime from `Avalonia` core; the standalone-desktop, sidecar-shell, and companion-window modalities all enter the same `SurfaceHost` axis through this one call, satisfying the README "one shell mounts onto any substrate" law.
 - The Rhino panel/modal and GH2 companion modalities mount the SAME `App`/`SurfaceHost` but boot via the host's own embedding (Avalonia-in-host), not `UsePlatformDetect`; the desktop entry is the standalone/sidecar branch of the host axis, not a parallel app.
 
 [RENDERER_HANDSHAKE]: the renderer `UsePlatformDetect` selects is the same Skia backend the visual rail leases.
-
 - `UsePlatformDetect` internally calls `Avalonia.Skia` `UseSkia`, admitting the `ISkiaSharpApiLeaseFeature` that the custom-visual rail leases for raw `SKCanvas` access (`api-avalonia-skia.md`, `api-skiasharp.md`); desktop boot and custom-render lease share one renderer, so leased Skia draws present in-airspace.
 - The native `libSkiaSharp` payload the selected backend loads is supplied by `SkiaSharp.NativeAssets.*` (`api-skia-native.md`), keeping the macOS-native and headless-Linux render paths self-contained.
 
 [HEADLESS_DIVERGENCE]: server/container/CI proof does NOT use the desktop entry.
-
 - Headless render and Verify surfaces (`api-headless.md`) replace `UsePlatformDetect` with `UseHeadless` + `Avalonia.Skia`'s raster path; the desktop entry is the live-host branch only. The shared shell/render code is host-neutral; only the `AppBuilder` boot tail differs (desktop-detect vs headless), so one `SurfaceHost` serves both.
 
 ## [05]-[IMPLEMENTATION_LAW]
 
 [DESKTOP_ADMISSION]:
-
 - Package: `Avalonia.Desktop`
 - Owns: one umbrella boot entry (`UsePlatformDetect`) that detects the OS and wires the matching windowing backend plus the Skia renderer
 - Accept: standalone, sidecar, and companion desktop hosts enter the same AppUi shell rail through this single call; backend selection is internal to `UsePlatformDetect`
 - Reject: host-specific boot forks; AppUi calling `UseWin32`/`UseX11`/`UseAvaloniaNative`/`UseSkia` directly (that is `UsePlatformDetect`'s internal job)
 
 [ASSET_LAW]:
-
 - Package: `Avalonia.Desktop`
 - Owns: transitive admission of the backend dependency graph through one package reference; no public managed types beyond `AppBuilderDesktopExtensions`
 - Accept: native backend assets (`libAvaloniaNative.dylib`, `Avalonia.Win32.dll`, `Avalonia.X11.dll`, `Avalonia.Skia.dll`) are part of the desktop shell proof rail

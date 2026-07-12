@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NetTopologySuite`
-
 - package: `NetTopologySuite`
 - license: BSD-3-Clause
 - assembly: `NetTopologySuite`
@@ -24,7 +23,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: geometry hierarchy
-
 - namespace: `NetTopologySuite.Geometries`
 - rail: geometry
 
@@ -50,7 +48,6 @@
 |  [16]   | `Dimension`                 | enum           | DE-9IM cell vocabulary  |
 
 [MEMBER_SURFACES]:
-
 - `Geometry`: `OgcGeometryType`, `Dimension`, `SRID`, `EnvelopeInternal`, `Coordinates`, `UserData`, `IsValid`, `IsSimple`, `IsEmpty`, `IsRectangle`, `Area`, `Length`, `Centroid`, `InteriorPoint`, and `Apply(ICoordinateSequenceFilter)`. `Coordinates` returns an array whose elements cannot be assumed to alias internal storage; representation-independent ordinate rewrites use the filter, whose `GeometryChanged` result invalidates cached geometry state.
 - `Point`: `X`, `Y`, `Z`, `M`, `Coordinate`, and `CoordinateSequence`.
 - `LineString`: `IsClosed`, `IsRing`, `StartPoint`, `EndPoint`, `GetPointN`, and `CoordinateSequence`.
@@ -67,7 +64,6 @@
 - `Dimension`: `Point`, `Curve`, `Surface`, `False`, `True`, and `Dontcare` encode DE-9IM cells.
 
 [PUBLIC_TYPE_SCOPE]: factory and global services
-
 - namespace: `NetTopologySuite`, `NetTopologySuite.Geometries`
 - rail: geometry
 
@@ -81,14 +77,12 @@
 |  [04]   | `CoordinateSequenceFactory` | abstract class | ordinate storage      |
 
 [MEMBER_SURFACES]:
-
 - `NtsGeometryServices.Instance` owns global overlay, relate, precision, SRID, and coordinate-sequence policy; `CreateGeometryFactory(int)` returns a cached factory.
 - `GeometryFactory` constructs under one `PrecisionModel`, `SRID`, and `CoordinateSequenceFactory`; `CreatePoint`, `CreateLineString`, `CreateLinearRing`, `CreatePolygon`, `CreateMultiPoint`, `CreateMultiPointFromCoords`, `CreateMultiPolygon`, `CreateGeometryCollection`, `BuildGeometry`, `ToGeometry`, and `CreateEmpty` span the geometry family.
 - `GeometryOverlay.NG` selects the `OverlayNG` constructive-operation engine.
 - `CoordinateSequenceFactory` admits `PackedCoordinateSequenceFactory.DoubleFactory`, `PackedCoordinateSequenceFactory.FloatFactory`, or `CoordinateArraySequenceFactory` as the ordinate-store strategy.
 
 [PUBLIC_TYPE_SCOPE]: prepared geometry, spatial index, validity repair
-
 - namespace: `NetTopologySuite.Geometries.Prepared`, `NetTopologySuite.Index.Strtree`, `NetTopologySuite.Geometries.Utilities`
 - rail: geometry
 
@@ -104,7 +98,6 @@ Prepared geometries and spatial indexes separate repeated-query acceleration fro
 |  [06]   | `AffineTransformation`    | class     | planar affine mapping |
 
 [MEMBER_SURFACES]:
-
 - `PreparedGeometryFactory.Prepare(Geometry)` and `Create(Geometry)` build the indexed predicate target.
 - `IPreparedGeometry` owns `Contains`, `ContainsProperly`, `CoveredBy`, `Covers`, `Crosses`, `Disjoint`, `Intersects`, `Overlaps`, `Touches`, `Within`, and its source `Geometry`; one prepared target amortizes its segment index across candidates.
 - `STRtree<TItem>` owns `Insert`, list and visitor `Query`, `Remove`, `NearestNeighbour`, and `IsWithinDistance`. Nearest-neighbor evaluation compares the tree with itself, another tree, one item, or the item's `k` results; its first query builds the tree and closes further insertion, while query and removal remain legal.
@@ -113,7 +106,6 @@ Prepared geometries and spatial indexes separate repeated-query acceleration fro
 - `AffineTransformation` composes `Translate`, `Scale`, `Rotate`, and `Shear` before `Transform(Geometry)` applies the planar map.
 
 [PUBLIC_TYPE_SCOPE]: attributed-feature shape (from `NetTopologySuite.Features`)
-
 - namespace: `NetTopologySuite.Features`
 - rail: geometry
 
@@ -127,7 +119,6 @@ The feature contract couples one geometry with its attribute table.
 |  [04]   | `AttributesTable`  | class     | attribute storage   |
 
 [MEMBER_SURFACES]:
-
 - `IFeature` exposes `Geometry`, `Attributes`, and `BoundingBox` as the vector-codec row shape.
 - `Feature(Geometry, IAttributesTable)` constructs the sealed mutable `Feature` with geometry and attributes; `BoundingBox` remains independently assignable.
 - `IAttributesTable` owns `Count`, `this[string]`, `GetNames`, `GetValues`, and `Exists`.
@@ -136,7 +127,6 @@ The feature contract couples one geometry with its attribute table.
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: binary predicates (DE-9IM relate)
-
 - namespace: `NetTopologySuite.Geometries`
 - rail: geometry
 
@@ -161,7 +151,6 @@ The feature contract couples one geometry with its attribute table.
 `Intersects` confirms candidates after envelope screening, and `IsWithinDistance` exits before computing an unneeded full distance.
 
 [ENTRYPOINT_SCOPE]: boolean and constructive operations
-
 - namespace: `NetTopologySuite.Geometries`, `NetTopologySuite.Operation.OverlayNG`, `NetTopologySuite.Operation.Union`
 - rail: geometry
 
@@ -190,7 +179,6 @@ Constructive operations return geometry and never mutate their operands.
 `Geometry` constructive methods route through the configured overlay engine. `BufferParameters` owns join, cap, mitre, and single-sided policy; `SpatialFunction` selects the overlay operation.
 
 [ENTRYPOINT_SCOPE]: simplify, densify, nearest-point
-
 - namespace: `NetTopologySuite.Simplify`, `NetTopologySuite.Densify`, `NetTopologySuite.Operation.Distance`
 - rail: geometry
 
@@ -207,7 +195,6 @@ Transformation functions return new geometry under an explicit tolerance or oper
 `DouglasPeuckerSimplifier` may break inter-ring topology, while `TopologyPreservingSimplifier` preserves it. `Densifier` bounds segment length before nonlinear reprojection, and `NearestPoints` returns the clash-gap witness.
 
 [ENTRYPOINT_SCOPE]: WKT/WKB serialization
-
 - namespace: `NetTopologySuite.IO`, `NetTopologySuite.Geometries`
 - rail: geometry
 
@@ -239,42 +226,35 @@ Text and binary codecs admit or emit geometry through explicit boundary shapes.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [PLATFORM_BOUNDARY]:
-
 - `NetTopologySuite.dll` is a managed JTS port with no P/Invoke or native GEOS boundary; OGR keeps its native topology engine inside the GDAL boundary.
 - Constructive operations return new geometries, while metadata setters and coordinate filters can mutate an instance; `GeometryChanged()` invalidates derived caches after coordinate edits.
 
 [GLOBAL_SERVICES]:
-
 - `NtsGeometryServices.Instance` is configured during startup with `GeometryOverlay.NG`, the admitted precision and SRID policy, and a `PackedCoordinateSequenceFactory`; readers consume that service, and `CreateGeometryFactory` resolves cached factories from it.
 - `PackedCoordinateSequenceFactory` stores interleaved ordinates in one `double[]` or `float[]`, avoiding a `Coordinate` object per point at the geometry boundary.
 
 [PREDICATE_ACCELERATION]:
-
 - Repeated predicate queries against one fixed geometry build its segment index through `PreparedGeometryFactory.Prepare`, then evaluate candidates through `IPreparedGeometry` predicates.
 - `STRtree<TItem>` bulk-inserts candidates before its first `Query`; subsequent queries and removals operate on the built tree, while `Quadtree<TItem>` admits interleaved insertion.
 - The spatial-join rail composes `STRtree.Query` candidate envelopes with `IPreparedGeometry.Intersects` exact confirmation.
 
 [ROBUST_OVERLAY]:
-
 - `GeometryOverlay.NG` configures constructive operations for noding and precision-model snapping; `OverlayNGRobust.Overlay` and `OverlayNGRobust.Union` expose direct robust binary and bulk operations.
 - `GeometryFixer.Fix` repairs invalid ingress before an overlay or write.
 
 [STACK_INTEGRATION]:
-
 - `Rasm.Bim` geospatial: `NetTopologySuite.IO.Esri.Shapefile`, the GeoJSON/GeoPackage codecs, and the `MaxRev.Gdal.Core` OGR ingest all materialize and emit `Geometry`/`Feature` through this core; `ProjNET` reprojects its ordinates between EPSG-keyed systems (the `Densifier.Densify` pre-step tracks the datum), with `MaxRev.Gdal.Core` OSR the exotic-datum escalation. NTS holds the planar algebra on both sides; it never reprojects itself.
 - `Rasm.Persistence` spatial: the PostGIS spatial column binds `Npgsql.NetTopologySuite`, exchanging `Geometry` over WKB; the `STRtree` broad-phase and `PreparedGeometry` narrow-phase are the in-process spatial-join lane beside the SQL side.
 - `Rasm.Compute` circulation resolves space boundaries through the content-keyed `GeometrySource` port and uses NTS for visibility, offset, and area operations; graph packages retain flow and topology ownership.
 - wire seam: `Geometry.ToBinary()` and `WKBWriter` encode the domain-footprint wire form. Python decodes it through `shapely`, while TypeScript routes it through `WkbParser` before planar GeoJSON operations.
 
 [LOCAL_ADMISSION]:
-
 - geometry construction enters through a `NtsGeometryServices.Instance`-resolved `GeometryFactory`; the global singleton is configured once at startup.
 - predicates and boolean ops enter through the `Geometry` instance methods; the prepared/indexed forms (`PreparedGeometry`, `STRtree`) are used whenever one geometry faces many.
 - validity repair enters through `GeometryFixer.Fix` before raw vector geometry reaches an overlay.
 - WKT/WKB I/O enters through the `WKTReader`/`WKBReader`/`WKBWriter` family seeded with the canonical `NtsGeometryServices` instance.
 
 [RAIL_LAW]:
-
 - Package: `NetTopologySuite` with the `NetTopologySuite.Features` companion
 - Owns: the OGC Simple-Features planar geometry algebra — type hierarchy, DE-9IM predicates, robust overlay/boolean, buffer/hull/simplify/densify, R-tree spatial index, prepared geometry, validity repair, WKT/WKB I/O, the attributed `Feature` shape
 - Accept: planar topology, spatial predicates and joins, 2D boolean operations, footprint dissolve, geospatial broad/narrow-phase indexing, the circulation planar side

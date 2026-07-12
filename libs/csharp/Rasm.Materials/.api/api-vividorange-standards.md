@@ -9,7 +9,6 @@ A structural material grade cites this design-code identity, and a design page n
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `VividOrange.Standards`
-
 - package: `VividOrange.Standards`
 - license: MIT (`licenses.nuget.org/MIT` — MagmaWorks / VividOrange taxonomy)
 - assembly: `VividOrange.Standards`
@@ -31,7 +30,6 @@ This assembly has no BS, ACI, AISC, or AS standard class; a non-EN `StandardBody
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: the ten Eurocode standard records (`IStandard` identity DATA)
-
 - rail: standards
 - contract: each pure-identity record implements `IStandard, ITaxonomySerializable` and carries constant `Body=EN`, its chosen `NationalAnnex`, and a derived human-readable `Title`.
 - partition: each record carries its `En19xxPart`; `En1990` is the unpartitioned basis-of-design exception without `Part`.
@@ -52,7 +50,6 @@ This assembly has no BS, ACI, AISC, or AS standard class; a non-EN `StandardBody
 `En1992Part` spans 1-1 general, 1-2 fire, 2 bridges, and 3 containment. `En1993Part` includes `Part1_1` general, `Part1_3` cold-formed, `Part1_5` plated, `Part1_8` joints, `Part1_9` fatigue, `Part1_12` high-strength, and `Part2` or later for bridges and towers. Concrete and rebar grade standards cite `En1992`, and the steel grade standard cites `En1993`; material grades and design pages reference these records as design-code citations.
 
 [PUBLIC_TYPE_SCOPE]: code-description utilities — NOT consumer-callable (`internal`)
-
 - rail: standards
 - gate: `NationalAnnexUtility` and the per-code `En1991Utility` through `En1999Utility` are `internal`; they compose each standard's `Title` from its part description and national-annex abbreviation.
 - surface: consumers read the standard record's `Title` and do not call `NationalAnnexUtility.GetAbbreviation(na)` or `En1993Utility.GetPartDescription(part)` directly.
@@ -61,7 +58,6 @@ This assembly has no BS, ACI, AISC, or AS standard class; a non-EN `StandardBody
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: cite a Eurocode standard
-
 - rail: standards
 - citation: a concrete material carries `En1992`, a steel material carries `En1993`, and `En1990` supplies the unpartitioned basis of design. `En1993Part.Part1_8` selects the joints code.
 - family: `En19xx` denotes `En1991`, `En1994`, `En1995`, `En1996`, `En1997`, `En1998`, or `En1999` with the matching part enum and national annex.
@@ -82,7 +78,6 @@ This assembly has no BS, ACI, AISC, or AS standard class; a non-EN `StandardBody
 ## [04]-[IMPLEMENTATION_LAW]
 
 [STANDARD_IDENTITY_ALGEBRA]:
-
 - root: an `En19xx` is a pure IDENTITY record — `{ Body (constant EN), Part (its En19xxPart), NationalAnnex, Title (derived) }`,
   implementing the `IStandard` floor. It carries NO quantities and NO design rules — it is the design-code CITATION, the
   authority a material grade or a design check names.
@@ -96,14 +91,12 @@ This assembly has no BS, ACI, AISC, or AS standard class; a non-EN `StandardBody
 - `Title` derivation: the `Title` getter folds the code name, the part description from the `internal` `En19xxUtility.GetPartDescription`, and the national-annex abbreviation from the `internal` `NationalAnnexUtility.GetAbbreviation` into one human-readable string, the only consumer-visible projection of those internal tables.
 
 [INTERNAL_UTILITY_GATE]:
-
 - `NationalAnnexUtility` (the `NationalAnnex -> ISO abbreviation` table, e.g. Germany->"DIN", France->"NF", UK->"BSI")
   and the per-code `En19xxUtility` (the `En19xxPart -> part description` table) are `internal` — a consumer NEVER calls
   them. They feed the standard classes' `Title` getter; the public surface is the standard record + its `Title`. A page
   that needs a part description reads `standard.Title`, never a utility method.
 
 [LOCAL_ADMISSION]:
-
 - The standard identity is admitted at the Materials boundary that records a design-code CITATION — a material grade's
   governing code, a design check's basis. A grade record carries its `En1992`/`En1993` and a design page NAMES the
   `En19xx` + `NationalAnnex` instead of an inline "EN 1992-1-1" string or a code-number literal; the canonical Materials
@@ -113,7 +106,6 @@ This assembly has no BS, ACI, AISC, or AS standard class; a non-EN `StandardBody
   here and the code-derived NUMBERS from the material grade, never duplicating either.
 
 [STACK]:
-
 - material seam: every `VividOrange.Materials` EN grade record CITES an `En19xx` — `EnConcreteMaterial.Standard` /
   `EnRebarMaterial.Standard` = `En1992`, `EnSteelMaterial.Standard` = `En1993` (`api-vividorange-materials.md`) — and a
   `NationalAnnex`; this package is the hard transitive floor of `VividOrange.Materials` (every grade ctor constructs an
@@ -129,7 +121,6 @@ This assembly has no BS, ACI, AISC, or AS standard class; a non-EN `StandardBody
   `$type` tag, so a serialized material's `Standard` citation reconstructs precisely on decode.
 
 [RAIL_LAW]:
-
 - Package: `VividOrange.Standards` (MIT, pure-managed AnyCPU, `net10.0` binds `net8.0`, PRE-1.0 contract, sole
   dep `VividOrange.IStandards`, NO `UnitsNet`)
 - Owns: the EN/Eurocode design-code IDENTITY DATA — the ten `En1990`..`En1999` typed `IStandard` records (`{ Body=EN;

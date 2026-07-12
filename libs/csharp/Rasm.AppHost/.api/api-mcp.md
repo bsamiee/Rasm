@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ModelContextProtocol.Core`
-
 - package: `ModelContextProtocol.Core`
 - assembly: `ModelContextProtocol`
 - namespace: `ModelContextProtocol`, `ModelContextProtocol.Client`, `ModelContextProtocol.Server`, `ModelContextProtocol.Protocol`
@@ -13,7 +12,6 @@
 - rail: mcp-protocol
 
 [PACKAGE_SURFACE]: `ModelContextProtocol`
-
 - package: `ModelContextProtocol`
 - assembly: `ModelContextProtocol`
 - namespace: `ModelContextProtocol`, `ModelContextProtocol.Server`, `Microsoft.Extensions.DependencyInjection`
@@ -21,7 +19,6 @@
 - rail: mcp-host
 
 [PACKAGE_SURFACE]: `ModelContextProtocol.AspNetCore`
-
 - package: `ModelContextProtocol.AspNetCore`
 - assembly: `ModelContextProtocol.AspNetCore`
 - namespace: `ModelContextProtocol.AspNetCore`, `ModelContextProtocol.AspNetCore.Authentication`, `Microsoft.AspNetCore.Builder`, `Microsoft.Extensions.DependencyInjection`
@@ -31,7 +28,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: session and protocol primitives — `ModelContextProtocol.Core`
-
 - rail: mcp-protocol
 
 | [INDEX] | [SYMBOL]                    | [TYPE_FAMILY]       | [CAPABILITY]                     |
@@ -52,21 +48,18 @@
 |  [14]   | `Implementation`            | sealed class        | protocol identity                |
 
 [PROGRESS_NOTIFICATION_VALUE]:
-
 - Progress: `required float Progress`.
 - Total: `float? Total`.
 - Message: `string? Message`.
 - Setter: `init`.
 
 [IMPLEMENTATION]:
-
 - Namespace: `ModelContextProtocol.Protocol`.
 - Required identity: `required string Name` and `required string Version`.
 - Title: `Title`.
 - Consumers: `McpClientOptions.ClientInfo` and `McpServerOptions.ServerInfo`.
 
 [PUBLIC_TYPE_SCOPE]: server primitives — `ModelContextProtocol.Server`
-
 - rail: mcp-protocol
 
 | [INDEX] | [SYMBOL]                     | [TYPE_FAMILY]    | [CAPABILITY]                                          |
@@ -86,7 +79,6 @@
 |  [13]   | `StreamServerTransport`      | class            | stream-backed server transport                        |
 
 [TOOL_CREATE_OPTIONS]:
-
 - Identity: `Name`, `Title`, and `Description`.
 - Safety annotations: `ReadOnly`, `Destructive`, `Idempotent`, and `OpenWorld`.
 - Structured output: `UseStructuredContent` and `OutputSchema`.
@@ -95,7 +87,6 @@
 - Services: `Services`.
 
 [PUBLIC_TYPE_SCOPE]: client primitives — `ModelContextProtocol.Client`
-
 - rail: mcp-protocol
 
 | [INDEX] | [SYMBOL]                         | [TYPE_FAMILY] | [CAPABILITY]                    |
@@ -116,45 +107,37 @@
 |  [14]   | `ClientTransportClosedException` | class         | transport-closed failure        |
 
 [CLIENT_TOOL]:
-
 - Base: `AIFunction`.
 - Payload: server tool.
 
 [HTTP_CLIENT_TRANSPORT]:
-
 - Contract: `IClientTransport`.
 - Selector: `HttpClientTransportOptions.TransportMode`.
 - Modes: streamable HTTP and SSE.
 
 [STDIO_CLIENT_TRANSPORT]:
-
 - Contract: `IClientTransport`.
 
 [STREAM_CLIENT_TRANSPORT]:
-
 - Contract: `IClientTransport`.
 - Position: third public implementor.
 - Namespace: `ModelContextProtocol.Protocol`.
 - Constructor: `(Stream serverInput, Stream serverOutput, ILoggerFactory?)`.
 
 [STDIO_CLIENT_TRANSPORT_OPTIONS]:
-
 - Required: `required string Command`.
 - Additional: `Arguments` and `Name`.
 
 [HTTP_CLIENT_TRANSPORT_OPTIONS]:
-
 - Required: `required Uri Endpoint`.
 - Mode: `HttpTransportMode TransportMode`.
 - Name: `Name`.
 
 [HTTP_TRANSPORT_MODE]:
-
 - Values: `AutoDetect`, `StreamableHttp`, and `Sse`.
 - Selection: `HttpClientTransport` connect-time session transport.
 
 [PUBLIC_TYPE_SCOPE]: DI and builder — `Microsoft.Extensions.DependencyInjection` (in `ModelContextProtocol`)
-
 - rail: mcp-host
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                      |
@@ -171,7 +154,6 @@
 [MESSAGE_FILTER_BUILDER_EXTENSIONS]: `AddIncomingFilter` and `AddOutgoingFilter`.
 
 [PUBLIC_TYPE_SCOPE]: ASP.NET Core host — `ModelContextProtocol.AspNetCore`
-
 - rail: mcp-host
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY] | [CAPABILITY]                                   |
@@ -189,7 +171,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: server registration
-
 - rail: mcp-host
 
 | [INDEX] | [SURFACE]                          | [ENTRY_FAMILY]  | [CAPABILITY]                   |
@@ -210,7 +191,6 @@
 |  [14]   | `WithStdioServerTransport`         | builder fluent  | stdio transport                |
 
 [SERVER_REGISTRATION_SIGNATURES]:
-
 - `AddMcpServer(this IServiceCollection)`
 - `WithTools<TToolType>(this IMcpServerBuilder)`
 - `WithTools(this IMcpServerBuilder, IEnumerable<McpServerTool>)`
@@ -227,13 +207,11 @@
 - `WithStdioServerTransport(this IMcpServerBuilder)`
 
 [SERVER_REGISTRATION_CONTRACTS]:
-
 - `AddMcpServer`: Returns `IMcpServerBuilder`.
 - `WithTools<TToolType>`: Discovers `[McpServerTool]` methods.
 - `WithStdioServerTransport`: Belongs to the host `ModelContextProtocol` package rather than `ModelContextProtocol.Core`.
 
 [ENTRYPOINT_SCOPE]: client construction
-
 - rail: mcp-protocol
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY]  | [CAPABILITY]                 |
@@ -251,7 +229,6 @@
 |  [11]   | `McpClientOptions.ClientInfo`          | option property | initialize identity          |
 
 [CLIENT_CONSTRUCTION_SIGNATURES]:
-
 - `McpClient.CreateAsync(IClientTransport, McpClientOptions?, ILoggerFactory?, CT)`
 - `McpClient.ResumeSessionAsync(IClientTransport, ResumeClientSessionOptions, ...)`
 - `McpClient.ListToolsAsync(RequestOptions?, CT)`
@@ -265,32 +242,27 @@
 - `McpClientTool.InvokeAsync(args, CT)`
 
 [CALL_TOOL]:
-
 - Return: `ValueTask<CallToolResult>`.
 - Position: `IProgress<ProgressNotificationValue>? progress` precedes `RequestOptions?`.
 - Binding: `progress`, `options`, and `cancellationToken` use named arguments.
 
 [SUBSCRIBE_TO_RESOURCE]:
-
 - Base overload: Returns `Task`.
 - Handler overload: Registers the per-URI update handler and returns `Task<IAsyncDisposable>`.
 - Position: `handler` precedes `RequestOptions?`.
 - Binding: `options` and `cancellationToken` use named arguments.
 
 [LIST_RESOURCE_TEMPLATES]:
-
 - Return: `ValueTask<IList<McpClientResourceTemplate>>`.
 - Template: `McpClientResourceTemplate` carries `UriTemplate`.
 
 [CLIENT_INFO]:
-
 - Binding: `CreateAsync` options.
 - Type: `Implementation?`.
 - Identity: `Name` and `Version`.
 - Exchange: initialize handshake.
 
 [ENTRYPOINT_SCOPE]: server options surface
-
 - rail: mcp-protocol
 
 | [INDEX] | [SURFACE]                                      | [ENTRY_FAMILY]  | [CAPABILITY]                  |
@@ -315,25 +287,21 @@
 [INITIALIZATION_TIMEOUT]: 60-second default.
 
 [SERVER_COLLECTIONS]:
-
 - Tools: `McpServerPrimitiveCollection<McpServerTool>`.
 - Prompts: `McpServerPrimitiveCollection<McpServerPrompt>`.
 - Resources: `McpServerResourceCollection`.
 
 [TASK_STORE]:
-
 - Type: `IMcpTaskStore?`.
 - Payload: out-of-band task results.
 - Default: `InMemoryMcpTaskStore` when polling is enabled.
 
 [TASK_STATUS_NOTIFICATIONS]:
-
 - Type: `bool`.
 - Event: `notifications/tasks/status`.
 - Timing: long-running task advancement.
 
 [ENTRYPOINT_SCOPE]: server session long-running verbs — `ModelContextProtocol.Server` (`McpServer`)
-
 - rail: mcp-protocol
 
 | [INDEX] | [SURFACE]                              | [ENTRY_FAMILY] | [CAPABILITY]                  |
@@ -349,7 +317,6 @@
 |  [09]   | `McpServer.PollTaskUntilCompleteAsync` | task poll      | terminal-status poll loop     |
 
 [SERVER_SESSION_SIGNATURES]:
-
 - `McpServer.SampleAsync(CreateMessageRequestParams, CT)`
 - `McpServer.SampleAsync(IEnumerable<ChatMessage>, ChatOptions?, JsonSerializerOptions?, CT)`
 - `McpServer.AsSamplingChatClient(JsonSerializerOptions?)`
@@ -363,7 +330,6 @@
 - `McpServer.PollTaskUntilCompleteAsync(string, RequestOptions?, CT)`
 
 [SERVER_SESSION_RETURNS]:
-
 - `SampleAsync(CreateMessageRequestParams, CT)`: `ValueTask<CreateMessageResult>`.
 - `SampleAsync(IEnumerable<ChatMessage>, ChatOptions?, JsonSerializerOptions?, CT)`: `Task<ChatResponse>`.
 - `AsSamplingChatClient(JsonSerializerOptions?)`: `IChatClient`.
@@ -376,7 +342,6 @@
 - `PollTaskUntilCompleteAsync`: `ValueTask<McpTask>` after terminal status.
 
 [PUBLIC_TYPE_SCOPE]: request-context surface — `ModelContextProtocol.Server`
-
 - rail: mcp-protocol
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY] | [CAPABILITY]          |
@@ -385,14 +350,12 @@
 |  [02]   | `RequestContext<T>` | sealed class  | typed request context |
 
 [MESSAGE_CONTEXT]:
-
 - Server: `.Server` (`McpServer`).
 - Services: `.Services` (`IServiceProvider?`).
 - User: `.User` (`ClaimsPrincipal?`).
 - Items: `.Items` (`IDictionary<object,object>?`).
 
 [REQUEST_CONTEXT]:
-
 - Base: `MessageContext`.
 - Parameters: `.Params` (`T?`).
 - Primitive: `.MatchedPrimitive`.
@@ -403,7 +366,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SESSION_TOPOLOGY]:
-
 - namespace roots: `ModelContextProtocol`, `ModelContextProtocol.Client`, `ModelContextProtocol.Server`
 - session base: `McpSession : IAsyncDisposable`; both `McpServer` and `McpClient` extend it
 - tool integration: `McpClientTool : AIFunction` — client-side tools surface as `AIFunction` instances
@@ -415,7 +377,6 @@
 - stdio transport attribution: `WithStdioServerTransport(IMcpServerBuilder)` is declared on `Microsoft.Extensions.DependencyInjection.McpServerBuilderExtensions` in the **host `ModelContextProtocol`** package beside `WithTools`/`WithPrompts`/`WithResources`, NOT in `ModelContextProtocol.Core`; the `StdioServerTransport`/`StreamServerTransport` types are Core, the builder shortcut is host-package
 
 [LOCAL_ADMISSION]:
-
 - DI registration entry: `services.AddMcpServer()` returns `IMcpServerBuilder`; `WithHttpTransport()` attaches HTTP/SSE
 - HTTP host entry: `MapMcp(pattern)` registers the endpoint; default pattern is `""`
 - Auth extension: `authBuilder.AddMcp()` registers scheme; `McpAuthenticationHandler` implements token exchange
@@ -425,7 +386,6 @@
 - server-initiated legs: `SampleAsync` (server→client LLM sampling) and `ElicitAsync`/`ElicitAsync<T>` (mid-call structured input) require a stateful session — over HTTP they force `HttpServerTransportOptions.Stateless = false`; `AsSamplingChatClient(JsonSerializerOptions?)` projects the sampling leg as an `IChatClient` the in-process reasoning loop reuses
 
 [RAIL_LAW]:
-
 - Package: `ModelContextProtocol.Core` + `ModelContextProtocol` + `ModelContextProtocol.AspNetCore`
 - Owns: MCP session, server primitives, client tools, transport selection, DI registration, HTTP hosting, the server long-running task/sampling/elicitation session surface
 - Accept: session-scoped calls through `McpServer`/`McpClient`; tool invocation through `McpClientTool.InvokeAsync`; long-running calls through `RequestContext<T>.EnablePollingAsync` + the `McpServer` task verbs

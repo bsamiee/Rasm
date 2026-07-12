@@ -178,14 +178,12 @@ The integer family is `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`,
 ## [04]-[IMPLEMENTATION_LAW]
 
 [ORACLE_PROFILE]:
-
 - Canonical carrier: `Fraction` stores the `BigInteger` numerator and denominator consumed by predicate determinants; `BigRational` is the mixed carrier and collapses through `GetImproperFraction()` or its implicit conversion
 - Sign query: `Fraction.Sign` and `BigRational.Sign` call `NormalizeSign` before reading the numerator, so negative denominators do not invert predicate verdicts; predicates read `Sign` instead of floating or decimal output
 - Exactness boundary: `Add`, `Subtract`, `Multiply`, `Divide`, `%`, `DivRem`, and integer `Pow` are infinite-precision over `BigInteger`; `Sqrt`, `NthRoot`, and `Log` remain outside predicate adjudication because they return precision-bounded or `double` results
 - Generic surface: the structs implement only `IComparable`, `IComparable<T>`, and `IEquatable<T>`, with `IEqualityComparer<Fraction>` on `Fraction`; the rail does not bind `INumber<BigRational>`, `INumberBase<T>`, or `ISpanParsable<T>`
 
 [LOCAL_ADMISSION]:
-
 - Predicate escalation: `BigRational` and `Fraction` form the highest predicate tier after interior `double`, the 106-bit `TYoshimura.DoubleDouble` tier, and the exact `Expansion` branch report an indeterminate determinant sign; each oracle adjudication allocates `BigInteger` values, so the faster tiers retain the ordinary path
 - Predicate verdict: the determinant promotes exact ordinates to `BigInteger`, constructs `new Fraction(num, den)`, reads `Fraction.Sign`, and folds `-1`, `0`, or `+1` into the `Orient` or `InCircle` result without materializing a `double`
 - Ordering keys: `IntersectOp` crossing `t` keys and arrangement-cell keys use `Fraction.Compare` or `CompareTo` to break near-degenerate ordering ties without a floating epsilon
@@ -193,13 +191,11 @@ The integer family is `byte`, `sbyte`, `short`, `ushort`, `int`, `uint`, `long`,
 - Boundary conversion: explicit `double`, `decimal`, and `BigInteger` conversions occur only at reporting boundaries; interior values remain `Fraction` or `BigRational`
 
 [STACKING_LAW]:
-
 - Precision ladder: the oracle follows the 106-bit `TYoshimura.DoubleDouble` tier, whose FMA `TwoProduct` and Knuth `TwoSum` transforms match the kernel, and the sign-exact `Expansion` branch; only indeterminate residue reaches `Fraction.Sign`, which confines the `BigInteger` cost to degenerate cases
 - Predicate floor: `Predicate.Orient2D`, `Orient3D`, `InCircle`, `InSphere`, axis-projected `Orient2D(in Implicit, …)`, the `Compare` order key, and the implicit-query `InCircle` and `InSphere` members use the `Fraction` oracle as both runtime adjudicator and differential-fuzzing ground truth; `CsCheck` compares `double`, `Expansion`, `DoubleDouble`, and `Interval` determinants against `Fraction.Sign`
 - Arrangement keys: `Arrangement` planar-overlay cells and `IntersectOp` parametric `t` keys carry `Fraction` ordering when an `Lpi` or `Tpi` coordinate exists only as an exact rational; `Compare` and `CompareTo` keep the cell complex independent of floating tolerance
 
 [RAIL_LAW]:
-
 - Package: `ExtendedNumerics.BigRational`
 - Owns: exact-rational adjudication through the flat `Fraction` ratio, mixed `BigRational` carrier, exact arithmetic, comparison, `Sign`, `NormalizeSign`, `Reduce`, `Mediant`, lossless integer construction, and exact IEEE or decimal source decomposition
 - Accept: predicate determinants reduced through `new Fraction(num, den)` and `Sign`; exact parametric and cell-ordering keys compared through `Compare` or `CompareTo`; differential ground truth for the predicate law matrix

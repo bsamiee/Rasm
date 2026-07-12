@@ -5,7 +5,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: host assembly `Grasshopper2`
-
 - package: `Grasshopper2` (Rhino 9 WIP host plug-in bundle; not a NuGet pin — the in-process `Grasshopper2.dll` under `Grasshopper2Plugin.rhp` is the resolved asset)
 - assembly: `Grasshopper2`
 - namespace: `Grasshopper2.UI` (`Editor`)
@@ -21,17 +20,14 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: editor shell
-
 - namespace: `Grasshopper2.UI`
 - rail: host-grasshopper
 
 [EDITOR]:
-
 - Kind: shell
 - Capability: The singleton editor owns `Instance`/`ThisOrRhino`, `Canvas`, `Documents` (`DocumentBag`), `Tabs`, `StatusBar`, the static `DefinedLayouts`/`InitialLayout`, the most-recent path rows with `MostRecentCount`, `Collapsed`, `ShowNotes`, and the static `ShowEditor`/`BeginRhinoGetter`; `BreadCrumbs` and `EnsureVisible` are non-public.
 
 [PUBLIC_TYPE_SCOPE]: floating buttons
-
 - namespace: `Grasshopper2.UI.Flex`
 - rail: host-grasshopper
 
@@ -43,12 +39,10 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 |  [04]   | `FloatingState`            | enum       | button lifecycle state |
 
 [FLOATING_BUTTON]:
-
 - Public: `Name`/`Info`/`Icon`/`Colour`/`Anchor`/`State`/`Enabled`, `MakeNumeric` with `NumericValue` and `ValueChanged`, `ModifyAnchor`/`ModifyColour`, and per-button `Show`/`Hide`/`Close`
 - Internal: the constructor, `Position*` placement, `*Ux` channels, and `AnchorChanged`/`ColourChanged`/`StateChanged`
 
 [FLOATING_BUTTON_COLLECTION]:
-
 - Mint: `Add`/`AddAnchored(…, click, mouseDown, mouseUp)`
 - Lookup: `FindByName`/`FindByPoint`/`IsDefined`
 - Lifecycle: `Show`/`Hide`/`Close`/`CloseAll`
@@ -58,7 +52,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 [FLOATING_LAYOUT]: `FloatingButtonLayout` is internal, so placement and occlusion remain host-private.
 
 [PUBLIC_TYPE_SCOPE]: vector icons
-
 - namespace: `Grasshopper2.UI.Icon`
 - rail: host-grasshopper
 
@@ -69,13 +62,11 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 |  [03]   | `IconContext`  | context | draw filter chain    |
 
 [ICON_MEMBERS]:
-
 - `IIcon`: `States`/`FindState`/`SetState`/`MoveState` animate between keyed poses, and `Draw`/`DrawToBitmap` render.
 - `AbstractIcon`: `FromResource`/`FromCode` factories and `MoveState`.
 - `IconContext`: `WithDisabledFilter`/`WithGreyscaleFilter`/`WithFadingFilter`.
 
 [PUBLIC_TYPE_SCOPE]: toolbars, input panels, and tooltips
-
 - namespace: `Grasshopper2.UI.Toolbar`, `Grasshopper2.UI.InputPanel`, `Grasshopper2.UI.Tooltip`
 - rail: host-grasshopper
 
@@ -92,7 +83,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 |  [09]   | `LazyStrings` | value   | lazy label carrier     |
 
 [BAR]:
-
 - Construction: `Bar()`/`Bar(params BarItem[])`, `Add(BarItem)`, `AddPushButton`/`AddRadioToggle`/`AddTextField`/`AddSpacer`/`AddToggle`, the `AddLifeColours`/`AddCoolColours`/`AddWarmColours`/`AddColours` rows, and `CreateStandardColourBars(out life, cool, warm)`
 - Lookup: `Find<T>`/`ItemAt`/indexers
 - State: `Enabled`/`ElementHeight`/`Style`
@@ -110,7 +100,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: editor lifecycle, layout, and Rhino handoff
-
 - namespace: `Grasshopper2.UI`
 - rail: host-grasshopper
 
@@ -132,7 +121,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 |  [14]   | `Editor.BeginRhinoGetter`          | arbitrates Rhino getter   |
 
 [EDITOR_CALL_SHAPES]:
-
 - `Editor.ShowEditor`: static `(bool createVisible = true, string layoutRules = null)` → `Editor`; re-shows a hidden editor.
 - `Editor.Instance` / `Editor.ThisOrRhino`: static property (`Editor` / `Eto.Forms.Window`); `EnsureVisible` is internal.
 - `Editor.Canvas` / `Editor.Documents`: property (`Canvas` / `DocumentBag` with `Current`).
@@ -143,7 +131,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 - `Editor.BeginRhinoGetter`: static `(RhinoDoc doc = null)` → `bool`; `false` means no target document or an active getter.
 
 [ENTRYPOINT_SCOPE]: floating buttons
-
 - namespace: `Grasshopper2.UI.Flex`
 - rail: host-grasshopper
 
@@ -174,7 +161,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 |  [23]   | `FloatingButtonCollection.VisibleButtons` | projects visible buttons |
 
 [FLOATING_CALL_SHAPES]:
-
 - `FloatingButtonCollection.Add` / `AddAnchored`: `(FloatingPosition | PointF, string name, string info = null, Color? colour = null, IIcon icon = null, FloatingButtonHandler click/mouseDown/mouseUp = null)`; the collection is the sole mint because the `FloatingButton` constructor is internal.
 - `FloatingButton.MakeNumeric`: `(UiNumber number, string valueKey)`; `NumericValue` and the public `ValueChanged` event expose the channel.
 - `FloatingButton.ModifyAnchor` / `ModifyColour` / `Show` / `Hide` / `Close`: `(PointF, bool immediate)` / `(Color)` / `()`.
@@ -184,7 +170,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 - `FloatingButtonCollection.StateCount` / `Names` / `Buttons` / `VisibleButtons`: `(FloatingState)` / property; `FloatingButtonLayout` and the `Position*`/`*Ux` set are internal.
 
 [ENTRYPOINT_SCOPE]: vector icons
-
 - namespace: `Grasshopper2.UI.Icon`
 - rail: host-grasshopper
 
@@ -209,7 +194,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 |  [17]   | `CodeDiagnostic`                  | compile diagnostic row    |
 
 [ICON_CALL_SHAPES]:
-
 - `AbstractIcon.FromResource` / `FromFile` / `FromStream` / `FromBitmap`: `(Type)` / `(string, Type)` / `(string)` / `(Stream)` / `(params Bitmap[])`.
 - `AbstractIcon.FromCode`: `(string, out CodeDiagnostic[] warnings, out CodeDiagnostic[] errors)`; out-channels arrive warnings-first.
 - `IIcon.States` / `FindState` / `SetState`: `IEnumerable<IconState>` / `(string)` → `IconState` / `(double, string = null)`; a null name selects the default state.
@@ -219,7 +203,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 - `CodeDiagnostic`: `Description`/`Location`/`Length`/`Line`/`Column` and `IsWarning`/`IsError`.
 
 [ENTRYPOINT_SCOPE]: toolbar, input panel, and tooltip
-
 - namespace: `Grasshopper2.UI.Toolbar`, `Grasshopper2.UI.InputPanel`, `Grasshopper2.UI.Tooltip`
 - rail: host-grasshopper
 
@@ -257,7 +240,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 |  [30]   | `Frame.ScreencapFolder`          | aims screen capture      |
 
 [CHROME_CALL_SHAPES]:
-
 - `Bar.AddPushButton` / `AddRadioToggle`: `(IIcon, Nomen, Action = null, BarShortcut = null)` / `(IIcon, Nomen, bool, Action<bool> = null, BarShortcut = null)` → `PushButton`/`RadioToggle`.
 - `Bar.AddTextField` / `AddSpacer` / `AddToggle` / `Add`: `(IIcon, Nomen, string initial, string placeholder)` → `TextField` / `(Nomen, int, int)` → `Spacer` / `(Nomen, bool, params string[])` → `RadioToggle` / `(BarItem)`.
 - `Bar.AddLifeColours` / `AddCoolColours` / `AddWarmColours` / `AddColours`: `(Nomen, OpenColor.Family, Action<OpenColor.Family>)` / `(Nomen, Family[], Family, Action<Family>)`.
@@ -273,7 +255,6 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 ## [04]-[IMPLEMENTATION_LAW]
 
 [EDITOR_TOPOLOGY]:
-
 - `Editor` is the singleton shell: `Instance` is the live editor, `ThisOrRhino` falls back to the Rhino host, `Canvas` is the hosted canvas, and `Documents` is the open-document set; layouts, tabs, breadcrumbs, and status bar are shell state
 - `FloatingButton`/`FloatingButtonCollection` live in `Grasshopper2.UI.Flex`, not `Canvas`: the collection is the sole mint and owns add/find/show/hide/close/tally, the button owns per-instance mutation and the public `ValueChanged` channel; layout, occlusion, `Position*`, and the `*Ux` channels are host-internal
 - `IIcon` is a stateful vector icon: `States` enumerates the keyed poses, `MoveState` animates between them over a `Duration`/`Motion`, `SetState` jumps, and `Draw` renders through an `IconContext` disabled/greyscale/fading filter chain
@@ -283,20 +264,17 @@ The Grasshopper2 `Editor` is the singleton shell: the hosted canvas, the open-do
 - `Editor.BeginRhinoGetter(RhinoDoc)` is the single Rhino handoff: the editor arbitrates a Rhino getter against the active `RhinoDoc`
 
 [STACKING]:
-
 - `api-gh2-flex.md`(`.api/api-gh2-flex.md`): `FloatingButton` anchors to an `IFlexControl` host and `IIcon.MoveState` consumes the `Animation` `Motion`/`Duration` vocabulary; the flex catalog owns `IFlexControl` + `Animated<T>`
 - `api-languageext.md`(`.api/api-languageext.md`): the `AddCheck`/`AddText` callbacks fold through `Fin`/`Eff`, `FindByName`/`FindBar` return `Option`, and the open-document and layout sets are `Seq`/`HashMap`
 - `api-thinktecture-runtime-extensions.md`(`.api/api-thinktecture-runtime-extensions.md`): `FloatingPosition`/`FloatingState`, the icon state key, and the toolbar item kind lower onto `SmartEnum`/`Union` owners
 - `api-unicolour.md`(`.api/api-unicolour.md`): `FloatingButton.ModifyColour` and `CreateStandardColourBars` cross `Eto.Drawing.Color`, blended in a perceptual space
 
 [LOCAL_ADMISSION]:
-
 - chrome enters through the `Editor` shell + `UI.Toolbar`/`InputPanel`/`Tooltip`/`Icon` host types; a parallel in-folder toolbar or icon is the deleted form
 - the Rhino getter is arbitrated only through `Editor.BeginRhinoGetter`; a direct `RhinoDoc` getter bypassing the editor is the deleted form
 - icon animation composes the `Animation` `Motion`/`Duration` vocabulary, never a second easing derivation
 
 [RAIL_LAW]:
-
 - Package: `Grasshopper2` (host assembly)
 - Owns: the editor shell (canvas, documents, tabs, breadcrumbs, layouts, status bar), floating-button chrome, stateful vector icons, toolbars, input panels, tooltips, and the `BeginRhinoGetter` handoff
 - Accept: editor lifecycle, chrome construction, icon state animation, floating-button placement, the Rhino getter handoff

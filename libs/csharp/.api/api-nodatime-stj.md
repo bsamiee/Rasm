@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `NodaTime.Serialization.SystemTextJson`
-
 - package: `NodaTime.Serialization.SystemTextJson`
 - assembly: `NodaTime.Serialization.SystemTextJson`
 - bound asset: `lib/net6.0` for `net10.0` consumers
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: registration and converter family
-
 - rail: wire-json
 
 | [INDEX] | [SYMBOL]                                | [TYPE_FAMILY]        | [CAPABILITY]                     |
@@ -36,7 +34,6 @@ The concrete per-type converters (`NodaNullableConverter<T>`, `NodaDateTimeZoneC
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations
-
 - rail: wire-json
 
 | [INDEX] | [SURFACE]                               | [KIND]        | [CAPABILITY]                      |
@@ -50,7 +47,6 @@ The concrete per-type converters (`NodaNullableConverter<T>`, `NodaDateTimeZoneC
 |  [07]   | `NodaTimeDefaultJsonConverterAttribute` | attribute     | attaches a member converter       |
 
 [ENTRYPOINT_SCOPE]: `NodaConverters` singleton converters
-
 - rail: wire-json
 
 | [INDEX] | [MEMBER]                        | [BACKING_PATTERN]                  | [CAPABILITY]                                           |
@@ -75,7 +71,6 @@ The concrete per-type converters (`NodaNullableConverter<T>`, `NodaDateTimeZoneC
 |  [18]   | `NormalizingIsoPeriodConverter` | `PeriodPattern.NormalizingIso`     | normalizing ISO `Period` codec; normalization is lossy |
 
 [ENTRYPOINT_SCOPE]: `NodaConverters` provider-bound factories
-
 - rail: wire-json
 
 | [INDEX] | [SURFACE]                                             | [KIND]  | [CAPABILITY]                 |
@@ -86,24 +81,20 @@ The concrete per-type converters (`NodaNullableConverter<T>`, `NodaDateTimeZoneC
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SETTINGS_LIFECYCLE]:
-
 - `NodaJsonSettings` is a mutable options bag. Construct it, optionally replace or null specific converter properties, pass it to `ConfigureForNodaTime`, then treat the resulting `JsonSerializerOptions` converter list as the durable registration.
 - The default settings constructor binds `DateTimeZoneProviders.Tzdb`; use the provider constructor when a host-specific `IDateTimeZoneProvider` owns zone lookup.
 - `ConfigureForNodaTime` appends converter instances to the options converter list. Registration order matters because the first STJ converter claiming a type wins.
 
 [CONVERTER_BOUNDARY]:
-
 - `NodaConverterBase<T>` and `NodaPatternConverter<T>` own NodaTime parse/format behavior; consumers do not hand-roll converters for individual NodaTime types.
 - `WithIsoIntervalConverter()` and `WithIsoDateIntervalConverter()` are the only shared swaps from object-shaped interval/date-interval JSON to ISO string JSON.
 - `NodaTimeDefaultJsonConverterAttribute` is the property/type-local route when the converter belongs with one member rather than with shared options.
 
 [STACKING]:
-
 - NodaTime converters own semantic-time types. Thinktecture STJ converters own Thinktecture-generated value objects, smart enums, and unions. Register both on the same options object when a wire profile carries both generated owners and semantic time.
 - The source-generated STJ metadata for NodaTime types is not the owner once `ConfigureForNodaTime` has registered a matching converter. The options converter list owns these types.
 
 [RAIL_LAW]:
-
 - Package: `NodaTime.Serialization.SystemTextJson`
 - Owns: System.Text.Json converter registration for NodaTime semantic-time types.
 - Accept: `ConfigureForNodaTime` as the shared registration call; `WithIsoIntervalConverter` and `WithIsoDateIntervalConverter` as explicit interval shape swaps; provider-bound zone factories.

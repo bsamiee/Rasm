@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.Options`
-
 - package: `Microsoft.Extensions.Options`
 - assembly: `Microsoft.Extensions.Options`
 - namespace: `Microsoft.Extensions.Options`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: options family
-
 - rail: options
 
 | [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]       | [RAIL]                 |
@@ -34,7 +32,6 @@
 |  [12]   | `OptionsBuilder<TOptions>`            | options builder     | fluent policy pipeline |
 
 [PUBLIC_TYPE_SCOPE]: implementation and validation family
-
 - rail: options
 
 | [INDEX] | [SYMBOL]                           | [TYPE_FAMILY]          | [RAIL]                |
@@ -58,7 +55,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: options operations
-
 - rail: options
 
 | [INDEX] | [SURFACE]                       | [ENTRY_FAMILY]           | [RAIL]                  |
@@ -85,7 +81,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OPTIONS_TOPOLOGY]:
-
 - namespaces: `Microsoft.Extensions.Options`, `Microsoft.Extensions.DependencyInjection`
 - access modes: singleton options, scoped snapshot, monitor with named lookup
 - construction pipeline: configure, post-configure, validate, cache
@@ -96,7 +91,6 @@
 - generator assets: options source-generation analyzer assets
 
 [LOCAL_ADMISSION]:
-
 - Policy values enter AppHost through named options where variants are bounded.
 - Startup validation is mandatory for runtime-critical policy records.
 - Cache invalidation becomes a typed runtime transition.
@@ -104,7 +98,6 @@
 - Options monitor changes become explicit state transitions, not mutable ambient settings.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.Extensions.Options`
 - Owns: runtime policy values
 - Accept: options are validated inputs

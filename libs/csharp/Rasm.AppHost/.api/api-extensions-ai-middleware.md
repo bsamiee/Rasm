@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.Extensions.AI`
-
 - package: `Microsoft.Extensions.AI`
 - assembly: `Microsoft.Extensions.AI`
 - namespace: `Microsoft.Extensions.AI`
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: chat-client builder and decorators
-
 - rail: capability-agent
 
 | [INDEX] | [SYMBOL]                        | [FAMILY]          | [ROLE]                             |
@@ -31,21 +29,17 @@
 |  [09]   | `AnonymousDelegatingChatClient` | delegating client | delegate-backed middleware         |
 
 [DELEGATING_CHAT_CLIENT]:
-
 - Surface: public custom-middleware base.
 - Dispatch: `virtual` verbs delegate through `protected InnerClient`.
 
 [CACHING_CHAT_CLIENT]:
-
 - Base: caching decorator for `DistributedCachingChatClient` over `IDistributedCache`.
 
 [ANONYMOUS_DELEGATING_CHAT_CLIENT]:
-
 - Visibility: `internal sealed` and uninstantiable from a consumer package.
 - Binding: backs the public `Use(sharedFunc)` and `Use(getResponseFunc,getStreamingResponseFunc)` overloads.
 
 [PUBLIC_TYPE_SCOPE]: embedding-generator builder and decorators
-
 - rail: capability-agent
 
 | [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]   | [RAIL]                                      |
@@ -55,7 +49,6 @@
 |  [03]   | `OpenTelemetryEmbeddingGenerator<TIn,TE>`      | delegating gen. | embedding-call OTel instrumentation         |
 
 [PUBLIC_TYPE_SCOPE]: builder extension surfaces
-
 - rail: capability-agent
 
 | [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]     | [RAIL]                             |
@@ -75,7 +68,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: builder composition and decorator wiring
-
 - rail: capability-agent
 
 `ChatClientBuilder.Use` and `Build` are builder calls; extension rows compose builders, and typed reads project `ChatResponse<T>`.
@@ -101,23 +93,19 @@
 |  [17]   | `EmbeddingGeneratorBuilder<TIn,TE>.UseOpenTelemetry(...)`                                          | `EmbeddingGeneratorBuilder<TIn,TE>` |
 
 [SHARED_FUNC_OVERLOAD]:
-
 - Signature: `Func<IEnumerable<ChatMessage>,ChatOptions?,Func<…,Task>,CancellationToken,Task> sharedFunc`.
 - Binding: wraps `AnonymousDelegatingChatClient` for pre/post handling without a response handle.
 
 [PER_VERB_OVERLOAD]:
-
 - Binding: wraps `AnonymousDelegatingChatClient` with per-verb delegates.
 
 [TYPED_RESPONSE_READS]:
-
 - Source: response text deserialized against the generated JSON schema.
 - Result: `.Result` returns the bound `T`; `TryGetResult(out T?)` is the non-throwing read.
 
 `GetResponseAsync<T>` accepts `IEnumerable<ChatMessage>` / `string` / `ChatMessage`, serializer options, chat options, optional JSON-schema response formatting, and a cancellation token. It is the typed structured-output round-trip and has no streaming twin.
 
 [ENTRYPOINT_SCOPE]: decorator-tuning properties
-
 - rail: capability-agent
 
 | [INDEX] | [MEMBER]                                                        | [KIND]   | [SEMANTICS]                             |
@@ -133,7 +121,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [IMPLEMENTATION_LAW]: middleware composition
-
 - rail: capability-agent
 
 - pipeline shape: every decorator is a `DelegatingChatClient` wrapping the inner `IChatClient`; `ChatClientBuilder.Use`/`Build` composes them outermost-last so `UseOpenTelemetry().UseDistributedCache().UseFunctionInvocation()` reads outermost-to-innermost in call order, the OTel span enclosing the cache lookup enclosing the function-invocation loop.
@@ -151,7 +138,6 @@
 - schema ownership: structured output and `AIFunction` arguments share the `AIJsonUtilities` schema generator owned by `api-extensions-ai.md`.
 
 [IMPLEMENTATION_LAW]: AppHost usage
-
 - rail: capability-agent
 
 - the model-governance fold composes the four decorators once at the capability-agent composition edge: `client.AsBuilder().UseOpenTelemetry(...).UseDistributedCache(hybridCache-backed IDistributedCache).UseFunctionInvocation(...).Build(sp)`.

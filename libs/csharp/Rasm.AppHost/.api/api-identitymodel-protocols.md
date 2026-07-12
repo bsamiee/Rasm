@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Microsoft.IdentityModel.Protocols`
-
 - package: `Microsoft.IdentityModel.Protocols`
 - assembly: `Microsoft.IdentityModel.Protocols`
 - namespace: `Microsoft.IdentityModel.Protocols`
@@ -19,7 +18,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: refresh manager and configuration contracts — `Microsoft.IdentityModel.Protocols`
-
 - rail: protocols-config
 
 | [INDEX] | [SYMBOL]                                 | [TYPE_FAMILY]      | [RAIL]                                                  |
@@ -34,7 +32,6 @@
 |  [08]   | `LastKnownGoodConfigurationCacheOptions` | LKG cache options  | size/expiration tuning for the LKG entry cache          |
 
 [PUBLIC_TYPE_SCOPE]: document retrieval — `Microsoft.IdentityModel.Protocols`
-
 - rail: protocols-config
 
 | [INDEX] | [SYMBOL]                | [TYPE_FAMILY]  | [RAIL]                                        |
@@ -46,7 +43,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: manager construction and refresh — `ConfigurationManager<T>`
-
 - rail: protocols-config
 
 The discovery-fed seam constructs `ConfigurationManager<OpenIdConnectConfiguration>` from a metadata address, the OIDC `IConfigurationRetriever<T>`, and an `IDocumentRetriever`; the default form binds `HttpDocumentRetriever`. The manager inherits the refresh/LKG knobs from `BaseConfigurationManager` and is assigned to `TokenValidationParameters.ConfigurationManager`.
@@ -71,7 +67,6 @@ The manager entrypoints own cached reads, base-typed consumption, forced refresh
 |  [04]   | `ConfigurationEventHandler { get; set; }`                                       | refresh hooks   | before and after  |
 
 [ENTRYPOINT_SCOPE]: inherited refresh + LKG knobs — `BaseConfigurationManager` (from `Microsoft.IdentityModel.Tokens`)
-
 - rail: protocols-config
 
 | [INDEX] | [SURFACE]                                                    | [ENTRY_FAMILY]       | [RAIL]                                           |
@@ -84,7 +79,6 @@ The manager entrypoints own cached reads, base-typed consumption, forced refresh
 |  [06]   | `TimeSpan LastKnownGoodLifetime { get; set; }`               | LKG lifetime         | how long an LKG entry stays valid                |
 
 [ENTRYPOINT_SCOPE]: retrieval and validation contracts
-
 - rail: protocols-config
 
 | [INDEX] | [SURFACE]                                                                | [ENTRY_FAMILY]  | [CAPABILITY]       |
@@ -110,7 +104,6 @@ The manager entrypoints own cached reads, base-typed consumption, forced refresh
 [PROTOCOLS_TOPOLOGY]:
 
 [REFRESH_MANAGER]:
-
 - Shape: `ConfigurationManager<T> : BaseConfigurationManager, IConfigurationManager<T> where T : class` wraps `(MetadataAddress, IConfigurationRetriever<T>, IDocumentRetriever)` and caches the parsed configuration.
 - Read: `GetConfigurationAsync` returns the cached value and re-fetches after `AutomaticRefreshInterval`; `GetBaseConfigurationAsync` is the `BaseConfiguration`-typed validation source.
 - Refresh: `RequestRefresh` flags the next read to refetch after signature-key-not-found and is throttled by `RefreshInterval`.
@@ -120,7 +113,6 @@ The manager entrypoints own cached reads, base-typed consumption, forced refresh
 - pinned manager: `StaticConfigurationManager<T>` is the non-refreshing form for a fixed in-memory configuration (`RequestRefresh` is a no-op); it is the test/offline counterpart to `ConfigurationManager<T>`.
 
 [RETRIEVAL_CONTRACT]:
-
 - Fetch: `IDocumentRetriever.GetDocumentAsync(address, CT)` returns raw document text; `HttpDocumentRetriever` is the `HttpClient`-backed default.
 - Transport: `RequireHttps` defaults to `true` and rejects non-HTTPS addresses with `IDX20108`; `HttpVersion` and `HttpVersionPolicy` govern each request.
 - File: `FileDocumentRetriever` owns local-file retrieval.
@@ -130,13 +122,11 @@ The manager entrypoints own cached reads, base-typed consumption, forced refresh
 - event hooks: `IConfigurationEventHandler<T>` (assigned to `ConfigurationManager<T>.ConfigurationEventHandler`) exposes before-retrieve and after-update callbacks for observability and cache-coordination around each refresh.
 
 [NAMESPACE_SPLIT]:
-
 - Protocols: this assembly owns `ConfigurationManager<T>`, the retrievers, and the configuration contracts.
 - Tokens: `Microsoft.IdentityModel.Tokens` declares `BaseConfigurationManager`, `BaseConfiguration`, and the inherited refresh/LKG knobs: `MetadataAddress`, `AutomaticRefreshInterval`, `RefreshInterval`, `LastKnownGoodConfiguration`, `LastKnownGoodLifetime`, and `UseLastKnownGoodConfiguration`.
 - Boundary: Tokens owns the base contract; Protocols owns the concrete refresh manager.
 
 [LOCAL_ADMISSION]:
-
 - Construct one `ConfigurationManager<OpenIdConnectConfiguration>(metadataAddress, new OpenIdConnectConfigurationRetriever(), new HttpDocumentRetriever(resilientHttpClient))` per provider and assign it to `TokenValidationParameters.ConfigurationManager`/`ValidationParameters.ConfigurationManager`; leave `IssuerSigningKeys` unset so the validators pull keys from the refreshed `JsonWebKeySet` rather than a pinned key.
 - Set `UseLastKnownGoodConfiguration = true` and a deliberate `LastKnownGoodLifetime` so a transient JWKS-fetch failure falls back to last-known-good instead of failing validation; tune `AutomaticRefreshInterval`/`RefreshInterval` to the provider's key-rotation cadence rather than accepting the defaults blindly.
 - Pass the host's resilient/service-discovery `HttpClient` to `HttpDocumentRetriever`; keep `RequireHttps = true` and never fetch the well-known document with a bare client. Use `FileDocumentRetriever`/`StaticConfigurationManager<T>` only for tests or pinned-metadata offline paths.
@@ -144,7 +134,6 @@ The manager entrypoints own cached reads, base-typed consumption, forced refresh
 - Treat `RequestRefresh()` as the forced-refresh hook on signature-key-not-found, not a per-validation call; it is throttled by `RefreshInterval`, and the validators invoke it through `RefreshBeforeValidation`. Do not construct `BaseConfigurationManager` directly — `ConfigurationManager<T>` is the concrete owner.
 
 [RAIL_LAW]:
-
 - Package: `Microsoft.IdentityModel.Protocols`
 - Owns: the concrete refreshing/last-known-good configuration manager (`ConfigurationManager<T>`), the pinned manager (`StaticConfigurationManager<T>`), document retrieval (`IDocumentRetriever`/`HttpDocumentRetriever`/`FileDocumentRetriever`), and the configuration parse/validate contracts (`IConfigurationRetriever<T>`/`IConfigurationValidator<T>`/`ConfigurationValidationResult`)
 - Accept: `ConfigurationManager<OpenIdConnectConfiguration>` as the `TokenValidationParameters.ConfigurationManager` source, fed by the OIDC `IConfigurationRetriever<T>` over an `HttpDocumentRetriever`; LKG fallback through the inherited `BaseConfigurationManager` knobs; sufficiency through an `IConfigurationValidator<T>`

@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `AspNetCore.HealthChecks.System`
-
 - package: `AspNetCore.HealthChecks.System`
 - license: `Apache-2.0`
 - assembly: `HealthChecks.System`
@@ -20,7 +19,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: probe family
-
 - rail: health
 
 | [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]          | [RAIL]                                                             |
@@ -34,7 +32,6 @@
 |  [07]   | `WindowsServiceHealthCheck`         | `IHealthCheck` probe   | `[SupportedOSPlatform("windows")]` — `ServiceController` predicate |
 
 [PUBLIC_TYPE_SCOPE]: options builders (fluent, `Add*`/`WithCheckAll*` self-returning)
-
 - rail: health
 
 | [INDEX] | [SYMBOL]                   | [TYPE_FAMILY] |
@@ -44,7 +41,6 @@
 |  [03]   | `FolderHealthCheckOptions` | probe options |
 
 [DISK_STORAGE_OPTIONS]: `AddDrive(string, long minimumFreeMegabytes = 1)` and `WithCheckAllDrives()` return the builder; `bool CheckAllDrives` selects exhaustive evaluation.
-
 - failure text: `ErrorDescription FailedDescription`, where `delegate string ErrorDescription(string driveName, long minimumFreeMegabytes, long? actualFreeMegabytes)` defines the field contract
 
 [FILE_HEALTH_CHECK_OPTIONS]: `AddFile(string)` and `WithCheckAllFiles()` return the builder; `List<string> Files` carries the targets, and `bool CheckAllFiles` selects exhaustive evaluation.
@@ -54,7 +50,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: registration operations (`SystemHealthCheckBuilderExtensions`) — every overload takes `string? name, HealthStatus? failureStatus, IEnumerable<string>? tags, TimeSpan? timeout`
-
 - rail: health
 
 | [INDEX] | [SURFACE]                              | [DEFAULT_NAME]               | [RAIL]                   |
@@ -71,7 +66,6 @@
 |  [10]   | `AddFile`                              | `"file"`                     | DI-resolved file set     |
 
 [REGISTRATION_INPUTS]: each surface extends `IHealthChecksBuilder`; the unique arguments select its probe input.
-
 - `AddDiskStorageHealthCheck`: `Action<DiskStorageOptions>? setup`
 - `AddPrivateMemoryHealthCheck`: `long maximumMemoryBytes`; reads `Process.PrivateMemorySize64`
 - `AddWorkingSetHealthCheck`: `long maximumMemoryBytes`; reads `Process.WorkingSet64`
@@ -83,17 +77,14 @@
 - `AddFile`: either `Action<FileHealthCheckOptions>? setup` or `Action<IServiceProvider, FileHealthCheckOptions>? setup`
 
 [ENTRYPOINT_SCOPE]: probe operations
-
 - rail: health
 
 [CHECK_HEALTH_ASYNC]: `<probe>.CheckHealthAsync(HealthCheckContext, CancellationToken)` evaluates synchronously and returns a completed `Task<HealthCheckResult>`.
-
 - failure: multiple failures join into one `FailureStatus` description
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SYSTEM_TOPOLOGY]:
-
 - probe family: seven `IHealthCheck` types, three fluent options builders, and ten extension overloads
 - memory probes: `AddPrivateMemoryHealthCheck`, `AddWorkingSetHealthCheck`, and `AddVirtualMemorySizeHealthCheck` construct `MaximumValueHealthCheck<long>` with a `Func<long>` reading the matching `Process.GetCurrentProcess()` counter; one generic probe owns the three registration faces
 - evaluation mechanics: every probe returns `Task.FromResult(...)`, and the green path reuses a cached `HealthCheckResultTask.Healthy`
@@ -105,14 +96,12 @@
 - registration policy: every overload adds a `HealthCheckRegistration(name ?? <default>, factory, failureStatus, tags, timeout)`; `failureStatus` null defaults to `HealthStatus.Unhealthy`.
 
 [LOCAL_ADMISSION]:
-
 - Each admitted probe is one `HealthContributorRow.Peer` row tagged `Pressure`, never a parallel system-health surface — its `Probe` adapts the check's `CheckHealthAsync` and registers through `HealthSurface.Register`, sharing `DeadlineClass.HealthProbe` and the cadence policy with every other contributor.
 - These checks are the discrete-threshold complement to the continuous `UtilizationCell` gauge (the `Gauge` row over `process.cpu.utilization`/`dotnet.process.memory.virtual.ratio`); the `ProcessAllocatedMemoryHealthCheck` and disk-storage probes catch a hard ceiling breach the windowed ratio grade does not express, while the gauge owns the trend. Memory probes are NOT a second utilization source — they grade an absolute ceiling, not a quota ratio.
 - The Windows-service probe is excluded on this workspace; daemon liveness is the `Wire/companion` sidecar control host and `Microsoft.Extensions.Hosting.Systemd` lifecycle, not a `ServiceController` probe.
 - A threshold breach or missing path is a typed `HealthCheckResult` with `FailureStatus`, folded by `HealthReport.Snapshot` into a `HealthSnapshot.Entry` — never a thrown exception crossing the fold.
 
 [STACK]:
-
 - health fold: `HealthContributorRow.Peer(name: "diskstorage" | "process_allocated_memory" | …, tag: HealthContributorRow.Pressure, cadence, probe: ct => new ValueTask<HealthCheckResult>(check.CheckHealthAsync(ctx, ct)))` is the canonical row; `HealthSurface.Register(...)` admits it alongside the `Gauge` row
 - degradation rail: `Pressure`-tagged degraded/unhealthy entries feed the existing `Pressure`-Degraded and `Pressure`-Unhealthy rules with the retained-set hysteresis used by cgroup `ResourceQuota` grading; a disk-full or allocated-memory ceiling breach degrades the host without another `Rule` row
 - gauge complement: the `UtilizationCell` and `PressurePolicy.Grade` signal, fed by `Microsoft.Extensions.Diagnostics.ResourceMonitoring`, owns CPU/memory ratio trend under the container quota; these BCL probes own discrete hard-ceiling and filesystem-presence facts, and both project into one `Pressure`-tagged contributor set
@@ -120,7 +109,6 @@
 - resilience boundary: every probe runs under `DeadlineClass.HealthProbe`; these are synchronous reads of host counters and the filesystem, so they carry no outbound resilience budget.
 
 [RAIL_LAW]:
-
 - Package: `AspNetCore.HealthChecks.System`
 - Owns: discrete host/process threshold and filesystem-presence facts as `pressure`-tagged contributor probes
 - Accept: disk free-space floors, hard memory ceilings, process-presence predicates, and required-path sets

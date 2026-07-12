@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Grasshopper2` 'Rhino 9 WIP Grasshopper2 SDK'
-
 - assembly: `Grasshopper2.dll` (installed `Grasshopper2Plugin.rhp` managed plug-in; in-process, no NuGet redistribution)
 - namespace: `Grasshopper2.Components`, `.Components.Standard`, `Grasshopper2.Parameters`, `.Parameters.Standard`, `Grasshopper2.Data`, `.Data.Meta`, `Grasshopper2.Types.Assistant`, `.Types.Conversion`, `Grasshopper2.Framework`, `GrasshopperIO`
 - host: RhinoWIP `RhCore.framework` — `Rhino.Geometry` supplies the carrier types component pins bind
@@ -15,7 +14,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: component authoring and lifecycle
-
 - rail: component-authoring model
 - note: `Component` is the document-object base; `ModularComponent` adds the attribute-driven modular pin surface and the `__`-prefixed well-known custom-value keys; `ComponentParameters` owns the live input/output pin lists.
 
@@ -30,7 +28,6 @@
 |  [07]   | `IoIdAttribute`       | io identity       | the persistent type-id attribute (`GrasshopperIO`)                               |
 
 [PUBLIC_TYPE_SCOPE]: data access and pin registration
-
 - rail: component-authoring model
 - note: `IDataAccess` is the ONE seam `Process` receives — typed get/set over item/pear/twig/tree plus tolerance, unit, transform, and message emission; the adder families are the typed pin-declaration surface split by direction.
 - note: `IParameter.PersistentDataWeak` is `ITree { get; set; }`; `TypeAssistantWeak` is `ITypeAssistant { get; }`; `PresetsWeak` is `IPresets { get; }`.
@@ -48,7 +45,6 @@
 |  [09]   | `ITypeAssistant`     | type service  | read, parse, display, geometry, transform, measure, and bake projection  |
 
 [PUBLIC_TYPE_SCOPE]: tree data algebra and conversion
-
 - rail: component-authoring model
 - note: `Tree<T>`/`Twig<T>`/`Pear<T>`/`Leaf<T>` are the goo carriers; `Garden` is the static tree-construction and tree-wise operation family; the brokers cast-or-convert a host object onto the concrete `Rhino.Geometry` family, and `ConversionServer` carries the merit-scored generic convert.
 
@@ -65,7 +61,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: component lifecycle and variable parameters
-
 - rail: component-authoring model
 - note: `Process(IDataAccess)` is the compute hook; the `*Process` family brackets it with `Solution`-scoped phases; the `Can*`/`Do*Parameter` pairs gate and apply variable-pin mutation under an `ActionList`.
 
@@ -90,7 +85,6 @@
 |  [17]   | `CreateAttributes`                                          | view         | construct object attributes        |
 
 [ENTRYPOINT_SCOPE]: data access get, set, and diagnostics
-
 - rail: component-authoring model
 - note: every typed getter is an out-parameter `bool`-shaped read the folder lifts onto the result rail; `Set*` writes a pin's tree, and `Add*` emits a document message with optional `MessageAction`s.
 
@@ -117,7 +111,6 @@
 |  [19]   | `GetItemWithSurfaceAssistant(int, out object, out ...)`        | assisted get | value read paired with its surface service |
 
 [ENTRYPOINT_SCOPE]: pin declaration, tree construction, and conversion
-
 - rail: component-authoring model
 - note: the adder `Add*` roster is one typed method per carrier plus `AddGeneric`/`AddEnum<T>`/`AddTopological`; `Garden` builds and folds trees; the brokers resolve a host object onto its concrete geometry family.
 - note: typed folds are `Garden.PairWiseOp<A, B, R>(Tree<A>, Tree<B>, Func<A, B, R>, CancellationToken)` and `Garden.PearWiseOp<T>(Tree<T>, Func<Pear<T>, Pear<T>>, CancellationToken)`.
@@ -149,7 +142,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [COMPONENT_TOPOLOGY]:
-
 - `Component` is the compute-carrying document object: it declares pins once through `AddInputs(InputAdder)`/`AddOutputs(OutputAdder)`, computes through `Process(IDataAccess)`, may override `Process(IDataAccess[], CancellationToken)` for iteration-array policy, and reconciles variable pins through the `Can*`/`Do*Parameter(Side, int, ActionList)` pairs — `Side` is the `Input`/`Output` discriminant and every structural edit rides an `ActionList` for undo
 - `IDataAccess` is the single execution seam: typed `Get*`/`Set*` over item/pear/twig/tree depth, tolerance and unit context, transform reads, and `AddRemark`/`AddWarning`/`AddError` message emission; the component never reaches the `Document` from inside `Process`, it reads `access.Solution`/`access.Callstack`
 - pins are `IParameter`s declared with an `Access` (`Item`/`Twig`/`Tree`) and a `Requirement` (`MustExist`/`MayBeNull`/`MayBeMissing`); the adder families are the only pin-declaration surface, one typed `Add*` per carrier plus `AddGeneric`/`AddEnum<T>`/`AddTopological`, and the modular adders extend each with label, colour, category, and hidden-pin state
@@ -157,21 +149,18 @@
 - `ModularComponent` drives its pin surface from `__`-prefixed well-known custom-value keys (`__Icon`, `__Colour`, `__Optional`, `__Category`, `__HideByDefault`, `__HiddenWires`); `Plugin`/`PluginServer` own registration, and `IoIdAttribute` stamps the persistent serialization id
 
 [STACKING]:
-
 - `api-thinktecture-runtime-extensions`(`.api/api-thinktecture-runtime-extensions.md`): the host `Access` (`Item`/`Twig`/`Tree`), `Requirement` (`MustExist`/`MayBeNull`/`MayBeMissing`), and `Side` (`Input`/`Output`) fold onto `[SmartEnum]` owners, so a pin depth, presence, or side is one exhaustive dispatch value; the typed `Add*` pin roster is generated from one `[SmartEnum]` pin-kind vocabulary rather than an enumerated method wall
 - `api-languageext`(`.api/api-languageext.md`): every out-parameter `Get*(int, out T)` lifts onto `Fin<T>` (a missing/null pin resolving through `Requirement` onto `Option<T>` or an accumulating `Validation<Error, T>`), so `Process` reads its inputs as a fan-in that reports every unsatisfied pin at once rather than a chain of `bool` checks; the `Garden` tree-wise folds and `Twig<T>.Convert` compose `Seq`/`Traverse` so a `Tree<Fin<A>>` inverts to `Fin<Tree<A>>`
 - `api-languageext`(`.api/api-languageext.md`): `ConversionServer.Convert(object, Type, out object, out Merit, out string)` and the discriminated broker folds lift onto a `Fin` carrying the `Merit` or family receipt, so a conversion refusal is a typed `Error`; the public `PluginServer.LoadPlugin` overloads lift their `bool` plus `out FailureInfo` contract to `Fin<Unit>`
 - `api-generator-equals`(`.api/api-generator-equals.md`): pin identity and the `IoIdAttribute` type-id key take generated structural equality, so a persistent-value or pin-descriptor compare is one generated equality, never a hand-written `Equals`
 
 [LOCAL_ADMISSION]:
-
 - `Component`/`ModularComponent` is the one authoring base the folder extends; a GH1 `GH_Component`/`GH_ComponentAttributes` re-derivation beside it is the rejected form
 - pin declaration composes the adder families through the generated pin-kind vocabulary; a hand-enumerated `Add*` wall or a `GH_ParamAccess` bool is never re-minted
 - `IDataAccess` is the sole in-`Process` seam; reaching the `Document` or `Solution` graph from inside compute is the rejected form
 - `Garden` and the brokers own tree construction and conversion; a hand-rolled branch walker or a `GH_Structure` re-implementation beside them is the deleted form
 
 [RAIL_LAW]:
-
 - Package: `Grasshopper2.dll` (Rhino 9 WIP Grasshopper2 SDK, in-process managed plug-in; `GrasshopperIO` serialization; `Rhino.Geometry` carriers)
 - Owns: the `Component`/`ModularComponent` authoring model, `IDataAccess`, the typed pin adder families, the `Tree`/`Twig`/`Pear`/`Garden` data algebra, the `Grasshopper2.Parameters.Standard` and `ConversionServer` brokers, and `Plugin`/`PluginServer` registration
 - Accept: a `Component` declaring pins through the adder families, computing through `Process(IDataAccess)` with reads lifted onto `Fin`/`Validation`, `Access`/`Requirement`/`Side` folded onto `[SmartEnum]`s, trees built and folded through `Garden`, conversions carrying a `Merit` receipt, and plugin registration through `PluginServer`

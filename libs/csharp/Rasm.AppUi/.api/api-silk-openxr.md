@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Silk.NET.OpenXR`
-
 - package: `Silk.NET.OpenXR` (MIT) + `Silk.NET.OpenXR.Extensions.KHR` (MIT) + `Silk.NET.OpenXR.Extensions.EXT` (MIT) — the `FB` extension package is admitted separately and catalogued in `api-silk-openxr-fb.md`
 - assembly: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
 - namespace: `Silk.NET.OpenXR`, `Silk.NET.OpenXR.Extensions.KHR`, `Silk.NET.OpenXR.Extensions.EXT`
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: API root and session lifecycle owners
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]    | [TYPE_FAMILY]   | [RAIL]                             |
@@ -30,7 +28,6 @@
 |  [07]   | `Action`    | native handle   | one bound input/pose/haptic action |
 
 [PUBLIC_TYPE_SCOPE]: frame, view, and composition carriers
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                         | [KIND]    | [RAIL]                                   |
@@ -47,7 +44,6 @@
 |  [10]   | `EnvironmentBlendMode`           | enum      | opaque/additive/alpha-blend passthrough  |
 
 [PUBLIC_TYPE_SCOPE]: descriptor and create-info carriers
-
 - rail: viewport
 
 | [INDEX] | [SYMBOL]                                            | [KIND]     | [RAIL]                                    |
@@ -64,7 +60,6 @@
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: instance, system, and session creation
-
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                        | [SURFACE_ROOT] | [RAIL]                 |
@@ -82,7 +77,6 @@
 - [EXTENSION_LOAD]: `TryGetInstanceExtension<T>(string? layer, Instance, out T ext) where T : NativeExtension<XR>` loads command tables such as `KhrVulkanEnable2` and `ExtHandTracking`.
 
 [ENTRYPOINT_SCOPE]: swapchain, space, and frame loop
-
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                                    | [SURFACE_ROOT] | [RAIL]                 |
@@ -98,7 +92,6 @@
 |  [09]   | `EndFrame(Session, FrameEndInfo*)`                                           | `XR`           | submit layers          |
 
 [ENTRYPOINT_SCOPE]: input actions, poses, and haptics
-
 - rail: viewport
 
 | [INDEX] | [SURFACE]                                                            | [SURFACE_ROOT] | [RAIL]                  |
@@ -114,7 +107,6 @@
 ## [04]-[IMPLEMENTATION_LAW]
 
 [OPENXR_TOPOLOGY]:
-
 - `XR.GetApi()` returns the function-table root; every native call is an instance method on that `XR` object taking raw pointers to create-info structs — Silk.NET binds the C `openxr.h` surface directly, so a call site marshals `Span<T>`/`stackalloc` descriptor structs and passes pointers, never a managed wrapper object, exactly as the `Silk.NET.WebGPU` family does.
 - The lifecycle is `Instance` (extensions enabled at create) -> `SystemId` (the resolved HMD) -> `Session` (created against the graphics-binding `next` chain) -> `Swapchain`s + reference `Space`s; the session runs the `WaitFrame`/`BeginFrame`/`LocateViews`/render-per-eye/`EndFrame` loop driven by the runtime-predicted display time, never a wall clock.
 - Extension negotiation names the selected `ExtensionName` constants in `InstanceCreateInfo.EnabledExtensionNames` before instance creation.
@@ -127,13 +119,11 @@
 - Input is the action-set model: an `ActionSet` holds `Action`s bound to interaction-profile paths (`/user/hand/left/input/select/click`, `/user/hand/right/input/aim/pose`), `SyncActions` polls them per frame, and `GetActionStatePose`+`LocateSpace` resolves the controller pose the navigation and measurement tools read — a raw HID controller read is the rejected form because OpenXR owns the device abstraction.
 
 [LOCAL_ADMISSION]:
-
 - All native handles (`Instance`, `Session`, `Swapchain`, `Space`, `ActionSet`, `Action`) are released through their matching `DestroyXxx` native call, not `IDisposable` — the owning boundary capsule pairs create-and-destroy in a `using`-equivalent scoped fold exactly as the wgpu boundary pairs create-and-release.
 - `Silk.NET.OpenXR` carries no bundled native runtime: it P/Invokes the host-installed OpenXR loader (`libopenxr_loader`, the runtime the headset vendor installs — SteamVR, Meta, Varjo, Monado), so the absence of an installed loader is the no-HMD floor that folds to the desktop flat viewport, never a hard fault — the immersive session is an optional surface the desktop path degrades from.
 - The OpenXR loader is host-installed and macOS-absent today (no Apple OpenXR loader ships; visionOS uses ARKit/RealityKit, not OpenXR), so the immersive session activates on the Windows/Linux desktop hosts where the loader is present and folds to the flat viewport on macOS — the session create is a capability probe, not a launch precondition.
 
 [RAIL_LAW]:
-
 - Package: `Silk.NET.OpenXR` (+ `Silk.NET.OpenXR.Extensions.KHR`/`EXT`)
 - Owns: the managed OpenXR binding — instance/system/session lifecycle, stereo swapchain allocation, reference-space and pose location, the predicted-display-time frame loop, the action-set input model, and environment-blend passthrough compositing for the immersive design-review surface.
 - Accept: raw-pointer create-info calls on the `XR.GetApi()` function-table root; native-handle scoped create-and-destroy pairs; the shared graphics binding to the `Wgpu` device; the host-loader-absent fold to the flat viewport.

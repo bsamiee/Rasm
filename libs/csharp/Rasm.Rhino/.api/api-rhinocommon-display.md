@@ -5,7 +5,6 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `RhinoCommon` '`Rhino.Display`'
-
 - package: `RhinoCommon`
 - license: proprietary McNeel SDK (host-provided, not centrally pinned)
 - assembly: `RhinoCommon.dll` (current WIP host framework, resolved from the installed Rhino application)
@@ -17,7 +16,6 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: view, viewport, and camera pose
-
 - rail: host-boundary display
 
 `RhinoView` owns the `Modified`/`Create`/`Destroy`/`SetActive`/`Rename` events plus `Redraw` and `ShowToast`. `RhinoPageView` owns page lifecycle, detail views, page-view groups, space-change/properties events, and preview images; `RhinoViewport` owns camera pose/projection/frustum, dolly/zoom/gesture families, construction planes, and screen transforms.
@@ -39,7 +37,6 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 |  [11]   | `ClippingPlaneObject`       | clip object        | clipping participation         |
 
 [PUBLIC_TYPE_SCOPE]: pipeline, conduit, and draw-event carriers
-
 - rail: host-boundary display
 
 `DisplayPipeline` owns geometry/sprite/text/annotation draw families, render-state stacks, and pass state. `DisplayConduit` binds a viewport and overrides ordered draw phases.
@@ -54,7 +51,6 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 |  [06]   | `CalculateBoundingBoxEventArgs` | bounds args       | zoom-extents contribution    |
 
 [PUBLIC_TYPE_SCOPE]: draw appearance, effect, and attribute vocabulary
-
 - rail: host-boundary display
 
 `DisplayPen` constructs through `FromLinetype(Linetype, Color[, double])`; `CapStyle`/`JoinStyle`, `SetPattern(IEnumerable<float> dashesAndGaps)`, `HaloThickness`/`HaloColor`, `SetTaper`, `ThicknessSpace`, and `PatternAutoscale`/`PatternScale`/`PatternLengthInWorldUnits` own its stroke. `DisplayPipelineAttributes` carries `ShowEdges`/`ShowCreases`/`ShowSeams`/`ShowSilhouttes`/`ShowIntersections`/`ShowHiddenLines`/`ShowLighting`.
@@ -79,7 +75,6 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 `IsoDrawEffect` carries `IsoDrawMode`, `Direction`, `Frequency`, and per-band color access.
 
 [PUBLIC_TYPE_SCOPE]: retained overlays and capture
-
 - rail: host-boundary display
 
 `CustomDisplay` accumulates points, polygons, and text for its `IDisposable` document lifetime. `ViewCapture` selects `CaptureToBitmap`/`CaptureToSvg`/`SendToPrinter` egress from one settings object.
@@ -96,7 +91,6 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: `DisplayConduit` — subclass and bind
-
 - rail: host-boundary display
 
 | [INDEX] | [SURFACE]                                               | [CALL_SHAPE] | [CAPABILITY]             |
@@ -116,7 +110,6 @@ The `Rhino.Display` boundary owns everything between document geometry and pixel
 |  [13]   | `DrawOverlay(DrawEventArgs e)`                          | override     | depth-free overlay       |
 
 [ENTRYPOINT_SCOPE]: `DisplayPipeline` — events, state stacks, and draw families
-
 - rail: host-boundary display
 
 Each render-state push unwinds through its matched `Pop*` operation.
@@ -173,7 +166,6 @@ The static events admit frame-phase participation without a conduit subclass.
 |  [46]   | `FrameBuffer`                                                                  | pass state    | active framebuffer           |
 
 [ENTRYPOINT_SCOPE]: view, viewport, and page-view
-
 - rail: host-boundary display
 
 `TryGetPaperLength` and `TryGetModelLength` expose the paper↔model length correspondence under the live detail scale.
@@ -209,7 +201,6 @@ The static events admit frame-phase participation without a conduit subclass.
 |  [27]   | `DetailView.SetScale(double, LengthUnit, double, LengthUnit)`                      | detail scale  | detail scale write       |
 
 [ENTRYPOINT_SCOPE]: display modes, retained overlays, and capture
-
 - rail: host-boundary display
 
 `ViewCaptureSettings.RasterMode` selects raster or vector egress.
@@ -275,31 +266,26 @@ The static events admit frame-phase participation without a conduit subclass.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISPLAY_TOPOLOGY]:
-
 - Frame participation has two shapes with one phase order: subclass `DisplayConduit` and override the phases, or subscribe the mirror `DisplayPipeline` static events — the boundary picks subclassing when it owns per-instance state (filters, cached geometry) and events for a stateless tap. The ordered phases (`ObjectCulling` → `CalculateBoundingBox` → `PreDrawObjects`/`PreDrawObject` → object walk → `PostDrawObjects` → `DrawForeground` → `DrawOverlay`) are the same for both.
 - Direct draws run only inside a phase against the phase's `DisplayPipeline`; a draw family consumes a `Rhino.Geometry` carrier plus a `DisplayMaterial`/`Color`/`DisplayPen`, and any transform or depth/cull override wraps the draw in a matched `Push*`/`Pop*` pair so the pipeline state unwinds exactly.
 - A conduit-free overlay is `CustomDisplay` (document-lifetime, `IDisposable`); a per-object false-color surface is a registered `VisualAnalysisMode`; a per-frame interactive overlay is a bound conduit. The three never overlap — retained accumulation, registered analysis, and live participation are distinct owners.
 - Pass state (`IsInViewCapture`, `IsPrinting`, `IsDynamicDisplay`, `RenderPass`, `NestLevel`, `DpiScale`) is read, never assumed: a draw that differs between interactive, capture, and print frames branches on the flags rather than duplicating conduits.
 
 [CAPTURE_TOPOLOGY]:
-
 - `ViewCapture` is settings-driven: one `ViewCaptureSettings` fixes media size, layout, model scale, color mode, and captured window, then `CaptureToBitmap`/`CaptureToSvg`/`SendToPrinter` selects the egress — the same settings object drives every target, so raster/vector/print never fork the capture configuration.
 - Page-view capture composes `RhinoPageView` detail views and page-view groups; PDF page egress is the `FilePdf.AddPage(ViewCaptureSettings)` seam of `api-rhinocommon-fileio.md`, which consumes the identical settings object.
 
 [STACKING]:
-
 - `api-languageext.md`(`../../.api/api-languageext.md`): every host call that can fail or return null is trapped onto the rail — `Try.lift(() => DisplayModeDescription.FindByName(name)).Run()` and `Optional(ViewCapture.CaptureToBitmap(settings)).ToFin(error)` are the boundary spellings; a captured bitmap, a resolved mode, or a bound conduit crosses into domain code as `Fin<A>`, never as a nullable host handle.
 - `api-thinktecture-runtime-extensions.md`(`../../.api/api-thinktecture-runtime-extensions.md`): the host draw enums (`BlendMode`, `CullFaceMode`, `LineCapStyle`, `LineJoinStyle`, `PointStyle`, `IsoDrawMode`) and mode/attribute selectors are mapped at the edge to `[SmartEnum]` owners, and a display-mode or analysis-mode `Guid` is a `[ValueObject<Guid>]` — the domain composes the bounded owner, the host enum lives only in the adapter.
 - `api-rhinocommon-geometry.md`: every draw family consumes a `Rhino.Geometry` carrier (`Mesh`/`Brep`/`SubD`/`Hatch`/`TextEntity`/`ClippingPlaneSurface`); the pipeline is the sink, the geometry catalog the source.
 - `api-macos-native.md`: sprite-cloud and dynamic-display animation pace off the host `CADisplayLink` frame clock rather than a wall timer, and perceptual color blending of `Color4f`/`IsoDrawEffect` band colors composes the Rasm kernel color rail, never a host-side channel-average.
 
 [LOCAL_ADMISSION]:
-
 - The `Rhino.Display` types are host handles trapped and mapped at the boundary; a `DisplayPipeline`, `RhinoViewport`, or `ViewCaptureSettings` never appears in a domain signature — the domain sees a `Fin<A>`, a bounded owner, or a canonical shape.
 - A conduit or `CustomDisplay` is the single retained owner for its overlay concern; a second parallel conduit drawing the same overlay is the collapsed form.
 
 [RAIL_LAW]:
-
 - Package: `RhinoCommon` (`Rhino.Display`)
 - Owns: view/viewport/camera pose, the two frame-participation shapes and their draw families, render-state stacks, retained `CustomDisplay`/`VisualAnalysisMode` overlays, display-mode and display-attribute vocabulary, and `ViewCapture` egress
 - Accept: a bound conduit or subscribed pipeline event drawing geometry carriers under matched state pushes; a settings-driven capture; a registered analysis mode; host handles trapped through `Try.lift(...).Run()` and enums mapped to bounded owners at the edge

@@ -7,7 +7,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Triangle`
-
 - package: `Triangle`
 - license: `MIT` (Triangle.NET / wo80; the wrapped Shewchuk core is non-commercial-research, the.NET port is MIT — `licenseUrl` `triangle.codeplex.com/license`)
 - assembly: `Triangle`
@@ -21,7 +20,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 ## [02]-[PUBLIC_TYPES]
 
 [PUBLIC_TYPE_SCOPE]: PSLG input geometry — `TriangleNet.Geometry`
-
 - rail: kernel-substrate
 
 | [INDEX] | [SYMBOL]        | [TYPE_FAMILY]       | [CAPABILITY]    |
@@ -67,7 +65,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 [Rectangle]: `Expand(Point)`, `Expand(points)`, `Expand(Rectangle)`, `Contains`, `Intersects`, and `Resize` own the mesh AABB and `StructuredMesh` extent.
 
 [PUBLIC_TYPE_SCOPE]: meshing engine and options — `TriangleNet` / `TriangleNet.Meshing`
-
 - rail: kernel-substrate
 
 | [INDEX] | [SYMBOL]            | [TYPE_FAMILY]     | [CAPABILITY]        |
@@ -112,7 +109,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 [Configuration]: injects `IPredicates` plus vertex and triangle factories, defaults predicates to `RobustPredicates`, and admits replacement of the adaptive-precision kernel.
 
 [PUBLIC_TYPE_SCOPE]: triangulation algorithms, topology, predicates — `TriangleNet.Meshing.Algorithm` / `.Topology`
-
 - rail: kernel-substrate
 
 | [INDEX] | [SYMBOL]           | [TYPE_FAMILY]      | [CAPABILITY]          |
@@ -149,7 +145,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 [NodeNumbering]: `None`, `Linear`, and `CuthillMcKee` select the `Mesh.Renumber` bandwidth-reduction ordering.
 
 [PUBLIC_TYPE_SCOPE]: Voronoi dual, smoothing, quality tools — `TriangleNet.Voronoi` / `.Smoothing` / `.Tools`
-
 - rail: kernel-substrate
 
 | [INDEX] | [SYMBOL]             | [TYPE_FAMILY]        | [CAPABILITY]        |
@@ -192,7 +187,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 [CuthillMcKee]: reorders the adjacency graph for `Mesh.Renumber`.
 
 [PUBLIC_TYPE_SCOPE]: file I/O — `TriangleNet.IO`
-
 - rail: kernel-substrate
 
 | [INDEX] | [SYMBOL]         | [TYPE_FAMILY] | [CAPABILITY]    |
@@ -216,7 +210,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: the canonical mesh pipeline — `GenericMesher.Triangulate`
-
 - rail: kernel-substrate
 - note: the pipeline is BUILD `Polygon` (`AddContour` outer + holes + regions) -> `GenericMesher.Triangulate(polygon, constraintOptions, qualityOptions)` -> read the `IMesh` collections. The four `Triangulate(IPolygon,...)` overloads layer the optional constraint and quality policies; the `Triangulate(IList<Vertex>)` overload is the unconstrained point-set Delaunay (no PSLG).
 
@@ -232,49 +225,40 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 |  [08]   | renumber   | renumber       | bandwidth reduction |
 
 [POINT_DELAUNAY]:
-
 - Surface: `GenericMesher.Triangulate(IList<Vertex> points)`.
 - Capability: Unconstrained point-set Delaunay without segments.
 
 [CONSTRAINED]:
-
 - Surface: `GenericMesher.Triangulate(IPolygon polygon)`.
 - Capability: Constrained PSLG Delaunay preserves segments and carves holes without quality refinement.
 
 [CONSTRAINT_POLICY]:
-
 - Surface: `GenericMesher.Triangulate(IPolygon polygon, ConstraintOptions options)`.
 - Capability: Constrained Delaunay applies conforming, convex, and region policy.
 
 [QUALITY_POLICY]:
-
 - Surface: `GenericMesher.Triangulate(IPolygon polygon, QualityOptions quality)`.
 - Capability: Constrained Ruppert/Chew refinement inserts Steiner points under minimum-angle and maximum-area bounds.
 
 [FULL_PIPELINE]:
-
 - Surface: `GenericMesher.Triangulate(IPolygon polygon, ConstraintOptions options, QualityOptions quality)`.
 - Capability: The FEA section-mesh entry combines constrained, conforming, region-aware, and quality-refined meshing.
 
 [STRUCTURED]:
-
 - Surface: `GenericMesher.StructuredMesh(double w, double h, int nx, int ny)` and `StructuredMesh(Rectangle, nx, ny)`.
 - Capability: Produces a regular `nx`-by-`ny` rectangular grid without a PSLG.
 
 [REFINE]:
-
 - Surface: `Mesh.Refine(QualityOptions quality, bool delaunay = false)`.
 - Capability: Requalifies an existing mesh after an adaptive FEA error estimate.
 
 [RENUMBER]:
-
 - Surface: `Mesh.Renumber([NodeNumbering num])`.
 - Capability: Applies Cuthill-McKee numbering to reduce FEA stiffness-matrix bandwidth.
 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [MESH_TOPOLOGY]:
-
 - Coordinates are `double` (`Point.X`/`Y`); `Triangle` is a FLOATING-POINT mesher with `RobustPredicates` adaptive-precision orient/incircle — robust to ROUNDING but NOT an exact-rational kernel. For exact-arithmetic robustness (degenerate cocircular input, exact constrained-edge recovery) the consumer routes through the `Rasm` kernel's `.planning/Meshing/delaunay.md` `Adaptive.Resolve` four-tier Bowyer-Watson; `Triangle` is the production 2D quality path where the input is well-conditioned.
 - `QualityOptions.MinimumAngle` is the Ruppert termination bound: angles above ~ deg are guaranteed to terminate; pushing it higher risks non-termination on tight input angles — bound `SteinerPoints` to cap the insertion budget. `MaximumArea` is the global element-size cap; `VariableArea` + `RegionPointer` give per-region sizing; `UserTest` (`Func<ITriangle,double,bool>`) is the custom refine predicate (return true to split — the FEA gradient/error-driven sizing hook).
 - `ConstraintOptions.ConformingDelaunay` inserts Steiner points so every triangle's circumcircle is empty even across constrained edges (the true Delaunay property); without it the result is a CONSTRAINED Delaunay (edges forced, circumcircles not guaranteed empty). `Convex` meshes the convex hull ignoring concavities; `UseRegions` honours `RegionPointer` ids for per-region attributes/area.
@@ -285,7 +269,6 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 `VividOrange.InteractionDiagram` composes `Triangle` and `MIConvexHull` inside one N-M-M capacity engine.
 
 [CAPACITY_PIPELINE]:
-
 - Input: the concrete outer `Contour` plus rebar exclusion and void contours form a `Polygon`.
 - Mesh: `GenericMesher.Triangulate(polygon, qualityOptions)` produces the constrained `AnalyticalFace` fibre grid.
 - Integrate: the strain-plane sweep integrates fibre stress over meshed faces into force-moment-moment points.
@@ -295,14 +278,12 @@ The kernel relationship is COMPOSITIONAL and disjoint from the authored exact me
 [DIRECT_USE]: no repo-owned project directly references `Triangle`; the authored Bowyer-Watson and `Arrangement` owners retain exact-robustness and 3D concerns.
 
 [OWNER_BOUNDARIES]:
-
 - `Triangle`: constrained and quality-refined Delaunay over a PSLG plus `StandardVoronoi`/`BoundedVoronoi` duals derived from that mesh.
 - `MIConvexHull`: unconstrained point-set hull-lift Delaunay and ND Voronoi dual without segments, holes, or quality refinement.
 - `SharpVoronoiLib`: standalone 2D point-site Fortune Voronoi with border clipping and Lloyd relaxation.
 - Routing: a constrained-mesh dual uses `Triangle`, while a standalone clipped point-site diagram uses `SharpVoronoiLib`.
 
 [RAIL_LAW]:
-
 - Package: `Triangle` (assembly `Triangle`, alias `TriangleNet`)
 - Owns: constrained/conforming 2D Delaunay triangulation and Ruppert/Chew quality refinement over a PSLG (`Polygon` of vertices/segments/holes/regions), with pluggable `Dwyer`/`SweepLine`/`Incremental` initial triangulation, `RobustPredicates` adaptive-precision orient/incircle, Laplacian `SimpleSmoother`, the `StandardVoronoi`/`BoundedVoronoi` dual, `QualityMeasure`/`Statistic` metrics, Cuthill-McKee renumbering, and `.poly`/`.node`/`.ele` I/O — all in the `double` domain
 - Accept: the transitive `VividOrange.InteractionDiagram` section fibre-grid mesh

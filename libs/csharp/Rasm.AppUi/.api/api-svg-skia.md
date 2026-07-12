@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `Svg.Controls.Skia.Avalonia` + `Svg.Skia`
-
 - package: `Svg.Controls.Skia.Avalonia` (Avalonia control layer); the `SKSvg` engine ships in the separately-pinned `Svg.Skia` package, with `Svg.Model` / `Svg.Custom` / the Fizzler-CSS and `ShimSkiaSharp` model assemblies transitive under it
 - license: MIT (`Svg.Skia` family)
 - floor: `net10.0` consumer; both assemblies resolve from `lib/net10.0` (`Svg.Controls.Skia.Avalonia.dll`, `Svg.Skia.dll`)
@@ -17,7 +16,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [AVALONIA_SVG_TYPES]: Avalonia control, image, source, and draw-operation surfaces — `Avalonia.Svg.Skia`
-
 - rail: assets
 
 | [INDEX] | [SYMBOL]                       | [KIND]                           | [RAIL]                                              |
@@ -33,7 +31,6 @@
 |  [09]   | `ServiceProviderExtensions`    | static extensions                | `IServiceProvider` base-URI/asset-loader resolution |
 
 [SVG_SKIA_TYPES]: `Svg.Skia` owns the document engine, parameters, scene, selection, and interaction model; typeface providers live under `Svg.Skia.TypefaceProviders`.
-
 - rail: assets
 
 | [INDEX] | [SYMBOL]                               | [KIND]                 | [ROLE]                       |
@@ -70,7 +67,6 @@ Assembly-provenance note: the scene / animation / interaction types live in the 
 ## [03]-[ENTRYPOINTS]
 
 [CONTROL_ENTRYPOINTS]: `Svg` owns these control properties and operations.
-
 - rail: assets
 
 | [INDEX] | [SURFACE]                                                                    | [RAIL]                                 |
@@ -88,7 +84,6 @@ Assembly-provenance note: the scene / animation / interaction types live in the 
 |  [11]   | `GetCss/SetCss`, `GetCurrentCss/SetCurrentCss`, `SetCurrentColor` (attached) | element CSS and current-color override |
 
 [ENGINE_LOAD_ENTRYPOINTS]: `SKSvg` owns document loading and output.
-
 - rail: assets
 
 | [INDEX] | [SURFACE]                                                                       | [RAIL]                                |
@@ -107,7 +102,6 @@ Assembly-provenance note: the scene / animation / interaction types live in the 
 [TYPEFACE_CHAIN]: `Settings.TypefaceProviders?.Add(ITypefaceProvider)` admits the font-chain provider, and `Settings` carries color-managed working spaces.
 
 [RETAINED_SCENE_ENTRYPOINTS]: `SKSvg` owns the incremental retained scene graph and its mutation rail.
-
 - rail: assets
 
 | [INDEX] | [SURFACE]                                    | [RAIL]                    |
@@ -132,7 +126,6 @@ Assembly-provenance note: the scene / animation / interaction types live in the 
 [RETAINED_SCENE_RECORDING]: `CreateRetainedScene{Model,Picture}(SvgElement, SKRect? clip)` records a subtree, `CreateRetainedSceneNode{Model,Picture}(SvgSceneNode, …)` records a node, and `CreateRetainedSceneGraph{Model,Picture}()` records the whole graph as a model or `SKPicture`.
 
 [ANIMATION_AND_INTERACTION_ENTRYPOINTS]: `SKSvg` owns SMIL animation, pointer and access-key interaction, viewer transforms, text selection, composition export, and hit testing; `SvgInteractionDispatcher` owns DOM pointer and focus dispatch.
-
 - rail: assets
 
 | [INDEX] | [SURFACE]                         | [OWNER]                    | [RAIL]                    |
@@ -189,7 +182,6 @@ Assembly-provenance note: the scene / animation / interaction types live in the 
 [DISPATCHER_SURFACE]: `HitTestTopmostElement(SKSvg?, SKPoint)` returns `SvgElement?`; `DispatchPointer{Moved,Pressed,Click,Released,WheelChanged,Exited}(SKSvg?, SvgPointerInput)` returns `SvgInteractionDispatchResult`; `FocusElement(SKSvg?, SvgElement?, SvgPointerInput)` and `BlurFocusedElement(SKSvg?, SvgPointerInput)` own focus transitions.
 
 [SOURCE_ENTRYPOINTS]: `SvgSource` exposes static load factories and document state, while `SvgImage` owns image-source properties and invalidation.
-
 - rail: assets
 
 | [INDEX] | [SURFACE]                                                                 | [OWNER]     | [RAIL]                                        |
@@ -207,27 +199,23 @@ Assembly-provenance note: the scene / animation / interaction types live in the 
 ## [04]-[IMPLEMENTATION_LAW]
 
 [SVG_ASSET_LAW]:
-
 - Package: `Svg.Controls.Skia.Avalonia` over `Svg.Skia`
 - Owns: SVG and Android-VectorDrawable asset controls, source loading (path / stream / string / URI / pre-parsed document / `IServiceProvider` base-URI), retained scene rendering with incremental mutation, SMIL animation, pointer/access-key interaction, built-in viewer pan/zoom, text selection, and `SKPicture` output.
 - Accept: SVG and VectorDrawable assets enter the same asset rail as raster and generated visual evidence; a vector asset retains `SvgSource` (`Svg`/`Picture`/`Parameters`) and exposes a live `SKSvg` engine.
 - Reject: bitmap-only asset policy; treating the SVG as an opaque blob without `SvgSource`/`SKSvg` state; re-rendering the whole picture on a single-element change when `TryApplyRetainedSceneMutationAndRender` re-renders only the dirty region.
 
 [RETAINED_MUTATION_LAW]:
-
 - The retained scene graph is the incremental render owner: `TryEnsureRetainedSceneGraph` builds an `SvgSceneDocument` (source document + asset loader + element-addressable `SvgSceneNode` graph), `TryGetRetainedSceneNode(s)`/`…ById`/`TryGetRetainedSceneResource` resolve nodes by `SvgElement`, address key, or id, and `TryApplyRetainedSceneMutationAndRender(element|addressKey, changedAttributes, out SvgSceneMutationResult)` re-records only the affected subtree and returns the dirty-region receipt.
 - A live model edit that drops the retained graph and reloads is the rejected form — the mutation API, not a full `Load`, owns single-element/attribute updates, and `SvgSceneMutationResult` is the receipt a viewport invalidation keys on.
 - `Sync` is the engine's render-lock object: a producer that mutates the scene off the render thread takes `lock (skSvg.Sync)` so a concurrent `Draw`/`UpdateWith*` does not observe a half-applied mutation.
 
 [STACKING]:
-
 - Stacks ONTO `api-avalonia-skia` / `api-skiasharp`: `SvgCustomDrawOperation` and `SvgSourceCustomDrawOperation` implement `ICustomDrawOperation`. `Render(ImmediateDrawingContext)` resolves `ISkiaSharpApiLeaseFeature.Lease()` to an `ISkiaSharpApiLease`, reads `lease.SkCanvas`, and calls `SKSvg.Draw(canvas)`, so the SVG composites into Avalonia's Skia surface without a side bitmap.
 - Native composition: the internal `SvgCompositionVisualScene` acquires the same lease through `CompositionCustomVisualHandler.OnRender` when `AnimationBackend` selects the native composition layer.
 - Stacks ONTO the Avalonia image rail: `SvgImage : IImage` is an image-source the same way a `Bitmap` is, so an `Image.Source`/`ImageBrush` binds an `SvgImage` and its `Size` (the `SKPicture.CullRect`) drives layout; `SvgSource` is the `[Content]`/`TypeConverter` target so `{SvgImage Source=…}`/`Svg Path=…` XAML resolves a string or URI through `SvgSourceTypeConverter`.
 - Stacks ONTO `api-asyncimageloader` / the asset pipeline: a URL `SvgSource.Load(path)` uses the engine's internal `HttpClient`, so remote SVG assets resolve on the same asset rail as async-loaded raster; the `IServiceProvider` `SvgSource` ctor resolves the Avalonia base URI and asset loader through `ServiceProviderExtensions`.
 
 [RENDER_LAW]:
-
 - Package: `Svg.Controls.Skia.Avalonia`
 - Owns: SVG rendering for panels, companion windows, sidecars, diagnostics, support views, and downstream shells
 - Accept: vector assets retain document, scene, animation, interaction, viewer-transform, selection, and rendered-picture state; the control's `Zoom`/`PanX`/`PanY` + `ZoomToPoint` drive the built-in `SKSvg` viewer model, and `AnimationBackend` selects the animation host (with `ActualAnimationBackend`/`AnimationBackendFallbackReason` reporting the resolved tier).

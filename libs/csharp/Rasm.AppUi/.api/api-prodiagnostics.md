@@ -5,7 +5,6 @@
 ## [01]-[PACKAGE_SURFACE]
 
 [PACKAGE_SURFACE]: `ProDiagnostics`
-
 - package: `ProDiagnostics` (MIT, Wiesław Šoltés)
 - assembly: `Avalonia.Diagnostics` (`lib/net10.0/Avalonia.Diagnostics.dll` binds the `net10.0` consumer directly; `net8.0` fallback asset)
 - namespace: `Avalonia` (the `DevToolsExtensions` attach surface), `Avalonia.Diagnostics` (`DevToolsOptions`/`DevToolsViewKind`/`HotKeyConfiguration`/`Conventions`/`DevToolsSession`/`VisualExtensions`/`VisualTreeDebug`), `Avalonia.Diagnostics.Services` (`PropertyValueEditorService`)
@@ -16,7 +15,6 @@
 ## [02]-[PUBLIC_TYPES]
 
 [INSPECTOR_OPTIONS]: `Avalonia.Diagnostics` attach configuration
-
 - rail: dev-loop-inspection
 
 | [INDEX] | [SYMBOL]                       | [KIND]                      |
@@ -50,7 +48,6 @@ init-only `HotKeys : HotKeyConfiguration` binds the gesture rig.
 [CONVENTIONS]: `DefaultScreenshotHandler` carries the static screenshot default.
 
 [INSPECTOR_RUNTIME]: session + render internals
-
 - rail: dev-loop-inspection
 
 | [INDEX] | [SYMBOL]                                        | [KIND]                 |
@@ -73,7 +70,6 @@ behind the property pane.
 ## [03]-[ENTRYPOINTS]
 
 [ATTACH_SURFACE]: `Avalonia.DevToolsExtensions` — one polymorphic attach fold over `TopLevel`/`Application`
-
 - rail: dev-loop-inspection
 
 | [INDEX] | [SURFACE]                                                               | [SURFACE_ROOT]       | [RAIL]                               |
@@ -88,13 +84,11 @@ behind the property pane.
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DEVLOOP_LAW]:
-
 - Package: `ProDiagnostics`
 - Owns: the Avalonia-12 runtime inspector overlay — the visual/logical/combined tree navigator, the live property + style pane with in-place editing (`PropertyValueEditorService`), routed-event tracking (`ShowEventsTab`/`ScopeEventsToRoot`), and the layout/renderer diagnostics overlays (`VisualTreeDebug`); the `DevToolsViewKind` launch view, `HotKeyConfiguration` gestures, and `IScreenshotHandler`/`IDevToolsPropertyEditHandler` extension seams.
 - Accept: `Diagnostics/devloop.md` mounts the inspector through `AttachDevTools(this Application, DevToolsOptions)` at composition time under the `Debug` gate; the `DevToolsOptions` launch view / tab visibility / hotkey rig are dev-loop policy rows; a custom `IScreenshotHandler` routes captures into the proof/capture lane where devloop needs deterministic snapshots.
 - Reject: a Release-surface reference (the `PrivateAssets="all"` `Debug` gate is law — no devtools identity in the shipped product); a second Avalonia devtools binding (`Avalonia.Diagnostics` 11.3.x is feed-dead, Accelerate DevTools is license-gate REJECTED); re-implementing the tree/property inspector where this overlay owns it; a hand-rolled control-snapshot where `VisualExtensions.RenderTo` exists.
 
 [STACKING]:
-
 - `Diagnostics/devloop.md` is the sole consumer anchor — the HUD/hot-reload/replay-verify dev loop mounts this inspector beside `HotAvalonia`'s XAML hot-reload; the two share the `Debug` `PrivateAssets` gate and never co-mount in Release.
 - Catalog depth is stub-plus-verified: every member above is decompile-verified against the restored `Avalonia.Diagnostics.dll`. The `DevToolsSession`/`PropertyValueEditorService` internals deepen when `devloop.md` first composes the option rig and the screenshot/property-edit handler seams into a concrete dev-loop policy fold.

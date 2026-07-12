@@ -25,7 +25,6 @@ Each interface owns one seam in the distribution hierarchy.
 |  [04]   | `IDiscreteDistribution`   | interface | discrete mass and samples      |
 
 [INTERFACE_MEMBERS]:
-
 - `IDistribution`: `RandomSource`
 - `IUnivariateDistribution`: `Mean`, `Variance`, `StdDev`, `Entropy`, `Skewness`, `Median`, and `CumulativeDistribution(x)`
 - `IContinuousDistribution`: `Density`, `DensityLn`, `Minimum`, `Maximum`, `Mode`, `Sample`, `Samples(double[])`, and `Samples()`
@@ -207,7 +206,6 @@ Every metric is a static reduction over a pair. A metric-dispatch delegate norma
 |  [14]   | `Distance.Pearson(IEnumerable<double> a, IEnumerable<double> b)` | correlation distance    |
 
 [DISTANCE_OVERLOADS]:
-
 - Vector and array carriers: `Euclidean`, `Manhattan`, `Chebyshev`, `Minkowski`, `SAD`, `MAE`, `SSD`, and `MSE`
 - Array-only carriers: `Cosine`, `Canberra`, `Hamming`, and `Jaccard`
 - Sequence carrier: `Pearson(IEnumerable<double>, IEnumerable<double>)`
@@ -217,7 +215,6 @@ Every metric is a static reduction over a pair. A metric-dispatch delegate norma
 [ENTRYPOINT_SCOPE]: least-squares fitting via `Fit`
 
 [FIT_LINE]:
-
 - Surface: `Fit.Line(double[] x, double[] y)`
 - Returns: `(double A, double B)`
 - Capability: Least-squares line `y = a + b·x`, with intercept `A` and slope `B`
@@ -275,7 +272,6 @@ Every factory is static and returns `double[]`. Paired rows distinguish symmetri
 ## [04]-[IMPLEMENTATION_LAW]
 
 [DISTRIBUTION_TOPOLOGY]:
-
 - namespace: `MathNet.Numerics.Distributions`
 - seam hierarchy: `IDistribution` → `IUnivariateDistribution` → `IContinuousDistribution` or `IDiscreteDistribution`
 - construction: each distribution has a constructor per parameter set plus an optional `System.Random randomSource` overload; passing `null` or omitting assigns `SystemRandomSource.Default`
@@ -283,19 +279,16 @@ Every factory is static and returns `double[]`. Paired rows distinguish symmetri
 - `RandomSource` replaces `null` with the shared default. `CumulativeDistribution` lives on `IUnivariateDistribution`, while inverse CDF remains a concrete-distribution surface.
 
 [INTEGRATION_TOPOLOGY]:
-
 - namespace: `MathNet.Numerics`; delegates to `MathNet.Numerics.Integration` (`DoubleExponentialTransformation`, `GaussLegendreRule`, `GaussKronrodRule`)
 - `OnClosedInterval` is double-exponential with a `1e-8` default absolute-error target — suitable for smooth analytic functions; `GaussKronrod` is the adaptive method with an explicit relative-error target, `maximumDepth`, and an `out error`/`out L1Norm` estimate, for functions where the error must be bounded
 - `OnRectangle`/`OnCuboid` use fixed-order Gauss-Legendre product rules over a box; the `order` argument selects the per-axis node count
 
 [ROOT_FINDING_TOPOLOGY]:
-
 - namespace: `MathNet.Numerics.RootFinding` — no `FindRoots` aggregator; the surface is one static class per method (`Brent`, `Bisection`, `NewtonRaphson`, `RobustNewtonRaphson`, `Secant`, `Broyden`, `Cubic`)
 - selection by available information: `Brent.TryFindRoot` (bracket, no derivative) is the canonical entry; `NewtonRaphson`/`RobustNewtonRaphson` when an analytic derivative `df` is available; `Secant` for derivative-free local convergence; `Broyden` for nonlinear systems; `Cubic` for closed-form cubic roots
 - `FindRoot` throws `NonConvergenceException` on failure, while `TryFindRoot` returns `false` for a `Fin` or `Option` rail. `FindRootExpand` adds automatic bracket expansion to bracketing methods.
 
 [SPECTRAL_TOPOLOGY]:
-
 - namespace: `MathNet.Numerics.IntegralTransforms` (`Fourier`, `FourierOptions`) plus root `MathNet.Numerics` (`Window`)
 - Every `Fourier` transform mutates the caller-owned buffer. `Default` applies symmetric scaling, `AsymmetricScaling` scales the inverse by `1/N`, and `NoScaling` omits scaling; a forward-inverse round trip is identity under `Default` or `AsymmetricScaling` and carries a factor of `N` under `NoScaling`.
 - three real-signal carriers: the `Complex[]`/`Complex32[]` form; the split `double[] real, double[] imaginary` form (a vectorized magnitude/phase reads the contiguous spans with no `Complex` marshalling — the preferred form); and the packed `ForwardReal`/`InverseReal` form that stores the conjugate-even half-spectrum in an `N+2` (even N) / `N+1` (odd N) buffer; `ForwardMultiDim`/`Forward2D` (and their inverses) cover row-major multi-dimensional and 2D data
@@ -303,7 +296,6 @@ Every factory is static and returns `double[]`. Paired rows distinguish symmetri
 - `Hann`, `Hamming`, `Cosine`, and `Lanczos` pair symmetric filter-design tapers with `*Periodic` FFT-framing tapers. `Dirichlet` is rectangular, while `Gauss(width, sigma)` and `Tukey(width, r = 0.5)` carry shape parameters.
 
 [STACK]:
-
 - A root-find on a boundary rail composes the no-throw `Brent.TryFindRoot(f, lo, hi, acc, maxIter, out root)`: the `bool` maps to `Fin.Succ(root)`/`Fin.Fail(...)` (or `Option`) at the seam, so a non-convergence is a typed failure row, never a `NonConvergenceException` thrown through the receipt path
 - Parallel sampling assigns each worker a distribution instance with its own `RandomSource`, so the RNG never races
 - An `IInterpolation` composes `Interpolate(x)`, `Differentiate(x)`, and `Integrate(a, b)` through one scheme policy keyed by point order and pole constraints
@@ -314,7 +306,6 @@ Every factory is static and returns `double[]`. Paired rows distinguish symmetri
 - The analysis window selects a `Window.*` taper, using `*Periodic` for FFT framing and the symmetric variant for filter design
 
 [LOCAL_ADMISSION]:
-
 - Parallel samplers own one distribution instance and `RandomSource` per worker
 - `Integrate.OnClosedInterval` integrates a real scalar `Func<double,double>`; `GaussKronrod` is the adaptive form when an error bound is required; the two-/three-dimensional overloads are `OnRectangle`/`OnCuboid`
 - Each root-finding method owns one static class, and `TryFindRoot` is the rail-composable failure form
@@ -324,7 +315,6 @@ Every factory is static and returns `double[]`. Paired rows distinguish symmetri
 - Linear algebra, provider selection, and sparse solve remain outside the core assembly
 
 [RAIL_LAW]:
-
 - Package: `MathNet.Numerics` (core assembly, non-provider namespaces)
 - Owns: probability distributions, numerical integration (incl. adaptive Gauss-Kronrod and 2D/3D), root-finding (`Brent`/`Bisection`/`Newton`/`RobustNewton`/`Secant`/`Broyden`/`Cubic`), interpolation (cubic-spline family + polynomial + rational), special functions (Gamma/Beta/erf/Bessel), least-squares line fit (`Fit.Line`), the `Distance` metric catalog (Euclidean/Manhattan/Chebyshev/Minkowski over `Vector<T>`+arrays; Cosine/Canberra/Hamming/Jaccard array-only; Pearson), discrete Fourier transforms (in-place complex / split-real / packed-real / multi-dim + `FrequencyScale`), and the `Window` taper catalog
 - Accept: `Func<double, double>` integrands and root targets, `IContinuousDistribution`/`IDiscreteDistribution` seams, `IInterpolation` results, the no-throw `TryFindRoot` rail form, in-place `Complex[]`/split `double[]` spectral buffers under a `FourierOptions` scaling, `Window` tapers as `double[]`
