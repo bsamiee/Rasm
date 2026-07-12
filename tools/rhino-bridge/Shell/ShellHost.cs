@@ -16,7 +16,7 @@ using StreamJsonRpc;
 
 namespace Rasm.Bridge.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 // Ownership: closed GH2 quit-scrub outcome. The reflective Document.AllDocuments + Unmodify path
 // projects to one of these cases so its failure surfaces as a typed fact instead of a sentinel string.
@@ -33,7 +33,7 @@ internal abstract partial record Gh2ScrubOutcome {
         failed: static f => $"reflective-scrub-failed:{f.Detail}");
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: shell composition root and RPC target seam. It owns pipe lifecycle, endpoint
 // write/heal, host event taps, busy admission, and Contract payload projection through CargoGate

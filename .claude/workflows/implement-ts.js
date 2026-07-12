@@ -16,7 +16,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14; // concurrent folder-CHAIN ceiling — the default target sets run below it; it binds only when args name more folders than CAP
 const IMPL_FAN = 3; // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
@@ -39,7 +39,7 @@ const DEFAULT_TARGETS = [
 const CODEX = true;
 const CODEX_DIR = '.claude/scratch/implement-ts'; // per-lane MCP reports
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const norm = (t) => {
     const s = String(t).trim();
@@ -53,7 +53,7 @@ const TARGETS = Array.isArray(args)
         ? [norm(args)]
         : DEFAULT_TARGETS;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
 const ANCHOR = {
@@ -384,7 +384,7 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW = [
     'Rasm monorepo, libs/typescript planning corpus (markdown specs of intended TypeScript module designs). This is ultra-advanced TS realization, ' +
@@ -596,7 +596,7 @@ const INFO_LAW =
     'COVERAGE is part of the product: `requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you ' +
     'did not reach — an honest skip beats a silent one.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // One shared launch gate: chain heads and implement-fan members alike pass it, so every pooled start stays staggered.
@@ -1138,7 +1138,7 @@ const doctrinePrompt = (rows) =>
     'coupling no longer holds, land a coupling this run proved.\nGATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched ' +
     '.md>` and repair to zero FAILs before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.';
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Realize');
 log('Pooling ' + TARGETS.length + ' folder chain(s) at CAP=' + CAP);

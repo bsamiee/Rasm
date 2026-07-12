@@ -40,7 +40,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
 const STAGGER_MS = 1500;
@@ -52,7 +52,7 @@ const CATALOG_BATCH = 2; // admitted packages per catalog writer
 const CODEX = true; // scout/research/map lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 const CODEX_DIR = '.claude/scratch/survey'; // per-lane MCP reports
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const normTarget = (t) =>
     String(t)
@@ -72,7 +72,7 @@ const rawTargets = Array.isArray(argsIn)
           : [];
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))];
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Scout is the run's one INLINE codex payload: facets fan the Research stage and pages slice the Map
 // stage, so the typed JSON must travel through structured output; failure is ok=false + `failure`.
@@ -369,7 +369,7 @@ const FIXLOG = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LANG = {
     cs: {
@@ -415,7 +415,7 @@ const LANG = {
 const langOf = (t) =>
     t.indexOf('libs/csharp') === 0 ? 'cs' : t.indexOf('libs/python') === 0 ? 'py' : t.indexOf('libs/typescript') === 0 ? 'ts' : null;
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Agent-level slot scheduler: CAP agents in flight across ALL target lanes, staggered launch,
@@ -616,7 +616,7 @@ const scoutLane = (task, o) => {
         : native();
 };
 
-// --- [SHARED_BLOCKS] ---------------------------------------------------------------------
+// --- [SHARED_BLOCKS] -------------------------------------------------------------------
 
 const CTX = (t, L) =>
     'Rasm monorepo, planning phase — the work product is design pages, index docs, central manifests, and .api ' +
@@ -701,7 +701,7 @@ const HARVEST_LAW =
     'it would harden, quoted with its path — or "absent" plus the surfaces searched). A target-local fix never nominates; an empty ' +
     'array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (!TARGETS.length) {
     log('No targets — pass a planning folder path, an array of paths, or {targets}. Empty args is a no-op.');

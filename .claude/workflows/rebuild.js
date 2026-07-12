@@ -21,7 +21,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
 const STAGGER_MS = 1500;
@@ -34,7 +34,7 @@ const FINDER_PAGES = 8; // landed pages per close-phase finder
 const SCRATCH = '.claude/scratch/rebuild'; // lane report files + grounding dossiers + per-batch seam-ledger files
 const CODEX = true; // recon/finder lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '');
 // Hosts may deliver object args JSON-encoded; decode before shape dispatch.
@@ -54,7 +54,7 @@ const langOf = (t) =>
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
 const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const UNDERUTIL = {
     type: 'array',
@@ -496,7 +496,7 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 // LANG carries routing data and engine-parameter rows ONLY — doctrine content is reached through READ_FIRST at the source, never paraphrased here.
 const LANG = {
@@ -661,7 +661,7 @@ const LANG = {
     },
 };
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Agent-level slot scheduler: CAP agents in flight across ALL batch chains, staggered launch,
@@ -1472,7 +1472,7 @@ const fixerPrompt = (langs, roster, unmapped, rows, backlog, failed, pages, orph
         .filter(Boolean)
         .join('\n\n');
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (REJECTED.length) log('Rejected targets outside libs/{csharp,python,typescript}: ' + REJECTED.join(', '));
 if (!TARGETS.length) {

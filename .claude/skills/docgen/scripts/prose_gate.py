@@ -50,6 +50,7 @@ class Check(StrEnum):
     LIST_BLOAT = "list-bloat"
     LIST_LEADER = "list-leader"
     LIST_MARKER = "list-marker"
+    LIST_WRAP = "list-wrap"
     META_PHRASE = "meta-phrase"
     PROSE_WRAP = "prose-wrap"
     READ = "read"
@@ -587,6 +588,8 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             stripped = " ".join(span.text.strip() for span in prose_spans(text_joined, number))
             share = 1 - (len(stripped) / max(1, len(text_joined.strip())))
             lists.append(ListEntry(number, text_joined, stripped, share))
+            if cursor > n + 1:
+                rows.append(row(path, number, Check.LIST_WRAP, "fail", "list item hard-wraps across physical lines; the bullet is one logical line the editor soft-wraps"))
         if not line.lstrip().startswith("|"):
             prose.extend(prose_spans(line, number))
             if pointered and line.strip() and not EXAMPLE_LINE.match(line):

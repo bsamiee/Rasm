@@ -16,7 +16,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
 const BATCH = 4; // .api files per agent — deep enough per file, many agents for parallelism
@@ -26,7 +26,7 @@ const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call
 const CODEX = true; // catalog rebuild batch lanes run on gpt-5.6-terra via the codex wrapper (workspace-write); false restores native opus lanes
 const CODEX_DIR = '.claude/scratch/rebuild-api'; // per-lane MCP reports
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 // args is structured data — a scope string, an array of scopes, or {target|targets}; empty = the full libs sweep.
 const scopeRows = Array.isArray(args)
@@ -39,7 +39,7 @@ const scopeRows = Array.isArray(args)
 const scopes = scopeRows.map((s) => String(s).trim()).filter((s) => s && s !== 'ALL');
 const SWEEP = scopes.length ? scopes.join(', ') : 'libs';
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const DISCOVERY_SCHEMA = {
     type: 'object',
@@ -74,7 +74,7 @@ const RECEIPT = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW = [
     'Rasm monorepo. .api catalogs are agent-facing declarative records of a package useful surface that DESIGN PAGES compose against. CLAUDE.md ' +
@@ -120,7 +120,7 @@ const LAW = [
         'Verdict=clean is EARNED by an attack that finds nothing, never conceded on first read — and never invent edits to force a verdict.',
 ].join('\n');
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // The single run-wide scheduler: CAP agents in flight across every language lane, launches staggered; a freed slot passes to the next waiter.
@@ -360,7 +360,7 @@ const runLane = async (l) => {
     return { lang: l.lang, fold: l.fold, subRes, foldRes, subFailed, foldFailed: failedOf(l.fold, foldRes) };
 };
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('API-Discover');
 const inv = await agent(

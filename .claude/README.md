@@ -13,7 +13,7 @@
 ## [02]-[BOUNDARIES]
 
 [CRITICAL]:
-- [ALWAYS] Keep startup deterministic; the only startup mutations are the hook-owned doppler snapshot and session caches.
-- [ALWAYS] Route machine tooling through the Parametric_Forge owner; no repo script installs tools, writes profiles, or mutates the host.
-- [NEVER] source local shell files during startup.
-- [NEVER] wire host bootstrap into `SessionStart`.
+- [ALWAYS]: Keep startup deterministic; the only startup mutations are the hook-owned doppler snapshot and session caches.
+- [ALWAYS]: Route machine tooling through the Parametric_Forge owner; no repo script installs tools, writes profiles, or mutates the host.
+- [NEVER]: source local shell files during startup.
+- [NEVER]: wire host bootstrap into `SessionStart`.

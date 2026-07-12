@@ -2,12 +2,12 @@ using GhEditor = Grasshopper2.UI.Editor;
 
 namespace Rasm.Bridge.Cargo;
 
-// --- [MODELS] -------------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Ownership: scenarios and the runner exchange typed capture receipts, never raw GH2 graphs.
 internal readonly record struct CaptureFile(string Path, int Width, int Height);
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: the only Grasshopper2 type boundary. The render lane uses the editor constructor,
 // never ShowEditor, so offscreen DrawToBitmap avoids NSView realization while keeping GH2 breakage

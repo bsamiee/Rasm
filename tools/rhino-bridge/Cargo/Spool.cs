@@ -7,7 +7,7 @@ using Rhino.Display;
 
 namespace Rasm.Bridge.Cargo;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: per-scenario JSONL evidence and adjacent PNG captures. WriteThrough JSONL makes each
 // complete line crash-durable, while disk faults degrade to counted spool facts instead of failing

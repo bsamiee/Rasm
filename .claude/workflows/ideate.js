@@ -17,7 +17,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
 const SURVEY_PAGE_CAP = 12;
@@ -28,7 +28,7 @@ const SOL_STALL = 1500000; // sol critique holds one long blocking MCP call at t
 const CODEX = true; // survey + critique lanes ride codex wrappers (terra; sol for critique); false restores native lanes
 const CODEX_DIR = '.claude/scratch/ideate'; // per-lane MCP reports
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const input =
     typeof args === 'string'
@@ -43,7 +43,7 @@ const input =
 const rawScope = typeof input === 'string' ? input.trim() : input && typeof input === 'object' && input.target ? String(input.target).trim() : '';
 const SWEEP = !rawScope || rawScope === 'ALL' ? 'libs' : rawScope;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const DISCOVERY_SCHEMA = {
     type: 'object',
@@ -180,7 +180,7 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW = [
     'Rasm monorepo. CLAUDE.md card law governs. READ libs/.planning/campaign-method.md for the role law and voice, and libs/.planning/README.md ' +
@@ -246,7 +246,7 @@ const HARVEST_LAW =
     '"absent" plus the surfaces searched). A card-local fix never nominates; an empty array is the normal verdict — the terminal doctrine ' +
     'lander refutes weak rows, so nominate substance, never volume.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Agent-level slot scheduler: every agent() call takes one slot, so folder chains launch freely via Promise.all while true in-flight agents stay at CAP.
@@ -587,7 +587,7 @@ const ideateFolder = async (u) => {
     return { folder, logs: { ideate: authored, redteam: rt }, critReport: critRep, ok: rt !== null };
 };
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Survey');
 const inv = await agent(

@@ -7,7 +7,7 @@ using Rasm.Bridge.Contract;
 
 namespace Rasm.Bridge.Supervisor;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 // Ownership: argv admits into SupervisorVerb and collapses to one SessionEnvelope at Main. Verify
 // is shaped by ScenarioSelection plus closure manifest, not flags or sibling verbs.
@@ -35,7 +35,7 @@ internal abstract partial record SupervisorVerb {
         quit: static _ => SessionPhase.QuitAe);
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Ownership: composition-edge runtime surface; policy rows and storage paths are composed once. The
 // Lease and LiveHostPid cells commit the acquired teardown state so the signal-edge shutdown owner
@@ -44,7 +44,7 @@ internal sealed record SupervisorRuntime(
     Atom<Option<LeaseToken>> Lease, Atom<Option<int>> LiveHostPid, TimeProvider Clock, SessionPolicy Policy,
     string ArtifactRoot, string LeasePath, string JournalPath, BundleInfo Bundle, CancellationToken Root);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Ownership: verb admission, derived help, and per-verb session pipelines.
 internal static class Verbs {
@@ -111,7 +111,7 @@ internal static class Verbs {
     };
 }
 
-// --- [ENTRY] ------------------------------------------------------------------------------
+// --- [ENTRY] ---------------------------------------------------------------------------
 
 // Ownership: terminal process collapse; stdout carries one envelope, stderr diagnostics, and
 // status rows derive exit codes.

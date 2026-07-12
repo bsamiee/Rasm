@@ -24,7 +24,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SLICES = 4;
 const STALL = 300000;
@@ -32,7 +32,7 @@ const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call
 const CODEX = true; // verifier fan lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 const SCRATCH = '.claude/scratch/cold-verify'; // per-workflow MCP reports
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
 const CAMPS = (Array.isArray(argsIn) ? argsIn : [argsIn]).filter((c) => c && c.doc && c.root);
@@ -41,7 +41,7 @@ if (!CAMPS.length) {
     return { campaigns: 0 };
 }
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const PLAN = {
     type: 'object',
@@ -263,7 +263,7 @@ const HARVEST_LAW =
     'reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A campaign-local fix never ' +
     'nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
@@ -376,7 +376,7 @@ const recon = (task, o) =>
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 const lanes = await parallel(
     CAMPS.map((c) => async () => {

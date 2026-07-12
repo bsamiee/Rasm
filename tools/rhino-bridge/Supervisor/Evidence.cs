@@ -7,7 +7,7 @@ using Rasm.Bridge.Contract;
 
 namespace Rasm.Bridge.Supervisor;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 internal sealed record CrashSummary(string Thread, string ExceptionType, string ReportPath);
 
@@ -22,7 +22,7 @@ internal sealed record StagedCargo(CargoManifest Manifest, ReferenceRoot[] Refer
 
 internal readonly record struct ReferenceActual(string Scenario, EvidenceName Name, JsonElement Actual, ReferenceTolerance Tolerance);
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Ownership: workstation-side evidence outside the live host session fold. Report paths resolve
 // through the Contract ReportLayout owner.

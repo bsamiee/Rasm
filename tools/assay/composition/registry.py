@@ -88,13 +88,13 @@ if TYPE_CHECKING:
     from collections.abc import Iterator, Mapping
 
 
-# --- [TYPES] -----------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
 # `P` is a verb-params type, not a ParamSpec.
 type Handler[P] = Callable[[AssaySettings, ArtifactScope, P, Executor], Result[Report, Fault]]
 type ReportLayer = Layer[[AssaySettings, ArtifactScope, object, Executor], Report]
 
-# --- [CONSTANTS] -------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
 _ARTIFACT_CAP: Final = 100
 # Severities that name a real defect: the truthful fault count and the defect-preserving display cap both key on them.

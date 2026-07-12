@@ -388,19 +388,19 @@ classDef edgeTrace stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dashar
 
 Per-element sizing rides `themeCSS`, never `themeVariables.fontSize`. Every value is an exact stamp over the SVG-px scale on a three-step type ramp — 13.5 bold container title, 13 primary, 12 tertiary — and nothing on a mermaid canvas renders below the 12px floor, since SVG text carries no hinting and sits below a hinted HTML equivalent at equal size. The container title sits above the node label deliberately: containment names the largest scope on the canvas, so its title carries the heaviest type, and the 13.5px/700 stamp stays under the engine's 16px measurement box, so no titled container clips.
 
-| [INDEX] | [CLASS]                     | [SELECTOR]                               | [PX] | [WEIGHT]               |
-| :-----: | :-------------------------- | :--------------------------------------- | :--: | :--------------------- |
-|  [01]   | node label                  | `.nodeLabel`                             |  13  | 500                    |
-|  [02]   | actor label (sequence)      | `text.actor tspan`                       |  13  | 600                    |
-|  [03]   | ER entity name              | `.name .nodeLabel`                       |  13  | 600                    |
-|  [04]   | class title                 | `.classTitle`                            |  13  | 600                    |
-|  [05]   | container / namespace title | `.cluster-label .nodeLabel`              | 13.5 | 700, uppercase in text |
-|  [06]   | edge label                  | `.edgeLabel`                             |  12  | 500                    |
-|  [07]   | message text (sequence)     | `.messageText`                           |  12  | 500                    |
-|  [08]   | note text                   | `.noteText`, `.noteLabel .nodeLabel`     |  12  | 400                    |
-|  [09]   | ER attribute cell           | `.nodeLabel` under ER                    |  12  | 400                    |
-|  [10]   | loop / group label          | `.loopText`, `.labelText`                |  12  | 500                    |
-|  [11]   | section / lane title        | `.sectionTitle`, kanban `.cluster-label` | 13.5 | 700, Lavender ink      |
+| [INDEX] | [CLASS]                     | [SELECTOR]                               | [PX]  | [WEIGHT]               |
+| :-----: | :-------------------------- | :--------------------------------------- | :---: | :--------------------- |
+|  [01]   | node label                  | `.nodeLabel`                             |  13   | 500                    |
+|  [02]   | actor label (sequence)      | `text.actor tspan`                       |  13   | 600                    |
+|  [03]   | ER entity name              | `.name .nodeLabel`                       |  13   | 600                    |
+|  [04]   | class title                 | `.classTitle`                            |  13   | 600                    |
+|  [05]   | container / namespace title | `.cluster-label .nodeLabel`              | 13.5  | 700, uppercase in text |
+|  [06]   | edge label                  | `.edgeLabel`                             |  12   | 500                    |
+|  [07]   | message text (sequence)     | `.messageText`                           |  12   | 500                    |
+|  [08]   | note text                   | `.noteText`, `.noteLabel .nodeLabel`     |  12   | 400                    |
+|  [09]   | ER attribute cell           | `.nodeLabel` under ER                    |  12   | 400                    |
+|  [10]   | loop / group label          | `.loopText`, `.labelText`                |  12   | 500                    |
+|  [11]   | section / lane title        | `.sectionTitle`, kanban `.cluster-label` | 13.5  | 700, Lavender ink      |
 
 The line-weight ladder — one scale, every stroke on the canvas, stated here once and spent verbatim by every stamp, rail, and class:
 

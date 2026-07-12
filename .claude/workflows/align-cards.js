@@ -17,13 +17,13 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const input =
     typeof args === 'string'
@@ -38,7 +38,7 @@ const input =
 const rawScope = typeof input === 'string' ? input.trim() : input && typeof input === 'object' && input.target ? String(input.target).trim() : '';
 const SWEEP = !rawScope || rawScope === 'ALL' ? 'libs' : rawScope;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const DISCOVERY_SCHEMA = {
     type: 'object',
@@ -70,7 +70,7 @@ const FIXLOG_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW = [
     'Rasm monorepo. CLAUDE.md card law governs. READ libs/.planning/campaign-method.md for the role law and voice, and libs/.planning/README.md for ' +
@@ -104,7 +104,7 @@ const LAW = [
         'a landed sibling edit is composed as found, never assumed or re-derived; a conflict resolves to the stronger form, never a revert.',
 ].join('\n');
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 const pool = async (items, cap, worker) => {
@@ -126,7 +126,7 @@ const pool = async (items, cap, worker) => {
     return out;
 };
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Cards-Discover');
 const inv = await agent(

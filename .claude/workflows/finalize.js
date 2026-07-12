@@ -22,7 +22,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
 const STAGGER_MS = 1500;
@@ -32,7 +32,7 @@ const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call
 const SCRATCH = '.claude/scratch/finalize'; // per-folder grounding dossiers: shared-context extracts, facts only
 const CODEX = true; // census lanes run on gpt-5.6-terra via the codex wrapper; false restores native opus lanes
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '');
 // Hosts may deliver object args JSON-encoded; decode before shape dispatch.
@@ -52,7 +52,7 @@ const langOf = (t) =>
 const LANG_KEYS = [...new Set(TARGETS.map(langOf))];
 const LANG_KEY = LANG_KEYS.length === 1 && LANG_KEYS[0] ? LANG_KEYS[0] : null;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const PLAN_SCHEMA = {
     type: 'object',
@@ -256,7 +256,7 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LANG = {
     cs: {
@@ -356,7 +356,7 @@ const EVIDENCE_LAW =
     '`requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you did not reach or could not ' +
     'confirm — an honest skip beats a silent one.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
@@ -660,7 +660,7 @@ const doctrinePrompt = (rows) =>
     'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs before ' +
     'returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.';
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (!TARGETS.length) {
     log('No targets — pass a package root, an array of planning sub-folders, or {targets}. Empty args is a no-op.');

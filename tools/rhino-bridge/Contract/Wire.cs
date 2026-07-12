@@ -9,7 +9,7 @@ using Thinktecture;
 
 namespace Rasm.Bridge.Contract;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 // Ownership: wire status rows carry severity rank and exit code; Worst is the fold monoid.
 // Ok=Skipped rank ties keep skip receipt-local, while Timeout and Busy outrank failed work.
@@ -147,7 +147,7 @@ public sealed partial class ArtifactRetentionClass {
     public static readonly ArtifactRetentionClass Transient = new(key: "transient");
 }
 
-// --- [ERRORS] -----------------------------------------------------------------------------
+// --- [ERRORS] --------------------------------------------------------------------------
 
 // Ownership: closed failure taxonomy. Status and prescription derive from the union, and new
 // cases flow only shell->supervisor where the reader is the newer assembly.
@@ -212,7 +212,7 @@ public abstract partial record BridgeFault {
         redeployIncomplete: static f => $"relaunched shell failed status check '{f.FailingCheck}'");
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Ownership: inert event stamp; session-scoped events leave Scenario null for boundary admission.
 public readonly record struct EventStamp(Guid SessionId, long Sequence, long AtUnixMs, string? Scenario);

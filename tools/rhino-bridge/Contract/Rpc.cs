@@ -4,7 +4,7 @@ using StreamJsonRpc;
 
 namespace Rasm.Bridge.Contract;
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: supervisor->shell JSON-RPC verbs. Method names are the protocol boundary; cancellation
 // is transport hygiene only, and older shells degrade missing methods through CapabilityAbsent.
@@ -32,7 +32,7 @@ public interface IBridgeCargo : IDisposable {
     public ScenarioReceipt Run(ScenarioEntry scenario, Action<BridgeEvent> publish);
 }
 
-// --- [COMPOSITION] ------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 // Ownership: Contract-edge codec policy. Unmapped members are skipped deliberately; fields grow
 // additively, supervisor-bound unions may add cases, shell-bound payloads grow by fields unless a

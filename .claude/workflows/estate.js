@@ -108,7 +108,7 @@ const LANGS = Array.isArray(args)
 const WANT_FINAL = args?.final !== false;
 const ACTIVE = LANGS.filter((l) => TRACKS[l]);
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const DOSSIER_RECEIPT = {
     type: 'object',
@@ -174,7 +174,7 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const MODEL_LAW =
     'MODEL LAW: you execute every file write and every judgment yourself. Delegate read-only reconnaissance roughly 50/50 between codex ' +
@@ -245,7 +245,7 @@ const HARVEST_LAW =
     'evidence), existingClause (the exact doctrine or reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A ' +
     'pass-local fix never nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const docsOrder = (t) =>
     (t.docs
@@ -432,7 +432,7 @@ const doctrinePrompt = (rows, residuals) =>
     'returning; yamllint proves `.coderabbit.yaml` and jq proves the `.greptile` JSON files if you touch them. Return ' +
     'landed/refined/rejected (each rejection with its reason)/files/summary.';
 
-// --- [COMPOSITION] -------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 // --- [RECON_AND_TRACKS]
 const trackRows = ACTIVE.map((lang) => ({ lang, ...TRACKS[lang] }));

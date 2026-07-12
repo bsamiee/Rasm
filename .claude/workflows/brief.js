@@ -6,7 +6,7 @@ export const meta = {
         'The standing brief engine: author one brief, or a dependency-ordered waterfall of them, in any language mix, with the cross-corpus review built in. Empty args = no-op.',
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const STALL = 480000;
 const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call ceiling (1200s): a silent live MCP call is legal waiting, never a stall
@@ -46,7 +46,7 @@ const LANG = {
     },
 };
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 // Hosts may deliver object args JSON-encoded; decode before shape dispatch.
 const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
@@ -79,7 +79,7 @@ const deepFor = (t) => DEEP === true || (Array.isArray(DEEP) && DEEP.includes(t)
 const mandateFor = (t) =>
     typeof MANDATE === 'string' ? MANDATE.trim() : MANDATE && typeof MANDATE === 'object' && typeof MANDATE[t] === 'string' ? MANDATE[t].trim() : '';
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
 const ANCHOR = {
@@ -285,7 +285,7 @@ const REVIEW_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const ROSTER_LAW =
     'PACKAGE ROSTER LAW: central version ownership per the language manifest; per-package catalogs live in the .api tiers and every ' +
@@ -379,7 +379,7 @@ const preOf = (t, corpus) => {
     );
 };
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
@@ -675,7 +675,7 @@ const reviewPrompts = (scope) => [
     ].join('\n'),
 ];
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 if (!TARGETS.length) {
     log('brief: pass {targets, upstream?, deep?, mandate?, review?} — targets a path or ordered array. No-op.');

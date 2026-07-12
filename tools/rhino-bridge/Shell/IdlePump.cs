@@ -3,7 +3,7 @@ using Rhino;
 
 namespace Rasm.Bridge.Shell;
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: host UI marshal. One job per RhinoApp.Idle pulse keeps the host responsive; failures
 // return to the awaiting caller, and cancellation abandons only the wait, never queued UI work.

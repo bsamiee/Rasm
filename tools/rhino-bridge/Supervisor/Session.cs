@@ -8,7 +8,7 @@ using StreamJsonRpc;
 
 namespace Rasm.Bridge.Supervisor;
 
-// --- [TYPES] ------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 // Ownership: session state is one closed owner; cases carry evidence and dispatch owns transitions.
 // Every case is seated by the live machine or a terminal fold — no spec-symmetry freight.
@@ -37,7 +37,7 @@ internal abstract partial record SessionSignal {
     internal sealed record DeadlineHit(SessionPhase Phase, TimeSpan Elapsed) : SessionSignal;
 }
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Ownership: duration, cadence, and budget policy; other surfaces derive from these rows.
 internal sealed record SessionPolicy(
@@ -520,7 +520,7 @@ internal static class SessionKernel {
     private sealed record SessionProjection(SessionState Final, (long Count, long LastSequence) SpoolTail);
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Ownership: total transition algebra over state and signal. Deadlines force non-terminal exit,
 // quit signals escalate rung-by-rung, and runtime relaunch choreography remains outside the pure

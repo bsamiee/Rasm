@@ -28,14 +28,14 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const ROOT = 'docs/stacks/typescript';
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const INVENTORY_SCHEMA = {
     type: 'object',
@@ -180,7 +180,7 @@ const CORPUS_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW = [
     'TARGET: docs/stacks/typescript/ is the route-owned TypeScript CODE DOCTRINE — a doc set of AGNOSTIC teaching pages that legislate how all ' +
@@ -460,7 +460,7 @@ const DOCTRINE = [
     COMMENTS,
 ].join('\n');
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
@@ -647,7 +647,7 @@ const corpusPrompt = (ordered, residuals, failed) =>
             'Return files, resolved, beyond, rejected, summary.',
     ].join('\n');
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Inventory');
 const inv = await agent(

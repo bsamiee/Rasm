@@ -21,7 +21,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine; matching it keeps the stagger honest
 const STAGGER_MS = 1500;
@@ -32,7 +32,7 @@ const SOL_STALL = 2400000; // sol critique holds one long blocking MCP call at t
 const SCRATCH = '.claude/scratch/reframe'; // frame-recon report files + critique fixlogs
 const CODEX = true; // frame-recon + critique lanes run on gpt-5.6 via the codex wrapper; false restores native lanes (terra->opus, sol->fable)
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const normTarget = (t) => String(t).trim().replace(/\/+$/, '').replace(/^\/+/, '');
 // Hosts may deliver object args JSON-encoded; decode before shape dispatch.
@@ -52,7 +52,7 @@ const langOf = (t) =>
 const TARGETS = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => langOf(t));
 const REJECTED = [...new Set(rawTargets.filter(Boolean).map(normTarget))].filter((t) => !langOf(t));
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const DISCOVER_SCHEMA = {
     type: 'object',
@@ -332,7 +332,7 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 // LANG carries routing data only — the doctrine content is docgen + docs/standards, reached at source, never paraphrased here.
 const LANG = {
@@ -532,7 +532,7 @@ const reconBlock = (framed, unmapped) =>
     '\nUNMAPPED: ' +
     JSON.stringify(unmapped);
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Agent-level slot scheduler: CAP agents in flight across ALL unit chains, staggered launch,
@@ -929,7 +929,7 @@ const doctrinePrompt = (rows) =>
     'GATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched .md>` and repair to zero FAILs ' +
     'before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.';
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 const processUnit = async (u) => {
     const L = Lof(u.folder);

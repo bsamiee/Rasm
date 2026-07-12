@@ -16,7 +16,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14; // concurrent folder-CHAIN ceiling — the default target sets run below it; it binds only when args name more folders than CAP
 const IMPL_FAN = 3; // max implement agents fanned per folder, and only over discovery-proven page-disjoint card groups
@@ -32,7 +32,7 @@ const DEFAULT_TARGETS = ['libs/python/artifacts', 'libs/python/compute', 'libs/p
 const CODEX = true;
 const CODEX_DIR = '.claude/scratch/implement-py'; // per-lane MCP reports
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const norm = (t) => {
     const s = String(t).trim();
@@ -47,7 +47,7 @@ const TARGETS = Array.isArray(args)
         : DEFAULT_TARGETS;
 const TARGET_NAMES = TARGETS.map((t) => '`' + (t.split('/').filter(Boolean).pop() || t) + '`').join(', ');
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Per-folder discovery PRODUCT (the on-disk report): `pages` per card are disk-verified Anchors
 // targets proving page-disjoint implement groups; `malformed_ripples` is a required attestation
@@ -377,7 +377,7 @@ const DOCTRINE_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const FB =
     ' (the `.api` catalogs, Context7/exa/tavily for the official surface, and the `nuget` MCP for NuGet-side members own the fallback when assay is unavailable)';
@@ -626,7 +626,7 @@ const INFO_LAW =
     'COVERAGE is part of the product: `requested` = your assigned scope, `read` = what you actually full-read, `skipped`/`unverified` = what you ' +
     'did not reach — an honest skip beats a silent one.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // One shared launch gate: chain heads and implement-fan members alike pass it, so every pooled start stays staggered.
@@ -1177,7 +1177,7 @@ const doctrinePrompt = (rows) =>
     'coupling no longer holds, land a coupling this run proved.\nGATE: run `uv run .claude/skills/docgen/scripts/prose_gate.py <every touched ' +
     '.md>` and repair to zero FAILs before returning. Return landed/refined/rejected (each rejection with its reason)/files/summary.';
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Realize');
 log('Pooling ' + TARGETS.length + ' folder chain(s) at CAP=' + CAP);

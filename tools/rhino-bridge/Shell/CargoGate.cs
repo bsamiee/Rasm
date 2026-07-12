@@ -7,7 +7,7 @@ using Rasm.Bridge.Contract;
 
 namespace Rasm.Bridge.Shell;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 internal enum AssemblyOwner {
     Host,
@@ -15,7 +15,7 @@ internal enum AssemblyOwner {
     Cargo,
 }
 
-// --- [TABLES] -------------------------------------------------------------------------------
+// --- [TABLES] --------------------------------------------------------------------------
 
 // Ownership: assembly ownership table. Host families stay in the default ALC, bridge families stay
 // in the shell ALC, and everything else resolves cargo-first for per-swap dependency isolation.
@@ -61,7 +61,7 @@ internal static class HostAssemblyTable {
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: per-swap cargo resolution scope over the assembly ownership table.
 internal sealed class CargoLoadContext(string cargoAssemblyPath, int generation) : AssemblyLoadContext(name: string.Create(System.Globalization.CultureInfo.InvariantCulture, $"Rasm.Bridge.Cargo#{generation}"), isCollectible: true) {

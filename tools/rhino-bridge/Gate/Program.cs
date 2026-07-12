@@ -7,7 +7,7 @@ using StreamJsonRpc;
 
 namespace Rasm.Bridge.Supervisor.Gate;
 
-// --- [ENTRY] ------------------------------------------------------------------------------
+// --- [ENTRY] ---------------------------------------------------------------------------
 
 // Ownership: fault-injection matrix rows produce named discriminated outcomes. Stand-in rows own
 // their spawned processes; live rows acquire the bridge flock before touching RhinoWIP.

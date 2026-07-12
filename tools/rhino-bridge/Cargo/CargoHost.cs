@@ -11,7 +11,7 @@ using Rhino.Runtime;
 
 namespace Rasm.Bridge.Cargo;
 
-// --- [TYPES] --------------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
 // Ownership: capability rows own their probes, so live checks, recorded host hazards, and
 // requires-lattice degradation stay in one vocabulary instead of parallel probe tables.
@@ -44,7 +44,7 @@ internal sealed partial class HostCapability {
     }
 }
 
-// --- [BOUNDARIES] ---------------------------------------------------------------------------
+// --- [BOUNDARIES] ----------------------------------------------------------------------
 
 // Ownership: the per-scenario scratch redirect. Live scenarios root their File3dm/PDF/OBJ writes at
 // Path.GetTempPath(); pointing the OS temp vars at a <reportDir>/scratch/<scenario> tree for the
@@ -86,7 +86,7 @@ internal readonly record struct ScratchRedirect(string Root, bool Redirected, st
     }
 }
 
-// --- [SERVICES] -----------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: the collectible cargo host owns scenario discovery, capability probing, requires
 // admission, host-drift attribution, and scenario IO. Every event is both spooled for crash

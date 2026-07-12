@@ -284,7 +284,7 @@ def traced[**P, T: HasStatus](*, span: str, attrs: Callable[P, Attrs], agent: Ca
     return (Slot.traced, dec)
 
 
-# --- [EXPORTS] -------------------------------------------------------------------------
+# --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
     "Attrs",

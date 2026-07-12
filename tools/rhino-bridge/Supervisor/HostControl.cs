@@ -15,7 +15,7 @@ using StreamJsonRpc.Protocol;
 
 namespace Rasm.Bridge.Supervisor;
 
-// --- [MODELS] -----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // Ownership: host-bundle identity. Discovery and marker names derive from bundle metadata, while
 // RHINO_WIP_APP_PATH only narrows candidates and launch suppresses MCP autostart.
@@ -220,7 +220,7 @@ internal sealed record QuitJournalEntry(int Pid, long StartedAtUnixMs, long Reti
 
 internal readonly record struct ExecResult(int ExitCode, string StdOut, string StdErr);
 
-// --- [SERVICES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 // Ownership: libc process boundary: kqueue/kevent NOTE_EXIT, kill(2), pid liveness, and start time.
 // SIGTERM is banned because Rhino turns it into crash markers reconcile would then need to clear.
@@ -410,7 +410,7 @@ internal sealed class HostWatch : IDisposable {
     }
 }
 
-// --- [OPERATIONS] -------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Ownership: singleton lease gate. O_EXCL claims serialize sessions; stale holders are reclaimed
 // with evidence, and live holders fail as BusyHeld.
@@ -761,7 +761,7 @@ internal static class Reconcile {
     }
 }
 
-// --- [COMPOSITION] ------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 // Ownership: supervisor-private file codec; BridgeJsonContext owns wire shapes.
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]

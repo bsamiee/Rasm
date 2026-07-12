@@ -27,14 +27,14 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14;
 const STAGGER_MS = 1500;
 const STALL = 300000;
 const ROOT = 'docs/stacks/csharp';
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const INVENTORY_SCHEMA = {
     type: 'object',
@@ -186,7 +186,7 @@ const CORPUS_SCHEMA = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const LAW = [
     'TARGET: docs/stacks/csharp/ is the route-owned C# CODE DOCTRINE — a doc set of AGNOSTIC teaching pages (core + a domain/ shard set) that ' +
@@ -495,7 +495,7 @@ const DOCTRINE = [
     COMMENTS,
 ].join('\n');
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // The single scheduler for every agent-bearing task in the run: CAP tasks in flight, staggered launch.
@@ -706,7 +706,7 @@ const seedPrompt = (page) =>
             'disjoint layer after all.',
     ].join('\n');
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 phase('Inventory');
 const inv = await agent(

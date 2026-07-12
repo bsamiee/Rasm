@@ -15,7 +15,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const CAP = 14; // runtime concurrency clamp is min(16, cores-2) = 14 on this machine
 const STAGGER_MS = 1500;
@@ -2338,7 +2338,7 @@ const STATE = {
     ],
 };
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
 const wanted = Array.isArray(argsIn)
@@ -2350,7 +2350,7 @@ const wanted = Array.isArray(argsIn)
         : null;
 const ACTIVE = wanted ? FOLDERS.filter((f) => wanted.some((w) => String(w).indexOf(f.name) >= 0 || String(w).indexOf(f.key) >= 0)) : FOLDERS;
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 // One anchor = one fact at one coordinate; interpretation never lives in an anchor row.
 const anchorOf = (roles) => ({
@@ -2569,7 +2569,7 @@ const CAT_PLAN = {
     },
 };
 
-// --- [DOCTRINE] --------------------------------------------------------------------------
+// --- [DOCTRINE] ------------------------------------------------------------------------
 
 const CONTEXT =
     'Rasm monorepo - libs/csharp planning corpus (markdown specs of intended C# package designs). ' +
@@ -2686,7 +2686,7 @@ const EVIDENCE_LAW =
     'COVERAGE is part of the product: `requested` = your assigned scope, `read` = what you actually full-read, ' +
     '`skipped`/`unverified` = what you did not reach or could not confirm - an honest skip beats a silent one.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
 // Agent-level slot scheduler: CAP agents in flight across ALL folders and units, staggered launch,
@@ -3201,7 +3201,7 @@ const lawPrompt = (results, backlog, accepts, accUnmapped, orphans) =>
             'by members and law, never by count. Return {files, summary}.',
     ].join('\n\n');
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 log(
     'Continuation of wf_f27cf61a-18a: ' +

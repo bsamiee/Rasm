@@ -19,11 +19,11 @@ Rasm.Bim/
 ├── Semantics/             # Element-bound semantic enrichment
 │   ├── Properties.cs      # PropertyKey Pset/Qto TEMPLATE authority, bSDD DataType resolution, Property classifier, etc...
 │   ├── Classification.cs  # bSDD-bound Classification axis with BsddResolution live dictionary
-│   ├── Composition.cs # MaterialProjection bidirectional GeometryGym↔seam material projector Project ingress / AuthorComposition+AuthorUsage egress
-│   ├── Appearance.cs # AppearanceProjection lowers IfcSurfaceStyle onto seam AppearanceSummary Node.Appearance, Materials-reconciled at content key
+│   ├── Composition.cs     # MaterialProjection bidirectional GeometryGym↔seam material projector Project ingress / AuthorComposition+AuthorUsage egress
+│   ├── Appearance.cs      # AppearanceProjection lowers IfcSurfaceStyle onto seam AppearanceSummary Node.Appearance, Materials-reconciled at content key
 │   ├── Connection.cs      # ConnectionProjection reader lowering the GeometryGym realizing-element surface onto seam DetailSchema.Realization bags
 │   ├── GeoReference.cs    # GeoReferenceProjector lowering IfcMapConversion/IfcProjectedCRS into the seam GeoReference
-│   └── Geospatial.cs # GeoFeature/GeoModel NTS Simple-Features algebra + GDAL/OGR universal vector+raster ingest, shapefile/CityJSON codecs, etc...
+│   └── Geospatial.cs      # GeoFeature/GeoModel NTS Simple-Features algebra + GDAL/OGR universal vector+raster ingest, shapefile/CityJSON codecs, etc...
 ├── Planning/              # 4D/5D delivery network
 │   ├── Schedule.cs        # ConstructionTask 4D activity schedule over IfcTaskTime intervals
 │   └── Cost.cs            # CostItem 5D cost-and-resource estimate with CostSchedule.Rollup fold
@@ -35,9 +35,9 @@ Rasm.Bim/
 │   ├── Reconstruct.cs     # Scan-to-BIM ReconstructionProjector over the dual-engine Themis.Las/laszip LAS/LAZ ingest front
 │   └── Wire.cs            # Host-free IfcWire IFC interchange artifact the Python and TypeScript peers decode
 ├── Energy/                # Building-energy-model exchange
-│   ├── Exchange.cs # EnergyExchange.Apply over the closed EnergyOp [Union]
-│   ├── Projector.cs # EnergyProjector raises HBJSON/DFJSON/OSM/gbXML/IDF evidence
-│   └── Derive.cs # EnergyDerive BIM-to-BEM lower honeybee envelope + opaque/glazing library, dragonfly massing + EnergyTranslate OSM matrix
+│   ├── Exchange.cs        # EnergyExchange.Apply over the closed EnergyOp [Union]
+│   ├── Projector.cs       # EnergyProjector raises HBJSON/DFJSON/OSM/gbXML/IDF evidence
+│   └── Derive.cs          # EnergyDerive BIM-to-BEM lower honeybee envelope + opaque/glazing library, dragonfly massing + EnergyTranslate OSM matrix
 ├── Review/                # Model-checking and coordination
 │   ├── Validation.cs      # IDS owner folding six IdsFacet arms over the seam ElementGraph
 │   ├── Issues.cs          # BCF issue exchange with .bcfzip codec and BcfApi REST projection

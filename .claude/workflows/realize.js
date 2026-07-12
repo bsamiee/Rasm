@@ -24,7 +24,7 @@ export const meta = {
     ],
 };
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
 const SLICE_SIZE = 4;
 const MAX_SLICES = 8;
@@ -33,7 +33,7 @@ const CODEX_STALL = 1500000; // wrapper stall sits above the xhigh blocking-call
 const CODEX = true;
 const SCRATCH = '.claude/scratch/realize'; // per-lane MCP reports
 
-// --- [INPUTS] ----------------------------------------------------------------------------
+// --- [INPUTS] --------------------------------------------------------------------------
 
 const argsIn = typeof args === 'string' && /^\s*[\[{]/.test(args) ? JSON.parse(args) : args;
 const CAMPS = (Array.isArray(argsIn) ? argsIn : [argsIn]).filter((c) => c && c.doc && c.root);
@@ -50,7 +50,7 @@ const chunk = (a, n) => {
     return o;
 };
 
-// --- [MODELS] ----------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const PLAN = {
     type: 'object',
@@ -208,7 +208,7 @@ const FIXLOG = {
     },
 };
 
-// --- [SHARED_BLOCKS] ---------------------------------------------------------------------
+// --- [SHARED_BLOCKS] -------------------------------------------------------------------
 
 const CTX = (c) =>
     'Rasm monorepo, planning phase — the work product is design pages, index docs, central manifests, and .api ' +
@@ -252,7 +252,7 @@ const HARVEST_LAW =
     'reviewer clause it would harden, quoted with its path — or "absent" plus the surfaces searched). A campaign-local fix never ' +
     'nominates; an empty array is the normal verdict — the terminal doctrine lander refutes weak rows, so nominate substance, never volume.';
 
-// --- [OPERATIONS] ------------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 // Codex dispatch: the sonnet wrapper makes one blocking Codex MCP call, writes the envelope's content
 // to the lane report, and returns mechanical orchestration data. Lane law rides developer-instructions
@@ -359,7 +359,7 @@ const recon = (task, o) =>
         failure: (r && r.failure) || (r ? '' : 'lane died'),
     }));
 
-// --- [COMPOSITION] -----------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 const lanes = await parallel(
     CAMPS.map((c) => async () => {
