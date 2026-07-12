@@ -186,12 +186,7 @@ const codexPrompt = (label, task, schema, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
-            'resolving, run forge-fleet-emit --kind codex --model ' +
-            model +
-            ' --label ' +
-            JSON.stringify(fileTag(label)) +
-            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox=' +

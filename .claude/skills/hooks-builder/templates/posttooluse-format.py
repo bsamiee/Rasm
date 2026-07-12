@@ -3,6 +3,8 @@
 # requires-python = ">=3.15"
 # dependencies = ["msgspec"]
 # ///
+# Focused one-line docstrings carry no Returns section at the boundary-kernel hook seam.
+# ruff: noqa: DOC201
 """Own PostToolUse: recover MODE from the payload shape, formatting a file event and redacting a tool-output event.
 
 A file event formats through the estate `fmt` router then gates on `fmt --check`; a tool-output event redacts secrets.
@@ -10,6 +12,7 @@ Wire: PostToolUse matcher "Edit|Write|MultiEdit|Bash|Read|Grep|WebFetch".
 Boundary kernel: subprocess/shutil.which are admitted here. tool_response is typed Raw because its shape varies per tool (str for
 some, object {stdout,stderr,...} for most built-ins), so it is normalized in-body, never decoded against a single declared shape.
 """
+
 from enum import auto, StrEnum
 from pathlib import Path
 import re

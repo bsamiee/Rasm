@@ -320,12 +320,7 @@ const codexRecon = (task, o) => {
             model +
             ' performs the complete TASK below through one blocking Codex MCP call. Follow exactly four steps; ' +
             'never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
-            'resolving, run forge-fleet-emit --kind codex --model ' +
-            model +
-            ' --label ' +
-            JSON.stringify(fileTag(o.label)) +
-            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="' +
             model +
             '", sandbox="workspace-write" (the task writes its one dossier file), cwd=' +
@@ -413,10 +408,8 @@ const passPrompt = (t, name, tier, reconRows) =>
 // infrastructure and monorepo alignment, so its routing weighs toward the constitution, the test/tool READMEs, and the reviewer rules.
 const doctrinePrompt = (rows, residuals) =>
     'TASK: DOCTRINE LANDER — the durable-learning terminal of an estate run over tests/tools/root config across every ' +
-    'language plus the monorepo final track. Read `docs/laws/README.md` AND `docs/laws/landing.md` FIRST — they own the ' +
-    'admission table, the harden>extend>mint bar, the per-surface routing and justification, the laws page grammar, and the ' +
-    'poison guard; obey them over any restatement. ROUTING EMPHASIS (orders where you look first, never overrides the ' +
-    'landing page): an estate run owns test/tool/config infrastructure and monorepo alignment, so its lessons weigh toward ' +
+    'language plus the monorepo final track. Read `docs/laws/README.md` FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. ROUTING EMPHASIS (orders where you look first, never overrides the ' +
+    'admission bar): an estate run owns test/tool/config infrastructure and monorepo alignment, so its lessons weigh toward ' +
     'the constitution at the acting reader, the tests/tools/root READMEs, and the reviewer rules first. Load the `docgen` ' +
     'skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load `mermaid-diagramming` before ' +
     "touching any diagram. NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
@@ -424,7 +417,7 @@ const doctrinePrompt = (rows, residuals) =>
     '\nPOOLED RESIDUALS (deliberately-left estate items with reasons — CONTEXT only, never a drain queue: a residual ' +
     'recurring across tracks may itself be a durable law worth nominating, but you never mechanically clear one here): ' +
     JSON.stringify(residuals) +
-    '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on CURRENT disk; ' +
+    '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on CURRENT disk; ' +
     'LAND NOTHING is a first-class verdict.\n' +
     'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row whose ' +
     'coupling no longer holds, land a coupling this run proved.\n' +

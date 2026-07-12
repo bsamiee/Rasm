@@ -4,7 +4,7 @@ C#/.NET-primary monorepo with TypeScript and Python lanes. Language doctrine is 
 
 Cross-surface coupling is review law: docs/laws/topology.md maps which surfaces obligate which counterparts — a diff editing a listed SURFACE without its obligated counterparts in the same change is a finding naming the missing counterpart; docs/laws/patterns.md rows bind every branch they name; docs/laws/scars.md laws are standing review duty.
 
-Doctrine-surface diffs (docs/laws, docs/stacks, docs/standards, CLAUDE.md, AGENTS.md, the reviewer configs themselves) are judged against docs/laws/landing.md: hardening an existing clause beats extending a file beats minting one, and each move needs the prior proven insufficient; a new file under docs/stacks is a defect; run provenance, freshness tails, or process narration in a landed row is a defect; a doctrine addition without recurrence evidence or branch-spanning blast radius is spam — flag it, and flag equally the miss where a diff hardens a symptom clause and leaves untouched the neighboring clause that owed the collapse.
+Doctrine-surface diffs (docs/laws, docs/stacks, docs/standards, CLAUDE.md, AGENTS.md, the reviewer configs themselves) are judged against docs/laws/README.md: hardening an existing clause beats extending a file beats minting one, and each move needs the prior proven insufficient; a new file under docs/stacks is a defect; run provenance, freshness tails, or process narration in a landed row is a defect; a doctrine addition without recurrence evidence or branch-spanning blast radius is spam — flag it, and flag equally the miss where a diff hardens a symptom clause and leaves untouched the neighboring clause that owed the collapse.
 
 ## [01]-[MACHINE_LAW_BOUNDARY]
 
@@ -100,7 +100,6 @@ These rows bind `libs/**` and `.planning/`.
 ## [10]-[DURABLE_PROSE]
 
 The review vocabulary is docs/standards/style-guide.md §04; findings cite the defect name and the line:
-
 - [ENUMERATION_ANCHOR] — prose listing or counting enumerable content or the doc's own members; legal quantities are rule thresholds, domain values, or counts whose members are enumerated in the same clause.
 - [STALE_MIRROR] — a hand-maintained copy of truth whose system of record is disk, a manifest, or another doc.
 - [MECHANISM_LEAK] — index-tier prose carrying spec-tier mechanism; repair is demotion, never deletion.
@@ -136,7 +135,6 @@ A comment exists only for the in-situ constraint the code cannot show — the wh
 ## [13]-[LOAD_BEARING_EXCEPTIONS]
 
 Code that violates generic best practice on purpose — do not flag:
-
 - Aggressive API breaks with every call site updated in the same change are the sanctioned rename path, not regressions.
 - Dense single-expression bodies and heavy polymorphic dispatch are the bar, not obfuscation.
 - Absent defensive guards inside domain logic reflect admission-once boundaries, not missing error handling.

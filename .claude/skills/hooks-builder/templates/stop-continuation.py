@@ -3,6 +3,8 @@
 # requires-python = ">=3.15"
 # dependencies = ["msgspec"]
 # ///
+# Boundary-kernel hook seam: focused one-line docstrings, and a tolerant transcript decode that skips one malformed line.
+# ruff: noqa: DOC201, S112
 """Own Stop/SubagentStop: end a run only on a session-scoped completion token bounded by two orthogonal loop bounds.
 
 Reprompt adapts to run state. Wire: Stop and SubagentStop. On Codex the exit-2 block rides decision JSON via codex-adapter.sh.
@@ -93,7 +95,7 @@ def _bump(counter: Path, /) -> int:
     try:
         count = int(counter.read_text(encoding="utf-8") or 0) + 1 if counter.exists() else 1
         counter.write_text(str(count), encoding="utf-8")
-    except (OSError, ValueError):
+    except OSError, ValueError:
         return 0  # a counter fault degrades to the live stop_hook_active cap, never a non-2 exit that permits the stop
     return count
 

@@ -820,16 +820,15 @@ phase('Doctrine');
 const HARVEST_ROWS = results.flatMap((r) => (r.logs || []).flatMap((l) => (l && l.harvest) || [])).concat((corpus && corpus.harvest) || []);
 const doctrine = HARVEST_ROWS.length
     ? await agent(
-          'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
-              '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
-              'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+          'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
+              'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
               'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
               '`mermaid-diagramming` before touching any diagram. This run AUTHORED the docs/stacks/csharp corpus — adjudicate ' +
               'ONLY reviewer/laws/constitution nominations and NEVER edit a docs/stacks/csharp page; a stacks-altitude nomination ' +
               'is already owned by the run and is rejected. ' +
               "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
               JSON.stringify(HARVEST_ROWS) +
-              '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+              '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
               'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
               'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
               'whose coupling no longer holds, land a coupling this run proved.\n' +

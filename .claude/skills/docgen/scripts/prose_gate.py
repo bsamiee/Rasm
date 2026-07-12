@@ -229,6 +229,8 @@ POINTER = re.compile(r"[\w./-]*\w\.md#[\w.-]+|\b[\w./-]+/[\w.-]+#[A-Z][A-Z0-9_]+
 # Deictic freshness and permission verbs warn: both admit context-legal uses review adjudicates.
 FRESHNESS_DEICTIC = re.compile(r"\b(?:currently|recently|nowadays|at\s+present|these\s+days|going\s+forward|modern)\b", re.IGNORECASE)
 WEAK_VERB = re.compile(r"\b(?:supports|provides|offers|allows|enables)\b", re.IGNORECASE)
+# Soft-preference and discourse hedges warn: `prefer` names a legitimate default across the estate, so review adjudicates each.
+SOFT_HEDGE = re.compile(r"\b(?:however|prefer(?:s|red|ably)?|etc)\b", re.IGNORECASE)
 PATTERNS: tuple[tuple[Check, re.Pattern[str], Status], ...] = (
     (Check.HEDGE, HEDGE_WORDS, "fail"),
     (Check.HEDGE, MARKER_WORDS, "fail"),
@@ -239,6 +241,7 @@ PATTERNS: tuple[tuple[Check, re.Pattern[str], Status], ...] = (
     (Check.VERSION_ANCHOR, VERSION_BAND, "fail"),
     (Check.VERSION_ANCHOR, FRESHNESS_DEICTIC, "warn"),
     (Check.WEAK_VERB, WEAK_VERB, "warn"),
+    (Check.HEDGE, SOFT_HEDGE, "warn"),
     (Check.EM_DASH, EM_DASH_ASCII, "fail"),
 )
 
@@ -387,11 +390,9 @@ def git_listed(base: Path) -> tuple[Path, ...] | None:
     # Gitignore-accurate universe: tracked plus untracked-not-ignored files under base; None when base is outside a git repo.
     try:
         out = subprocess.run(
-            ("git", "-C", str(base), "ls-files", "--cached", "--others", "--exclude-standard", "-z"),
-            capture_output=True,
-            check=True,
+            ("git", "-C", str(base), "ls-files", "--cached", "--others", "--exclude-standard", "-z"), capture_output=True, check=True
         ).stdout
-    except (OSError, subprocess.CalledProcessError):
+    except OSError, subprocess.CalledProcessError:
         return None
     return tuple(base / raw.decode() for raw in out.split(b"\0") if raw)
 
@@ -589,7 +590,15 @@ def lex(path: Path, text: str, cap: int) -> tuple[Document, tuple[Row, ...]]:
             share = 1 - (len(stripped) / max(1, len(text_joined.strip())))
             lists.append(ListEntry(number, text_joined, stripped, share))
             if cursor > n + 1:
-                rows.append(row(path, number, Check.LIST_WRAP, "fail", "list item hard-wraps across physical lines; the bullet is one logical line the editor soft-wraps"))
+                rows.append(
+                    row(
+                        path,
+                        number,
+                        Check.LIST_WRAP,
+                        "fail",
+                        "list item hard-wraps across physical lines; the bullet is one logical line the editor soft-wraps",
+                    )
+                )
         if not line.lstrip().startswith("|"):
             prose.extend(prose_spans(line, number))
             if pointered and line.strip() and not EXAMPLE_LINE.match(line):

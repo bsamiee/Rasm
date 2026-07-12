@@ -505,10 +505,7 @@ const codexSteps = (label, task, schema, o, step4) => {
     return [
         'DISPATCH ROLE: gpt-5.6-terra performs the complete TASK below through one blocking Codex MCP call. Follow exactly four ' +
             'steps; never perform, edit, judge, soften, summarize, or relay the task yourself.',
-        '(1) Call ToolSearch with query "select:mcp__codex__codex". If one Bash probe shows command -v forge-fleet-emit ' +
-            'resolving, run forge-fleet-emit --kind codex --model gpt-5.6-terra --label ' +
-            JSON.stringify(fileTag(label)) +
-            ' --state start now and --state stop right after step (2); when the tool is absent skip both silently.',
+        '(1) Call ToolSearch with query "select:mcp__codex__codex".',
         '(2) Call the loaded mcp__codex__codex tool ONCE with model="gpt-5.6-terra", sandbox=' +
             (o.writes ? '"workspace-write"' : '"read-only"') +
             ', cwd=' +
@@ -1055,14 +1052,13 @@ const HARVEST_ROWS = lanes.flatMap((l) => (l && l.harvest) || []);
 const doctrine = HARVEST_ROWS.length
     ? await slot(() =>
           agent(
-              'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` AND ' +
-                  '`docs/laws/landing.md` FIRST — they own the admission table, the harden>extend>mint bar, the per-surface ' +
-                  'routing and justification, the laws page grammar, and the poison guard; obey them over any restatement. Load ' +
+              'TASK: DOCTRINE LANDER — the durable-learning terminal of this run. Read `docs/laws/README.md` ' +
+                  'FIRST — it owns the corpus admission and page-shape law; obey it over any restatement. Load ' +
                   'the `docgen` skill AND the `skill-writer` skill via the Skill tool BEFORE any durable edit; load ' +
                   '`mermaid-diagramming` before touching any diagram. ' +
                   "NOMINATIONS (unverified, biased toward their authors' own work — refute by default): " +
                   JSON.stringify(HARVEST_ROWS) +
-                  '\nADJUDICATE each row per the landing bar: cold-read its target surface IN FULL, verify its anchors on ' +
+                  '\nADJUDICATE each row per the admission bar: cold-read its target surface IN FULL, verify its anchors on ' +
                   'CURRENT disk; LAND NOTHING is a first-class verdict.\n' +
                   'TOPOLOGY RE-PROOF: re-verify every `docs/laws/topology.md` row whose [SURFACE] this run touched — cull a row ' +
                   'whose coupling no longer holds, land a coupling this run proved.\n' +

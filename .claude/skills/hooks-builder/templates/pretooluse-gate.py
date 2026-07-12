@@ -3,12 +3,15 @@
 # requires-python = ">=3.15"
 # dependencies = ["msgspec"]
 # ///
+# Boundary-kernel hook seam: fail-closed broad-except, focused one-line docstrings, and POLICY danger-root literals, never temp-file creation.
+# ruff: noqa: BLE001, DOC201, S108
 """Gate a PreToolUse call: admit once, decompose each command to leaves, dispatch per argv[0] on a semantic table, fail closed by construction.
 
 Wire: PreToolUse matcher "Bash|Edit|Write" (Codex "Bash|apply_patch"). The POLICY tables are the edit surface.
 Boundary kernel: os.environ/os.getcwd/subprocess are admitted here per the scripting boundary-kernel carve-out. The ASK stdout-JSON
 branch is Claude-only dialect; under Codex the adapter maps it, so a dual-provider wiring routes this body through codex-adapter.sh.
 """
+
 from collections.abc import Callable
 from enum import StrEnum
 import os
@@ -177,7 +180,11 @@ def _classify_git(argv: list[str], /) -> Ruling:
     """Rule on a git invocation whose subcommand plus flags would discard work."""
     sub = next((t for t in argv[1:] if not t.startswith("-")), "")
     fragments = GIT_BLOCK.get(sub, ())
-    return Ruling(Verdict.DENY, f"git {CTRL.sub(' ', sub)} {CTRL.sub(' ', ' '.join(argv[2:]))} discards work") if any(f in argv[2:] for f in fragments) else Ruling()
+    return (
+        Ruling(Verdict.DENY, f"git {CTRL.sub(' ', sub)} {CTRL.sub(' ', ' '.join(argv[2:]))} discards work")
+        if any(f in argv[2:] for f in fragments)
+        else Ruling()
+    )
 
 
 ANALYZERS: dict[str, Callable[[list[str]], Ruling]] = {"rm": _classify_rm, "git": _classify_git}  # POLICY: argv[0] -> analyzer
