@@ -1,13 +1,13 @@
 # [RASM_RHINO_ETO_ELEMENTS]
 
-The typed element-realization algebra of `Rasm.Rhino.Eto` — one closed `Element` tree whose cases span the full current `Eto.Forms` control roster, one `Realize` dispatch that mints every native control, and one layout algebra (`Arrangement` + `FlowRegion`) that absorbs `DynamicLayout`, `TableLayout`, `StackLayout`, and `PixelLayout` construction as recursive rows. A screen is a value: element cases carry kind rows, policy records, and bind attachments; realization is one total fold from that value to a live control tree. The page also mints `UiFault`, the one failure vocabulary every page in this sub-domain fails through, and `ElementSpec`, the uniform identity/enablement/style/bind spine every realized control passes. Per-control public factories, a runtime-type event switch, and hand-wired child adds are the census-era forms this owner deletes: value channels ride `binding.md` attachments over the host `*Binding` properties, commands ride `chrome.md` intent rows, and a new control kind is one enum row plus one union case, never a new factory.
+The typed element-realization algebra of `Rasm.Rhino.Eto` — one closed `Element` tree whose cases span the full current `Eto.Forms` control roster, one `Realize` dispatch that mints every native control, and one layout algebra (`Arrangement` + `FlowRegion`) that absorbs `DynamicLayout`, `TableLayout`, `StackLayout`, and `PixelLayout` construction as recursive rows. A screen is a value: element cases carry kind rows, policy records, and bind attachments; realization is one total fold from that value to a live control tree. Each realized control is its binding lifecycle handle: `binding.md` retains every wired receipt under its exact control and exposes `Bind.Owned`, `Bind.Refresh`, and `Bind.Release` without widening `Realize` beyond `Fin<Control>`. The page also mints `UiFault`, the one failure vocabulary every page in this sub-domain fails through, and `ElementSpec`, the uniform identity/enablement/style/bind spine every realized control passes. Per-control public factories, a runtime-type event switch, and hand-wired child adds are the census-era forms this owner deletes: value channels ride `binding.md` attachments over the host `*Binding` properties, commands ride `chrome.md` intent rows, and a new control kind is one enum row plus one union case, never a new factory.
 
 Realization is UI-thread work — consumers enter through the `runtime.md` dispatch owner and hand `Realize` an already-marshalled frame; this page never self-dispatches. Every host construction is bracketed by `Op.Catch`, so a throwing handler surfaces as a typed fault, never an unhandled host exception.
 
 ## [01]-[INDEX]
 
 - [02]-[FAULT_FAMILY]: `UiFault` — the closed `Expected`-derived failure union of the Eto sub-domain: dismissal, capability absence, thread affinity, admission rejection, absent payload, and captured host refusal.
-- [03]-[SPEC_FLOOR]: `ElementKey` `[ValueObject<string>]` + `ElementSpec` — the uniform identity, tooltip, enablement, visibility, style, and bind-attachment spine applied to every realized control by one fold.
+- [03]-[SPEC_FLOOR]: `ElementKey` `[ValueObject<string>]` + `ElementSpec` — the uniform identity, tooltip, enablement, visibility, style, and retained bind-attachment spine applied to every realized control by one fold.
 - [04]-[CONTROL_ROWS]: `TextKind` · `ChoiceKind` · `ScalarKind` · `PickKind` · `PressKind` · `StaticKind` · `BoxKind` — the kind vocabularies whose `[UseDelegateFromConstructor]` mint columns construct the roster, with `TextPolicy`/`ChoicePolicy`/`ScalarPolicy`/`PickPolicy` the per-family policy records.
 - [05]-[ELEMENT_TREE]: `Element` — the recursive closed screen tree over every kind family, container, split, tab, grid, painted, embedded, and web case, realized by ONE total `Realize(Op?)` dispatch.
 - [06]-[GRID_FAMILY]: `CellRow` + `ColumnPlan` + `RowSeed` + `GridPlan` — the grid/tree-grid/tree construction family over `GridView`/`TreeGridView`/`TreeView` with the full host cell roster and `GridChrome` policy.
@@ -20,7 +20,7 @@ Realization is UI-thread work — consumers enter through the `runtime.md` dispa
 - Law: `HostRejected` is minted only by the one capture funnel — `Op.Catch` captures the throwing host body and its failure re-maps once at the raising seam; a bare `try`/`catch` or a second exception funnel anywhere in the sub-domain is the deleted form.
 - Growth: a new UI failure is one case with its typed payload and `Category`; a parallel error type or a stringly `Error.New` in UI flow is the rejected form.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto;
 using Eto.Drawing;
@@ -45,13 +45,15 @@ public abstract partial record UiFault : Expected {
 
 ## [03]-[SPEC_FLOOR]
 
-- Owner: `ElementKey` `[ValueObject<string>]` — ordinal identity of one screen element, the key bind receipts, style rows, and automation identity all derive from — and `ElementSpec`, the uniform spine every realized control passes through ONE `Apply` fold: tooltip, enablement, visibility, the `platform.md` `StyleKey`, and the `binding.md` `BindAttachment` rows. A per-control property scatter or a decorator sibling that re-applies common state is the deleted form; `Apply` is the single site that writes `Control.Enabled`, `Control.Visible`, `Control.ToolTip`, and `Widget.Style`.
-- Entry: `ElementSpec.Of(ElementKey)` mints the minimal spec; `with` composes tooltip, style, and binds; `Apply(Control, Op)` folds the spec onto a freshly minted control, traversing every attachment and returning the accumulated `Seq<BindReceipt>` so a screen's realization receipt carries every wired channel.
+- Owner: `ElementKey` `[ValueObject<string>]` is the ordinal identity from which style rows and automation identity derive, and `ElementSpec` is the uniform spine every realized control passes through one `Apply` fold: tooltip, enablement, visibility, the `platform.md` `StyleKey`, and the `binding.md` `BindAttachment` rows. A per-control property scatter or a decorator sibling that re-applies common state is the deleted form; `Apply` is the single site that writes `Control.Enabled`, `Control.Visible`, `Control.ToolTip`, and `Widget.Style`.
+- Entry: `ElementSpec.Of(ElementKey)` mints the minimal spec; `with` composes tooltip, style, and binds; `Apply(Control, Op)` folds the spec onto a freshly minted control and returns `Fin<Unit>`. Each attachment wires in sequence, and `Bind.Rig` retains its receipt under the exact control before `Apply` erases the immediate result.
 - Law: bind attachments are the ONLY value channel — the census-era `TextChanged`/`CheckedChanged`/`ValueChanged`/`SelectedIndexChanged` runtime-type event switch is deleted; `binding.md` rows ride the host `TextBinding`/`CheckedBinding`/`ValueBinding`/`SelectedIndexBinding` properties, and an element that needs a value channel declares an attachment row, never an event handler.
+- Law: `Realize` returns the live `Control`, and that control is the only lifecycle key: `Bind.Owned(control)` reads its receipts, `Bind.Refresh(control)` refreshes them, and `Bind.Release(control)` unbinds them. `ElementSpec` never duplicates receipt storage or returns a parallel realization envelope.
+- Law: attachment traversal is fail-fast, and a failed row releases every receipt already retained under that control before propagating the failure; an unsuccessful realization leaves no unreachable live binding scope.
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Domain (project — `Op`, `Op.Catch`), Eto.Forms (host — `Control.Enabled`/`Visible`/`ToolTip`, `Widget.Style`).
 - Growth: a new uniform axis (automation id, context menu row, drop admission) is one `ElementSpec` field consumed inside `Apply` — every element case gains it with zero case edits.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [ValueObject<string>(KeyMemberName = "Value", KeyMemberAccessModifier = AccessModifier.Public)]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
@@ -70,14 +72,24 @@ public sealed record ElementSpec(
     Option<StyleKey> Style,
     Seq<BindAttachment> Binds) {
     public static ElementSpec Of(ElementKey key) => new(Key: key, ToolTip: None, Enabled: true, Visible: true, Style: None, Binds: Seq<BindAttachment>());
-    internal Fin<Seq<BindReceipt>> Apply(Control control, Op key) =>
+    internal Fin<Unit> Apply(Control control, Op key) =>
         key.Catch(() => {
             control.Enabled = Enabled;
             control.Visible = Visible;
             _ = ToolTip.Iter(tip => control.ToolTip = tip);
             _ = Style.Iter(row => control.Style = row.Value);
             return Fin.Succ(value: unit);
-        }).Bind(_ => Binds.TraverseM(attachment => attachment.Wire(control)).As().Map(static receipts => receipts.Strict()));
+        }).Bind(_ => {
+            Fin<Unit> wired = Binds.Fold(
+                Fin.Succ(value: unit),
+                (accepted, attachment) => accepted.Bind(_ => attachment.Wire(control).Map(static _ => unit)));
+            return wired.Match(
+                Succ: static _ => Fin.Succ(value: unit),
+                Fail: fault => {
+                    _ = Bind.Release(control);
+                    return Fin.Fail<Unit>(error: fault);
+                });
+        });
 }
 ```
 
@@ -89,7 +101,7 @@ public sealed record ElementSpec(
 - Law: `RadioBank` is the one composed row — `RadioButton(RadioButton controller)` chains mutual exclusion through the first-minted controller, and the bank realizes as one `StackLayout` run, so radio-group invariants are construction facts, never synchronization code.
 - Boundary: colors, fonts, and images inside policies stay host-typed at this seam only where the host control demands its own value (`FontPicker.Value`, `ImageView.Image`); every paint-adjacent color crosses as the kernel `PerceptualColor` and quantizes at the `canvas.md` edge.
 
-```csharp
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record TextPolicy(Option<string> Placeholder, bool ReadOnly, Option<int> MaxLength, TextAlignment Alignment = TextAlignment.Left) {
     public static readonly TextPolicy Free = new(Placeholder: None, ReadOnly: false, MaxLength: None);
@@ -238,11 +250,12 @@ public sealed record BoxDress(Padding Padding, Option<string> Title, bool Open =
 - Cases: `Text(TextKind, ElementSpec, TextPolicy)` · `Choice(ChoiceKind, ElementSpec, ChoicePolicy)` · `Scalar(ScalarKind, ElementSpec, ScalarPolicy)` · `Pick(PickKind, ElementSpec, PickPolicy)` · `Press(PressKind, ElementSpec, string Caption, Func<Fin<Unit>> Effect)` · `Toggle(ElementSpec, string Caption, Option<bool> Seed, bool ThreeState)` (`CheckBox` — `Seed` `None` realizes indeterminate under `ThreeState`, unchecked otherwise; the value channel is a `CheckedBinding` attachment) · `Static(StaticKind, ElementSpec, StaticContent)` · `Boxed(BoxKind, ElementSpec, BoxDress, Element Child)` · `Tabs(ElementSpec, TabStyle, Seq<(string Title, Element Body)> Pages, int Selected)` · `Split(ElementSpec, Orientation, SplitterFixedPanel, Element First, Element Second, Option<double> Relative)` · `Tabular(ElementSpec, GridPlan)` · `Laid(ElementSpec, Arrangement)` · `Painted(ElementSpec, SurfaceSpec)` · `Embedded(ElementSpec, NativeMount)` · `Web(ElementSpec, Uri)` · `Inspector(ElementSpec, object Subject, bool Categories)` — sixteen cases; `TabStyle` selects `TabControl` (fixed) versus `DocumentControl` (closable, reorderable).
 - Law: `Press.Effect` is the one event-shaped leaf — the `Click` subscription is the named platform-forced seam, its body routed through `Op.Catch`, and a press that participates in menus, toolbars, or gestures graduates to a `chrome.md` intent row realized here as a `Press` bound to the row's `Command.Execute`; two parallel effect paths for one verb is the deleted form.
 - Law: realization composes, never orchestrates — a consumer holds an `Element` value and calls `Realize` once; reaching into a realized tree to mutate structure is the deleted form, because structure changes are a new `Element` value realized into a container's `Content`.
+- Law: each `Control` returned by a recursive `Realize` call is its exact binding lifecycle key. Consumers inspect, refresh, or release that control's receipts through `Bind.Owned`, `Bind.Refresh`, and `Bind.Release`; realization never accumulates or transports a second receipt collection.
 - Packages: Thinktecture.Runtime.Extensions (`[Union]`, generated `Switch`), LanguageExt.Core (`Fin`, `Seq`, `TraverseM`, `Option`), Rasm.Domain (project — `Op`, `Op.Catch`), Eto.Forms (host — the verified construction surface of `[04]`'s rows plus `CheckBox`, `TabControl`/`TabPage`, `DocumentControl`/`DocumentPage`, `Splitter`, `WebView`, `PropertyGrid`).
 - Growth: a new roster control is one kind row (zero tree edits) when it fits a family, one union case when its payload is genuinely new; anticipated host additions (a token-input, a chart host) land the same way — the FIVE-TIMES demand is absorbed by the family shape, not by new factories.
 - Boundary: `WebView` script execution, navigation events, and message channels are consumer wiring over the realized control's own verified members (`Url`, `ExecuteScriptAsync`, `DocumentLoaded`, `MessageReceived`); this owner realizes the host and hands it over — a second navigation abstraction here is the deleted form.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class TabStyle {
@@ -340,7 +353,7 @@ public abstract partial record Element {
 - Law: selection is egress, not state — consumers read `Grid.SelectedItems`/`SelectedRow` or attach a `binding.md` row over `SelectedItemBinding`; a parallel selection cache is the deleted form.
 - Growth: a new cell modality is one `CellRow` case; a new grid host is one `GridPlan` case; a chrome axis is one `GridChrome` field consumed once in `Dress`.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CellRow {
@@ -438,7 +451,7 @@ public abstract partial record GridPlan {
 - Law: scale is declared where it binds AND lands where the host reads it — a `Leaf`'s `XScale`/`YScale` travel with the realized control and every consuming arm writes them onto the verified `xscale`/`yscale` parameters (`Add`, `AddCentered`, `AddAutoSized`); table scale rides row/cell flags mapped to `TableRow.ScaleHeight`/`TableCell.ScaleWidth`, run expansion rides `StackLayoutItem.Expand` — a declared flag no fold consumes is the illusory form this law forecloses.
 - Growth: a new placement strategy the host ships is one `Arrangement` case; a new flow modality is one `FlowRegion` case; both break `Realize` at compile time.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record FlowRegion {

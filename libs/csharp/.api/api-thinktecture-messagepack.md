@@ -18,35 +18,35 @@
 [PUBLIC_TYPE_SCOPE]: resolver and formatter surface
 - rail: wire-messagepack
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------------------ |:----------------- |:------------------------------------------------ |
-| [01] | `ThinktectureMessageFormatterResolver` | formatter resolver | `IFormatterResolver`; generated-owner formatter lookup |
-| [02] | `ThinktectureMessageFormatterResolver.Cache<T>` | resolver cache | metadata-backed per-type formatter cache |
-| [03] | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>` | class formatter | reference-type generated-owner codec |
-| [04] | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>` | struct formatter | value-type generated-owner codec |
+| [INDEX] | [SYMBOL]                                                            | [PACKAGE_ROLE]     | [CAPABILITY]                                           |
+| :-----: | :------------------------------------------------------------------ | :----------------- | :----------------------------------------------------- |
+|  [01]   | `ThinktectureMessageFormatterResolver`                              | formatter resolver | `IFormatterResolver`; generated-owner formatter lookup |
+|  [02]   | `ThinktectureMessageFormatterResolver.Cache<T>`                     | resolver cache     | metadata-backed per-type formatter cache               |
+|  [03]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>`       | class formatter    | reference-type generated-owner codec                   |
+|  [04]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>` | struct formatter   | value-type generated-owner codec                       |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: resolver registration and lookup
 - rail: wire-messagepack
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------- |:----------------- |:------------------------------------------------ |
-| [01] | `ThinktectureMessageFormatterResolver.Instance` | static resolver | singleton resolver for `CompositeResolver` |
-| [02] | `new ThinktectureMessageFormatterResolver()` | constructor | skips `[MessagePackFormatter]` owners by default |
-| [03] | `new ThinktectureMessageFormatterResolver(bool skipObjectsWithMessagePackFormatterAttribute)` | constructor | controls attributed-owner skip behavior |
-| [04] | `GetFormatter<T>()` | resolver call | returns a generated-owner class/struct formatter or `null` to defer |
-| [05] | `CompositeResolver.Create(ThinktectureMessageFormatterResolver.Instance,...)` | MessagePack composition | place generated-owner resolver before standard fallback |
+| [INDEX] | [SURFACE]                                                                                     | [CALL_SHAPE]            | [CAPABILITY]                                                        |
+| :-----: | :-------------------------------------------------------------------------------------------- | :---------------------- | :------------------------------------------------------------------ |
+|  [01]   | `ThinktectureMessageFormatterResolver.Instance`                                               | static resolver         | singleton resolver for `CompositeResolver`                          |
+|  [02]   | `new ThinktectureMessageFormatterResolver()`                                                  | constructor             | skips `[MessagePackFormatter]` owners by default                    |
+|  [03]   | `new ThinktectureMessageFormatterResolver(bool skipObjectsWithMessagePackFormatterAttribute)` | constructor             | controls attributed-owner skip behavior                             |
+|  [04]   | `GetFormatter<T>()`                                                                           | resolver call           | returns a generated-owner class/struct formatter or `null` to defer |
+|  [05]   | `CompositeResolver.Create(ThinktectureMessageFormatterResolver.Instance,...)`                 | MessagePack composition | place generated-owner resolver before standard fallback             |
 
 [ENTRYPOINT_SCOPE]: formatter operation
 - rail: wire-messagepack
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------- |:----------------- |:------------------------------------------------ |
-| [01] | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>.Serialize(...)` | formatter write | writes generated owner by key projection |
-| [02] | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>.Deserialize(...)` | formatter read | decodes key and validates through generated factory |
-| [03] | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>.Serialize(...)` | formatter write | value-type generated owner write path |
-| [04] | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>.Deserialize(...)` | formatter read | value-type generated owner read and validation path |
+| [INDEX] | [SURFACE]                                                                            | [CALL_SHAPE]    | [CAPABILITY]                                        |
+| :-----: | :----------------------------------------------------------------------------------- | :-------------- | :-------------------------------------------------- |
+|  [01]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>.Serialize(...)`         | formatter write | writes generated owner by key projection            |
+|  [02]   | `ThinktectureMessagePackFormatter<T, TKey, TValidationError>.Deserialize(...)`       | formatter read  | decodes key and validates through generated factory |
+|  [03]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>.Serialize(...)`   | formatter write | value-type generated owner write path               |
+|  [04]   | `ThinktectureStructMessagePackFormatter<T, TKey, TValidationError>.Deserialize(...)` | formatter read  | value-type generated owner read and validation path |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

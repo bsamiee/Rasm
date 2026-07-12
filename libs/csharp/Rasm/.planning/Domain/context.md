@@ -1,13 +1,13 @@
 # [RASM_CONTEXT]
 
-The tolerance/units substrate (`Rasm.Domain`). This page owns the tolerance triad — `AbsoluteTolerance`, `RelativeTolerance`, `AngleTolerance` — and the immutable `Context` bundle every kernel operation threads. `Context` is the model-space fact of record: one validated bundle of the three tolerances plus the `UnitSystem`, constructed through one polymorphic `Of` family, derived from once for fractional and mesh-intersection tolerances. Every closest-point recovery, readiness check, coercion, sampling fraction, and intersection call reads its tolerance from a threaded `Context`, never from an ambient constant or a per-call literal.
+The tolerance and units substrate (`Rasm.Domain`). `ModelUnit` admits built-in and custom unit identity with its meters-per-unit scale, while `Context` binds that evidence to the tolerance triad every kernel operation threads. Fractional tolerance, mesh-intersection tolerance, and cross-context scaling derive from this one bundle.
 
 `Context` is host-neutral-shaped by construction: every member is unit- and scalar-driven except the single `[BoundaryAdapter]` `Of(RhinoDoc?)` factory — the ONE doc-coupled seam in the whole substrate. Federation runtimes that never see a `RhinoDoc` construct the identical `Context` through the scalar and unit factories.
 
 ## [01]-[INDEX]
 
 - [02]-[TOLERANCE_TRIAD]: `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` — three `[ValueObject<double>]` owners with admission-time range guards.
-- [03]-[MODEL_CONTEXT]: `Context` — the immutable bundle, the polymorphic `Of` family, the `Millimeters` canonical default, and the `Fractional`/`MeshIntersectionTolerance` derivations.
+- [03]-[MODEL_CONTEXT]: `ModelUnit`, `Context`, the polymorphic `Of` family, and the derived tolerance and scale projections.
 
 ## [02]-[TOLERANCE_TRIAD]
 
@@ -59,13 +59,13 @@ public readonly partial struct AngleTolerance {
 
 ## [03]-[MODEL_CONTEXT]
 
-- Owner: `Context` sealed record — private constructor, four read-only slots (`Absolute`, `Relative`, `Angle`, `Units`), two derivations. Construction is only through the validated `Of` family; a `Context` in hand is proof the whole bundle admitted.
-- Entry: ONE polymorphic name, four ingress shapes — `Of(double absolute, double relative, double angle, UnitSystem units)` the scalar floor; `Of(UnitSystem units)` the unit-derived default; `Of(RhinoDoc? doc)` the doc boundary adapter; `Millimeters()` the canonical validated default. All return `Validation<Error, Context>`; the scalar floor accumulates every tolerance fault applicatively before reporting.
-- Cases: unit gating inside the family — `Unset`/`None` reject as `Fault.InvalidUnitSystem` ("must be a Rhino model unit system"); `CustomUnits` rejects on the unit-derived path ("must be explicit when custom" — a custom unit has no derivable default scale and must arrive through the scalar floor); every other unit derives its absolute default as `RhinoMath.DefaultDistanceToleranceMillimeters × RhinoMath.UnitScale(Millimeters → units)` gated positive-finite.
+- Owner: `ModelUnit` is the admitted unit regime: defined `UnitSystem`, positive finite meters per unit, and the required custom name. `Context` binds one `ModelUnit` to the three admitted tolerances.
+- Entry: the `Context.Of` family accepts scalar tolerances with `UnitSystem` or `LengthUnit`, derives defaults from either unit carrier, projects a document through `ModelUnits`, and retains `Millimeters()` as the canonical default. `ScaleTo(Context)` divides the admitted meters-per-unit values after admitting the target.
+- Cases: `UnitSystem` ingress admits defined built-in rows. `LengthUnit` ingress admits built-in and custom rows, preserving custom name and scale; incomplete `CustomUnits`, `Unset`, `None`, and undefined ordinals fail before context construction.
 - Auto: `Fractional` — the arc-length fractional tolerance (`Relative.Value` when positive, else the `1.0e-8` default) feeding `Curve.GetLength`/`NormalizedLengthParameters`; `MeshIntersectionTolerance` — `Absolute.Value × Intersection.MeshIntersectionsTolerancesCoefficient`, the host-coefficient-scaled tolerance every mesh intersection call reads. Both derive once here; a consumer re-deriving either is the deleted form.
-- Law: `Of(RhinoDoc?)` is the ONE doc-coupled member in the substrate — it projects `ModelAbsoluteTolerance`/`ModelRelativeTolerance`/`ModelAngleToleranceRadians`/`ModelUnitSystem` and immediately re-enters the scalar floor, so a doc-sourced `Context` and a federation-constructed `Context` are indistinguishable downstream. An absent doc is `Fault.MissingContext`, never a null propagation.
+- Law: `Of(RhinoDoc?)` is the document-coupled boundary adapter. It projects `ModelAbsoluteTolerance`, `ModelRelativeTolerance`, `ModelAngleToleranceRadians`, and `ModelUnits`, so custom document scale and name survive unchanged.
 - Law: threading is explicit — `Context` rides as a parameter on the synchronous rails and inside `Env` on `Eff` pipelines (the `rails.md` threading law); no operation reads a global default, and `Millimeters()` exists so a context-free entry can still construct a real validated bundle.
-- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<double>]`), LanguageExt.Core (`Validation`, applicative `Apply`), RhinoCommon (`RhinoMath`, `UnitSystem`, `RhinoDoc`, `Intersection` — value reads only).
+- Packages: Thinktecture.Runtime.Extensions (`[ValueObject<double>]`), LanguageExt.Core (`Validation`, `Fin`, applicative `Apply`), RhinoCommon (`LengthUnit`, `UnitSystem`, `RhinoDoc`, `RhinoMath`, `Intersection`).
 - Growth: a new model-space fact (a fourth tolerance, a grid resolution policy, a document epoch) is one validated slot plus one factory argument on the scalar floor — every derived factory inherits it; a parallel context record or an optional-parameter tail is the rejected form.
 - Boundary: `Analyze.From(RhinoDoc)`/`Analyze.In(...)` (`Analysis/query.md`) are thin forwarders over this family; `Env` carries the constructed `Context`; this factory and that forwarder are the only two members in the corpus that name `RhinoDoc`.
 
@@ -77,43 +77,77 @@ using Rhino;
 namespace Rasm.Domain;
 
 // --- [MODELS] -------------------------------------------------------------------------------
+public sealed record ModelUnit {
+    private ModelUnit(UnitSystem system, double metersPerUnit, Option<string> name) {
+        System = system;
+        MetersPerUnit = metersPerUnit;
+        Name = name;
+    }
+
+    public UnitSystem System { get; }
+    public double MetersPerUnit { get; }
+    public Option<string> Name { get; }
+
+    internal static Fin<ModelUnit> Of(UnitSystem value, Op key) => value switch {
+        var unknown when !Enum.IsDefined(value: unknown) =>
+            Fin.Fail<ModelUnit>(error: new Fault.InvalidUnitSystem(Units: unknown, Requirement: "must be a defined unit system")),
+        UnitSystem.Unset or UnitSystem.None =>
+            Fin.Fail<ModelUnit>(error: new Fault.InvalidUnitSystem(Units: value, Requirement: "must be a model unit system")),
+        UnitSystem.CustomUnits =>
+            Fin.Fail<ModelUnit>(error: new Fault.InvalidUnitSystem(Units: value, Requirement: "must carry custom name and scale")),
+        _ => key.Catch(() => Of(value: LengthUnit.FromKnownUnitSystem(knownUnitSystem: value), key: key)),
+    };
+
+    internal static Fin<ModelUnit> Of(LengthUnit value, Op key) => key.Catch(() => {
+        UnitSystem system = value.ToUnitSystem(metersPerUnit: out double metersPerUnit);
+        Option<string> name = system == UnitSystem.CustomUnits
+            ? Optional(value.Name).Map(static text => text.Trim()).Filter(static text => text.Length > 0)
+            : Option<string>.None;
+        return !LengthUnit.IsUnset(in value)
+            && !LengthUnit.IsNone(in value)
+            && Enum.IsDefined(value: system)
+            && system is not UnitSystem.Unset and not UnitSystem.None
+            && double.IsFinite(d: metersPerUnit)
+            && metersPerUnit > 0d
+            && (system != UnitSystem.CustomUnits || name.IsSome)
+                ? Fin.Succ(value: new ModelUnit(system: system, metersPerUnit: metersPerUnit, name: name))
+                : Fin.Fail<ModelUnit>(error: new Fault.InvalidUnitSystem(
+                    Units: system,
+                    Requirement: "must carry positive finite scale and custom identity"));
+    });
+
+    internal Fin<double> ScaleTo(ModelUnit? target, Op key) =>
+        from destination in Optional(target).ToFin(Fail: key.MissingContext())
+        let scale = MetersPerUnit / destination.MetersPerUnit
+        from admitted in double.IsFinite(d: scale) && scale > 0d
+            ? Fin.Succ(value: scale)
+            : Fin.Fail<double>(error: key.InvalidResult())
+        select admitted;
+}
+
 public sealed record Context {
     private const double DefaultFractionalTolerance = 1.0e-8;
-    private Context(AbsoluteTolerance absolute, RelativeTolerance relative, AngleTolerance angle, UnitSystem units) {
+    private Context(AbsoluteTolerance absolute, RelativeTolerance relative, AngleTolerance angle, ModelUnit unit) {
         Absolute = absolute;
         Relative = relative;
         Angle = angle;
-        Units = units;
+        Unit = unit;
     }
+
     public static Validation<Error, Context> Of(double absolute, double relative, double angle, UnitSystem units) =>
-        (absolute.TryCreateValidated<double, AbsoluteTolerance>(),
-         relative.TryCreateValidated<double, RelativeTolerance>(),
-         angle.TryCreateValidated<double, AngleTolerance>(),
-         (units switch {
-             UnitSystem.Unset or UnitSystem.None => Fin.Fail<UnitSystem>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")),
-             _ => Fin.Succ(units),
-         }).ToValidation())
-            .Apply(static (a, r, n, u) => new Context(absolute: a, relative: r, angle: n, units: u))
-            .As();
-    public static Validation<Error, Context> Millimeters() =>
-        Of(
-            absolute: RhinoMath.DefaultDistanceToleranceMillimeters,
-            relative: DefaultFractionalTolerance,
-            angle: RhinoMath.DefaultAngleTolerance,
-            units: UnitSystem.Millimeters);
-    public static Validation<Error, Context> Of(UnitSystem units) => units switch {
-        UnitSystem.Millimeters => Millimeters(),
-        UnitSystem.CustomUnits => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be explicit when custom")).ToValidation(),
-        UnitSystem.Unset or UnitSystem.None => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must be a Rhino model unit system")).ToValidation(),
-        _ => RhinoMath.UnitScale(from: UnitSystem.Millimeters, to: units) switch {
-            double scale when RhinoMath.IsValidDouble(x: scale) && scale > RhinoMath.ZeroTolerance => Of(
-                absolute: RhinoMath.DefaultDistanceToleranceMillimeters * scale,
-                relative: DefaultFractionalTolerance,
-                angle: RhinoMath.DefaultAngleTolerance,
-                units: units),
-            _ => Fin.Fail<Context>(error: new Fault.InvalidUnitSystem(Units: units, Requirement: "must resolve to a positive finite default scale")).ToValidation(),
-        },
-    };
+        Build(absolute: absolute, relative: relative, angle: angle, unit: ModelUnit.Of(value: units, key: Op.Of(name: nameof(Context))));
+
+    public static Validation<Error, Context> Of(double absolute, double relative, double angle, LengthUnit units) =>
+        Build(absolute: absolute, relative: relative, angle: angle, unit: ModelUnit.Of(value: units, key: Op.Of(name: nameof(Context))));
+
+    public static Validation<Error, Context> Millimeters() => Of(units: UnitSystem.Millimeters);
+
+    public static Validation<Error, Context> Of(UnitSystem units) =>
+        Default(unit: ModelUnit.Of(value: units, key: Op.Of(name: nameof(Context))));
+
+    public static Validation<Error, Context> Of(LengthUnit units) =>
+        Default(unit: ModelUnit.Of(value: units, key: Op.Of(name: nameof(Context))));
+
     [BoundaryAdapter]
     public static Validation<Error, Context> Of(RhinoDoc? doc) =>
         Optional(doc).ToValidation<Error>(Fail: new Fault.MissingContext(Key: Op.Of(name: nameof(Context))))
@@ -121,21 +155,56 @@ public sealed record Context {
                 absolute: candidate.ModelAbsoluteTolerance,
                 relative: candidate.ModelRelativeTolerance,
                 angle: candidate.ModelAngleToleranceRadians,
-                units: candidate.ModelUnitSystem));
+                units: candidate.ModelUnits));
+
     public AbsoluteTolerance Absolute { get; }
     public RelativeTolerance Relative { get; }
     public AngleTolerance Angle { get; }
-    public UnitSystem Units { get; }
+    public ModelUnit Unit { get; }
+    public UnitSystem Units => Unit.System;
     public double Fractional => Relative.Value > 0.0 ? Relative.Value : DefaultFractionalTolerance;
     public double MeshIntersectionTolerance => Absolute.Value * Intersection.MeshIntersectionsTolerancesCoefficient;
+
+    public Fin<double> ScaleTo(Context? target) {
+        Op op = Op.Of(name: nameof(ScaleTo));
+        return Optional(target).ToFin(Fail: op.MissingContext())
+            .Bind(destination => Unit.ScaleTo(target: destination.Unit, key: op));
+    }
+
+    private static Validation<Error, Context> Build(
+        double absolute,
+        double relative,
+        double angle,
+        Fin<ModelUnit> unit) =>
+        (absolute.TryCreateValidated<double, AbsoluteTolerance>(),
+         relative.TryCreateValidated<double, RelativeTolerance>(),
+         angle.TryCreateValidated<double, AngleTolerance>(),
+         unit.ToValidation())
+            .Apply(static (a, r, n, u) => new Context(absolute: a, relative: r, angle: n, unit: u))
+            .As();
+
+    private static Validation<Error, Context> Default(Fin<ModelUnit> unit) {
+        Op op = Op.Of(name: nameof(Context));
+        return (from target in unit
+                from millimeters in ModelUnit.Of(value: UnitSystem.Millimeters, key: op)
+                from scale in millimeters.ScaleTo(target: target, key: op)
+                select (Unit: target, Scale: scale))
+            .ToValidation()
+            .Bind(admitted => Build(
+                absolute: RhinoMath.DefaultDistanceToleranceMillimeters * admitted.Scale,
+                relative: DefaultFractionalTolerance,
+                angle: RhinoMath.DefaultAngleTolerance,
+                unit: Fin.Succ(value: admitted.Unit)));
+    }
 }
 ```
 
 ## [04]-[DENSITY_BAR]
 
-One context owner, one factory family; a new model-space fact is one slot, never a sibling bundle.
+One admitted unit regime and one context factory family own every model-space ingress.
 
-| [INDEX] | [CONCERN]          | [OWNER]                                                | [KIND]                                              | [RAIL]                                     | [CASES] |
-| :-----: | :----------------- | :----------------------------------------------------- | :--------------------------------------------------- | :------------------------------------------ | :-----: |
-|  [01]   | Tolerance scalars  | `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` | `[ValueObject<double>]` with admission guards        | `TryCreateValidated → Validation<Error, T>` |    3    |
-|  [02]   | Model context      | `Context`                                              | sealed record, polymorphic `Of` family + derivations | `Of → Validation<Error, Context>`           |    4    |
+| [INDEX] | [CONCERN]         | [OWNER]                                                  | [SHAPE]                                     |
+| :-----: | :---------------- | :------------------------------------------------------- | :------------------------------------------ |
+|  [01]   | tolerance scalars | `AbsoluteTolerance`/`RelativeTolerance`/`AngleTolerance` | generated scalar admission                  |
+|  [02]   | unit regime       | `ModelUnit`                                              | built-in/custom identity and metric scale   |
+|  [03]   | model context     | `Context`                                                | polymorphic factory and derived projections |

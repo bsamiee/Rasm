@@ -41,7 +41,7 @@ Rasm/
 │   ├── Develop.cs           # Guaranteed-isometric strips: MMP-exact rails, torsal ruling solve, ddouble isometry witness, DevelopmentReceipt
 │   ├── Panelize.cs          # Cross-field-guided panelization: Lattice + Seeded families, per-panel frames, planarity acceptance, PanelField SoA wire
 │   ├── Patternmap.cs        # Wallpaper pattern-to-surface instancing: 17 Seitz rows over ONE orbit fold, PL log-map inversion, vector-heat frames
-│   ├── Projections.cs       # CurveProjection/SurfaceProjection selectors, the one shape-operator + pose-slerp owners, SurfaceSpace
+│   ├── Projections.cs       # Parametric selectors, shape operator, quaternion motion, easing/cycle/spring rows, branded monotonic timing
 │   └── Locate.cs            # Locator/LocationValue/Division location algebra with curvature extrema
 ├── Meshing/                 # Mesh substrate + construction lattice
 │   ├── Delaunay.cs          # Constrained Bowyer-Watson Delaunay/tetrahedralization on InCircle/InSphere
@@ -120,6 +120,11 @@ Parametric/Panelize.cs    →  csharp:Rasm.Generation # [WIRE]: PanelField graph
 Parametric/Patternmap.cs  →  csharp:Rasm.Generation                     # [WIRE]: InstanceStream vector-heat-transported frames — PATTERN/TILING input
 Processing/Intent.cs      →  csharp:Rasm.Rhino/Camera # [BOUNDARY]: VectorIntent + VectorFrame + MotionInterpolation frozen-name contract
 Analysis/Query.cs         →  csharp:Rasm.Rhino/Commands # [BOUNDARY]: Analyze/AnalysisQuery/Env frozen-name contract
+Parametric/Projections.cs →  csharp:Rasm.Rhino/Viewport/Motion # [BOUNDARY]: easing, cycle, spring, and branded monotonic timing
+Parametric/Projections.cs →  csharp:Rasm.Grasshopper/Canvas/Motion # [BOUNDARY]: easing, cycle, spring, and branded monotonic timing
+Parametric/Projections.cs →  csharp:Rasm.Grasshopper/Eto/Runtime # [BOUNDARY]: MonotonicTimeline stamps and beats
+Numerics/Atoms.cs         →  csharp:Rasm.Rhino/Eto/Canvas # [BOUNDARY]: PerceptualColor, BlendPath, and RgbProfile projected once to Eto color
+Numerics/Atoms.cs         →  csharp:Rasm.Grasshopper/Canvas/Paint # [BOUNDARY]: PerceptualColor, BlendPath, and RgbProfile projected once to Eto color
 *                         ←  csharp:Rasm.Fabrication                    # [SHAPE]: Matrix / Point3d / Vector3d
 ```
 

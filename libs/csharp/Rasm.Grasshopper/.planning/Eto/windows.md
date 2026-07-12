@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_ETO_WINDOWS]
 
-The window, dialog, menu, and command spine of the Grasshopper boundary — one command row family (`CommandSpec` over `CommandRole` push/toggle/radio rows) minted into a receipted `CommandDeck`, one recursive menu union (`MenuNode`) folding onto native `ContextMenu` graphs through the minted deck, one window family (`WindowSpec` over `WindowRole` shell/float rows with the full `WindowChrome` posture and the marshalled `WindowVerb` live-mutation gate), and one dialog family — the typed-result `DialogSpec<TResult>` absorbing the census `FormPlan`, plus the `PickerSpec` union collapsing file, folder, colour, font, message, and Rhino edit/number prompts into cases of one `Present` gate. Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the session operator's one styling seam (`SessionOp.StyleCase`) and its `SessionReceipt` rides the window receipt, so every raise and present projection composes `GhSession` dispatch receipts while construction rows stay dispatch-free — content trees are `Eto/controls.md` `ControlSpec` values realized and harvested inside this page's one marshal window. Every raised form crosses as `Lease<Form>` and tears down through the session's release case; every fallible step rides an `Op`-keyed `Fin<T>` rail.
+The window, dialog, menu, and command spine of the Grasshopper boundary — one command row family (`CommandSpec` over `CommandRole` push/toggle/radio rows) minted into a receipted `CommandDeck`, one recursive menu union (`MenuNode`) folding onto lease-owned native `ContextMenu` graphs through the minted deck, one window family (`WindowSpec` over `WindowRole` shell/float rows with the full `WindowChrome` posture and the marshalled `WindowVerb` live-mutation gate), and one dialog family — the typed-result `DialogSpec<TResult>` absorbing the census `FormPlan`, plus the `PickerSpec` union collapsing file, folder, colour, font, message, and Rhino edit/number prompts into cases of one `Present` gate. Rhino-styled presentation is a policy row: `ChromeRow.Rhino` routes through the session operator's one styling seam (`SessionOp.StyleCase`) and its `SessionReceipt` rides the window receipt, so every raise and present projection composes `GhSession` dispatch receipts — content trees are `Eto/controls.md` `ControlSpec` values realized and harvested inside this page's one marshal window. Every context menu and raised window crosses as a `Lease<T>` whose aggregate owner releases recursively minted resources through `EtoDispatch`; modal dialogs and native pickers settle entirely inside `Lease<T>.Use` windows; every fallible step rides an `Op`-keyed `Fin<T>` rail.
 
 ## [01]-[INDEX]
 
@@ -12,7 +12,7 @@ The window, dialog, menu, and command spine of the Grasshopper boundary — one 
 ## [02]-[COMMANDS]
 
 - Owner: `CommandSpec` — one row per reusable action: `CommandTag` `[ValueObject<string>]` intent identity, menu text, optional bar text and tooltip, optional `Keys` chord, the enablement seed, the `CommandRole` row, the radio group tag, the toggle seed, and the `Fin`-railed effect. `CommandRole` `[SmartEnum<int>]` — `Push` (`Command`), `Toggle` (`CheckCommand` with seeded `Checked`), `Radio` (`RadioCommand` wired to its group head's `Controller`) — carries construction as one `[UseDelegateFromConstructor]` column, so a stateful or grouped verb is a row value, never a sibling spec family.
-- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, latency) into the deck's journal atom. `CommandDeck` is the sealed result — the tag-keyed command map plus the journal — and duplicate tags refuse at the seal.
+- Owner: `CommandForge.Mint` — the one deck fold: every spec mints its native command, radio rows resolve their group head through the fold's accumulating head map (the first row of a group becomes the controller), and every `Executed` raise runs the effect under `Op.Catch`, stamping a `CommandEcho` (tag, settlement, latency) from one kernel `MonotonicTimeline` into the deck's journal atom. `CommandDeck` is the sealed result — the tag-keyed command map plus the journal — and duplicate tags refuse at the seal.
 - Entry: `CommandForge.Mint(Seq<CommandSpec> specs, Op? key = null)` → `Fin<CommandDeck>`; `CommandDeck.Verb(CommandTag)` → `Option<Command>`.
 - Law: an effect never throws into the host event pump — the `Executed` handler is the one exception funnel, a faulted effect stamps an unsettled echo and the fault rides the journal, so palette ranking, usage attribution, and failure surfacing are folds over one echo stream.
 - Law: the tag is triple-duty — menu identity, journal identity, and the key every menu node and toolbar row resolves against — so a literal command name at a consuming surface is a bypassed row field.
@@ -65,8 +65,9 @@ public static class CommandForge {
     public static Fin<CommandDeck> Mint(Seq<CommandSpec> specs, Op? key = null) {
         Op op = key.OrDefault();
         Atom<Seq<CommandEcho>> journal = Atom(Seq<CommandEcho>());
-        return Optional(specs).ToFin(op.InvalidInput())
-            .Bind(rows => rows.Fold(
+        return from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: op)
+               from rows in Optional(specs).ToFin(op.InvalidInput())
+               from state in rows.Fold(
                 Fin.Succ((Verbs: HashMap<CommandTag, Command>(), Heads: HashMap<CommandTag, RadioCommand>())),
                 (acc, spec) => acc.Bind(state => state.Verbs.ContainsKey(spec.Tag)
                     ? Fin.Fail<(HashMap<CommandTag, Command>, HashMap<CommandTag, RadioCommand>)>(op.InvalidInput())
@@ -79,19 +80,24 @@ public static class CommandForge {
                         spec.Hint.Iter(hint => verb.ToolTip = hint);
                         spec.Chord.Iter(chord => verb.Shortcut = chord);
                         verb.Executed += (_, _) => {
-                            long entered = Environment.TickCount64;
+                            Fin<MonotonicStamp> entered = timeline.Capture(key: op);
                             bool settled = op.Catch(body: spec.Effect).IsSucc;
+                            TimeSpan latency = (
+                                from start in entered
+                                from end in timeline.Capture(key: op)
+                                from elapsed in timeline.Elapsed(start: start, end: end, key: op)
+                                select elapsed).IfFail(TimeSpan.Zero);
                             ignore(journal.Swap(held => held.Add(new CommandEcho(
                                 Tag: spec.Tag, Settled: settled,
-                                Latency: TimeSpan.FromMilliseconds(value: Environment.TickCount64 - entered)))));
+                                Latency: latency)));
                         };
                         return Fin.Succ((
                             state.Verbs.Add(spec.Tag, verb),
                             verb is RadioCommand radio && state.Heads.Find(anchor).IsNone
                                 ? state.Heads.Add(anchor, radio)
                                 : state.Heads));
-                    }))))
-            .Map(state => new CommandDeck(Verbs: state.Verbs, Journal: journal));
+                    })))
+               select new CommandDeck(Verbs: state.Verbs, Journal: journal);
     }
 }
 ```
@@ -99,10 +105,10 @@ public static class CommandForge {
 ## [03]-[MENUS]
 
 - Owner: `MenuNode` `[Union]` — the recursive menu vocabulary: `VerbCase(CommandTag)` resolves through the deck onto `Command.CreateMenuItem()`, `StubCase(string, Seq<MenuNode>)` folds children into a `SubMenuItem`, `RuleCase` mints the `SeparatorMenuItem`. One tree value describes any context or nested menu; the census parallel toolbar/menu/panel projection families collapse onto this node algebra plus the deck.
-- Owner: `MenuForge` — three gates: `Context` builds a `ContextMenu` from a node forest (dispatch-free construction inside the caller's window), `Attach` mounts a built menu as a control's `ContextMenu` in one marshal, `Popup` shows it at a canvas point in one marshal. An unresolvable verb tag is a typed `Fault.MissingContext` at build, never a blank menu entry at show.
-- Entry: `MenuForge.Context(Seq<MenuNode> nodes, CommandDeck deck, Op? key = null)` → `Fin<ContextMenu>`; `Attach(Control host, ContextMenu menu, Op? key = null)` → `Fin<Unit>`; `Popup(ContextMenu menu, Control anchor, PointF at, Op? key = null)` → `Fin<Unit>`.
+- Owner: `MenuForge` — three gates: `Context` recursively acquires the full menu forest inside one marshal and returns `Lease<ContextMenu>.Owned`; the concrete `OwnedContextMenu` retains a lease for every minted `MenuItem`, recursively detaches every submenu, and releases all widgets on the UI thread. `Attach` mounts the live leased menu as a control's `ContextMenu`, and `Popup` shows it at a canvas point. An unresolvable verb tag or later branch fault unwinds every earlier branch before returning the typed failure.
+- Entry: `MenuForge.Context(Seq<MenuNode> nodes, CommandDeck deck, Op? key = null)` → `Fin<Lease<ContextMenu>>`; `Attach(Control host, Lease<ContextMenu> menu, Op? key = null)` → `Fin<Unit>`; `Popup(Lease<ContextMenu> menu, Control anchor, PointF at, Op? key = null)` → `Fin<Unit>`.
 - Law: menu items are projections of deck rows — checked state, enablement, and shortcut display all ride the native command the item was created from, so a menu never carries state beside its command and a toggle flip needs zero menu code.
-- Boundary: menu lifecycle observation (`Opening`/`Closing`/`Closed`) is `Shell/events.md`'s fact algebra over the built menu; the GH2 toolbar and input-panel chrome project the same deck through the shell chrome owner, never a second command registry.
+- Boundary: menu lifecycle observation (`Opening`/`Closing`/`Closed`) is `Shell/events.md`'s fact algebra inside the menu lease window; `NoticeSurface.Tray` consumes the same lease evidence when a tray retains the menu. The GH2 toolbar and input-panel chrome project the deck through the shell chrome owner, never a second command registry.
 - Packages: Eto (`ContextMenu.Items`/`Show`, `Command.CreateMenuItem`, `SubMenuItem`, `SeparatorMenuItem`, `MenuItem.Text`, `Control.ContextMenu`), `Rasm.Domain`, `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new entry kind is one `MenuNode` case plus one build arm; the three gates never widen.
 
@@ -121,58 +127,157 @@ public abstract partial record MenuNode {
     public sealed record RuleCase : MenuNode;
 }
 
+internal sealed record MenuBranch(MenuItem Root, Seq<Lease<MenuItem>> Owned);
+
+internal static class EtoLifetime {
+    internal static Fin<Unit> Preserve(Fin<Unit> first, Fin<Unit> next) => first.IsFail ? first : next;
+
+    internal static Fin<Unit> Release<T>(Seq<Lease<T>> resources, Op key) where T : class, IDisposable =>
+        resources.Reverse().Aggregate(
+            seed: Fin.Succ(unit),
+            func: (first, resource) => Preserve(
+                first: first,
+                next: key.Catch(body: () => Fin.Succ(resource.Dispose()))));
+}
+
+internal sealed class OwnedContextMenu(Seq<MenuBranch> branches) : ContextMenu {
+    private readonly Seq<MenuBranch> branches = branches;
+    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
+    private int releaseState;
+
+    internal Option<Error> LastFault => lastFault.Value;
+
+    protected override void Dispose(bool disposing) {
+        if (!disposing) { base.Dispose(disposing: false); return; }
+        if (Interlocked.Exchange(location1: ref releaseState, value: 1) != 0) return;
+        Op op = Op.Of(name: nameof(OwnedContextMenu));
+        Fin<Unit> released = EtoDispatch.Run(body: () => {
+            Fin<Unit> detached = op.Catch(body: () => Fin.Succ(Op.Side(action: () => {
+                Items.Clear();
+                branches.Iter(branch => Detach(item: branch.Root));
+            })));
+            Fin<Unit> items = EtoLifetime.Release(resources: branches.Bind(static branch => branch.Owned), key: op);
+            Fin<Unit> context = op.Catch(body: () => Fin.Succ(DisposeNative()));
+            return EtoLifetime.Preserve(first: EtoLifetime.Preserve(first: detached, next: items), next: context);
+        }, key: op);
+        released.Match(
+            Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
+            Fail: error => {
+                ignore(lastFault.Swap(_ => Some(error)));
+                Volatile.Write(location: ref releaseState, value: 0);
+                return unit;
+            });
+    }
+
+    private Unit DisposeNative() { base.Dispose(disposing: true); return unit; }
+
+    internal static void Detach(MenuItem item) {
+        if (item is not SubMenuItem branch) return;
+        Seq<MenuItem> children = toSeq(branch.Items);
+        branch.Items.Clear();
+        children.Iter(Detach);
+    }
+}
+
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class MenuForge {
-    public static Fin<ContextMenu> Context(Seq<MenuNode> nodes, CommandDeck deck, Op? key = null) {
+    public static Fin<Lease<ContextMenu>> Context(Seq<MenuNode> nodes, CommandDeck deck, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in Optional(deck).ToFin(op.InvalidInput())
-               from items in nodes.TraverseM(node => Built(node: node, deck: valid, op: op)).As()
-               from menu in op.Catch(body: () => {
-                   ContextMenu built = new();
-                   items.Iter(item => built.Items.Add(item));
-                   return Fin.Succ(built);
-               })
+               from menu in EtoDispatch.Run(body: () => Build(nodes: nodes, deck: valid, op: op).Bind(branches => Acquire(branches: branches, op: op)), key: op)
                select menu;
     }
 
-    public static Fin<Unit> Attach(Control host, ContextMenu menu, Op? key = null) {
+    public static Fin<Unit> Attach(Control host, Lease<ContextMenu> menu, Op? key = null) {
         Op op = key.OrDefault();
         return from target in Optional(host).ToFin(op.InvalidInput())
                from built in Optional(menu).ToFin(op.InvalidInput())
-               from mounted in EtoDispatch.Run(body: () => op.Catch(body: () => Fin.Succ(Op.Side(action: () => target.ContextMenu = built))), key: op)
+               from mounted in EtoDispatch.Run(body: () => op.Catch(body: () => Fin.Succ(Op.Side(action: () => target.ContextMenu = built.Resource))), key: op)
                select mounted;
     }
 
-    public static Fin<Unit> Popup(ContextMenu menu, Control anchor, PointF at, Op? key = null) {
+    public static Fin<Unit> Popup(Lease<ContextMenu> menu, Control anchor, PointF at, Op? key = null) {
         Op op = key.OrDefault();
         return from built in Optional(menu).ToFin(op.InvalidInput())
                from host in Optional(anchor).ToFin(op.InvalidInput())
-               from shown in EtoDispatch.Run(body: () => op.Catch(body: () => Fin.Succ(Op.Side(action: () => built.Show(host, at)))), key: op)
+               from shown in EtoDispatch.Run(body: () => op.Catch(body: () => Fin.Succ(Op.Side(action: () => built.Resource.Show(host, at)))), key: op)
                select shown;
     }
 
-    private static Fin<MenuItem> Built(MenuNode node, CommandDeck deck, Op op) => node.Switch(
+    private static Fin<Seq<MenuBranch>> Build(Seq<MenuNode> nodes, CommandDeck deck, Op op) => nodes.Fold(
+        Fin.Succ(Seq<MenuBranch>()),
+        (acc, node) => acc.Bind(held => Built(node: node, deck: deck, op: op).Match(
+            Succ: branch => Fin.Succ(held.Add(branch)),
+            Fail: error => {
+                ignore(Release(branches: held, op: op));
+                return Fin.Fail<Seq<MenuBranch>>(error: error);
+            })));
+
+    private static Fin<MenuBranch> Built(MenuNode node, CommandDeck deck, Op op) => node.Switch(
         state: (Deck: deck, Key: op),
         verbCase: static (s, c) => s.Deck.Verb(c.Tag).ToFin(s.Key.MissingContext())
-            .Bind(verb => s.Key.Catch(body: () => Fin.Succ(verb.CreateMenuItem()))),
-        stubCase: static (s, c) => c.Items.TraverseM(child => Built(node: child, deck: s.Deck, op: s.Key)).As()
-            .Map(children => {
-                SubMenuItem stub = new() { Text = c.Text };
-                children.Iter(child => stub.Items.Add(child));
-                return (MenuItem)stub;
-            }),
-        ruleCase: static (s, _) => Fin.Succ((MenuItem)new SeparatorMenuItem()));
+            .Bind(verb => s.Key.Catch(body: () => {
+                MenuItem item = verb.CreateMenuItem();
+                return Fin.Succ(new MenuBranch(Root: item, Owned: Seq1((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: item))));
+            })),
+        stubCase: static (s, c) => Build(nodes: c.Items, deck: s.Deck, op: s.Key).Bind(children => Stub(text: c.Text, children: children, op: s.Key)),
+        ruleCase: static (s, _) => s.Key.Catch(body: () => {
+            MenuItem item = new SeparatorMenuItem();
+            return Fin.Succ(new MenuBranch(Root: item, Owned: Seq1((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: item))));
+        }));
+
+    private static Fin<MenuBranch> Stub(string text, Seq<MenuBranch> children, Op op) {
+        SubMenuItem? stub = null;
+        Fin<MenuBranch> built = op.Catch(body: () => {
+            stub = new SubMenuItem();
+            stub.Text = text;
+            children.Iter(child => stub.Items.Add(child.Root));
+            Seq<Lease<MenuItem>> owned = children.Bind(static child => child.Owned)
+                .Add((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: stub));
+            return Fin.Succ(new MenuBranch(Root: stub, Owned: owned));
+        });
+        built.IfFail(_ => {
+            Seq<Lease<MenuItem>> owned = children.Bind(static child => child.Owned);
+            if (stub is null) ignore(Release(branches: children, op: op));
+            else ignore(Release(
+                branches: Seq1(new MenuBranch(
+                    Root: stub,
+                    Owned: owned.Add((Lease<MenuItem>)new Lease<MenuItem>.Owned(Value: stub)))),
+                op: op));
+        });
+        return built;
+    }
+
+    private static Fin<Lease<ContextMenu>> Acquire(Seq<MenuBranch> branches, Op op) {
+        OwnedContextMenu? menu = null;
+        Fin<Lease<ContextMenu>> acquired = op.Catch(body: () => {
+            menu = new OwnedContextMenu(branches: branches);
+            branches.Iter(branch => menu.Items.Add(branch.Root));
+            return Fin.Succ((Lease<ContextMenu>)new Lease<ContextMenu>.Owned(Value: menu));
+        });
+        acquired.IfFail(_ => {
+            if (menu is not null) menu.Dispose();
+            else ignore(Release(branches: branches, op: op));
+        });
+        return acquired;
+    }
+
+    private static Fin<Unit> Release(Seq<MenuBranch> branches, Op op) {
+        Fin<Unit> detached = op.Catch(body: () => Fin.Succ(Op.Side(action: () => branches.Iter(branch => OwnedContextMenu.Detach(item: branch.Root)))));
+        Fin<Unit> released = EtoLifetime.Release(resources: branches.Bind(static branch => branch.Owned), key: op);
+        return EtoLifetime.Preserve(first: detached, next: released);
+    }
 }
 ```
 
 ## [04]-[WINDOWS]
 
 - Owner: `WindowSpec` — one row per modeless surface: title, `ControlSpec` content, `WindowRole` row, `WindowChrome` posture, `ChromeRow` skin, activation bit. `WindowRole` `[SmartEnum<int>]` — `Shell` (`Form`) and `Float` (`FloatingForm`, the always-on-top palette) — is the modality axis; `WindowChrome` carries the full window posture the host admits as one record: origin, extent, resizable/minimizable/maximizable/closeable posture via `WindowStyle` and the three bits, topmost, taskbar presence, opacity, `WindowState`, badge icon, and owner. `ChromeRow` `[SmartEnum<int>]` internalizes presentation styling — `Rhino` (key 0) routes the surface through `GhSession.Apply(SessionOp.StyleCase(...))`, the boundary's one styling seam, and carries the `SessionReceipt` back; `Bare` (key 1) skips it — so Rhino-native appearance is a data row on the spec, never a call-site verb.
-- Owner: `WindowHost.Raise` — the one raise marshal: realize content, mint the role's form, dress the chrome, skin through the session seam, assign content, show. `WindowReceipt` is the settlement evidence — the raising `Op`, the `Lease<Form>.Owned` surface, the realized `ControlPlant` (so the caller harvests fields and fuses bindings without re-walking the tree), the composed `Option<SessionReceipt>`, and the marshal latency. `WindowVerb` `[Union]` is the live-window mutation vocabulary over the raised surface — `FrontCase` (`Window.BringToFront`), `RetitleCase` (`Window.Title`), `RedressCase` (the full `WindowChrome` re-dress) — behind one marshalled `Steer` gate, so a raised palette re-fronts, retitles, or re-postures as data and a host member never appears at a consumer.
-- Entry: `WindowHost.Raise(WindowSpec spec, Op? key = null)` → `Fin<WindowReceipt>`; `WindowHost.Steer(Form shell, WindowVerb verb, Op? key = null)` → `Fin<Unit>`.
+- Owner: `WindowHost.Raise` — the one raise marshal: realize content, mint the role's form, acquire `WindowMount`, dress the chrome, skin through the session seam, assign content, and show. `WindowMount` owns both `Lease<Form>` and the realized root's `Lease<Control>`, retains the `ControlPlant`, and tears down through one idempotent UI-affine arrow that detaches content, enters `SessionOp.ReleaseCase`, and disposes the realized root. `WindowReceipt` carries `Lease<WindowMount>.Owned`, the composed `Option<SessionReceipt>`, and marshal latency; `Surface` and `Plant` project through the live mount. `WindowVerb` `[Union]` is the live-window mutation vocabulary over the leased mount — `FrontCase`, `RetitleCase`, and `RedressCase` — behind one marshalled `Steer` gate.
+- Entry: `WindowHost.Raise(WindowSpec spec, Op? key = null)` → `Fin<WindowReceipt>`; `WindowHost.Steer(Lease<WindowMount> window, WindowVerb verb, Op? key = null)` → `Fin<Unit>`.
 - Law: the whole raise settles inside ONE `EtoDispatch` marshal — realize, dress, skin, and show share the window; the nested session marshal short-circuits on-thread, so composing `GhSession` inside the raise costs no second hop.
-- Law: teardown is the session's — the receipt's lease feeds `SessionOp.ReleaseCase`, so `Form.Close`/`Dispose` never appear at a consumer and a raised window dies through the same receipted gate every session command settles through.
+- Law: ownership transfers only after the complete raise settles. A failure during realization, role minting, dressing, styling, assignment, or showing releases every acquired form/root before the fault returns; a successful receipt transfers the mount lease, whose inverse feeds the form lease through `SessionOp.ReleaseCase`. `Form.Close`/`Dispose` and content disposal never appear at a consumer.
 - Boundary: window lifecycle facts (`Closing`/`Closed`/`WindowStateChanged`/`LogicalPixelSizeChanged`) are `Shell/events.md` source rows on the raised form; per-display placement math reads `Eto/runtime.md`'s `Display.Resolve` facts; `Window.SetOwner` on the chrome pins z-order to a host window.
 - Packages: Eto (`Form.Show`/`ShowActivated`, `FloatingForm`, `Window.Title`/`Location`/`Opacity`/`Resizable`/`Minimizable`/`Maximizable`/`Topmost`/`ShowInTaskbar`/`WindowState`/`WindowStyle`/`Icon`/`SetOwner`/`BringToFront`, `Control.Size`, `Panel.Content`), `Rasm.Domain` (`Op`, `Lease<T>`, `ValidityClaim`), `Shell/session.md` (`GhSession`, `SessionOp`, `SessionReceipt`), `Eto/controls.md` (`ControlForge`, `ControlSpec`, `ControlPlant`), `Eto/runtime.md` (`EtoDispatch`).
 - Growth: a new window modality is one `WindowRole` row; a new posture fact is one `WindowChrome` field; a new live verb is one `WindowVerb` case plus one `Steer` arm; the two gates never widen.
@@ -187,9 +292,9 @@ namespace Rasm.Grasshopper.Eto;
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class WindowRole {
-    public static readonly WindowRole Shell = new(key: 0, mint: static title => new Form { Title = title });
-    public static readonly WindowRole Float = new(key: 1, mint: static title => new FloatingForm { Title = title });
-    [UseDelegateFromConstructor] internal partial Form Mint(string title);
+    public static readonly WindowRole Shell = new(key: 0, mint: static () => new Form());
+    public static readonly WindowRole Float = new(key: 1, mint: static () => new FloatingForm());
+    [UseDelegateFromConstructor] internal partial Form Mint();
 }
 
 [SmartEnum<int>]
@@ -223,8 +328,52 @@ public sealed record WindowSpec(
     string Title, ControlSpec Content, WindowRole Role, WindowChrome Chrome, ChromeRow Skin, bool Activated);
 
 public sealed record WindowReceipt(
-    Op Operation, Lease<Form> Surface, ControlPlant Plant, Option<SessionReceipt> Styled, TimeSpan Latency) : IValidityEvidence {
+    Op Operation, Lease<WindowMount> Mount, Option<SessionReceipt> Styled, TimeSpan Latency) : IValidityEvidence {
+    public Form Surface => Mount.Resource.Surface;
+    public ControlPlant Plant => Mount.Resource.Plant;
     public bool IsValid => ValidityClaim.All(ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+public sealed class WindowMount : IDisposable {
+    private readonly Lease<Form> surface;
+    private readonly Lease<Control> content;
+    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
+    private int releaseState;
+
+    internal WindowMount(Form surface, ControlPlant plant) {
+        this.surface = new Lease<Form>.Owned(Value: surface);
+        content = new Lease<Control>.Owned(Value: plant.Root);
+        Plant = plant;
+    }
+
+    public Form Surface => surface.Resource;
+    public ControlPlant Plant { get; }
+    public Option<Error> LastFault => lastFault.Value;
+
+    public void Dispose() => ignore(Release(key: Op.Of(name: nameof(WindowMount))));
+
+    private Fin<Unit> Release(Op key) {
+        if (Interlocked.Exchange(location1: ref releaseState, value: 1) != 0) return Fin.Succ(unit);
+        Fin<Unit> released = EtoDispatch.Run(body: () => {
+            Fin<Unit> detached = key.Catch(body: () => Fin.Succ(Op.Side(action: () => {
+                if (ReferenceEquals(objA: Surface.Content, objB: Plant.Root)) Surface.Content = null;
+            })));
+            Fin<Unit> closed = GhSession.Apply(op: new SessionOp.ReleaseCase(Surface: surface), key: key).Map(_ => unit);
+            Fin<Unit> disposed = key.Catch(body: () => Fin.Succ(content.Dispose()));
+            return EtoLifetime.Preserve(
+                first: EtoLifetime.Preserve(first: detached, next: closed),
+                next: disposed);
+        }, key: key);
+        released.Match(
+            Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
+            Fail: error => {
+                ignore(lastFault.Swap(_ => Some(error)));
+                Volatile.Write(location: ref releaseState, value: 0);
+                return unit;
+            });
+        return released;
+    }
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -232,27 +381,18 @@ public sealed record WindowReceipt(
 public static partial class WindowHost {
     public static Fin<WindowReceipt> Raise(WindowSpec spec, Op? key = null) {
         Op op = key.OrDefault();
-        long entered = Environment.TickCount64;
-        return Optional(spec).ToFin(op.InvalidInput()).Bind(valid => EtoDispatch.Run(body: () =>
-            from plant in ControlForge.Realize(spec: valid.Content, key: op)
-            from shell in op.Catch(body: () => Fin.Succ(Dressed(shell: valid.Role.Mint(title: valid.Title), chrome: valid.Chrome)))
-            from filled in op.Catch(body: () => Fin.Succ(Op.Side(action: () => {
-                shell.ShowActivated = valid.Activated;
-                shell.Content = plant.Root;
-            })))
-            from styled in valid.Skin.Dress(surface: shell, key: op)
-            from shown in op.Catch(body: () => Fin.Succ(Op.Side(action: shell.Show)))
-            select new WindowReceipt(
-                Operation: op,
-                Surface: (Lease<Form>)new Lease<Form>.Owned(Value: shell),
-                Plant: plant,
-                Styled: styled,
-                Latency: TimeSpan.FromMilliseconds(value: Environment.TickCount64 - entered)), key: op));
+        return from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: op)
+               from entered in timeline.Capture(key: op)
+               from valid in Optional(spec).ToFin(op.InvalidInput())
+               from receipt in EtoDispatch.Run(
+                   body: () => Acquired(spec: valid, timeline: timeline, entered: entered, op: op), key: op)
+               select receipt;
     }
 
-    public static Fin<Unit> Steer(Form shell, WindowVerb verb, Op? key = null) {
+    public static Fin<Unit> Steer(Lease<WindowMount> window, WindowVerb verb, Op? key = null) {
         Op op = key.OrDefault();
-        return from target in Optional(shell).ToFin(op.InvalidInput())
+        return from live in Optional(window).ToFin(op.InvalidInput())
+               let target = live.Resource.Surface
                from valid in Optional(verb).ToFin(op.InvalidInput())
                from settled in EtoDispatch.Run(body: () => valid.Switch(
                    state: (Shell: target, Key: op),
@@ -260,6 +400,44 @@ public static partial class WindowHost {
                    retitleCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => s.Shell.Title = c.Title))),
                    redressCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ(Op.Side(action: () => ignore(Dressed(shell: s.Shell, chrome: c.Chrome)))))), key: op)
                select settled;
+    }
+
+    private static Fin<WindowReceipt> Acquired(WindowSpec spec, MonotonicTimeline timeline, MonotonicStamp entered, Op op) {
+        ControlPlant? plant = null;
+        Form? shell = null;
+        WindowMount? mount = null;
+        Fin<WindowReceipt> acquired =
+            from realized in ControlForge.Realize(spec: spec.Content, key: op).Map(value => { plant = value; return value; })
+            from minted in op.Catch(body: () => Fin.Succ(spec.Role.Mint())).Map(value => { shell = value; return value; })
+            from titled in op.Catch(body: () => Fin.Succ(Op.Side(action: () => minted.Title = spec.Title)))
+            from owned in op.Catch(body: () => {
+                WindowMount active = new(surface: minted, plant: realized);
+                mount = active;
+                return Fin.Succ(active);
+            })
+            from dressed in op.Catch(body: () => Fin.Succ(Dressed(shell: minted, chrome: spec.Chrome)))
+            from filled in op.Catch(body: () => Fin.Succ(Op.Side(action: () => {
+                dressed.ShowActivated = spec.Activated;
+                dressed.Content = realized.Root;
+            })))
+            from styled in spec.Skin.Dress(surface: dressed, key: op)
+            from shown in op.Catch(body: () => Fin.Succ(Op.Side(action: dressed.Show)))
+            from ended in timeline.Capture(key: op)
+            from latency in timeline.Elapsed(start: entered, end: ended, key: op)
+            select new WindowReceipt(
+                Operation: op,
+                Mount: (Lease<WindowMount>)new Lease<WindowMount>.Owned(Value: owned),
+                Styled: styled,
+                Latency: latency);
+        acquired.IfFail(_ => {
+            if (mount is not null) mount.Dispose();
+            else {
+                if (shell is not null) ignore(GhSession.Apply(
+                    op: new SessionOp.ReleaseCase(Surface: new Lease<Form>.Owned(Value: shell)), key: op));
+                if (plant is not null) ignore(op.Catch(body: () => Fin.Succ(new Lease<Control>.Owned(Value: plant.Root).Dispose())));
+            }
+        });
+        return acquired;
     }
 
     private static Form Dressed(Form shell, WindowChrome chrome) {
@@ -282,10 +460,10 @@ public static partial class WindowHost {
 
 ## [05]-[DIALOGS]
 
-- Owner: `DialogSpec<TResult>` — the typed-result modal row absorbing the census `FormPlan`: title, `ControlSpec` content, accept/cancel captions, `ChromeRow` skin, and the `Settle` fold from the harvested `FieldReport` to the typed result. The modal fold realizes the content, wires the accept button through harvest-then-settle — an admission refusal renders as a host warning box and the dialog stays open, exactly the census contract — wires cancel to a `None` close, styles through the session seam, and runs `ShowModal` against the optional anchor. `Dialog<Option<TResult>>` carries the outcome, so dismissal and settlement are one `Option`, never a sentinel.
+- Owner: `DialogSpec<TResult>` — the typed-result modal row absorbing the census `FormPlan`: title, `ControlSpec` content, accept/cancel captions, `ChromeRow` skin, and the `Settle` fold from the harvested `FieldReport` to the typed result. The modal fold realizes the content, then nests the realized root, accept/cancel buttons, layout, and `Dialog<Option<TResult>>` inside owned `Lease<T>.Use` windows. Harvest-then-settle runs inside the callback's `Op.Catch`; an admission refusal renders as a host warning and keeps the dialog open. Dismissal and settlement are one `Option`, never a sentinel.
 - Owner: `PickerSpec` `[Union]` — the native prompt family as cases of one gate: `OpenCase`/`SaveCase` (file dialogs with `FilterPlan` rows onto `FileFilter`), `FolderCase`, `ShadeCase` (`ColorDialog` honoring `SupportsAllowAlpha`), `GlyphCase` (`FontDialog`), `AskCase` (`MessageBox` verdict prompts), and the Rhino-styled fast lane `EditCase`/`NumberCase` over `Rhino.UI.Dialogs.ShowEditBox`/`ShowNumberBox`. `PickerResult` `[Union]` mirrors the family — paths, path, colour, font, verdict, text, number, dismissed — so every prompt settles typed through one `Present` gate and the census per-picker method family is deleted.
 - Entry: `WindowHost.Run<TResult>(DialogSpec<TResult> spec, Option<Control> anchor, Op? key = null)` → `Fin<Option<TResult>>`; `WindowHost.Present(PickerSpec spec, Option<Control> anchor, Op? key = null)` → `Fin<PickerResult>`.
-- Law: each gate is ONE marshal — construction, styling, the modal loop, and result capture share the window, and the dialog disposes inside it; a dialog handle never escapes, which is why the typed result is the only egress.
+- Law: each gate is ONE marshal — construction, styling, the modal loop, result capture, and reverse-order lease release share the window. Every `CommonDialog`, modal widget, and page-owned control disposes before the marshal returns on success, dismissal, or failure; a dialog handle never escapes, so the typed result is the only egress.
 - Law: dismissal is data — `DialogResult.Ok` discriminates settlement, every non-`Ok` path folds to `DismissedCase`/`None`, and a thrown host dialog lands as a typed `Fault` through `Op.Catch`, never an exception into the modal pump.
 - Boundary: `Dialog.DisplayMode` and the positive/negative button collections stay host knobs a spec growth field claims when a consumer demands attached-sheet presentation; the presentation gate that queues or suppresses prompts by application phase is a shell concern composed over these gates.
 - Packages: Eto (`Dialog<T>.ShowModal`/`Result`/`DefaultButton`/`AbortButton`, `MessageBox.Show`, `MessageBoxButtons`, `MessageBoxType`, `OpenFileDialog.MultiSelect`/`Filenames`, `SaveFileDialog`, `FileDialog.FileName`/`Directory`/`Filters`/`CheckFileExists`, `FileFilter`, `SelectFolderDialog.Directory`/`Title`, `ColorDialog.Color`/`AllowAlpha`/`SupportsAllowAlpha`, `FontDialog.Font`, `DialogResult`, `Button.Click`, `DynamicLayout`), RhinoCommon (`Rhino.UI.Dialogs.ShowEditBox`/`ShowNumberBox`), `Rasm.Domain`, `Eto/controls.md` (`ControlForge`, `FieldReport`), `Eto/runtime.md` (`EtoDispatch`).
@@ -342,7 +520,8 @@ public static partial class WindowHost {
         return from valid in Optional(spec).ToFin(op.InvalidInput())
                from settle in Optional(valid.Settle).ToFin(op.InvalidInput())
                from outcome in EtoDispatch.Run(body: () =>
-                   ControlForge.Realize(spec: valid.Content, key: op).Bind(plant => Modal(spec: valid, plant: plant, anchor: anchor, op: op)), key: op)
+                   ControlForge.Realize(spec: valid.Content, key: op).Bind(plant => Modal(
+                       spec: valid, settle: settle, plant: plant, anchor: anchor, op: op)), key: op)
                select outcome;
     }
 
@@ -351,42 +530,58 @@ public static partial class WindowHost {
         return Optional(spec).ToFin(op.InvalidInput()).Bind(valid => EtoDispatch.Run(body: () => valid.Switch(
             state: (Anchor: anchor, Key: op),
             openCase: static (s, c) => s.Key.Catch(body: () => {
-                OpenFileDialog picker = new() { Title = c.Title, MultiSelect = c.Multi, CheckFileExists = true };
-                c.Home.Iter(home => picker.Directory = home);
-                c.Filters.Iter(filter => picker.Filters.Add(new FileFilter(filter.Label, [.. filter.Extensions])));
-                return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
-                    ? (PickerResult)new PickerResult.PathsCase(Values: toSeq(picker.Filenames))
-                    : new PickerResult.DismissedCase());
+                Lease<OpenFileDialog> owned = new Lease<OpenFileDialog>.Owned(Value: new OpenFileDialog());
+                return owned.Use(picker => {
+                    picker.Title = c.Title;
+                    picker.MultiSelect = c.Multi;
+                    picker.CheckFileExists = true;
+                    c.Home.Iter(home => picker.Directory = home);
+                    c.Filters.Iter(filter => picker.Filters.Add(new FileFilter(filter.Label, [.. filter.Extensions])));
+                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                        ? (PickerResult)new PickerResult.PathsCase(Values: toSeq(picker.Filenames))
+                        : new PickerResult.DismissedCase());
+                });
             }),
             saveCase: static (s, c) => s.Key.Catch(body: () => {
-                SaveFileDialog picker = new() { Title = c.Title };
-                c.Home.Iter(home => picker.Directory = home);
-                c.Seed.Iter(name => picker.FileName = name);
-                c.Filters.Iter(filter => picker.Filters.Add(new FileFilter(filter.Label, [.. filter.Extensions])));
-                return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
-                    ? (PickerResult)new PickerResult.PathCase(Value: picker.FileName)
-                    : new PickerResult.DismissedCase());
+                Lease<SaveFileDialog> owned = new Lease<SaveFileDialog>.Owned(Value: new SaveFileDialog());
+                return owned.Use(picker => {
+                    picker.Title = c.Title;
+                    c.Home.Iter(home => picker.Directory = home);
+                    c.Seed.Iter(name => picker.FileName = name);
+                    c.Filters.Iter(filter => picker.Filters.Add(new FileFilter(filter.Label, [.. filter.Extensions])));
+                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                        ? (PickerResult)new PickerResult.PathCase(Value: picker.FileName)
+                        : new PickerResult.DismissedCase());
+                });
             }),
             folderCase: static (s, c) => s.Key.Catch(body: () => {
-                SelectFolderDialog picker = new() { Title = c.Title };
-                c.Home.Iter(home => picker.Directory = home);
-                return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
-                    ? (PickerResult)new PickerResult.PathCase(Value: picker.Directory)
-                    : new PickerResult.DismissedCase());
+                Lease<SelectFolderDialog> owned = new Lease<SelectFolderDialog>.Owned(Value: new SelectFolderDialog());
+                return owned.Use(picker => {
+                    picker.Title = c.Title;
+                    c.Home.Iter(home => picker.Directory = home);
+                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                        ? (PickerResult)new PickerResult.PathCase(Value: picker.Directory)
+                        : new PickerResult.DismissedCase());
+                });
             }),
             shadeCase: static (s, c) => s.Key.Catch(body: () => {
-                using ColorDialog picker = new() { Color = c.Seed };
-                picker.AllowAlpha = c.Alpha && picker.SupportsAllowAlpha;
-                return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
-                    ? (PickerResult)new PickerResult.ShadeCase(Value: picker.Color)
-                    : new PickerResult.DismissedCase());
+                Lease<ColorDialog> owned = new Lease<ColorDialog>.Owned(Value: new ColorDialog());
+                return owned.Use(picker => {
+                    picker.Color = c.Seed;
+                    picker.AllowAlpha = c.Alpha && picker.SupportsAllowAlpha;
+                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                        ? (PickerResult)new PickerResult.ShadeCase(Value: picker.Color)
+                        : new PickerResult.DismissedCase());
+                });
             }),
             glyphCase: static (s, c) => s.Key.Catch(body: () => {
-                using FontDialog picker = new();
-                c.Seed.Iter(font => picker.Font = font);
-                return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
-                    ? (PickerResult)new PickerResult.GlyphCase(Value: picker.Font)
-                    : new PickerResult.DismissedCase());
+                Lease<FontDialog> owned = new Lease<FontDialog>.Owned(Value: new FontDialog());
+                return owned.Use(picker => {
+                    c.Seed.Iter(font => picker.Font = font);
+                    return Fin.Succ(picker.ShowDialog(Anchored(anchor: s.Anchor)) == DialogResult.Ok
+                        ? (PickerResult)new PickerResult.GlyphCase(Value: picker.Font)
+                        : new PickerResult.DismissedCase());
+                });
             }),
             askCase: static (s, c) => s.Key.Catch(body: () => Fin.Succ((PickerResult)new PickerResult.VerdictCase(
                 Value: MessageBox.Show(Anchored(anchor: s.Anchor), c.Text, c.Caption, c.Buttons, c.Kind)))),
@@ -405,25 +600,47 @@ public static partial class WindowHost {
             })), key: op));
     }
 
-    private static Fin<Option<TResult>> Modal<TResult>(DialogSpec<TResult> spec, ControlPlant plant, Option<Control> anchor, Op op) =>
-        op.Catch(body: () => {
-            using Dialog<Option<TResult>> dialog = new() { Title = spec.Title };
-            Button accept = new() { Text = spec.AcceptText };
-            Button cancel = new() { Text = spec.CancelText };
-            accept.Click += (_, _) => ControlForge.Harvest(plant: plant, key: op).Bind(spec.Settle).Match(
-                Succ: value => Op.Side(action: () => dialog.Close(Some(value))),
-                Fail: error => Op.Side(action: () => ignore(MessageBox.Show(dialog, error.Message, spec.Title, MessageBoxButtons.OK, MessageBoxType.Warning))));
-            cancel.Click += (_, _) => dialog.Close(Option<TResult>.None);
-            DynamicLayout layout = new() { Padding = DialogPad, Spacing = DialogGap };
-            layout.AddRow(plant.Root);
-            layout.AddRow(null, cancel, accept);
-            dialog.Content = layout;
-            dialog.DefaultButton = accept;
-            dialog.AbortButton = cancel;
-            return spec.Skin.Dress(surface: dialog, key: op).Bind(_ => op.Catch(body: () => Fin.Succ(anchor.Match(
-                Some: owner => dialog.ShowModal(owner),
-                None: dialog.ShowModal))));
+    private static Fin<Option<TResult>> Modal<TResult>(
+        DialogSpec<TResult> spec, Func<FieldReport, Fin<TResult>> settle, ControlPlant plant, Option<Control> anchor, Op op) => op.Catch(body: () => {
+        Lease<Control> root = new Lease<Control>.Owned(Value: plant.Root);
+        return root.Use(content => {
+            Lease<Button> accepted = new Lease<Button>.Owned(Value: new Button());
+            return accepted.Use(accept => {
+                accept.Text = spec.AcceptText;
+                Lease<Button> cancelled = new Lease<Button>.Owned(Value: new Button());
+                return cancelled.Use(cancel => {
+                    cancel.Text = spec.CancelText;
+                    Lease<DynamicLayout> arranged = new Lease<DynamicLayout>.Owned(Value: new DynamicLayout());
+                    return arranged.Use(layout => {
+                        layout.Padding = DialogPad;
+                        layout.Spacing = DialogGap;
+                        Lease<Dialog<Option<TResult>>> presented = new Lease<Dialog<Option<TResult>>>.Owned(
+                            Value: new Dialog<Option<TResult>>());
+                        return presented.Use(dialog => {
+                            dialog.Title = spec.Title;
+                            accept.Click += (_, _) => ignore(op.Catch(body: () => {
+                                ControlForge.Harvest(plant: plant, key: op).Bind(settle).Match(
+                                    Succ: value => Op.Side(action: () => dialog.Close(Some(value))),
+                                    Fail: error => Op.Side(action: () => ignore(MessageBox.Show(
+                                        dialog, error.Message, spec.Title, MessageBoxButtons.OK, MessageBoxType.Warning))));
+                                return Fin.Succ(unit);
+                            }));
+                            cancel.Click += (_, _) => ignore(op.Catch(body: () => Fin.Succ(Op.Side(
+                                action: () => dialog.Close(Option<TResult>.None)))));
+                            layout.AddRow(content);
+                            layout.AddRow(null, cancel, accept);
+                            dialog.Content = layout;
+                            dialog.DefaultButton = accept;
+                            dialog.AbortButton = cancel;
+                            return spec.Skin.Dress(surface: dialog, key: op).Bind(_ => op.Catch(body: () => Fin.Succ(anchor.Match(
+                                Some: owner => dialog.ShowModal(owner),
+                                None: dialog.ShowModal))));
+                        });
+                    });
+                });
+            });
         });
+    });
 
     private static Control Anchored(Option<Control> anchor) =>
         anchor.MatchUnsafe(Some: static owner => owner, None: static () => null!);
@@ -431,36 +648,80 @@ public static partial class WindowHost {
 ```
 
 ```mermaid
+---
+title: Eto window ownership flow
+config:
+  theme: base
+  look: classic
+  layout: elk
+  htmlLabels: true
+  markdownAutoWrap: false
+  deterministicIds: true
+  elk:
+    nodePlacementStrategy: NETWORK_SIMPLEX
+    considerModelOrder: NODES_AND_EDGES
+  flowchart:
+    curve: linear
+    defaultRenderer: elk
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    mainBkg: "#44475A"
+    nodeBorder: "#BD93F9"
+    lineColor: "#FF79C6"
+    arrowheadColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    titleColor: "#D6BCFA"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
-    accTitle: Window, dialog, menu, and command spine
-    accDescr: Command deck, menu forge, window raise, and modal and picker gates over the session and dispatch seams
-    Specs["CommandSpec rows"] --> Deck["CommandForge.Mint → CommandDeck + echo journal"]
-    Deck --> Menus["MenuForge.Context / Attach / Popup"]
-    WSpec["WindowSpec — role · chrome · skin"] --> RaiseGate["WindowHost.Raise → Fin&lt;WindowReceipt&gt;"]
-    Verbs["WindowVerb — front · retitle · redress"] --> SteerGate["WindowHost.Steer → Fin&lt;Unit&gt;"]
-    SteerGate --> Dispatch
-    DSpec["DialogSpec&lt;T&gt; · PickerSpec"] --> Gates["WindowHost.Run / Present"]
-    RaiseGate -->|"realize + harvest"| Forge["Eto/controls ControlForge"]
-    Gates --> Forge
-    RaiseGate -->|"ChromeRow.Rhino → SessionOp.StyleCase"| Session["Shell/session GhSession"]
-    Gates --> Session
-    RaiseGate -->|"Lease&lt;Form&gt; → ReleaseCase"| Session
-    RaiseGate --> Dispatch["Eto/runtime EtoDispatch — one marshal window"]
-    Gates --> Dispatch
+  accTitle: Eto window ownership flow
+  accDescr: Menu, window, and dialog gates acquire native resources inside one dispatcher and transfer or exhaust their leases at typed boundaries.
+  CommandDeck["CommandDeck"] -->|"projects command rows"| MenuGate["MenuForge.Context"]
+  MenuGate -->|"transfers ownership"| MenuLease["Lease&lt;ContextMenu&gt;"]
+  MenuLease -->|"serves live extent"| MenuUse["Attach · Popup · Tray"]
+  WindowSpec["WindowSpec"] -->|"drives acquisition"| RaiseGate["WindowHost.Raise"]
+  RaiseGate -->|"transfers ownership"| WindowLease["Lease&lt;WindowMount&gt;"]
+  WindowLease -->|"serves live extent"| WindowUse["Steer · lifecycle facts"]
+  DialogSpec["DialogSpec&lt;T&gt; · PickerSpec"] -->|"drives presentation"| DialogGate["WindowHost.Run · Present"]
+  DialogGate -->|"exhausts local leases"| Result["Option&lt;T&gt; · PickerResult"]
+  MenuGate -->|"marshals through"| Dispatch["EtoDispatch"]
+  RaiseGate -->|"marshals through"| Dispatch
+  DialogGate -->|"marshals through"| Dispatch
+  RaiseGate -->|"realizes content"| ControlForge["ControlForge"]
+  DialogGate -->|"realizes content"| ControlForge
+  RaiseGate -->|"styles and releases"| Session["GhSession"]
+  DialogGate -->|"styles through"| Session
+  classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+  classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+  classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+  classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+  classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+  class CommandDeck,WindowSpec,DialogSpec data
+  class MenuGate,RaiseGate,DialogGate primary
+  class MenuLease,WindowLease success
+  class MenuUse,WindowUse,Result boundary
+  class Dispatch,ControlForge,Session external
 ```
 
 ## [06]-[DENSITY_BAR]
 
 One owner per axis; capability lands as a case, a row, or a field — never a sibling surface.
 
-| [INDEX] | [CONCERN]          | [OWNER]                                      | [RAIL]                                | [CASES] |
-| :-----: | :----------------- | :------------------------------------------- | :------------------------------------ | :-----: |
-|  [01]   | reusable actions   | `CommandTag` + `CommandRole` + `CommandSpec` | `Mint → Fin<CommandDeck>`             |    3    |
-|  [02]   | execution evidence | `CommandEcho` + `CommandDeck`                | journal fold                          |    1    |
-|  [03]   | menus              | `MenuNode` + `MenuForge`                     | `Context`/`Attach`/`Popup` → `Fin<T>` |    3    |
-|  [04]   | windows            | `WindowRole` + `WindowChrome` + `WindowSpec` | `Raise → Fin<WindowReceipt>`          |   2+2   |
-|  [05]   | live window verbs  | `WindowVerb`                                 | `Steer → Fin<Unit>`                   |    3    |
-|  [06]   | typed modals       | `DialogSpec<TResult>`                        | `Run → Fin<Option<TResult>>`          |    1    |
-|  [07]   | native prompts     | `PickerSpec` + `PickerResult`                | `Present → Fin<PickerResult>`         |   8+8   |
+| [INDEX] | [CONCERN]          | [OWNER]                                      | [RAIL]                              | [CASES] |
+| :-----: | :----------------- | :------------------------------------------- | :---------------------------------- | :-----: |
+|  [01]   | reusable actions   | `CommandTag` + `CommandRole` + `CommandSpec` | `Mint → Fin<CommandDeck>`           |    3    |
+|  [02]   | execution evidence | `CommandEcho` + `CommandDeck`                | journal fold                        |    1    |
+|  [03]   | menus              | `MenuNode` + `MenuForge`                     | `Context → Fin<Lease<ContextMenu>>` |    3    |
+|  [04]   | windows            | `WindowRole` + `WindowChrome` + `WindowSpec` | `Raise → Fin<WindowReceipt>`        |   2+2   |
+|  [05]   | live window verbs  | `WindowVerb`                                 | `Steer → Fin<Unit>`                 |    3    |
+|  [06]   | typed modals       | `DialogSpec<TResult>`                        | `Run → Fin<Option<TResult>>`        |    1    |
+|  [07]   | native prompts     | `PickerSpec` + `PickerResult`                | `Present → Fin<PickerResult>`       |   8+8   |
 
 `Op`, `Fault`, `Lease<T>`, `EtoDispatch`, `ControlForge`, `GhSession`, and `SessionOp.StyleCase` are composed upstream owners; every named host member is source-verified against the installed Eto surface or the census-era compiled source. `Dialog.DisplayMode` and the positive/negative button collections are the page's declared growth fields.

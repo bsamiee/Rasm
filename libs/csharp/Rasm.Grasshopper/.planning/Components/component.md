@@ -1,24 +1,21 @@
 # [RASM_GRASSHOPPER_COMPONENT]
 
-`ComponentSpec` is the one component declaration: identity, io id, pin roster, execution, lifecycle, threading, pin-visibility flexing, bake capability, fleeting persistence, panel and icon projection, and canvas chrome ride one record, and every consumer — registration, execution, catalogue validation — reads the same declaration. `Execution` discriminates single, batch, aggregate, and heterogeneous input consumption by the step's own payload shape, with case-versus-depth-and-presence coherence proven at admission. `SpecComponent` is the single `ModularComponent` boundary projection over the verified modular-adder lifecycle, and `PluginSpec`/`SpecPlugin` carry registration as rows the catalogue audit consumes unchanged.
+`ComponentSpec` is the component declaration consumed unchanged by construction, pin registration, execution, lifecycle, chrome, and catalogue admission. `Execution` owns pin-topology consumption; `IterationPolicy` independently owns the host iteration-array override. `SpecComponent<TSelf>` binds the declaration through a static-abstract self contract before the host base constructor invokes pin registration, and every process path seals partial emission evidence into one run receipt.
 
 ## [01]-[INDEX]
 
-- [02]-[EXECUTION]: the `Execution` topology union, the `ProcessScope` seam value, and the receipt-sealing run fold
-- [03]-[SPEC]: the `ComponentSpec` declaration, its policy slots, and the accumulating admission
-- [04]-[HOST_PROJECTION]: the `SpecComponent` boundary adapter over the `ModularComponent` lifecycle
-- [05]-[PLUGIN]: registration rows, the `SpecPlugin` projection, and the catalogue audit
-- [06]-[RESEARCH]
+- [02]-[EXECUTION]: topology dispatch, output declarations, process scope, and partial-emission receipts
+- [03]-[SPEC]: the component declaration, lifecycle policy, and accumulating admission
+- [04]-[HOST_PROJECTION]: the constructor-safe generic host adapter and run ledger
+- [05]-[PLUGIN]: plugin declarations, public load ingress, and catalogue admission
 
 ## [02]-[EXECUTION]
 
-- Owner: `Execution` is the closed input-consumption family — the step payload's own shape is the discriminant, so a per-item map, a per-branch fold, a whole-tree fold, and a mixed-depth custom read are four cases of one union under one total run fold; `ProcessScope` is the one seam value a step receives, wrapping typed reads, receipted writes, notices, progress, iteration and change evidence, units, cancellation, and the kernel `Op` key.
-- Cases: `Single` maps `Seq<IPear>` to `Seq<IPear>`, `Batch` maps twigs, `Aggregate` maps trees, and `Heterogeneous` drives the scope directly.
-- Entry: `Executions.Run` is the one dispatch — it gathers every live input at the case's depth through the verified `CountIn`, runs the step, emits against the live `CountOut`, and seals the receipt.
-- Receipt: `ProcessReceipt` carries the operation key, the written pin set in pin order, and the required emissions left unwritten; an uncovered required emission lands a warning notice and stays on the receipt.
-- Auto: output arity is proven at emission — a step returning a count other than the live output count is `GhFault.Refused` before any pin writes.
-- Growth: a new consumption topology is one `Execution` case plus one run arm; a new receipt fact is one `ProcessReceipt` member; a new scope evidence read is one member over a verified `IDataAccess` accessor.
-- Boundary: `Uniform` names the pin depth a case demands, and admission holds every pin to it with `MustExist` presence — a mixed-presence or mixed-depth component is the `Heterogeneous` case by construction; cancellation rides `ProcessScope.Cancel` off the verified `Solution.Token`, never a checked flag.
+- Owner: `Execution` closes the pear, twig, tree, and mixed topology family under one `Run` dispatch; `IterationPolicy` separately selects the host array driver or one custom whole-array fold.
+- Entry: `Executions.Run` gathers at the declared topology, invokes the step, writes in output declaration order, and returns `ProcessRun` with both the result rail and the receipt sealed from the same scope.
+- Receipt: `ProcessReceipt` carries `OutputPlan` values rather than raw pin indexes, so required-output evidence and pin declaration share one identity; the receipt survives a late write failure with every earlier emission intact.
+- Growth: a topology extends `Execution`; an array strategy extends `IterationPolicy`; output obligation extends `OutputPlan`; none creates a second processing entrypoint.
+- Boundary: `ProcessScope` is the only step seam into `IDataAccess`; it carries context, cancellation, iteration evidence, typed reads, receipted writes, notices, and the operation key.
 
 ```csharp signature
 namespace Rasm.Grasshopper.Components;
@@ -29,23 +26,55 @@ namespace Rasm.Grasshopper.Components;
 public abstract partial record Execution {
     private Execution() { }
 
-    public sealed record Single(Func<ProcessScope, Seq<IPear>, Fin<Seq<IPear>>> Step) : Execution;
-    public sealed record Batch(Func<ProcessScope, Seq<ITwig>, Fin<Seq<ITwig>>> Step) : Execution;
-    public sealed record Aggregate(Func<ProcessScope, Seq<ITree>, Fin<Seq<ITree>>> Step) : Execution;
-    public sealed record Heterogeneous(Func<ProcessScope, Fin<Unit>> Step) : Execution;
+    public sealed record Pear(Func<ProcessScope, Seq<IPear>, Fin<Seq<IPear>>> Step) : Execution;
+    public sealed record Twig(Func<ProcessScope, Seq<ITwig>, Fin<Seq<ITwig>>> Step) : Execution;
+    public sealed record Tree(Func<ProcessScope, Seq<ITree>, Fin<Seq<ITree>>> Step) : Execution;
+    public sealed record Mixed(Func<ProcessScope, Fin<Unit>> Step) : Execution;
 
-    public Option<PinAccess> Uniform => Map(
-        single: Some(PinAccess.Item),
-        batch: Some(PinAccess.Twig),
-        aggregate: Some(PinAccess.Tree),
-        heterogeneous: Option<PinAccess>.None);
+    public Option<PinAccess> Uniform => Switch(
+        pear: static _ => Some(PinAccess.Item),
+        twig: static _ => Some(PinAccess.Twig),
+        tree: static _ => Some(PinAccess.Tree),
+        mixed: static _ => Option<PinAccess>.None);
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record IterationPolicy {
+    private IterationPolicy() { }
+
+    public sealed record Host : IterationPolicy;
+    public sealed record Custom(Func<Seq<ProcessScope>, CancellationToken, Fin<Unit>> Step) : IterationPolicy;
+
+    public static readonly IterationPolicy Default = new Host();
+}
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record OutputPlan {
+    private OutputPlan() { }
+
+    public sealed record Optional(PinPlan Pin) : OutputPlan;
+    public sealed record Required(PinPlan Pin) : OutputPlan;
+
+    public PinPlan Plan => Switch(optional: static row => row.Pin, required: static row => row.Pin);
+
+    public bool IsRequired => Switch(optional: static _ => false, required: static _ => true);
 }
 
 // --- [MODELS] ----------------------------------------------------------------------------
 
-public readonly record struct Emission(int Pin, bool Required);
+public sealed record ProcessReceipt(Op Operation, int Iteration, Seq<OutputPlan> Written, Seq<OutputPlan> MissingRequired);
 
-public sealed record ProcessReceipt(Op Operation, Seq<int> Written, Seq<int> MissingRequired);
+public sealed record ProcessRun(ProcessReceipt Receipt, Fin<Unit> Result);
+
+public sealed record RunReceipt(Seq<ProcessReceipt> Processes, Seq<Error> Faults) {
+    public static readonly RunReceipt Empty = new([], []);
+
+    public RunReceipt Add(ProcessRun process) => process.Result.Match(
+        Succ: _ => this with { Processes = Processes.Add(process.Receipt) },
+        Fail: fault => this with { Processes = Processes.Add(process.Receipt), Faults = Faults.Add(fault) });
+
+    public RunReceipt Add(Error fault) => this with { Faults = Faults.Add(fault) };
+}
 
 public sealed record ProcessScope {
     public required IDataAccess Access { get; init; }
@@ -58,7 +87,7 @@ public sealed record ProcessScope {
 
     public required Op Operation { get; init; }
 
-    internal Atom<LanguageExt.HashSet<int>> Emitted { get; } = Atom(LanguageExt.HashSet<int>());
+    internal Atom<LanguageExt.HashSet<OutputPlan>> Emitted { get; } = Atom(LanguageExt.HashSet<OutputPlan>());
 
     public int Iteration => Access.Index;
 
@@ -75,8 +104,10 @@ public sealed record ProcessScope {
     public Fin<Transfer<T>> Read<T>(int pin, PinAccess depth) => GardenData.Read<T>(Access, pin, depth, Operation);
 
     public Fin<Unit> Write<T>(int pin, Transfer<T> payload, Retention retention) =>
-        GardenData.Write(Access, pin, payload, retention, Operation)
-            .Map(_ => ignore(Emitted.Swap(held => held.Add(pin))));
+        pin is >= 0 && pin < Spec.Outputs.Count
+            ? GardenData.Write(Access, pin, payload, retention, Operation)
+                .Map(_ => ignore(Emitted.Swap(held => held.Add(Spec.Outputs[pin]))))
+            : Fin.Fail<Unit>(new GhFault.Refused(Operation, $"output:{pin}"));
 
     public Unit Notify(Notice notice) => notice.Report(Access);
 
@@ -86,56 +117,55 @@ public sealed record ProcessScope {
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 public static class Executions {
-    public static Fin<ProcessReceipt> Run(this Execution execution, ProcessScope scope) =>
-        execution.Switch(
+    public static ProcessRun Run(this Execution execution, ProcessScope scope) =>
+        Completed(scope, execution.Switch(
             state: scope,
-            single: static (held, run) =>
+            pear: static (held, run) =>
                 Gathered(held, static (access, pin) => access.GetIPear(pin, out IPear pear) ? Optional(pear) : None)
                     .Bind(pears => run.Step(held, pears))
                     .Bind(outputs => Written(held, outputs, static (access, pin, pear) => access.SetPear(pin, pear))),
-            batch: static (held, run) =>
+            twig: static (held, run) =>
                 Gathered(held, static (access, pin) => access.GetITwig(pin, out ITwig twig) ? Optional(twig) : None)
                     .Bind(twigs => run.Step(held, twigs))
                     .Bind(outputs => Written(held, outputs, static (access, pin, twig) => access.SetTwig(pin, twig))),
-            aggregate: static (held, run) =>
+            tree: static (held, run) =>
                 Gathered(held, static (access, pin) => access.GetITree(pin, out ITree tree) ? Optional(tree) : None)
                     .Bind(trees => run.Step(held, trees))
                     .Bind(outputs => Written(held, outputs, static (access, pin, tree) => access.SetTree(pin, tree))),
-            heterogeneous: static (held, run) => run.Step(held))
-        .Bind(_ => Sealed(scope));
+            mixed: static (held, run) => run.Step(held)));
+
+    internal static ProcessReceipt Receipt(ProcessScope scope) {
+        LanguageExt.HashSet<OutputPlan> written = scope.Emitted.Value;
+        Seq<OutputPlan> ordered = scope.Spec.Outputs.Filter(written.Contains).Strict();
+        Seq<OutputPlan> missing = scope.Spec.Outputs.Filter(output => output.IsRequired && !written.Contains(output)).Strict();
+        return new ProcessReceipt(scope.Operation, scope.Iteration, ordered, missing);
+    }
+
+    private static ProcessRun Completed(ProcessScope scope, Fin<Unit> result) => new(Receipt(scope), result);
 
     private static Fin<Seq<T>> Gathered<T>(ProcessScope scope, Func<IDataAccess, int, Option<T>> read) =>
         toSeq(Enumerable.Range(0, scope.Access.CountIn))
-            .TraverseM(pin => read(scope.Access, pin).ToFin(new GhFault.Absent(scope.Operation, $"pin:{pin}")))
+            .TraverseM(pin => read(scope.Access, pin).ToFin(new GhFault.Absent(scope.Operation, $"input:{pin}")))
             .As();
 
     private static Fin<Unit> Written<T>(ProcessScope scope, Seq<T> outputs, Action<IDataAccess, int, T> write) =>
-        outputs.Count == scope.Access.CountOut
+        outputs.Count == scope.Spec.Outputs.Count
             ? outputs.Map((value, pin) => Hosted.Bound(() => write(scope.Access, pin, value), scope.Operation)
-                    .Map(_ => ignore(scope.Emitted.Swap(held => held.Add(pin)))))
+                    .Map(_ => ignore(scope.Emitted.Swap(held => held.Add(scope.Spec.Outputs[pin])))))
                 .TraverseM(identity)
                 .As()
                 .Map(static _ => unit)
-            : Fin.Fail<Unit>(new GhFault.Refused(scope.Operation, $"outputs:{outputs.Count}/{scope.Access.CountOut}"));
-
-    private static Fin<ProcessReceipt> Sealed(ProcessScope scope) =>
-        (scope.Emitted.Value, scope.Spec.Emissions.Filter(row => row.Required && !scope.Emitted.Value.Contains(row.Pin))) switch {
-            (var written, { IsEmpty: true }) => Fin.Succ(new ProcessReceipt(scope.Operation, toSeq(written.OrderBy(identity)).Strict(), [])),
-            (var written, var missing) => (
-                scope.Notify(new Notice(Severity.Warning, nameof(Emission), $"unwritten:{missing.Count}", [])),
-                Fin.Succ(new ProcessReceipt(scope.Operation, toSeq(written.OrderBy(identity)).Strict(), missing.Map(static row => row.Pin).Strict()))).Item2,
-        };
+            : Fin.Fail<Unit>(new GhFault.Refused(scope.Operation, $"outputs:{outputs.Count}/{scope.Spec.Outputs.Count}"));
 }
 ```
 
 ## [03]-[SPEC]
 
-- Owner: `ComponentSpec` is the one declaration every consumer reads — identity and io id, both pin rosters, the execution case, emission rows, lifecycle stages, threading, maintenance, bake capability, fleeting rows, icon, panel projection, and chrome; the policy slots beside it are values, never subclasses.
-- Entry: `Admit` is the accumulating admission — side and hidden capability per pin, emission range, execution depth-and-presence coherence, and io-id parseability report together as one `Validation`.
-- Auto: `Lifecycle.None` and the `Option` policy slots make every capability opt-in with zero ceremony at the declaration site.
-- Receipt: fleeting rows persist the sealed `ProcessReceipt` into the host `FleetingCustomData` at the post-process stage.
-- Growth: a new component capability is one policy slot or one row on an existing record; the declaration never grows a builder family.
-- Boundary: pin visibility, category, and colour declare through the row bindings at `ports#PORT_CATALOG`; pin-visibility flexing after declaration rides the host `ModularList` through `SpecComponent.Flex`; the declaration itself stays host-inert data.
+- Owner: `ComponentSpec` carries identity, pin declarations, topology execution, iteration policy, lifecycle, threading, maintenance, bake, fleeting persistence, icon, panel, and chrome as one immutable declaration.
+- Entry: `Admit` accumulates pin-side legality, topology coherence, iteration/threading coherence, and persistent identity before the static component declaration reaches the host constructor.
+- Receipt: fleeting persistence consumes the whole `RunReceipt`, so lifecycle faults, custom-array faults, process faults, and partial output evidence cross the post-process boundary together.
+- Growth: a component capability is a policy value or an existing declaration row; the record never grows a builder family.
+- Boundary: `OutputPlan` owns output obligation beside its `PinPlan`; no second raw-index emission roster exists.
 
 ```csharp signature
 // --- [MODELS] ----------------------------------------------------------------------------
@@ -144,11 +174,9 @@ public sealed record Lifecycle(
     Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> Before,
     Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> Pre,
     Option<Func<Grasshopper2.Doc.Solution, Grasshopper2.Doc.FleetingCustomData, Fin<Unit>>> Post,
-    Option<Func<ITree, int, Grasshopper2.Doc.Solution, ITree>> PostTree) {
+    Option<Func<ITree, int, Grasshopper2.Doc.Solution, Fin<ITree>>> PostTree) {
     public static readonly Lifecycle None = new(default, default, default, default);
 }
-
-public sealed record FleetingRow(string Key, Action<Grasshopper2.Doc.FleetingCustomData, ProcessReceipt> Persist);
 
 public sealed record ComponentSpec {
     public required Grasshopper2.UI.Nomen Identity { get; init; }
@@ -157,21 +185,21 @@ public sealed record ComponentSpec {
 
     public required Seq<PinPlan> Inputs { get; init; }
 
-    public required Seq<PinPlan> Outputs { get; init; }
+    public required Seq<OutputPlan> Outputs { get; init; }
 
     public required Execution Execution { get; init; }
 
-    public Seq<Emission> Emissions { get; init; } = [];
+    public IterationPolicy Iterations { get; init; } = IterationPolicy.Default;
 
     public Lifecycle Lifecycle { get; init; } = Lifecycle.None;
 
     public Option<ThreadingState> Threading { get; init; } = default;
 
-    public Option<Action<ComponentParameters>> Maintain { get; init; } = default;
+    public Option<Func<ComponentParameters, Fin<Unit>>> Maintain { get; init; } = default;
 
     public Option<bool> Bakeable { get; init; } = default;
 
-    public Seq<FleetingRow> Fleeting { get; init; } = [];
+    public Seq<Action<Grasshopper2.Doc.FleetingCustomData, RunReceipt>> Fleeting { get; init; } = [];
 
     public Option<Grasshopper2.UI.Icon.IIcon> Icon { get; init; } = default;
 
@@ -183,105 +211,197 @@ public sealed record ComponentSpec {
         Op op = Op.Of();
         return (
             Inputs.Traverse(plan => Sided(plan, PinSide.Input, op)).As(),
-            Outputs.Traverse(plan => Sided(plan, PinSide.Output, op)).As(),
-            Emissions.Filter(row => row.Pin < 0 || row.Pin >= Outputs.Count) is { IsEmpty: true }
-                ? Success<Error, Unit>(unit)
-                : Fail<Error, Unit>(new GhFault.Refused(op, nameof(Emissions))),
-            Execution.Uniform.Match(
-                Some: depth => Inputs.ForAll(plan => plan.Access == depth && plan.Presence == PinPresence.MustExist)
-                    && Outputs.ForAll(plan => plan.Access == depth)
-                    ? Success<Error, Unit>(unit)
-                    : Fail<Error, Unit>(new GhFault.Refused(op, $"{nameof(Execution)}:{depth}")),
-                None: static () => Success<Error, Unit>(unit)),
-            System.Guid.TryParse(IoId, out _)
+            Outputs.Traverse(output => Sided(output.Plan, PinSide.Output, op)).As(),
+            Topology(op),
+            Iteration(op),
+            Guid.TryParse(IoId, out _)
                 ? Success<Error, Unit>(unit)
                 : Fail<Error, Unit>(new GhFault.Registration(op, nameof(IoId))))
             .Apply((_, _, _, _, _) => this)
             .As();
     }
 
+    private Validation<Error, Unit> Topology(Op key) => Execution.Uniform.Match(
+        Some: depth => Inputs.ForAll(plan => plan.Access == depth && plan.Presence == PinPresence.MustExist)
+            && Outputs.ForAll(output => output.Plan.Access == depth)
+                ? Success<Error, Unit>(unit)
+                : Fail<Error, Unit>(new GhFault.Refused(key, $"{nameof(Execution)}:{depth}")),
+        None: static () => Success<Error, Unit>(unit));
+
+    private Validation<Error, Unit> Iteration(Op key) => Iterations.Switch(
+        host: static _ => Success<Error, Unit>(unit),
+        custom: _ => Threading.IsNone
+            ? Success<Error, Unit>(unit)
+            : Fail<Error, Unit>(new GhFault.Refused(key, nameof(Threading))));
+
     private static Validation<Error, PinPlan> Sided(PinPlan plan, PinSide side, Op key) =>
-        (plan.Kind.Sides.Accepts(side), plan.Visibility == PinVisibility.Shown || plan.Kind.HiddenSides.Accepts(side)) switch {
-            (true, true) => plan,
-            (false, _) => new GhFault.Refused(key, $"{plan.Kind.Key}:{side}"),
-            _ => new GhFault.Refused(key, $"{plan.Kind.Key}:{nameof(PinVisibility.Hidden)}:{side}"),
-        };
+        plan.Kind.Accepts(plan: plan, side: side, key: key).Map(_ => plan).ToValidation();
 }
 ```
 
 ## [04]-[HOST_PROJECTION]
 
-- Owner: `SpecComponent` is the single boundary adapter — an abstract `ModularComponent` whose every override is one dispatch into the declaration; a concrete component is a sealed subclass carrying its `[IoId]` attribute and handing its `ComponentSpec` to this one base.
-- Entry: the host drives every entry — pin declaration folds the modular adders through `ports#DECLARATION_FOLD` with trims realized per minted parameter, `Process` builds one `ProcessScope` and runs the execution case, lifecycle stages dispatch their `Option` rows, and maintenance re-realizes through the verified `ComponentParameters` accessors; `Flex` is the one post-declaration pin-visibility gate over the host `ModularList.Show`/`Hide` with its `ActionList` undo.
-- Receipt: the latest `ProcessReceipt` rides an `Atom` cell from `Process` to `PostProcess`, where fleeting rows persist it.
-- Auto: a rail failure inside `Process` lands on the document as an error notice with cancellation filtered; a declaration failure at construction or pin registration throws at the composition edge, because a mis-declared component is a programming defect, never a runtime state; `Threading` assigns once at construction because the host property is settable state, never a virtual.
-- Growth: a new host virtual is one override dispatching an existing declaration slot; the adapter never grows logic of its own.
-- Boundary: the overrides, the constructor admission collapse, and the `Flex` body are the named platform-forced statement seam; no other file names a `ModularComponent` member. The host seals plain-adder registration and variable-pin creation on `ModularComponent` — pin flexing through the modular lists is the sole post-declaration pin mutation. Mounting chrome replaces the internal `ModularComponentAttributes`, so a chrome policy owns its own layout decisions.
+- Owner: `IComponentDeclaration<TSelf>` binds one static declaration to its concrete component type; `SpecComponent<TSelf>` reads the admitted value from static storage before `ModularComponent` invokes `AddInputs`, `AddOutputs`, and initial maintenance.
+- Entry: host callbacks project into the declaration; per-access processing records one `ProcessRun`, custom array processing seals every scope after its whole-array fold, and lifecycle stages join the same ledger.
+- Receipt: `RunReceipt` is atomically accumulated across host-parallel iterations and persisted after the post stage; a fault never erases process evidence already emitted.
+- Growth: a host virtual adds one declaration projection; declaration, ledger, and rail ownership stay in the generic base.
+- Boundary: constructor-time declaration failures and initial maintenance failures throw at composition; runtime failures enter the run ledger and report through `IDataAccess` where that channel exists.
 
 ```csharp signature
+// --- [TYPES] -----------------------------------------------------------------------------
+
+public interface IComponentDeclaration<TSelf> where TSelf : IComponentDeclaration<TSelf> {
+    static abstract ComponentSpec Spec { get; }
+}
+
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
-public abstract class SpecComponent : ModularComponent {
-    private readonly ComponentSpec spec;
+public abstract class SpecComponent<TSelf> : ModularComponent
+    where TSelf : SpecComponent<TSelf>, IComponentDeclaration<TSelf> {
+    private static readonly ComponentSpec Definition = TSelf.Spec.Admit().Match(Succ: identity, Fail: Panic<ComponentSpec>);
 
-    private readonly Atom<Option<ProcessReceipt>> latest = Atom(Option<ProcessReceipt>.None);
+    private readonly Atom<RunReceipt> run = Atom(RunReceipt.Empty);
 
-    protected SpecComponent(ComponentSpec spec) : base(spec.Identity) {
-        this.spec = spec.Admit().Match(Succ: identity, Fail: Panic<ComponentSpec>);
-        this.spec.Threading.IfSome(state => { Threading = state; });
+    private bool ready;
+
+    protected SpecComponent() : base(Definition.Identity) {
+        Definition.Threading.IfSome(state => { Threading = state; });
+        ready = true;
     }
 
-    public override bool BakeCapable => spec.Bakeable.IfNone(base.BakeCapable);
+    public override bool BakeCapable => Definition.Bakeable.IfNone(base.BakeCapable);
+
+    protected override Grasshopper2.UI.Icon.IIcon IconInternal => Definition.Icon.IfNone(base.IconInternal);
 
     protected override void AddInputs(ModularInputAdder inputs) =>
-        ignore(Ports.Declare(inputs, spec.Inputs, Op.Of()).Match(Succ: identity, Fail: Panic<Seq<IParameter>>));
+        ignore(Ports.Declare(inputs, Definition.Inputs, Op.Of()).Match(Succ: identity, Fail: Panic<Seq<IParameter>>));
 
     protected override void AddOutputs(ModularOutputAdder outputs) =>
-        ignore(Ports.Declare(outputs, spec.Outputs, Op.Of()).Match(Succ: identity, Fail: Panic<Seq<IParameter>>));
+        ignore(Ports.Declare(outputs, Definition.Outputs.Map(static output => output.Plan).Strict(), Op.Of())
+            .Match(Succ: identity, Fail: Panic<Seq<IParameter>>));
 
     protected override void Process(IDataAccess access) =>
-        ignore(HostUnits.Of(access, Op.Of())
-            .Map(units => new ProcessScope {
-                Access = access,
-                Spec = spec,
-                Units = units,
-                Cancel = access.Solution.Token,
-                Operation = Op.Of(),
-            })
-            .Bind(scope => spec.Execution.Run(scope))
-            .Match(
-                Succ: receipt => ignore(latest.Swap(_ => Optional(receipt))),
-                Fail: fault => ignore(fault is Fault.Cancelled ? unit : Notice.Of(fault).Report(access))));
+        ignore(Scope(access, access.Solution.Token, Op.Of()).Match(
+            Succ: scope => Record(Definition.Execution.Run(scope), Some(access)),
+            Fail: fault => Capture(fault, Some(access))));
+
+    protected override void Process(IDataAccess[] iterations, CancellationToken token) =>
+        ignore(Definition.Iterations.Switch(
+            state: (Self: this, Iterations: iterations, Token: token, Key: Op.Of()),
+            host: static (state, _) => state.Self.HostIterations(state.Iterations, state.Token),
+            custom: static (state, policy) => state.Self.CustomIterations(state.Iterations, state.Token, policy, state.Key)));
 
     protected override void BeforeProcess(Grasshopper2.Doc.Solution solution) =>
-        ignore(spec.Lifecycle.Before.Map(stage => stage(solution)));
+        ignore((run.Swap(_ => RunReceipt.Empty), Track(Stage(Definition.Lifecycle.Before, solution, Op.Of()))));
 
     protected override void PreProcess(Grasshopper2.Doc.Solution solution) =>
-        ignore(spec.Lifecycle.Pre.Map(stage => stage(solution)));
+        ignore(Track(Stage(Definition.Lifecycle.Pre, solution, Op.Of())));
 
     protected override void PostProcess(Grasshopper2.Doc.Solution solution, Grasshopper2.Doc.FleetingCustomData data) =>
         ignore((
-            latest.Value.Map(receipt => spec.Fleeting.Map(row => fun(() => row.Persist(data, receipt))()).Strict()),
-            spec.Lifecycle.Post.Map(stage => stage(solution, data))));
+            Track(Stage(Definition.Lifecycle.Post, solution, data, Op.Of())),
+            Definition.Fleeting.Map(persist => Track(Hosted.Bound(() => persist(data, run.Value), Op.Of()))).Strict()));
 
     protected override ITree PostProcessTree(ITree tree, int output, Grasshopper2.Doc.Solution solution) =>
-        spec.Lifecycle.PostTree.Map(stage => stage(tree, output, solution)).IfNone(tree);
+        Definition.Lifecycle.PostTree.Match(
+            Some: stage => Track(Hosted.Bound(() => stage(tree, output, solution), Op.Of()).Bind(identity), tree),
+            None: () => tree);
 
     public override void AppendToInputPanel(Grasshopper2.UI.InputPanel.InputPanel panel) =>
-        ignore((fun(() => base.AppendToInputPanel(panel))(), spec.Panel.Map(append => fun(() => append(panel))())));
+        ignore(Track(Hosted.Bound(() => base.AppendToInputPanel(panel), Op.Of())
+            .Bind(_ => Definition.Panel.Match(
+                Some: append => Hosted.Bound(() => append(panel), Op.Of()),
+                None: static () => Fin.Succ(unit)))));
 
     protected override Grasshopper2.Doc.IAttributes CreateAttributes() =>
-        spec.Chrome.Match(Some: chrome => ChromeHost.Mount(this, chrome), None: () => base.CreateAttributes());
+        Definition.Chrome.Match(Some: chrome => ChromeHost.Mount(this, chrome), None: () => base.CreateAttributes());
 
     public override void VariableParameterMaintenance() =>
-        ignore((
-            spec.Maintain.Map(maintain => fun(() => maintain(Parameters))()),
-            Ports.Realize(Parameters, spec.Inputs, spec.Outputs, Op.Of())));
+        ignore(ready
+            ? Track(Maintained(Op.Of()))
+            : Maintained(Op.Of()).Match(Succ: identity, Fail: Panic<Unit>));
 
     public Fin<Unit> Flex(PinSide side, int index, bool shown, Grasshopper2.Undo.ActionList undo, Op? key = null) {
         ModularList list = side.Switch(state: this, input: static self => self.ModularInputs, output: static self => self.ModularOutputs);
         return Hosted.Bound(() => { if (shown) { list.Show(index, undo); } else { list.Hide(index, undo); } }, key.OrDefault());
     }
+
+    private static Fin<ProcessScope> Scope(IDataAccess access, CancellationToken cancel, Op key) =>
+        HostUnits.Of(access, key).Map(units => new ProcessScope {
+            Access = access,
+            Spec = Definition,
+            Units = units,
+            Cancel = cancel,
+            Operation = key,
+        });
+
+    private static Fin<Seq<ProcessScope>> Scopes(IDataAccess[] iterations, CancellationToken cancel, Op key) =>
+        toSeq(iterations).TraverseM(access => Scope(access, cancel, key)).As();
+
+    private static Fin<Unit> Stage(
+        Option<Func<Grasshopper2.Doc.Solution, Fin<Unit>>> stage,
+        Grasshopper2.Doc.Solution solution,
+        Op key) => stage.Match(
+            Some: action => Hosted.Bound(() => action(solution), key).Bind(identity),
+            None: static () => Fin.Succ(unit));
+
+    private static Fin<Unit> Stage(
+        Option<Func<Grasshopper2.Doc.Solution, Grasshopper2.Doc.FleetingCustomData, Fin<Unit>>> stage,
+        Grasshopper2.Doc.Solution solution,
+        Grasshopper2.Doc.FleetingCustomData data,
+        Op key) => stage.Match(
+            Some: action => Hosted.Bound(() => action(solution, data), key).Bind(identity),
+            None: static () => Fin.Succ(unit));
+
+    private Fin<Unit> Maintained(Op key) => Definition.Maintain.Match(
+            Some: maintain => Hosted.Bound(() => maintain(Parameters), key).Bind(identity),
+            None: static () => Fin.Succ(unit))
+        .Bind(_ => Ports.Realize(
+            Parameters,
+            Definition.Inputs,
+            Definition.Outputs.Map(static output => output.Plan).Strict(),
+            key).ToFin());
+
+    private Unit HostIterations(IDataAccess[] iterations, CancellationToken token) {
+        base.Process(iterations, token);
+        return unit;
+    }
+
+    private Unit CustomIterations(IDataAccess[] iterations, CancellationToken token, IterationPolicy.Custom policy, Op key) =>
+        Scopes(iterations, token, key).Match(
+            Succ: scopes => Complete(scopes, Hosted.Bound(() => policy.Step(scopes, token), key).Bind(identity)),
+            Fail: fault => Capture(fault, None));
+
+    private Unit Complete(Seq<ProcessScope> scopes, Fin<Unit> result) =>
+        (ignore(scopes.Map(scope => Record(new ProcessRun(Executions.Receipt(scope), Fin.Succ(unit)), None)).Strict()),
+            result.Match(Succ: identity, Fail: fault => Capture(fault, None))).Item2;
+
+    private Unit Record(ProcessRun process, Option<IDataAccess> access) =>
+        (ignore(run.Swap(receipt => receipt.Add(process))),
+            process.Result.Match(Succ: identity, Fail: fault => Report(fault, access)),
+            Warn(process.Receipt, access)).Item3;
+
+    private Unit Warn(ProcessReceipt receipt, Option<IDataAccess> access) =>
+        receipt.MissingRequired.IsEmpty
+            ? unit
+            : access.Map(target => new Notice(
+                    Severity.Warning,
+                    nameof(OutputPlan.Required),
+                    string.Join(",", receipt.MissingRequired.Map(static output => output.Plan.Nick)),
+                    []).Report(target))
+                .IfNone(unit);
+
+    private Unit Track(Fin<Unit> result) => result.Match(Succ: identity, Fail: fault => Capture(fault, None));
+
+    private T Track<T>(Fin<T> result, T fallback) => result.Match(
+        Succ: identity,
+        Fail: fault => (Capture(fault, None), fallback).Item2);
+
+    private Unit Capture(Error fault, Option<IDataAccess> access) =>
+        (ignore(run.Swap(receipt => receipt.Add(fault))), Report(fault, access)).Item2;
+
+    private static Unit Report(Error fault, Option<IDataAccess> access) =>
+        access.Map(target => Notice.Of(fault).Report(target)).IfNone(unit);
 
     private static T Panic<T>(Error fault) => throw new InvalidOperationException(fault.Message);
 }
@@ -289,17 +409,35 @@ public abstract class SpecComponent : ModularComponent {
 
 ## [05]-[PLUGIN]
 
-- Owner: `PluginSpec` is the registration row — plugin identity, exported types, and satellite assemblies as one record; `SpecPlugin` is its host projection, and `Catalogue` is the audit and load surface consuming the same rows registration consumes.
-- Entry: `Catalogue.Audit` accumulates every exported-type violation; `Load` and `Harvest` lift the host plugin-server entries onto the rail; `OwnerOf` resolves a document object to its owning plugin.
-- Receipt: a failed load carries the host `FailureInfo` detail inside `GhFault.Registration`.
-- Auto: instance-level admission runs in the `SpecComponent` constructor, so a catalogued type that constructs has already passed `Admit` — the audit proves type-level facts, construction proves the declaration.
-- Growth: a new plugin asset class is one `PluginSpec` member plus one `SpecPlugin` override.
-- Boundary: reflection appears only here — the audit reads type identity and the `[IoId]` attribute, never member shapes.
+- Owner: `PluginSpec` is the registration declaration; `PluginSource` closes public path and assembly loading under one `Catalogue.Load`; `SpecPlugin` projects metadata and audits exported component types at the host load edge.
+- Entry: `Catalogue.Load` lifts the host `bool` plus `FailureInfo` contract into `Fin<PluginReceipt>`; `OwnerOf` resolves a live document object through the same server.
+- Receipt: a successful load returns location and assembly identity; a refusal preserves the host failure detail in `GhFault.Registration`.
+- Growth: a public plugin ingress is one `PluginSource` case and one load arm; plugin metadata is one `PluginSpec` member and one host override.
+- Boundary: assembly harvesting remains inside `PluginServer`; local reflection is limited to exported-type declaration and persistent-id admission.
 
 ```csharp signature
+// --- [TYPES] -----------------------------------------------------------------------------
+
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record PluginSource {
+    private PluginSource() { }
+
+    public sealed record Location(string Path) : PluginSource;
+    public sealed record Binary(string Location, System.Reflection.Assembly Value) : PluginSource;
+}
+
 // --- [MODELS] ----------------------------------------------------------------------------
 
-public sealed record PluginSpec(Guid Id, Grasshopper2.UI.Nomen Identity, Version Version, Seq<Type> Exported, Seq<string> Satellites);
+public sealed record PluginSpec(
+    Guid Id,
+    Grasshopper2.UI.Nomen Identity,
+    Version Version,
+    Seq<Type> Exported,
+    Seq<string> Satellites,
+    Option<string> Author = default,
+    Option<string> Copyright = default);
+
+public sealed record PluginReceipt(string Location, Option<string> Assembly);
 
 // --- [COMPOSITION] -----------------------------------------------------------------------
 
@@ -312,43 +450,43 @@ public abstract class SpecPlugin : Grasshopper2.Framework.Plugin {
 
     public override IEnumerable<string> SatelliteAssemblies => spec.Satellites;
 
+    public override string Author => spec.Author.IfNone(base.Author);
+
+    public override string Copyright => spec.Copyright.IfNone(base.Copyright);
+
     public override void OnLoaded() =>
-        ignore(Catalogue.Audit(spec).Match(
-            Succ: identity,
-            Fail: static fault => throw new InvalidOperationException(fault.Message)));
+        ignore(Catalogue.Audit(spec).Match(Succ: identity, Fail: static fault => throw new InvalidOperationException(fault.Message)));
 }
 
 public static class Catalogue {
     public static Validation<Error, PluginSpec> Audit(PluginSpec plugin, Op? key = null) =>
         plugin.Exported.Traverse(type => Exported(type, key.OrDefault())).As().Map(_ => plugin);
 
-    public static Fin<Grasshopper2.Framework.Plugin> Load(string path, Op? key = null) =>
-        Hosted.Bound(() => Grasshopper2.Framework.PluginServer.LoadPlugin(path, out Grasshopper2.Framework.FailureInfo failure) is { } plugin
-                ? Fin.Succ(plugin)
-                : Fin.Fail<Grasshopper2.Framework.Plugin>(new GhFault.Registration(key.OrDefault(), $"{path}:{failure}")), key.OrDefault())
-            .Bind(identity);
-
-    public static Fin<Grasshopper2.Framework.Plugin> Harvest(System.Reflection.Assembly assembly, Op? key = null) =>
-        Hosted.Bound(() => Grasshopper2.Framework.PluginServer.HarvestPluginFromAssembly(assembly, out Grasshopper2.Framework.FailureInfo failure) is { } plugin
-                ? Fin.Succ(plugin)
-                : Fin.Fail<Grasshopper2.Framework.Plugin>(new GhFault.Registration(key.OrDefault(), $"{assembly.FullName}:{failure}")), key.OrDefault())
-            .Bind(identity);
+    public static Fin<PluginReceipt> Load(PluginSource source, Op? key = null) => source.Switch(
+        state: key.OrDefault(),
+        location: static (op, row) => Hosted.Bound(() =>
+                Grasshopper2.Framework.PluginServer.LoadPlugin(row.Path, out Grasshopper2.Framework.FailureInfo failure)
+                    ? Fin.Succ(new PluginReceipt(row.Path, None))
+                    : Fin.Fail<PluginReceipt>(new GhFault.Registration(op, $"{row.Path}:{failure}")), op)
+            .Bind(identity),
+        binary: static (op, row) => Hosted.Bound(() =>
+                Grasshopper2.Framework.PluginServer.LoadPlugin(row.Location, row.Value, out Grasshopper2.Framework.FailureInfo failure)
+                    ? Fin.Succ(new PluginReceipt(row.Location, Optional(row.Value.FullName)))
+                    : Fin.Fail<PluginReceipt>(new GhFault.Registration(op, $"{row.Location}:{failure}")), op)
+            .Bind(identity));
 
     public static Option<Grasshopper2.Framework.Plugin> OwnerOf(Grasshopper2.Doc.IDocumentObject subject) =>
         Optional(Grasshopper2.Framework.PluginServer.FindPluginForObject(subject));
 
     private static Validation<Error, Type> Exported(Type type, Op key) =>
-        (typeof(SpecComponent).IsAssignableFrom(type), Attribute.IsDefined(type, typeof(GrasshopperIO.IoIdAttribute))) switch {
+        (type.GetInterfaces().Any(contract =>
+                contract.IsGenericType
+                && contract.GetGenericTypeDefinition() == typeof(IComponentDeclaration<>)
+                && contract.GenericTypeArguments.Single() == type),
+            Attribute.IsDefined(type, typeof(GrasshopperIO.IoIdAttribute))) switch {
             (true, true) => type,
-            (false, _) => new GhFault.Registration(key, $"{type.Name}:{nameof(SpecComponent)}"),
+            (false, _) => new GhFault.Registration(key, $"{type.Name}:{typeof(IComponentDeclaration<>).Name}"),
             (_, false) => new GhFault.Registration(key, $"{type.Name}:{nameof(GrasshopperIO.IoIdAttribute)}"),
         };
 }
 ```
-
-## [06]-[RESEARCH]
-
-- [ICON_INTERNAL]-[OPEN]: the icon projection virtual on the component chain — `Component` carries `IconMode`/`ResolveIconMode` and `Label`, and no `IconInternal` member surfaces on the decompiled `Component`; locate the icon override seam through the decompile rail over the `ActiveObject` base, then wire `ComponentSpec.Icon` onto it.
-- [PLUGIN_SERVER_SHAPE]-[OPEN]: whether `PluginServer.LoadPlugin`/`HarvestPluginFromAssembly` are static and return the loaded `Plugin`; the lifts assume static members returning the plugin or null.
-- [BATCH_PROCESS]-[OPEN]: the verified `Component.Process(IDataAccess[] iterations, CancellationToken token)` multi-iteration virtual — rule an `Execution` batch-iteration case over it or an explicit kill after its dispatch semantics verify against `ThreadingState`.
-- [MODULAR_STORE]-[OPEN]: `ModularList.Store(IWriter)`/`Restore(IReader)` persistence of pin visibility — whether the host persists flexed visibility without adapter involvement; verify before `Flex` grows a persistence row.

@@ -17,7 +17,7 @@ The panel-and-chrome owner of `Rasm.Rhino.HostUi` — one `HostPanel` base ownin
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Domain (`Op`), Document sub-domain (`DocKey`), Rhino.UI (`Panels.OnShowPanel`/`OnClosePanel`, `ShowPanelReason`).
 - Growth (DOMAIN): a lifecycle axis the concept demands (a dock-transition life, an activation ordinal) is one `PanelLife` row plus one `PanelFact` slot; every observer gains it through the one stream.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -82,7 +82,7 @@ public readonly record struct PanelFact(
 - Packages: LanguageExt.Core, Rasm.Domain (`Op`), Eto sub-domain (`Element`, `UiFault`), Eto.Forms (`Panel`, `Label`), Rhino.UI (`IPanel.PanelShown`/`PanelHidden`/`PanelClosing`, `EtoExtensions.UseRhinoStyle`).
 - Growth (CONSUMER): a per-panel capability future plugins require (persisted panel state, a busy overlay) is one `HostPanel` member or one `ElementSpec` axis on the content, never a second panel base.
 
-```csharp
+```csharp signature
 // --- [SERVICES] -----------------------------------------------------------------------------
 public abstract class HostPanel : Panel, IPanel {
     private readonly Fin<PanelKey> identity;
@@ -123,15 +123,15 @@ public abstract class HostPanel : Panel, IPanel {
 
 ## [04]-[REGISTRATION_AND_PLACEMENT]
 
-- Owner: `PanelHost` — the one operations surface over the `Panels` registry, generic on the panel type so identity, host `Type`, and registration stay one declaration. `PanelIcon` closes the three icon addressings (a live `System.Drawing.Icon`, an embedded resource with its assembly, a full disk path) and drives both `RegisterPanel` overloads plus `Rebadge` over both `ChangePanelIcon` overloads, the resource arm loading through the dialogs page's `HostResources` icon row and the raster size defaulting to the host `Panels.IconSizeInPixels`. `PanelPlacement` closes the four open shapes — docked, at a named dock bar, as a sibling tab, floating with its `FloatPanelMode` — and `Open` returns a fresh `PanelPresence` so every open carries selected-tab evidence. `Presence` probes visibility, selected-tab state, the panel's dock bars, and the registry-wide open-panel census; `Close` and `Instances` are document-session demands riding `HostThread.OnSession`; `Announce` drives the `PanelLife` emit rows; `Watch` subscribes the owned fact stream and `WatchAll` the registry-wide host events, each returning a `ShellSubscription`.
+- Owner: `PanelHost` — the one operations surface over the `Panels` registry, generic on the panel type so identity, host `Type`, and registration stay one declaration. `PanelIcon` closes the three icon addressings (a live `System.Drawing.Icon`, an embedded resource with its assembly, a full disk path) and drives both `RegisterPanel` overloads plus `Rebadge` over both `ChangePanelIcon` overloads, the resource arm loading through the dialogs page's `HostResources` icon row and the raster size defaulting to the host `Panels.IconSizeInPixels`. `PanelPlacement` closes the four open shapes — docked, at a named dock bar, as a sibling tab, floating with its `FloatPanelMode` — and `Open` returns a fresh `PanelPresence` so every open carries selected-tab evidence. `Presence` probes visibility, selected-tab state, the panel's dock bars, and the registry-wide open-panel census; `Close` and `Instances` are document-session demands riding `HostThread.OnSession`; `Announce` drives the `PanelLife` emit rows; `Watch` subscribes the owned fact stream and `WatchAll` the registry-wide panel families through `DocumentStream.Observe`, each returning a `ShellSubscription`.
 - Law: placement is the value, arity is the type — the panel type parameter is the discriminant every host call derives its `Type` and `Guid` from, so no entry takes a stringy id, a raw `Type`, or a parallel `Guid` the key already owns.
 - Law: every registry crossing — registration, placement, probe, rebadge, dock-bar read — rides one `HostThread.On` marshal, and `Open` probes inside the same crossing its placement lands in, so presence evidence is read on the thread that mutated it.
-- Law: the fact stream is the one observation surface with two admission edges — `Watch` observers ride every stamp the `IPanel` callbacks and `Announce` produce for panels this package owns, and the `Facts` census holds the latest fact per panel key (current state, never an unbounded log), while `WatchAll` subscribes the registry-wide `Panels.Show`/`Panels.Closed` static events (`ShowPanelEventArgs.PanelId`/`DocumentSerialNumber`/`Show`) for host-wide observation across foreign panels, delivering the same `PanelFact` shape without stamping the owned ledger so an owned panel never double-stamps; each observer call is trapped on its own `Op.Catch`, so one throwing observer never starves its siblings or the host callback. A per-panel event, a second bus, or an events-sibling subscription is the census breach this owner forecloses.
+- Law: the fact stream is the one observation surface with two admission edges — `Watch` observers ride every stamp the `IPanel` callbacks and `Announce` produce for panels this package owns, and the `Facts` census holds the latest fact per panel key (current state, never an unbounded log), while `WatchAll` composes `DocumentStream.Observe(Observation.Host(EventScope.AnyDocument, [PanelVisibility, PanelClosed], ...))` for host-wide observation across foreign panels — the Document stream owns the `Panels.Show`/`Panels.Closed` host wires, this owner only projects `EventPayload.Panel` onto the `PanelFact` shape without stamping the owned ledger so an owned panel never double-stamps; each observer call is trapped on its own `Op.Catch`, so one throwing observer never starves its siblings or the host callback. A per-panel event, a second bus, or an events-sibling subscription is the census breach this owner forecloses.
 - Law: `PanelLife.OfReason` classifies a host `ShowPanelReason` through the host's own `Panels.IsShowing`/`IsHiding` polarity probes, so reason-to-life correspondence is host truth, never a local table.
-- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Domain (`Op`), Document sub-domain (`DocumentSession`, `SessionNeed`), Eto sub-domain (`UiFault`), dialogs page (`HostResources`, `ResourceKind`), shell page (`ShellSubscription`, `HostThread.On`/`OnSession`), Rhino.UI (`Panels.RegisterPanel` both overloads, `OpenPanel` both arities, `OpenPanelAsSibling`, `FloatPanel`, `ClosePanel`, `GetPanels<T>`, `IsPanelVisible`, `PanelDockBars`, `DockBarIdInUse`, `GetOpenPanelIds`, `ChangePanelIcon` both overloads, `IconSizeInPixels`, `Panels.Show`/`Closed`/`IsShowing`/`IsHiding`, `ShowPanelEventArgs`, `PanelEventArgs`, `Panels.FloatPanelMode`, `PanelType`), Rhino.PlugIns (`PlugIn`).
+- Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Domain (`Op`), Document sub-domain (`DocumentSession`, `SessionNeed`, `DocumentStream`, `Observation`, `EventFamily.PanelVisibility`/`PanelClosed`, `EventScope`, `Delivery`, `ReceiptPolicy`), Eto sub-domain (`UiFault`), dialogs page (`HostResources`, `ResourceKind`), shell page (`ShellSubscription`, `HostThread.On`/`OnSession`), Rhino.UI (`Panels.RegisterPanel` both overloads, `OpenPanel` both arities, `OpenPanelAsSibling`, `FloatPanel`, `ClosePanel`, `GetPanels<T>`, `IsPanelVisible`, `PanelDockBars`, `DockBarIdInUse`, `GetOpenPanelIds`, `ChangePanelIcon` both overloads, `IconSizeInPixels`, `Panels.IsShowing`/`IsHiding`, `Panels.FloatPanelMode`, `PanelType`), Rhino.PlugIns (`PlugIn`).
 - Growth (HOST): a new placement shape or registry probe the host ships is one `PanelPlacement` case or one `PanelPresence` column read in `Probe`; a parallel placement API is the census regression.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record PanelIcon {
@@ -252,25 +252,20 @@ public static class PanelHost {
 
     public static Fin<ShellSubscription> WatchAll(Action<PanelFact> observer, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(() => {
-            EventHandler<ShowPanelEventArgs> shown = (_, args) => ignore(op.Catch(() => {
-                observer(Registry(panel: args.PanelId, life: args.Show ? PanelLife.Shown : PanelLife.Hidden, serial: args.DocumentSerialNumber));
-                return Fin.Succ(value: unit);
-            }));
-            EventHandler<PanelEventArgs> closed = (_, args) => ignore(op.Catch(() => {
-                observer(Registry(panel: args.PanelId, life: PanelLife.Closing, serial: args.DocumentSerialNumber));
-                return Fin.Succ(value: unit);
-            }));
-            Panels.Show += shown;
-            Panels.Closed += closed;
-            return Fin.Succ(value: new ShellSubscription(Halt: () => Op.Side(() => { Panels.Show -= shown; Panels.Closed -= closed; })));
-        });
+        return DocumentStream.Observe(new Observation.Host(
+                Scope: new EventScope.AnyDocument(),
+                Families: Seq(EventFamily.PanelVisibility, EventFamily.PanelClosed),
+                Delivery: new Delivery.Inline(Sink: fact => op.Catch(() => {
+                    _ = Op.SideWhen(fact.Payload is EventPayload.Panel, () => observer(new PanelFact(
+                        Panel: PanelKey.Create(value: ((EventPayload.Panel)fact.Payload).PanelId),
+                        Life: ((EventPayload.Panel)fact.Payload).State.Switch(
+                            shown: static () => PanelLife.Shown, hidden: static () => PanelLife.Hidden, closed: static () => PanelLife.Closing),
+                        Document: fact.Key)));
+                    return Fin.Succ(value: unit);
+                })),
+                Receipts: ReceiptPolicy.Operational))
+            .Map(watch => new ShellSubscription(Halt: () => Op.Side(watch.Dispose)));
     }
-
-    private static PanelFact Registry(Guid panel, PanelLife life, uint serial) => new(
-        Panel: PanelKey.Create(value: panel),
-        Life: life,
-        Document: serial is 0u ? None : Some(DocKey.Create(value: serial)));
 
     internal static Unit Stamp(PanelFact fact, Op op) {
         _ = Ledger.Swap(held => held.AddOrUpdate(fact.Panel, fact));
@@ -299,7 +294,7 @@ public static class PanelHost {
 - Packages: Thinktecture.Runtime.Extensions, LanguageExt.Core, Rasm.Domain (`Op`, `op.Confirm`), shell page (`HostThread`), Rhino.UI (`ToolbarFileCollection.Open`/`FindByPath`/`FindByName`/`SidebarIsVisible`/`MruSidebarIsVisible`, `ToolbarFile.Id`/`Name`/`Path`/`GroupCount`/`ToolbarCount`/`GetGroup`/`GetToolbar`/`Save`/`SaveAs`/`Close`, `Toolbar.BitmapSize`/`TabSize`, `RuiUpdateUi.RegisterMenuItem`/`Enabled`/`Checked`/`RadioChecked`/`Text`, `RuiUpdateUi.UpdateMenuItemEventHandler`), RhinoCommon (`RhinoApp.ToolbarFiles`).
 - Growth (HOST): a new RUI mutation the host ships is one `RuiOp` case breaking `Apply` at compile time; a new census axis is one snapshot fact column read in `Census`.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record RuiFileRef {
@@ -452,7 +447,7 @@ public static class MenuLinks {
 - Packages: LanguageExt.Core, Rasm.Domain (`Op`), Eto sub-domain (`Element`), Rhino.UI (`LocalizeStringPair`), Rhino.UI.Controls (`EtoCollapsibleSection.Caption`/`SectionHeight`/`Collapsible`/`Hidden`/`InitiallyExpanded`/`CommandOptionName`, `EtoCollapsibleSectionHolder.Add`/`UseScrollbars`/`UseCheckBoxes`).
 - Growth (DOMAIN): a section axis the concept demands (a header accessory verb, per-section availability) is one `SectionSpec` field consumed by `SectionLeaf`; a holder axis is one `Mount` policy value.
 
-```csharp
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record SectionSpec(
     string Caption,

@@ -28,43 +28,43 @@ apply rank-1 `L·L' ± w·w'`. ABI: net10.0 (`lib/net10.0`), LGPL-2.1-only, pure
 
 `CompressedColumnStorage<T>` is `Matrix<T>` (CSparse's own abstract base, not MathNet's) and owns the `Of*` ingestion family plus structural algebra; `SparseMatrix` is the `double` concrete that realizes the abstract `Multiply`/`Add`/`Keep`/`DropZeros`. `T: struct, IEquatable<T>, IFormattable` on every generic carrier.
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:---------------------------- |:------------- |:----------------------------------------------------------- |
-| [01] | `CompressedColumnStorage<T>` | abstract class | CSC base; `Of*` ingestion, transpose, permute, GEMV seam |
-| [02] | `CSparse.Double.SparseMatrix` | concrete class | CSC double matrix; realizes GEMV/GEMM/norms/`Keep`/`DropZeros` |
-| [03] | `CoordinateStorage<T>` | concrete class | COO triplet accumulator (`At`/`Keep`/`Transpose`) for CSC build |
-| [04] | `DenseColumnMajorStorage<T>` | concrete class | dense column-major backing (diagonal-extraction source) |
-| [05] | `SymbolicColumnStorage` | concrete class | symbolic CSC produced by the analysis phase |
+| [INDEX] | [SYMBOL]                      | [TYPE_FAMILY]  | [CAPABILITY]                                                    |
+| :-----: | :---------------------------- | :------------- | :-------------------------------------------------------------- |
+|  [01]   | `CompressedColumnStorage<T>`  | abstract class | CSC base; `Of*` ingestion, transpose, permute, GEMV seam        |
+|  [02]   | `CSparse.Double.SparseMatrix` | concrete class | CSC double matrix; realizes GEMV/GEMM/norms/`Keep`/`DropZeros`  |
+|  [03]   | `CoordinateStorage<T>`        | concrete class | COO triplet accumulator (`At`/`Keep`/`Transpose`) for CSC build |
+|  [04]   | `DenseColumnMajorStorage<T>`  | concrete class | dense column-major backing (diagonal-extraction source)         |
+|  [05]   | `SymbolicColumnStorage`       | concrete class | symbolic CSC produced by the analysis phase                     |
 
 [PUBLIC_TYPE_SCOPE]: ordering and seams
 - rail: numeric
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------ |:------------ |:------------------------------------------------------- |
-| [01] | `ColumnOrdering` | enum | AMD fill-reducing ordering selector |
-| [02] | `ILinearOperator<T>` | interface | GEMV seam: `Multiply`/`TransposeMultiply`, plain + scaled, array + span |
-| [03] | `ISolver<T>` | interface | in-place `Solve(input, result)` seam (array + span) |
-| [04] | `ISparseFactorization<T>` | interface | `ISolver<T>` + `NonZerosCount` (the fill metric) |
+| [INDEX] | [SYMBOL]                  | [TYPE_FAMILY] | [CAPABILITY]                                                            |
+| :-----: | :------------------------ | :------------ | :---------------------------------------------------------------------- |
+|  [01]   | `ColumnOrdering`          | enum          | AMD fill-reducing ordering selector                                     |
+|  [02]   | `ILinearOperator<T>`      | interface     | GEMV seam: `Multiply`/`TransposeMultiply`, plain + scaled, array + span |
+|  [03]   | `ISolver<T>`              | interface     | in-place `Solve(input, result)` seam (array + span)                     |
+|  [04]   | `ISparseFactorization<T>` | interface     | `ISolver<T>` + `NonZerosCount` (the fill metric)                        |
 
 [PUBLIC_TYPE_SCOPE]: double factorizations
 - rail: numeric
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:-------------------------------------------- |:------------- |:-------------------------------------------------- |
-| [01] | `CSparse.Double.Factorization.SparseCholesky` | concrete class | direct sparse Cholesky (SPD); `Refactorize`/`Update`/`Downdate` |
-| [02] | `CSparse.Double.Factorization.SparseLDL` | concrete class | direct sparse LDL' (symmetric indefinite); `Refactorize` |
-| [03] | `CSparse.Double.Factorization.SparseLU` | concrete class | direct sparse LU, partial pivoting; `SolveTranspose`/`Refactorize` |
-| [04] | `CSparse.Double.Factorization.SparseQR` | concrete class | direct sparse QR (least-squares / underdetermined); `SolveTranspose` |
+| [INDEX] | [SYMBOL]                                      | [TYPE_FAMILY]  | [CAPABILITY]                                                         |
+| :-----: | :-------------------------------------------- | :------------- | :------------------------------------------------------------------- |
+|  [01]   | `CSparse.Double.Factorization.SparseCholesky` | concrete class | direct sparse Cholesky (SPD); `Refactorize`/`Update`/`Downdate`      |
+|  [02]   | `CSparse.Double.Factorization.SparseLDL`      | concrete class | direct sparse LDL' (symmetric indefinite); `Refactorize`             |
+|  [03]   | `CSparse.Double.Factorization.SparseLU`       | concrete class | direct sparse LU, partial pivoting; `SolveTranspose`/`Refactorize`   |
+|  [04]   | `CSparse.Double.Factorization.SparseQR`       | concrete class | direct sparse QR (least-squares / underdetermined); `SolveTranspose` |
 
 [PUBLIC_TYPE_SCOPE]: ordering enum cases
 - rail: numeric
 
-| [INDEX] | [SYMBOL] | [VALUE] | [CAPABILITY] |
-|:-----: |:------------------------------------ | ------: |:-------------------------------------------- |
-| [01] | `ColumnOrdering.Natural` | 0 | natural column order; no fill reduction |
-| [02] | `ColumnOrdering.MinimumDegreeAtPlusA` | 1 | AMD on `A'+A`; the only ordering Cholesky/LDL' accept |
-| [03] | `ColumnOrdering.MinimumDegreeStS` | 2 | AMD on `A'*A` dropping dense rows; LU/QR only |
-| [04] | `ColumnOrdering.MinimumDegreeAtA` | 3 | AMD on `A'*A`; LU/QR only |
+| [INDEX] | [SYMBOL]                              | [VALUE] | [CAPABILITY]                                          |
+| :-----: | :------------------------------------ | ------: | :---------------------------------------------------- |
+|  [01]   | `ColumnOrdering.Natural`              |       0 | natural column order; no fill reduction               |
+|  [02]   | `ColumnOrdering.MinimumDegreeAtPlusA` |       1 | AMD on `A'+A`; the only ordering Cholesky/LDL' accept |
+|  [03]   | `ColumnOrdering.MinimumDegreeStS`     |       2 | AMD on `A'*A` dropping dense rows; LU/QR only         |
+|  [04]   | `ColumnOrdering.MinimumDegreeAtA`     |       3 | AMD on `A'*A`; LU/QR only                             |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -73,55 +73,55 @@ apply rank-1 `L·L' ± w·w'`. ABI: net10.0 (`lib/net10.0`), LGPL-2.1-only, pure
 
 `CompressedColumnStorage<T>.Of*` is the single CSC ingestion surface — one static family discriminates by input shape (COO accumulator, dense/jagged array, row-/column-major flat array, indexed enumerable of `Tuple`/`ValueTuple`, diagonal, identity). `CoordinateStorage<T>` is the mutable accumulator; `Converter.From*` mints a COO directly from dense/enumerable data. There is no CSR type in CSparse.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------- |:------------- |:------------------------------------------ |
-| [01] | `CompressedColumnStorage<T>.OfIndexed(CoordinateStorage<T>, inplace = false)` | static factory | COO accumulator → CSC |
-| [02] | `CompressedColumnStorage<T>.OfIndexed(rows, cols, IEnumerable<(int,int,T)>)` | static factory | indexed value-tuple enumerable → CSC |
-| [03] | `CompressedColumnStorage<T>.OfArray(T[,])` / `OfJaggedArray(T[][])` | static factory | dense / jagged array → CSC (drops zeros) |
-| [04] | `CompressedColumnStorage<T>.OfRowMajor(rows, cols, T[])` / `OfColumnMajor` | static factory | flat row-/column-major buffer → CSC |
-| [05] | `CompressedColumnStorage<T>.OfDiagonalArray(T[])` / `CreateIdentity(order)` | static factory | diagonal / identity CSC |
-| [06] | `new SparseMatrix(rows, cols[, valueCount])` / `(rows, cols, values, rowIdx, colPtr)` | constructor | empty / pre-sized / raw-array CSC double |
-| [07] | `new CoordinateStorage<T>(rows, cols, nzmax)` | constructor | COO triplet accumulator |
-| [08] | `CoordinateStorage<T>.At(i, j, value)` | instance `void` | append a triplet (duplicates summed on convert) |
-| [09] | `Converter.ToCompressedColumnStorage(coo, cleanup = true, inplace = false)` | static factory | COO → CSC (cleanup sorts/sums duplicates) |
-| [10] | `Converter.FromDenseArray<T>` / `FromRowMajorArray` / `FromEnumerable` | static factory | dense / flat / enumerable → COO |
+| [INDEX] | [SURFACE]                                                                             | [CALL_SHAPE]    | [CAPABILITY]                                    |
+| :-----: | :------------------------------------------------------------------------------------ | :-------------- | :---------------------------------------------- |
+|  [01]   | `CompressedColumnStorage<T>.OfIndexed(CoordinateStorage<T>, inplace = false)`         | static factory  | COO accumulator → CSC                           |
+|  [02]   | `CompressedColumnStorage<T>.OfIndexed(rows, cols, IEnumerable<(int,int,T)>)`          | static factory  | indexed value-tuple enumerable → CSC            |
+|  [03]   | `CompressedColumnStorage<T>.OfArray(T[,])` / `OfJaggedArray(T[][])`                   | static factory  | dense / jagged array → CSC (drops zeros)        |
+|  [04]   | `CompressedColumnStorage<T>.OfRowMajor(rows, cols, T[])` / `OfColumnMajor`            | static factory  | flat row-/column-major buffer → CSC             |
+|  [05]   | `CompressedColumnStorage<T>.OfDiagonalArray(T[])` / `CreateIdentity(order)`           | static factory  | diagonal / identity CSC                         |
+|  [06]   | `new SparseMatrix(rows, cols[, valueCount])` / `(rows, cols, values, rowIdx, colPtr)` | constructor     | empty / pre-sized / raw-array CSC double        |
+|  [07]   | `new CoordinateStorage<T>(rows, cols, nzmax)`                                         | constructor     | COO triplet accumulator                         |
+|  [08]   | `CoordinateStorage<T>.At(i, j, value)`                                                | instance `void` | append a triplet (duplicates summed on convert) |
+|  [09]   | `Converter.ToCompressedColumnStorage(coo, cleanup = true, inplace = false)`           | static factory  | COO → CSC (cleanup sorts/sums duplicates)       |
+|  [10]   | `Converter.FromDenseArray<T>` / `FromRowMajorArray` / `FromEnumerable`                | static factory  | dense / flat / enumerable → COO                 |
 
 [ENTRYPOINT_SCOPE]: CSC algebra (`SparseMatrix` / `ILinearOperator<T>`)
 - rail: numeric
 
 GEMV is the `ILinearOperator<T>` seam: `Multiply`/`TransposeMultiply`, plain and scaled, over `ReadOnlySpan`/`Span` (and `T[]` overloads). Structural ops (`Transpose`/`Permute*`/`IsSymmetric`/`FindDiagonalIndices`/`EnumerateIndexed`) and `ParallelMultiply` round out the matrix surface.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:---------------------------------------------------------- |:------------- |:------------------------------------ |
-| [01] | `Multiply(ReadOnlySpan<double> x, Span<double> y)` | instance | `y = Ax` sparse GEMV |
-| [02] | `Multiply(double alpha, x, double beta, y)` | instance | `y = αAx + βy` scaled GEMV |
-| [03] | `TransposeMultiply(x, y)` / `(alpha, x, beta, y)` | instance | `y = A'x` / `y = αA'x + βy` |
-| [04] | `Multiply(CompressedColumnStorage<double> B, result)` | instance | sparse matrix-matrix `C = AB` |
-| [05] | `ParallelMultiply(B, ParallelOptions = null)` | instance | parallel sparse GEMM |
-| [06] | `Add(double alpha, double beta, other, result)` | instance | `result = αA + βB` |
-| [07] | `Transpose()` / `PermuteRows(int[])` / `PermuteColumns(int[])` | instance | structural transpose / row-col permute |
-| [08] | `DropZeros(tolerance = 0)` / `Keep(Func<int,int,double,bool>)` | instance `int` | structural zero removal / predicate filter |
-| [09] | `L1Norm()` / `InfinityNorm()` / `FrobeniusNorm()` | instance | matrix norm family |
-| [10] | `NonZerosCount` / `IsSymmetric()` / `FindDiagonalIndices()` | instance | fill metric / symmetry / diagonal locator |
-| [11] | `EnumerateIndexed()` / `EnumerateIndexedAsValueTuples()` | instance seq | `(i, j, v)` triplet enumeration |
+| [INDEX] | [SURFACE]                                                      | [CALL_SHAPE]   | [CAPABILITY]                               |
+| :-----: | :------------------------------------------------------------- | :------------- | :----------------------------------------- |
+|  [01]   | `Multiply(ReadOnlySpan<double> x, Span<double> y)`             | instance       | `y = Ax` sparse GEMV                       |
+|  [02]   | `Multiply(double alpha, x, double beta, y)`                    | instance       | `y = αAx + βy` scaled GEMV                 |
+|  [03]   | `TransposeMultiply(x, y)` / `(alpha, x, beta, y)`              | instance       | `y = A'x` / `y = αA'x + βy`                |
+|  [04]   | `Multiply(CompressedColumnStorage<double> B, result)`          | instance       | sparse matrix-matrix `C = AB`              |
+|  [05]   | `ParallelMultiply(B, ParallelOptions = null)`                  | instance       | parallel sparse GEMM                       |
+|  [06]   | `Add(double alpha, double beta, other, result)`                | instance       | `result = αA + βB`                         |
+|  [07]   | `Transpose()` / `PermuteRows(int[])` / `PermuteColumns(int[])` | instance       | structural transpose / row-col permute     |
+|  [08]   | `DropZeros(tolerance = 0)` / `Keep(Func<int,int,double,bool>)` | instance `int` | structural zero removal / predicate filter |
+|  [09]   | `L1Norm()` / `InfinityNorm()` / `FrobeniusNorm()`              | instance       | matrix norm family                         |
+|  [10]   | `NonZerosCount` / `IsSymmetric()` / `FindDiagonalIndices()`    | instance       | fill metric / symmetry / diagonal locator  |
+|  [11]   | `EnumerateIndexed()` / `EnumerateIndexedAsValueTuples()`       | instance seq   | `(i, j, v)` triplet enumeration            |
 
 [ENTRYPOINT_SCOPE]: factorization — construct, amortize, solve
 - rail: numeric
 
 `Create(A, ColumnOrdering[, IProgress<double>])` runs symbolic + numeric analysis; `Create(A, int[] p)` supplies an explicit permutation. `Refactorize(A)` re-runs the numeric phase on the SAME sparsity pattern reusing the cached ordering/elimination-tree/column-counts — the factor-once/re-solve-many amortization. `Solve` overwrites the caller-owned result in place.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:--------------------------------------------------------- |:------------- |:------------------------------------------ |
-| [01] | `SparseCholesky.Create(A, ColumnOrdering[, IProgress])` | static factory | factor SPD CSC matrix |
-| [02] | `SparseLDL.Create(A, ColumnOrdering[, IProgress])` | static factory | factor symmetric-indefinite CSC matrix |
-| [03] | `SparseLU.Create(A, ColumnOrdering, tol[, IProgress])` | static factory | factor square CSC matrix with pivot tol |
-| [04] | `SparseQR.Create(A, ColumnOrdering[, IProgress])` | static factory | factor rectangular CSC matrix |
-| [05] | `<factorization>.Create(A, int[] p[,...])` | static factory | factor with explicit fill-reducing permutation |
-| [06] | `<factorization>.Refactorize(A)` (LU: `Refactorize(A, tol)`) | instance `void` | re-run numeric phase, reuse symbolic analysis |
-| [07] | `ISolver<double>.Solve(input, result)` | instance `void` | `Ax = b` in place; `double[]` and span overloads |
-| [08] | `SparseLU.SolveTranspose(...)` / `SparseQR.SolveTranspose(...)` | instance `void` | `A'x = b` in place |
-| [09] | `SparseCholesky.Update(w)` / `Downdate(w)` | instance `bool` | rank-1 `L·L' + w·w'` / `L·L' − w·w'` |
-| [10] | `ISparseFactorization<double>.NonZerosCount` | property `int` | factor fill (L for Cholesky/LDL'; L+U−n for LU) |
+| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]    | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------------------------------- | :-------------- | :----------------------------------------------- |
+|  [01]   | `SparseCholesky.Create(A, ColumnOrdering[, IProgress])`         | static factory  | factor SPD CSC matrix                            |
+|  [02]   | `SparseLDL.Create(A, ColumnOrdering[, IProgress])`              | static factory  | factor symmetric-indefinite CSC matrix           |
+|  [03]   | `SparseLU.Create(A, ColumnOrdering, tol[, IProgress])`          | static factory  | factor square CSC matrix with pivot tol          |
+|  [04]   | `SparseQR.Create(A, ColumnOrdering[, IProgress])`               | static factory  | factor rectangular CSC matrix                    |
+|  [05]   | `<factorization>.Create(A, int[] p[,...])`                      | static factory  | factor with explicit fill-reducing permutation   |
+|  [06]   | `<factorization>.Refactorize(A)` (LU: `Refactorize(A, tol)`)    | instance `void` | re-run numeric phase, reuse symbolic analysis    |
+|  [07]   | `ISolver<double>.Solve(input, result)`                          | instance `void` | `Ax = b` in place; `double[]` and span overloads |
+|  [08]   | `SparseLU.SolveTranspose(...)` / `SparseQR.SolveTranspose(...)` | instance `void` | `A'x = b` in place                               |
+|  [09]   | `SparseCholesky.Update(w)` / `Downdate(w)`                      | instance `bool` | rank-1 `L·L' + w·w'` / `L·L' − w·w'`             |
+|  [10]   | `ISparseFactorization<double>.NonZerosCount`                    | property `int`  | factor fill (L for Cholesky/LDL'; L+U−n for LU)  |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

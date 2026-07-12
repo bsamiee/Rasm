@@ -29,6 +29,10 @@
         <PackageReference Include="System.IO.Hashing" />
     </ItemGroup>
 
+    <ItemGroup Label="Perceptual Color">
+        <PackageReference Include="Wacton.Unicolour" />
+    </ItemGroup>
+
     <ItemGroup Label="Graph Algorithms">
         <PackageReference Include="QuikGraph" />
     </ItemGroup>

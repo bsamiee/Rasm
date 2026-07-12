@@ -8,6 +8,10 @@
         <ProjectReference Include="../Rasm/Rasm.csproj" />
     </ItemGroup>
 
+    <ItemGroup Label="Package References">
+        <PackageReference Include="Microsoft.Extensions.Caching.Hybrid" />
+    </ItemGroup>
+
     <ItemGroup Label="Host Usings">
         <Using Include="Eto.Drawing" />
         <Using Include="Eto.Forms" />

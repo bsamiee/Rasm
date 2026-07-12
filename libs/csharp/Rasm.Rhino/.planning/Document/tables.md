@@ -289,7 +289,7 @@ public abstract partial record TableTarget {
 
 ## [04]-[TRANSACTION_RAIL]
 
-- Owner: policy vocabularies close every provider-mode discriminant on rows. `TableOp` `[Union]` carries admitted per-occurrence payloads; `TableTransaction` `[Union]` distinguishes recorded, immediate, and navigation programs by shape rather than flags.
+- Owner: policy vocabularies close every provider-mode discriminant on rows. `TableOp` `[Union]` carries admitted per-occurrence payloads; `TableTransaction` `[Union]` distinguishes recorded, immediate, and navigation programs by shape rather than flags. `UndoBracket` is the shared document transaction capsule composed by table, block, and session-regime commit spines.
 - Entry: `TableOp` factories admit raw payloads once. `TableTransaction.Recorded`, `Immediate`, and `Navigate` admit program shape before `Tables.Commit(DocumentSession, TableTransaction)` enters the host boundary. `Immediate` admits one non-undoing operation; recorded programs admit only undo-recorded operations, so the rollback guarantee never covers an untracked side effect.
 - Law: `TransformPolicy.Relocate` reports the transformed identity as `Moved`; `Copy` and `History` report only the minted identity as `Created`. Sources remain unchanged on copy/history paths. Selection facts derive from before/after runtime snapshots, and state facts use separate `Hidden`/`Shown` and `Locked`/`Unlocked` slots.
 - Law: `TableOp.Traits` totally classifies every case onto one of four trait rows — `Sourced`, `Recorded`, `Immediate`, `Navigation` — carrying undo recording, navigation, and kernel-context demand as one derived product. A host effect that cannot be reversed by the document record enters only an immediate transaction, so a recorded program has no untracked side effect.
@@ -894,7 +894,7 @@ public static class Tables {
                         recordsUndo: plan.RecordsUndo);
                     Fin<TableReceipt> executed = guard(undo.Admitted, op.InvalidResult()).ToFin()
                         .Bind(_ => op.Catch(run));
-                    return undo.Seal(outcome: executed, key: op);
+                    return undo.Seal(outcome: executed, stamp: static (receipt, serial) => receipt + TableReceipt.Undo(serial: serial), key: op);
                 }));
             Fin<Unit> restored = op.Catch(() => {
                 _ = Op.SideWhen(plan.Redraw.Suppress, () => document.Views.EnableRedraw(
@@ -915,6 +915,7 @@ internal ref struct UndoBracket {
     private readonly bool owned;
     private readonly bool enlisted;
     private bool closed;
+    private bool terminal;
 
     private UndoBracket(RhinoDoc document, uint serial, bool required, bool owned, bool enlisted) {
         this.document = document;
@@ -923,6 +924,7 @@ internal ref struct UndoBracket {
         this.owned = owned;
         this.enlisted = enlisted;
         closed = false;
+        terminal = false;
     }
 
     public bool Admitted => !required || ((owned || enlisted) && serial > 0u);
@@ -940,25 +942,52 @@ internal ref struct UndoBracket {
             enlisted: enlisted);
     }
 
-    public Fin<TableReceipt> Seal(Fin<TableReceipt> outcome, Op key) {
+    public Fin<TReceipt> Seal<TReceipt>(Fin<TReceipt> outcome, Func<TReceipt, uint, TReceipt> stamp, Op key) {
+        if (terminal) {
+            return Fin.Fail<TReceipt>(error: key.InvalidResult());
+        }
+        terminal = true;
         RhinoDoc owner = document;
         uint record = serial;
         bool ownsRecord = owned;
         bool joinsRecord = enlisted;
-        Fin<Unit> closure = Close(key: key);
-        return outcome.Match(
-            Succ: receipt => closure.Map(_ => receipt + TableReceipt.Undo(serial: record)),
+        Fin<TReceipt> prepared = outcome.Bind(receipt =>
+            from fold in Optional(stamp).ToFin(Fail: key.InvalidInput())
+            from stamped in key.Catch(() => Fin.Succ(value: fold(receipt, record)))
+            select stamped);
+        Fin<Option<Error>> closure = CloseBounded(key: key);
+        return prepared.Match(
+            Succ: receipt => closure.Match(
+                Succ: _ => Fin.Succ(value: receipt),
+                Fail: close => Fin.Fail<TReceipt>(error: close + key.Caution(
+                    concern: "undo record remains open after bounded close recovery"))),
             Fail: primary => closure.Match(
-                Succ: _ => Rollback(
+                Succ: recovered => Rollback<TReceipt>(
                     document: owner,
                     owned: ownsRecord,
                     enlisted: joinsRecord,
-                    primary: primary,
+                    primary: recovered.Match(
+                        Some: close => primary + close,
+                        None: () => primary),
                     key: key),
-                Fail: close => Fin.Fail<TableReceipt>(error: primary + close)));
+                Fail: close => Fin.Fail<TReceipt>(error: primary
+                    + close
+                    + key.Caution(concern: "undo record could not close, so rollback was not executed"))));
     }
 
-    public void Dispose() => _ = Close(key: Op.Of());
+    public void Dispose() {
+        if (terminal) {
+            return;
+        }
+        terminal = true;
+        _ = CloseBounded(key: Op.Of());
+    }
+
+    private Fin<Option<Error>> CloseBounded(Op key) => Close(key: key).Match(
+        Succ: static _ => Fin.Succ(Option<Error>.None),
+        Fail: first => Close(key: key).Match(
+            Succ: _ => Fin.Succ(value: Some(first)),
+            Fail: second => Fin.Fail<Option<Error>>(error: first + second)));
 
     private Fin<Unit> Close(Op key) {
         if (closed) { return Fin.Succ(value: unit); }
@@ -971,9 +1000,9 @@ internal ref struct UndoBracket {
         return outcome;
     }
 
-    private static Fin<TableReceipt> Rollback(RhinoDoc document, bool owned, bool enlisted, Error primary, Op key) =>
+    private static Fin<TReceipt> Rollback<TReceipt>(RhinoDoc document, bool owned, bool enlisted, Error primary, Op key) =>
         !owned
-            ? Fin.Fail<TableReceipt>(error: enlisted
+            ? Fin.Fail<TReceipt>(error: enlisted
                 ? primary + key.Caution(concern: "command-owned undo record requires boundary failure propagation")
                 : primary)
             : key.Catch(() =>
@@ -982,8 +1011,8 @@ internal ref struct UndoBracket {
                     return unit;
                 }))
                 .Match(
-                    Succ: _ => Fin.Fail<TableReceipt>(error: primary),
-                    Fail: rollback => Fin.Fail<TableReceipt>(error: primary + rollback));
+                    Succ: _ => Fin.Fail<TReceipt>(error: primary),
+                    Fail: rollback => Fin.Fail<TReceipt>(error: primary + rollback));
 }
 ```
 
@@ -991,6 +1020,8 @@ internal ref struct UndoBracket {
 
 - Owner: `TableSlot` `[SmartEnum<int>]` names object consequences. `TableFact` `[Union]` carries object runtime evidence, component-table tallies, undo serials, and custom-undo names without a second payload discriminator. `TableReceipt` is the additive fold over that one fact stream.
 - Entry: `Ids(TableSlot)` and `Runtime(TableSlot)` project object consequences; `Components`, `UndoRecords`, and `CustomUndoNames` project the remaining fact cases. A receipt can feed its deleted runtime rows directly into `TableTarget.Deleted`.
+- Law: `UndoBracket.Seal<TReceipt>` is receipt-agnostic: table, block, and session-regime spines fold the sealed serial into their own receipt without a foreign-receipt hop. The stamp executes before close, so a stamp fault remains rollback-capable.
+- Law: `Seal` owns bounded close recovery and the terminal rollback decision. A failed program rolls back after a recovered close and reports the recovered close fault; an unrecoverable close reports rollback as unexecuted. `Dispose` cannot re-enter close after any seal attempt.
 - Law: fact construction remains internal to the receipt. Slot/body mismatch, empty identity, zero runtime serial, negative tally, and zero undo serial cannot enter the public stream.
 
 ```csharp signature
@@ -1023,7 +1054,7 @@ internal abstract partial record TableFact {
 }
 
 // --- [MODELS] -----------------------------------------------------------------------------
-public readonly record struct TableReceipt {
+public readonly record struct TableReceipt : IDetachedDocumentResult {
     private readonly Seq<TableFact> facts;
 
     private TableReceipt(Seq<TableFact> facts) => this.facts = facts;
@@ -1094,5 +1125,6 @@ public readonly record struct TableReceipt {
 |  [04]   | mutation program     | `TableOp`          | admitted total union     | operation factories / `Apply`         |
 |  [05]   | commit scope         | `TableTransaction` | program-mode union       | `Recorded` / `Immediate` / `Navigate` |
 |  [06]   | resource ingress     | `GeometryIntake`   | kernel lease composition | `Admit`                               |
-|  [07]   | boundary bracket     | `Tables`           | session/undo/redraw fold | `Commit`                              |
-|  [08]   | consequence evidence | `TableReceipt`     | runtime fact stream      | typed projections                     |
+|  [07]   | table commit spine   | `Tables`           | session/redraw fold      | `Commit`                              |
+|  [08]   | shared undo bracket  | `UndoBracket`      | receipt-generic terminal | `Begin` / `Seal`                      |
+|  [09]   | consequence evidence | `TableReceipt`     | runtime fact stream      | typed projections                     |

@@ -1,6 +1,6 @@
 # [RASM_RHINO_HOSTUI_DIALOGS]
 
-The native dialog intent rail of `Rasm.Rhino.HostUi` — ONE closed `Inquiry` discriminant over the full `Rhino.UI.Dialogs` roster (message, text transcript, list, multi-list, check-list, property-list, context menu, edit box, number box, the layer family, both linetype pickers, print widths, sun, live color) plus the file prompts (Rhino save/open dialogs, the Eto folder chooser), folded by one `Inquiries.Ask` dispatch into a typed `InquiryAnswer` — and the `DrawingUtilities` resource and preview families: icon/bitmap/image resource loading with scale-down rows, SVG rasterization under the host dark-mode read, mesh preview images, and linetype/curve preview geometry. The census `Intent.cs` carried one factory per dialog modality and imported `Rasm.Rhino.Exchange` for its file prompts; both die here — every modality is a case whose payload is the request, every result is a kernel-neutral answer case (paths cross as plain admitted strings, never an exchange endpoint), and cancellation is one `UiFault.Dismissed` on every arm. Interrogation is capability-gated: `Ask` demands `SessionNeed.Dialog` on the `DocumentSession`, so a scripted or headless lane refuses a modal before any host window exists. Typed Eto interrogation stays the Eto chrome `Prompt<TResult>`; document-anchored presentation of such a dialog rides the shell `SemiModal` seam — this page owns only the host-native roster and its resources.
+The native dialog intent rail of `Rasm.Rhino.HostUi` — ONE closed `Inquiry` discriminant over the full `Rhino.UI.Dialogs` roster (message, text transcript, list, multi-list, check-list, property-list, context menu, edit box, number box, the layer family, both linetype pickers, print widths, sun, live color) plus the file prompts (Rhino save/open dialogs, the Eto folder chooser) and the Eto font chooser, folded by one `Inquiries.Ask` dispatch into a typed `InquiryAnswer` — and the `DrawingUtilities` resource and preview families: icon/bitmap/image resource loading with scale-down rows, SVG rasterization under the host dark-mode read, mesh preview images, and linetype/curve preview geometry. The census `Intent.cs` carried one factory per dialog modality and imported `Rasm.Rhino.Exchange` for its file prompts; both die here — every modality is a case whose payload is the request, every result is a kernel-neutral answer case (paths cross as plain admitted strings, never an exchange endpoint), and cancellation is one `UiFault.Dismissed` on every arm. Interrogation is capability-gated: `Ask` demands `SessionNeed.Dialog` on the `DocumentSession`, so a scripted or headless lane refuses a modal before any host window exists. Typed Eto interrogation stays the Eto chrome `Prompt<TResult>`; document-anchored presentation of such a dialog rides the shell `SemiModal` seam — this page owns only the host-native roster and its resources.
 
 ## [01]-[INDEX]
 
@@ -11,13 +11,13 @@ The native dialog intent rail of `Rasm.Rhino.HostUi` — ONE closed `Inquiry` di
 
 ## [02]-[REQUEST_VOCABULARY]
 
-- Owner: the request payloads the `[03]` cases carry. `MessageShape` bundles the five host message selectors (`ShowMessageButton`/`ShowMessageIcon`/`ShowMessageDefaultButton`/`ShowMessageOptions`/`ShowMessageMode`) as one policy value with `Plain` the canonical row — the foreign enums live only on this seam record, never in a consumer signature. `MenuEntry` pairs a caption with a `MenuMode` row whose key IS the host mode ordinal (`Active` 0, `Muted` 1, `Divider` 2), so the context-menu mode array derives from rows and the census default-mode trap (an unset mode rendering every item unclickable) is unrepresentable. `LayerScope` closes the three layer-dialog shapes — single pick with set-current wiring, multi pick, multi pick with the material dialog chained — as one sub-family on one `Layer` case. `LinetypeAsk` closes the two host linetype pickers on their genuinely distinct identity regimes (table `Guid` versus table index). `ColorAsk` carries the live-preview color request — initial `Color4f`, alpha admission, optional named-color list, optional `Dialogs.OnColorChangedEvent` live callback. `FileFrame` is the shared file-prompt frame (title, filter, seed name, directory, default extension) and `FileAsk` the four-prompt family: save, open-one, open-many, folder.
+- Owner: the request payloads the `[03]` cases carry. `MessageShape` bundles the five host message selectors (`ShowMessageButton`/`ShowMessageIcon`/`ShowMessageDefaultButton`/`ShowMessageOptions`/`ShowMessageMode`) as one policy value with `Plain` the canonical row — the foreign enums live only on this seam record, never in a consumer signature. `MenuEntry` pairs a caption with a `MenuMode` row whose key IS the host mode ordinal (`Active` 0, `Muted` 1, `Divider` 2), so the context-menu mode array derives from rows and the census default-mode trap (an unset mode rendering every item unclickable) is unrepresentable. `LayerScope` closes the three layer-dialog shapes — single pick with set-current wiring, multi pick, multi pick with the material dialog chained — as one sub-family on one `Layer` case. `LinetypeAsk` closes the two host linetype pickers on their genuinely distinct identity regimes (table `Guid` versus table index). `ColorAsk` carries the live-preview color request — initial `Color4f`, alpha admission, optional named-color list, optional `Dialogs.OnColorChangedEvent` live callback. `FileFrame` is the shared file-prompt frame (title, filter, seed name, directory, default extension) and `FileAsk` the four-prompt family: save, open-one, open-many, folder. The filter STRING derives from the exchange projection `Codecs.Filter(CodecPhase, Seq<FileCodec>)` at the caller — dialog filters and codec capability stay one row set, and only the string crosses this seam, never an Exchange type on a UI signature.
 - Law: sub-family payloads carry only what their host call consumes — a knob that re-describes the case is deleted, and the case IS the modality, so no request record grows a mode flag beside its discriminant.
 - Law: file answers are kernel-neutral — full path strings on the answer case, admitted downstream by whichever exchange or document owner consumes them; a file-endpoint or capture contract on this page's surface is the census breach this vocabulary forecloses.
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rhino.UI (the message/color/named-color seam types), Eto.Forms (`SelectFolderDialog` seam).
 - Growth (HOST): a new host dialog knob (a message option, a file-prompt flag) is one field on the owning payload record consumed in its `[03]` arm.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using System.Reflection;
 using Eto.Forms;
@@ -107,10 +107,10 @@ public sealed record FileFrame(
 - Law: seed clamping is request admission — the bounded number box clamps its seed into the window before the host call because the host bounds constrain the spinner, not the initial display; an inverted window is a typed rejection before any dialog exists.
 - Law: the layer-material chain is one arm — multi-layer pick then `ShowLayerMaterialDialog` — so partial completion (layers picked, material dismissed) folds to `Dismissed` and never leaks a half-answered composite.
 - Law: typed Eto interrogation and document-anchored semi-modal presentation compose the Eto chrome `Prompt` and the shell `SemiModal` seam; this rail carries only dialogs the host itself draws.
-- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Domain (`Op`), Document sub-domain (`DocumentSession`, `SessionNeed.Dialog`), Eto sub-domain (`UiFault`), shell page (`HostThread.OnSession`), Rhino.UI (`Dialogs.ShowMessage`/`ShowTextDialog`/`ShowListBox`/`ShowMultiListBox`/`ShowCheckListBox`/`ShowPropertyListBox`/`ShowContextMenu`/`ShowEditBox`/`ShowNumberBox`/`ShowSelectLayerDialog`/`ShowSelectMultipleLayersDialog`/`ShowLayerMaterialDialog`/`ShowLineTypes`/`ShowSelectLinetypeDialog`/`ShowPrintWidths`/`ShowSunDialog`/`ShowColorDialog`, `RhinoSaveDialog.ShowSaveDialog`, `RhinoOpenDialog.ShowOpenDialog`), Eto.Forms (`SelectFolderDialog.ShowDialog`), RhinoCommon (`RhinoDoc.Lights.Sun`).
+- Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Domain (`Op`), Document sub-domain (`DocumentSession`, `SessionNeed.Dialog`), Eto sub-domain (`UiFault`), shell page (`HostThread.OnSession`), Rhino.UI (`Dialogs.ShowMessage`/`ShowTextDialog`/`ShowListBox`/`ShowMultiListBox`/`ShowCheckListBox`/`ShowPropertyListBox`/`ShowContextMenu`/`ShowEditBox`/`ShowNumberBox`/`ShowSelectLayerDialog`/`ShowSelectMultipleLayersDialog`/`ShowLayerMaterialDialog`/`ShowLineTypes`/`ShowSelectLinetypeDialog`/`ShowPrintWidths`/`ShowSunDialog`/`ShowColorDialog`, `RhinoSaveDialog.ShowSaveDialog`, `RhinoOpenDialog.ShowOpenDialog`), Eto.Forms (`SelectFolderDialog.ShowDialog`, `FontDialog.ShowDialog`/`Font`), RhinoCommon (`RhinoDoc.Lights.Sun`).
 - Growth (DOMAIN): a new host dialog is one `Inquiry` case plus one `InquiryAnswer` case breaking `Ask` loudly at compile time; a factory beside the union is the census regression.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record Inquiry {
@@ -129,6 +129,7 @@ public abstract partial record Inquiry {
     public sealed record PrintWidth(string Title, string Prompt, Option<double> Selected = default) : Inquiry;
     public sealed record Sun : Inquiry;
     public sealed record Color(ColorAsk Ask) : Inquiry;
+    public sealed record Font(Option<global::Eto.Drawing.Font> Seed = default) : Inquiry;
     public sealed record Files(FileAsk Ask) : Inquiry;
 }
 
@@ -148,6 +149,7 @@ public abstract partial record InquiryAnswer {
     public sealed record LinetypeId(Guid Id) : InquiryAnswer;
     public sealed record LinetypeIndex(int Index) : InquiryAnswer;
     public sealed record Pigment(Color4f Value) : InquiryAnswer;
+    public sealed record Typeface(global::Eto.Drawing.Font Value) : InquiryAnswer;
     public sealed record Files(Seq<string> Paths) : InquiryAnswer;
 }
 
@@ -255,6 +257,11 @@ public static class Inquiries {
                             colorCallback: ask.Ask.Live.IfNoneUnsafe((Dialogs.OnColorChangedEvent?)null))
                                 ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Pigment(Value: color))
                                 : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op));
+                    },
+                    font: static (held, ask) => new FontDialog { Font = ask.Seed.IfNoneUnsafe((global::Eto.Drawing.Font?)null)! } switch {
+                        FontDialog dialog => dialog.ShowDialog(parent: held.Parent) == DialogResult.Ok
+                            ? Fin.Succ(value: (InquiryAnswer)new InquiryAnswer.Typeface(Value: dialog.Font))
+                            : Fin.Fail<InquiryAnswer>(error: new UiFault.Dismissed(Key: held.Op)),
                     },
                     files: static (held, ask) => Prompted(held: held, ask: ask.Ask));
             },
@@ -370,7 +377,7 @@ public static class Inquiries {
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Domain (`Op`), Eto sub-domain (`UiFault`), Rhino.UI (`DrawingUtilities.BitmapFromIconResource`/`LoadBitmapWithScaleDown`/`IconFromResource`/`LoadIconWithScaleDown`/`ImageFromResource`/`BitmapFromSvg`/`PixelsFromSvg`, `NamedColorList.Default`), RhinoCommon (`HostUtils.RunningInDarkMode`).
 - Growth (HOST): a new host loader (a vector-tinted raster row, a cursor resource) is one `ResourceKind` row with its output column; a second loader table is the census regression.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class ResourceKind {
@@ -439,7 +446,7 @@ public static class HostResources {
 - Packages: LanguageExt.Core, Thinktecture.Runtime.Extensions, Rasm.Domain (`Op`), Document sub-domain (`DocumentSession`, `SessionNeed.Read`), shell page (`HostThread.OnSession`), Rhino.UI (`DrawingUtilities.CreateMeshPreviewImage`/`CreateCurvePreviewGeometry`/`CreateLinetypePreviewGeometryEx`), RhinoCommon (`RhinoDoc.CreateDefaultAttributes`).
 - Growth (CONSUMER): a preview modality future panels demand (a hatch swatch, a material ball) is one `PreviewOp` case plus one `PreviewYield` case breaking `Render` at compile time.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [SmartEnum<int>]
 public sealed partial class PreviewChannel {

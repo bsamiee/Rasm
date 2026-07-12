@@ -1,38 +1,40 @@
 # [RASM_GRASSHOPPER_SHELL_SESSION]
 
-The host-session spine of the Grasshopper boundary — ONE session operator (`GhSession`) owning typed scope acquisition over the live GH2 editor/canvas/document chain, UI-thread execution through the `Eto/runtime.md` dispatch rail, lifecycle/teardown/repaint settlement as typed receipts, and document-scoped recency caching over the admitted `HybridCache` substrate. The census-era roster — `RepaintRequest`, `Teardown`, `Subscription`, `GrasshopperUiPolicy`, `GrasshopperUiIntent`, static helper families, and the local `BoundedCache` — collapses here: scope is a `[SmartEnum<int>]` acquisition row draining into one `GhScope` union, commands are cases of one `SessionOp` union settled by one `Apply` gate, value-shaped work runs through one generic `Run<TOut>` gate, and caching composes `HybridCache` with document-tag invalidation instead of a hand-rolled recency structure. Every fallible step rides an `Op`-keyed `Fin<T>` rail; every owned Eto form crosses as `Lease<Form>`; every receipt proves itself through `ValidityClaim.All`. Event observation is `Shell/events.md`'s algebra, undo/history grouping is `Document/history.md`'s ledger, and window/dialog construction is `Eto/windows.md`'s spec family — this page owns the session floor they all stand on.
+The Grasshopper session boundary owns live editor, canvas, and document acquisition; UI-thread command execution; monotonic command acknowledgements; form release; and document-tagged `HybridCache` access. `GhSession.Apply` closes command-shaped host work over one `SessionOp` union, while `Run<TOut>` bounds value projections to one UI marshal. Generated case operations identify commands, queued receipts prove admission only, blocking receipts prove settlement, and every live scope is reacquired inside the marshal that consumes it.
 
 ## [01]-[INDEX]
 
-- [02]-[SCOPE]: `ScopeTarget` + `GhScope` — the acquisition-row vocabulary over `Editor.Instance` → `Editor.Canvas` → `Canvas.Document`, one typed scope union, and the UI-affinity law every acquisition obeys.
-- [03]-[OPERATOR]: `RepaintRow` + `SessionOp` + `SessionReceipt` + `GhSession` — the command union (reveal, execute, repaint, style, focus, release), the one `Apply` settlement gate, and the one generic `Run<TOut>` projection gate.
-- [04]-[CACHE]: `DocumentToken` + `SessionCache` — the weak-table document-identity mint and document-tagged recency caching over the `HybridCache` contract; the local generic cache is the killed form.
+- [02]-[SCOPE]: acquisition rows over the live editor, canvas, and document chain
+- [03]-[OPERATOR]: generated session commands, repaint policy, monotonic acknowledgements, and bounded projections
+- [04]-[CACHE]: weak document identity and typed document-tagged cache slots
 
 ## [02]-[SCOPE]
 
-- Owner: `ScopeTarget` `[SmartEnum<int>]` — 3 acquisition rows over one `[UseDelegateFromConstructor]` `Acquire(Op)` column: `EditorHost` (key 0, `Editor.Instance`), `CanvasHost` (key 1, `Editor.Instance` → `Editor.Canvas`), `DocumentHost` (key 2, the full chain onto `Canvas.Document`). Each row null-gates every hop through `Optional(...).ToFin(key.MissingContext())`, so a headless Rhino, an unopened editor, or a canvas without a document is a typed `Fault.MissingContext`, never a null dereference three frames into host code. `GhScope` `[Union]` is the typed result — `EditorCase(Editor)`, `CanvasCase(Canvas)`, `DocumentCase(Document)` — the one scope vocabulary every session consumer pattern-matches; projection accessors (`Editor`, `Canvas`, `Document` as `Option`) derive from case dispatch so a consumer holding a `DocumentCase` still reaches the owning canvas chain without re-acquiring.
+- Owner: `ScopeTarget` carries three acquisition rows over one `Acquire(Op)` column: `EditorHost` reads `Editor.Instance`, `CanvasHost` continues through `Editor.Canvas`, and `DocumentHost` continues through `Canvas.Document`. Every hop null-gates to `Fault.MissingContext`. `GhScope` closes the corresponding editor, canvas, and document cases and derives optional projections by total case dispatch.
 - Entry: acquisition is internal to `GhSession` — a consumer names a `ScopeTarget` row and receives the projected value or receipt; no public `Acquire` exists, so scope choreography never leaks past the gate.
-- Law: host scope objects are UI-affine — every acquisition runs inside the `EtoDispatch` marshal, and a `GhScope` never escapes the projection lambda that received it; holding a `Canvas` reference across turns is the defect the session shape forecloses, because the scope is re-acquired per `Run`/`Apply` at negligible cost against live statics.
-- Law: document identity for caching and event correlation is `DocumentToken.Of(document)` minted inside the same marshal that acquired the scope — GH2 `Document` carries no cheap host id (`Hash` is a content hash, recomputed and wiped per modification), so the token's weak-table `Guid` per live instance IS the identity; identity stitched across two windows races document swaps.
-- Boundary: `Editor.ThisOrRhino`, `Editor.BeginRhinoGetter(RhinoDoc)`, tabs, breadcrumbs, status bar, and layout state are `Shell/editor.md`'s shell surface; `Editor.EnsureVisible` is host-internal, so reveal routes exclusively through the public static `Editor.ShowEditor(bool createVisible = true, string layoutRules = null)` — it mints the editor when absent and fronts it when hidden.
+- Law: acquisition and consumption share one UI marshal. `Run<TOut>` admits only detached values or explicitly owned leases as outputs; returning a borrowed `GhScope`, `Editor`, `Canvas`, or `Document` reference violates the boundary even though the generic carrier cannot encode that prohibition.
+- Law: `DocumentToken.Of(document)` mints identity from the exact acquired instance. GH2 `Document.Hash` is a content digest recomputed after modification, so it never substitutes for instance identity or cache lifetime.
+- Boundary: shell chrome remains `Shell/editor.md`; reveal uses the public `Editor.ShowEditor(bool, string)` surface, which creates the editor when absent and makes an existing hidden editor visible.
 - Packages: Grasshopper2 (`Editor.Instance`, `Editor.Canvas`, `Editor.ShowEditor`, `Canvas.Document`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new host anchor (a hosted panel root, a floating canvas) is one `ScopeTarget` row plus one `GhScope` case; the acquisition column and gates never widen.
 
 ## [03]-[OPERATOR]
 
-- Owner: `GhSession` — the one host-session operator. `SessionOp` `[Union]` `[GenerateUnionOps]` closes the command family: `RevealCase(Option<string> Layout)` (mint-or-front the editor through `Editor.ShowEditor`, optional layout rules), `ExecuteCase(ScopeTarget, DispatchLane, Action<GhScope>)` (command-shaped work on a scope under a lane row), `RepaintCase(RepaintRow, Option<TimeSpan>)` (repaint policy over the canvas), `StyleCase(Control)` (`Rhino.UI.EtoExtensions.UseRhinoStyle` at the one styling seam), `FocusCase(Control)` (`Control.Focus`), `ReleaseCase(Lease<Form>)` (close-then-dispose teardown of an owned form). `RepaintRow` `[SmartEnum<int>]` carries repaint policy as rows over one `[UseDelegateFromConstructor]` `Paint(Canvas, Option<TimeSpan>, Op)` column: `Immediate` (key 0, `Canvas.Invalidate`), `Scheduled` (key 1, `Canvas.ScheduleRedraw()`), `Deferred` (key 2, `Canvas.ScheduleRedraw(TimeSpan)` demanding a delay and refusing its absence typed). `SessionReceipt` is the settlement evidence — the raising `Op`, the settled case name via `nameof`, and the marshal latency — implementing `IValidityEvidence`.
+- Owner: `SessionOp` `[Union]` `[GenerateUnionOps]` closes reveal, execute, repaint, style, focus, and release. Each successful arm returns its generated `SelfOp`; no string verb or caller key substitutes for command identity. `RepaintRow` carries exact host policy: `Invalidate` admits no delay and calls `Control.Invalidate`, `Scheduled` admits no delay and calls `ScheduleRedraw()`, and `Deferred` requires a nonnegative delay before calling `ScheduleRedraw(TimeSpan)`.
+- Owner: `SessionReceipt` carries the generated operation, entry and acknowledgement stamps, their strict order, elapsed acknowledgement latency, and the `Deferred` discriminator. For blocking commands, acknowledgement follows host settlement. For queued execution, acknowledgement follows queue admission and never claims that the deferred body succeeded.
 - Entry: `GhSession.Apply(SessionOp op, Op? key = null)` → `Fin<SessionReceipt>` — the command gate; `GhSession.Run<TOut>(ScopeTarget target, Func<GhScope, Fin<TOut>> project, Op? key = null)` → `Fin<TOut>` — the value gate. Two gates, two shapes of demand (settlement versus projection); everything else on the page is internal.
-- Law: `Apply` settles every case inside ONE `EtoDispatch` marshal — acquisition, host verb, and receipt stamp share the window, so no case observes a scope another thread invalidated mid-command. `Run` does the same for projections: acquisition and the caller's projection execute in one blocking marshal, and the projected `TOut` is the only thing that crosses back.
-- Law: fault settlement is total — every case body runs under `Op.Catch`, a cancelled host call keeps `Fault.Cancelled`, and the receipt exists only for a settled command; a failed command's evidence is its `Fault`, never a half-stamped receipt.
-- Law: `ReleaseCase` is the one teardown spelling — `Form.Close` inside the lease window, disposal by the lease's `Owned` fold — so `Form.Dispose` never appears at a consumer and a borrowed host form (`Lease<Form>.Borrowed`) closes without being disposed. The census `Teardown` union and its per-kind helpers are absorbed by this single case.
+- Law: every blocking case acquires and mutates inside one `EtoDispatch.Run` window. A queued `ExecuteCase` validates its target, lane, and work before admission, then reacquires scope inside the eventual `EtoDispatch.Post` callback. `Run` performs acquisition and projection inside one blocking marshal.
+- Law: every case body runs under `Op.Catch`. A failed blocking command or refused queue admission returns its fault without a receipt. A queued receipt exposes `Deferred = true`; deferred failures remain on the runtime `DispatchEcho` stream and are not rewritten as successful settlement.
+- Law: `ReleaseCase` is the one teardown spelling — `Form.Close` executes inside the lease window, the `Owned` fold disposes after projection even when close faults, and `Borrowed` closes without disposing the host-owned form.
 - Boundary: repaint rows target the GH2 canvas; the flex-seam redraw (`IFlexControl.ScheduleRedraw`) on non-canvas flex controls is `Canvas/canvas.md`'s operator, and the eight paint fences are `Canvas/paint.md`'s executor. Undo grouping (`History.Do` + `ActionList`) rides `Document/history.md`; a session command never opens an undo record.
-- Packages: Grasshopper2 (`Canvas.Invalidate`, `Canvas.ScheduleRedraw`, `Editor.ShowEditor`), Eto (`Control.Focus`, `Form.Close`), Rhino.UI (`EtoExtensions.UseRhinoStyle`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`, `ValidityClaim`), `Eto/runtime.md` (`EtoDispatch`, `DispatchLane`).
-- Growth: a new session verb is one `SessionOp` case with its `Switch` arm breaking loudly at the gate; a new repaint posture is one `RepaintRow` row; zero new entrypoints on any axis.
+- Packages: Grasshopper2 (`Canvas.ScheduleRedraw`, `Editor.ShowEditor`), Eto (`Control.Invalidate`, `Control.Focus`, `Form.Close`), Rhino.UI (`EtoExtensions.UseRhinoStyle`), `Rasm.Domain` (`Op`, `Fault`, `Lease<T>`, `ValidityClaim`), `Rasm.Parametric` (`MonotonicTimeline`, `MonotonicStamp`), `Eto/runtime.md` (`EtoDispatch`, `DispatchLane`).
+- Growth: a new session verb is one `SessionOp` case and one total `Switch` arm; a new repaint posture is one `RepaintRow` row.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
 using Rasm.Grasshopper.Eto;
+using Rasm.Parametric;
 using Rhino.UI;
 
 namespace Rasm.Grasshopper.Shell;
@@ -76,33 +78,70 @@ public sealed partial class ScopeTarget {
 
 [SmartEnum<int>]
 public sealed partial class RepaintRow {
-    public static readonly RepaintRow Immediate = new(key: 0, paint: static (surface, _, key) =>
-        key.Catch(body: () => Fin.Succ(Op.Side(action: surface.Invalidate))));
-    public static readonly RepaintRow Scheduled = new(key: 1, paint: static (surface, _, key) =>
-        key.Catch(body: () => Fin.Succ(Op.Side(action: () => surface.ScheduleRedraw()))));
+    public static readonly RepaintRow Invalidate = new(key: 0, paint: static (surface, delay, key) =>
+        WithoutDelay(surface: surface, delay: delay, key: key, paint: static target => target.Invalidate()));
+    public static readonly RepaintRow Scheduled = new(key: 1, paint: static (surface, delay, key) =>
+        WithoutDelay(surface: surface, delay: delay, key: key, paint: static target => target.ScheduleRedraw()));
     public static readonly RepaintRow Deferred = new(key: 2, paint: static (surface, delay, key) =>
-        delay.ToFin(key.InvalidInput()).Bind(span => key.Catch(body: () => Fin.Succ(Op.Side(action: () => surface.ScheduleRedraw(span))))));
+        from span in delay.ToFin(key.InvalidInput())
+        from admitted in guard(span >= TimeSpan.Zero, key.InvalidInput()).ToFin()
+        from painted in key.Catch(body: () => Fin.Succ(Op.Side(action: () => surface.ScheduleRedraw(span))))
+        select painted);
     [UseDelegateFromConstructor] internal partial Fin<Unit> Paint(Canvas surface, Option<TimeSpan> delay, Op key);
+
+    private static Fin<Unit> WithoutDelay(Canvas surface, Option<TimeSpan> delay, Op key, Action<Canvas> paint) =>
+        from admitted in guard(delay.IsNone, key.InvalidInput()).ToFin()
+        from painted in key.Catch(body: () => Fin.Succ(Op.Side(action: () => paint(obj: surface))))
+        select painted;
 }
 
 [Union]
 [GenerateUnionOps]
 public abstract partial record SessionOp {
     private SessionOp() { }
-    public sealed record RevealCase(Option<string> Layout) : SessionOp;
-    public sealed record ExecuteCase(ScopeTarget Target, DispatchLane Lane, Action<GhScope> Work) : SessionOp;
-    public sealed record RepaintCase(RepaintRow Row, Option<TimeSpan> Delay) : SessionOp;
-    public sealed record StyleCase(Control Surface) : SessionOp;
-    public sealed record FocusCase(Control Surface) : SessionOp;
-    public sealed record ReleaseCase(Lease<Form> Surface) : SessionOp;
+    public sealed partial record RevealCase(Option<string> Layout) : SessionOp;
+    public sealed partial record ExecuteCase(ScopeTarget Target, DispatchLane Lane, Action<GhScope> Work) : SessionOp;
+    public sealed partial record RepaintCase(RepaintRow Row, Option<TimeSpan> Delay) : SessionOp;
+    public sealed partial record StyleCase(Control Surface) : SessionOp;
+    public sealed partial record FocusCase(Control Surface) : SessionOp;
+    public sealed partial record ReleaseCase(Lease<Form> Surface) : SessionOp;
 }
 
 // --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct SessionReceipt(Op Operation, string Verb, TimeSpan Latency) : IValidityEvidence {
+[BoundaryAdapter]
+public sealed record SessionReceipt : IValidityEvidence {
+    private SessionReceipt(
+        Op operation, bool deferred, MonotonicStamp entered, MonotonicStamp acknowledged,
+        int order, TimeSpan latency) =>
+        (Operation, Deferred, Entered, Acknowledged, Order, Latency) =
+        (operation, deferred, entered, acknowledged, order, latency);
+
+    public Op Operation { get; }
+    public bool Deferred { get; }
+    public MonotonicStamp Entered { get; }
+    public MonotonicStamp Acknowledged { get; }
+    public int Order { get; }
+    public TimeSpan Latency { get; }
+
     public bool IsValid => ValidityClaim.All(
-        ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Verb)),
+        ValidityClaim.Evidence(evidence: Entered),
+        ValidityClaim.Evidence(evidence: Acknowledged),
+        ValidityClaim.Of(holds: Order < 0),
         ValidityClaim.Nonnegative(value: Latency.TotalSeconds));
+
+    internal static Fin<SessionReceipt> Of(
+        Op operation, bool deferred, MonotonicTimeline timeline,
+        MonotonicStamp entered, MonotonicStamp acknowledged, Op key) =>
+        from order in timeline.Order(left: entered, right: acknowledged, key: key)
+        from latency in timeline.Elapsed(start: entered, end: acknowledged, key: key)
+        from accepted in key.AcceptValue(value: new SessionReceipt(
+            operation: operation,
+            deferred: deferred,
+            entered: entered,
+            acknowledged: acknowledged,
+            order: order,
+            latency: latency))
+        select accepted;
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
@@ -118,52 +157,67 @@ public static class GhSession {
 
     public static Fin<SessionReceipt> Apply(SessionOp op, Op? key = null) {
         Op active = key.OrDefault();
-        long entered = Environment.TickCount64;
-        return active.Need(op)
-            .Bind(valid => valid.Switch(
+        return from valid in active.Need(op)
+               from timeline in MonotonicTimeline.Of(provider: TimeProvider.System, key: active)
+               from entered in timeline.Capture(key: active)
+               from outcome in valid.Switch(
                 state: active,
                 revealCase: static (k, c) => EtoDispatch.Run(body: () =>
                     k.Catch(body: () => Fin.Succ(Editor.ShowEditor(
                         createVisible: true,
                         layoutRules: c.Layout.MatchUnsafe(Some: static rules => rules, None: static () => null))))
-                    .Map(_ => nameof(SessionOp.RevealCase)), key: k),
-                executeCase: static (k, c) => c.Lane.Dispatch(body: () =>
-                        c.Target.Acquire(key: k).Map(scope => Op.Side(action: () => c.Work(obj: scope))), key: k)
-                    .Map(_ => nameof(SessionOp.ExecuteCase)),
-                repaintCase: static (k, c) => EtoDispatch.Run(body: () =>
-                    ScopeTarget.CanvasHost.Acquire(key: k).Bind(scope => scope.Canvas
-                        .ToFin(k.MissingContext())
-                        .Bind(surface => c.Row.Paint(surface: surface, delay: c.Delay, key: k))), key: k)
-                    .Map(_ => nameof(SessionOp.RepaintCase)),
-                styleCase: static (k, c) => EtoDispatch.Run(body: () =>
-                    k.Need(c.Surface)
-                        .Bind(surface => k.Catch(body: () => Fin.Succ(Op.Side(action: surface.UseRhinoStyle)))), key: k)
-                    .Map(_ => nameof(SessionOp.StyleCase)),
-                focusCase: static (k, c) => EtoDispatch.Run(body: () =>
-                    k.Need(c.Surface)
-                        .Bind(surface => k.Catch(body: () => Fin.Succ(Op.Side(action: surface.Focus)))), key: k)
-                    .Map(_ => nameof(SessionOp.FocusCase)),
-                releaseCase: static (k, c) => EtoDispatch.Run(body: () =>
-                    k.Catch(body: () => Fin.Succ(c.Surface.Use(project: static surface => Op.Side(action: surface.Close)))), key: k)
-                    .Map(_ => nameof(SessionOp.ReleaseCase))))
-            .Map(verb => new SessionReceipt(
-                Operation: active,
-                Verb: verb,
-                Latency: TimeSpan.FromMilliseconds(value: Environment.TickCount64 - entered)));
+                    .Map(_ => (Operation: SessionOp.RevealCase.SelfOp, Deferred: false)), key: k),
+                executeCase: static (k, c) =>
+                    from target in k.Need(c.Target)
+                    from lane in k.Need(c.Lane)
+                    from work in k.Need(c.Work)
+                    from admitted in lane.Dispatch(body: () => target.Acquire(key: k)
+                        .Map(scope => Op.Side(action: () => work(obj: scope))), key: k)
+                    select (Operation: SessionOp.ExecuteCase.SelfOp, Deferred: lane == DispatchLane.Queued),
+                repaintCase: static (k, c) =>
+                    from row in k.Need(c.Row)
+                    from painted in EtoDispatch.Run(body: () => ScopeTarget.CanvasHost.Acquire(key: k)
+                        .Bind(scope => scope.Canvas.ToFin(k.MissingContext()))
+                        .Bind(surface => row.Paint(surface: surface, delay: c.Delay, key: k)), key: k)
+                    select (Operation: SessionOp.RepaintCase.SelfOp, Deferred: false),
+                styleCase: static (k, c) =>
+                    from surface in k.Need(c.Surface)
+                    from styled in EtoDispatch.Run(body: () =>
+                        k.Catch(body: () => Fin.Succ(Op.Side(action: surface.UseRhinoStyle))), key: k)
+                    select (Operation: SessionOp.StyleCase.SelfOp, Deferred: false),
+                focusCase: static (k, c) =>
+                    from surface in k.Need(c.Surface)
+                    from focused in EtoDispatch.Run(body: () =>
+                        k.Catch(body: () => Fin.Succ(Op.Side(action: surface.Focus))), key: k)
+                    select (Operation: SessionOp.FocusCase.SelfOp, Deferred: false),
+                releaseCase: static (k, c) =>
+                    from surface in k.Need(c.Surface)
+                    from released in EtoDispatch.Run(body: () => k.Catch(body: () =>
+                        Fin.Succ(surface.Use(project: static form => Op.Side(action: form.Close)))), key: k)
+                    select (Operation: SessionOp.ReleaseCase.SelfOp, Deferred: false))
+               from acknowledged in timeline.Capture(key: active)
+               from receipt in SessionReceipt.Of(
+                   operation: outcome.Operation,
+                   deferred: outcome.Deferred,
+                   timeline: timeline,
+                   entered: entered,
+                   acknowledged: acknowledged,
+                   key: active)
+               select receipt;
     }
 }
 ```
 
 ## [04]-[CACHE]
 
-- Owner: `DocumentToken` — the one document-identity mint: GH2 `Document` exposes no cheap host id (`Hash` is a whole-content hash, wiped per modification), so a `ConditionalWeakTable` assigns one stable `Guid` per live `Document` instance; the token keys cache entries, event correlation (`Shell/events.md` `DocumentCase` facts), and eviction, and dies with the instance it identifies.
-- Owner: `SessionCache` — the document-scoped recency seam over the admitted `HybridCache` contract. One keyed profile serves the whole boundary: entries key as `gh:{documentId:N}:{name}` through the interpolated-handler `GetOrCreateAsync` overload (zero intermediate key strings), every entry tags with the owning document's token, and `Evict(documentId)` drains a closed document's whole entry set through `RemoveByTagAsync` in one call. The census `BoundedCache` — a hand-rolled generic recency structure inside the host package — is killed; stampede protection, L1/L2 policy, payload guards, and serializer admission are the substrate's, never re-derived here.
-- Entry: `Remember<TState, T>(Guid documentId, string name, TState state, Func<TState, CancellationToken, ValueTask<T>> mint, HybridCacheEntryOptions? options = null, CancellationToken cancel = default)` → `ValueTask<T>`; `Evict(Guid documentId, CancellationToken cancel = default)` → `ValueTask`. The `state` thread keeps mint factories closure-free per the substrate's own law.
-- Law: the cache is a policy surface, not a scope store — a `GhScope`, a live `Canvas`, or any host object is never a cache payload; cached material is derived, serializable evidence (icon rasters, layout measurements, parse results) keyed to the document that produced it. `Shell/events.md`'s `document.state` row is the invalidation trigger: its consumer calls `Evict` with the closing fact's `DocumentId` token, so recency and lifetime are one law.
-- Law: entry policy is a passed `HybridCacheEntryOptions` value — a per-call flag set, a second cache profile, or a local expiry constant beside the substrate's `DefaultEntryOptions` is the deleted form.
-- Boundary: `SessionCache` resolves its `HybridCache` from the composition root; the `ValueTask` carriers stay boundary carriers — a kernel `Fin` consumer bridges at its own seam.
-- Packages: Microsoft.Extensions.Caching.Hybrid (`HybridCache.GetOrCreateAsync`/`RemoveByTagAsync`, `HybridCacheEntryOptions`), `Rasm.Domain`.
-- Growth: a new cached concern is one `Remember` call site with its own name segment; a new invalidation axis is one tag value — the seam never widens.
+- Owner: `DocumentToken` assigns one stable `Guid` to each live `Document` instance through `ConditionalWeakTable`. The association disappears with the document; `Document.Hash` remains content identity and never enters cache addressing.
+- Owner: `CacheSlot` admits one trimmed, nonblank concern identity. `SessionCache` keys entries as `gh:{documentId:N}:{slot}` and applies the exact `gh-doc:{documentId:N}` tag to every value minted for that document.
+- Entry: `Remember<TState, T>(Guid, CacheSlot, TState, Func<TState, CancellationToken, ValueTask<T>>, HybridCacheEntryOptions?, CancellationToken)` composes the stateful `HybridCache.GetOrCreateAsync` overload without factory capture; `Evict(Guid, CancellationToken)` calls the singular `RemoveByTagAsync` overload.
+- Law: tag invalidation makes every matching entry stale for subsequent reads; it does not promise physical deletion from L1 or L2. The substrate retains stampede control, configured default entry policy, serializer selection, maximum-key and maximum-payload bypass behavior, and storage topology.
+- Law: cache payloads are detached serializable values such as encoded raster bytes, layout measurements, or parse receipts. A `GhScope`, live host object, Eto bitmap, lease, or delegate never becomes a cache value.
+- Law: every `document.state` fact invalidates its document tag. The current fact shape carries document identity but no before/after state, so this boundary does not invent a closing-only distinction.
+- Boundary: the composition root supplies `HybridCache`; `ValueTask` remains the package carrier, and a kernel consumer bridges at its own seam.
+- Growth: a new cached concern is one `CacheSlot` value at the call site; a new invalidation axis is one exact tag value.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -172,6 +226,15 @@ using Microsoft.Extensions.Caching.Hybrid;
 using Rasm.Csp;
 
 namespace Rasm.Grasshopper.Shell;
+
+// --- [TYPES] --------------------------------------------------------------------------------
+[ValueObject<string>]
+public readonly partial struct CacheSlot {
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) {
+        value = value?.Trim() ?? string.Empty;
+        validationError = value.Length > 0 ? null : new ValidationError(message: "CacheSlot requires a non-blank identity.");
+    }
+}
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 [BoundaryAdapter]
@@ -183,10 +246,10 @@ public static class DocumentToken {
 [BoundaryAdapter]
 public sealed class SessionCache(HybridCache cache) {
     public ValueTask<T> Remember<TState, T>(
-        Guid documentId, string name, TState state, Func<TState, CancellationToken, ValueTask<T>> mint,
+        Guid documentId, CacheSlot slot, TState state, Func<TState, CancellationToken, ValueTask<T>> mint,
         HybridCacheEntryOptions? options = null, CancellationToken cancel = default) =>
         cache.GetOrCreateAsync(
-            key: $"gh:{documentId:N}:{name}",
+            key: $"gh:{documentId:N}:{slot}",
             state: (State: state, Mint: mint),
             factory: static (seam, token) => seam.Mint(arg1: seam.State, arg2: token),
             options: options,
@@ -201,26 +264,54 @@ public sealed class SessionCache(HybridCache cache) {
 ```
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
-    Consumer["boundary consumers"] -->|SessionOp cases| Apply["GhSession.Apply → Fin&lt;SessionReceipt&gt;"]
-    Consumer -->|"ScopeTarget + Func&lt;GhScope, Fin&lt;TOut&gt;&gt;"| RunGate["GhSession.Run&lt;TOut&gt;"]
-    Apply --> Rows["ScopeTarget acquisition rows"]
-    RunGate --> Rows
-    Rows -->|Editor.Instance → Canvas → Document| Host["Grasshopper2 UI chain"]
-    Apply -->|RepaintRow column| Host
-    Apply -->|one marshal per command| Dispatch["Eto/runtime EtoDispatch"]
+    accTitle: Distinguish session settlement from queue admission
+    accDescr: Session commands split blocking settlement from queued admission before both produce monotonic acknowledgements; value projections share the blocking dispatcher, live scope is acquired inside the dispatch window, and document-state facts invalidate exact cache tags.
+    Consumer(["boundary consumer"]) -->|SessionOp| Apply["Apply"]
+    Consumer -->|projection| RunGate["Run&lt;TOut&gt;"]
+    Apply --> Lane{"execution posture?"}
+    Lane -->|"blocking"| Dispatch["EtoDispatch.Run"]
+    Lane -->|"queued"| Queue["EtoDispatch.Post"]
+    Queue -->|"admission"| Receipt[/"SessionReceipt"/]
+    Queue -.->|"eventual DispatchEcho"| Echo["outcome stream"]
+    Dispatch --> Scope["ScopeTarget.Acquire"]
     RunGate --> Dispatch
-    Cache["SessionCache over HybridCache"] -->|Evict on document close| EventsPage["Shell/events document rows"]
+    Scope --> Host["Editor → Canvas → Document"]
+    Dispatch -->|"settlement"| Receipt
+    Host --> Events["document.state fact"]
+    Events -->|"exact tag invalidation"| Cache[("SessionCache")]
+    linkStyle 3,10 stroke:#50FA7B,color:#F8F8F2
+    linkStyle 4,5 stroke:#FFB86C,color:#282A36
+    linkStyle 6 stroke:#6272A4,color:#F8F8F2,stroke-width:1.5px,stroke-dasharray:4 6
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef external fill:#8BE9FDBF,stroke:#8BE9FD,color:#282A36
+    class Consumer,Cache data
+    class Apply,RunGate,Lane,Dispatch,Queue,Scope primary
+    class Receipt success
+    class Host,Events,Echo external
 ```
-
-## [05]-[DENSITY_BAR]
-
-| [INDEX] | [CONCERN]          | [OWNER]                        | [KIND]                                                   | [RAIL]                              | [CASES] |
-| :-----: | :----------------- | :------------------------------ | :--------------------------------------------------------- | :----------------------------------- | :-----: |
-|  [01]   | scope acquisition  | `ScopeTarget` + `GhScope`      | `[SmartEnum<int>]` rows → closed `[Union]`               | `Acquire → Fin<GhScope>` (internal) |   3+3   |
-|  [02]   | session commands   | `SessionOp` + `SessionReceipt` | `[GenerateUnionOps]` `[Union]` + evidence receipt        | `Apply → Fin<SessionReceipt>`       |    6    |
-|  [03]   | repaint policy     | `RepaintRow`                   | `[SmartEnum<int>]` delegate rows                         | `Paint → Fin<Unit>` (internal)      |    3    |
-|  [04]   | value projection   | `GhSession.Run<TOut>`          | one generic gate, one marshal window                     | `Run<TOut> → Fin<TOut>`             |    1    |
-|  [05]   | recency caching    | `SessionCache` + `DocumentToken` | `HybridCache` profile, weak-table identity, document tags | `Remember → ValueTask<T>`           |    2    |
-
-`EtoDispatch`, `DispatchLane`, `Op`, `Fault`, `Lease<T>`, `ValidityClaim`, and `HybridCache` are composed upstream owners. The census `RepaintRequest`/`Teardown`/`Subscription`/`GrasshopperUiIntent`/`BoundedCache` roster has no successor shape — its capabilities land as the cases and rows above.

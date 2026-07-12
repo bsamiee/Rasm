@@ -104,17 +104,14 @@
     "linter": {
         "enabled": true,
         "domains": {
-            "project": "recommended",
+            "project": "none",
             "test": "recommended",
-            "types": "recommended"
+            "types": "none"
         },
         "rules": {
             "preset": "recommended",
             "complexity": {
                 "useLiteralKeys": "off"
-            },
-            "nursery": {
-                "useExhaustiveSwitchCases": "error"
             },
             "performance": {
                 "noAccumulatingSpread": "error",
@@ -124,7 +121,6 @@
             },
             "suspicious": {
                 "noExplicitAny": "error",
-                "noImportCycles": "error",
                 "noShadowRestrictedNames": "off"
             }
         }

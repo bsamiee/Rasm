@@ -1,19 +1,17 @@
 # [RASM_GRASSHOPPER_ATTRIBUTES]
 
-`ComponentChrome` is the component attribute interaction policy: every host callback — layout, pivot, foreground paint, context menu, pointer, wheel, keyboard, text input, focus, tooltip, resize, cursor — lands as one case of the `ChromeEvent` union, one `Respond` fold answers it with a right-biased `ChromeDecision` merge, and every answer seals into one bounded `ChromeReceipt` stream. The canvas snap setting mutates only inside a `SnapWindow` restoration capsule, resize rides a `ResizeSession` over the verified `ResizingFrame`, and the two host attribute bases the platform forces both route through one `ChromeDispatch` spine, so the policy is declared once and projected twice.
+`ComponentChrome` is the component-attribute interaction policy. Verified host callbacks enter one `ChromeEvent` union, one response fold returns only decisions the shells can project, and every answer receives a bounded monotone trace ordinal. `ResizableAttributes<T>` remains the sole resize, snapping, cursor, persistence, and undo owner; the two host bases project one policy spine without duplicating that protocol.
 
 ## [01]-[INDEX]
 
 - [02]-[EVENT_ALGEBRA]: the `ChromeEvent` union, its pointer and key vocabularies, and the `ChromeDecision` merge monoid
-- [03]-[SNAP_AND_RESIZE]: the `SnapWindow` restoration capsule and the `ResizeSession` over the host frame
-- [04]-[CHROME_POLICY]: the `ComponentChrome` declaration, the bounded receipt stream, and its projections
-- [05]-[HOST_PROJECTION]: the dual attribute bases and the one dispatch spine
-- [06]-[RESEARCH]
+- [03]-[CHROME_POLICY]: the `ComponentChrome` declaration and bounded monotone receipt stream
+- [04]-[HOST_PROJECTION]: the dual thin host shells and one dispatch spine
 
 ## [02]-[EVENT_ALGEBRA]
 
 - Owner: `ChromeEvent` is the closed interaction vocabulary — one case per verified host callback family, each carrying the host payload verbatim; `ChromeDecision` is the right-biased merge monoid, so composing two policies is `left | right` with the right's settled slots winning and redraw accumulating.
-- Cases: `Layout`, `Pivot`, `Paint`, `Menu`, `Pointer`, `Key`, `Text`, `Focus`, `Tooltip`, `Resize`, and `Cursor`; `PointerKind`, `KeyPhase`, and `ResizeStage` close the sub-discriminants, with `Leave` carrying no mouse payload so `Pointer` types its args as presence.
+- Cases: `Layout`, `Pivot`, `Paint`, `Menu`, `Pointer`, `Key`, `Text`, `Focus`, `Tooltip`, `Resize`, and `Cursor`; `PointerKind` and `KeyPhase` close the sub-discriminants, while `Resize` observes the live host `Size` after invalidation and `Leave` carries no mouse payload.
 - Entry: a policy is one `Func<ChromeEvent, ChromeState, ChromeDecision>` — total by the union's generated dispatch, never a callback subclass per interaction.
 - Growth: a new host callback family is one union case; a new decision slot is one `ChromeDecision` member folded into `|`.
 - Boundary: payloads stay host values — `ResponseMouseArgs`, `KeyEventArgs`, `TextInputEventArgs`, `Context`, `Skin`, `Capsule`, `Shade`, `Shape`, `ContextMenu` cross unwrapped because the decision, not the payload, is this page's domain; the input panel projects through `ComponentSpec.Panel`, never a chrome case.
@@ -42,12 +40,6 @@ public sealed partial class KeyPhase {
 }
 
 [SmartEnum]
-public sealed partial class ResizeStage {
-    public static readonly ResizeStage Begin = new();
-    public static readonly ResizeStage Track = new();
-    public static readonly ResizeStage Commit = new();
-}
-
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record ChromeEvent {
     private ChromeEvent() { }
@@ -65,7 +57,7 @@ public abstract partial record ChromeEvent {
     public sealed record Text(Eto.Forms.TextInputEventArgs Args) : ChromeEvent;
     public sealed record Focus(bool Gained) : ChromeEvent;
     public sealed record Tooltip(Eto.Drawing.PointF At) : ChromeEvent;
-    public sealed record Resize(ResizeStage Stage, Eto.Drawing.PointF At, Eto.Drawing.RectangleF Bounds) : ChromeEvent;
+    public sealed record Resize(Eto.Drawing.SizeF Size) : ChromeEvent;
     public sealed record Cursor(Eto.Drawing.PointF At) : ChromeEvent;
 }
 
@@ -75,98 +67,29 @@ public readonly record struct ChromeState(Eto.Drawing.RectangleF Bounds, Eto.Dra
 
 public readonly record struct ChromeDecision(
     Option<Grasshopper2.UI.Flex.Response> Verdict,
-    bool Redraw,
-    Option<Eto.Drawing.RectangleF> Bounds,
     Option<Eto.Forms.Cursor> Pointer,
-    Option<string> Tip,
-    Option<Grasshopper2.Undo.Actions.ResizeAction> Undo) {
-    public static readonly ChromeDecision Pass = new(default, false, default, default, default, default);
+    Option<string> Tip) {
+    public static readonly ChromeDecision Pass = new(default, default, default);
 
     public static ChromeDecision operator |(ChromeDecision left, ChromeDecision right) => new(
         right.Verdict | left.Verdict,
-        left.Redraw || right.Redraw,
-        right.Bounds | left.Bounds,
         right.Pointer | left.Pointer,
-        right.Tip | left.Tip,
-        right.Undo | left.Undo);
+        right.Tip | left.Tip);
 }
 ```
 
-## [03]-[SNAP_AND_RESIZE]
+## [03]-[CHROME_POLICY]
 
-- Owner: `SnapWindow` is the boundary-scoped restoration capsule over the global canvas snap setting — open captures the prior value, dispose restores it, so a snap mutation without its restoration receipt is unconstructible; `ResizeSession` owns one interactive resize over the verified `ResizingFrame` under caller-held `SnappingConstraints` and `SnappingSettings`.
-- Entry: `ResizeSession.Begin` admits the frame, the grip padding, the caller-held snapping surfaces, and the snap window in one acquisition, refusing when the host `Begin` reports no edge under the grip; `Track` advances and returns the frame's `Resized` rectangle, `CursorAt` projects the edge cursor, and disposal restores the snap state on every exit path.
-- Receipt: the resize commit's undo rides `ChromeDecision.Undo` as a host `ResizeAction`, so mutation and undo stay one act.
-- Packages: `Grasshopper2.UI.ResizingFrame` — constructor `(RectangleF, SizeF, SizeF, SnappingConstraints, SnappingSettings)`, `bool Begin(PointF, Padding)`, `void Continue(PointF)`, `Resized`, `CursorAt(PointF, Padding)` — and the `Grasshopper2.UI.Canvas` snapping surfaces are the composed mechanics; no local snap solver exists beside them.
-- Growth: a new resize constraint is one `ResizePolicy` member; a new snapped setting is a second capsule of the same shape.
-- Boundary: `SnappingConstraints` and `SnappingSettings` arrive pre-built from the caller — this page never reaches a `Document` or a settings store to build them, keeping the chrome session-independent; the capsule bodies are the named boundary-kernel statement seam.
-
-```csharp signature
-// --- [MODELS] ----------------------------------------------------------------------------
-
-public sealed record ResizePolicy(Eto.Drawing.SizeF Minimum, Eto.Drawing.SizeF Maximum, Eto.Drawing.Padding Grip, bool SnapToObjects);
-
-public readonly struct SnapWindow : IDisposable {
-    private readonly bool prior;
-
-    private SnapWindow(bool prior) => this.prior = prior;
-
-    public static SnapWindow Open(bool desired) {
-        bool held = Grasshopper2.Settings.CanvasSnapToObjects.Value;
-        Grasshopper2.Settings.CanvasSnapToObjects.Value = desired;
-        return new SnapWindow(held);
-    }
-
-    public void Dispose() => Grasshopper2.Settings.CanvasSnapToObjects.Value = prior;
-}
-
-// --- [SERVICES] --------------------------------------------------------------------------
-
-public sealed class ResizeSession : IDisposable {
-    private readonly Grasshopper2.UI.ResizingFrame frame;
-
-    private readonly SnapWindow snap;
-
-    private readonly Op key;
-
-    private ResizeSession(Grasshopper2.UI.ResizingFrame frame, SnapWindow snap, Op key) => (this.frame, this.snap, this.key) = (frame, snap, key);
-
-    public static Fin<ResizeSession> Begin(
-        Eto.Drawing.RectangleF bounds,
-        ResizePolicy policy,
-        Grasshopper2.UI.Canvas.SnappingConstraints constraints,
-        Grasshopper2.UI.Canvas.SnappingSettings settings,
-        Eto.Drawing.PointF at,
-        Op? key = null) {
-        Op op = key.OrDefault();
-        return Hosted.Bound(() => {
-                Grasshopper2.UI.ResizingFrame frame = new(bounds, policy.Minimum, policy.Maximum, constraints, settings);
-                return frame.Begin(at, policy.Grip)
-                    ? Fin.Succ(new ResizeSession(frame, SnapWindow.Open(policy.SnapToObjects), op))
-                    : Fin.Fail<ResizeSession>(new GhFault.Refused(op, $"{nameof(Begin)}:{at}"));
-            }, op)
-            .Bind(identity);
-    }
-
-    public Fin<Eto.Drawing.RectangleF> Track(Eto.Drawing.PointF at) =>
-        Hosted.Bound(() => { frame.Continue(at); return frame.Resized; }, key);
-
-    public Option<Eto.Forms.Cursor> CursorAt(Eto.Drawing.PointF at, Eto.Drawing.Padding grip) => Optional(frame.CursorAt(at, grip));
-
-    public void Dispose() => snap.Dispose();
-}
-```
-
-## [04]-[CHROME_POLICY]
-
-- Owner: `ComponentChrome` is the declaration a `ComponentSpec` carries — one respond fold plus the optional resize policy; `ChromeReceipt` is the per-interaction evidence row, and its projections are pure folds over one stream, never parallel cells.
+- Owner: `ComponentChrome` carries one response fold plus optional size limits. `ChromeTrace` stores a strictly increasing per-instance ordinal, event kind, and projected decision.
 - Entry: `ChromeDispatch.Decide` is the one spine both host bases call — respond, record, return.
-- Receipt: `ChromeReceipt` carries the event kind, the merged decision, and the instant; the stream is a bounded ring — the oldest row falls off past `Window`, so a long-lived attribute instance never grows unbounded under per-paint layout traffic; `LatestByKind` and `RedrawCount` are the standing projections.
+- Receipt: the bounded stream drops its oldest row past `Window`; `LatestByKind` derives from that one stream.
 - Growth: a new projection is one fold over the same stream; a new policy slot is one `ComponentChrome` member.
 - Boundary: the receipt cell lives on the host attribute instance — chrome policy itself stays an immutable value shared across components.
 
 ```csharp signature
 // --- [MODELS] ----------------------------------------------------------------------------
+
+public sealed record ResizePolicy(Eto.Drawing.SizeF Minimum, Eto.Drawing.SizeF Maximum);
 
 public sealed record ComponentChrome {
     public static readonly ComponentChrome None = new();
@@ -176,35 +99,42 @@ public sealed record ComponentChrome {
     public Option<ResizePolicy> Resize { get; init; } = default;
 }
 
-public readonly record struct ChromeReceipt(string Kind, ChromeDecision Decision, DateTimeOffset At);
+public readonly record struct ChromeTrace(long Ordinal, string Kind, ChromeDecision Decision);
 
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 public static class ChromeDispatch {
     public const int Window = 256;
 
-    public static ChromeDecision Decide(ComponentChrome chrome, Atom<Seq<ChromeReceipt>> receipts, ChromeEvent happening, ChromeState state) =>
-        Recorded(receipts, chrome.Respond(happening, state), happening);
+    public static ChromeDecision Decide(
+        ComponentChrome chrome,
+        Atom<Seq<ChromeTrace>> receipts,
+        Atom<long> ordinal,
+        ChromeEvent happening,
+        ChromeState state) => Recorded(receipts, ordinal, chrome.Respond(happening, state), happening);
 
-    public static HashMap<string, ChromeReceipt> LatestByKind(Seq<ChromeReceipt> receipts) =>
-        receipts.Fold(HashMap<string, ChromeReceipt>(), static (held, receipt) => held.AddOrUpdate(receipt.Kind, receipt));
+    public static HashMap<string, ChromeTrace> LatestByKind(Seq<ChromeTrace> receipts) =>
+        receipts.Fold(HashMap<string, ChromeTrace>(), static (held, receipt) => held.AddOrUpdate(receipt.Kind, receipt));
 
-    public static int RedrawCount(Seq<ChromeReceipt> receipts) =>
-        receipts.Filter(static receipt => receipt.Decision.Redraw).Count;
-
-    private static ChromeDecision Recorded(Atom<Seq<ChromeReceipt>> receipts, ChromeDecision decision, ChromeEvent happening) =>
-        (receipts.Swap(held => (held.Count >= Window ? held.Tail : held).Add(new ChromeReceipt(happening.GetType().Name, decision, DateTimeOffset.UtcNow))),
-            decision).Item2;
+    private static ChromeDecision Recorded(
+        Atom<Seq<ChromeTrace>> receipts, Atom<long> ordinal, ChromeDecision decision, ChromeEvent happening) {
+        long next = ordinal.Swap(static current => checked(current + 1L));
+        _ = receipts.Swap(held => (held.Count >= Window ? held.Tail : held).Add(new ChromeTrace(
+            Ordinal: next,
+            Kind: happening.GetType().Name,
+            Decision: decision)));
+        return decision;
+    }
 }
 ```
 
-## [05]-[HOST_PROJECTION]
+## [04]-[HOST_PROJECTION]
 
-- Owner: `ChromeHost` and `ResizableChromeHost` are the two host projections the platform forces — the resizable base is a distinct host generic — and both are override-thin shells over `ChromeDispatch.Decide`; `ChromeHost.Mount` selects the base from the declared resize policy, so the caller never names either concrete.
+- Owner: `ChromeHost` and `ResizableChromeHost` are thin projections over the one dispatch spine. The resizable shell delegates the entire interaction protocol to `ResizableAttributes<T>` and observes committed size changes through `InvalidateLayout`.
 - Entry: every host callback body is one dispatch expression over the verified base member — `LayoutBounds(Shape)`, `PivotMoved(PointF, PointF)`, `DrawForegroundDecorations(Context, Skin, Capsule, Shade)`, `ShowTooltipAt(PointF)` — with the base behavior preserved before the policy observes; pointer, wheel, key, text, and focus wire once through `ChromeWiring` onto the verified `Responses` hook events.
-- Auto: an unanswered decision falls back to the host default — `Response.Ignored`, the base tooltip verdict, the default cursor — so `ComponentChrome.None` is behaviorally inert; mounting chrome replaces the internal modular attribute layout, so a chrome policy owns its own layout decisions.
+- Auto: an unanswered decision falls back to `Response.Ignored`, the base tooltip verdict, or the default cursor. `ResizeAction(IDocumentObject)` snapshots pre-resize `IResizableAttributes.Size` and `Pivot`; the host responder constructs it before drag, commits it through document undo on release, and owns snap toggling through `CanvasSnapToObjects`.
 - Growth: a new host callback is one override on each shell dispatching an existing or new event case.
-- Boundary: the constructor wiring and the override statements are the named platform-forced seam; no other page names an attribute base member; `Bounds` and `Pivot` read through the verified `IAttributes` contract.
+- Boundary: `ResizableAttributes<T>(T owner, SizeF minimumSize, SizeF maximumSize)` owns clamping, rounding, `CustomValues` persistence, bounds invalidation, `ResizingFrame`, `SnappingConstraints.CreateFromDocument`, `SnappingSettings.Current`, `CanvasSnapToObjects`, cursor edges, and undo; `EdgeSize` is the host constant `6`, while `Size` is the live public property.
 
 ```csharp signature
 // --- [COMPOSITION] -----------------------------------------------------------------------
@@ -234,11 +164,13 @@ internal static class ChromeWiring {
 
 public sealed class ChromeHost :
     Grasshopper2.Doc.Attributes.ComponentAttributes,
-    Grasshopper2.Doc.Attributes.IContextMenuAware,
-    Grasshopper2.Doc.Attributes.ICursorAwareAttributes {
+    Grasshopper2.UI.IContextMenuAware,
+    Grasshopper2.Doc.ICursorAwareAttributes {
     private readonly ComponentChrome chrome;
 
-    private readonly Atom<Seq<ChromeReceipt>> receipts = Atom(Seq<ChromeReceipt>());
+    private readonly Atom<Seq<ChromeTrace>> receipts = Atom(Seq<ChromeTrace>());
+
+    private readonly Atom<long> ordinal = Atom(0L);
 
     private ChromeHost(Component owner, ComponentChrome chrome) : base(owner) {
         this.chrome = chrome;
@@ -250,7 +182,7 @@ public sealed class ChromeHost :
             Some: policy => (Grasshopper2.Doc.IAttributes)new ResizableChromeHost(owner, chrome, policy),
             None: () => new ChromeHost(owner, chrome));
 
-    public Seq<ChromeReceipt> Receipts => receipts.Value;
+    public Seq<ChromeTrace> Receipts => receipts.Value;
 
     private ChromeState State => new(Bounds, Pivot);
 
@@ -279,7 +211,7 @@ public sealed class ChromeHost :
     public Eto.Forms.Cursor CursorAt(Eto.Drawing.PointF at) =>
         Decide(new ChromeEvent.Cursor(at)).Pointer.IfNone(Eto.Forms.Cursors.Default);
 
-    private ChromeDecision Decide(ChromeEvent happening) => ChromeDispatch.Decide(chrome, receipts, happening, State);
+    private ChromeDecision Decide(ChromeEvent happening) => ChromeDispatch.Decide(chrome, receipts, ordinal, happening, State);
 
     private Grasshopper2.UI.Flex.Response PointerHook(PointerKind kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> args) =>
         Decide(new ChromeEvent.Pointer(kind, args)).Verdict.IfNone(Grasshopper2.UI.Flex.Response.Ignored);
@@ -295,26 +227,34 @@ public sealed class ChromeHost :
 
 public sealed class ResizableChromeHost :
     Grasshopper2.Doc.Attributes.ResizableAttributes<Component>,
-    Grasshopper2.Doc.Attributes.IContextMenuAware,
-    Grasshopper2.Doc.Attributes.ICursorAwareAttributes {
+    Grasshopper2.UI.IContextMenuAware,
+    Grasshopper2.Doc.ICursorAwareAttributes {
     private readonly ComponentChrome chrome;
 
-    private readonly ResizePolicy policy;
+    private readonly Atom<Seq<ChromeTrace>> receipts = Atom(Seq<ChromeTrace>());
 
-    private readonly Atom<Seq<ChromeReceipt>> receipts = Atom(Seq<ChromeReceipt>());
+    private readonly Atom<long> ordinal = Atom(0L);
 
-    internal ResizableChromeHost(Component owner, ComponentChrome chrome, ResizePolicy policy) : base(owner) {
-        (this.chrome, this.policy) = (chrome, policy);
+    private bool mounted;
+
+    private Eto.Drawing.SizeF observedSize;
+
+    internal ResizableChromeHost(Component owner, ComponentChrome chrome, ResizePolicy policy) :
+        base(owner, policy.Minimum, policy.Maximum) {
+        this.chrome = chrome;
+        observedSize = Size;
         ChromeWiring.Wire(Responder, PointerHook, KeyHook, TextHook, FocusHook);
+        mounted = true;
     }
 
-    public Seq<ChromeReceipt> Receipts => receipts.Value;
+    public Seq<ChromeTrace> Receipts => receipts.Value;
 
-    protected override Eto.Drawing.Padding EdgeSize => policy.Grip;
-
-    public Eto.Drawing.SizeF Size {
-        get => Bounds.Size;
-        set => ignore(Decide(new ChromeEvent.Resize(ResizeStage.Track, Pivot, new Eto.Drawing.RectangleF(Bounds.Location, value))));
+    public override void InvalidateLayout() {
+        base.InvalidateLayout();
+        if (mounted && observedSize != Size) {
+            observedSize = Size;
+            ignore(Decide(new ChromeEvent.Resize(Size)));
+        }
     }
 
     protected override void LayoutBounds(Grasshopper2.UI.Skinning.Shape shape) {
@@ -344,7 +284,7 @@ public sealed class ResizableChromeHost :
 
     private ChromeState State => new(Bounds, Pivot);
 
-    private ChromeDecision Decide(ChromeEvent happening) => ChromeDispatch.Decide(chrome, receipts, happening, State);
+    private ChromeDecision Decide(ChromeEvent happening) => ChromeDispatch.Decide(chrome, receipts, ordinal, happening, State);
 
     private Grasshopper2.UI.Flex.Response PointerHook(PointerKind kind, Option<Grasshopper2.UI.Flex.ResponseMouseArgs> args) =>
         Decide(new ChromeEvent.Pointer(kind, args)).Verdict.IfNone(Grasshopper2.UI.Flex.Response.Ignored);
@@ -358,11 +298,3 @@ public sealed class ResizableChromeHost :
     private void FocusHook(bool gained) => ignore(Decide(new ChromeEvent.Focus(gained)));
 }
 ```
-
-## [06]-[RESEARCH]
-
-- [RESIZABLE_BASE]-[OPEN]: the resizable attribute base — the `ResizableAttributes<T>` type name, arity, constructor, `EdgeSize`, and the `Size` accessor pair the host drives during a resize interaction, plus the seam where a decided `Bounds` applies back to the attribute; verify through the decompile rail and re-shape `ResizableChromeHost` to the host's own resize protocol.
-- [AWARE_INTERFACES]-[OPEN]: the `IContextMenuAware` and `ICursorAwareAttributes` member shapes — the shells assume `AppendToMenu(ContextMenu)` and `CursorAt(PointF)`; verify the interface members and homes through the decompile rail.
-- [RESIZE_ACTION]-[OPEN]: the `Grasshopper2.Undo.Actions.ResizeAction` constructor and the `ActionList` seam a commit-stage undo row lands on, so a resize commit mints and drains its undo instead of receiving one pre-built.
-- [SNAPPING_CONSTRAINTS]-[OPEN]: the full `SnappingConstraints.CreateFromDocument` parameter list — the session takes constraints and settings pre-built until the arity is verified.
-- [SNAP_SETTING]-[OPEN]: the settings cell behind the canvas snap flag — `SnapWindow` assumes `Grasshopper2.Settings.CanvasSnapToObjects.Value`; verify the cell spelling and value shape through the decompile rail.

@@ -2,7 +2,7 @@
 
 `CurveProjection`, `SurfaceProjection`, and `ConeProjection` own Rhino-native parametric evaluation, while the host-neutral motion owners govern interpolation and provider-relative time evidence. Each projection selector drains through one `Project<TOut>` gate into `AtomProjection.Raw`, and each captured clock value remains branded to the injected `TimeProvider` timeline that produced it.
 
-The owner laws partition shape-operator construction, quaternion rotation, scalar timing, perceptual colour, and monotonic time. `SurfaceProjection.ShapeOperator` assembles the second fundamental form, `MotionInterpolation` derives pose and direction rotation from one quaternion-combination column, and the motion rows carry scalar or colour policy without host UI types. `MonotonicTimeline` brands opaque `MonotonicStamp` values with its instance and injected provider, and its admission gate rejects foreign stamps or beats before `TimeProvider.GetElapsedTime` runs. Every fallible read stays on the `Op`-keyed `Fin<T>` rail; Rhino-read material uses the Rhino acceptance oracle, while the host-neutral timing owners use their own validity evidence.
+The owner laws partition shape-operator construction, quaternion rotation, scalar timing, and monotonic time. `SurfaceProjection.ShapeOperator` assembles the second fundamental form, `MotionInterpolation` derives pose and direction rotation from one quaternion-combination column, and the motion rows carry scalar policy without host UI types; perceptual colour is the `Numerics/atoms` `PerceptualColor`/`BlendPath` owner. `MonotonicTimeline` brands opaque `MonotonicStamp` values with its instance and injected provider, and its admission gate rejects foreign stamps or beats before `TimeProvider.GetElapsedTime` runs. Every fallible read stays on the `Op`-keyed `Fin<T>` rail; Rhino-read material uses the Rhino acceptance oracle, while the host-neutral timing owners use their own validity evidence.
 
 ## [01]-[INDEX]
 
@@ -11,29 +11,28 @@ The owner laws partition shape-operator construction, quaternion rotation, scala
 
 ## [02]-[SELECTORS]
 
-- Owner: `CurveProjection` `[SmartEnum<int>]` — 9 rows over one `[UseDelegateFromConstructor]` `Sample(Curve, double, Context, Op)` column plus the `AdmitsMagnitude` bool column: `Tangent` (unit-gated `Curve.TangentAt`), `Curvature` (`Curve.CurvatureAt`, zero-vector admissible — the one magnitude-admitting row), `Frame`/`PerpendicularFrame` (`Curve.FrameAt`/`Curve.PerpendicularFrameAt` moving vs sweep frame), `ArcLength` (`Curve.GetLength(fractionalTolerance, subdomain)` from `Domain.T0`), `FrameNormal`/`FrameBinormal`/`PerpendicularNormal`/`PerpendicularBinormal` (axis projections of the two frames). Two row-factory folds own construction: `Vector(key, admitsMagnitude, sample)` collapses the validity-wrapped vector rows and `FrameRow(key, perpendicular, project)` collapses all six frame-derived rows into one out-parameter fold — nine rows, three construction shapes, zero per-row boilerplate.
-- Owner: `SurfaceProjection` `[SmartEnum<int>]` — 13 rows over `Sample(Surface, Point2d, Context, Op)`: `PrincipalCurvatures` (κ-max/κ-min pair), `Gaussian`/`Mean` (`Domain/stats` `ScalarMetric.Gaussian`/`Mean` over the `SurfaceCurvature` bundle), `MaximumOsculatingCircle`/`MinimumOsculatingCircle` (`SurfaceCurvature.OsculatingCircle(0|1)`), `Normal`/`Frame` (the `Domain/evaluation` `NormalAt`/`FrameAt` lattice), `ShapeOperator` (the second-fundamental-form `SymmetricMatrix` — the single owner), `Point` (`Surface.PointAt`), `UvFrame` (derivative-spanned plane re-oriented to the outward normal), `Jacobian` (3×2 `Matrix` of ∂u/∂v), `Metric` (2×2 first-fundamental-form `SymmetricMatrix` [E F; F G]), `AreaScale` (`|∂u×∂v|`). Two helper folds own the sampling shapes: `WithCurvature` runs a row against the disposable `SurfaceCurvature` bundle on the `Lease` rail, and `Derivatives(key, project)` is the row factory for the four first-derivative rows over one `Surface.Evaluate(u, v, numberDerivatives: 1, ...)` call.
-- Owner: `ConeProjection` `[SmartEnum<int>]` — 4 rows (`HalfAngle`/`SolidAngle`/`Axis`/`Apex`) over one `Sample(VectorCone)` accessor column. The rows stay a selector vocabulary by decision: `VectorIntent.Cone(cone, mode)` carries the row as its case payload, and instance accessors on `VectorCone` cannot ride a dispatch payload — the thin-accessor collapse the row shape invites is rejected because the selector IS the modality discriminant.
+- Owner: `CurveProjection` `[SmartEnum<int>]` — a row vocabulary over one `[UseDelegateFromConstructor]` `Sample(Curve, double, Context, Op)` column plus the `AdmitsMagnitude` policy column. `Vector(key, admitsMagnitude, sample)` owns vector admission, `FrameRow(key, perpendicular, project)` owns moving and sweep-frame recovery plus axis projection, and the arc-length row owns the domain-length call.
+- Owner: `SurfaceProjection` `[SmartEnum<int>]` — a row vocabulary over `Sample(Surface, Point2d, Context, Op)`. `WithCurvature` scopes every disposable `SurfaceCurvature` projection on the `Lease` rail, `Derivatives(key, project)` derives the first-fundamental forms from one `Surface.Evaluate(u, v, numberDerivatives: 1, ...)` call, and `ShapeOperator` remains the sole second-fundamental-form owner.
+- Owner: `ConeProjection` `[SmartEnum<int>]` — an accessor-row vocabulary over one `Sample(VectorCone)` column. `VectorIntent.Cone(cone, mode)` carries the row as its modality discriminant, which an instance accessor on `VectorCone` cannot replace.
 - Entry: each selector exposes exactly one `internal Fin<TOut> Project<TOut>(...)` gate — `CurveProjection.Project<TOut>(Curve, double, Context, Op)` admits the curve (non-null, `IsValid`, `Domain.IncludesParameter`), samples the row, and drains `AtomProjection.Raw<TOut>(raw, Some(context), key, owner: typeof(CurveProjection), admitsVectorMagnitude: AdmitsMagnitude)`; `SurfaceProjection.Project<TOut>(Surface, double u, double v, Context, Op)` admits the surface, normalizes `(u,v)` through the `Domain/evaluation` `SurfaceUv`, samples, and drains the same rail; `ConeProjection.Project<TOut>(VectorCone, Op)` drains context-free. No per-row public methods, no output-type overloads — the raw→typed step is the rail's, and the `AdmitsMagnitude` column kills the `ReferenceEquals(this, Curvature)` identity probe: magnitude admission is row data, not a hidden special case.
 - Receipt: none — a selector row is a pure evaluation; the typed value IS the result, and failure evidence rides the `Op` fault (`InvalidInput` for admission refusals, `InvalidResult` for host-evaluation refusals, `Unsupported` for output-type refusals raised inside the rail).
 - Packages: RhinoCommon (`Curve.TangentAt`/`CurvatureAt`/`FrameAt`/`PerpendicularFrameAt`/`GetLength(fractionalTolerance, subdomain)`/`Domain.IncludesParameter`; `Surface.CurvatureAt`/`PointAt`/`Evaluate`; `SurfaceCurvature.Kappa`/`Direction`/`OsculatingCircle`/`MaximumPrincipalCurvature`/`MinimumPrincipalCurvature`/`IsSet` — an `IDisposable` bundle; `Interval`, `Circle.IsValid`, `Vector3d.CrossProduct`/`IsValid`/`IsTiny`), Thinktecture.Runtime.Extensions (`[SmartEnum<int>]`, `[UseDelegateFromConstructor]`), LanguageExt.Core (`Fin`/`Option`/`guard`/`Optional`), `Domain/rails` (`Op`, `Lease<T>`), `Domain/context` (`Context.Fractional`/`Absolute`), `Domain/evaluation` (`NormalAt`/`FrameAt`/`SurfaceUv`), `Domain/stats` (`ScalarMetric`), `Numerics/atoms` (`AtomProjection.Raw`, `Direction.Of`, `Dimension`, `VectorCone`), `Numerics/matrix` (`SymmetricMatrix.Of`, `Matrix.Of`).
-- Growth: a new curve or surface probe is one row through an existing factory fold (a `Torsion` row is `Vector(...)` over the third-derivative Frenet identity; a `MeanCurvatureVector` row is `WithCurvature` composing `Mean` with `Normal`); a new derivative form is one `Derivatives(...)` row; a new output type for an existing row is a `ProjectionRow` addition in the `Numerics/atoms` rail, never a selector edit. Zero new entrypoints on any axis.
+- Growth: a new curve or surface probe is one row through an existing factory fold (a `Torsion` row is `Vector(...)` over the third-derivative Frenet identity; a `MeanCurvatureVector` row is `WithCurvature` composing `Mean` with `Normal`); a new derivative form is one `Derivatives(...)` row; a new output type for an existing row is a `ProjectionRow` addition in the `Numerics/atoms` rail, never a selector edit. The existing selector gates absorb every row extension.
 - Boundary: the selector family is the ONE row vocabulary for parameter-addressed evaluation behind the intent rail — a sibling `CurveEvaluator`/`SurfaceAnalyzer` method family per output is the named defect collapsed here, and a row exists exactly where evaluation carries ROW SEMANTICS (validity gating, magnitude admission, moving-vs-sweep frame choice, the curvature-bundle lease, the derivative fold); `Domain/evaluation` stays the shared derivation floor both the rows and the `Parametric/locate` location arms compose — an arm re-implementing row semantics beside the rail is the killed duplicate, while the `Parametric/locate` surface arms reading the floor directly (point/frame/normal: no row semantics, UV already normalized by the operation) are lawful composition, never a parallel rail; the shape operator is assembled HERE only — `TensorField.Curvature` composes `SurfaceProjection.ShapeOperator.Project`, and a second `k·d⊗d` assembly anywhere in the corpus is the named double-owner defect; rows sample the LIVE Rhino object under the caller's lease discipline (`Parametric/locate` runs them inside `Lease<Curve>`/`Lease<Surface>` scopes; `VectorIntent.CurveCase` holds the caller's reference) — a row never duplicates, caches, or outlives its geometry; `SurfaceCurvature` is disposable host memory, so every bundle read runs inside `Lease<SurfaceCurvature>.Owned(...).Use(...)` and a bundle escaping its row is the named leak defect; the `Domain/evaluation` lattice owns closest-point/normal/frame recovery over ARBITRARY geometry — these selectors own only parameter-addressed evaluation on an already-typed `Curve`/`Surface`, and routing a closest-point query through a selector is the altitude violation.
 
 ## [03]-[MOTION]
 
 - Owner: `MotionInterpolation` `[SmartEnum<int>]` — `Linear` (key 0, `Quaternion.Lerp`) and `Slerp` (key 1, `Quaternion.Slerp`) over ONE `[UseDelegateFromConstructor]` `Combine(Quaternion, Quaternion, double)` column; both interpolation surfaces derive from that single column (`DERIVED_LOGIC`): `Interpolate(Plane a, Plane b, UnitInterval t, Op)` — coincidence short-circuit at `RhinoMath.ZeroTolerance`, `Quaternion.Rotation(Plane.WorldXY, …)` rotors combined then `GetRotation(out Plane)`, origin linearly interpolated onto the rotated axes — and `Rotate(Direction a, Direction b, UnitInterval t, Context, Op)` — the antiparallel pair (`IsParallelTo == -1` under `Context.Angle`) takes the π rotor about `VectorFrame.SeedPerpendicular`, every other pair the shortest-arc rotor from `Transform.Rotation(...).GetQuaternion(...)`, combined from `Quaternion.Identity` and applied via `Quaternion.Rotate`. `Slerp` is the geodesic row; `Linear` yields nlerp on directions (renormalized by `Direction.Of` admission) and screw-free frame lerp on poses.
 - Owner: `SurfaceSpace` `[BoundaryAdapter]` `readonly record struct` — the validated `Surface` + `Context` capsule: `Of(Surface, Context, Op?)` admits once (context present, surface non-null and `IsValid`) and `Sample<TOut>(SurfaceProjection, double u, double v, Op)` delegates to the selector gate with the captured tolerance — an internal kernel, so the key is required by the `Domain/rails` threading law and the `Processing/intent` `surfaceCase` supplies it. Re-homed from the proximity file to its parametric family: `Spatial/support` keeps `SupportSpace` (closest-point over ANY geometry); `SurfaceSpace` is parameter-addressed evaluation on a typed surface — different concern, different folder, same wire (`VectorIntent.SurfaceCase` carries it).
-- Owner: `Easing` `[SmartEnum<int>]` — 28 rows over ONE `[UseDelegateFromConstructor]` `Curve(double)` column, generated rather than enumerated: `Linear` plus nine family kernels (`Power(2)`, `Power(3)`, `Power(5)`, `Sine`, `Expo`, `Circ`, `Back(1.70158)`, `Elastic(1.0, 0.3)`, `Bounce`) each folded through the three polarity constructors `In` (the kernel verbatim), `Out` (the reflection `1 − f(1 − t)`), and `InOut` (the split-and-scale composition) — nine kernel functions, three folds, twenty-eight rows, zero per-row bodies. `Evaluate(UnitInterval t)` is the one read: input arrives admitted, output is unclamped by decision because `Back` and `Elastic` legitimately overshoot the unit band and the consumer's carrier (a colour blend, a pose lerp, a canvas offset) owns its own range semantics.
+- Owner: `Easing` `[SmartEnum<int>]` — a family-and-polarity row product over one `[UseDelegateFromConstructor]` `Curve(double)` column. Each named row composes a family kernel with `In`, `Out`, or `InOut`, so polarity behavior remains fold-owned. `Evaluate(UnitInterval t)` is the one read: input arrives admitted, output is unclamped because overshooting kernels legitimately leave the unit band and the consumer's carrier owns its own range semantics.
 - Owner: `CyclePlan` `[BoundaryAdapter]` readonly record struct — repeat/yoyo phase arithmetic: `Of(Option<int> count, bool yoyo)` admits the plan (`None` count is unbounded, a bounded count is ≥ 1), and `Phase(elapsed, period, key)` folds wall progress onto the `CyclePhase` evidence — iteration index, mirrored-local `UnitInterval` position (odd iterations reverse under yoyo), and the completion flag that clamps a bounded plan onto its terminal pose instead of wrapping past it.
 - Owner: `SpringShape` `[BoundaryAdapter]` readonly record struct — the analytic damped-spring owner: `Of(angularFrequency > 0, dampingRatio ≥ 0)` admits the shape, `Evaluate(SpringState from, target, elapsed, key)` returns the closed-form response with the regime selected by ζ (underdamped through the damped-frequency rotor, critically damped at `|ζ−1| ≤ EpsilonPolicy.SqrtEpsilon`, overdamped through the two real decay rates), and `Step(from, target, h, integrator, key)` runs ONE `FieldIntegrator.Step` over the page-declared `SpringShape.Module` (`IntegrationModule<SpringState, SpringState>` — position/velocity as their own delta algebra, max-norm error) for interactive driven targets where the closed form's fixed target does not hold between frames. `SpringState` carries position and velocity as one evidence value.
-- Owner: `PerceptualBlend` `[SmartEnum<int>]` — 5 rows carrying `(ColourSpace Space, HueSpan Span)` as columns: `Oklab` (hue-free), `Oklch` (`HueSpan.Shorter`), `OklchLong` (`Longer`), `OklchRising` (`Increasing`), `OklchFalling` (`Decreasing`). One `Mix(Unicolour, Unicolour, UnitInterval, Op)` body derives from the columns (`Unicolour.Mix(other, Space, amount, Span)`), and `Ramp(from, to, count, Op)` derives the perceptually-even stop sequence through `Unicolour.Palette` — the row IS the interpolation policy, so a consumer never touches `ColourSpace` or `HueSpan` directly.
 - Owner: `MonotonicTimeline` sealed `[BoundaryAdapter]` service — `Of(TimeProvider, Op?)` admits an injected provider with a positive `TimestampFrequency`. Each timeline instance is its own identity token; serialized `Capture` mints an opaque `MonotonicStamp`, `Elapsed` derives a non-negative interval, `Order` returns negative, zero, or positive for left-before, identical, or left-after ordering, and `Beat` derives ordinal timer evidence from one `BeatSeed`. `Order` breaks equal-provider-tick ties by the stamp's private capture ordinal; every duration still calls the capturing provider's `GetElapsedTime`, and no counter or ordinal leaves `MonotonicStamp`.
 - Owner: `BeatSeed` `[Union<MonotonicStamp, MonotonicBeat>]` — `Origin` starts an independently branded sequence and `Previous` advances only that sequence's current tail. The generated case probes reject the struct's default ghost before the total `Switch` owns both modalities, and the atomic tail gate refuses replayed or concurrently substituted predecessors.
 - Receipt: `MonotonicBeat` exposes immutable `Ordinal`, `Stamp`, `Elapsed`, and `Delta` evidence. Its `ValidityClaim.All` fold requires one timeline, an origin-bound sequence brand, non-negative intervals, monotone elapsed time, and first-beat delta equality; the private origin and sequence brands prevent chain mixing.
-- Entry: `MotionInterpolation.Interpolate`/`Rotate` stay internal to the intent dispatch, while `Easing.Evaluate`, `CyclePlan.Phase`, `SpringShape.Evaluate`/`Step`, `PerceptualBlend.Mix`/`Ramp`, and `MonotonicTimeline.Of`/`Capture`/`Elapsed`/`Order`/`Beat` form the public motion-time surface. Each fallible operation accepts or resolves one `Op` key and returns `Fin<T>`.
-- Packages: `TimeProvider` supplies monotonic timestamps and provider-defined elapsed conversion; Thinktecture owns generated `[SmartEnum]` and `[Union]` vocabularies; Foundation analyzer contracts own `[BoundaryAdapter]`; LanguageExt owns `Fin`, `Option`, and guards; RhinoCommon owns rotor and parametric evaluation; `FieldIntegrator` owns driven stepping; Unicolour owns perceptual mixing.
-- Growth: [CONSUMER] `MonotonicTimeline` supplies session latency, UI-event ordering, and timer beats through the same branded evidence; a new clock consumer composes that evidence without a host-local counter. A new easing family is one kernel folded through the existing polarities, and a new interpolation path is one policy row.
+- Entry: `MotionInterpolation.Interpolate`/`Rotate` stay internal to the intent dispatch, while `Easing.Evaluate`, `CyclePlan.Phase`, `SpringShape.Evaluate`/`Step`, and `MonotonicTimeline.Of`/`Capture`/`Elapsed`/`Order`/`Beat` form the public motion-time surface; perceptual colour interpolation is the `Numerics/atoms` `PerceptualColor.Mix`/`Ramp` surface over `BlendPath` rows, never a motion-page sibling. Each fallible operation accepts or resolves one `Op` key and returns `Fin<T>`.
+- Packages: `TimeProvider` supplies monotonic timestamps and provider-defined elapsed conversion; Thinktecture owns generated `[SmartEnum]` and `[Union]` vocabularies; Foundation analyzer contracts own `[BoundaryAdapter]`; LanguageExt owns `Fin`, `Option`, and guards; RhinoCommon owns rotor and parametric evaluation; `FieldIntegrator` owns driven stepping.
+- Growth: [CONSUMER] `MonotonicTimeline` supplies session latency, UI-event ordering, and timer beats through the same branded evidence; a new clock consumer composes that evidence without a host-local counter. A new easing family is one kernel folded through the existing polarities; a new colour interpolation path is one `BlendPath` row on `Numerics/atoms`, never a motion-page policy sibling.
 - Boundary: `MotionInterpolation` starts where rotation requires a quaternion; vector arithmetic remains on the admitted direction algebra, and host colour conversion remains at the paint edge. `MonotonicTimeline` admits reference identity with the capturing timeline and provider before any `GetElapsedTime` call, and each beat sequence atomically admits only its current tail, so foreign timestamps and replayed predecessors never enter accepted timing evidence.
 
 ```csharp signature
@@ -42,7 +41,6 @@ using Rasm.Csp;
 using Rasm.Domain;
 using Rasm.Numerics;
 using Rhino;
-using Wacton.Unicolour;
 
 namespace Rasm.Parametric;
 
@@ -254,35 +252,6 @@ public sealed partial class Easing {
     };
 }
 
-[SmartEnum<int>]
-public sealed partial class PerceptualBlend {
-    public static readonly PerceptualBlend Oklab = new(key: 0, space: ColourSpace.Oklab, span: HueSpan.Shorter);
-    public static readonly PerceptualBlend Oklch = new(key: 1, space: ColourSpace.Oklch, span: HueSpan.Shorter);
-    public static readonly PerceptualBlend OklchLong = new(key: 2, space: ColourSpace.Oklch, span: HueSpan.Longer);
-    public static readonly PerceptualBlend OklchRising = new(key: 3, space: ColourSpace.Oklch, span: HueSpan.Increasing);
-    public static readonly PerceptualBlend OklchFalling = new(key: 4, space: ColourSpace.Oklch, span: HueSpan.Decreasing);
-
-    public ColourSpace Space { get; }
-    public HueSpan Span { get; }
-
-    public Fin<Unicolour> Mix(Unicolour from, Unicolour to, UnitInterval t, Op key) {
-        PerceptualBlend row = this;
-        return from left in key.Need(value: from)
-               from right in key.Need(value: to)
-               from mixed in key.Catch(body: () => Fin.Succ(left.Mix(other: right, colourSpace: row.Space, amount: t.Value, hueSpan: row.Span)))
-               select mixed;
-    }
-
-    public Fin<Seq<Unicolour>> Ramp(Unicolour from, Unicolour to, int count, Op key) {
-        PerceptualBlend row = this;
-        return from left in key.Need(value: from)
-               from right in key.Need(value: to)
-               from bounded in guard(count >= 2, key.InvalidInput()).ToFin()
-               from stops in key.Catch(body: () => Fin.Succ(toSeq(left.Palette(other: right, colourSpace: row.Space, count: count, hueSpan: row.Span))))
-               select stops;
-    }
-}
-
 [BoundaryAdapter]
 [Union<MonotonicStamp, MonotonicBeat>(T1Name = "Origin", T2Name = "Previous")]
 public readonly partial struct BeatSeed;
@@ -401,7 +370,7 @@ public readonly record struct SurfaceSpace {
 }
 
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct CyclePhase(int Iteration, UnitInterval Local, bool Reversed, bool Completed) : IValidityEvidence {
+public readonly record struct CyclePhase(long Iteration, UnitInterval Local, bool Reversed, bool Completed) : IValidityEvidence {
     public bool IsValid => ValidityClaim.All(ValidityClaim.Of(holds: Iteration >= 0), ValidityClaim.UnitInterval(value: Local.Value));
 }
 
@@ -417,16 +386,16 @@ public readonly record struct CyclePlan(Option<int> Count, bool Yoyo) {
         CyclePlan plan = this;
         return from time in key.Finite(value: elapsed).Bind(value => guard(value >= 0.0, key.InvalidInput()).ToFin().Map(_ => value))
                from span in key.Positive(value: period)
-               from phase in key.AcceptValue(value: time / span).Bind(progress => {
-                   int iteration = (int)Math.Floor(d: progress);
-                   double fraction = progress - iteration;
-                   bool completed = plan.Count.Map(bounded => iteration >= bounded).IfNone(false);
-                   int settled = completed ? plan.Count.Map(static bounded => bounded - 1).IfNone(iteration) : iteration;
-                   double local = completed ? 1.0 : fraction;
-                   double oriented = plan.Yoyo && (settled % 2) == 1 ? 1.0 - local : local;
-                   return key.AcceptValidated<UnitInterval>(candidate: oriented)
-                       .Map(admitted => new CyclePhase(Iteration: settled, Local: admitted, Reversed: plan.Yoyo && (settled % 2) == 1, Completed: completed));
-               })
+               from progress in key.AcceptValue(value: time / span)
+               let completed = plan.Count.Filter(bounded => progress >= bounded)
+               from iteration in completed.Match(
+                   Some: bounded => Fin.Succ((long)bounded - 1L),
+                   None: () => guard(Math.Floor(d: progress) < long.MaxValue, key.InvalidResult()).ToFin()
+                       .Map(_ => checked((long)Math.Floor(d: progress))))
+               let local = completed.IsSome ? 1.0 : progress - iteration
+               let reversed = plan.Yoyo && (iteration % 2L) == 1L
+               from phase in key.AcceptValidated<UnitInterval>(candidate: reversed ? 1.0 - local : local)
+                   .Map(admitted => new CyclePhase(Iteration: iteration, Local: admitted, Reversed: reversed, Completed: completed.IsSome))
                select phase;
     }
 }
@@ -648,7 +617,6 @@ flowchart LR
     Selectors selectorRail@-->|"depends on typed projection"| Projection["Projection rail"]
     Motion motionRhino@-->|"depends on quaternion members"| Rhino
     Motion motionStep@-->|"depends on driven stepping"| Integrator["Field integrator"]
-    Motion motionColour@-->|"depends on perceptual mixing"| Colour["Perceptual colour"]
     Timeline timelineProvider@-->|"depends on elapsed conversion"| Provider["Injected TimeProvider"]
     Timeline timelineRail@-->|"depends on operation and validity"| Rails["Operation and validity rails"]
     classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
@@ -659,9 +627,9 @@ flowchart LR
     classDef edgeData stroke:#FFB86C,color:#F8F8F2
     class Intent,Locate,Fields,Hosts,Consumers boundary
     class Selectors,Motion,Timeline primary
-    class Rhino,Integrator,Colour,Provider external
+    class Rhino,Integrator,Provider external
     class Projection,Rails data
-    class selectorRhino,motionRhino,motionStep,motionColour,timelineProvider edgeExternal
+    class selectorRhino,motionRhino,motionStep,timelineProvider edgeExternal
     class selectorRail,timelineRail edgeData
 ```
 
@@ -669,25 +637,36 @@ flowchart LR
 
 One owner per axis; capability is a row, column, or factory fold, never a sibling surface. `[RAIL]` names the one return rail each owner exposes.
 
-| [INDEX] | [OWNER]                       | [SHAPE]                                 | [ENTRY]                                     | [CASES] |
-| :-----: | :---------------------------- | :-------------------------------------- | :------------------------------------------ | :-----: |
-|  [01]   | `CurveProjection`             | delegate vocabulary + row folds         | `Project<TOut> → Fin<TOut>`                 |    9    |
-|  [02]   | `SurfaceProjection`           | delegate vocabulary + lease fold        | `Project<TOut> → Fin<TOut>`                 |   13    |
-|  [03]   | `ConeProjection`              | accessor vocabulary                     | `Project<TOut> → Fin<TOut>`                 |    4    |
-|  [04]   | `MotionInterpolation`         | quaternion-combination policy           | `Interpolate / Rotate → Fin<T>`             |    2    |
-|  [05]   | `SurfaceSpace`                | validated host capsule                  | `Of / Sample → Fin<T>`                      |    1    |
-|  [06]   | `Easing`                      | generated polarity-family cross-product | `Evaluate → double`                         |   28    |
-|  [07]   | `CyclePlan` + `CyclePhase`    | plan + phase evidence                   | `Phase → Fin<CyclePhase>`                   |    1    |
-|  [08]   | `SpringShape` + `SpringState` | analytic + integrated dynamics          | `Evaluate / Step → Fin<T>`                  |    1    |
-|  [09]   | `PerceptualBlend`             | colour-space policy rows                | `Mix / Ramp → Fin<T>`                       |    5    |
-|  [10]   | `MonotonicTimeline`           | branded provider timeline + `BeatSeed`  | `Capture / Elapsed / Order / Beat → Fin<T>` |    2    |
+| [INDEX] | [OWNER]                       | [SHAPE]                                   | [ENTRY]                                     |
+| :-----: | :---------------------------- | :---------------------------------------- | :------------------------------------------ |
+|  [01]   | `CurveProjection`             | delegate vocabulary + row folds           | `Project<TOut> → Fin<TOut>`                 |
+|  [02]   | `SurfaceProjection`           | delegate vocabulary + lease fold          | `Project<TOut> → Fin<TOut>`                 |
+|  [03]   | `ConeProjection`              | accessor vocabulary                       | `Project<TOut> → Fin<TOut>`                 |
+|  [04]   | `MotionInterpolation`         | quaternion-combination policy             | `Interpolate / Rotate → Fin<T>`             |
+|  [05]   | `SurfaceSpace`                | validated host capsule                    | `Of / Sample → Fin<T>`                      |
+|  [06]   | `Easing`                      | family-and-polarity row product           | `Evaluate → double`                         |
+|  [07]   | `CyclePlan` + `CyclePhase`    | plan + wide phase evidence                | `Phase → Fin<CyclePhase>`                   |
+|  [08]   | `SpringShape` + `SpringState` | analytic + integrated dynamics            | `Evaluate / Step → Fin<T>`                  |
+|  [09]   | `MonotonicTimeline` family    | provider-branded timeline + sequence rail | `Capture / Elapsed / Order / Beat → Fin<T>` |
 
-The selector rows, projection gates, motion kernels, and monotonic timeline form one transcription-complete source file. The fence composes `Evaluation`, `AtomProjection`, matrix and direction algebra, `ValidityClaim`, `FieldIntegrator`, `Unicolour`, and `TimeProvider` directly.
+The selector rows, projection gates, motion kernels, and monotonic timeline form one transcription-complete source file. The fence composes `Evaluation`, `AtomProjection`, matrix and direction algebra, `ValidityClaim`, `FieldIntegrator`, and `TimeProvider` directly.
 
 ## [05]-[RESEARCH]
 
-- [SELECTOR_ROWS] — a parametric probe is a ROW, never a method: the four vocabularies put every evaluation modality behind one delegate column and one `Project<TOut>` gate, so call-site variation is row selection and output variation is the `Numerics/atoms` `ProjectionRow` table — the selector never grows a second public method for a new output type. Row construction is fold-owned: `Vector(...)` carries the validity gate (tiny-vector rejection suspended only for the magnitude-admitting curvature row), `FrameRow(...)` owns both Rhino frame recoveries behind one `perpendicular` policy bit, `Osculating(...)` owns both principal circles behind the `direction` index, and `Derivatives(...)` owns the four first-derivative forms over one `Surface.Evaluate` call — twenty-eight rows across the page, six construction shapes. The `ArcLength` acceptance admits a zero length only at the domain start (`Domain.NormalizedParameterAt(t) ≤ Context.Fractional` — a dimensionless station against the fractional tolerance, never a model-space tolerance against a parameter delta), so a degenerate mid-domain length reads as evaluation failure, not as zero; the length itself gates through `RhinoMath.IsValidDouble`, the host-scalar law.
-- [SECOND_FUNDAMENTAL_FORM] — `ShapeOperatorOf` assembles the extrinsic shape operator from the `SurfaceCurvature` principal bundle: κ and principal directions arrive from `Surface.CurvatureAt` already orthonormal in the tangent plane, the admitted `Direction` pair guards degeneracy, and the 3×3 upper triangle lands in the `Numerics/matrix` `SymmetricMatrix` whose eigen-decomposition reproduces (κ₀, κ₁, 0). The derivative family beside it is the first-fundamental side: `Metric` is [E F; F G] = [∂u·∂u, ∂u·∂v; ·, ∂v·∂v], `Jacobian` the 3×2 pushforward, `AreaScale` its `|∂u×∂v|` density — together the complete pointwise differential-geometry reading of a Rhino surface, all addressed by row. `UvFrame` re-orients the derivative-spanned plane to agree with the outward normal by flipping the Y axis, never the X — the frame stays right-handed and the u-direction stays authoritative.
-- [ONE_SLERP] — the two interpolation surfaces are one algebra: `Combine` is the row's only behavior, `Interpolate` conjugates it through `Plane`-valued rotors anchored at `Plane.WorldXY` (rotor composition commutes with the anchoring, so anchor choice cancels), and `Rotate` runs it from `Quaternion.Identity` toward the pair's shortest-arc rotor. The antiparallel seam is the one genuinely ambiguous input — `Transform.Rotation` has no unique axis at π — and the pinned answer is the deterministic `VectorFrame.SeedPerpendicular` axis, making antiparallel rotation reproducible across runs and consumers. The `Linear` row is not a degenerate spare: on directions it yields nlerp (constant-chord, cheaper, admissible for dense sampling), on poses a non-constant-velocity frame blend; the row choice is the motion-profile policy the Camera consumer selects by name.
-- [ONE_TIMING] — the timing algebra is generated, never enumerated: the twenty-eight `Easing` rows come from nine family kernels crossed with three polarity folds, so the roster is seed data and a new family (a stepped curve, a custom cubic-bezier kernel) is one kernel function yielding three rows at zero fold cost. The spring's closed form is exact for a FIXED target — the regime split at ζ (underdamped rotor, critical double-root, overdamped two-rate) is the complete analytic solution of `ẍ + 2ζωẋ + ω²(x − x*) = 0`, so per-frame re-evaluation against a constant target accumulates zero integration error; the `Step` path exists precisely for the MOVING target, where the sampler re-reads `target` per stage and the `Numerics/integrate` error control earns its keep — one law decides which path a consumer takes: fixed target → `Evaluate`, driven target → `Step`. `CyclePlan` clamps a completed bounded cycle onto its terminal pose (`Local = 1`, reversed parity preserved) instead of wrapping, because a wrapped terminal frame visually snaps; `PerceptualBlend` rides `Unicolour`'s premultiplied-alpha mix default, and the hue-span rows exist because OKLCH interpolation is ambiguous on the hue circle exactly as the antiparallel rotor is on the sphere — the row pins the arc.
+### [05.1]-[SELECTOR_ROWS]
+
+A parametric probe is a row, never a method: the projection vocabularies put every evaluation modality behind a delegate column and one `Project<TOut>` gate, so call-site variation is row selection and output variation is the `Numerics/atoms` `ProjectionRow` table. Row construction is fold-owned: `Vector(...)` carries the validity gate, `FrameRow(...)` owns Rhino frame recovery, `Osculating(...)` owns principal-circle projection, and `Derivatives(...)` owns first-derivative forms over one `Surface.Evaluate` call. The `ArcLength` acceptance admits a zero length only at the domain start (`Domain.NormalizedParameterAt(t) ≤ Context.Fractional` — a dimensionless station against the fractional tolerance, never a model-space tolerance against a parameter delta), so a degenerate mid-domain length reads as evaluation failure, not as zero; the length itself gates through `RhinoMath.IsValidDouble`, the host-scalar law.
+
+### [05.2]-[SECOND_FUNDAMENTAL_FORM]
+
+`ShapeOperatorOf` assembles the extrinsic shape operator from the `SurfaceCurvature` principal bundle: κ and principal directions arrive from `Surface.CurvatureAt` already orthonormal in the tangent plane, the admitted `Direction` pair guards degeneracy, and the 3×3 upper triangle lands in the `Numerics/matrix` `SymmetricMatrix` whose eigen-decomposition reproduces (κ₀, κ₁, 0). The derivative family beside it is the first-fundamental side: `Metric` is [E F; F G] = [∂u·∂u, ∂u·∂v; ·, ∂v·∂v], `Jacobian` the 3×2 pushforward, `AreaScale` its `|∂u×∂v|` density — together the complete pointwise differential-geometry reading of a Rhino surface, all addressed by row. `UvFrame` re-orients the derivative-spanned plane to agree with the outward normal by flipping the Y axis, never the X — the frame stays right-handed and the u-direction stays authoritative.
+
+### [05.3]-[ONE_SLERP]
+
+The two interpolation surfaces are one algebra: `Combine` is the row's only behavior, `Interpolate` conjugates it through `Plane`-valued rotors anchored at `Plane.WorldXY` (rotor composition commutes with the anchoring, so anchor choice cancels), and `Rotate` runs it from `Quaternion.Identity` toward the pair's shortest-arc rotor. The antiparallel seam is the one genuinely ambiguous input — `Transform.Rotation` has no unique axis at π — and the pinned answer is the deterministic `VectorFrame.SeedPerpendicular` axis, making antiparallel rotation reproducible across runs and consumers. The `Linear` row is not a degenerate spare: on directions it yields nlerp (constant-chord, cheaper, admissible for dense sampling), on poses a non-constant-velocity frame blend; the row choice is the motion-profile policy the Camera consumer selects by name.
+
+### [05.4]-[ONE_TIMING]
+
+Every named `Easing` row composes a family kernel with a polarity fold, so a new family adds its kernel and polarity row declarations without a parallel evaluator. The spring's closed form is exact for a FIXED target — the regime split at ζ (underdamped rotor, critical double-root, overdamped two-rate) is the complete analytic solution of `ẍ + 2ζωẋ + ω²(x − x*) = 0`, so per-frame re-evaluation against a constant target accumulates zero integration error; the `Step` path exists precisely for the MOVING target, where the sampler re-reads `target` per stage and the `Numerics/integrate` error control earns its keep — one law decides which path a consumer takes: fixed target → `Evaluate`, driven target → `Step`. `CyclePlan` clamps a completed bounded cycle onto its terminal pose (`Local = 1`, reversed parity preserved) instead of wrapping, because a wrapped terminal frame visually snaps; colour interpolation policy lives on the `Numerics/atoms` `BlendPath` rows, whose hue-span cases pin the OKLCH hue arc exactly as the antiparallel rotor pin does on the sphere.
+
 - [MONOTONIC_TIME] — one injected provider and timeline identity brand each stamp. Serialized capture adds a private ordinal used only to totalize equal-tick ordering; elapsed conversion enters through `TimeProvider.GetElapsedTime` after both brands pass. `BeatSeed` dispatches `Origin` into a new atomic sequence and `Previous` against its current tail; stale predecessors and ordinal exhaustion fail, counters remain private, and deterministic providers use the same ambient-clock-free surface.

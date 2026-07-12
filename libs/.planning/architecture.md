@@ -7,10 +7,12 @@ The canonical monorepo hierarchy law — the strata, the dependency direction, t
 The repository is one tri-language AEC platform organized into strict strata. Each stratum depends only upward; each package is a genuine higher-order domain, never a weak or mini sibling. The C# branch carries the durable host-bound source and the geometry/AEC capability; Python and TypeScript are host-free peer runtimes that consume the wire.
 
 [KERNEL]
+
 - Folder(s): `Rasm`
 - The RhinoCommon-aware geometry/numeric kernel — planning-scoped, one `.planning/` root spanning the Domain, Numerics, Spatial, Parametric, Meshing, Processing, Solving, Drawing, and Analysis sub-domains, each a folder-true namespace. The branch base: referenced by every higher stratum, references none.
 
 [AEC-DOMAIN]
+
 - Folder(s): the lowest-AEC element seam `Rasm.Element`, then the AEC peers `Rasm.Materials`, `Rasm.Bim`, `Rasm.Fabrication`.
 - `Rasm.Element` is the shared lowest-AEC sub-stratum: the canonical `ElementGraph` property-graph (entity + objectified relationships + typed property/quantity/material/assessment/coverage payloads) plus the `IElementProjection`/`IGraphConstraint` contracts the peers depend up on and implement. It references the kernel only, owns no IFC stack and no host geometry (geometry is referenced by content hash), and re-mints nothing the kernel owns (one `XxHash128` seed).
 - The AEC peers carry host-neutral AEC capability: profiles/appearance/construction, the BIM object-model + IFC/glTF/STEP exchange, and portable fabrication (HLR/CAM/nesting).
@@ -18,6 +20,7 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 - AEC peer alignment travels through seam contracts and the content-keyed wire, the same shape as depending on the kernel, so each package stays fully usable in isolation.
 
 [APP-PLATFORM]
+
 - Folder(s): `Rasm.AppHost`, `Rasm.Compute`, `Rasm.Persistence`, `Rasm.AppUi`
 - Generic application capability: runtime spine, measured execution, durable stores, product UI. Composes the kernel and AEC-domain and owns no geometry, BIM semantics, or fabrication algorithms — it consumes them.
 - Target: `Rasm.Generation` — the layout/generation/assembly orchestration library.
@@ -25,10 +28,12 @@ The repository is one tri-language AEC platform organized into strict strata. Ea
 - It composes the kernel's geometry operations rather than owning geometry primitives, depends up on `{Rasm, Rasm.Element, Rasm.Materials, Rasm.Bim, Rasm.Fabrication}`, and leaves live-document bake to the host boundary.
 
 [HOST-BOUNDARY]
+
 - Folder(s): `Rasm.Rhino`, `Rasm.Grasshopper`
 - Self-contained, host-bound RhinoCommon/GH2 boundaries. Reference only the kernel; admitted only at the app roots, never as an interior dependency of a host-neutral package.
 
 [APP]
+
 - Folder pattern: `apps/<concern>` product shells.
 - Compose APP-PLATFORM + HOST-BOUNDARY into product shells that declare intent, bind host edges, and emit output.
 
@@ -68,7 +73,7 @@ Geometry, meshing, and IFC each have exactly one owner per runtime; the runtimes
 - All planning lives under the single `.planning/`: never a `.planning/` inside a real source sub-folder. The package `ARCHITECTURE.md` maps the full folder structure (including planned sub-domains that have no page yet), so the map fuels ideas and tasks without scattering planning across the tree.
 - Mature folders with real code at the bar carry NO `.planning/`, neither at the package root nor inside a sub-folder. Their co-located source architecture note is the only design surface; their open split/cleanup/re-architect work lives as task cards in the branch `TASKLOG.md`.
 - The one exception is a genuinely new unbuilt sub-domain inside an otherwise mature package: it keeps its scaffold in that sub-domain folder, because a package-root `.planning/` incorrectly marks mature siblings as planning scope.
-- `Rasm.Rhino` and `Rasm.Grasshopper` are host-boundary source folders: each carries durable host-bound source, `IDEAS.md`/`TASKLOG.md` card pools, and a folder `.api/` tier over its host assemblies, referencing only the `Rasm` kernel; their solution rows stay out of `Workspace.slnx` under the architecture-test host-boundary gate.
+- `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY planning folders: each carries the four index docs, design pages under one `.planning/`, and a folder `.api/` tier over its host assemblies, referencing only the `Rasm` kernel; their solution rows stay out of `Workspace.slnx` under the architecture-test host-boundary gate.
 
 ## [06]-[PER_LANGUAGE_ROLES]
 

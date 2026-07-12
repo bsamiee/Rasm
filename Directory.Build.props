@@ -174,6 +174,7 @@
         <_RhinoRequiredHostFile Include="$(Grasshopper2ReferencePath)" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(GrasshopperIoReferencePath)" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(EtoReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
+        <_RhinoRequiredHostFile Include="$(EtoMacOSReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(MicrosoftMacOSReferencePath)" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(RhinoRuntimeCodeReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
         <_RhinoRequiredHostFile Include="$(RhinoCodePlatformReferencePath)" Condition="'$(IsRhinoBridgeProject)' == 'true' and '$(IsRhinoPluginProject)' == 'true'" />
@@ -312,6 +313,10 @@
     <ItemGroup Label="RhinoWIP Host References" Condition="'$(IsRhinoPluginProject)' == 'true' or '$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true' or '$(IsRhinoCommonAwareProject)' == 'true' or '$(NeedsRhinoHostUiSurface)' == 'true'">
         <Reference Include="Eto" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
             <HintPath>$(EtoReferencePath)</HintPath>
+            <Private>$(HostReferencePrivate)</Private>
+        </Reference>
+        <Reference Include="Eto.macOS" Condition="'$(NeedsRhinoHostUiSurface)' == 'true'">
+            <HintPath>$(EtoMacOSReferencePath)</HintPath>
             <Private>$(HostReferencePrivate)</Private>
         </Reference>
         <Reference Include="Grasshopper2" Condition="'$(IsGrasshopperPluginProject)' == 'true' or '$(IsGrasshopperAwareProject)' == 'true'">

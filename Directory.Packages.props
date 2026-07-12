@@ -36,6 +36,7 @@
         <PackageVersion Include="QuikGraph"                             Version="2.5.0" />
         <PackageVersion Include="System.Numerics.Tensors"               Version="10.0.9" />
         <PackageVersion Include="UnitsNet"                              Version="5.75.0" />
+        <PackageVersion Include="Wacton.Unicolour"                      Version="8.0.0" />
     </ItemGroup>
 
     <ItemGroup Label="Wire Transport">
@@ -162,7 +163,6 @@
         <PackageVersion Include="VividOrange.Standards"                  Version="0.1.0" />
         <PackageVersion Include="VividOrange.Uncertainties"              Version="0.2.0" />
         <PackageVersion Include="VividOrange.Uncertainties.Quantities"   Version="0.2.0" />
-        <PackageVersion Include="Wacton.Unicolour"                       Version="8.0.0" />
         <PackageVersion Include="Wacton.Unicolour.Datasets"              Version="5.0.0" />
     </ItemGroup>
 

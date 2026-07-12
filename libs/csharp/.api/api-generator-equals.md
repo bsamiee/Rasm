@@ -17,51 +17,51 @@
 [PUBLIC_TYPE_SCOPE]: marker + per-member configuration attributes (`[Conditional("GENERATOR_EQUALS")]` — read from syntax at compile time, NOT emitted into consumer IL)
 - rail: equality
 
-| [INDEX] | [SYMBOL] | [TARGET] | [CAPABILITY] |
-|:-----: |:-------------------------- |:--------------- |:-------------------------------------------------------------------------- |
-| [01] | `EquatableAttribute` | class / struct | the type marker; `Explicit` (opt-in members only) + `IgnoreInheritedMembers` |
-| [02] | `DefaultEqualityAttribute` | property / field | `EqualityComparer<T>.Default` member equality; required to opt a field in, or any member under `Explicit` |
-| [03] | `IgnoreEqualityAttribute` | property / field | exclude the member from `Equals`, `GetHashCode`, and `Inequalities` |
-| [04] | `OrderedEqualityAttribute` | property / field | sequence equality (`SequenceEqual`) over an `IEnumerable<T>` member |
-| [05] | `UnorderedEqualityAttribute` | property / field | multiset equality (order-independent, multiplicity-aware); dictionary-aware |
-| [06] | `SetEqualityAttribute` | property / field | set equality (`ISet<T>.SetEquals` fast path; hashing always 0) |
-| [07] | `ReferenceEqualityAttribute` | property / field | reference identity (`RuntimeHelpers.GetHashCode`); member type must be a class |
-| [08] | `StringEqualityAttribute` | property / field | `StringComparer.<ComparisonType>` culture/ordinal equality |
-| [09] | `PrecisionEqualityAttribute` | property / field | tolerance equality `Math.Abs(a-b) < precision`; excluded from `GetHashCode` |
-| [10] | `CustomEqualityAttribute` | property / field | a caller-supplied `IEqualityComparer<T>` selected by type + member name |
+| [INDEX] | [SYMBOL]                     | [TARGET]         | [CAPABILITY]                                                                                              |
+| :-----: | :--------------------------- | :--------------- | :-------------------------------------------------------------------------------------------------------- |
+|  [01]   | `EquatableAttribute`         | class / struct   | the type marker; `Explicit` (opt-in members only) + `IgnoreInheritedMembers`                              |
+|  [02]   | `DefaultEqualityAttribute`   | property / field | `EqualityComparer<T>.Default` member equality; required to opt a field in, or any member under `Explicit` |
+|  [03]   | `IgnoreEqualityAttribute`    | property / field | exclude the member from `Equals`, `GetHashCode`, and `Inequalities`                                       |
+|  [04]   | `OrderedEqualityAttribute`   | property / field | sequence equality (`SequenceEqual`) over an `IEnumerable<T>` member                                       |
+|  [05]   | `UnorderedEqualityAttribute` | property / field | multiset equality (order-independent, multiplicity-aware); dictionary-aware                               |
+|  [06]   | `SetEqualityAttribute`       | property / field | set equality (`ISet<T>.SetEquals` fast path; hashing always 0)                                            |
+|  [07]   | `ReferenceEqualityAttribute` | property / field | reference identity (`RuntimeHelpers.GetHashCode`); member type must be a class                            |
+|  [08]   | `StringEqualityAttribute`    | property / field | `StringComparer.<ComparisonType>` culture/ordinal equality                                                |
+|  [09]   | `PrecisionEqualityAttribute` | property / field | tolerance equality `Math.Abs(a-b) < precision`; excluded from `GetHashCode`                               |
+|  [10]   | `CustomEqualityAttribute`    | property / field | a caller-supplied `IEqualityComparer<T>` selected by type + member name                                   |
 
 [PUBLIC_TYPE_SCOPE]: runtime comparer helpers (in `Generator.Equals`; the generated code binds these — each is callable directly)
 - rail: equality
 
-| [INDEX] | [SYMBOL] | [IMPLEMENTS] | [CAPABILITY] |
-|:-----: |:---------------------------------------- |:------------------------------------ |:------------------------------------------------------------------ |
-| [01] | `DefaultEqualityComparer<T>` | `IEqualityComparer<T>` | `Default`; sealed-`T` fast path to `EqualityComparer<T>.Default`, else `object.Equals` (deep-equality-safe) |
-| [02] | `OrderedEqualityComparer<T>` | `IEqualityComparer<IEnumerable<T>>` | `Default` + element-comparer ctor; `SequenceEqual` with order |
-| [03] | `UnorderedEqualityComparer<T>` | `IEqualityComparer<IEnumerable<T>>` | `Default` + element-comparer ctor; multiplicity-aware multiset compare |
-| [04] | `SetEqualityComparer<T>` | `IEqualityComparer<IEnumerable<T>>` | `Default` + element-comparer ctor; `ISet<T>.SetEquals` fast path; `GetHashCode` returns 0 |
-| [05] | `DictionaryEqualityComparer<TKey,TValue>` | `IEqualityComparer<IDictionary<TKey,TValue>>` | `Default` + key/value-comparer ctor; order-independent entry compare |
-| [06] | `ReferenceEqualityComparer<T>` | `IEqualityComparer<T>` (`where T:class`) | `Default`; identity equality via `RuntimeHelpers.GetHashCode` |
+| [INDEX] | [SYMBOL]                                  | [IMPLEMENTS]                                  | [CAPABILITY]                                                                                                |
+| :-----: | :---------------------------------------- | :-------------------------------------------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `DefaultEqualityComparer<T>`              | `IEqualityComparer<T>`                        | `Default`; sealed-`T` fast path to `EqualityComparer<T>.Default`, else `object.Equals` (deep-equality-safe) |
+|  [02]   | `OrderedEqualityComparer<T>`              | `IEqualityComparer<IEnumerable<T>>`           | `Default` + element-comparer ctor; `SequenceEqual` with order                                               |
+|  [03]   | `UnorderedEqualityComparer<T>`            | `IEqualityComparer<IEnumerable<T>>`           | `Default` + element-comparer ctor; multiplicity-aware multiset compare                                      |
+|  [04]   | `SetEqualityComparer<T>`                  | `IEqualityComparer<IEnumerable<T>>`           | `Default` + element-comparer ctor; `ISet<T>.SetEquals` fast path; `GetHashCode` returns 0                   |
+|  [05]   | `DictionaryEqualityComparer<TKey,TValue>` | `IEqualityComparer<IDictionary<TKey,TValue>>` | `Default` + key/value-comparer ctor; order-independent entry compare                                        |
+|  [06]   | `ReferenceEqualityComparer<T>`            | `IEqualityComparer<T>` (`where T:class`)      | `Default`; identity equality via `RuntimeHelpers.GetHashCode`                                               |
 
 [PUBLIC_TYPE_SCOPE]: structured-diff value family (the `Inequalities()` output model)
 - rail: equality
 
-| [INDEX] | [SYMBOL] | [SHAPE] | [CAPABILITY] |
-|:-----: |:------------------------ |:----------------- |:---------------------------------------------------------------------- |
-| [01] | `Inequality` | `readonly struct` | one differing member: `Path` (`MemberPath`), `Left`/`Right` (`object?`); `ToString` → `"{Path}: {Left} → {Right}"` |
-| [02] | `MemberPath` | `readonly struct` | ordered `Segments` (`MemberPathSegment[]`); immutable `Append(segment)` / `Append(path)`; dotted/bracketed `ToString` |
-| [03] | `MemberPathSegment` | `readonly struct` | one path step: `Kind` + `Value` (`object?`); private ctor, static factories per kind |
-| [04] | `MemberPathSegmentKind` | `enum` | `Property`, `Field`, `Index`, `Key`, `Added`, `Removed` |
+| [INDEX] | [SYMBOL]                | [SHAPE]           | [CAPABILITY]                                                                                                          |
+| :-----: | :---------------------- | :---------------- | :-------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `Inequality`            | `readonly struct` | one differing member: `Path` (`MemberPath`), `Left`/`Right` (`object?`); `ToString` → `"{Path}: {Left} → {Right}"`    |
+|  [02]   | `MemberPath`            | `readonly struct` | ordered `Segments` (`MemberPathSegment[]`); immutable `Append(segment)` / `Append(path)`; dotted/bracketed `ToString` |
+|  [03]   | `MemberPathSegment`     | `readonly struct` | one path step: `Kind` + `Value` (`object?`); private ctor, static factories per kind                                  |
+|  [04]   | `MemberPathSegmentKind` | `enum`            | `Property`, `Field`, `Index`, `Key`, `Added`, `Removed`                                                               |
 
 [PUBLIC_TYPE_SCOPE]: generated per-`[Equatable]`-type surface (emitted into the partial type as `<Type>.Generator.Equals.g.cs`)
 - rail: equality
 
-| [INDEX] | [SYMBOL] | [CAPABILITY] |
-|:-----: |:-------------------------------------- |:-------------------------------------------------------------------------- |
-| [01] | nested `EqualityComparer: IEqualityComparer<TSelf>` | the comparer type; static `Default` instance — the canonical entrypoint |
-| [02] | `EqualityComparer.Equals(x, y)` / `GetHashCode(obj)` | deep structural equality + hash per the member attributes |
-| [03] | `EqualityComparer.Inequalities(x, y)` + `(x, y, MemberPath path)` | `IEnumerable<Inequality>` of differing members, drilling into nested `[Equatable]` elements |
-| [04] | `Equals(object?)` / `IEquatable<TSelf>.Equals(TSelf)` / `GetHashCode()` | type-level overrides (classes implement `IEquatable<T>` explicitly for deep equality) |
-| [05] | `operator ==` / `operator !=` | value-equality operators routed through the generated comparer |
+| [INDEX] | [SYMBOL]                                                                | [CAPABILITY]                                                                                |
+| :-----: | :---------------------------------------------------------------------- | :------------------------------------------------------------------------------------------ |
+|  [01]   | nested `EqualityComparer: IEqualityComparer<TSelf>`                     | the comparer type; static `Default` instance — the canonical entrypoint                     |
+|  [02]   | `EqualityComparer.Equals(x, y)` / `GetHashCode(obj)`                    | deep structural equality + hash per the member attributes                                   |
+|  [03]   | `EqualityComparer.Inequalities(x, y)` + `(x, y, MemberPath path)`       | `IEnumerable<Inequality>` of differing members, drilling into nested `[Equatable]` elements |
+|  [04]   | `Equals(object?)` / `IEquatable<TSelf>.Equals(TSelf)` / `GetHashCode()` | type-level overrides (classes implement `IEquatable<T>` explicitly for deep equality)       |
+|  [05]   | `operator ==` / `operator !=`                                           | value-equality operators routed through the generated comparer                              |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -69,41 +69,41 @@
 - rail: equality
 - surface-root: the `partial` type carrying `[Equatable]`
 
-| [INDEX] | [SURFACE] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------------- |:------------------------------------------------ |
-| [01] | `[Equatable] partial record T(...)` | deep value equality over every member |
-| [02] | `[Equatable(Explicit = true)] partial class T` | only `[DefaultEquality]`/attributed members count |
-| [03] | `[Equatable(IgnoreInheritedMembers = true)] partial class T: B` | skip `base.Equals()`; compare only declared members |
-| [04] | `[property: OrderedEquality] T[] Items` (record positional) | per-member comparer on a positional record parameter |
-| [05] | `[DefaultEquality] private int _field;` | opt a field into comparison (fields excluded by default) |
-| [06] | `[OrderedEquality(StringComparison.OrdinalIgnoreCase)]` | culture/ordinal element comparison for a string collection |
-| [07] | `[OrderedEquality(typeof(MyComparer))]` / `(typeof(C), nameof(C.Member))` | element comparer by type + static `Default`/named member |
-| [08] | `[CustomEquality(typeof(C))]` / `(typeof(C), nameof(C.Member))` | whole-member comparer by static instance, named member, or parameterless ctor |
+| [INDEX] | [SURFACE]                                                                 | [CAPABILITY]                                                                  |
+| :-----: | :------------------------------------------------------------------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `[Equatable] partial record T(...)`                                       | deep value equality over every member                                         |
+|  [02]   | `[Equatable(Explicit = true)] partial class T`                            | only `[DefaultEquality]`/attributed members count                             |
+|  [03]   | `[Equatable(IgnoreInheritedMembers = true)] partial class T: B`           | skip `base.Equals()`; compare only declared members                           |
+|  [04]   | `[property: OrderedEquality] T[] Items` (record positional)               | per-member comparer on a positional record parameter                          |
+|  [05]   | `[DefaultEquality] private int _field;`                                   | opt a field into comparison (fields excluded by default)                      |
+|  [06]   | `[OrderedEquality(StringComparison.OrdinalIgnoreCase)]`                   | culture/ordinal element comparison for a string collection                    |
+|  [07]   | `[OrderedEquality(typeof(MyComparer))]` / `(typeof(C), nameof(C.Member))` | element comparer by type + static `Default`/named member                      |
+|  [08]   | `[CustomEquality(typeof(C))]` / `(typeof(C), nameof(C.Member))`           | whole-member comparer by static instance, named member, or parameterless ctor |
 
 [ENTRYPOINT_SCOPE]: comparing, hashing, and diffing through the generated comparer
 - rail: equality
 
-| [INDEX] | [SURFACE] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------------- |:------------------------------------------------ |
-| [01] | `T.EqualityComparer.Default.Equals(a, b)` | deep structural equality (the canonical compare) |
-| [02] | `a == b` / `a != b` / `a.Equals(b)` | operator + `IEquatable<T>` routes to the same comparer |
-| [03] | `T.EqualityComparer.Default.GetHashCode(a)` | structural hash (collection-aware, tolerance/set members excluded) |
-| [04] | `T.EqualityComparer.Default.Inequalities(a, b)` | `IEnumerable<Inequality>` of exactly the differing members |
-| [05] | `T.EqualityComparer.Default.Inequalities(a, b, basePath)` | same, with every reported `Path` prefixed by `basePath` |
-| [06] | `new MemberPath(new[]{ MemberPathSegment.Property("Home") })` | construct a base path for composed parent-context diffs |
+| [INDEX] | [SURFACE]                                                     | [CAPABILITY]                                                       |
+| :-----: | :------------------------------------------------------------ | :----------------------------------------------------------------- |
+|  [01]   | `T.EqualityComparer.Default.Equals(a, b)`                     | deep structural equality (the canonical compare)                   |
+|  [02]   | `a == b` / `a != b` / `a.Equals(b)`                           | operator + `IEquatable<T>` routes to the same comparer             |
+|  [03]   | `T.EqualityComparer.Default.GetHashCode(a)`                   | structural hash (collection-aware, tolerance/set members excluded) |
+|  [04]   | `T.EqualityComparer.Default.Inequalities(a, b)`               | `IEnumerable<Inequality>` of exactly the differing members         |
+|  [05]   | `T.EqualityComparer.Default.Inequalities(a, b, basePath)`     | same, with every reported `Path` prefixed by `basePath`            |
+|  [06]   | `new MemberPath(new[]{ MemberPathSegment.Property("Home") })` | construct a base path for composed parent-context diffs            |
 
 [ENTRYPOINT_SCOPE]: direct comparer + path construction (composing equality without a generated owner)
 - rail: equality
 
-| [INDEX] | [SURFACE] | [CAPABILITY] |
-|:-----: |:---------------------------------------------------------------- |:-------------------------------------------- |
-| [01] | `OrderedEqualityComparer<T>.Default` / `new OrderedEqualityComparer<T>(inner)` | sequence comparer, default or element-customized |
-| [02] | `UnorderedEqualityComparer<T>.Default` / `new UnorderedEqualityComparer<T>(inner)` | multiset comparer (typed `IEqualityComparer<IEnumerable<T>>`) |
-| [03] | `SetEqualityComparer<T>.Default` / `new SetEqualityComparer<T>(inner)` | set comparer (`SetEquals` fast path) |
-| [04] | `DictionaryEqualityComparer<TKey,TValue>.Default` / `new DictionaryEqualityComparer<TKey,TValue>(keyCmp, valCmp)` | dictionary comparer with `KeyEqualityComparer`/`ValueEqualityComparer` |
-| [05] | `DefaultEqualityComparer<T>.Default` / `ReferenceEqualityComparer<T>.Default` | scalar default / identity comparers |
-| [06] | `MemberPathSegment.Property(name)` / `Field(name)` / `Index(i)` / `Key(k)` / `Added()` / `Removed()` | one path segment per kind |
-| [07] | `path.Append(segment)` / `path.Append(otherPath)` | immutable path extension (copy-on-append) |
+| [INDEX] | [SURFACE]                                                                                                         | [CAPABILITY]                                                           |
+| :-----: | :---------------------------------------------------------------------------------------------------------------- | :--------------------------------------------------------------------- |
+|  [01]   | `OrderedEqualityComparer<T>.Default` / `new OrderedEqualityComparer<T>(inner)`                                    | sequence comparer, default or element-customized                       |
+|  [02]   | `UnorderedEqualityComparer<T>.Default` / `new UnorderedEqualityComparer<T>(inner)`                                | multiset comparer (typed `IEqualityComparer<IEnumerable<T>>`)          |
+|  [03]   | `SetEqualityComparer<T>.Default` / `new SetEqualityComparer<T>(inner)`                                            | set comparer (`SetEquals` fast path)                                   |
+|  [04]   | `DictionaryEqualityComparer<TKey,TValue>.Default` / `new DictionaryEqualityComparer<TKey,TValue>(keyCmp, valCmp)` | dictionary comparer with `KeyEqualityComparer`/`ValueEqualityComparer` |
+|  [05]   | `DefaultEqualityComparer<T>.Default` / `ReferenceEqualityComparer<T>.Default`                                     | scalar default / identity comparers                                    |
+|  [06]   | `MemberPathSegment.Property(name)` / `Field(name)` / `Index(i)` / `Key(k)` / `Added()` / `Removed()`              | one path segment per kind                                              |
+|  [07]   | `path.Append(segment)` / `path.Append(otherPath)`                                                                 | immutable path extension (copy-on-append)                              |
 
 ## [04]-[INTEGRATION_STACKING]
 

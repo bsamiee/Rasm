@@ -37,164 +37,164 @@ client contracts without coupling to a specific provider.
 [PUBLIC_TYPE_SCOPE]: chat client contracts
 - rail: model-client
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------- |:--------------- |:------------------------------------------------------ |
-| [01] | `IChatClient` | client contract | `IDisposable` provider-agnostic chat interface |
-| [02] | `DelegatingChatClient` | delegating base | middleware composition base |
-| [03] | `ChatClientExtensions` | extension class | `string`/`ChatMessage` overloads + `GetRequiredService` |
-| [04] | `ChatResponseExtensions` | extension class | stream→response fold + history accumulation |
-| [05] | `ChatMessage` | message model | `Role`, `Contents`, `Text`, `Clone()` |
-| [06] | `ChatRole` | role value | `System`, `User`, `Assistant`, `Tool` |
-| [07] | `ChatOptions` | request options | sampling, tools, format, reasoning, conversation |
-| [08] | `ChatResponse` | response model | `Text`, `Messages`, `Usage`, `FinishReason`, token |
-| [09] | `ChatResponseUpdate` | streaming update | incremental streaming unit (`ToChatResponse` foldable) |
-| [10] | `ChatFinishReason` | finish reason | stop condition vocabulary |
-| [11] | `ChatToolMode` | tool-mode base | `AutoChatToolMode`, `NoneChatToolMode`, `RequiredChatToolMode` |
-| [12] | `ChatResponseFormat` | response format | `ChatResponseFormatText`, `ChatResponseFormatJson` |
-| [13] | `ChatClientMetadata` | client metadata | provider name and model identity |
-| [14] | `IChatReducer` | history reducer | trims/summarizes conversation before send |
-| [15] | `UsageDetails` | usage model | input/output/total token counts |
+| [INDEX] | [SYMBOL]                 | [TYPE_FAMILY]    | [RAIL]                                                         |
+| :-----: | :----------------------- | :--------------- | :------------------------------------------------------------- |
+|  [01]   | `IChatClient`            | client contract  | `IDisposable` provider-agnostic chat interface                 |
+|  [02]   | `DelegatingChatClient`   | delegating base  | middleware composition base                                    |
+|  [03]   | `ChatClientExtensions`   | extension class  | `string`/`ChatMessage` overloads + `GetRequiredService`        |
+|  [04]   | `ChatResponseExtensions` | extension class  | stream→response fold + history accumulation                    |
+|  [05]   | `ChatMessage`            | message model    | `Role`, `Contents`, `Text`, `Clone()`                          |
+|  [06]   | `ChatRole`               | role value       | `System`, `User`, `Assistant`, `Tool`                          |
+|  [07]   | `ChatOptions`            | request options  | sampling, tools, format, reasoning, conversation               |
+|  [08]   | `ChatResponse`           | response model   | `Text`, `Messages`, `Usage`, `FinishReason`, token             |
+|  [09]   | `ChatResponseUpdate`     | streaming update | incremental streaming unit (`ToChatResponse` foldable)         |
+|  [10]   | `ChatFinishReason`       | finish reason    | stop condition vocabulary                                      |
+|  [11]   | `ChatToolMode`           | tool-mode base   | `AutoChatToolMode`, `NoneChatToolMode`, `RequiredChatToolMode` |
+|  [12]   | `ChatResponseFormat`     | response format  | `ChatResponseFormatText`, `ChatResponseFormatJson`             |
+|  [13]   | `ChatClientMetadata`     | client metadata  | provider name and model identity                               |
+|  [14]   | `IChatReducer`           | history reducer  | trims/summarizes conversation before send                      |
+|  [15]   | `UsageDetails`           | usage model      | input/output/total token counts                                |
 
 [PUBLIC_TYPE_SCOPE]: embedding generator contracts
 - rail: model-client
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:----------------------------- |:----------------- |:------------------------------------ |
-| [01] | `IEmbeddingGenerator` | non-generic base | service-discovery root |
-| [02] | `IEmbeddingGenerator<TInput,TEmbedding>` | typed contract | `GenerateAsync` over a batch |
-| [03] | `DelegatingEmbeddingGenerator<TInput,TEmbedding>` | delegating base | middleware composition base |
-| [04] | `EmbeddingGeneratorExtensions` | extension class | scalar/zip/vector convenience overloads |
-| [05] | `Embedding` / `Embedding<T>` | embedding carrier | base + typed embedding payload |
-| [06] | `GeneratedEmbeddings<TEmbedding>` | batch result | embedding batch + `Usage` |
-| [07] | `BinaryEmbedding` | binary embedding | bit-packed embedding vector |
-| [08] | `EmbeddingGenerationOptions` | request options | model + additional properties |
+| [INDEX] | [SYMBOL]                                          | [TYPE_FAMILY]     | [RAIL]                                  |
+| :-----: | :------------------------------------------------ | :---------------- | :-------------------------------------- |
+|  [01]   | `IEmbeddingGenerator`                             | non-generic base  | service-discovery root                  |
+|  [02]   | `IEmbeddingGenerator<TInput,TEmbedding>`          | typed contract    | `GenerateAsync` over a batch            |
+|  [03]   | `DelegatingEmbeddingGenerator<TInput,TEmbedding>` | delegating base   | middleware composition base             |
+|  [04]   | `EmbeddingGeneratorExtensions`                    | extension class   | scalar/zip/vector convenience overloads |
+|  [05]   | `Embedding` / `Embedding<T>`                      | embedding carrier | base + typed embedding payload          |
+|  [06]   | `GeneratedEmbeddings<TEmbedding>`                 | batch result      | embedding batch + `Usage`               |
+|  [07]   | `BinaryEmbedding`                                 | binary embedding  | bit-packed embedding vector             |
+|  [08]   | `EmbeddingGenerationOptions`                      | request options   | model + additional properties           |
 
 [PUBLIC_TYPE_SCOPE]: tool and function contracts
 - rail: model-client
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------------- |:--------------- |:------------------------------------------- |
-| [01] | `AITool` | tool base | description base for any tool |
-| [02] | `AIFunctionDeclaration` | declaration base | non-invocable tool description (manifest) |
-| [03] | `AIFunction` | function tool | invocable; adds `InvokeAsync` |
-| [04] | `AIFunctionFactory` | function factory | delegate/`MethodInfo`/schema → `AIFunction` |
-| [05] | `AIFunctionArguments` | argument carrier | keyed argument dictionary |
-| [06] | `AIFunctionFactoryOptions` | factory options | JSON schema + binding + marshalling policy |
-| [07] | `ApprovalRequiredAIFunction` | approval gate | wraps an `AIFunction` behind explicit approval |
-| [08] | `HostedWebSearchTool` / `HostedCodeInterpreterTool` / `HostedFileSearchTool` / `HostedImageGenerationTool` / `HostedToolSearchTool` | hosted tools | provider-executed (server-side) tools |
-| [09] | `HostedMcpServerTool` + `HostedMcpServerToolApprovalMode` (`AlwaysRequire`/`NeverRequire`/`RequireSpecific`) | hosted MCP | remote MCP server tool + approval policy |
-| [10] | `HostedVectorStoreContent` | hosted content | provider vector-store reference |
+| [INDEX] | [SYMBOL]                                                                                                                            | [TYPE_FAMILY]    | [RAIL]                                         |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------- | :--------------- | :--------------------------------------------- |
+|  [01]   | `AITool`                                                                                                                            | tool base        | description base for any tool                  |
+|  [02]   | `AIFunctionDeclaration`                                                                                                             | declaration base | non-invocable tool description (manifest)      |
+|  [03]   | `AIFunction`                                                                                                                        | function tool    | invocable; adds `InvokeAsync`                  |
+|  [04]   | `AIFunctionFactory`                                                                                                                 | function factory | delegate/`MethodInfo`/schema → `AIFunction`    |
+|  [05]   | `AIFunctionArguments`                                                                                                               | argument carrier | keyed argument dictionary                      |
+|  [06]   | `AIFunctionFactoryOptions`                                                                                                          | factory options  | JSON schema + binding + marshalling policy     |
+|  [07]   | `ApprovalRequiredAIFunction`                                                                                                        | approval gate    | wraps an `AIFunction` behind explicit approval |
+|  [08]   | `HostedWebSearchTool` / `HostedCodeInterpreterTool` / `HostedFileSearchTool` / `HostedImageGenerationTool` / `HostedToolSearchTool` | hosted tools     | provider-executed (server-side) tools          |
+|  [09]   | `HostedMcpServerTool` + `HostedMcpServerToolApprovalMode` (`AlwaysRequire`/`NeverRequire`/`RequireSpecific`)                        | hosted MCP       | remote MCP server tool + approval policy       |
+|  [10]   | `HostedVectorStoreContent`                                                                                                          | hosted content   | provider vector-store reference                |
 
 [PUBLIC_TYPE_SCOPE]: multimodal generation and realtime contracts
 - rail: model-client
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:----------------------------------------------------------------- |:--------------- |:------------------------------------------- |
-| [01] | `IImageGenerator` (+ `DelegatingImageGenerator`, `ImageGeneratorExtensions`) | image contract | `ImageGenerationRequest` → `ImageGenerationResponse` |
-| [02] | `ISpeechToTextClient` (+ `DelegatingSpeechToTextClient`, extensions) | STT contract | `Stream` → text + streaming updates |
-| [03] | `ITextToSpeechClient` (+ `DelegatingTextToSpeechClient`, extensions) | TTS contract | text → audio + streaming updates |
-| [04] | `IHostedFileClient` (+ `DelegatingHostedFileClient`, extensions) | file contract | upload/list/download provider-hosted files |
-| [05] | `IRealtimeClient` / `IRealtimeClientSession` | realtime contract | bidirectional session (`RealtimeServerMessage`/`RealtimeClientMessage`) |
-| [06] | `ReasoningOptions` / `ReasoningEffort` / `ReasoningOutput` | reasoning model | reasoning-budget request + emitted thought |
+| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY]     | [RAIL]                                                                  |
+| :-----: | :--------------------------------------------------------------------------- | :---------------- | :---------------------------------------------------------------------- |
+|  [01]   | `IImageGenerator` (+ `DelegatingImageGenerator`, `ImageGeneratorExtensions`) | image contract    | `ImageGenerationRequest` → `ImageGenerationResponse`                    |
+|  [02]   | `ISpeechToTextClient` (+ `DelegatingSpeechToTextClient`, extensions)         | STT contract      | `Stream` → text + streaming updates                                     |
+|  [03]   | `ITextToSpeechClient` (+ `DelegatingTextToSpeechClient`, extensions)         | TTS contract      | text → audio + streaming updates                                        |
+|  [04]   | `IHostedFileClient` (+ `DelegatingHostedFileClient`, extensions)             | file contract     | upload/list/download provider-hosted files                              |
+|  [05]   | `IRealtimeClient` / `IRealtimeClientSession`                                 | realtime contract | bidirectional session (`RealtimeServerMessage`/`RealtimeClientMessage`) |
+|  [06]   | `ReasoningOptions` / `ReasoningEffort` / `ReasoningOutput`                   | reasoning model   | reasoning-budget request + emitted thought                              |
 
 [PUBLIC_TYPE_SCOPE]: content and annotation contracts (`AIContent` hierarchy)
 - rail: model-client
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------------------------------- |:------------------ |:-------------------------------------- |
-| [01] | `AIContent` | content base | discriminated content-part base |
-| [02] | `TextContent` | text content | plain text message part |
-| [03] | `TextReasoningContent` | reasoning content | model chain-of-thought text |
-| [04] | `DataContent` / `UriContent` | binary / URI | inline base64/stream part / URI ref |
-| [05] | `FunctionCallContent` / `FunctionResultContent` | local tool round-trip | call request / result (paired by `CallId`) |
-| [06] | `ToolCallContent` / `ToolResultContent` | hosted tool | generic provider-executed tool round-trip |
-| [07] | `McpServerToolCallContent` / `McpServerToolResultContent` | MCP round-trip | remote MCP tool call / result |
-| [08] | `CodeInterpreterToolCallContent` / `CodeInterpreterToolResultContent` | code interp round-trip | server code execution call / result |
-| [09] | `WebSearchToolCallContent` / `WebSearchToolResultContent` / `ImageGenerationToolCallContent` / `...ResultContent` | hosted round-trip | search / image-gen call + result |
-| [10] | `ToolApprovalRequestContent` / `ToolApprovalResponseContent` | approval round-trip | human-in-the-loop tool approval |
-| [11] | `ErrorContent` / `UsageContent` / `HostedFileContent` | signal content | structured error / usage / file ref part |
-| [12] | `AIAnnotation` / `CitationAnnotation` / `TextSpanAnnotatedRegion` | annotation | source citation + annotated text span |
+| [INDEX] | [SYMBOL]                                                                                                          | [TYPE_FAMILY]          | [RAIL]                                     |
+| :-----: | :---------------------------------------------------------------------------------------------------------------- | :--------------------- | :----------------------------------------- |
+|  [01]   | `AIContent`                                                                                                       | content base           | discriminated content-part base            |
+|  [02]   | `TextContent`                                                                                                     | text content           | plain text message part                    |
+|  [03]   | `TextReasoningContent`                                                                                            | reasoning content      | model chain-of-thought text                |
+|  [04]   | `DataContent` / `UriContent`                                                                                      | binary / URI           | inline base64/stream part / URI ref        |
+|  [05]   | `FunctionCallContent` / `FunctionResultContent`                                                                   | local tool round-trip  | call request / result (paired by `CallId`) |
+|  [06]   | `ToolCallContent` / `ToolResultContent`                                                                           | hosted tool            | generic provider-executed tool round-trip  |
+|  [07]   | `McpServerToolCallContent` / `McpServerToolResultContent`                                                         | MCP round-trip         | remote MCP tool call / result              |
+|  [08]   | `CodeInterpreterToolCallContent` / `CodeInterpreterToolResultContent`                                             | code interp round-trip | server code execution call / result        |
+|  [09]   | `WebSearchToolCallContent` / `WebSearchToolResultContent` / `ImageGenerationToolCallContent` / `...ResultContent` | hosted round-trip      | search / image-gen call + result           |
+|  [10]   | `ToolApprovalRequestContent` / `ToolApprovalResponseContent`                                                      | approval round-trip    | human-in-the-loop tool approval            |
+|  [11]   | `ErrorContent` / `UsageContent` / `HostedFileContent`                                                             | signal content         | structured error / usage / file ref part   |
+|  [12]   | `AIAnnotation` / `CitationAnnotation` / `TextSpanAnnotatedRegion`                                                 | annotation             | source citation + annotated text span      |
 
 [PUBLIC_TYPE_SCOPE]: JSON schema utilities
 - rail: model-client
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------------------------------------- |:------------- |:-------------------------------------- |
-| [01] | `AIJsonUtilities` | schema utility | schema generation, hashing, transform |
-| [02] | `AIJsonSchemaCreateOptions` / `AIJsonSchemaCreateContext` | schema options | generation policy + per-type context |
-| [03] | `AIJsonSchemaTransformOptions` / `AIJsonSchemaTransformCache` | transform | post-generation schema rewrite + cache |
-| [04] | `AdditionalPropertiesDictionary` / `DataUri` | carrier | untyped provider props / data-URI parse |
+| [INDEX] | [SYMBOL]                                                      | [TYPE_FAMILY]  | [RAIL]                                  |
+| :-----: | :------------------------------------------------------------ | :------------- | :-------------------------------------- |
+|  [01]   | `AIJsonUtilities`                                             | schema utility | schema generation, hashing, transform   |
+|  [02]   | `AIJsonSchemaCreateOptions` / `AIJsonSchemaCreateContext`     | schema options | generation policy + per-type context    |
+|  [03]   | `AIJsonSchemaTransformOptions` / `AIJsonSchemaTransformCache` | transform      | post-generation schema rewrite + cache  |
+|  [04]   | `AdditionalPropertiesDictionary` / `DataUri`                  | carrier        | untyped provider props / data-URI parse |
 
 ## [03]-[ENTRYPOINTS]
 
 [ENTRYPOINT_SCOPE]: chat client operations and streaming fold
 - rail: model-client
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------------------------ |:------------- |:--------------------------------------------- |
-| [01] | `IChatClient.GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions?, CancellationToken)` | request call | `Task<ChatResponse>` |
-| [02] | `IChatClient.GetStreamingResponseAsync(messages, options?, ct)` | streaming call | `IAsyncEnumerable<ChatResponseUpdate>` |
-| [03] | `IChatClient.GetService(Type, object? serviceKey = null)` | service call | inner-service / metadata discovery |
-| [04] | `ChatClientExtensions.GetResponseAsync(this IChatClient, string \| ChatMessage, options?, ct)` | extension | single-prompt convenience overloads |
-| [05] | `ChatClientExtensions.GetStreamingResponseAsync(string \| ChatMessage, …)` | extension | single-prompt streaming overloads |
-| [06] | `ChatClientExtensions.GetService<TService>(…)` / `GetRequiredService<TService>(…)` | extension | typed inner-service resolution |
-| [07] | `ChatResponseExtensions.ToChatResponse(this IEnumerable<ChatResponseUpdate>)` / `ToChatResponseAsync(this IAsyncEnumerable<…>, ct)` | extension | fold a stream into one `ChatResponse` |
-| [08] | `ChatResponseExtensions.AddMessages(this IList<ChatMessage>, ChatResponse \| ChatResponseUpdate, …)` / `AddMessagesAsync(...)` | extension | append turns to running history |
-| [09] | `ChatResponse.ToChatResponseUpdates` / `ChatResponse(ChatMessage \| IList<ChatMessage>)` | projection | response ↔ update conversion / construction |
-| [10] | `ChatOptions.Clone()` | copy call | clone before per-request mutation |
+| [INDEX] | [SURFACE]                                                                                                                           | [ENTRY_FAMILY] | [RAIL]                                      |
+| :-----: | :---------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------ |
+|  [01]   | `IChatClient.GetResponseAsync(IEnumerable<ChatMessage>, ChatOptions?, CancellationToken)`                                           | request call   | `Task<ChatResponse>`                        |
+|  [02]   | `IChatClient.GetStreamingResponseAsync(messages, options?, ct)`                                                                     | streaming call | `IAsyncEnumerable<ChatResponseUpdate>`      |
+|  [03]   | `IChatClient.GetService(Type, object? serviceKey = null)`                                                                           | service call   | inner-service / metadata discovery          |
+|  [04]   | `ChatClientExtensions.GetResponseAsync(this IChatClient, string \| ChatMessage, options?, ct)`                                      | extension      | single-prompt convenience overloads         |
+|  [05]   | `ChatClientExtensions.GetStreamingResponseAsync(string \| ChatMessage, …)`                                                          | extension      | single-prompt streaming overloads           |
+|  [06]   | `ChatClientExtensions.GetService<TService>(…)` / `GetRequiredService<TService>(…)`                                                  | extension      | typed inner-service resolution              |
+|  [07]   | `ChatResponseExtensions.ToChatResponse(this IEnumerable<ChatResponseUpdate>)` / `ToChatResponseAsync(this IAsyncEnumerable<…>, ct)` | extension      | fold a stream into one `ChatResponse`       |
+|  [08]   | `ChatResponseExtensions.AddMessages(this IList<ChatMessage>, ChatResponse \| ChatResponseUpdate, …)` / `AddMessagesAsync(...)`      | extension      | append turns to running history             |
+|  [09]   | `ChatResponse.ToChatResponseUpdates` / `ChatResponse(ChatMessage \| IList<ChatMessage>)`                                            | projection     | response ↔ update conversion / construction |
+|  [10]   | `ChatOptions.Clone()`                                                                                                               | copy call      | clone before per-request mutation           |
 
 [ENTRYPOINT_SCOPE]: embedding generator operations
 - rail: model-client
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:-------------------------------------------------------------------------------------------------------- |:------------- |:-------------------------------------- |
-| [01] | `IEmbeddingGenerator<TInput,TEmbedding>.GenerateAsync(IEnumerable<TInput>, options?, ct)` | generate | `GeneratedEmbeddings<TEmbedding>` batch |
-| [02] | `EmbeddingGeneratorExtensions.GenerateVectorAsync<TInput,TElement>(generator, value, options?, ct)` | extension | scalar → `ReadOnlyMemory<TElement>` |
-| [03] | `EmbeddingGeneratorExtensions.GenerateAsync<TInput,TEmbedding>(generator, value, …)` | extension | scalar → single `TEmbedding` |
-| [04] | `EmbeddingGeneratorExtensions.GenerateAndZipAsync<TInput,TEmbedding>(generator, values, …)` | extension | `(Value, Embedding)[]` pairs |
-| [05] | `IEmbeddingGenerator.GetService(Type, object?)` / `GetService<TService>(…)` | service call | inner-service discovery |
+| [INDEX] | [SURFACE]                                                                                           | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :-------------------------------------------------------------------------------------------------- | :------------- | :-------------------------------------- |
+|  [01]   | `IEmbeddingGenerator<TInput,TEmbedding>.GenerateAsync(IEnumerable<TInput>, options?, ct)`           | generate       | `GeneratedEmbeddings<TEmbedding>` batch |
+|  [02]   | `EmbeddingGeneratorExtensions.GenerateVectorAsync<TInput,TElement>(generator, value, options?, ct)` | extension      | scalar → `ReadOnlyMemory<TElement>`     |
+|  [03]   | `EmbeddingGeneratorExtensions.GenerateAsync<TInput,TEmbedding>(generator, value, …)`                | extension      | scalar → single `TEmbedding`            |
+|  [04]   | `EmbeddingGeneratorExtensions.GenerateAndZipAsync<TInput,TEmbedding>(generator, values, …)`         | extension      | `(Value, Embedding)[]` pairs            |
+|  [05]   | `IEmbeddingGenerator.GetService(Type, object?)` / `GetService<TService>(…)`                         | service call   | inner-service discovery                 |
 
 [ENTRYPOINT_SCOPE]: tool, function, and multimodal operations
 - rail: model-client
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:------------------------------------------------------------------------------------- |:-------------- |:-------------------------------------- |
-| [01] | `AIFunctionFactory.Create(Delegate, string? name = null, string? description = null, JsonSerializerOptions?)` | factory call | function from delegate |
-| [02] | `AIFunctionFactory.Create(Delegate \| MethodInfo, AIFunctionFactoryOptions?)` | factory call | factory with full schema/binding policy |
-| [03] | `AIFunctionFactory.Create(MethodInfo, object? target, …)` / `(MethodInfo, Func<AIFunctionArguments,object> createInstance, …)` | factory call | static / per-call-instance binding |
-| [04] | `AIFunctionFactory.CreateDeclaration(string name, string? description, JsonElement jsonSchema, JsonElement? returnJsonSchema = null)` | factory call | schema-first non-invocable declaration |
-| [05] | `AIFunction.InvokeAsync(AIFunctionArguments? arguments = null, ct)` | invoke call | `ValueTask<object?>` invocation |
-| [06] | `AIFunction.AsDeclarationOnly()` / `AIFunction.UnderlyingMethod` / `JsonSerializerOptions` | projection | declaration view / backing `MethodInfo` |
-| [07] | `IImageGenerator.GenerateAsync(ImageGenerationRequest, ImageGenerationOptions?, ct)` | generate | `Task<ImageGenerationResponse>` |
-| [08] | `ISpeechToTextClient.GetTextAsync(Stream, options?, ct)` / `GetStreamingTextAsync(...)` | transcribe | audio → text (+ streaming) |
-| [09] | `ITextToSpeechClient.GetAudioAsync(string, options?, ct)` / `GetStreamingAudioAsync(...)` | synthesize | text → audio (+ streaming) |
-| [10] | `IRealtimeClient.CreateSessionAsync(RealtimeSessionOptions?, ct)` | session | `Task<IRealtimeClientSession>` |
+| [INDEX] | [SURFACE]                                                                                                                             | [ENTRY_FAMILY] | [RAIL]                                  |
+| :-----: | :------------------------------------------------------------------------------------------------------------------------------------ | :------------- | :-------------------------------------- |
+|  [01]   | `AIFunctionFactory.Create(Delegate, string? name = null, string? description = null, JsonSerializerOptions?)`                         | factory call   | function from delegate                  |
+|  [02]   | `AIFunctionFactory.Create(Delegate \| MethodInfo, AIFunctionFactoryOptions?)`                                                         | factory call   | factory with full schema/binding policy |
+|  [03]   | `AIFunctionFactory.Create(MethodInfo, object? target, …)` / `(MethodInfo, Func<AIFunctionArguments,object> createInstance, …)`        | factory call   | static / per-call-instance binding      |
+|  [04]   | `AIFunctionFactory.CreateDeclaration(string name, string? description, JsonElement jsonSchema, JsonElement? returnJsonSchema = null)` | factory call   | schema-first non-invocable declaration  |
+|  [05]   | `AIFunction.InvokeAsync(AIFunctionArguments? arguments = null, ct)`                                                                   | invoke call    | `ValueTask<object?>` invocation         |
+|  [06]   | `AIFunction.AsDeclarationOnly()` / `AIFunction.UnderlyingMethod` / `JsonSerializerOptions`                                            | projection     | declaration view / backing `MethodInfo` |
+|  [07]   | `IImageGenerator.GenerateAsync(ImageGenerationRequest, ImageGenerationOptions?, ct)`                                                  | generate       | `Task<ImageGenerationResponse>`         |
+|  [08]   | `ISpeechToTextClient.GetTextAsync(Stream, options?, ct)` / `GetStreamingTextAsync(...)`                                               | transcribe     | audio → text (+ streaming)              |
+|  [09]   | `ITextToSpeechClient.GetAudioAsync(string, options?, ct)` / `GetStreamingAudioAsync(...)`                                             | synthesize     | text → audio (+ streaming)              |
+|  [10]   | `IRealtimeClient.CreateSessionAsync(RealtimeSessionOptions?, ct)`                                                                     | session        | `Task<IRealtimeClientSession>`          |
 
 [ENTRYPOINT_SCOPE]: `ChatOptions` properties
 - rail: model-client
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:--------------------------------------------------- |:------------- |:----------------------------------- |
-| [01] | `Temperature` / `TopP` / `TopK` | option | `float?`/`float?`/`int?` sampling |
-| [02] | `MaxOutputTokens` / `Seed` | option | `int?` cap / `long?` reproducibility |
-| [03] | `FrequencyPenalty` / `PresencePenalty` / `StopSequences` | option | `float?` penalties / `IList<string>?` |
-| [04] | `ResponseFormat` | option | `ChatResponseFormat?` (text or JSON-schema) |
-| [05] | `Tools` / `ToolMode` / `AllowMultipleToolCalls` | option | `IList<AITool>?` / `ChatToolMode?` / `bool?` |
-| [06] | `Reasoning` | option | `ReasoningOptions?` reasoning budget |
-| [07] | `ModelId` / `ConversationId` | option | `string?` model override / stateful id |
-| [08] | `AllowBackgroundResponses` | option | `bool?` background streaming gate |
-| [09] | `AdditionalProperties` | option | `AdditionalPropertiesDictionary?` provider keys |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                          |
+| :-----: | :------------------------------------------------------- | :------------- | :---------------------------------------------- |
+|  [01]   | `Temperature` / `TopP` / `TopK`                          | option         | `float?`/`float?`/`int?` sampling               |
+|  [02]   | `MaxOutputTokens` / `Seed`                               | option         | `int?` cap / `long?` reproducibility            |
+|  [03]   | `FrequencyPenalty` / `PresencePenalty` / `StopSequences` | option         | `float?` penalties / `IList<string>?`           |
+|  [04]   | `ResponseFormat`                                         | option         | `ChatResponseFormat?` (text or JSON-schema)     |
+|  [05]   | `Tools` / `ToolMode` / `AllowMultipleToolCalls`          | option         | `IList<AITool>?` / `ChatToolMode?` / `bool?`    |
+|  [06]   | `Reasoning`                                              | option         | `ReasoningOptions?` reasoning budget            |
+|  [07]   | `ModelId` / `ConversationId`                             | option         | `string?` model override / stateful id          |
+|  [08]   | `AllowBackgroundResponses`                               | option         | `bool?` background streaming gate               |
+|  [09]   | `AdditionalProperties`                                   | option         | `AdditionalPropertiesDictionary?` provider keys |
 
 [ENTRYPOINT_SCOPE]: JSON schema and content operations
 - rail: model-client
 
-| [INDEX] | [SURFACE] | [ENTRY_FAMILY] | [RAIL] |
-|:-----: |:----------------------------------------------------------------- |:------------- |:-------------------------------------- |
-| [01] | `AIJsonUtilities.CreateJsonSchema(Type, …, AIJsonSchemaCreateOptions?)` | schema call | generate a JSON schema for a CLR type |
-| [02] | `AIJsonUtilities.DefaultOptions` | property | shared `JsonSerializerOptions` |
-| [03] | `AIJsonUtilities.TransformSchema(JsonElement, AIJsonSchemaTransformOptions)` | schema call | rewrite a schema (strip/annotate) |
-| [04] | `new DataContent(string dataUri, string? mediaType = null)` / `DataContent(ReadOnlyMemory<byte>, mediaType)` | ctor | inline binary content part |
-| [05] | `ChatMessage(ChatRole, string? \| IList<AIContent>?)` / `ChatMessage.Clone()` | ctor / copy | construct + clone message |
+| [INDEX] | [SURFACE]                                                                                                    | [ENTRY_FAMILY] | [RAIL]                                |
+| :-----: | :----------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------ |
+|  [01]   | `AIJsonUtilities.CreateJsonSchema(Type, …, AIJsonSchemaCreateOptions?)`                                      | schema call    | generate a JSON schema for a CLR type |
+|  [02]   | `AIJsonUtilities.DefaultOptions`                                                                             | property       | shared `JsonSerializerOptions`        |
+|  [03]   | `AIJsonUtilities.TransformSchema(JsonElement, AIJsonSchemaTransformOptions)`                                 | schema call    | rewrite a schema (strip/annotate)     |
+|  [04]   | `new DataContent(string dataUri, string? mediaType = null)` / `DataContent(ReadOnlyMemory<byte>, mediaType)` | ctor           | inline binary content part            |
+|  [05]   | `ChatMessage(ChatRole, string? \| IList<AIContent>?)` / `ChatMessage.Clone()`                                | ctor / copy    | construct + clone message             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

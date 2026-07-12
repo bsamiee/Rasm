@@ -18,74 +18,74 @@
 [PUBLIC_TYPE_SCOPE]: root configuration surfaces
 - rail: host-configuration-xml
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------ |:------------------ |:------------------------------------------------ |
-| [01] | `ConfigurationManager` | static facade | app settings, connection strings, section lookup, section refresh, configuration open operations |
-| [02] | `Configuration` | configuration file | section/group access plus save/save-as operations |
-| [03] | `ConfigurationSection` | section base | section serialization, deserialization, and section metadata |
-| [04] | `ConfigurationSectionGroup` | section group | grouped section ownership |
-| [05] | `ConfigurationElement` | element base | property-backed configuration element |
-| [06] | `ConfigurationElementCollection` | element collection | collection of configuration elements |
-| [07] | `ConfigurationProperty` | property metadata | declared configuration property |
-| [08] | `ConfigurationPropertyAttribute` | property attribute | maps a CLR property to a configuration property |
-| [09] | `ConfigurationPropertyCollection` | property collection | section/element property set |
-| [10] | `SectionInformation` | section metadata | protection, source, declaration, and override metadata |
-| [11] | `ContextInformation` | context metadata | hosting/context metadata for configuration |
+| [INDEX] | [SYMBOL]                          | [TYPE_FAMILY]       | [CAPABILITY]                                                                                     |
+| :-----: | :-------------------------------- | :------------------ | :----------------------------------------------------------------------------------------------- |
+|  [01]   | `ConfigurationManager`            | static facade       | app settings, connection strings, section lookup, section refresh, configuration open operations |
+|  [02]   | `Configuration`                   | configuration file  | section/group access plus save/save-as operations                                                |
+|  [03]   | `ConfigurationSection`            | section base        | section serialization, deserialization, and section metadata                                     |
+|  [04]   | `ConfigurationSectionGroup`       | section group       | grouped section ownership                                                                        |
+|  [05]   | `ConfigurationElement`            | element base        | property-backed configuration element                                                            |
+|  [06]   | `ConfigurationElementCollection`  | element collection  | collection of configuration elements                                                             |
+|  [07]   | `ConfigurationProperty`           | property metadata   | declared configuration property                                                                  |
+|  [08]   | `ConfigurationPropertyAttribute`  | property attribute  | maps a CLR property to a configuration property                                                  |
+|  [09]   | `ConfigurationPropertyCollection` | property collection | section/element property set                                                                     |
+|  [10]   | `SectionInformation`              | section metadata    | protection, source, declaration, and override metadata                                           |
+|  [11]   | `ContextInformation`              | context metadata    | hosting/context metadata for configuration                                                       |
 
 [PUBLIC_TYPE_SCOPE]: app settings and connection strings
 - rail: host-configuration-xml
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------ |:------------------ |:------------------------------------------------ |
-| [01] | `AppSettingsSection` | built-in section | XML app settings section |
-| [02] | `ConnectionStringsSection` | built-in section | XML connection strings section |
-| [03] | `KeyValueConfigurationCollection` | app setting rows | keyed app-setting collection |
-| [04] | `KeyValueConfigurationElement` | app setting row | one keyed app-setting element |
-| [05] | `ConnectionStringSettings` | connection row | one named connection string with provider name |
-| [06] | `ConnectionStringSettingsCollection` | connection rows | named connection string collection |
+| [INDEX] | [SYMBOL]                             | [TYPE_FAMILY]    | [CAPABILITY]                                   |
+| :-----: | :----------------------------------- | :--------------- | :--------------------------------------------- |
+|  [01]   | `AppSettingsSection`                 | built-in section | XML app settings section                       |
+|  [02]   | `ConnectionStringsSection`           | built-in section | XML connection strings section                 |
+|  [03]   | `KeyValueConfigurationCollection`    | app setting rows | keyed app-setting collection                   |
+|  [04]   | `KeyValueConfigurationElement`       | app setting row  | one keyed app-setting element                  |
+|  [05]   | `ConnectionStringSettings`           | connection row   | one named connection string with provider name |
+|  [06]   | `ConnectionStringSettingsCollection` | connection rows  | named connection string collection             |
 
 [PUBLIC_TYPE_SCOPE]: file maps, save modes, and section collections
 - rail: host-configuration-xml
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------ |:------------------ |:------------------------------------------------ |
-| [01] | `ConfigurationFileMap` | file map | machine configuration file-map input |
-| [02] | `ExeConfigurationFileMap` | file map | executable configuration file-map input |
-| [03] | `ConfigurationUserLevel` | open policy enum | per-user vs no-user executable configuration level |
-| [04] | `ConfigurationSaveMode` | save policy enum | modified/full/minimal save policy |
-| [05] | `ConfigurationSectionCollection` | collection | named section collection |
-| [06] | `ConfigurationSectionGroupCollection` | collection | named section-group collection |
-| [07] | `ConfigurationErrorsException` | error rail | XML/configuration failure exception |
+| [INDEX] | [SYMBOL]                              | [TYPE_FAMILY]    | [CAPABILITY]                                       |
+| :-----: | :------------------------------------ | :--------------- | :------------------------------------------------- |
+|  [01]   | `ConfigurationFileMap`                | file map         | machine configuration file-map input               |
+|  [02]   | `ExeConfigurationFileMap`             | file map         | executable configuration file-map input            |
+|  [03]   | `ConfigurationUserLevel`              | open policy enum | per-user vs no-user executable configuration level |
+|  [04]   | `ConfigurationSaveMode`               | save policy enum | modified/full/minimal save policy                  |
+|  [05]   | `ConfigurationSectionCollection`      | collection       | named section collection                           |
+|  [06]   | `ConfigurationSectionGroupCollection` | collection       | named section-group collection                     |
+|  [07]   | `ConfigurationErrorsException`        | error rail       | XML/configuration failure exception                |
 
 [PUBLIC_TYPE_SCOPE]: application settings provider model
 - rail: host-configuration-xml
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------ |:------------------ |:------------------------------------------------ |
-| [01] | `ApplicationSettingsBase` | settings base | strongly typed application/user settings base |
-| [02] | `SettingsBase` | settings base | common settings persistence base |
-| [03] | `SettingsProvider` | provider base | custom settings provider contract |
-| [04] | `LocalFileSettingsProvider` | provider | local file-backed settings provider |
-| [05] | `UserScopedSettingAttribute` | setting attribute | user-scoped setting marker |
-| [06] | `ApplicationScopedSettingAttribute` | setting attribute | application-scoped setting marker |
-| [07] | `DefaultSettingValueAttribute` | setting attribute | default setting value marker |
-| [08] | `SettingsProviderAttribute` | setting attribute | settings provider binding |
-| [09] | `SettingsSerializeAsAttribute` | setting attribute | setting serialization mode marker |
+| [INDEX] | [SYMBOL]                            | [TYPE_FAMILY]     | [CAPABILITY]                                  |
+| :-----: | :---------------------------------- | :---------------- | :-------------------------------------------- |
+|  [01]   | `ApplicationSettingsBase`           | settings base     | strongly typed application/user settings base |
+|  [02]   | `SettingsBase`                      | settings base     | common settings persistence base              |
+|  [03]   | `SettingsProvider`                  | provider base     | custom settings provider contract             |
+|  [04]   | `LocalFileSettingsProvider`         | provider          | local file-backed settings provider           |
+|  [05]   | `UserScopedSettingAttribute`        | setting attribute | user-scoped setting marker                    |
+|  [06]   | `ApplicationScopedSettingAttribute` | setting attribute | application-scoped setting marker             |
+|  [07]   | `DefaultSettingValueAttribute`      | setting attribute | default setting value marker                  |
+|  [08]   | `SettingsProviderAttribute`         | setting attribute | settings provider binding                     |
+|  [09]   | `SettingsSerializeAsAttribute`      | setting attribute | setting serialization mode marker             |
 
 [PUBLIC_TYPE_SCOPE]: validators and protected configuration
 - rail: host-configuration-xml
 
-| [INDEX] | [SYMBOL] | [TYPE_FAMILY] | [CAPABILITY] |
-|:-----: |:------------------------------------ |:------------------ |:------------------------------------------------ |
-| [01] | `ConfigurationValidatorBase` | validator base | custom configuration value validator base |
-| [02] | `IntegerValidator` / `LongValidator` | numeric validators | integer range validators |
-| [03] | `StringValidator` / `RegexStringValidator` | string validators | string length and regex validators |
-| [04] | `TimeSpanValidator` | time validator | time-span range validator |
-| [05] | `ProtectedConfiguration` | protection facade | protected configuration provider lookup |
-| [06] | `ProtectedConfigurationProvider` | provider base | protected configuration provider contract |
-| [07] | `ProtectedConfigurationProviderCollection` | provider collection | named protected configuration providers |
-| [08] | `RsaProtectedConfigurationProvider` | provider | RSA protected configuration provider |
-| [09] | `DpapiProtectedConfigurationProvider` | provider | DPAPI protected configuration provider |
+| [INDEX] | [SYMBOL]                                   | [TYPE_FAMILY]       | [CAPABILITY]                              |
+| :-----: | :----------------------------------------- | :------------------ | :---------------------------------------- |
+|  [01]   | `ConfigurationValidatorBase`               | validator base      | custom configuration value validator base |
+|  [02]   | `IntegerValidator` / `LongValidator`       | numeric validators  | integer range validators                  |
+|  [03]   | `StringValidator` / `RegexStringValidator` | string validators   | string length and regex validators        |
+|  [04]   | `TimeSpanValidator`                        | time validator      | time-span range validator                 |
+|  [05]   | `ProtectedConfiguration`                   | protection facade   | protected configuration provider lookup   |
+|  [06]   | `ProtectedConfigurationProvider`           | provider base       | protected configuration provider contract |
+|  [07]   | `ProtectedConfigurationProviderCollection` | provider collection | named protected configuration providers   |
+|  [08]   | `RsaProtectedConfigurationProvider`        | provider            | RSA protected configuration provider      |
+|  [09]   | `DpapiProtectedConfigurationProvider`      | provider            | DPAPI protected configuration provider    |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -108,18 +108,18 @@ public static Configuration ConfigurationManager.OpenMappedExeConfiguration(ExeC
 [ENTRYPOINT_SCOPE]: `Configuration` file model
 - rail: host-configuration-xml
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:---------------------------------------------- |:----------------- |:------------------------------------------------ |
-| [01] | `Configuration.AppSettings` | property | app settings section |
-| [02] | `Configuration.ConnectionStrings` | property | connection strings section |
-| [03] | `Configuration.FilePath` / `Configuration.HasFile` | properties | file identity and presence |
-| [04] | `Configuration.Sections` / `Configuration.SectionGroups` | collections | section and group discovery |
-| [05] | `Configuration.GetSection(string)` | lookup | named section lookup |
-| [06] | `Configuration.GetSectionGroup(string)` | lookup | named section-group lookup |
-| [07] | `Configuration.Save()` | save | save modified configuration |
-| [08] | `Configuration.Save(ConfigurationSaveMode)` | save | save with explicit mode |
-| [09] | `Configuration.Save(ConfigurationSaveMode, bool)` | save | save with mode and force-save flag |
-| [10] | `Configuration.SaveAs(...)` | save-as | write configuration to another file |
+| [INDEX] | [SURFACE]                                                | [CALL_SHAPE] | [CAPABILITY]                        |
+| :-----: | :------------------------------------------------------- | :----------- | :---------------------------------- |
+|  [01]   | `Configuration.AppSettings`                              | property     | app settings section                |
+|  [02]   | `Configuration.ConnectionStrings`                        | property     | connection strings section          |
+|  [03]   | `Configuration.FilePath` / `Configuration.HasFile`       | properties   | file identity and presence          |
+|  [04]   | `Configuration.Sections` / `Configuration.SectionGroups` | collections  | section and group discovery         |
+|  [05]   | `Configuration.GetSection(string)`                       | lookup       | named section lookup                |
+|  [06]   | `Configuration.GetSectionGroup(string)`                  | lookup       | named section-group lookup          |
+|  [07]   | `Configuration.Save()`                                   | save         | save modified configuration         |
+|  [08]   | `Configuration.Save(ConfigurationSaveMode)`              | save         | save with explicit mode             |
+|  [09]   | `Configuration.Save(ConfigurationSaveMode, bool)`        | save         | save with mode and force-save flag  |
+|  [10]   | `Configuration.SaveAs(...)`                              | save-as      | write configuration to another file |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

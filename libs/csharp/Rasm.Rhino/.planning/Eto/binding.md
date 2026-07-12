@@ -1,22 +1,23 @@
 # [RASM_RHINO_ETO_BINDING]
 
-The data-binding owner of `Rasm.Rhino.Eto` — typed bind rows over the host `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` surface, with admission, conversion, child paths, delayed propagation, and validation cadence as row columns. The census carried zero binding usage and synchronized every control by hand-wired change events; this owner deletes that plumbing: a value channel is one `Bind.Rig` row rigging a control's own `BindableBinding` selector against one of three sources — an `Atom`-backed state cell, a `DataContext` property path, or a one-time seed — and every write crosses ONE admission gate that composes the kernel Domain rails, so a rejected value never reaches state and every rejection is a ledgered `UiFault.Rejected`. `BindAttachment` is the erased row `elements.md` specs carry, and `BindReceipt` is the typed evidence one wired channel returns; the receipt's `Unbind` and `Refresh` are the only lifecycle verbs a consumer holds.
+The data-binding owner of `Rasm.Rhino.Eto` defines typed rows over the host `IndirectBinding`/`DirectBinding`/`BindableBinding`/`DualBinding` surface. One `Bind.Rig` row joins a control binding selector to an `Atom`-backed state cell, a `DataContext` path, or a one-time seed. Every live-source write crosses one admission rail, and rejected values remain outside source state as ledgered `UiFault.Rejected` evidence. `BindAttachment` is the erased row carried by element specs; the binding owner retains each returned `BindReceipt` under its control, and `Bind.Owned`, `Bind.Refresh`, and `Bind.Release` expose the complete lifecycle after element realization discards the immediate result.
 
 ## [01]-[INDEX]
 
 - [02]-[MODE_AND_CADENCE]: `FlowMode` — the propagation-direction rows over the host `DualBindingMode` seam — and `Cadence` — the validation-cadence union (edit, debounced, commit) with its applicability law.
-- [03]-[STATE_CELL]: `StateCell<TState>` + `Lens<TState, TValue>` — the `Atom`-backed source: one change-adapter registry bridges the kernel cell into a host `DirectBinding<TValue>` through `Binding.Delegate`.
-- [04]-[BIND_ROWS]: `BindSource<TValue>` + `Bind.Rig` — the one rigging entry producing the erased `BindAttachment`; admission is woven inside the source channel so no unadmitted value ever lands.
-- [05]-[LEDGER]: `BindReceipt` + `BindLedger` — typed wiring evidence, the rejection ledger, and the `IValidityEvidence` fold over a screen's wired channels.
+- [03]-[STATE_CELL]: `StateCell<TState>` + `Lens<TState, TValue>` — the `Atom` source bridge with subscription-local change adapters.
+- [04]-[BIND_ROWS]: `BindSource<TValue>` + `Bind.Rig` — the one rigging entry, retained control scope, admission rail, and detachable cadence wiring.
+- [05]-[LEDGER]: `BindReceipt` + `BindLedger` — idempotent wiring evidence and bounded current-validity history.
 
 ## [02]-[MODE_AND_CADENCE]
 
-- Owner: `FlowMode` `[SmartEnum<int>]` — four rows carrying the host `DualBindingMode` as a column, so direction is a value and the host enum never crosses this seam outward — and `Cadence`, the closed `[Union]` of validation timing: `OnEdit` admits on every change, `Debounced(TimeSpan, bool Reset)` admits after the host `AfterDelay` window, `OnCommit` buffers the last raw value and admits on `LostFocus`.
-- Law: cadence applicability is a row fact — `Debounced` rides `IndirectBinding<T>.AfterDelay` and binds only where the channel is context-shaped; a state-cell row carries `OnEdit` or `OnCommit`, and `Bind.Rig` rejects the impossible pairing at rig time with a typed `UiFault.Rejected`, never a silent downgrade.
+- Owner: `FlowMode` `[SmartEnum<int>]` carries four host `DualBindingMode` rows without exporting the host enum, and `Cadence` closes validation timing over `OnEdit`, `Debounced(TimeSpan, bool Reset)`, and `OnCommit`.
+- Law: `OnEdit` admits every source write; `OnCommit` buffers the last raw value, admits it on `LostFocus`, and detaches that exact handler during unbind; `Debounced` uses `IndirectBinding<T>.AfterDelay` to coalesce context-source change delivery into the control without delaying writes into the source.
+- Law: cadence applicability is a row fact — context rows admit every cadence, state rows admit `OnEdit` or `OnCommit`, and `Bind.Rig` rejects every impossible pairing with a typed `UiFault.Rejected`.
 - Cases: `FlowMode` `Both(TwoWay)` · `IntoControl(OneWay)` · `IntoSource(OneWayToSource)` · `Seed(OneTime)`; `Cadence` `OnEdit` · `Debounced(TimeSpan, bool)` · `OnCommit`.
 - Growth: a new host propagation mode is one `FlowMode` row; a new cadence is one case breaking `Bind.Rig` at compile time.
 
-```csharp
+```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Eto.Forms;
 using Rasm.Csp;
@@ -48,13 +49,13 @@ public abstract partial record Cadence {
 
 ## [03]-[STATE_CELL]
 
-- Owner: `StateCell<TState>` — the one bridge from a kernel `Atom<TState>` into host binding: `Lens<TState, TValue>` is the get/put pair addressing one value inside the state record, and `Channel(lens)` mints a `DirectBinding<TValue>` through the verified `Binding.Delegate<TValue>(getValue, setValue, addChangeEvent, removeChangeEvent)` factory, with one adapter registry mapping host `EventHandler<EventArgs>` subscriptions onto the atom's `Change` edge so unsubscribe releases the exact adapter subscribe registered. The census-era pattern — every control mutating the atom in its own event handler, every atom change re-poking controls by hand — collapses into this one bridge.
+- Owner: `StateCell<TState>` bridges one kernel `Atom<TState>` into host binding. `Lens<TState, TValue>` addresses one value inside the state record, and `Channel(lens)` mints a `DirectBinding<TValue>` through `Binding.Delegate<TValue>`. Each channel owns the adapter registry mapping host `EventHandler<EventArgs>` subscriptions onto the atom's `Change` edge, so handler identity cannot collide across channels and unsubscribe releases the exact adapter registered by subscribe.
 - Law: the cell owns writes — `Put` runs inside `Swap`, so a lens write is one CAS transition and re-entrant change delivery observes only committed state; a lens whose `Put` closes over anything but its arguments is the rejected form because `Swap` re-runs under contention.
 - Law: one `StateCell` per screen state record, minted where the screen composes; two cells over one record fork the change edge and are the deleted form.
 - Packages: LanguageExt.Core (`Atom`, `AtomChangedEvent`, `Fin`), Eto.Forms (host — `Binding.Delegate`, `DirectBinding<T>`), Rasm.Domain (project — `Op`).
 - Growth: a derived read (a projection two lenses combine) is one `Lens.Of` composition; a second change-notification mechanism is the deleted form.
 
-```csharp
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
 public sealed record Lens<TState, TValue>(Func<TState, TValue> Get, Func<TState, TValue, TState> Put) {
     public static Lens<TState, TValue> Of(Func<TState, TValue> get, Func<TState, TValue, TState> put) => new(Get: get, Put: put);
@@ -62,34 +63,34 @@ public sealed record Lens<TState, TValue>(Func<TState, TValue> Get, Func<TState,
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class StateCell<TState>(Atom<TState> cell) {
-    private readonly System.Collections.Concurrent.ConcurrentDictionary<EventHandler<EventArgs>, AtomChangedEvent<TState>> adapters = new();
-
     public TState Current => cell.Value;
 
     public Unit Mutate(Func<TState, TState> transition) => ignore(cell.Swap(transition));
 
-    public DirectBinding<TValue> Channel<TValue>(Lens<TState, TValue> lens) =>
-        Binding.Delegate<TValue>(
+    public DirectBinding<TValue> Channel<TValue>(Lens<TState, TValue> lens) {
+        System.Collections.Concurrent.ConcurrentDictionary<EventHandler<EventArgs>, AtomChangedEvent<TState>> adapters = new();
+        return Binding.Delegate<TValue>(
             getValue: () => lens.Get(cell.Value),
             setValue: value => ignore(cell.Swap(state => lens.Put(state, value))),
             addChangeEvent: handler => {
                 AtomChangedEvent<TState> adapter = _ => handler(this, EventArgs.Empty);
-                _ = adapters.TryAdd(handler, adapter);
-                cell.Change += adapter;
+                _ = Op.SideWhen(adapters.TryAdd(handler, adapter), () => cell.Change += adapter);
             },
             removeChangeEvent: handler => Op.SideWhen(adapters.TryRemove(handler, out AtomChangedEvent<TState>? adapter), () => cell.Change -= adapter!));
+    }
 }
 ```
 
 ## [04]-[BIND_ROWS]
 
-- Owner: `BindSource<TValue>` — the closed source union (`FromState` a pre-minted `DirectBinding` channel, `FromContext` an `IndirectBinding` property path off `DataContext`, `FromValue` a one-time seed) — and `Bind.Rig`, the ONE rigging entry producing the erased `BindAttachment` every `ElementSpec` carries; the row IS the `Rig` signature (field, selector, source, mode, cadence, admission, ledger), so no parallel plan record exists beside the entry. The selector is the control's own verified `*Binding` property (`TextBinding`, `CheckedBinding`, `ValueBinding`, `SelectedIndexBinding`, `SelectedItemBinding` and kin), so the channel inherits the host's change-event wiring and no event name is ever spelled at a call site.
-- Law: admission is woven inside the source channel, never a post-hoc check — the state arm runs the gate in the write path of the verified `Convert(getValue, setValue)` overload writing back through the captured channel's `DataValue`, and the context arm re-mints the path through `Binding.Delegate<object, TValue>` over the verified `GetValue`/`SetValue` pair; a `Fin.Fail` keeps the last admitted value, ledgers `UiFault.Rejected(op, field, reason)`, and never writes — so state holds only admitted values by construction, composing the kernel rails as the validation vocabulary.
+- Owner: `BindSource<TValue>` closes the source union over a pre-minted state `DirectBinding`, a `DataContext` `IndirectBinding` path, and a one-time seed. `Bind.Rig` is the single row-shaped entry producing the erased `BindAttachment` carried by `ElementSpec`; its selector targets the control's native `*Binding` property, so host change wiring remains inside Eto.
+- Law: admission is woven inside every state and context write path. The identity admission rail applies when no custom gate exists, so cadence remains effective independently of validation. `Fin.Fail` preserves the last admitted source value and records `UiFault.Rejected`; `Fin.Succ` writes and clears the field's current rejection.
+- Law: context adapters use the `DelegateBinding<object, TValue>` constructor and forward the opaque reference returned by `AddValueChangedHandler` into `RemoveValueChangedHandler`. Gating and commit buffering therefore preserve source-change refresh and exact subscription removal.
 - Law: `Rig` is where the impossible pairings die — a `Debounced` cadence over a state source, a `Seed` source with an admission gate, a control whose runtime type refuses the selector — each is a typed rig-time rejection; the erased `Wire` runs on the UI thread the caller already holds and returns `Fin<BindReceipt>`.
-- Entry: `Bind.Rig<TControl, TValue>(field, selector, source, mode?, cadence?, admit?, ledger?)` → `BindAttachment`; `Bind.Context<TContext, TValue>(expression)` mints the context source over the verified `Binding.Property` expression factory; `ContextScope.Assign(control, context)` is the one `DataContext` write with `UpdateBindings` refresh.
-- Boundary: each source's own verified `CatchException` is the host's last-resort funnel for conversion throws inside host code — rigged once on the gated channel so a host-side cast failure surfaces as a ledgered fault, never a crash; the drag/clipboard payload channel is `runtime.md`'s, and command enablement is `chrome.md`'s — neither re-enters this seam.
+- Entry: `Bind.Rig<TControl, TValue>(field, selector, source, mode?, cadence?, admit?, ledger?)` returns `BindAttachment`; `Bind.Context<TContext, TValue>(expression)` mints a context source; `Bind.Owned(control)`, `Bind.Refresh(control)`, and `Bind.Release(control)` expose retained receipts and whole-control lifecycle; `ContextScope.Assign(control, context)` assigns `DataContext` and refreshes destinations.
+- Boundary: `CatchException` records only non-null host failures because Eto calls the handler with `null` after every completed set, including a semantic admission refusal. Admission success clears current rejection evidence inside the admission rail; host success does not overwrite that decision.
 
-```csharp
+```csharp signature
 // --- [TYPES] --------------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record BindSource<TValue> {
@@ -104,11 +105,51 @@ public sealed record BindAttachment(string Field, Func<Control, Fin<BindReceipt>
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 public static class Bind {
+    private sealed record Prepared<TBinding>(TBinding Binding, Func<Unit> Attach, Func<Unit> Detach);
+    private sealed record Wiring<TValue>(DualBinding<TValue> Dual, Func<Unit> Detach);
+
+    private sealed class BindScope {
+        private readonly Atom<Seq<BindReceipt>> receipts = Atom(Seq<BindReceipt>());
+
+        public Seq<BindReceipt> Receipts => receipts.Value;
+
+        public BindReceipt Retain(BindReceipt receipt) {
+            Seq<BindReceipt> displaced = receipts.Value.Filter(held => string.Equals(a: held.Field, b: receipt.Field, comparisonType: StringComparison.Ordinal));
+            _ = receipts.Swap(held => held.Filter(bound => !string.Equals(a: bound.Field, b: receipt.Field, comparisonType: StringComparison.Ordinal)).Add(receipt));
+            _ = displaced.Iter(static held => ignore(held.Unbind()));
+            return receipt;
+        }
+
+        public Unit Refresh() => receipts.Value.Iter(static receipt => ignore(receipt.Refresh()));
+
+        public Unit Release() {
+            Seq<BindReceipt> held = receipts.Value;
+            _ = receipts.Swap(static _ => Seq<BindReceipt>());
+            return held.Iter(static receipt => ignore(receipt.Unbind()));
+        }
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Control, BindScope> scopes = new();
+
     public static BindSource<TValue> Context<TContext, TValue>(System.Linq.Expressions.Expression<Func<TContext, TValue>> path) =>
         new BindSource<TValue>.FromContext(Path: Binding.Property(propertyExpression: path));
 
     public static BindSource<TValue> State<TState, TValue>(StateCell<TState> cell, Lens<TState, TValue> lens) =>
         new BindSource<TValue>.FromState(Channel: cell.Channel(lens: lens));
+
+    public static Seq<BindReceipt> Owned(Control control) =>
+        scopes.TryGetValue(control, out BindScope? scope) ? scope.Receipts : Seq<BindReceipt>();
+
+    public static Unit Refresh(Control control) =>
+        scopes.TryGetValue(control, out BindScope? scope) ? scope.Refresh() : unit;
+
+    public static Unit Release(Control control) =>
+        scopes.TryGetValue(control, out BindScope? scope)
+            ? Op.Side(() => {
+                _ = scopes.Remove(control);
+                _ = scope.Release();
+            })
+            : unit;
 
     public static BindAttachment Rig<TControl, TValue>(
         string field,
@@ -126,7 +167,7 @@ public static class Bind {
         return new BindAttachment(Field: field, Wire: control =>
             from typed in control is TControl exact ? Fin.Succ(value: exact) : Fin.Fail<TControl>(error: new UiFault.Rejected(Key: op, Field: field, Reason: $"control is {control.GetType().Name}, channel expects {typeof(TControl).Name}"))
             from admitted in Legal(source: source, timing: timing, admit: admit, op: op, field: field)
-            from receipt in op.Catch(() => Fin.Succ(value: Wired(control: typed, selector: selector, source: admitted, flow: flow, timing: timing, admit: admit, book: book, op: op, field: field)))
+            from receipt in op.Catch(() => Fin.Succ(value: Retain(control: typed, receipt: Wired(control: typed, selector: selector, source: admitted, flow: flow, timing: timing, admit: admit, book: book, op: op, field: field))))
             select receipt);
     }
 
@@ -149,54 +190,141 @@ public static class Bind {
         Op op,
         string field) where TControl : Control {
         BindableBinding<TControl, TValue> channel = selector(control);
-        DualBinding<TValue> dual = source.Switch(
+        Wiring<TValue> wiring = source.Switch(
             state: (Channel: channel, Flow: flow, Admit: admit, Book: book, Op: op, Field: field, Timing: timing, Control: (Control)control),
-            fromState: static (held, from) => held.Channel.Bind(
-                sourceBinding: Gated(held.Admit, from.Channel, held.Book, held.Op, held.Field, held.Timing, held.Control)
-                    .CatchException(exceptionHandler: thrown => held.Book.Record(fault: new UiFault.HostRejected(Key: held.Op, Detail: thrown.Message))),
-                mode: held.Flow.Row),
-            fromContext: static (held, from) => held.Channel.BindDataContext(
-                dataContextBinding: GatedPath(held.Admit, from.Path, held.Book, held.Op, held.Field)
-                    .CatchException(exceptionHandler: thrown => held.Book.Record(fault: new UiFault.HostRejected(Key: held.Op, Detail: thrown.Message))),
-                mode: held.Flow.Row),
-            fromValue: static (held, from) => held.Channel.Bind(sourceBinding: Binding.Delegate<TValue>(getValue: () => from.Seed), mode: DualBindingMode.OneTime));
-        return new BindReceipt(Field: field, Unbind: () => Op.Side(dual.Unbind), Refresh: () => Op.Side(() => dual.Update()));
+            fromState: static (held, from) => {
+                Prepared<DirectBinding<TValue>> prepared = Gated(admit: held.Admit, channel: from.Channel, book: held.Book, op: held.Op, field: held.Field, timing: held.Timing, control: held.Control);
+                DirectBinding<TValue> guarded = prepared.Binding.CatchException(exceptionHandler: thrown =>
+                    thrown is null || held.Book.Record(field: held.Field, fault: new UiFault.HostRejected(Key: held.Op, Detail: thrown.Message)));
+                DualBinding<TValue> dual = held.Channel.Bind(sourceBinding: guarded, mode: held.Flow.Row);
+                _ = prepared.Attach();
+                return new Wiring<TValue>(Dual: dual, Detach: prepared.Detach);
+            },
+            fromContext: static (held, from) => {
+                Prepared<IndirectBinding<TValue>> prepared = GatedPath(admit: held.Admit, path: from.Path, book: held.Book, op: held.Op, field: held.Field, timing: held.Timing, control: held.Control);
+                IndirectBinding<TValue> guarded = prepared.Binding.CatchException(exceptionHandler: thrown =>
+                    thrown is null || held.Book.Record(field: held.Field, fault: new UiFault.HostRejected(Key: held.Op, Detail: thrown.Message)));
+                DualBinding<TValue> dual = held.Channel.BindDataContext(dataContextBinding: guarded, mode: held.Flow.Row);
+                _ = prepared.Attach();
+                return new Wiring<TValue>(Dual: dual, Detach: prepared.Detach);
+            },
+            fromValue: static (held, from) => new Wiring<TValue>(
+                Dual: held.Channel.Bind(sourceBinding: Binding.Delegate<TValue>(getValue: () => from.Seed), mode: DualBindingMode.OneTime),
+                Detach: static () => unit));
+        return new BindReceipt(
+            field: field,
+            ledger: book,
+            unbind: () => Op.Side(() => {
+                _ = wiring.Detach();
+                wiring.Dual.Unbind();
+            }),
+            refresh: () => Op.Side(() => wiring.Dual.Update()));
     }
 
-    private static DirectBinding<TValue> Gated<TValue>(Option<Func<TValue, Fin<TValue>>> admit, DirectBinding<TValue> channel, BindLedger book, Op op, string field, Cadence timing, Control control) =>
-        admit.Match(
-            Some: gate => timing switch {
-                Cadence.OnCommit => Committed(gate: gate, channel: channel, book: book, op: op, field: field, control: control),
-                _ => channel.Convert<TValue>(
+    private static Prepared<DirectBinding<TValue>> Gated<TValue>(
+        Option<Func<TValue, Fin<TValue>>> admit,
+        DirectBinding<TValue> channel,
+        BindLedger book,
+        Op op,
+        string field,
+        Cadence timing,
+        Control control) =>
+        timing switch {
+            Cadence.OnCommit => Committed(admit: admit, channel: channel, book: book, op: op, field: field, control: control),
+            _ => new Prepared<DirectBinding<TValue>>(
+                Binding: channel.Convert<TValue>(
                     getValue: static value => value,
-                    setValue: (_, value) => ignore(gate(value).Match(
-                        Succ: admitted => Op.Side(() => channel.DataValue = admitted),
-                        Fail: fault => book.Record(fault: new UiFault.Rejected(Key: op, Field: field, Reason: fault.Message))))),
-            },
-            None: () => channel);
+                    setValue: (_, value) => ignore(Admit(admit: admit, value: value, write: admitted => channel.DataValue = admitted, book: book, op: op, field: field))),
+                Attach: static () => unit,
+                Detach: static () => unit),
+        };
 
-    private static IndirectBinding<TValue> GatedPath<TValue>(Option<Func<TValue, Fin<TValue>>> admit, IndirectBinding<TValue> path, BindLedger book, Op op, string field) =>
-        admit.Match(
-            Some: gate => Binding.Delegate<object, TValue>(
-                getValue: item => path.GetValue(dataItem: item),
-                setValue: (item, value) => ignore(gate(value).Match(
-                    Succ: admitted => Op.Side(() => path.SetValue(dataItem: item, value: admitted)),
-                    Fail: fault => book.Record(fault: new UiFault.Rejected(Key: op, Field: field, Reason: fault.Message))))),
-            None: () => path);
+    private static Prepared<IndirectBinding<TValue>> GatedPath<TValue>(
+        Option<Func<TValue, Fin<TValue>>> admit,
+        IndirectBinding<TValue> path,
+        BindLedger book,
+        Op op,
+        string field,
+        Cadence timing,
+        Control control) =>
+        timing switch {
+            Cadence.OnCommit => CommittedPath(admit: admit, path: path, book: book, op: op, field: field, control: control),
+            _ => new Prepared<IndirectBinding<TValue>>(
+                Binding: new DelegateBinding<object, TValue>(
+                    getValue: item => path.GetValue(dataItem: item),
+                    setValue: (item, value) => ignore(Admit(admit: admit, value: value, write: admitted => path.SetValue(dataItem: item, value: admitted), book: book, op: op, field: field)),
+                    addChangeEvent: (item, handler) => {
+                        return path.AddValueChangedHandler(dataItem: item, handler: handler);
+                    },
+                    removeChangeEvent: (reference, handler) => path.RemoveValueChangedHandler(bindingReference: reference, handler: handler)),
+                Attach: static () => unit,
+                Detach: static () => unit),
+        };
 
-    private static DirectBinding<TValue> Committed<TValue>(Func<TValue, Fin<TValue>> gate, DirectBinding<TValue> channel, BindLedger book, Op op, string field, Control control) {
+    private static Prepared<DirectBinding<TValue>> Committed<TValue>(
+        Option<Func<TValue, Fin<TValue>>> admit,
+        DirectBinding<TValue> channel,
+        BindLedger book,
+        Op op,
+        string field,
+        Control control) {
         Atom<Option<TValue>> pending = Atom(Option<TValue>.None);
-        control.LostFocus += (_, _) => {
+        EventHandler<EventArgs> commit = (_, _) => {
             Option<TValue> buffered = pending.Value;
             _ = pending.Swap(static _ => Option<TValue>.None);
-            _ = buffered.Iter(value => ignore(gate(value).Match(
-                Succ: admitted => Op.Side(() => channel.DataValue = admitted),
-                Fail: fault => book.Record(fault: new UiFault.Rejected(Key: op, Field: field, Reason: fault.Message)))));
+            _ = buffered.Iter(value => ignore(Admit(admit: admit, value: value, write: admitted => channel.DataValue = admitted, book: book, op: op, field: field)));
         };
-        return channel.Convert<TValue>(
-            getValue: static value => value,
-            setValue: (_, value) => ignore(pending.Swap(_ => Some(value))));
+        return new Prepared<DirectBinding<TValue>>(
+            Binding: channel.Convert<TValue>(
+                getValue: static value => value,
+                setValue: (_, value) => ignore(pending.Swap(_ => Some(value)))),
+            Attach: () => Op.Side(() => control.LostFocus += commit),
+            Detach: () => Op.Side(() => control.LostFocus -= commit));
     }
+
+    private static Prepared<IndirectBinding<TValue>> CommittedPath<TValue>(
+        Option<Func<TValue, Fin<TValue>>> admit,
+        IndirectBinding<TValue> path,
+        BindLedger book,
+        Op op,
+        string field,
+        Control control) {
+        Atom<Option<(object Item, TValue Value)>> pending = Atom(Option<(object Item, TValue Value)>.None);
+        EventHandler<EventArgs> commit = (_, _) => {
+            Option<(object Item, TValue Value)> buffered = pending.Value;
+            _ = pending.Swap(static _ => Option<(object Item, TValue Value)>.None);
+            _ = buffered.Iter(row => ignore(Admit(admit: admit, value: row.Value, write: admitted => path.SetValue(dataItem: row.Item, value: admitted), book: book, op: op, field: field)));
+        };
+        return new Prepared<IndirectBinding<TValue>>(
+            Binding: new DelegateBinding<object, TValue>(
+                getValue: item => path.GetValue(dataItem: item),
+                setValue: (item, value) => ignore(pending.Swap(_ => Some((Item: item, Value: value)))),
+                addChangeEvent: (item, handler) => {
+                    return path.AddValueChangedHandler(dataItem: item, handler: handler);
+                },
+                removeChangeEvent: (reference, handler) => path.RemoveValueChangedHandler(bindingReference: reference, handler: handler)),
+            Attach: () => Op.Side(() => control.LostFocus += commit),
+            Detach: () => Op.Side(() => control.LostFocus -= commit));
+    }
+
+    private static Unit Admit<TValue>(
+        Option<Func<TValue, Fin<TValue>>> admit,
+        TValue value,
+        Action<TValue> write,
+        BindLedger book,
+        Op op,
+        string field) =>
+        admit.Match(
+            Some: gate => gate(value),
+            None: () => Fin.Succ(value: value)).Match(
+            Succ: admitted => Op.Side(() => {
+                write(admitted);
+                _ = book.Accept(field: field);
+            }),
+            Fail: fault => Op.Side(() => ignore(book.Record(field: field, fault: new UiFault.Rejected(Key: op, Field: field, Reason: fault.Message)))));
+
+    private static BindReceipt Retain(Control control, BindReceipt receipt) =>
+        scopes.GetValue(control, static _ => new BindScope()).Retain(receipt);
 }
 
 // --- [COMPOSITION] --------------------------------------------------------------------------
@@ -212,29 +340,75 @@ public static class ContextScope {
 
 ## [05]-[LEDGER]
 
-- Owner: `BindReceipt` — the typed evidence of one wired channel (field, `Unbind`, `Refresh`) — and `BindLedger`, the one rejection stream: every admission refusal and host conversion throw lands as a `UiFault` fact in one `Atom<Seq<UiFault>>`, projected by pure folds. `Shared` is the process default; a screen that needs isolated forensics mints its own and passes it through `Rig`.
-- Law: the ledger is evidence, never control flow — a consumer reads `Latest`/`ForField` to surface validity adorners and gate submits; acting inside `Record` is the deleted form because `Swap` re-runs under contention.
-- Law: `BindReceipt.IsValid` registers with the kernel validity oracle through `IValidityEvidence`, so a screen's wired-channel health folds through the same `ValidityClaim.All` every kernel receipt uses — one validity mechanism, zero UI-local predicates.
-- Growth: a new evidence axis (write count, last-admitted stamp) is one receipt field and one ledger fold; a per-screen fault array synced by hand is the deleted form.
+- Owner: `BindReceipt` is the idempotent lifecycle and validity evidence for one wired field. `BindLedger` stores a bounded ordinal history and one bounded current-failure row per field; `Shared` is the process default, and isolated screens pass their own ledger through `Rig`.
+- Law: `Unbind` detaches cadence handlers and the host dual binding exactly once; `Refresh` becomes inert after release; `IsValid` requires a live receipt, a named field, and no current ledger failure for that field.
+- Law: `Record(field, fault)` replaces the field's current failure and appends bounded history; `Accept(field)` clears only current failure, preserving forensic history; capacity prunes both projections at the owner boundary.
+- Law: ledger mutation remains evidence-only. Every `Atom.Swap` transition is pure, and consumers read `Latest`, `Entries`, `ForField`, or receipt validity without callbacks inside the ledger.
+- Growth: a new evidence axis is one `BindLedgerEntry` column and fold; unbounded fault arrays and UI-local validity predicates are rejected forms.
 
-```csharp
+```csharp signature
 // --- [MODELS] -------------------------------------------------------------------------------
-public sealed record BindReceipt(string Field, Func<Unit> Unbind, Func<Unit> Refresh) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.All(ValidityClaim.Of(holds: !string.IsNullOrWhiteSpace(value: Field)));
+public sealed class BindReceipt(string field, BindLedger ledger, Func<Unit> unbind, Func<Unit> refresh) : IDisposable, IValidityEvidence {
+    private int released;
+
+    public string Field { get; } = field;
+    public bool IsValid => ValidityClaim.All(ValidityClaim.Of(
+        holds: !string.IsNullOrWhiteSpace(value: Field) && Volatile.Read(location: ref released) == 0 && ledger.IsValid(field: Field)));
+
+    public Unit Refresh() => Volatile.Read(location: ref released) == 0 ? refresh() : unit;
+
+    public Unit Unbind() => Interlocked.Exchange(location1: ref released, value: 1) == 0 ? unbind() : unit;
+
+    public void Dispose() => ignore(Unbind());
 }
+
+public sealed record BindLedgerEntry(long Ordinal, string Field, UiFault Fault);
+
+internal sealed record BindLedgerState(long Next, Seq<BindLedgerEntry> History, Seq<BindLedgerEntry> Current);
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 public sealed class BindLedger {
-    public static readonly BindLedger Shared = new();
-    private readonly Atom<Seq<UiFault>> faults = Atom(Seq<UiFault>());
+    public static readonly BindLedger Shared = new(capacity: 256);
+    private readonly int capacity;
+    private readonly Atom<BindLedgerState> state;
 
-    public Seq<UiFault> Latest => faults.Value;
+    public BindLedger(int capacity = 256) {
+        this.capacity = Math.Max(val1: 1, val2: capacity);
+        state = Atom(new BindLedgerState(Next: 0L, History: Seq<BindLedgerEntry>(), Current: Seq<BindLedgerEntry>()));
+    }
+
+    public Seq<BindLedgerEntry> Entries => state.Value.History;
+
+    public Seq<UiFault> Latest => state.Value.History.Map(static entry => entry.Fault);
 
     public Seq<UiFault> ForField(string field) =>
-        faults.Value.Filter(fault => fault is UiFault.Rejected rejected && string.Equals(a: rejected.Field, b: field, comparisonType: StringComparison.Ordinal));
+        state.Value.History
+            .Filter(entry => string.Equals(a: entry.Field, b: field, comparisonType: StringComparison.Ordinal))
+            .Map(static entry => entry.Fault);
 
-    public bool Record(UiFault fault) => (faults.Swap(held => held.Add(fault)), true).Item2;
+    public bool IsValid(string field) =>
+        !state.Value.Current.Exists(entry => string.Equals(a: entry.Field, b: field, comparisonType: StringComparison.Ordinal));
 
-    public Unit Clear() => ignore(faults.Swap(static _ => Seq<UiFault>()));
+    public bool Record(string field, UiFault fault) => (state.Swap(held => {
+        BindLedgerEntry entry = new(Ordinal: held.Next + 1L, Field: field, Fault: fault);
+        Seq<BindLedgerEntry> current = held.Current.Filter(row => !string.Equals(a: row.Field, b: field, comparisonType: StringComparison.Ordinal));
+        return held with {
+            Next = entry.Ordinal,
+            History = Append(rows: held.History, entry: entry),
+            Current = Append(rows: current, entry: entry),
+        };
+    }), true).Item2;
+
+    public bool Accept(string field) => (state.Swap(held => held with {
+        Current = held.Current.Filter(entry => !string.Equals(a: entry.Field, b: field, comparisonType: StringComparison.Ordinal)),
+    }), true).Item2;
+
+    public Unit Clear() => ignore(state.Swap(held => held with {
+        History = Seq<BindLedgerEntry>(),
+        Current = Seq<BindLedgerEntry>(),
+    }));
+
+    private Seq<BindLedgerEntry> Append(Seq<BindLedgerEntry> rows, BindLedgerEntry entry) =>
+        (rows.Count >= capacity ? rows.Tail : rows).Add(entry);
 }
 ```

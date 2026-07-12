@@ -16,101 +16,101 @@
 [PUBLIC_TYPE_SCOPE]: quantity contracts and value carriers
 - rail: units
 
-| [INDEX] | [SYMBOL] | [SHAPE] | [CAPABILITY] |
-|:-----: |:------------------------------------ |:---------------------------- |:---------------------------------------------------------------- |
-| [01] | `IQuantity` | interface | boxed quantity: `Value`/`Unit`/`Dimensions`/`QuantityInfo`/`As`/`ToUnit` |
-| [02] | `IQuantity<TUnit>` | interface | typed-unit boxed quantity (`As(TUnit)`/`ToUnit(TUnit)`) |
-| [03] | `IQuantity<TSelf, TUnit, TValue>` | self-typed interface | the strongly-typed quantity contract (`Length: IQuantity<Length, LengthUnit, double>`) |
-| [04] | `IValueQuantity<TValue>` | generic interface | exposes the backing scalar (`double`/`decimal`) — `Length: IValueQuantity<double>` |
-| [05] | `IDecimalQuantity` | interface | marks the decimal-precision quantity rail |
-| [06] | `IArithmeticQuantity<TSelf,TUnit,TValue>` | generic interface | adds the `+`/`-`/`*`/`/` operator contract over `TSelf` |
-| [07] | `QuantityValue` | `readonly struct` | `double`-or-`decimal` union: `Type`/`IsDecimal`, implicit-in from every numeric primitive, explicit-out to `double`/`decimal`, `Zero` |
-| [08] | `BaseDimensions` | sealed class | 7-vector SI exponents `Length`/`Mass`/`Time`/`Current`/`Temperature`/`Amount`/`LuminousIntensity` |
-| [09] | `BaseUnits` | sealed class | the 7 nullable SI base-unit selectors + `IsFullyDefined`/`IsSubsetOf`/`Undefined` |
+| [INDEX] | [SYMBOL]                                  | [SHAPE]              | [CAPABILITY]                                                                                                                          |
+| :-----: | :---------------------------------------- | :------------------- | :------------------------------------------------------------------------------------------------------------------------------------ |
+|  [01]   | `IQuantity`                               | interface            | boxed quantity: `Value`/`Unit`/`Dimensions`/`QuantityInfo`/`As`/`ToUnit`                                                              |
+|  [02]   | `IQuantity<TUnit>`                        | interface            | typed-unit boxed quantity (`As(TUnit)`/`ToUnit(TUnit)`)                                                                               |
+|  [03]   | `IQuantity<TSelf, TUnit, TValue>`         | self-typed interface | the strongly-typed quantity contract (`Length: IQuantity<Length, LengthUnit, double>`)                                                |
+|  [04]   | `IValueQuantity<TValue>`                  | generic interface    | exposes the backing scalar (`double`/`decimal`) — `Length: IValueQuantity<double>`                                                    |
+|  [05]   | `IDecimalQuantity`                        | interface            | marks the decimal-precision quantity rail                                                                                             |
+|  [06]   | `IArithmeticQuantity<TSelf,TUnit,TValue>` | generic interface    | adds the `+`/`-`/`*`/`/` operator contract over `TSelf`                                                                               |
+|  [07]   | `QuantityValue`                           | `readonly struct`    | `double`-or-`decimal` union: `Type`/`IsDecimal`, implicit-in from every numeric primitive, explicit-out to `double`/`decimal`, `Zero` |
+|  [08]   | `BaseDimensions`                          | sealed class         | 7-vector SI exponents `Length`/`Mass`/`Time`/`Current`/`Temperature`/`Amount`/`LuminousIntensity`                                     |
+|  [09]   | `BaseUnits`                               | sealed class         | the 7 nullable SI base-unit selectors + `IsFullyDefined`/`IsSubsetOf`/`Undefined`                                                     |
 
 [PUBLIC_TYPE_SCOPE]: admitted quantity families (each a `readonly struct` with native operators)
 - rail: units
 
-| [INDEX] | [SYMBOL] | [CANONICAL_UNIT] | [CAPABILITY] |
-|:-----: |:------------- |:--------------- |:--------------------------------------------------- |
-| [01] | `Length` | Meter | length; `+`/`-`/scalar `*`÷, `Length/Length -> double`; `FeetInches` projection |
-| [02] | `Area` | SquareMeter | area; `Length * Length -> Area` cross-quantity operator |
-| [03] | `Volume` | CubicMeter | volume |
-| [04] | `Mass` | Kilogram | mass |
-| [05] | `Duration` | Second | duration |
-| [06] | `Speed` | MeterPerSecond | speed; `Length / Duration -> Speed` |
-| [07] | `Acceleration` | MeterPerSecondSquared | acceleration |
-| [08] | `Force` | Newton | force; `Mass * Acceleration -> Force` |
-| [09] | `Pressure` | Pascal | pressure; `Force / Area -> Pressure` |
-| [10] | `Energy` | Joule | energy; `Power * Duration -> Energy` |
-| [11] | `Power` | Watt | power; `Energy / Duration -> Power` |
-| [12] | `Temperature` | Kelvin | thermodynamic temperature (affine — add via `TemperatureDelta`; display `DegreeCelsius`) |
-| [13] | `Angle` | Radian | angle (display `Degree`) — bridges Rasm geometry rads |
-| [14] | `Torque` | NewtonMeter | torque; `Force * Length -> Torque` (not Energy) |
-| [15] | `Ratio` | DecimalFraction | ratio (display `Percent`) |
-| [16] | `Density` | KilogramPerCubicMeter | mass density `[L⁻³·M]` — `IfcMassDensityMeasure`, the material `Density` column |
-| [17] | `ThermalConductivity` | WattPerMeterKelvin | conductivity `[L·M·T⁻³·Θ⁻¹]` — the material `Conductivity` column (ISO 6946 λ) |
-| [18] | `HeatTransferCoefficient` | WattPerSquareMeterKelvin | U-value `[M·T⁻³·Θ⁻¹]` — `Pset_*ThermalTransmittance`, the ISO 6946 assembly U |
-| [19] | `SpecificEntropy` | JoulePerKilogramKelvin | specific heat capacity `[L²·T⁻²·Θ⁻¹]` — the material `SpecificHeat` column |
-| [20] | `Level` | Decibel | logarithmic level (dimensionless) — `IfcSoundPressureLevelMeasure`, the acoustic dB rail |
-| [21] | `Illuminance` | Lux | illuminance `[L⁻²·J]` — `Pset_*` lighting illuminance, the daylight rail |
-| [22] | `Irradiance` | WattPerSquareMeter | irradiance `[M·T⁻³]` — solar/radiative flux density, the energy-balance rail |
-| [23] | `Luminance` | CandelaPerSquareMeter | luminance `[L⁻²·J]` — surface brightness, the glare rail |
-| [24] | `LuminousFlux` | Lumen | luminous flux `[J]` — lamp output, the lighting-fixture rail |
-| [25] | `LuminousIntensity` | Candela | luminous intensity `[J]` — directional emission, the photometry rail |
-| [26] | `RotationalSpeed` | RadianPerSecond | rotational speed `[T⁻¹]` (display `RevolutionPerMinute`) — the rotating-equipment rail |
+| [INDEX] | [SYMBOL]                  | [CANONICAL_UNIT]         | [CAPABILITY]                                                                             |
+| :-----: | :------------------------ | :----------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Length`                  | Meter                    | length; `+`/`-`/scalar `*`÷, `Length/Length -> double`; `FeetInches` projection          |
+|  [02]   | `Area`                    | SquareMeter              | area; `Length * Length -> Area` cross-quantity operator                                  |
+|  [03]   | `Volume`                  | CubicMeter               | volume                                                                                   |
+|  [04]   | `Mass`                    | Kilogram                 | mass                                                                                     |
+|  [05]   | `Duration`                | Second                   | duration                                                                                 |
+|  [06]   | `Speed`                   | MeterPerSecond           | speed; `Length / Duration -> Speed`                                                      |
+|  [07]   | `Acceleration`            | MeterPerSecondSquared    | acceleration                                                                             |
+|  [08]   | `Force`                   | Newton                   | force; `Mass * Acceleration -> Force`                                                    |
+|  [09]   | `Pressure`                | Pascal                   | pressure; `Force / Area -> Pressure`                                                     |
+|  [10]   | `Energy`                  | Joule                    | energy; `Power * Duration -> Energy`                                                     |
+|  [11]   | `Power`                   | Watt                     | power; `Energy / Duration -> Power`                                                      |
+|  [12]   | `Temperature`             | Kelvin                   | thermodynamic temperature (affine — add via `TemperatureDelta`; display `DegreeCelsius`) |
+|  [13]   | `Angle`                   | Radian                   | angle (display `Degree`) — bridges Rasm geometry rads                                    |
+|  [14]   | `Torque`                  | NewtonMeter              | torque; `Force * Length -> Torque` (not Energy)                                          |
+|  [15]   | `Ratio`                   | DecimalFraction          | ratio (display `Percent`)                                                                |
+|  [16]   | `Density`                 | KilogramPerCubicMeter    | mass density `[L⁻³·M]` — `IfcMassDensityMeasure`, the material `Density` column          |
+|  [17]   | `ThermalConductivity`     | WattPerMeterKelvin       | conductivity `[L·M·T⁻³·Θ⁻¹]` — the material `Conductivity` column (ISO 6946 λ)           |
+|  [18]   | `HeatTransferCoefficient` | WattPerSquareMeterKelvin | U-value `[M·T⁻³·Θ⁻¹]` — `Pset_*ThermalTransmittance`, the ISO 6946 assembly U            |
+|  [19]   | `SpecificEntropy`         | JoulePerKilogramKelvin   | specific heat capacity `[L²·T⁻²·Θ⁻¹]` — the material `SpecificHeat` column               |
+|  [20]   | `Level`                   | Decibel                  | logarithmic level (dimensionless) — `IfcSoundPressureLevelMeasure`, the acoustic dB rail |
+|  [21]   | `Illuminance`             | Lux                      | illuminance `[L⁻²·J]` — `Pset_*` lighting illuminance, the daylight rail                 |
+|  [22]   | `Irradiance`              | WattPerSquareMeter       | irradiance `[M·T⁻³]` — solar/radiative flux density, the energy-balance rail             |
+|  [23]   | `Luminance`               | CandelaPerSquareMeter    | luminance `[L⁻²·J]` — surface brightness, the glare rail                                 |
+|  [24]   | `LuminousFlux`            | Lumen                    | luminous flux `[J]` — lamp output, the lighting-fixture rail                             |
+|  [25]   | `LuminousIntensity`       | Candela                  | luminous intensity `[J]` — directional emission, the photometry rail                     |
+|  [26]   | `RotationalSpeed`         | RadianPerSecond          | rotational speed `[T⁻¹]` (display `RevolutionPerMinute`) — the rotating-equipment rail   |
 
 [PUBLIC_TYPE_SCOPE]: admitted unit enum families (`UnitsNet.Units`)
 - rail: units
 
-| [INDEX] | [SYMBOL] | [CANONICAL_DISPLAY] |
-|:-----: |:----------------- |:---------------------------------------------- |
-| [01] | `LengthUnit` | `Meter` canonical, `Millimeter` display |
-| [02] | `AreaUnit` | `SquareMeter` |
-| [03] | `VolumeUnit` | `CubicMeter` |
-| [04] | `MassUnit` | `Kilogram` |
-| [05] | `DurationUnit` | `Second` |
-| [06] | `SpeedUnit` | `MeterPerSecond` |
-| [07] | `AccelerationUnit` | `MeterPerSecondSquared` |
-| [08] | `ForceUnit` | `Newton` |
-| [09] | `PressureUnit` | `Pascal` canonical, `Kilopascal` display |
-| [10] | `EnergyUnit` | `Joule` canonical, `KilowattHour` display |
-| [11] | `PowerUnit` | `Watt` |
-| [12] | `TemperatureUnit` | `Kelvin` canonical, `DegreeCelsius` display |
-| [13] | `AngleUnit` | `Radian` canonical, `Degree` display |
-| [14] | `TorqueUnit` | `NewtonMeter` canonical, `KilonewtonMeter` display |
-| [15] | `RatioUnit` | `DecimalFraction` canonical, `Percent` display |
-| [16] | `DensityUnit` | `KilogramPerCubicMeter` |
-| [17] | `ThermalConductivityUnit` | `WattPerMeterKelvin` |
-| [18] | `HeatTransferCoefficientUnit` | `WattPerSquareMeterKelvin` |
-| [19] | `SpecificEntropyUnit` | `JoulePerKilogramKelvin` (the specific-heat unit) |
-| [20] | `LevelUnit` | `Decibel` (logarithmic — no SI reprojection) |
-| [21] | `IlluminanceUnit` | `Lux` |
-| [22] | `IrradianceUnit` | `WattPerSquareMeter` |
-| [23] | `LuminanceUnit` | `CandelaPerSquareMeter` |
-| [24] | `LuminousFluxUnit` | `Lumen` |
-| [25] | `LuminousIntensityUnit` | `Candela` |
-| [26] | `RotationalSpeedUnit` | `RadianPerSecond` canonical, `RevolutionPerMinute` display |
+| [INDEX] | [SYMBOL]                      | [CANONICAL_DISPLAY]                                        |
+| :-----: | :---------------------------- | :--------------------------------------------------------- |
+|  [01]   | `LengthUnit`                  | `Meter` canonical, `Millimeter` display                    |
+|  [02]   | `AreaUnit`                    | `SquareMeter`                                              |
+|  [03]   | `VolumeUnit`                  | `CubicMeter`                                               |
+|  [04]   | `MassUnit`                    | `Kilogram`                                                 |
+|  [05]   | `DurationUnit`                | `Second`                                                   |
+|  [06]   | `SpeedUnit`                   | `MeterPerSecond`                                           |
+|  [07]   | `AccelerationUnit`            | `MeterPerSecondSquared`                                    |
+|  [08]   | `ForceUnit`                   | `Newton`                                                   |
+|  [09]   | `PressureUnit`                | `Pascal` canonical, `Kilopascal` display                   |
+|  [10]   | `EnergyUnit`                  | `Joule` canonical, `KilowattHour` display                  |
+|  [11]   | `PowerUnit`                   | `Watt`                                                     |
+|  [12]   | `TemperatureUnit`             | `Kelvin` canonical, `DegreeCelsius` display                |
+|  [13]   | `AngleUnit`                   | `Radian` canonical, `Degree` display                       |
+|  [14]   | `TorqueUnit`                  | `NewtonMeter` canonical, `KilonewtonMeter` display         |
+|  [15]   | `RatioUnit`                   | `DecimalFraction` canonical, `Percent` display             |
+|  [16]   | `DensityUnit`                 | `KilogramPerCubicMeter`                                    |
+|  [17]   | `ThermalConductivityUnit`     | `WattPerMeterKelvin`                                       |
+|  [18]   | `HeatTransferCoefficientUnit` | `WattPerSquareMeterKelvin`                                 |
+|  [19]   | `SpecificEntropyUnit`         | `JoulePerKilogramKelvin` (the specific-heat unit)          |
+|  [20]   | `LevelUnit`                   | `Decibel` (logarithmic — no SI reprojection)               |
+|  [21]   | `IlluminanceUnit`             | `Lux`                                                      |
+|  [22]   | `IrradianceUnit`              | `WattPerSquareMeter`                                       |
+|  [23]   | `LuminanceUnit`               | `CandelaPerSquareMeter`                                    |
+|  [24]   | `LuminousFluxUnit`            | `Lumen`                                                    |
+|  [25]   | `LuminousIntensityUnit`       | `Candela`                                                  |
+|  [26]   | `RotationalSpeedUnit`         | `RadianPerSecond` canonical, `RevolutionPerMinute` display |
 
 [PUBLIC_TYPE_SCOPE]: parsing, conversion, metadata, and setup
 - rail: units
 
-| [INDEX] | [SYMBOL] | [SHAPE] | [CAPABILITY] |
-|:-----: |:----------------------- |:----------------- |:----------------------------------------------------------- |
-| [01] | `Quantity` | static façade | dynamic boxed resolution + the `ByName`/`Infos` registry |
-| [02] | `UnitConverter` | sealed class | dynamic `Convert`/`TryConvert` + cacheable `GetConversionFunction` |
-| [03] | `ConversionFunction` | delegate | `IQuantity ConversionFunction(IQuantity input)` — the cached conversion |
-| [04] | `QuantityParser` | parser | the parse engine behind `Quantity.Parse`/`TQuantity.Parse` |
-| [05] | `UnitParser` | sealed class | `Parse<TUnit>`/`TryParse<TUnit>` + reflective `Enum`/`Type` overloads |
-| [06] | `QuantityFormatter` | static formatter | `Format<TUnit>(IQuantity<TUnit>, format, IFormatProvider?)` |
-| [07] | `UnitFormatter` | static formatter | abbreviation-aware unit-string formatting |
-| [08] | `UnitAbbreviationsCache` | abbreviation store | `Default` + culture-keyed abbreviation registration/lookup |
-| [09] | `UnitMath` | static extensions | `Sum`/`Min`/`Max`/`Average`/`Clamp`/`Abs` over `IEnumerable<TQuantity>` |
-| [10] | `QuantityInfo` | metadata | `UnitInfos`/`BaseUnitInfo`/`ValueType`/`UnitType`/`BaseDimensions`/`Zero`/`GetUnitInfoFor(BaseUnits)` |
-| [11] | `UnitInfo` | metadata | per-unit name/abbreviation/`BaseUnits` descriptor |
-| [12] | `UnitSystem` | sealed class | `SI` static + `BaseUnits` policy for `As`/`ToUnit` reprojection |
-| [13] | `UnitsNetSetup` | sealed class | `Default` root exposing `UnitConverter`/`UnitParser`/`QuantityParser`/`UnitAbbreviations` |
-| [14] | `DefaultUnitAttribute` / `ConvertToUnitAttribute` / `DisplayAsUnitAttribute` | attributes | declare default/conversion/display unit on a member |
+| [INDEX] | [SYMBOL]                                                                     | [SHAPE]            | [CAPABILITY]                                                                                          |
+| :-----: | :--------------------------------------------------------------------------- | :----------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `Quantity`                                                                   | static façade      | dynamic boxed resolution + the `ByName`/`Infos` registry                                              |
+|  [02]   | `UnitConverter`                                                              | sealed class       | dynamic `Convert`/`TryConvert` + cacheable `GetConversionFunction`                                    |
+|  [03]   | `ConversionFunction`                                                         | delegate           | `IQuantity ConversionFunction(IQuantity input)` — the cached conversion                               |
+|  [04]   | `QuantityParser`                                                             | parser             | the parse engine behind `Quantity.Parse`/`TQuantity.Parse`                                            |
+|  [05]   | `UnitParser`                                                                 | sealed class       | `Parse<TUnit>`/`TryParse<TUnit>` + reflective `Enum`/`Type` overloads                                 |
+|  [06]   | `QuantityFormatter`                                                          | static formatter   | `Format<TUnit>(IQuantity<TUnit>, format, IFormatProvider?)`                                           |
+|  [07]   | `UnitFormatter`                                                              | static formatter   | abbreviation-aware unit-string formatting                                                             |
+|  [08]   | `UnitAbbreviationsCache`                                                     | abbreviation store | `Default` + culture-keyed abbreviation registration/lookup                                            |
+|  [09]   | `UnitMath`                                                                   | static extensions  | `Sum`/`Min`/`Max`/`Average`/`Clamp`/`Abs` over `IEnumerable<TQuantity>`                               |
+|  [10]   | `QuantityInfo`                                                               | metadata           | `UnitInfos`/`BaseUnitInfo`/`ValueType`/`UnitType`/`BaseDimensions`/`Zero`/`GetUnitInfoFor(BaseUnits)` |
+|  [11]   | `UnitInfo`                                                                   | metadata           | per-unit name/abbreviation/`BaseUnits` descriptor                                                     |
+|  [12]   | `UnitSystem`                                                                 | sealed class       | `SI` static + `BaseUnits` policy for `As`/`ToUnit` reprojection                                       |
+|  [13]   | `UnitsNetSetup`                                                              | sealed class       | `Default` root exposing `UnitConverter`/`UnitParser`/`QuantityParser`/`UnitAbbreviations`             |
+|  [14]   | `DefaultUnitAttribute` / `ConvertToUnitAttribute` / `DisplayAsUnitAttribute` | attributes         | declare default/conversion/display unit on a member                                                   |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -118,47 +118,47 @@
 - rail: units
 - surface-root: per-quantity struct (e.g. `Length`)
 
-| [INDEX] | [SURFACE] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------- |:-------------------------------------------- |
-| [01] | `Length.FromMeters(QuantityValue)` / `FromMillimeters` / `From<unit>` | per-unit static factory (one per unit member) |
-| [02] | `new Length(QuantityValue value, LengthUnit unit)` | ctor (value + unit) |
-| [03] | `Length.FromFeetInches(double, double)` / `.FeetInches` | composite imperial construct / projection |
-| [04] | `.As(LengthUnit)` / `.As(UnitSystem)` -> `double` | read in a target unit / by unit-system policy |
-| [05] | `.ToUnit(LengthUnit)` / `.ToUnit(LengthUnit, UnitConverter)` / `.ToUnit(UnitSystem)` | reproject to a target unit / via explicit converter / by policy |
-| [06] | `.Meters` / `.Millimeters` / `.<Unit>s` -> `double` | direct per-unit accessor (`=> As(unit)`) |
-| [07] | `+` / `-` / `*` (scalar) / `/` (scalar) / `/` (`Length/Length->double`) / unary `-` | native arithmetic operators |
-| [08] | `<` / `<=` / `>` / `>=` / `==` / `!=`, `CompareTo`, `Equals` | native comparison (`IComparisonOperators`) |
-| [09] | `.ToString()` / `.ToString(format, IFormatProvider?)` | culture-aware quantity rendering |
-| [10] | static `Zero` / `BaseUnit` / `Units` / `Info` / `BaseDimensions` / `DefaultConversionFunctions` | quantity statics |
+| [INDEX] | [SURFACE]                                                                                       | [CAPABILITY]                                                    |
+| :-----: | :---------------------------------------------------------------------------------------------- | :-------------------------------------------------------------- |
+|  [01]   | `Length.FromMeters(QuantityValue)` / `FromMillimeters` / `From<unit>`                           | per-unit static factory (one per unit member)                   |
+|  [02]   | `new Length(QuantityValue value, LengthUnit unit)`                                              | ctor (value + unit)                                             |
+|  [03]   | `Length.FromFeetInches(double, double)` / `.FeetInches`                                         | composite imperial construct / projection                       |
+|  [04]   | `.As(LengthUnit)` / `.As(UnitSystem)` -> `double`                                               | read in a target unit / by unit-system policy                   |
+|  [05]   | `.ToUnit(LengthUnit)` / `.ToUnit(LengthUnit, UnitConverter)` / `.ToUnit(UnitSystem)`            | reproject to a target unit / via explicit converter / by policy |
+|  [06]   | `.Meters` / `.Millimeters` / `.<Unit>s` -> `double`                                             | direct per-unit accessor (`=> As(unit)`)                        |
+|  [07]   | `+` / `-` / `*` (scalar) / `/` (scalar) / `/` (`Length/Length->double`) / unary `-`             | native arithmetic operators                                     |
+|  [08]   | `<` / `<=` / `>` / `>=` / `==` / `!=`, `CompareTo`, `Equals`                                    | native comparison (`IComparisonOperators`)                      |
+|  [09]   | `.ToString()` / `.ToString(format, IFormatProvider?)`                                           | culture-aware quantity rendering                                |
+|  [10]   | static `Zero` / `BaseUnit` / `Units` / `Info` / `BaseDimensions` / `DefaultConversionFunctions` | quantity statics                                                |
 
 [ENTRYPOINT_SCOPE]: parsing (typed and dynamic)
 - rail: units
 
-| [INDEX] | [SURFACE] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------- |:-------------------------------------------- |
-| [01] | `Length.Parse(string, [IFormatProvider?])` / `TryParse(string?, [IFormatProvider?], out Length)` | typed parse (`IParsable<Length>`) |
-| [02] | `Length.TryParseUnit(string, [IFormatProvider?], out LengthUnit)` | parse just the unit token |
-| [03] | `Quantity.Parse(IFormatProvider?, Type, string)` / `TryParse(Type, string, out IQuantity?)` | dynamic parse to boxed `IQuantity` |
-| [04] | `Quantity.From(QuantityValue, Enum)` / `From(QuantityValue, string quantityName, string unitName)` | dynamic factory |
-| [05] | `Quantity.FromUnitAbbreviation([IFormatProvider?], QuantityValue, string)` / `TryFromUnitAbbreviation(...)` | parse value+abbreviation |
-| [06] | `Quantity.TryFrom(QuantityValue, Enum?, out IQuantity?)` / `FromQuantityInfo(QuantityInfo, QuantityValue)` | guarded dynamic construct |
-| [07] | `UnitParser.Default.Parse<TUnit>(string, [IFormatProvider?])` / `TryParse<TUnit>(...)` | unit-enum resolution from abbreviation |
+| [INDEX] | [SURFACE]                                                                                                   | [CAPABILITY]                           |
+| :-----: | :---------------------------------------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | `Length.Parse(string, [IFormatProvider?])` / `TryParse(string?, [IFormatProvider?], out Length)`            | typed parse (`IParsable<Length>`)      |
+|  [02]   | `Length.TryParseUnit(string, [IFormatProvider?], out LengthUnit)`                                           | parse just the unit token              |
+|  [03]   | `Quantity.Parse(IFormatProvider?, Type, string)` / `TryParse(Type, string, out IQuantity?)`                 | dynamic parse to boxed `IQuantity`     |
+|  [04]   | `Quantity.From(QuantityValue, Enum)` / `From(QuantityValue, string quantityName, string unitName)`          | dynamic factory                        |
+|  [05]   | `Quantity.FromUnitAbbreviation([IFormatProvider?], QuantityValue, string)` / `TryFromUnitAbbreviation(...)` | parse value+abbreviation               |
+|  [06]   | `Quantity.TryFrom(QuantityValue, Enum?, out IQuantity?)` / `FromQuantityInfo(QuantityInfo, QuantityValue)`  | guarded dynamic construct              |
+|  [07]   | `UnitParser.Default.Parse<TUnit>(string, [IFormatProvider?])` / `TryParse<TUnit>(...)`                      | unit-enum resolution from abbreviation |
 
 [ENTRYPOINT_SCOPE]: conversion, aggregation, metadata, and setup
 - rail: units
 
-| [INDEX] | [SURFACE] | [CAPABILITY] |
-|:-----: |:----------------------------------------------------------------- |:-------------------------------------------- |
-| [01] | `UnitConverter.Convert(QuantityValue, Enum from, Enum to) -> double` / `TryConvert(..., out double)` | dynamic numeric conversion (no boxing of a typed struct) |
-| [02] | `UnitConverter.Default.GetConversionFunction<TQuantity>(Enum from, Enum to) -> ConversionFunction` / `TryGetConversionFunction(...)` | resolve a reusable cached conversion delegate |
-| [03] | `UnitMath.Sum<TQuantity>(this IEnumerable<TQuantity>, Enum unitType)` / `Sum<TSource,TQuantity>(src, selector, unitType)` | LINQ sum in a chosen unit |
-| [04] | `UnitMath.Min`/`Max`/`Average<TQuantity>(this IEnumerable<TQuantity>, Enum unitType)` / 2-arg `Min`/`Max`/`Clamp(value,min,max)` | LINQ + pairwise reductions |
-| [05] | `UnitMath.Abs<TQuantity>(this TQuantity)` / `ToQuantityValue(this double\| decimal)` | absolute value / primitive lift |
-| [06] | `BaseDimensions.Multiply(BaseDimensions)` / `Divide(...)` / `*` operator / `Dimensionless` / `IsBaseQuantity()`/`IsDerivedQuantity()`/`IsDimensionless()` | dimension algebra |
-| [07] | `Quantity.Infos` / `Quantity.ByName` / `Quantity.GetUnitInfo(Enum)` / `GetQuantitiesWithBaseDimensions(BaseDimensions)` | the quantity/unit registry |
-| [08] | `QuantityInfo.GetUnitInfoFor(BaseUnits)` / `.UnitInfos` / `.BaseUnitInfo` / `.ValueType` / `.BaseDimensions` | per-family metadata |
-| [09] | `UnitSystem.SI` / `new UnitSystem(BaseUnits)` / `UnitsNetSetup.Default` | unit-system policy + the configured service root |
-| [10] | `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, format, [IFormatProvider?])` | explicit quantity formatting |
+| [INDEX] | [SURFACE]                                                                                                                                                 | [CAPABILITY]                                             |
+| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `UnitConverter.Convert(QuantityValue, Enum from, Enum to) -> double` / `TryConvert(..., out double)`                                                      | dynamic numeric conversion (no boxing of a typed struct) |
+|  [02]   | `UnitConverter.Default.GetConversionFunction<TQuantity>(Enum from, Enum to) -> ConversionFunction` / `TryGetConversionFunction(...)`                      | resolve a reusable cached conversion delegate            |
+|  [03]   | `UnitMath.Sum<TQuantity>(this IEnumerable<TQuantity>, Enum unitType)` / `Sum<TSource,TQuantity>(src, selector, unitType)`                                 | LINQ sum in a chosen unit                                |
+|  [04]   | `UnitMath.Min`/`Max`/`Average<TQuantity>(this IEnumerable<TQuantity>, Enum unitType)` / 2-arg `Min`/`Max`/`Clamp(value,min,max)`                          | LINQ + pairwise reductions                               |
+|  [05]   | `UnitMath.Abs<TQuantity>(this TQuantity)` / `ToQuantityValue(this double\| decimal)`                                                                      | absolute value / primitive lift                          |
+|  [06]   | `BaseDimensions.Multiply(BaseDimensions)` / `Divide(...)` / `*` operator / `Dimensionless` / `IsBaseQuantity()`/`IsDerivedQuantity()`/`IsDimensionless()` | dimension algebra                                        |
+|  [07]   | `Quantity.Infos` / `Quantity.ByName` / `Quantity.GetUnitInfo(Enum)` / `GetQuantitiesWithBaseDimensions(BaseDimensions)`                                   | the quantity/unit registry                               |
+|  [08]   | `QuantityInfo.GetUnitInfoFor(BaseUnits)` / `.UnitInfos` / `.BaseUnitInfo` / `.ValueType` / `.BaseDimensions`                                              | per-family metadata                                      |
+|  [09]   | `UnitSystem.SI` / `new UnitSystem(BaseUnits)` / `UnitsNetSetup.Default`                                                                                   | unit-system policy + the configured service root         |
+|  [10]   | `QuantityFormatter.Format<TUnit>(IQuantity<TUnit>, format, [IFormatProvider?])`                                                                           | explicit quantity formatting                             |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

@@ -1,35 +1,40 @@
 # [RASM_GRASSHOPPER_CANVAS_MOTION]
 
-The GH2 motion adapter of the Grasshopper boundary — the host pacing tier the census `Motion` blocker resolves into: `Animated<T>` composition, the typed `Animators` factories, the named-span and easing-kind vocabularies, the `IFlexControl` animation drive (`Animate`, `AnimatedZoomFactor`, the frame-timing window), and the `AnimatedPath` feedback-glyph family — a HOST gap absent from every census-era stub, landed here at full catalog depth. Every host-agnostic curve, spring regime, cycle, and perceptual mix is a kernel row (`Easing`, `SpringShape`, `CyclePlan`, `PerceptualBlend` on the kernel motion surface): the census file's 46-row Penner catalogue, analytic spring solver, phase arithmetic, and OKLab conversion have NO successor on this page, and the kernel crosses into host pacing at exactly two seams — a kernel-reshaped `Interpolate<T>` inside a host tween, and the beat-paced drive fold `Platform/composition.md` mints, re-paced here off `Eto/runtime.md`'s `UiClock` for the non-CoreAnimation branch, so the two pacers stay one law met at the consumer. The census `Grasshopper2.UI.Flex.Pacer`/`PacerOption`/`Subscription`/`RepaintRequest` members are phantoms with no assembly presence; repaint is `ScheduleRedraw` and canvas repaint policy is `Shell/session.md`'s `RepaintRow`. macOS CoreAnimation cosmetics stay `Platform/composition.md`'s gated owners.
+The GH2 motion boundary composes host `Animated<T>` tweens, flex-frame sampling, animated glyphs, and lease-owned canvas pacing. Kernel `Easing`, `CyclePlan`, `SpringShape`, `PerceptualColor`, and `BlendPath` remain the sole motion and colour math; `MotionDrive.Step` is the shared sampling fold consumed by both the display-link attachment and the `UiClock` pacer. `CanvasPacer` owns one clock, stops it on terminal settlement, schedules one repaint only after a sampled write set, and releases every timer edge through its returned lease.
 
 ## [01]-[INDEX]
 
-- [02]-[VOCAB]: `SpanRow` + `PaceRow` — the named-span rows over the host `Duration` ordinals and the easing-kind rows pairing every host `Motion` member with its declared kernel counterpart.
-- [03]-[TWEENS]: `Lerps` + `Tween` + `FrameWindow` — the interpolator catalog (the kernel-unification seam), the `Animated<T>` composition gate, and the flex drive.
-- [04]-[GLYPHS]: `NoticeGlyph` + `StrokeStep` + `GlyphPath` — the animated feedback-path family and the unified time-parameterized draw.
-- [05]-[PACER]: `CanvasPacer` — kernel drives paced off the UI clock with scheduled redraws; the GH2 branch of the one drive law.
+- [02]-[VOCAB]: named host spans and host-motion-to-kernel substitution rows
+- [03]-[TWEENS]: kernel-aware interpolators, exact `Animated<T>` composition, and flex-frame evidence
+- [04]-[GLYPHS]: animated feedback paths and one time-parameterized draw
+- [05]-[PACER]: one lease-owned `UiClock`, shared drive sampling, conditional repaint, and terminal stop
 
 ## [02]-[VOCAB]
 
-- Owner: `SpanRow` `[SmartEnum<int>]` — eight rows keyed by the host `Duration` ordinal (the ordinal IS the millisecond value on the decompiled enum): `Abrupt` (0), `Brief` (50), `Fast` (150), `Normal` (300), `Slow` (500), `Tedious` (1000), `Torpid` (1500), `Glacial` (5000 — the host member is spelled `Ĝlāçïāľ`; the row carries the canonical name and the host column carries the exact member). Each row carries its `Duration Host` column and derives `Span` through the verified `Animators.DurationToTimeSpan`. The census five-step roster was thin COVERAGE against the eight decompiled members.
-- Owner: `PaceRow` `[SmartEnum<int>]` — sixteen rows keyed by the host `Motion` ordinal, generated as eight kind kernels folded through the prompt/delayed polarity (the decompiled enum is `Linear`/`LinearDelayed` (0/1), `EaseIn`/`EaseInDelayed` (10/11), `EaseOut` (20/21), `EaseInOut` (30/31), `SnapIn` (40/41), `SnapOut` (50/51), `Bounce` (60/61), `Twang` (70/71) — the census nine-kind flat roster misread the kind-times-delay lattice). Two columns per row: `Motion Host` (what a host tween or `Navigate` consumes) and `Easing Kernel` — the DECLARED kernel counterpart a beat-paced drive substitutes when motion must be kernel-owned (`Linear → Easing.Linear`, `EaseIn → Easing.CubicIn`, `EaseOut → Easing.CubicOut`, `EaseInOut → Easing.CubicInOut`, `SnapIn → Easing.QuintIn`, `SnapOut → Easing.QuintOut`, `Bounce → Easing.BounceOut`, `Twang → Easing.ElasticOut`; delayed rows share their kind's kernel row because delay is host phase, not curve shape). The column is a substitution policy, never an equivalence claim — the host evaluates its own `MotionEquations.Blend`.
-- Law: a duration is a row or a `TimeSpan`, an easing kind is a row — a bare host `Duration`/`Motion` literal at a consumer is the bypassed-vocabulary defect, and the row seam is where dispatch over kinds becomes exhaustive.
+- Owner: `SpanRow` maps every live `Duration` member to `Animators.DurationToTimeSpan`; `PaceRow` maps every prompt or delayed `Motion` member to its host value and the declared kernel substitution used by sampled drives.
+- Law: delayed rows retain the same kernel curve as their prompt counterpart because delay belongs to host phase policy. Host tweens evaluate `MotionEquations.Blend`; the kernel column is a substitution policy, not a claim that both equations coincide.
+- Law: a consumer names a span row or an exact `TimeSpan` and a pace row; raw host literals do not cross the composition gate.
 - Packages: Grasshopper2 (`Motion`, `Duration`, `Animators.DurationToTimeSpan`, `MotionEquations.Blend`), `Rasm.Parametric` (`Easing`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new host span or kind is one row with its ordinal; the kernel column absorbs the pairing.
 
 ## [03]-[TWEENS]
 
-- Owner: `Lerps` — the `Interpolate<T>` catalog, the kernel-unification seam made a value: `Eased<T>(Easing curve, Interpolate<T> core)` wraps a linear-carrier interpolator so the KERNEL row reshapes the factor (the tween mounts with `Motion.Linear`, the host hands the raw progress, and `Easing.Evaluate` bends it — kernel truth inside host pacing, the factor clamped into `UnitInterval` because host progress is unit-bounded while kernel curves legitimately overshoot on output); `Perceptual(PerceptualBlend row)` mints `Interpolate<Color>` through `Pigment` and the kernel mix, so a colour tween interpolates in Oklab/Oklch and the census componentwise-HSL lerp is dead; `Linear` rows for `float`/`double`/`PointF`/`SizeF`/`RectangleF` state the arithmetic once for custom carriers the typed `Animators` factories do not bless.
-- Owner: `Tween` — the `Animated<T>` composition gate: `Hold<T>(T value, Interpolate<T> lerp)` (`CreateFinished` — the settled carrier), `Glide<T>(T from, T to, SpanRow span, PaceRow pace, Interpolate<T> lerp)` (`CreateUnfinished` over the row vocabulary; a caller-exact `TimeSpan` rides the second arm), `Extend<T>(Animated<T>, T target, SpanRow, PaceRow)` (`Chain(T, Duration, Motion)` — appends the next leg from the CURRENT value, the host's own retarget law; the remaining host `Chain` overloads stay first-class carrier material a consumer composes directly), and `Sample<T>(Animated<T>, DateTime)` (`Evaluate`). The host carrier's own algebra stays first-class material: `State` (`Pending`/`Busy`/`Finished`), `ValueNow`, the implicit `T ⇄ Animated<T>` conversions, and the `+` retarget operators are the host's, composed, never wrapped.
+- Owner: `Lerps` carries linear Eto interpolators, kernel-shaped easing, and perceptual colour mixing. `Perceptual` holds the source before a rejected intermediate sample and returns the exact target at the terminal sample.
+- Owner: `Tween` binds the verified signatures: `CreateFinished(T, Interpolate<T>)`, `CreateUnfinished(T, T, TimeSpan, Motion, Interpolate<T>)`, `Chain(T, Duration, Motion)`, and `Evaluate(DateTime)`. `Chain` returns the existing carrier when the target already equals `Value1`; otherwise it samples the current value before retargeting.
 - Owner: `FlexDrive` — the per-frame drive: `Run<T>(IFlexControl surface, Animated<T> tween, Op?)` → `Fin<T>` rides `IFlexControl.Animate<T>` (the host samples on its draw clock and keeps redrawing while `Busy`); `Window(IFlexControl, Op?)` → `Fin<FrameWindow>` projects `DrawStartTime`/`DrawEndTime` — the per-frame timing evidence a cost-aware animator folds with `Canvas/canvas.md`'s `FramePulse`; `ZoomGate(IFlexControl, ZoomThreshold, Op?)` → `Fin<float>` resolves the motion-gated ZUI factor (`Detailed`/`Standard` — the host's own appearance thresholds).
-- Law: one tween owns one visual — chaining retargets the existing carrier; minting a fresh `Animated<T>` per input event resets `Time0` and snaps the motion, which is the census retarget defect the `Extend` law forecloses.
+- Law: one tween owns one visual; chaining retargets the existing carrier without resetting motion from a stale endpoint.
 - Boundary: viewport navigation animation is the host's own (`Navigate` consumes `Duration` directly — `Canvas/canvas.md`'s `NavTarget` carries it); skin blending is `Skin.Interpolate` under `Canvas/paint.md`'s lens; sparkle lifecycles are host-owned on `Canvas/canvas.md`'s `SparkleSpec`.
-- Packages: Grasshopper2 (`Animated<T>.CreateFinished`/`CreateUnfinished`/`Chain`/`Evaluate`/`ValueNow`/`State`/`Motion`, `Animators.Finished`/`Unfinished` typed families, `Interpolate<T>`, `IFlexControl.Animate`/`AnimatedZoomFactor`/`DrawStartTime`/`DrawEndTime`, `ZoomThreshold`), `Rasm.Parametric` (`Easing`, `PerceptualBlend`, `UnitInterval` via admission), `Canvas/paint.md` (`Pigment`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`.
+- Packages: Grasshopper2 (`Animated<T>.CreateFinished`/`CreateUnfinished`/`Chain`/`Evaluate`/`ValueNow`/`State`/`Motion`, `Animators.Finished`/`Unfinished` typed families, `Interpolate<T>`, `IFlexControl.Animate`/`AnimatedZoomFactor`/`DrawStartTime`/`DrawEndTime`, `ZoomThreshold`), `Rasm.Parametric` (`Easing`), `Rasm.Numerics` (`BlendPath`, `UnitInterval` via admission), `Canvas/paint.md` (`Pigment`), Eto.Drawing, LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new carrier type is one `Lerps` row; a new tween policy is a `PaceRow`/`SpanRow` pairing — the gate never widens.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
+using System.Runtime.InteropServices;
+using Eto.Drawing;
+using Grasshopper2.UI.Animation;
+using Grasshopper2.UI.Flex;
+using Rasm.Numerics;
 using Rasm.Parametric;
 
 namespace Rasm.Grasshopper.Canvas;
@@ -91,17 +96,17 @@ public static class Lerps {
         Point(a.Location, b.Location, t), Extent(a.Size, b.Size, t));
 
     public static Interpolate<T> Eased<T>(Easing curve, Interpolate<T> core) =>
-        (a, b, t) => core(a, b, curve.Evaluate(t: UnitInterval.Create(value: Math.Clamp(t, 0d, 1d))));
+        (a, b, t) => core(a, b, curve.Evaluate(t: Factor(value: t)));
 
-    public static Interpolate<Color> Perceptual(PerceptualBlend row, Op key) =>
-        (a, b, t) => row.Mix(
-                from: Pigment.OfHost(colour: a), to: Pigment.OfHost(colour: b),
-                t: UnitInterval.Create(value: Math.Clamp(t, 0d, 1d)), key: key)
-            .Map(Pigment.ToHost)
-            .IfFail(_ => Fallback(a: a, b: b, t: t));
+    public static Interpolate<Color> Perceptual(BlendPath path, Op key) =>
+        (a, b, t) => {
+            UnitInterval factor = Factor(value: t);
+            return Pigment.Blend(path: path, start: a, end: b, t: factor, key: key)
+                .IfFail(_ => factor.Value >= 1d ? b : a);
+        };
 
-    private static Color Fallback(Color a, Color b, double t) =>
-        new(a.R + ((b.R - a.R) * (float)t), a.G + ((b.G - a.G) * (float)t), a.B + ((b.B - a.B) * (float)t), a.A + ((b.A - a.A) * (float)t));
+    private static UnitInterval Factor(double value) => UnitInterval.Create(
+        value: double.IsFinite(value) ? Math.Clamp(value, 0d, 1d) : 0d);
 }
 
 [BoundaryAdapter]
@@ -115,7 +120,9 @@ public static class Tween {
         Animated<T>.CreateUnfinished(from, to, span, pace.Host, lerp);
 
     public static Animated<T> Extend<T>(Animated<T> tween, T target, SpanRow span, PaceRow pace) =>
-        tween.Chain(target, span.Host, pace.Host);
+        EqualityComparer<T>.Default.Equals(tween.Value1, target)
+            ? tween
+            : tween.Chain(target, span.Host, pace.Host);
 
     public static T Sample<T>(Animated<T> tween, DateTime at) => tween.Evaluate(at);
 }
@@ -134,13 +141,15 @@ public static class FlexDrive {
         Op op = key.OrDefault();
         return from live in op.Need(value: surface)
                from window in op.Catch(body: () => Fin.Succ(new FrameWindow(Start: live.DrawStartTime, End: live.DrawEndTime)))
-               select window;
+               from accepted in op.AcceptValue(value: window)
+               select accepted;
     }
 
     public static Fin<float> ZoomGate(IFlexControl surface, ZoomThreshold threshold, Op? key = null) {
         Op op = key.OrDefault();
         return from live in op.Need(value: surface)
                from factor in op.Catch(body: () => Fin.Succ(live.AnimatedZoomFactor(threshold)))
+               from _ in guard(float.IsFinite(factor) && factor >= 0f, op.InvalidResult()).ToFin()
                select factor;
     }
 }
@@ -148,15 +157,18 @@ public static class FlexDrive {
 
 ## [04]-[GLYPHS]
 
-- Owner: `NoticeGlyph` `[SmartEnum<int>]` — the semantic feedback-glyph rows over the verified `AnimatedPath` factory family: `Error`, `Warning`, `Success`, `Message`, each with a `[UseDelegateFromConstructor]` `Mint(float size)` column onto its host factory; the directional arrow is `NoticeGlyph.Arrow(float size, float angle, Op?)` — a separate mint because its payload carries the angle. A custom glyph is `GlyphPath.Custom(Seq<StrokeStep>)`: `StrokeStep` `[Union]` — `GapCase` (the pen-up separator feeding the host `Gaps` stagger), `LineCase(PointF, PointF)`, `LinesCase(Seq<PointF>)`, `CircleCase(CircleF)`, `ArcCase(ArcF)` — folded onto one `AnimatedPath` through the verified builder members.
-- Owner: `GlyphPath` — the unified time-parameterized draw: `Trace(AnimatedPath path, Graphics graphics, Pen pen, double head, Option<double> tail, PointF at, Option<(float Scale, float Angle)> pose, Op)` dispatches the four host `Draw` overloads on the presence of the tail parameter and the pose pair — one spelling, four host arities — where `head` is the stroke-completion parameter a tween or beat drive advances, and `tail` opens the trailing-erase window for marching-ant and wipe effects.
-- Law: glyph strokes draw inside a `Canvas/paint.md` window (`MountRaw`) or a host-owned paint pass, with the time parameter advanced by a `[03]` tween or a `[05]` beat — a glyph owning its own timer is the census pacer defect, dead with the phantom `Pacer` family.
+- Owner: `NoticeGlyph` maps semantic feedback rows onto the verified `AnimatedPath` factories; `StrokeStep` closes railed `Custom(Seq<StrokeStep>, Op?)` construction over gaps, lines, polylines, circles, and arcs.
+- Owner: `GlyphPath` — the unified time-parameterized draw: `Trace(AnimatedPath path, Graphics graphics, Pen pen, double phase, Option<double> end, PointF at, Option<(float Scale, float Angle)> pose, Op?)` dispatches the four host `Draw` overloads on end and pose presence. Without `end`, `phase` admits the host's `[0,2]` grow-then-erase key; with `end`, `phase` and `end` admit an ordered normalized segment.
+- Law: glyph strokes draw inside a paint window, and their time parameter comes from an existing tween or drive; a glyph never owns a clock.
 - Packages: Grasshopper2 (`AnimatedPath` ctor/`CreateErrorPath`/`CreateWarningPath`/`CreateSuccessPath`/`CreateMessagePath`/`CreateArrowPath`/`AddGap`/`AddLine`/`AddLines`/`AddCircle`/`AddArc`/`Draw`×4/`Count`/`Gaps`, `IAnimatedStroke`), Eto.Drawing (`Graphics`, `Pen`, `PointF`, `CircleF`, `ArcF`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new semantic glyph is one row; a new stroke primitive is one `StrokeStep` case breaking the fold loudly.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
+using Eto.Drawing;
+using Grasshopper2.UI.Animation;
+using Rasm.Numerics;
 
 namespace Rasm.Grasshopper.Canvas;
 
@@ -172,7 +184,11 @@ public sealed partial class NoticeGlyph {
 
     public static Fin<AnimatedPath> Arrow(float size, float angle, Op? key = null) {
         Op op = key.OrDefault();
-        return op.Catch(body: () => Fin.Succ(AnimatedPath.CreateArrowPath(size, angle)));
+        return from span in op.Finite(value: size)
+               from _ in guard(span > 0d, op.InvalidInput()).ToFin()
+               from turn in op.Finite(value: angle)
+               from path in op.Catch(body: () => Fin.Succ(AnimatedPath.CreateArrowPath((float)span, (float)turn)))
+               select path;
     }
 }
 
@@ -189,39 +205,66 @@ public abstract partial record StrokeStep {
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class GlyphPath {
-    public static AnimatedPath Custom(Seq<StrokeStep> steps) {
-        AnimatedPath path = new();
-        steps.Iter(step => step.Switch(
-            state: path,
-            gapCase: static (p, _) => Op.Side(action: p.AddGap),
-            lineCase: static (p, c) => Op.Side(action: () => p.AddLine(c.A, c.B)),
-            linesCase: static (p, c) => Op.Side(action: () => p.AddLines(c.Points.ToArray())),
-            circleCase: static (p, c) => Op.Side(action: () => p.AddCircle(c.Circle)),
-            arcCase: static (p, c) => Op.Side(action: () => p.AddArc(c.Arc))));
-        return path;
+    public static Fin<AnimatedPath> Custom(Seq<StrokeStep> steps, Op? key = null) {
+        Op op = key.OrDefault();
+        return op.Catch(body: () => {
+            AnimatedPath path = new();
+            steps.Iter(step => step.Switch(
+                state: path,
+                gapCase: static (p, _) => Op.Side(action: p.AddGap),
+                lineCase: static (p, c) => Op.Side(action: () => p.AddLine(c.A, c.B)),
+                linesCase: static (p, c) => Op.Side(action: () => p.AddLines(c.Points.ToArray())),
+                circleCase: static (p, c) => Op.Side(action: () => p.AddCircle(c.Circle)),
+                arcCase: static (p, c) => Op.Side(action: () => p.AddArc(c.Arc))));
+            return Fin.Succ(path);
+        });
     }
 
     public static Fin<Unit> Trace(
-        AnimatedPath path, Graphics graphics, Pen pen, double head, Option<double> tail,
-        PointF at, Option<(float Scale, float Angle)> pose, Op key) =>
-        from live in key.Need(value: path)
-        from _ in key.Catch(body: () => Fin.Succ((tail.IsSome, pose.IsSome) switch {
-            (false, false) => Op.Side(action: () => live.Draw(graphics, pen, head, at)),
-            (false, true) => Op.Side(action: () => pose.Iter(p => live.Draw(graphics, pen, head, at, p.Scale, p.Angle))),
-            (true, false) => Op.Side(action: () => tail.Iter(t1 => live.Draw(graphics, pen, head, t1, at))),
-            (true, true) => Op.Side(action: () => tail.Iter(t1 => pose.Iter(p => live.Draw(graphics, pen, head, t1, at, p.Scale, p.Angle)))),
-        }))
-        select unit;
+        AnimatedPath path, Graphics graphics, Pen pen, double phase, Option<double> end,
+        PointF at, Option<(float Scale, float Angle)> pose, Op? key = null) {
+        Op op = key.OrDefault();
+        Fin<double> admittedPhase = from finite in op.Finite(value: phase)
+                                    from _ in guard(finite >= 0d && finite <= (end.IsSome ? 1d : 2d), op.InvalidInput()).ToFin()
+                                    select finite;
+        Fin<Option<UnitInterval>> admittedEnd = end.Match(
+            Some: value => op.Catch(body: () => Fin.Succ(UnitInterval.Create(value: value))).Map(Some),
+            None: static () => Fin.Succ(Option<UnitInterval>.None));
+        Fin<Unit> admittedPose = pose.Match(
+            Some: value => from _scale in op.Finite(value: value.Scale)
+                           from _angle in op.Finite(value: value.Angle)
+                           select unit,
+            None: static () => Fin.Succ(unit));
+        return from live in op.Need(value: path)
+               from canvas in op.Need(value: graphics)
+               from ink in op.Need(value: pen)
+               from _at in guard(float.IsFinite(at.X) && float.IsFinite(at.Y), op.InvalidInput()).ToFin()
+               from activePhase in admittedPhase
+               from activeEnd in admittedEnd
+               from _pose in admittedPose
+               from _order in activeEnd.Match(
+                   Some: value => guard(activePhase <= value.Value, op.InvalidInput()).ToFin(),
+                   None: static () => Fin.Succ(unit))
+               from _ in op.Catch(body: () => Fin.Succ((activeEnd.IsSome, pose.IsSome) switch {
+                   (false, false) => Op.Side(action: () => live.Draw(canvas, ink, activePhase, at)),
+                   (false, true) => Op.Side(action: () => pose.Iter(p => live.Draw(canvas, ink, activePhase, at, p.Scale, p.Angle))),
+                   (true, false) => Op.Side(action: () => activeEnd.Iter(t1 => live.Draw(canvas, ink, activePhase, t1.Value, at))),
+                   (true, true) => Op.Side(action: () => activeEnd.Iter(t1 => pose.Iter(p => live.Draw(canvas, ink, activePhase, t1.Value, at, p.Scale, p.Angle)))),
+               }))
+               select unit;
+    }
 }
 ```
 
 ## [05]-[PACER]
 
-- Owner: `CanvasPacer` — the GH2 branch of the ONE kernel-drive law: `Mount(UiCadence cadence, Seq<DriveSpec> drives, AccessibilityPosture posture, Op?)` → `Fin<Lease<UiClock>>` composes `Eto/runtime.md`'s `UiClock` as the beat source, folds every drive through `Platform/composition.md`'s `MotionDrive.Step` per `ClockBeat` — the SAME `DriveSpec` cases, the same kernel sampling, the same reduce-motion degradation, so the census dual CPU/GPU motion vocabulary has exactly one successor fold — and requests one canvas repaint per beat through `Shell/session.md`'s `RepaintCase(RepaintRow.Scheduled)` while any drive continues. A settled beat set stops the clock through the lease's own disposal at the consumer.
-- Law: pacer selection is the consumer's — this clock-paced mount on every branch, `Platform/composition.md`'s `FramePacer` where the macOS gate admits vsync; the drive fold is identical under both, which IS the two-pacers-one-law contract, and a drive spelled twice for the two pacers is the dual-paradigm defect.
-- Law: drive writes land in consumer state (an `Atom<T>`, a tween retarget, a layout field) and the repaint renders it in the next paint window — a drive writing host visuals directly bypasses the paint law.
-- Packages: `Eto/runtime.md` (`UiClock`, `UiCadence`, `ClockBeat`), `Platform/composition.md` (`DriveSpec`, `MotionDrive`), `Platform/native.md` (`AccessibilityPosture`), `Shell/session.md` (`GhSession`, `SessionOp`, `RepaintRow`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`).
-- Growth: a new drive shape is one `DriveSpec` case on its owning page; this mount never widens.
+- Owner: `CanvasPacer` is the lease-owned GH2 clock pacer. `Mount` admits a non-empty drive set, creates one inert owned `UiClock`, attaches it exactly once, and starts it only after ownership is installed. The clock callback holds weak references to both pacer and clock, so the clock never roots its owner; an abandoned pacer disposes the orphaned clock on the next tick.
+- Entry: `Mount(UiCadence, Seq<DriveSpec>, AccessibilityPosture, Op?)` returns `Fin<Lease<CanvasPacer>>`. Disposal stops and releases the owned clock idempotently; terminal settlement stops but retains the clock resource until the lease ends.
+- Law: `MotionDrive.Step` is the shared sampling rail for this `UiClock` pacer and the platform display-link pacer. Each successful beat applies every sampled `DriveFrame`, retains only continuing drives, schedules one repaint for that write set, and stops the clock after the terminal repaint request.
+- Law: an empty live set produces no repaint and stops defensively. A sampling or write fault returns on the beat rail, and `FaultPosture.Halt` stops the clock while preserving the fault on both owners.
+- Boundary: drive writes update consumer state; `GhSession.Apply(RepaintCase(Scheduled))` renders that state in the next paint window. The pacer never writes host visuals directly.
+- Packages: `UiClock`, `UiCadence`, `ClockBeat`, `DriveSpec`, `DriveFrame`, `MotionDrive`, `AccessibilityPosture`, `GhSession`, `SessionOp`, `RepaintRow`, `Lease<T>`, and `Op`.
+- Growth: a new drive shape extends `MotionDrive.Step`; neither pacer gains a parallel sampling arm.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -232,47 +275,200 @@ using Rasm.Grasshopper.Shell;
 
 namespace Rasm.Grasshopper.Canvas;
 
-// --- [OPERATIONS] ---------------------------------------------------------------------------
+// --- [SERVICES] -----------------------------------------------------------------------------
 [BoundaryAdapter]
-public static class CanvasPacer {
-    public static Fin<Lease<UiClock>> Mount(UiCadence cadence, Seq<DriveSpec> drives, AccessibilityPosture posture, Op? key = null) {
-        Op op = key.OrDefault();
-        Atom<Seq<DriveSpec>> live = Atom(drives);
-        return UiClock.Of(
-            cadence: cadence,
-            beat: clockBeat => live.Value.IsEmpty
-                ? Fin.Succ(unit)
-                : live.Value
-                    .Map(drive => MotionDrive.Step(spec: drive, beat: clockBeat, posture: posture, key: op).Map(going => (Drive: drive, Going: going)))
-                    .TraverseM(identity).As()
-                    .Map(stepped => ignore(live.Swap(_ => stepped.Filter(static row => row.Going).Map(static row => row.Drive).Strict())))
-                    .Bind(_ => GhSession.Apply(new SessionOp.RepaintCase(Row: RepaintRow.Scheduled, Delay: Option<TimeSpan>.None), key: op).Map(static _ => unit)),
-            key: op);
+public sealed class CanvasPacer : IDisposable {
+    private readonly Atom<Seq<DriveSpec>> live;
+    private readonly AccessibilityPosture posture;
+    private readonly Op operation;
+    private readonly Atom<Option<Error>> lastFault = Atom(Option<Error>.None);
+    private Lease<UiClock>.Owned? clock;
+    private int releaseState;
+
+    private CanvasPacer(Seq<DriveSpec> drives, AccessibilityPosture posture, Op operation) {
+        live = Atom(drives);
+        this.posture = posture;
+        this.operation = operation;
     }
+
+    public Option<Error> LastFault => lastFault.Value;
+
+    public static Fin<Lease<CanvasPacer>> Mount(
+        UiCadence cadence,
+        Seq<DriveSpec> drives,
+        AccessibilityPosture posture,
+        Op? key = null) {
+        Op op = key.OrDefault();
+        return from admitted in guard(!drives.IsEmpty, op.InvalidInput()).ToFin()
+               let pacer = new CanvasPacer(drives: drives, posture: posture, operation: op)
+               let weakPacer = new WeakReference<CanvasPacer>(pacer)
+               let weakClock = Atom(Option<WeakReference<UiClock>>.None)
+               from owned in UiClock.Of(
+                   cadence: cadence,
+                   beat: beat => Tick(owner: weakPacer, clock: weakClock, beat: beat, key: op),
+                   posture: FaultPosture.Halt,
+                   key: op)
+               from exclusive in owned switch {
+                   Lease<UiClock>.Owned lease => Fin.Succ(lease),
+                   Lease<UiClock>.Borrowed _ => Fin.Fail<Lease<UiClock>.Owned>(error: op.InvalidResult()),
+               }
+               from mounted in pacer.Start(owned: exclusive, weakClock: weakClock)
+               select mounted;
+    }
+
+    public void Dispose() => ignore(Release(key: Op.Of(name: nameof(Dispose))));
+
+    private Fin<Lease<CanvasPacer>> Start(
+        Lease<UiClock>.Owned owned,
+        Atom<Option<WeakReference<UiClock>>> weakClock) {
+        if (Interlocked.CompareExchange(location1: ref clock, value: owned, comparand: null) is not null) {
+            Fin<Unit> rejected = operation.Catch(body: () => Fin.Succ(owned.Dispose()));
+            Fin<Lease<CanvasPacer>> outcome = Join<Lease<CanvasPacer>>(
+                primary: operation.InvalidResult(),
+                cleanup: rejected);
+            outcome.IfFail(Record);
+            return outcome;
+        }
+        ignore(weakClock.Swap(_ => Some(new WeakReference<UiClock>(owned.Value))));
+        return owned.Value.Start(key: operation).Match(
+            Succ: _ => Fin.Succ((Lease<CanvasPacer>)new Lease<CanvasPacer>.Owned(Value: this)),
+            Fail: Failed<Lease<CanvasPacer>>);
+    }
+
+    private Fin<Unit> Advance(ClockBeat beat) {
+        Seq<DriveSpec> active = live.Value;
+        Fin<Unit> outcome = active.IsEmpty
+            ? Stop()
+            : active
+                .Traverse(drive => MotionDrive.Step(
+                        spec: drive,
+                        beat: beat.Evidence,
+                        posture: posture,
+                        key: operation)
+                    .Map(frame => (Drive: drive, Frame: frame))
+                    .ToValidation())
+                .As()
+                .ToFin()
+                .Bind(Settle);
+        outcome.IfFail(Record);
+        return outcome;
+    }
+
+    private Fin<Unit> Settle(Seq<(DriveSpec Drive, DriveFrame Frame)> stepped) {
+        Seq<(DriveSpec Drive, DriveFrame Frame)> continuing =
+            stepped.Filter(static row => row.Frame.Continues).Strict();
+
+        Fin<Unit> applied = stepped
+            .Traverse(row => operation.Catch(body: () => Fin.Succ(Op.Side(action: row.Frame.Apply))).ToValidation())
+            .As()
+            .ToFin()
+            .Map(static _ => unit);
+        return applied
+            .Bind(_ => {
+                ignore(live.Swap(_ => continuing.Map(static row => row.Drive).Strict()));
+                return stepped.IsEmpty
+                    ? Fin.Succ(unit)
+                    : GhSession.Apply(
+                            op: new SessionOp.RepaintCase(Row: RepaintRow.Scheduled, Delay: Option<TimeSpan>.None),
+                            key: operation)
+                        .Map(static _ => unit);
+            })
+            .Bind(_ => continuing.IsEmpty ? Stop() : Fin.Succ(unit));
+    }
+
+    private Fin<Unit> Stop() => Optional(Volatile.Read(location: ref clock))
+        .ToFin(operation.InvalidResult())
+        .Bind(owned => owned.Value.Stop(key: operation));
+
+    private static Fin<Unit> Tick(
+        WeakReference<CanvasPacer> owner,
+        Atom<Option<WeakReference<UiClock>>> clock,
+        ClockBeat beat,
+        Op key) =>
+        owner.TryGetTarget(out CanvasPacer? active)
+            ? active.Advance(beat: beat)
+            : clock.Value.Match(
+                Some: weak => weak.TryGetTarget(out UiClock? orphan)
+                    ? key.Catch(body: () => Fin.Succ(Op.Side(action: orphan.Dispose)))
+                    : Fin.Succ(unit),
+                None: static () => Fin.Succ(unit));
+
+    private Fin<T> Failed<T>(Error error) {
+        Fin<T> outcome = Join<T>(primary: error, cleanup: Release(key: operation));
+        outcome.IfFail(Record);
+        return outcome;
+    }
+
+    private void Record(Error error) => ignore(lastFault.Swap(_ => Some(error)));
+
+    private Fin<Unit> Release(Op key) {
+        if (Interlocked.CompareExchange(location1: ref releaseState, value: 1, comparand: 0) != 0)
+            return Fin.Succ(unit);
+
+        ignore(live.Swap(_ => []));
+        Lease<UiClock>.Owned? owned = Interlocked.Exchange(location1: ref clock, value: null);
+        Fin<Unit> outcome = owned is null
+            ? Fin.Succ(unit)
+            : key.Catch(body: () => Fin.Succ(owned.Dispose()));
+
+        outcome.IfFail(Record);
+        Volatile.Write(location: ref releaseState, value: 2);
+        return outcome;
+    }
+
+    private static Fin<T> Join<T>(Error primary, Fin<Unit> cleanup) =>
+        (Fin.Fail<T>(error: primary).ToValidation(), cleanup.ToValidation())
+        .Apply(static (value, _) => value)
+        .As()
+        .ToFin();
 }
 ```
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
-    Consumer["motion consumers"] -->|"SpanRow + PaceRow + Lerps"| TweenGate["Tween.Glide / Extend → Animated&lt;T&gt;"]
-    TweenGate -->|"IFlexControl.Animate"| Host["GH2 flex draw clock"]
-    Kernel["Rasm.Parametric Easing · PerceptualBlend"] -->|"Lerps.Eased / Perceptual"| TweenGate
-    Kernel -->|"DriveSpec sampling"| DriveFold["Platform/composition MotionDrive.Step"]
-    Clock["Eto/runtime UiClock ClockBeat"] -->|per beat| Pacer["CanvasPacer.Mount → Fin&lt;Lease&lt;UiClock&gt;&gt;"]
-    Pacer --> DriveFold
-    Pacer -->|"RepaintRow.Scheduled"| Session["Shell/session GhSession.Apply"]
-    Glyph["NoticeGlyph rows + GlyphPath.Trace"] -->|"paint window strokes"| Paint["Canvas/paint MountRaw"]
+    accTitle: Share motion sampling across canvas pacers
+    accDescr: Host tweens and kernel motion policies feed one MotionDrive sampling rail shared by the platform display link and a lease-owned UI clock pacer; each sampled write set schedules one repaint, then continuing drives loop while a settled set stops the clock.
+    Consumer["motion consumer"] --> Tween["SpanRow + PaceRow + Tween"]
+    Kernel["Easing + colour + cycle + spring owners"] --> Drive["MotionDrive.Step"]
+    Display["platform display-link pacer"] --> Drive
+    Clock["UiClock"] --> Pacer["CanvasPacer owned lease"]
+    Pacer --> Drive
+    Drive --> Write["apply sampled DriveFrame set"]
+    Write --> Repaint["one scheduled repaint"]
+    Write --> Settle{"continuing drives?"}
+    Settle -->|"yes"| Clock
+    Settle -->|"no"| Stop["stop clock; lease retains disposal"]
+    linkStyle 6,9 stroke:#50FA7B,color:#F8F8F2
+    linkStyle 8 stroke:#6272A4,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Tween,Drive,Settle primary
+    class Repaint,Stop success
+    class Kernel data
+    class Consumer,Display,Clock,Pacer,Write boundary
 ```
-
-## [06]-[DENSITY_BAR]
-
-| [INDEX] | [CONCERN]           | [OWNER]                        | [KIND]                                                  | [RAIL]                             | [CASES] |
-| :-----: | :------------------ | :----------------------------- | :------------------------------------------------------- | :---------------------------------- | :-----: |
-|  [01]   | named spans         | `SpanRow`                      | `[SmartEnum<int>]` host-ordinal rows                    | pure column reads                   |    8    |
-|  [02]   | easing kinds        | `PaceRow`                      | `[SmartEnum<int>]` kind×delay lattice, kernel column    | pure column reads                   |   16    |
-|  [03]   | interpolators       | `Lerps`                        | `Interpolate<T>` catalog, kernel-reshaped and perceptual| pure delegates                      |    7    |
-|  [04]   | tween composition   | `Tween` + `FlexDrive`          | `Animated<T>` gate + flex drive evidence                | `Run → Fin<T>`                      |    5    |
-|  [05]   | feedback glyphs     | `NoticeGlyph` + `StrokeStep`   | factory rows + builder `[Union]` + one draw dispatch    | `Trace → Fin<Unit>`                 |   4+5   |
-|  [06]   | beat pacing         | `CanvasPacer`                  | `UiClock` × `MotionDrive.Step` × `RepaintRow` fold      | `Mount → Fin<Lease<UiClock>>`       |    1    |
-
-`Easing`, `CyclePlan`, `SpringShape`, `PerceptualBlend`, `UiClock`, `MotionDrive`, `DriveSpec`, `GhSession`, `Pigment`, `Op`, and `Lease<T>` are composed upstream owners. The census `Easing` 46-row catalogue, `SpringRunnerState<T>`, `MotionVector`, `SpringConfig`, the fixed animatable-type dictionary, and the `Flex.Pacer`/`PacerOption`/`Subscription`/`RepaintRequest` members have no successor shape — kernel rows own the math, the phantom members die, and GH2 pacing lands as the rows, gates, and the one beat fold above.

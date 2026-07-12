@@ -1,36 +1,38 @@
 # [RASM_GRASSHOPPER_CANVAS_INTERACTION]
 
-The canvas interaction spine of the Grasshopper boundary — the canvas rows of the census `CanvasChromeOp`: responsive dispatch, the focus stack, object dragging, dwell and context-menu policy, and interactive edge resizing. One `ResponderSpec` declares a hit-testable input target as data — Optioned handler slots over one `Verdict` vocabulary, a region, a filter, a coordinate frame — and one internal `Responses`-derived adapter projects it onto the host dispatch contract, so a consumer never subclasses host types or hand-wires hook events. Registration and focus are lease-owned pairings over the verified `Grasshopper2.UI.Flex` members — the census placed these on `Grasshopper2.UI.Canvas`, corrected here per the mining — and every mount marshals through the session gate. `ObjectDragInteraction` and `ResizingFrame` land at full catalog depth as admitted capsules with typed evidence; the census `Tooltip.Layout` reflection path is a phantom kill (`Frame` verifies, `Layout` does not — `Shell/chrome.md` owns the deletion and renders WHAT a tooltip shows), and this page owns WHEN: dwell delay policy and the dwell/context-menu population seams whose handlers must run synchronously inside the host raise. AppKit gesture and pressure seams are `Platform/native.md`'s gated owners; fact publication for pointer, key, and window-selection streams is `Shell/events.md`'s `UiSource` vocabulary — this page mounts behavior, that page observes facts.
+The canvas interaction spine of the Grasshopper boundary — responsive dispatch, focus capture, object dragging, context-menu population, and interactive edge resizing. One `ResponderSpec` declares a hit-testable input target as data, and one contained `Responses` adapter projects it onto the host dispatch contract. `InteractionMount` is the single lease resource for registration, focus, drag capture, and synchronous event attachment; it marshals teardown, records callback or release faults, and prevents a released registration from remaining on the focus stack. Host-bound interaction acquisition runs inside `GhSession.Run(ScopeTarget.CanvasHost, …)` and returns only an owned mount or gesture capsule. Dwell writes settle through the injected `MonotonicTimeline`, while reads cross the closed `CanvasQuery.StateCase` → `CanvasProjection.StateCase` projection.
 
 ## [01]-[INDEX]
 
 - [02]-[VERDICT]: `Verdict` + `PointerFact` — the precedence-ordered response vocabulary and the dual-frame pointer evidence.
-- [03]-[DISPATCH]: `ResponderSpec` + `SpecResponder` + `Dispatch` — the declarative responder, the host adapter, and the lease-owned mount/focus gates.
+- [03]-[DISPATCH]: `ResponderSpec` + `SpecResponder` + `InteractionMount` + `Dispatch` — the declarative responder, contained host adapter, and unified lease-owned registration/focus gates.
 - [04]-[SESSIONS]: `DragSession` + `EdgeResize` + `EdgeGrip` — the object-drag capsule and the full-depth resize capsule.
-- [05]-[MOMENTS]: `DwellPolicy` + `MenuMount` — dwell timing policy and the synchronous context-menu population seam.
+- [05]-[MOMENTS]: `MenuMount` — the contained synchronous context-menu population seam; dwell composes the Canvas command and state owners directly.
 
 ## [02]-[VERDICT]
 
 - Owner: `Verdict` `[SmartEnum<int>]` — the dispatch verdict rows keyed by host precedence: `Ignored` (0), `Release` (1), `Handled` (2), `Capture` (3), each carrying its host `Response` column. `Fold(Verdict other)` is the right-biased max-precedence merge — a multi-handler site folds verdicts and the strongest wins, which is the host's own propagation law made a value — and `OfHost(Response)` closes the seam on the way back. A handler slot returns `Verdict`; the adapter projects it to `Response` at the host edge, so the bare host enum never travels interior code.
-- Owner: `PointerFact` `readonly record struct` — the dual-frame pointer evidence off `ResponseMouseArgs`: `Control` and `Content` locations, `Buttons`, `Modifiers`, `Delta`, `Pressure`. A handler snaps at content coordinates and paints at control coordinates — the host's own frame discipline — and pressure rides as data for pen-aware consumers; the macOS pressure CONFIGURATION seam stays `Platform/native.md`'s.
+- Owner: `PointerFact` `readonly record struct` — admitted dual-frame pointer evidence off `ResponseMouseArgs`: finite `Control` and `Content` locations, finite wheel `Delta`, unit-interval `Pressure`, `Buttons`, and `Modifiers`. Invalid host payloads never reach a consumer callback.
 - Law: a handler requests repaint through its verdict-driven `RedrawRequired` signal (`Responses.OnRedrawRequired`), never by painting inline — the paint window is `Canvas/paint.md`'s and the schedule is the host's.
 - Packages: Grasshopper2 (`Response`, `ResponseMouseArgs.ControlLocation`/`ContentLocation`/`Buttons`/`Modifiers`/`Delta`/`Pressure`/`Handled`), Eto.Forms (`MouseButtons`, `Keys`), LanguageExt.Core, `Rasm.Domain`.
 - Growth: a new host precedence tier is one row with its ordinal; the fold and both seam projections never widen.
 
 ## [03]-[DISPATCH]
 
-- Owner: `ResponderSpec` sealed record — one declarative input target: `Region` (`Option<RectangleF>` — the host `RegionBoundary`), `Filter` (`Option<Func<PointF, bool>>` — the host `RegionFilter` for non-rectangular hit zones), `Frame` (`CoordinateSystem` — the host responder's coordinate context, `Content` by default), and eleven Optioned handler slots mirroring the verified host virtuals: `Over`/`Leave` (notification-shaped, no verdict), `Down`/`Drag`/`Up`/`Wheel`/`SingleClick`/`DoubleClick` (`Func<PointerFact, Verdict>`), `KeyDown`/`KeyUp` (`Func<KeyEventArgs, Verdict>`), `Text` (`Func<TextInputEventArgs, Verdict>`). An absent slot inherits the host default (`Ignored`), so a drag-only responder declares one slot and nothing else.
-- Owner: `SpecResponder` internal sealed class — the ONE host adapter: derives `Responses(spec.Frame)`, overrides exactly the virtuals whose slots are present, projects `ResponseMouseArgs` onto `PointerFact` and `Verdict` onto `Response`, and implements `IResponsive` by returning itself as `Responder`. The census parallel per-concern handler families and the hook-event wiring are absorbed — the host's `*Hook` event chain remains reachable for host-internal attribute composition but is never this page's contract.
-- Entry: `Dispatch.Mount(IFlexControl surface, ResponderSpec spec, Op? key = null)` → `Fin<Lease<ResponsiveHandle>>` — `RegisterIResponsive` on mount, `UnregisterIResponsive` on lease disposal, marshalled through `EtoDispatch`; `Dispatch.Hold(IFlexControl surface, IResponsive target, Op? key = null)` → `Fin<Lease<FocusToken>>` — `PushFocus` on acquisition, `PopFocus` on disposal, so exclusive capture without its release is unconstructible; `Dispatch.Roster(IFlexControl surface, Op? key = null)` → `Fin<Seq<IResponsive>>` — the live forward-order responsive census. Every hook and token disposes exactly once — the release swaps a guard before running, so a double-disposed focus token never pops a foreign focus frame.
-- Law: the flex control arrives resolved — the canvas via `Canvas/canvas.md`'s lens (`lens.Flex`), a chrome flex pane via its own owner — and the mount marshals but never acquires scope itself, so one spec mounts identically on any `IFlexControl`.
-- Law: registration order is dispatch order (`ResponsivesForwards`) and focus preempts it — the focus stack head receives exclusive delivery until popped; a consumer sequencing hover policy against registration order reads `Roster`, never a shadow list.
-- Boundary: window-selection lifecycle verbs are `Canvas/canvas.md`'s marquee cases; the `WindowSelection`/`MouseDwell`/`PopulateContextMenu` FACT streams are `Shell/events.md` rows; `ObjectDragInteraction` self-registers its own responder (`[04]`) and never mounts through this gate.
-- Packages: Grasshopper2 (`IFlexControl.RegisterIResponsive`/`UnregisterIResponsive`/`PushFocus`/`PopFocus`/`ResponsivesForwards`/`FocusObject`, `IResponsive`, `Responses` and its virtual handler family, `CoordinateSystem`), Eto.Forms (`KeyEventArgs`, `TextInputEventArgs`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`), `Eto/runtime.md` (`EtoDispatch`).
-- Growth: a new host handler virtual is one spec slot plus one adapter override; the mount gates never widen.
+- Owner: `ResponderSpec` sealed evidence record — one declarative input target: optional rectangular and predicate hit regions, coordinate frame, hover notifications, pointer verdicts, key verdicts, and text verdicts. Region admission is finite and nonnegative; an absent slot inherits the host response.
+- Owner: `SpecResponder` internal sealed class — the ONE host adapter. Every region filter, hover notification, pointer handler, key handler, text handler, and inherited relay runs inside the raising `Op.Catch`; faults record on the owning mount and resolve to `Release` while focused or `Ignored` while unfocused, so an extension callback never escapes into the Eto pump or strands capture.
+- Owner: `InteractionMount` sealed class — the single idempotent `IDisposable` resource for responder registration, focus capture, drag capture, and menu attachment. `Target` and `PriorFocus` preserve lifecycle evidence; `LastFault` exposes the latest contained callback or release failure; disposal marshals through the release closure and remains retryable after a failed teardown.
+- Entry: `Dispatch.Mount(FlexControl surface, ResponderSpec spec, Op? key = null)` → `Fin<Lease<InteractionMount>>`; `Dispatch.Hold(FlexControl surface, IResponsive target, Op? key = null)` → `Fin<Lease<InteractionMount>>`; `Dispatch.Roster(IFlexControl surface, Op? key = null)` → `Fin<Seq<IResponsive>>`.
+- Law: the flex control arrives resolved — canvas callers acquire it inside `GhSession.Run(ScopeTarget.CanvasHost, …)`, while a chrome flex pane arrives from its own owner. Registration/focus mounts require the concrete `FlexControl` owner because the focus stack is absent from `IFlexControl`; roster projection remains interface-shaped. No mount exposes a live canvas.
+- Law: registration order is dispatch order (`ResponsivesForwards`) and focus preempts it. `Mount` pops its target before unregistering, `Hold` refuses to claim an already focused target, and failed register or push acquisition rolls back before returning its fault. The host focus stack remains unique by target and restores its previous head when the owned frame leaves.
+- Boundary: window-selection lifecycle verbs are `Canvas/canvas.md` marquee cases; `WindowSelection` and `MouseDwell` facts are `Shell/events.md` rows. `ObjectDragInteraction` neither registers nor focuses itself, so `[04]` acquires `Dispatch.Hold` and owns that lease through gesture teardown.
+- Packages: Grasshopper2 (`FlexControl.RegisterIResponsive`/`UnregisterIResponsive`/`PushFocus`/`PopFocus`/`FocusObject`, `IFlexControl.ResponsivesForwards`, `IResponsive`, `Responses` and its virtual handler family, `CoordinateSystem`), Eto.Forms (`KeyEventArgs`, `TextInputEventArgs`), LanguageExt.Core, `Rasm.Domain` (`Op`, `Lease<T>`), `Eto/runtime.md` (`EtoDispatch`).
+- Growth: a new host handler virtual is one spec slot plus one contained adapter override; every new attachment modality reuses `InteractionMount`.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
 using Rasm.Csp;
+using Rasm.Grasshopper.Shell;
 using Rasm.Grasshopper.Eto;
 
 namespace Rasm.Grasshopper.Canvas;
@@ -59,10 +61,17 @@ public sealed partial class Verdict {
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
 public readonly record struct PointerFact(
-    PointF Control, PointF Content, MouseButtons Buttons, Keys Modifiers, SizeF Delta, float Pressure) {
+    PointF Control, PointF Content, MouseButtons Buttons, Keys Modifiers, SizeF Delta, float Pressure) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(holds: Finite(point: Control) && Finite(point: Content)),
+        ValidityClaim.Of(holds: float.IsFinite(Delta.Width) && float.IsFinite(Delta.Height)),
+        ValidityClaim.UnitInterval(value: Pressure));
+
     internal static PointerFact Of(ResponseMouseArgs e) =>
         new(Control: e.ControlLocation, Content: e.ContentLocation, Buttons: e.Buttons,
             Modifiers: e.Modifiers, Delta: e.Delta, Pressure: e.Pressure);
+
+    private static bool Finite(PointF point) => float.IsFinite(point.X) && float.IsFinite(point.Y);
 }
 
 public sealed record ResponderSpec(
@@ -72,7 +81,12 @@ public sealed record ResponderSpec(
     Option<Func<PointerFact, Verdict>> Up, Option<Func<PointerFact, Verdict>> Wheel,
     Option<Func<PointerFact, Verdict>> SingleClick, Option<Func<PointerFact, Verdict>> DoubleClick,
     Option<Func<KeyEventArgs, Verdict>> KeyDown, Option<Func<KeyEventArgs, Verdict>> KeyUp,
-    Option<Func<TextInputEventArgs, Verdict>> Text) {
+    Option<Func<TextInputEventArgs, Verdict>> Text) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.Of(holds: Region.ForAll(static frame =>
+        float.IsFinite(frame.X) && float.IsFinite(frame.Y) &&
+        float.IsFinite(frame.Width) && frame.Width >= 0f &&
+        float.IsFinite(frame.Height) && frame.Height >= 0f));
+
     public static readonly ResponderSpec Empty = new(
         Region: Option<RectangleF>.None, Filter: Option<Func<PointF, bool>>.None, Frame: CoordinateSystem.Content,
         Over: Option<Action<PointerFact>>.None, Leave: Option<Action>.None,
@@ -83,68 +97,188 @@ public sealed record ResponderSpec(
         Text: Option<Func<TextInputEventArgs, Verdict>>.None);
 }
 
-public sealed record ResponsiveHandle(IResponsive Target, Action Detach) : IDisposable {
-    private int released;
-    public void Dispose() => Op.SideWhen(condition: Interlocked.Exchange(location1: ref released, value: 1) == 0, action: Detach);
-}
+public sealed class InteractionMount : IDisposable {
+    private readonly Atom<Option<Error>> faults;
+    private readonly Op operation;
+    private readonly Func<Fin<Unit>> release;
+    private int releaseState;
 
-public sealed record FocusToken(IFlexControl Surface, IResponsive Target, Action Release) : IDisposable {
-    private int released;
-    public void Dispose() => Op.SideWhen(condition: Interlocked.Exchange(location1: ref released, value: 1) == 0, action: Release);
+    internal InteractionMount(
+        Option<IResponsive> target,
+        Option<IResponsive> priorFocus,
+        Atom<Option<Error>> faults,
+        Op operation,
+        Func<Fin<Unit>> release) {
+        Target = target;
+        PriorFocus = priorFocus;
+        this.faults = faults;
+        this.operation = operation;
+        this.release = release;
+    }
+
+    public Option<IResponsive> Target { get; }
+    public Option<IResponsive> PriorFocus { get; }
+    public Option<Error> LastFault => faults.Value;
+    public bool IsReleased => Volatile.Read(location: ref releaseState) == 2;
+
+    public void Dispose() {
+        if (Interlocked.CompareExchange(location1: ref releaseState, value: 1, comparand: 0) != 0) return;
+        operation.Catch(body: release).Match(
+            Succ: _ => { Volatile.Write(location: ref releaseState, value: 2); return unit; },
+            Fail: error => {
+                Record(error: error);
+                Volatile.Write(location: ref releaseState, value: 0);
+                return unit;
+            });
+    }
+
+    internal void Record(Error error) => ignore(faults.Swap(_ => Some(error)));
 }
 
 // --- [SERVICES] -----------------------------------------------------------------------------
 internal sealed class SpecResponder : Responses, IResponsive {
+    private readonly Atom<Option<Error>> _faults;
+    private readonly Op _operation;
     private readonly ResponderSpec _spec;
 
-    internal SpecResponder(ResponderSpec spec) : base(spec.Frame) {
+    internal SpecResponder(ResponderSpec spec, Atom<Option<Error>> faults, Op operation) : base(spec.Frame) {
         _spec = spec;
+        _faults = faults;
+        _operation = operation;
         spec.Region.Iter(region => RegionBoundary = region);
-        spec.Filter.Iter(filter => RegionFilter = filter);
+        spec.Filter.Iter(filter => RegionFilter = point => Filter(filter: filter, point: point));
     }
 
     public Responses Responder => this;
-
-    public override void MouseOver(ResponseMouseArgs e) => _spec.Over.Iter(over => over(PointerFact.Of(e: e)));
-    public override void MouseLeave() => _spec.Leave.Iter(static leave => leave());
+    public override void MouseOver(ResponseMouseArgs e) => Observe(body: () => _spec.Over.Match(
+        Some: over => _operation.AcceptInput(value: PointerFact.Of(e: e))
+            .Map(fact => Op.Side(action: () => over(obj: fact))),
+        None: () => Fin.Succ(Op.Side(action: () => base.MouseOver(e)))));
+    public override void MouseLeave() => Observe(body: () => _spec.Leave.Match(
+        Some: static leave => Fin.Succ(Op.Side(action: leave)),
+        None: () => Fin.Succ(Op.Side(action: base.MouseLeave))));
     public override Response MouseDown(ResponseMouseArgs e) => Answer(slot: _spec.Down, e: e, inherited: () => base.MouseDown(e));
     public override Response MouseDrag(ResponseMouseArgs e) => Answer(slot: _spec.Drag, e: e, inherited: () => base.MouseDrag(e));
     public override Response MouseUp(ResponseMouseArgs e) => Answer(slot: _spec.Up, e: e, inherited: () => base.MouseUp(e));
     public override Response MouseWheel(ResponseMouseArgs e) => Answer(slot: _spec.Wheel, e: e, inherited: () => base.MouseWheel(e));
     public override Response MouseSingleClick(ResponseMouseArgs e) => Answer(slot: _spec.SingleClick, e: e, inherited: () => base.MouseSingleClick(e));
     public override Response MouseDoubleClick(ResponseMouseArgs e) => Answer(slot: _spec.DoubleClick, e: e, inherited: () => base.MouseDoubleClick(e));
-    public override Response KeyDown(KeyEventArgs e) => _spec.KeyDown.Map(handle => handle(e).Host).IfNone(() => base.KeyDown(e));
-    public override Response KeyUp(KeyEventArgs e) => _spec.KeyUp.Map(handle => handle(e).Host).IfNone(() => base.KeyUp(e));
-    public override Response TextInput(TextInputEventArgs e) => _spec.Text.Map(handle => handle(e).Host).IfNone(() => base.TextInput(e));
+    public override Response KeyDown(KeyEventArgs e) => Answer(slot: _spec.KeyDown, value: e, inherited: () => base.KeyDown(e));
+    public override Response KeyUp(KeyEventArgs e) => Answer(slot: _spec.KeyUp, value: e, inherited: () => base.KeyUp(e));
+    public override Response TextInput(TextInputEventArgs e) => Answer(slot: _spec.Text, value: e, inherited: () => base.TextInput(e));
 
-    private static Response Answer(Option<Func<PointerFact, Verdict>> slot, ResponseMouseArgs e, Func<Response> inherited) =>
-        slot.Map(handle => handle(PointerFact.Of(e: e)).Host).IfNone(inherited);
+    private Response Answer(Option<Func<PointerFact, Verdict>> slot, ResponseMouseArgs e, Func<Response> inherited) => Settle(
+        outcome: _operation.Catch(body: () => slot.Match(
+            Some: handle => _operation.AcceptInput(value: PointerFact.Of(e: e)).Map(handle).Bind(verdict => _operation.Need(value: verdict)),
+            None: () => Fin.Succ(Verdict.OfHost(response: inherited())))));
+
+    private Response Answer<TEvent>(Option<Func<TEvent, Verdict>> slot, TEvent value, Func<Response> inherited)
+        where TEvent : class => Settle(outcome: _operation.Catch(body: () => slot.Match(
+            Some: handle => _operation.Need(value: value).Map(handle).Bind(verdict => _operation.Need(value: verdict)),
+            None: () => Fin.Succ(Verdict.OfHost(response: inherited())))));
+
+    private bool Filter(Func<PointF, bool> filter, PointF point) {
+        Fin<bool> outcome = _operation.Catch(body: () =>
+            guard(float.IsFinite(point.X) && float.IsFinite(point.Y), _operation.InvalidInput()).ToFin()
+                .Map(_ => filter(arg: point)));
+        return outcome.Match(
+            Succ: static accepted => accepted,
+            Fail: error => { Record(error: error); return false; });
+    }
+
+    private void Observe(Func<Fin<Unit>> body) => _operation.Catch(body: body).IfFail(error => Record(error: error));
+
+    private Response Settle(Fin<Verdict> outcome) => outcome.Match(
+        Succ: static verdict => verdict.Host,
+        Fail: error => {
+            Record(error: error);
+            return HasFocus ? Response.Release : Response.Ignored;
+        });
+
+    private void Record(Error error) => ignore(_faults.Swap(_ => Some(error)));
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
 public static class Dispatch {
-    public static Fin<Lease<ResponsiveHandle>> Mount(IFlexControl surface, ResponderSpec spec, Op? key = null) {
+    public static Fin<Lease<InteractionMount>> Mount(FlexControl surface, ResponderSpec spec, Op? key = null) {
         Op op = key.OrDefault();
         return from live in op.Need(value: surface)
-               from valid in op.Need(value: spec)
+               from valid in op.AcceptInput(value: spec)
                from lease in EtoDispatch.Run(body: () => op.Catch(body: () => {
-                   SpecResponder responder = new(spec: valid);
-                   live.RegisterIResponsive(responder);
-                   return Fin.Succ((Lease<ResponsiveHandle>)new Lease<ResponsiveHandle>.Owned(
-                       Value: new ResponsiveHandle(Target: responder, Detach: () => live.UnregisterIResponsive(responder))));
+                   Atom<Option<Error>> faults = Atom(Option<Error>.None);
+                   SpecResponder responder = new(spec: valid, faults: faults, operation: op);
+                   Fin<Unit> attached = op.Catch(body: () => {
+                       live.RegisterIResponsive(responder);
+                       return toSeq(live.ResponsivesForwards).Exists(candidate => ReferenceEquals(objA: candidate, objB: responder))
+                           ? Fin.Succ(value: unit)
+                           : Fin.Fail<Unit>(error: op.InvalidResult());
+                   });
+                   return attached.Match(
+                       Succ: _ => {
+                           Func<Fin<Unit>> release = () => EtoDispatch.Run(body: () => {
+                               Fin<Unit> popped = op.Catch(body: () => Fin.Succ(Op.Side(action: () => live.PopFocus(responder))));
+                               Fin<Unit> detached = op.Catch(body: () => Fin.Succ(Op.Side(action: () => live.UnregisterIResponsive(responder))));
+                               Fin<Unit> verified = op.Catch(body: () =>
+                                   !ReferenceEquals(objA: live.FocusObject, objB: responder)
+                                   && !toSeq(live.ResponsivesForwards).Exists(candidate => ReferenceEquals(objA: candidate, objB: responder))
+                                       ? Fin.Succ(value: unit)
+                                       : Fin.Fail<Unit>(error: op.InvalidResult()));
+                               return popped.Bind(_ => detached).Bind(_ => verified);
+                           }, key: op);
+                           InteractionMount mount = new(
+                               target: Some<IResponsive>(responder),
+                               priorFocus: Option<IResponsive>.None,
+                               faults: faults,
+                               operation: op,
+                               release: release);
+                           return Fin.Succ((Lease<InteractionMount>)new Lease<InteractionMount>.Owned(Value: mount));
+                       },
+                       Fail: error => {
+                           ignore(op.Catch(body: () => Fin.Succ(Op.Side(action: () => live.UnregisterIResponsive(responder)))));
+                           return Fin.Fail<Lease<InteractionMount>>(error: error);
+                       });
                }), key: op)
                select lease;
     }
 
-    public static Fin<Lease<FocusToken>> Hold(IFlexControl surface, IResponsive target, Op? key = null) {
+    public static Fin<Lease<InteractionMount>> Hold(FlexControl surface, IResponsive target, Op? key = null) {
         Op op = key.OrDefault();
         return from live in op.Need(value: surface)
                from focus in op.Need(value: target)
                from lease in EtoDispatch.Run(body: () => op.Catch(body: () => {
-                   live.PushFocus(focus);
-                   return Fin.Succ((Lease<FocusToken>)new Lease<FocusToken>.Owned(
-                       Value: new FocusToken(Surface: live, Target: focus, Release: () => live.PopFocus(focus))));
+                   if (ReferenceEquals(objA: live.FocusObject, objB: focus))
+                       return Fin.Fail<Lease<InteractionMount>>(error: op.InvalidInput());
+                   Option<IResponsive> prior = Optional(live.FocusObject);
+                   Atom<Option<Error>> faults = Atom(Option<Error>.None);
+                   Fin<Unit> pushed = op.Catch(body: () => {
+                       live.PushFocus(focus);
+                       return ReferenceEquals(objA: live.FocusObject, objB: focus)
+                           ? Fin.Succ(value: unit)
+                           : Fin.Fail<Unit>(error: op.InvalidResult());
+                   });
+                   return pushed.Match(
+                       Succ: _ => {
+                           Func<Fin<Unit>> release = () => EtoDispatch.Run(
+                               body: () => op.Catch(body: () => {
+                                   live.PopFocus(focus);
+                                   return !ReferenceEquals(objA: live.FocusObject, objB: focus)
+                                       ? Fin.Succ(value: unit)
+                                       : Fin.Fail<Unit>(error: op.InvalidResult());
+                               }),
+                               key: op);
+                           InteractionMount mount = new(
+                               target: Some(focus),
+                               priorFocus: prior,
+                               faults: faults,
+                               operation: op,
+                               release: release);
+                           return Fin.Succ((Lease<InteractionMount>)new Lease<InteractionMount>.Owned(Value: mount));
+                       },
+                       Fail: error => {
+                           ignore(op.Catch(body: () => Fin.Succ(Op.Side(action: () => live.PopFocus(focus)))));
+                           return Fin.Fail<Lease<InteractionMount>>(error: error);
+                       });
                }), key: op)
                select lease;
     }
@@ -160,101 +294,12 @@ public static class Dispatch {
 
 ## [04]-[SESSIONS]
 
-- Owner: `DragSession` sealed record `[BoundaryAdapter]` — the object-drag capsule over the verified `ObjectDragInteraction`: `Begin(Document graph, PointF anchor, Op? key = null)` → `Fin<DragSession>` constructs the host interaction against the canvas flex control inside one `CanvasOperator.Read` window — the host registers its own internal drag responder, drives snapping against a `SnappingConstraints` set that excludes the dragged ids, and owns orthogonal-constraint keyboard state for the drag's lifetime. The capsule projects the PUBLIC evidence: `Count` (dragged objects), `FirstPoint` (the content-frame anchor), and `Poll(Op)` re-reads both as a `DragEvidence` receipt; the census `LastPoint` claim is corrected — the member is `private` on the decompiled host, so live travel is not observable through this seam and a consumer needing per-move deltas mounts its own `Drag` slot through `[03]`.
-- Owner: `EdgeResize` sealed class `[BoundaryAdapter]` — the interactive resize capsule at full catalog depth over `ResizingFrame`: `Of(RectangleF original, SizeF min, SizeF max, Option<SnappingConstraints> constraints, Option<SnappingSettings> settings, Op?)` admits the frame (the host ctor's null-tolerant snapping tail projected from the Options), `Begin(PointF mouse, Padding edges, Op)` opens an edge grab and reports whether any edge engaged, `Track(PointF mouse, Op)` continues the gesture and returns the live `Resized` frame, `CursorAt(PointF mouse, Padding edges, Op)` resolves the host resize cursor for hover feedback, and `Grip()` projects the four engaged-edge flags as one `EdgeGrip` evidence row (`Top`/`Left`/`Right`/`Bottom`). The integer-mask `Begin(PointF, int)` host overload is absorbed by the `Padding` arm — one spelling, the host's own conversion.
-- Law: both capsules are gesture-scoped — a session lives from `Begin` to pointer release and is never cached across gestures; the drag capsule's undo record is the host's own (`ObjectDragInteraction` writes pivot undo itself), so no `ActionList` threads through this page — programmatic arrangement with owned undo is `Canvas/layout.md`'s.
+- Owner: `DragSession` sealed class `[BoundaryAdapter]` — the owned object-drag capsule over `ObjectDragInteraction`. `Begin(Document graph, PointF anchor, Op? key = null)` → `Fin<Lease<DragSession>>` admits a finite anchor, constructs the host interaction inside `GhSession.Run(ScopeTarget.CanvasHost, …)`, rejects an empty dragged set, and acquires its responder through `Dispatch.Hold` before the marshal returns. The session owns the focus lease; pointer release may pop it through the host `Release` verdict, while disposal remains the cancellation path and idempotently pops any surviving frame. `Poll` returns accepted count and anchor evidence; the private host `LastPoint` remains unavailable.
+- Owner: `EdgeResize` sealed class `[BoundaryAdapter]` — the interactive resize capsule over `ResizingFrame`. `Of` admits finite nonnegative frame and size bounds with `min ≤ max`, then mints the host frame inside `GhSession.Run(ScopeTarget.CanvasHost, …)` and returns only the capsule. `Begin` admits the pointer and opens an edge grab; `Track` requires an active grip; `End` closes the gesture and clears both host snap-guide axes through the same session seam; `CursorAt` resolves admitted hover feedback; `Grip` projects the engaged edges. The integer-mask host overload remains absorbed by the `Padding` arm.
+- Law: both capsules are gesture-scoped and never cached across gestures. Every acquired drag lease is disposed after pointer release or cancellation; host `Release` and lease disposal are both safe because `PopFocus` removes only the named target. The drag capsule's undo record remains the host's own.
 - Boundary: the component-attribute resize policy capsule (`Components/attributes.md`'s `ResizeSession`) composes the same host `ResizingFrame` under its snap-restoration window; this owner is the canvas-general capsule — a chrome or plugin surface resizing any frame — and carries no component policy.
-- Packages: Grasshopper2 (`ObjectDragInteraction` ctor/`Control`/`Document`/`Count`/`FirstPoint`/`Responder`, `ResizingFrame` ctor/`Begin`/`Continue`/`CursorAt`/`Original`/`Resized`/`MinimumSize`/`MaximumSize`/`ResizeTopEdge`/`ResizeLeftEdge`/`ResizeRightEdge`/`ResizeBottomEdge`, `SnappingConstraints`, `SnappingSettings`), Eto.Drawing (`PointF`, `RectangleF`, `SizeF`, `Padding`), Eto.Forms (`Cursor`), LanguageExt.Core, `Rasm.Domain`.
+- Packages: Grasshopper2 (`ObjectDragInteraction` ctor/`Control`/`Document`/`Count`/`FirstPoint`/`Responder`, `ResizingFrame` ctor/`Begin`/`Continue`/`CursorAt`/`Original`/`Resized`/`MinimumSize`/`MaximumSize`/`ResizeTopEdge`/`ResizeLeftEdge`/`ResizeRightEdge`/`ResizeBottomEdge`, `Canvas.SnapXAction`/`SnapYAction`, `SnappingConstraints`, `SnappingSettings`), Eto.Drawing (`PointF`, `RectangleF`, `SizeF`, `Padding`), Eto.Forms (`Cursor`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md` (`GhSession`, `ScopeTarget`).
 - Growth: a new gesture capsule is one sealed owner over its host interaction class; evidence rows widen by field, never by sibling record.
-
-```csharp signature
-// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
-using Rasm.Csp;
-
-namespace Rasm.Grasshopper.Canvas;
-
-// --- [MODELS] -------------------------------------------------------------------------------
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct DragEvidence(int Count, PointF Anchor) : IValidityEvidence {
-    public bool IsValid => ValidityClaim.Of(holds: Count >= 0);
-}
-
-[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct EdgeGrip(bool Top, bool Left, bool Right, bool Bottom) {
-    public bool Any => Top || Left || Right || Bottom;
-}
-
-// --- [SERVICES] -----------------------------------------------------------------------------
-[BoundaryAdapter]
-public sealed record DragSession {
-    private DragSession(ObjectDragInteraction interaction) => Interaction = interaction;
-    internal ObjectDragInteraction Interaction { get; }
-
-    public static Fin<DragSession> Begin(Document graph, PointF anchor, Op? key = null) {
-        Op op = key.OrDefault();
-        return from live in op.Need(value: graph)
-               from session in CanvasOperator.Read(lens =>
-                   op.Catch(body: () => Fin.Succ(new DragSession(interaction: new ObjectDragInteraction(lens.Flex, live, anchor)))), key: op)
-               select session;
-    }
-
-    public Fin<DragEvidence> Poll(Op key) {
-        ObjectDragInteraction interaction = Interaction;
-        return key.Catch(body: () => Fin.Succ(new DragEvidence(Count: interaction.Count, Anchor: interaction.FirstPoint)));
-    }
-}
-
-[BoundaryAdapter]
-public sealed class EdgeResize {
-    private readonly ResizingFrame _frame;
-
-    private EdgeResize(ResizingFrame frame) => _frame = frame;
-
-    public static Fin<EdgeResize> Of(
-        RectangleF original, SizeF min, SizeF max,
-        Option<SnappingConstraints> constraints = default, Option<SnappingSettings> settings = default, Op? key = null) {
-        Op op = key.OrDefault();
-        return op.Catch(body: () => Fin.Succ(new EdgeResize(frame: new ResizingFrame(
-            original, min, max,
-            constraints.MatchUnsafe(Some: static held => held, None: static () => null),
-            settings.MatchUnsafe(Some: static held => held, None: static () => null)))));
-    }
-
-    public RectangleF Original => _frame.Original;
-    public RectangleF Resized => _frame.Resized;
-
-    public Fin<bool> Begin(PointF mouse, Padding edges, Op key) {
-        ResizingFrame frame = _frame;
-        return key.Catch(body: () => Fin.Succ(frame.Begin(mouse, edges)));
-    }
-
-    public Fin<RectangleF> Track(PointF mouse, Op key) {
-        ResizingFrame frame = _frame;
-        return key.Catch(body: () => {
-            frame.Continue(mouse);
-            return Fin.Succ(frame.Resized);
-        });
-    }
-
-    public Fin<Cursor> CursorAt(PointF mouse, Padding edges, Op key) {
-        ResizingFrame frame = _frame;
-        return key.Catch(body: () => Fin.Succ(frame.CursorAt(mouse, edges)));
-    }
-
-    public EdgeGrip Grip() => new(
-        Top: _frame.ResizeTopEdge, Left: _frame.ResizeLeftEdge,
-        Right: _frame.ResizeRightEdge, Bottom: _frame.ResizeBottomEdge);
-}
-```
-
-## [05]-[MOMENTS]
-
-- Owner: `DwellPolicy` — the WHEN of hover chrome: `Attend(TimeSpan delay, Op? key = null)` writes `MouseDwellDelay` on the canvas (a zero or negative span disables the dwell raise entirely — the host's own off switch, so suppression is a policy value, never an unsubscribe), and `Current(Op?)` reads it back. The dwell FACT stream — where and when the pointer dwelt — is `Shell/events.md`'s canvas row; the tooltip CONTENT that answers a dwell is `Shell/chrome.md`'s `TooltipIntent`; this row is the timing policy both compose.
-- Owner: `MenuMount` — the synchronous population seam over `PopulateContextMenu`: `Mount(Action<MenuMoment> fill, Op? key = null)` → `Fin<Lease<MomentHook>>` whose handler runs INSIDE the host raise, because the args' `Menu` must be filled before the raise returns — a deferred observation row structurally cannot populate it, which is why this seam lives here and not in the events vocabulary; population is mutation of the live `Menu`, so the filler is an action, never a verdict — the raise carries no response channel to settle one. `MenuMoment` projects the args: the raising `IFlexControl`, the triggering `MouseEventArgs`, the live `ContextMenu` to fill, and `IsMenu` (whether earlier handlers already contributed items — the ordering evidence a low-priority filler reads before appending separators).
-- Law: a filler adds items and returns — presenting, styling, and command wiring for menu items are `Eto`-tier and chrome concerns; a filler that opens its own menu beside the host's is the double-menu defect.
-- Law: whether ANY context menu opens is `Canvas/canvas.md`'s `ActionGate` rows (`WireMenu`/`ObjectMenu`/`CanvasMenu`) — the fill seam runs only when the gate admitted the raise.
-- Packages: Grasshopper2 (`FlexControl.MouseDwellDelay`, `FlexControl.PopulateContextMenu`, `PopulateContextMenuEventArgs.Control`/`MouseEvent`/`Menu`/`IsMenu`), Eto.Forms (`ContextMenu`, `MouseEventArgs`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md` (`GhSession`, `ScopeTarget`).
-- Growth: a new synchronous host moment (a populate-shaped event whose args demand in-raise mutation) is one moment record plus one mount; observation-shaped events stay `Shell/events.md` rows.
 
 ```csharp signature
 // --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
@@ -265,71 +310,279 @@ namespace Rasm.Grasshopper.Canvas;
 
 // --- [MODELS] -------------------------------------------------------------------------------
 [BoundaryAdapter, StructLayout(LayoutKind.Auto)]
-public readonly record struct MenuMoment(IFlexControl Surface, MouseEventArgs Cause, ContextMenu Menu, bool IsMenu);
+public readonly record struct DragEvidence(int Count, PointF Anchor) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.All(
+        ValidityClaim.Of(holds: Count > 0),
+        ValidityClaim.Of(holds: float.IsFinite(Anchor.X) && float.IsFinite(Anchor.Y)));
+}
 
-public sealed record MomentHook(Action Detach) : IDisposable {
-    private int released;
-    public void Dispose() => Op.SideWhen(condition: Interlocked.Exchange(location1: ref released, value: 1) == 0, action: Detach);
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct EdgeGrip(bool Top, bool Left, bool Right, bool Bottom) {
+    public bool Any => Top || Left || Right || Bottom;
+}
+
+// --- [SERVICES] -----------------------------------------------------------------------------
+[BoundaryAdapter]
+public sealed class DragSession : IDisposable {
+    private readonly Lease<InteractionMount> focus;
+
+    private DragSession(ObjectDragInteraction interaction, Lease<InteractionMount> focus) {
+        Interaction = interaction;
+        this.focus = focus;
+    }
+
+    internal ObjectDragInteraction Interaction { get; }
+    public Option<Error> LastFault => focus.Resource.LastFault;
+
+    public static Fin<Lease<DragSession>> Begin(Document graph, PointF anchor, Op? key = null) {
+        Op op = key.OrDefault();
+        return from live in op.Need(value: graph)
+               from _ in guard(float.IsFinite(anchor.X) && float.IsFinite(anchor.Y), op.InvalidInput()).ToFin()
+               from session in GhSession.Run(ScopeTarget.CanvasHost, scope =>
+                   scope.Canvas.ToFin(op.MissingContext()).Bind(surface =>
+                       op.Catch(body: () => Fin.Succ(new ObjectDragInteraction(surface, live, anchor)))
+                           .Bind(interaction => guard(interaction.Count > 0, op.InvalidInput()).ToFin().Map(_ => interaction))
+                           .Bind(interaction => Dispatch.Hold(surface: surface, target: interaction, key: op)
+                               .Map(capture => (Lease<DragSession>)new Lease<DragSession>.Owned(
+                                   Value: new DragSession(interaction: interaction, focus: capture))))), key: op)
+               select session;
+    }
+
+    public Fin<DragEvidence> Poll(Op key) {
+        ObjectDragInteraction interaction = Interaction;
+        return from _ in guard(!focus.Resource.IsReleased, key.InvalidInput()).ToFin()
+               from evidence in key.Catch(body: () => Fin.Succ(new DragEvidence(Count: interaction.Count, Anchor: interaction.FirstPoint)))
+               from accepted in key.AcceptValue(value: evidence)
+               select accepted;
+    }
+
+    public void Dispose() => ignore(focus.Dispose());
+}
+
+[BoundaryAdapter]
+public sealed class EdgeResize {
+    private readonly ResizingFrame _frame;
+    private int _active;
+
+    private EdgeResize(ResizingFrame frame) => _frame = frame;
+
+    public static Fin<EdgeResize> Of(
+        RectangleF original, SizeF min, SizeF max,
+        Option<SnappingConstraints> constraints = default, Option<SnappingSettings> settings = default, Op? key = null) {
+        Op op = key.OrDefault();
+        bool admitted =
+            Finite(frame: original) &&
+            float.IsFinite(min.Width) && min.Width >= 0f &&
+            float.IsFinite(min.Height) && min.Height >= 0f &&
+            float.IsFinite(max.Width) && max.Width >= min.Width &&
+            float.IsFinite(max.Height) && max.Height >= min.Height;
+        return from _ in guard(admitted, op.InvalidInput()).ToFin()
+               from frame in GhSession.Run(ScopeTarget.CanvasHost, scope =>
+                   scope.Canvas.ToFin(op.MissingContext()).Bind(_ => op.Catch(body: () =>
+                       Fin.Succ(new EdgeResize(frame: new ResizingFrame(
+                           original, min, max,
+                           constraints.MatchUnsafe(Some: static held => held, None: static () => null),
+                           settings.MatchUnsafe(Some: static held => held, None: static () => null)))))), key: op)
+               select frame;
+    }
+
+    public RectangleF Original => _frame.Original;
+    public RectangleF Resized => _frame.Resized;
+
+    public Fin<bool> Begin(PointF mouse, Padding edges, Op key) {
+        ResizingFrame frame = _frame;
+        return from _ in guard(Volatile.Read(location: ref _active) == 0 && Finite(point: mouse), key.InvalidInput()).ToFin()
+               from engaged in key.Catch(body: () => Fin.Succ(frame.Begin(mouse, edges)))
+               select SetActive(engaged: engaged);
+    }
+
+    public Fin<RectangleF> Track(PointF mouse, Op key) {
+        ResizingFrame frame = _frame;
+        return from _ in guard(Volatile.Read(location: ref _active) == 1 && Finite(point: mouse), key.InvalidInput()).ToFin()
+               from resized in key.Catch(body: () => {
+                   frame.Continue(mouse);
+                   return Finite(frame: frame.Resized)
+                       ? Fin.Succ(frame.Resized)
+                       : Fin.Fail<RectangleF>(error: key.InvalidResult());
+               })
+               select resized;
+    }
+
+    public Fin<Cursor> CursorAt(PointF mouse, Padding edges, Op key) {
+        ResizingFrame frame = _frame;
+        return from _ in guard(Finite(point: mouse), key.InvalidInput()).ToFin()
+               from cursor in key.Catch(body: () => Optional(frame.CursorAt(mouse, edges)).ToFin(key.InvalidResult()))
+               select cursor;
+    }
+
+    public Fin<Unit> End(Op? key = null) {
+        Op op = key.OrDefault();
+        return GhSession.Run(ScopeTarget.CanvasHost, scope =>
+            scope.Canvas.ToFin(op.MissingContext()).Bind(surface => op.Catch(body: () => {
+                Volatile.Write(location: ref _active, value: 0);
+                surface.SnapXAction = null;
+                surface.SnapYAction = null;
+                return Fin.Succ(value: unit);
+            })), key: op);
+    }
+
+    public EdgeGrip Grip() => Volatile.Read(location: ref _active) == 1
+        ? new EdgeGrip(
+            Top: _frame.ResizeTopEdge, Left: _frame.ResizeLeftEdge,
+            Right: _frame.ResizeRightEdge, Bottom: _frame.ResizeBottomEdge)
+        : new EdgeGrip(Top: false, Left: false, Right: false, Bottom: false);
+
+    private static bool Finite(PointF point) => float.IsFinite(point.X) && float.IsFinite(point.Y);
+
+    private bool SetActive(bool engaged) {
+        Volatile.Write(location: ref _active, value: engaged ? 1 : 0);
+        return engaged;
+    }
+
+    private static bool Finite(RectangleF frame) =>
+        float.IsFinite(frame.X) && float.IsFinite(frame.Y) &&
+        float.IsFinite(frame.Width) && frame.Width >= 0f &&
+        float.IsFinite(frame.Height) && frame.Height >= 0f;
+}
+```
+
+## [05]-[MOMENTS]
+
+- Composition: dwell timing writes call `CanvasOperator.Apply(op: new CanvasOp.DwellCase(Delay: delay), timeline: timeline, key: op)` and consume the resulting `CanvasReceipt`; `timeline` is the caller's shared `MonotonicTimeline`, never minted here. Reads call `CanvasOperator.Read(query: new CanvasQuery.StateCase(), key: op)` and accept only `CanvasProjection.StateCase { Value: var state }` before projecting `state.DwellDelay`. Zero or negative delay preserves the host disable convention. Dwell facts remain `Shell/events.md`; tooltip content remains `Shell/chrome.md`.
+- Owner: `MenuMount` — the synchronous population seam over `PopulateContextMenu`: `Mount(Action<MenuMoment> fill, Op? key = null)` → `Fin<Lease<InteractionMount>>`. The handler runs inside the host raise because the live menu must be filled before return; the filler runs through `Op.Catch`, and any fault records on `InteractionMount.LastFault` without escaping into the host event chain.
+- Law: a filler adds items and returns — presenting, styling, and command wiring for menu items are `Eto`-tier and chrome concerns; a filler that opens its own menu beside the host's is the double-menu defect.
+- Law: whether ANY context menu opens is `Canvas/canvas.md`'s `ActionGate` rows (`WireMenu`/`ObjectMenu`/`CanvasMenu`) — the fill seam runs only when the gate admitted the raise.
+- Packages: Grasshopper2 (`FlexControl.PopulateContextMenu`, `PopulateContextMenuEventArgs.Control`/`MouseEvent`/`Menu`/`IsMenu`), Eto.Forms (`ContextMenu`, `MouseEventArgs`), LanguageExt.Core, `Rasm.Domain`, `Shell/session.md` (`GhSession`, `ScopeTarget`), `Canvas/canvas.md` (`CanvasOp.DwellCase`, `CanvasQuery.StateCase`, `CanvasProjection.StateCase`, `CanvasState.DwellDelay`, `CanvasReceipt`).
+- Growth: a new synchronous host moment (a populate-shaped event whose args demand in-raise mutation) is one moment record plus one mount; observation-shaped events stay `Shell/events.md` rows.
+
+```csharp signature
+// --- [RUNTIME_PRELUDE] ----------------------------------------------------------------------
+using Rasm.Csp;
+using Rasm.Grasshopper.Eto;
+using Rasm.Grasshopper.Shell;
+
+namespace Rasm.Grasshopper.Canvas;
+
+// --- [MODELS] -------------------------------------------------------------------------------
+[BoundaryAdapter, StructLayout(LayoutKind.Auto)]
+public readonly record struct MenuMoment(IFlexControl Surface, MouseEventArgs Cause, ContextMenu Menu, bool IsMenu) : IValidityEvidence {
+    public bool IsValid => ValidityClaim.Of(holds: Surface is not null && Cause is not null && Menu is not null);
 }
 
 // --- [OPERATIONS] ---------------------------------------------------------------------------
 [BoundaryAdapter]
-public static class DwellPolicy {
-    public static Fin<Unit> Attend(TimeSpan delay, Op? key = null) {
-        Op op = key.OrDefault();
-        return GhSession.Run(ScopeTarget.CanvasHost, scope => scope.Canvas
-            .ToFin(op.MissingContext())
-            .Bind(surface => op.Catch(body: () => Fin.Succ(Op.Side(action: () => surface.MouseDwellDelay = delay)))), key: op);
-    }
-
-    public static Fin<TimeSpan> Current(Op? key = null) {
-        Op op = key.OrDefault();
-        return GhSession.Run(ScopeTarget.CanvasHost, scope => scope.Canvas
-            .ToFin(op.MissingContext())
-            .Map(static surface => surface.MouseDwellDelay), key: op);
-    }
-}
-
-[BoundaryAdapter]
 public static class MenuMount {
-    public static Fin<Lease<MomentHook>> Mount(Action<MenuMoment> fill, Op? key = null) {
+    public static Fin<Lease<InteractionMount>> Mount(Action<MenuMoment> fill, Op? key = null) {
         Op op = key.OrDefault();
         return from valid in op.Need(value: fill)
-               from lease in GhSession.Run(ScopeTarget.CanvasHost, scope => scope.Canvas
-                   .ToFin(op.MissingContext())
-                   .Bind(surface => op.Catch(body: () => {
+               from lease in GhSession.Run(ScopeTarget.CanvasHost, scope =>
+                   scope.Canvas.ToFin(op.MissingContext()).Bind(surface => op.Catch(body: () => {
+                       Atom<Option<Error>> faults = Atom(Option<Error>.None);
                        EventHandler<PopulateContextMenuEventArgs> handler = (_, e) =>
-                           valid(new MenuMoment(Surface: e.Control, Cause: e.MouseEvent, Menu: e.Menu, IsMenu: e.IsMenu));
-                       surface.PopulateContextMenu += handler;
-                       return Fin.Succ((Lease<MomentHook>)new Lease<MomentHook>.Owned(
-                           Value: new MomentHook(Detach: () => surface.PopulateContextMenu -= handler)));
+                           op.Catch(body: () => op.AcceptInput(value: new MenuMoment(
+                                   Surface: e.Control,
+                                   Cause: e.MouseEvent,
+                                   Menu: e.Menu,
+                                   IsMenu: e.IsMenu))
+                               .Map(moment => Op.Side(action: () => valid(obj: moment))))
+                           .IfFail(error => ignore(faults.Swap(_ => Some(error))));
+                       Fin<Unit> attached = op.Catch(body: () => Fin.Succ(Op.Side(action: () => surface.PopulateContextMenu += handler)));
+                       return attached.Map(_ => {
+                           Func<Fin<Unit>> release = () => EtoDispatch.Run(
+                               body: () => op.Catch(body: () => Fin.Succ(Op.Side(action: () => surface.PopulateContextMenu -= handler))),
+                               key: op);
+                           InteractionMount mount = new(
+                               target: Option<IResponsive>.None,
+                               priorFocus: Option<IResponsive>.None,
+                               faults: faults,
+                               operation: op,
+                               release: release);
+                           return (Lease<InteractionMount>)new Lease<InteractionMount>.Owned(Value: mount);
+                       });
                    })), key: op)
                select lease;
     }
 }
 ```
 
-```mermaid
+```mermaid codemap
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: >-
+    .nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}
+    .edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}
+    .edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}
+    .node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}
+    .marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}
+    .edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}
+---
 flowchart LR
-    Consumer["interaction consumers"] -->|ResponderSpec slots| MountGate["Dispatch.Mount → Fin&lt;Lease&lt;ResponsiveHandle&gt;&gt;"]
-    MountGate -->|SpecResponder : Responses| Host["IFlexControl responsive registry"]
-    Consumer -->|"exclusive capture"| HoldGate["Dispatch.Hold → Fin&lt;Lease&lt;FocusToken&gt;&gt;"]
-    HoldGate -->|PushFocus / PopFocus pairing| Host
-    Drag["DragSession over ObjectDragInteraction"] -->|"lens.Flex"| CanvasPage["Canvas/canvas CanvasOperator.Read"]
-    Resize["EdgeResize over ResizingFrame"] -->|snap tail| LayoutPage["Canvas/layout SnapField rows"]
-    Menu["MenuMount synchronous fill"] -->|PopulateContextMenu raise| Host
-    Facts["Shell/events UiSource canvas rows"] -.->|dwell / selection facts| Consumer
+    accTitle: Canvas interaction ownership flow
+    accDescr: Canvas interactions acquire host state through the session gate, retain owned capsules, and project dwell state as a detached value.
+    Consumer["Interaction consumers"] -->|ResponderSpec| Dispatch["Dispatch mount or hold"]
+    Consumer -->|Document and anchor| Drag["Owned DragSession"]
+    Consumer -->|frame and bounds| Resize["EdgeResize capsule"]
+    Consumer -->|synchronous filler| Menu["MenuMount"]
+    Drag -->|acquire canvas| Session["GhSession CanvasHost"]
+    Resize -->|acquire canvas| Session
+    Menu -->|acquire canvas| Session
+    Session --> Host[("GH2 Canvas")]
+    Drag -->|focus acquisition| Dispatch
+    Dispatch -->|owned registration or focus| Mount["InteractionMount lease"]
+    Menu -->|owned subscription| Mount
+    Mount -->|"dispose: pop · unregister · detach"| Host
+    Consumer -->|DwellCase| Apply["CanvasOperator.Apply"]
+    Timeline["Shared monotonic timeline"] -->|entry and settlement| Apply
+    Apply -->|dwell mutation| Host
+    Consumer -->|StateCase| Read["CanvasOperator.Read"]
+    Read --> Projection["CanvasProjection.StateCase"]
+    Projection --> Dwell["Detached DwellDelay"]
+    linkStyle 4,5,6,7 stroke:#8BE9FD,stroke-width:2px,color:#F8F8F2
+    linkStyle 8,9,10,11 stroke:#50FA7B,stroke-width:2px,color:#F8F8F2
+    linkStyle 12,13,14 stroke:#FFD866,stroke-width:2px,color:#F8F8F2
+    linkStyle 15,16,17 stroke:#BD93F9,stroke-width:2px,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef external fill:#8BE9FD66,stroke:#8BE9FD,color:#F8F8F2
+    classDef success fill:#50FA7B66,stroke:#50FA7B,color:#F8F8F2
+    classDef payload fill:#FFD86654,stroke:#FFD866,color:#F8F8F2
+    class Consumer boundary
+    class Dispatch,Drag,Resize,Menu,Apply,Read primary
+    class Timeline data
+    class Session,Host external
+    class Mount success
+    class Projection,Dwell payload
 ```
 
 ## [06]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]            | [OWNER]                          | [KIND]                                              | [RAIL]                                     | [CASES] |
-| :-----: | :------------------- | :------------------------------- | :--------------------------------------------------- | :------------------------------------------ | :-----: |
-|  [01]   | dispatch verdict     | `Verdict` + `PointerFact`        | `[SmartEnum<int>]` precedence rows + dual-frame fact | `Fold` monoid, seam projections             |    4    |
-|  [02]   | responder declaration| `ResponderSpec` + `SpecResponder`| Optioned-slot record + one host adapter              | `Mount → Fin<Lease<ResponsiveHandle>>`      |   14    |
-|  [03]   | focus capture        | `FocusToken`                     | push/pop pairing lease                               | `Hold → Fin<Lease<FocusToken>>`             |    1    |
-|  [04]   | object drag          | `DragSession` + `DragEvidence`   | host-interaction capsule + evidence receipt          | `Begin → Fin<DragSession>`                  |    1    |
-|  [05]   | edge resize          | `EdgeResize` + `EdgeGrip`        | full-depth `ResizingFrame` capsule                   | `Of → Fin<EdgeResize>`                      |    1    |
-|  [06]   | dwell and menu       | `DwellPolicy` + `MenuMount`      | timing policy + synchronous population seam          | `Mount → Fin<Lease<MomentHook>>`            |    2    |
+| [INDEX] | [CONCERN]       | [OWNER]                           | [GROWTH]                                |
+| :-----: | :-------------- | :-------------------------------- | :-------------------------------------- |
+|  [01]   | verdicts        | `Verdict` + `PointerFact`         | one host-precedence row                 |
+|  [02]   | responders      | `ResponderSpec` + `SpecResponder` | one contained slot and adapter override |
+|  [03]   | lifecycle       | `InteractionMount`                | one release closure over a host pairing |
+|  [04]   | object drag     | `DragSession` + `DragEvidence`    | one owned host interaction capsule      |
+|  [05]   | edge resize     | `EdgeResize` + `EdgeGrip`         | one admitted host gesture capsule       |
+|  [06]   | context moments | `MenuMount`                       | one synchronous contained attachment    |
 
-`GhSession`, `EtoDispatch`, `CanvasOperator`, `Lease<T>`, `Op`, `ValidityClaim`, and the host `Responses` virtual family are composed upstream owners. The census `CanvasChromeOp` parallel chrome families, the `Grasshopper2.UI.Canvas`-namespace focus/registration spellings, the ungated AppKit gesture and pressure paths, and the `Tooltip.Layout` reflection have no successor shape here — chrome intent landed in `Shell/chrome.md`, native seams in `Platform/native.md`, and the canvas rows land as the spec, capsules, and moments above.
+`EtoDispatch`, `CanvasOperator`, `Lease<T>`, `Op`, `ValidityClaim`, and the host `Responses` virtual family are composed upstream owners. Parallel chrome families, false Canvas-namespace focus spellings, ungated native paths, parallel dwell mutation, and tooltip reflection have no successor shape here.

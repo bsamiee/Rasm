@@ -16,15 +16,21 @@
       },
       "Meziantou.Analyzer": {
         "type": "Direct",
-        "requested": "[3.0.115, )",
-        "resolved": "3.0.115",
-        "contentHash": "HXp8maNxVdqsZWHjZmpoDdvecmxgEkY1juAFPyKI4edN+PhLBinnCov7UkVmYFgdlGRo8BDmY6ZzE4RkJee19A=="
+        "requested": "[3.0.121, )",
+        "resolved": "3.0.121",
+        "contentHash": "PKNTmwMdzM0YJ7tAvwzWmlgWhtm8ZOma2eNUqchkbmvWwqC8QXoOzNPKwNHZBtPJpehYb7qu9q/182qg4Fmclw=="
       },
       "Microsoft.VisualStudio.Threading.Analyzers": {
         "type": "Direct",
         "requested": "[18.7.23, )",
         "resolved": "18.7.23",
         "contentHash": "dyj6z8m+LFjpeH69hdnciCcRCmD0YgMlvuQEywiEshjqj/blgQ+PuWX8Vd5gkWQFoBN4e+TFxx6DvGNSv/gIKg=="
+      },
+      "QuikGraph": {
+        "type": "Direct",
+        "requested": "[2.5.0, )",
+        "resolved": "2.5.0",
+        "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
       },
       "System.Drawing.Common": {
         "type": "Direct",
@@ -89,7 +95,8 @@
           "System.IO.Hashing": "[10.0.9, )",
           "System.Numerics.Tensors": "[10.0.9, )",
           "TYoshimura.DoubleDouble": "[5.0.8, )",
-          "Thinktecture.Runtime.Extensions": "[10.4.0, )"
+          "Thinktecture.Runtime.Extensions": "[10.4.0, )",
+          "Wacton.Unicolour": "[8.0.0, )"
         }
       },
       "CommunityToolkit.HighPerformance": {
@@ -128,12 +135,6 @@
         "resolved": "1.8.2",
         "contentHash": "d+A5KLoWbwOTpvubPaGXLgCzANE00jXmsT+yneHwLe2OlobBBFLaIHyoDwmekuHM17z9hU++RF6mL+zZ2x69nA=="
       },
-      "QuikGraph": {
-        "type": "CentralTransitive",
-        "requested": "[2.5.0, )",
-        "resolved": "2.5.0",
-        "contentHash": "sG+mrPpXwxlXknRK5VqWUGiOmDACa9X+3ftlkQIMgOZUqxVOQSe0+HIU9PTjwqazy0pqSf8MPDXYFGl0GYWcKw=="
-      },
       "Supercluster.KDTree.Net": {
         "type": "CentralTransitive",
         "requested": "[1.0.22, )",
@@ -157,6 +158,12 @@
         "requested": "[5.0.8, )",
         "resolved": "5.0.8",
         "contentHash": "uv/osrv2ZwBdgij6HvOBmojPnnuZ0nNwGPZVFOO9aKlV6/IHl3TOsP4a7XRlS8SUIPUUKqhynG5HQTeaNh8WVA=="
+      },
+      "Wacton.Unicolour": {
+        "type": "CentralTransitive",
+        "requested": "[8.0.0, )",
+        "resolved": "8.0.0",
+        "contentHash": "BOTEJsSzwVGM4ovknAtOwY0SlfHQ2C4rjEhVPX6JeshVYzxr3iJiDHH4e+jX0iSujgqHuByOudIrXiHMgQabWA=="
       }
     },
     "net10.0/osx-arm64": {

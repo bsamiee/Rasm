@@ -25,15 +25,15 @@ member. ABI: net10.0 BCL inbox-shaped NuGet, MIT, no native dependency.
 [HASH_TYPES]: hashing surfaces
 - rail: snapshot-identity
 
-| [INDEX] | [SYMBOL] | [PACKAGE_ROLE] | [CAPABILITY] |
-|:-----: |:------------------------------ |:----------------- |:----------------------------------------------------------------- |
-| [01] | `NonCryptographicHashAlgorithm` | accumulator base | abstract incremental lifecycle; `Append`/`AppendAsync` ingest; `Try*`/span reads (NOT a `Stream`) |
-| [02] | `XxHash3` | hash algorithm | 64-bit; default fast root; seeded ctor + `GetCurrentHashAsUInt64` |
-| [03] | `XxHash64` | hash algorithm | 64-bit; `long` seed; `GetCurrentHashAsUInt64` |
-| [04] | `XxHash32` | hash algorithm | 32-bit; `int` seed; `GetCurrentHashAsUInt32` |
-| [05] | `XxHash128` | hash algorithm | 128-bit; `Low64`/`High64` fields; `GetCurrentHashAsUInt128` |
-| [06] | `Crc32` | checksum algorithm | 32-bit checksum; `GetCurrentHashAsUInt32` |
-| [07] | `Crc64` | checksum algorithm | 64-bit checksum; `GetCurrentHashAsUInt64` |
+| [INDEX] | [SYMBOL]                        | [PACKAGE_ROLE]     | [CAPABILITY]                                                                                      |
+| :-----: | :------------------------------ | :----------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `NonCryptographicHashAlgorithm` | accumulator base   | abstract incremental lifecycle; `Append`/`AppendAsync` ingest; `Try*`/span reads (NOT a `Stream`) |
+|  [02]   | `XxHash3`                       | hash algorithm     | 64-bit; default fast root; seeded ctor + `GetCurrentHashAsUInt64`                                 |
+|  [03]   | `XxHash64`                      | hash algorithm     | 64-bit; `long` seed; `GetCurrentHashAsUInt64`                                                     |
+|  [04]   | `XxHash32`                      | hash algorithm     | 32-bit; `int` seed; `GetCurrentHashAsUInt32`                                                      |
+|  [05]   | `XxHash128`                     | hash algorithm     | 128-bit; `Low64`/`High64` fields; `GetCurrentHashAsUInt128`                                       |
+|  [06]   | `Crc32`                         | checksum algorithm | 32-bit checksum; `GetCurrentHashAsUInt32`                                                         |
+|  [07]   | `Crc64`                         | checksum algorithm | 64-bit checksum; `GetCurrentHashAsUInt64`                                                         |
 
 ## [03]-[ENTRYPOINTS]
 
@@ -42,32 +42,32 @@ member. ABI: net10.0 BCL inbox-shaped NuGet, MIT, no native dependency.
 
 Width-typed statics live on the concrete algorithm, never on the base; each algorithm exposes only its own width. `XxHash3` exposes `HashToUInt64` (no `HashToUInt32`); `XxHash128` exposes `HashToUInt128`; CRCs expose no 128-bit form. The `seed` overload is `int` on `XxHash32`, `long` elsewhere; CRCs are unseeded.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:------------------------------------------------------------- |:------------- |:-------------------------------------------- |
-| [01] | `XxHashNN.Hash(ReadOnlySpan<byte> source, seed = 0)` | static `byte[]` | one-shot digest bytes from a span |
-| [02] | `XxHash3.HashToUInt64(ReadOnlySpan<byte>, long seed = 0)` | static `ulong` | one-shot 64-bit value, zero allocation |
-| [03] | `XxHash128.HashToUInt128(ReadOnlySpan<byte>, long seed = 0)` | static `UInt128` | one-shot 128-bit value |
-| [04] | `XxHash32.HashToUInt32(ReadOnlySpan<byte>, int seed = 0)` | static `uint` | one-shot 32-bit value |
-| [05] | `Crc32.HashToUInt32(ReadOnlySpan<byte>)` / `Crc64.HashToUInt64` | static value | one-shot checksum value |
-| [06] | `TryHash(ReadOnlySpan<byte>, Span<byte>, out int, seed = 0)` | static `bool` | digest into caller buffer; `false` if too short |
-| [07] | `Hash(ReadOnlySpan<byte>, Span<byte>, seed = 0)` | static `int` | digest into caller buffer; returns bytes written |
+| [INDEX] | [SURFACE]                                                       | [CALL_SHAPE]     | [CAPABILITY]                                     |
+| :-----: | :-------------------------------------------------------------- | :--------------- | :----------------------------------------------- |
+|  [01]   | `XxHashNN.Hash(ReadOnlySpan<byte> source, seed = 0)`            | static `byte[]`  | one-shot digest bytes from a span                |
+|  [02]   | `XxHash3.HashToUInt64(ReadOnlySpan<byte>, long seed = 0)`       | static `ulong`   | one-shot 64-bit value, zero allocation           |
+|  [03]   | `XxHash128.HashToUInt128(ReadOnlySpan<byte>, long seed = 0)`    | static `UInt128` | one-shot 128-bit value                           |
+|  [04]   | `XxHash32.HashToUInt32(ReadOnlySpan<byte>, int seed = 0)`       | static `uint`    | one-shot 32-bit value                            |
+|  [05]   | `Crc32.HashToUInt32(ReadOnlySpan<byte>)` / `Crc64.HashToUInt64` | static value     | one-shot checksum value                          |
+|  [06]   | `TryHash(ReadOnlySpan<byte>, Span<byte>, out int, seed = 0)`    | static `bool`    | digest into caller buffer; `false` if too short  |
+|  [07]   | `Hash(ReadOnlySpan<byte>, Span<byte>, seed = 0)`                | static `int`     | digest into caller buffer; returns bytes written |
 
 [ENTRYPOINT_SCOPE]: incremental lifecycle (`NonCryptographicHashAlgorithm`)
 - rail: snapshot-identity
 
 `Append` accepts span, `byte[]`, or `Stream`; the no-alloc value read is the per-type `GetCurrentHashAsUIntNN`, not a base-level `HashToUIntNN`. `Clone()` (concrete) snapshots running state to fork an independent continuation.
 
-| [INDEX] | [SURFACE] | [CALL_SHAPE] | [CAPABILITY] |
-|:-----: |:---------------------------------------------------------- |:------------- |:---------------------------------------------- |
-| [01] | `Append(ReadOnlySpan<byte>)` / `Append(byte[])` | instance `void` | feed payload chunk into running state |
-| [02] | `Append(Stream)` | instance `void` | drain a stream synchronously into the hash |
-| [03] | `AppendAsync(Stream, CancellationToken)` | instance `Task` | drain a stream asynchronously |
-| [04] | `GetCurrentHashAsUIntNN()` | instance value | read current digest as `uint`/`ulong`/`UInt128` |
-| [05] | `GetCurrentHash()` / `GetCurrentHash(Span<byte>)` | instance bytes | digest without resetting state |
-| [06] | `TryGetCurrentHash(Span<byte>, out int)` | instance `bool` | no-alloc current digest into caller buffer |
-| [07] | `GetHashAndReset()` / `TryGetHashAndReset(Span<byte>, out)` | instance | finalize, emit digest, reset for reuse |
-| [08] | `Reset()` | instance `void` | clear state for a fresh accumulation |
-| [09] | `Clone()` | instance self | fork independent algorithm at current state |
+| [INDEX] | [SURFACE]                                                   | [CALL_SHAPE]    | [CAPABILITY]                                    |
+| :-----: | :---------------------------------------------------------- | :-------------- | :---------------------------------------------- |
+|  [01]   | `Append(ReadOnlySpan<byte>)` / `Append(byte[])`             | instance `void` | feed payload chunk into running state           |
+|  [02]   | `Append(Stream)`                                            | instance `void` | drain a stream synchronously into the hash      |
+|  [03]   | `AppendAsync(Stream, CancellationToken)`                    | instance `Task` | drain a stream asynchronously                   |
+|  [04]   | `GetCurrentHashAsUIntNN()`                                  | instance value  | read current digest as `uint`/`ulong`/`UInt128` |
+|  [05]   | `GetCurrentHash()` / `GetCurrentHash(Span<byte>)`           | instance bytes  | digest without resetting state                  |
+|  [06]   | `TryGetCurrentHash(Span<byte>, out int)`                    | instance `bool` | no-alloc current digest into caller buffer      |
+|  [07]   | `GetHashAndReset()` / `TryGetHashAndReset(Span<byte>, out)` | instance        | finalize, emit digest, reset for reuse          |
+|  [08]   | `Reset()`                                                   | instance `void` | clear state for a fresh accumulation            |
+|  [09]   | `Clone()`                                                   | instance self   | fork independent algorithm at current state     |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

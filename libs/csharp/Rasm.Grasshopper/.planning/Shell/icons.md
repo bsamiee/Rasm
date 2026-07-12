@@ -1,6 +1,6 @@
 # [RASM_GRASSHOPPER_SHELL_ICONS]
 
-The stateful vector-icon owner of the Grasshopper boundary — one admission gate over the five GH2 icon origins (`AbstractIcon.FromResource`/`FromFile`/`FromStream`/`FromBitmap`, and `AbstractIcon.FromCode` with `CodeDiagnostic` capture), one pose machine over the keyed-state surface (`States`/`FindState`/`SetState`/`MoveState`), one filter-chain fold over `IconContext`, one render gate over `Draw`/`DrawToBitmap`, and one frozen `IconCatalog` so every future plugin declares its icon inventory as rows and never re-derives icon plumbing. The census carried no icon owner at all — icons appeared only as opaque `IIcon` arguments threaded through chrome calls — so this page closes the consumer gap at catalog depth: minting is admission with typed diagnostics, a compile failure is a `Fault` carrying every `CodeDiagnostic`, pose animation carries the host `Duration`/`Motion` vocabulary as boundary data, and rasterization returns owned bitmaps whose recency rides `Shell/session.md`'s `SessionCache`. Perceptual tint math for filter and state colour composes the kernel `PerceptualBlend` rows — an in-folder colour lerp beside them is the second-derivation defect the kernel-unification law forecloses; the host `MoveState` easing stays the host's applicator and is never re-implemented.
+The stateful vector-icon owner of the Grasshopper boundary — one admission gate over the five GH2 icon origins (`AbstractIcon.FromResource`/`FromFile`/`FromStream`/`FromBitmap`, and `AbstractIcon.FromCode` with `CodeDiagnostic` capture), one pose machine over the keyed-state surface (`States`/`FindState`/`SetState`/`MoveState`), one filter-chain fold over `IconContext`, one render gate over `Draw`/`DrawToBitmap`, and one frozen `IconCatalog` so every future plugin declares its icon inventory as rows and never re-derives icon plumbing. The census carried no icon owner at all — icons appeared only as opaque `IIcon` arguments threaded through chrome calls — so this page closes the consumer gap at catalog depth: minting is admission with typed diagnostics, a compile failure is a `Fault` carrying every `CodeDiagnostic`, pose animation carries the host `Duration`/`Motion` vocabulary as boundary data, and rasterization returns owned bitmaps whose recency rides `Shell/session.md`'s `SessionCache`. Perceptual tint math for filter and state colour composes the kernel `PerceptualColor`/`BlendPath` owner — an in-folder colour lerp beside it is the second-derivation defect the kernel-unification law forecloses; the host `MoveState` easing stays the host's applicator and is never re-implemented.
 
 ## [01]-[INDEX]
 
@@ -32,8 +32,8 @@ The stateful vector-icon owner of the Grasshopper boundary — one admission gat
 - Owner: `PoseShift` `[Union]` — the keyed-pose machine's verb family: `JumpCase(double Value, Option<string> State)` (`IIcon.SetState(double, string = null)` — the immediate pose write, `None` addressing the host's default state), `GlideCase(double Value, Option<string> State, Option<Duration> Span, Option<Motion> Curve)` (`IIcon.MoveState(double, string = null, Duration? = null, Motion? = null)` — the host-animated transition, each `None` deferring to the host default). The pose double is the state VALUE per the host contract; the host `Duration`/`Motion` enums cross as case data — they are the host applicator's vocabulary, and the kernel `Easing` rows own any Rasm-side sampling of the same transition (a pre-rendered pose sequence, a synchronized chrome tween), so the two vocabularies meet only where a consumer maps a kernel-planned motion onto the nearest host row.
 - Owner: `IconFilter` `[Union]` — the draw-context filter chain over the full derivation surface: `DisabledCase` (`IconContext.WithDisabledFilter`), `GreyscaleCase` (`WithGreyscaleFilter`), `FadingCase(Color Tint, float Strength)` (`WithFadingFilter(Color, float)`), `PaletteCase(IconPalette Palette)` (`WithPalette`), `CustomCase(Func<Color, Color> Map)` (`WithFilter` — the open per-colour projection every bespoke tint composes). A chain is a `Seq<IconFilter>` folded left onto a seed context — filter order is sequence order, stated by the data.
 - Law: `IIcon.States` enumerates `IconState` rows and `FindState(string)` resolves one or null — a named pose verb gates through `FindState` so an unknown state key is `Fault.InvalidResult` before the host sees it, and a `None` state skips the gate because the default state always exists.
-- Law: a `FadingCase` tint that blends two theme colours computes through `PerceptualBlend.Mix` on `Unicolour` values with the `Eto.Drawing.Color` projection at this boundary — the kernel row owns the interpolation space and an HSL/RGB lerp beside it is the deleted form.
-- Packages: Grasshopper2 (`IIcon`, `IconState`, `IconContext`, `IconPalette`, `Duration`, `Motion`), Eto (`Color`), `Rasm.Parametric` (`PerceptualBlend`), `Rasm.Domain`.
+- Law: a `FadingCase` tint that blends two theme colours computes through the kernel `PerceptualColor.Mix` over a `BlendPath` row with the `Eto.Drawing.Color` projection at this boundary — the kernel row owns the interpolation space and an HSL/RGB lerp beside it is the deleted form.
+- Packages: Grasshopper2 (`IIcon`, `IconState`, `IconContext`, `IconPalette`, `Duration`, `Motion`), Eto (`Color`), `Rasm.Numerics` (`PerceptualColor`, `BlendPath`), `Rasm.Domain`.
 - Growth: a new pose verb is one `PoseShift` case; a new host filter is one `IconFilter` case with the fold arm breaking loudly.
 
 ## [05]-[RENDER]
@@ -195,7 +195,32 @@ public static class IconOwner {
 ```
 
 ```mermaid
+---
+config:
+  theme: base
+  look: classic
+  layout: elk
+  flowchart:
+    curve: linear
+    padding: 25
+  themeVariables:
+    darkMode: true
+    fontFamily: "SF Mono, Menlo, Cascadia Mono, Segoe UI Mono, Consolas, monospace"
+    useGradient: false
+    dropShadow: "none"
+    background: "#282A36"
+    primaryColor: "#44475A"
+    primaryTextColor: "#F8F8F2"
+    primaryBorderColor: "#BD93F9"
+    lineColor: "#FF79C6"
+    textColor: "#F8F8F2"
+    edgeLabelBackground: "#21222C"
+    labelBackgroundColor: "#21222C"
+  themeCSS: ".nodeLabel{font-size:13px;font-weight:500}.edgeLabel{font-size:12px;font-weight:500}.cluster-label .nodeLabel{font-size:13.5px;font-weight:700;letter-spacing:.08em}.edge-thickness-normal{stroke-width:2px}.edge-thickness-thick{stroke-width:3px}.edge-pattern-dashed,.edge-pattern-dotted{stroke-width:1.5px;stroke-dasharray:4 6}.node rect,.node circle,.node polygon,.node path,.node .outer-path{stroke-width:1.5px;filter:none!important}.cluster rect{stroke-width:1px!important;stroke-dasharray:5 4!important;filter:none!important}.marker path{transform:scale(.8);transform-origin:5px 5px}.marker circle{transform:scale(.48);transform-origin:5px 5px}.edgeLabel rect{transform-box:fill-box;transform-origin:center;transform:scale(1.1,1.2)}"
+---
 flowchart LR
+    accTitle: Admit, own, and render Grasshopper icons
+    accDescr: Plugin icon rows freeze through one mint gate into a catalog; consumers resolve, pose, filter, and render admitted handles while raster products enter the session cache and perceptual colour policy feeds the filter rail.
     Plugin["plugin icon inventory"] -->|"(key, IconSource) rows"| Freeze["IconCatalog.Freeze → Fin&lt;IconCatalog&gt;"]
     Freeze -->|total mint at freeze| MintGate["IconOwner.Mint → Fin&lt;IconHandle&gt;"]
     MintGate -->|"FromResource · FromFile · FromStream · FromBitmap · FromCode + CodeDiagnostic"| Host["Grasshopper2 AbstractIcon"]
@@ -206,17 +231,27 @@ flowchart LR
     Consumer -->|IconRender cases| RenderGate["IconOwner.Render → Fin&lt;Option&lt;Bitmap&gt;&gt;"]
     RenderGate -->|"Draw · DrawToBitmap"| Host
     RenderGate -->|raster recency| Cache["Shell/session SessionCache"]
-    Kernel["kernel PerceptualBlend rows"] -->|filter tint math| Filter
+    Kernel["kernel PerceptualColor · BlendPath"] -->|filter tint math| Filter
+    linkStyle 1 stroke:#50FA7B,color:#F8F8F2
+    linkStyle 8 stroke:#6272A4,color:#F8F8F2
+    classDef primary fill:#44475A,stroke:#FF79C6,color:#F8F8F2
+    classDef success fill:#50FA7BBF,stroke:#50FA7B,color:#282A36
+    classDef data fill:#FFB86CBF,stroke:#FFB86C,color:#282A36
+    classDef boundary fill:#282A36,stroke:#BD93F9,color:#F8F8F2
+    class Freeze,PoseGate,Filter,RenderGate primary
+    class MintGate success
+    class Plugin,Consumer,Kernel data
+    class Host,Cache boundary
 ```
 
 ## [06]-[DENSITY_BAR]
 
-| [INDEX] | [CONCERN]         | [OWNER]                                | [KIND]                                          | [RAIL]                              | [CASES] |
-| :-----: | :---------------- | :-------------------------------------- | :--------------------------------------------------- | :------------------------------------ | :-----: |
-|  [01]   | icon admission    | `IconSource` + `IconDiagnostics` + `IconHandle` | origin `[Union]` + compile evidence + bound handle | `Mint → Fin<IconHandle>`            |    5    |
-|  [02]   | plugin inventory  | `IconCatalog`                          | frozen registry, total mint, unique keys        | `Freeze → Fin<IconCatalog>`         |    1    |
-|  [03]   | pose machine      | `PoseShift`                            | verb `[Union]` over the keyed-state surface     | `Pose → Fin<Unit>`                  |    2    |
-|  [04]   | filter chain      | `IconFilter`                           | closed `[Union]` folded onto `IconContext`      | `Filtered → IconContext`            |    5    |
-|  [05]   | render            | `IconRender`                           | modality `[Union]`, one gate                    | `Render → Fin<Option<Bitmap>>`      |    2    |
+| [INDEX] | [CONCERN]        | [OWNER]                          | [RAIL]                         |
+| :-----: | :--------------- | :------------------------------- | :----------------------------- |
+|  [01]   | icon admission   | `IconSource` + evidence + handle | `Mint → Fin<IconHandle>`       |
+|  [02]   | plugin inventory | `IconCatalog` frozen registry    | `Freeze → Fin<IconCatalog>`    |
+|  [03]   | pose machine     | `PoseShift` keyed-state union    | `Pose → Fin<Unit>`             |
+|  [04]   | filter chain     | `IconFilter` context fold        | `Filtered → IconContext`       |
+|  [05]   | render           | `IconRender` modality union      | `Render → Fin<Option<Bitmap>>` |
 
-`EtoDispatch`, `Op`, `Fault`, `ValidityClaim`, `SessionCache`, and the kernel `PerceptualBlend` rows are composed upstream owners; `Duration` and `Motion` cross as host boundary data. Every composed host member — the five `AbstractIcon` factories, the `CodeDiagnostic` surface, `IconState`, the pose verbs with their optional defaults, the `IconContext` derivation set, and `DrawToBitmap`'s `(Size, int padding, Color)` → `Bitmap` shape — is decompile-verified.
+`EtoDispatch`, `Op`, `Fault`, `ValidityClaim`, `SessionCache`, and the kernel `PerceptualColor`/`BlendPath` owner are composed upstream owners; `Duration` and `Motion` cross as host boundary data. Every composed host member — the five `AbstractIcon` factories, the `CodeDiagnostic` surface, `IconState`, the pose verbs with their optional defaults, the `IconContext` derivation set, and `DrawToBitmap`'s `(Size, int padding, Color)` → `Bitmap` shape — is decompile-verified.

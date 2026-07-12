@@ -1,6 +1,6 @@
 # [CSHARP_BRANCH_ARCHITECTURE]
 
-The branch domain map of `libs/csharp` — the strata-ordered package roster and the one project-reference graph. Each package is a genuine higher-order domain; per-package structure, owners, and seams live in each folder `ARCHITECTURE.md`.
+The branch domain map of `libs/csharp` — the strata-ordered package roster and the one project-reference graph. Each package is a genuine higher-order domain; its local architecture map owns structure, owners, and seams.
 
 Each node is a package folder; the language's `.planning/` scaffold is authoring substrate, never part of the map.
 
@@ -21,7 +21,7 @@ libs/csharp/
 └── Rasm.Grasshopper/  # [HOST_BOUNDARY] — GH2 host APIs; references only Rasm
 ```
 
-The planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY source packages: each carries durable host-bound source, `IDEAS.md`/`TASKLOG.md` card pools, and a folder `.api/` tier over its host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto), referencing only the `Rasm` kernel; index docs and design pages are planning-folder artifacts the HOST-BOUNDARY roots do not carry.
+The planning-scoped packages carry a `.planning/` scaffold with the four index docs and design pages; `Rasm.Element` is the lowest-AEC element seam the AEC peers and the app-platform stores depend up on. `Rasm.Rhino` and `Rasm.Grasshopper` are HOST-BOUNDARY planning packages of the same shape: each carries the four index docs, design pages under one `.planning/`, and a folder `.api/` tier over its host assemblies (RhinoCommon + Eto; Grasshopper2 + Eto), referencing only the `Rasm` kernel.
 
 ## [02]-[SEAMS]
 

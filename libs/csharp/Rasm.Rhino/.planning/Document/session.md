@@ -231,7 +231,7 @@ public sealed partial class SessionNeed {
 - Law: `Demand<TResult>` is the capability surface. It validates a nonempty unique capability set and the consumer, re-resolves `Key`, proves every granted row against one fresh snapshot, and executes the host body through `Op.Catch`; its result constraint excludes a raw `RhinoDoc` from the result rail.
 - Law: `Context()` re-enters `Context.Of(RhinoDoc)` on every call, so model-unit and tolerance changes cannot stale the context consumed by later geometry work.
 - Boundary: `Lock` plus deferred reentrant disposal serializes handle resolution, evidence, callbacks, and owned cleanup. Live acquisition and demand enter the Rhino UI thread through `InvokeRequired` and `InvokeAndWait`; headless work remains on the caller thread.
-- Boundary: the document handle remains host material inside the demand callback. A consumer returns an `IDetachedDocumentResult` and never captures or stores the handle.
+- Boundary: `IDetachedDocumentResult` marks the admitted result census: detached facts and explicit lifetime capsules. `Demand` forbids a raw `RhinoDoc`, and each capsule owns every live handle it carries beyond the callback.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -591,12 +591,12 @@ public sealed class DocumentSession : IDisposable {
 
 ## [05]-[REGIME]
 
-- Owner: `DocumentSpace` carries the model/page host-member axis as read, tolerance-write, and precision-write behavior columns. `LengthUnit` is the native value for known and custom units; the closed `RegimeChange` cases expose one overloaded `Of` admission family and one mutation dispatch.
-- Entry: `session.Regime(space)` reads a validated `UnitRegime`. `session.Adjust(space, change)` captures the before regime, applies one change under the `Mutate` and `Undo` capability conjunction, proves the exact requested postcondition, and returns `RegimeReceipt`.
+- Owner: `DocumentSpace` carries the model/page host-member axis as read, tolerance-write, and precision-write behavior columns. Kernel `ModelUnit` owns unit admission and equality; the native `LengthUnit` survives only beside the host call that reads or writes it. The closed `RegimeChange` cases expose one overloaded `Of` admission family and one mutation dispatch.
+- Entry: `session.Regime(space)` reads a validated `UnitRegime`. `session.Adjust(space, change)` captures the before regime, seals one undo record around the change, proves the exact requested postcondition, and returns `RegimeReceipt` with the sealed serial.
 - Law: `UnitScaling` replaces the host `bool scale` knob with `PreserveCoordinates` and `PreservePhysicalSize`. Known, custom, and native `LengthUnit` inputs all produce the private-constructed `RegimeChange.Units` case, so `AdjustLengthUnits` is the sole unit-system mutation path.
 - Law: tolerance values compose the kernel `AbsoluteTolerance`, `RelativeTolerance`, and `AngleTolerance` owners. The page carries no independent numeric admission or radians/degrees duplication.
-- Law: unit postconditions compare the native system and meters-per-unit, then compare the custom name explicitly because `LengthUnit` equality does not include that name.
-- Boundary: the row delegates contain the property-set statement seam required by the host API. A failed write restores every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation faults accumulate and join the original fault.
+- Law: unit postconditions compare canonical `ModelUnit` evidence, including custom name and meters-per-unit scale. `UnitRegime` retains the native `LengthUnit` only for compensation.
+- Boundary: the row delegates contain the property-set statement seam required by the host API. A failed write restores every scalar without assuming a failed unit call changed geometry; a proven unit write followed by a failed postcondition reverses the unit scaling and restores every scalar. Compensation faults accumulate and join the original fault, and the shared `UndoBracket` seals or rolls back the enclosing record.
 
 ```csharp signature
 // --- [TYPES] ------------------------------------------------------------------------------
@@ -677,15 +677,18 @@ public abstract partial record RegimeChange {
     private RegimeChange() { }
 
     public sealed record Units : RegimeChange {
-        private Units(LengthUnit value, UnitScaling scaling) {
-            Value = value;
+        private Units(LengthUnit native, ModelUnit unit, UnitScaling scaling) {
+            Native = native;
+            Unit = unit;
             Scaling = scaling;
         }
 
-        public LengthUnit Value { get; }
+        internal LengthUnit Native { get; }
+        public ModelUnit Unit { get; }
         public UnitScaling Scaling { get; }
 
-        internal static Units Of(LengthUnit value, UnitScaling scaling) => new(value: value, scaling: scaling);
+        internal static Units Of(LengthUnit native, ModelUnit unit, UnitScaling scaling) =>
+            new(native: native, unit: unit, scaling: scaling);
     }
 
     public sealed record Tolerances : RegimeChange {
@@ -710,14 +713,9 @@ public abstract partial record RegimeChange {
         Op? key = null) {
         Op op = key.OrDefault();
         return from policy in Optional(scaling).ToFin(Fail: op.InvalidInput())
-               from known in system switch {
-                   UnitSystem.Unset or UnitSystem.None or UnitSystem.CustomUnits =>
-                       Fin.Fail<LengthUnit>(error: op.InvalidInput()),
-                   var value when Enum.IsDefined(value: value) =>
-                       Fin.Succ(value: LengthUnit.FromKnownUnitSystem(knownUnitSystem: value)),
-                   var unknown => Fin.Fail<LengthUnit>(error: op.InvalidResult(detail: unknown.ToString())),
-               }
-               select (RegimeChange)Units.Of(value: known, scaling: policy);
+               from admitted in ModelUnit.Of(value: system, key: op)
+               from native in op.Catch(() => Fin.Succ(value: LengthUnit.FromKnownUnitSystem(knownUnitSystem: admitted.System)))
+               select (RegimeChange)Units.Of(native: native, unit: admitted, scaling: policy);
     }
 
     public static Fin<RegimeChange> Of(
@@ -733,7 +731,8 @@ public abstract partial record RegimeChange {
                    name: label,
                    customUnitSize: scale,
                    knownUnitSystem: UnitSystem.Meters)))
-               select (RegimeChange)Units.Of(value: unitValue, scaling: policy);
+               from admitted in ModelUnit.Of(value: unitValue, key: op)
+               select (RegimeChange)Units.Of(native: unitValue, unit: admitted, scaling: policy);
     }
 
     public static Fin<RegimeChange> Of(
@@ -742,8 +741,8 @@ public abstract partial record RegimeChange {
         Op? key = null) {
         Op op = key.OrDefault();
         return from policy in Optional(scaling).ToFin(Fail: op.InvalidInput())
-               from admitted in UnitRegime.AdmitUnits(value: units, op: op)
-               select (RegimeChange)Units.Of(value: admitted, scaling: policy);
+               from admitted in ModelUnit.Of(value: units, key: op)
+               select (RegimeChange)Units.Of(native: units, unit: admitted, scaling: policy);
     }
 
     public static Fin<RegimeChange> Of(
@@ -776,7 +775,7 @@ public abstract partial record RegimeChange {
             units: static (context, change) => context.Op.Catch(() => context.Op.Confirm(
                 success: context.Document.AdjustLengthUnits(
                     modelUnits: context.Space.ModelUnits,
-                    units: change.Value,
+                    units: change.Native,
                     scale: change.Scaling.HostScale))),
             tolerances: static (context, change) => context.Op.Catch(() => Fin.Succ(
                 value: context.Space.SetTolerances(
@@ -797,9 +796,7 @@ public abstract partial record RegimeChange {
     internal bool Matches(UnitRegime actual) =>
         Switch(
             state: actual,
-            units: static (regime, change) => UnitRegime.SameUnits(
-                left: regime.Units,
-                right: change.Value),
+            units: static (regime, change) => regime.Unit == change.Unit,
             tolerances: static (regime, change) => regime.Tolerances == change.Value,
             precision: static (regime, change) => regime.Precision == change.Value);
 
@@ -863,7 +860,7 @@ public abstract partial record RegimeChange {
             Some: scaling => op.Catch(() => op.Confirm(
                 success: document.AdjustLengthUnits(
                     modelUnits: space.ModelUnits,
-                    units: before.Units,
+                    units: before.Native,
                     scale: scaling.HostScale))),
             None: () => Fin.Succ(value: unit));
         Fin<Unit> tolerances = op.Catch(() => Fin.Succ(value: space.SetTolerances(
@@ -912,15 +909,18 @@ public sealed record ToleranceRegime : IDetachedDocumentResult {
 
 public sealed record UnitRegime : IDetachedDocumentResult {
     private UnitRegime(
-        LengthUnit units,
+        LengthUnit native,
+        ModelUnit unit,
         ToleranceRegime tolerances,
         DisplayPrecision precision) {
-        Units = units;
+        Native = native;
+        Unit = unit;
         Tolerances = tolerances;
         Precision = precision;
     }
 
-    public LengthUnit Units { get; }
+    internal LengthUnit Native { get; }
+    public ModelUnit Unit { get; }
     public ToleranceRegime Tolerances { get; }
     public DisplayPrecision Precision { get; }
 
@@ -931,7 +931,7 @@ public sealed record UnitRegime : IDetachedDocumentResult {
         double angle,
         int precision,
         Op op) =>
-        from admittedUnits in AdmitUnits(value: units, op: op)
+        from admittedUnit in ModelUnit.Of(value: units, key: op)
         from admittedTolerances in ToleranceRegime.Of(
             absolute: absolute,
             relative: relative,
@@ -939,33 +939,10 @@ public sealed record UnitRegime : IDetachedDocumentResult {
             key: op)
         from admittedPrecision in op.AcceptValidated<DisplayPrecision>(candidate: precision)
         select new UnitRegime(
-            units: admittedUnits,
+            native: units,
+            unit: admittedUnit,
             tolerances: admittedTolerances,
             precision: admittedPrecision);
-
-    internal static Fin<LengthUnit> AdmitUnits(LengthUnit value, Op op) =>
-        op.Catch(() => {
-            UnitSystem system = value.ToUnitSystem(metersPerUnit: out double meters);
-            bool named = system != UnitSystem.CustomUnits || !string.IsNullOrWhiteSpace(value: value.Name);
-            return !LengthUnit.IsUnset(in value)
-                && !LengthUnit.IsNone(in value)
-                && Enum.IsDefined(value: system)
-                && system is not UnitSystem.Unset and not UnitSystem.None
-                && double.IsFinite(d: meters)
-                && meters > 0d
-                && named
-                    ? Fin.Succ(value: value)
-                    : Fin.Fail<LengthUnit>(error: op.InvalidInput());
-        });
-
-    internal static bool SameUnits(LengthUnit left, LengthUnit right) {
-        UnitSystem leftSystem = left.ToUnitSystem(metersPerUnit: out double leftMeters);
-        UnitSystem rightSystem = right.ToUnitSystem(metersPerUnit: out double rightMeters);
-        return leftSystem == rightSystem
-            && leftMeters.Equals(obj: rightMeters)
-            && (leftSystem != UnitSystem.CustomUnits
-                || string.Equals(a: left.Name, b: right.Name, comparisonType: StringComparison.Ordinal));
-    }
 }
 
 public sealed record RegimeReceipt : IDetachedDocumentResult {
@@ -973,17 +950,27 @@ public sealed record RegimeReceipt : IDetachedDocumentResult {
         DocumentSpace space,
         RegimeChange change,
         UnitRegime before,
-        UnitRegime after) {
+        UnitRegime after,
+        uint undoRecord = 0u) {
         Space = space;
         Change = change;
         Before = before;
         After = after;
+        UndoRecord = undoRecord;
     }
 
     public DocumentSpace Space { get; }
     public RegimeChange Change { get; }
     public UnitRegime Before { get; }
     public UnitRegime After { get; }
+    public uint UndoRecord { get; }
+
+    internal RegimeReceipt Stamp(uint undoRecord) => new(
+        space: Space,
+        change: Change,
+        before: Before,
+        after: After,
+        undoRecord: undoRecord);
 }
 
 // --- [OPERATIONS] -------------------------------------------------------------------------
@@ -1007,28 +994,38 @@ public static class SessionRegimes {
             return from axis in Optional(space).ToFin(Fail: op.InvalidInput())
                    from request in Optional(change).ToFin(Fail: op.InvalidInput())
                    from receipt in session.Demand(
-                       use: document =>
-                           from before in axis.Read(document: document, op: op)
-                           from applied in request.Apply(
+                       use: document => {
+                           using UndoBracket undo = UndoBracket.Begin(
                                document: document,
-                               space: axis,
-                               before: before,
-                               op: op)
-                           from after in (
-                               from observed in axis.Read(document: document, op: op)
-                               from matches in op.Catch(() => Fin.Succ(value: request.Matches(actual: observed)))
-                               from exact in guard(flag: matches, False: op.InvalidResult()).ToFin()
-                               select observed).BindFail(error => request.Rollback<UnitRegime>(
-                               document: document,
-                               space: axis,
-                               before: before,
-                               failure: error,
-                               op: op))
-                           select new RegimeReceipt(
-                               space: axis,
-                               change: request,
-                               before: before,
-                               after: after),
+                               name: nameof(Adjust),
+                               recordsUndo: true);
+                           Fin<RegimeReceipt> executed = guard(undo.Admitted, op.InvalidResult()).ToFin().Bind(_ =>
+                               from before in axis.Read(document: document, op: op)
+                               from applied in request.Apply(
+                                   document: document,
+                                   space: axis,
+                                   before: before,
+                                   op: op)
+                               from after in (
+                                   from observed in axis.Read(document: document, op: op)
+                                   from matches in op.Catch(() => Fin.Succ(value: request.Matches(actual: observed)))
+                                   from exact in guard(flag: matches, False: op.InvalidResult()).ToFin()
+                                   select observed).BindFail(error => request.Rollback<UnitRegime>(
+                                   document: document,
+                                   space: axis,
+                                   before: before,
+                                   failure: error,
+                                   op: op))
+                               select new RegimeReceipt(
+                                   space: axis,
+                                   change: request,
+                                   before: before,
+                                   after: after));
+                           return undo.Seal(
+                               outcome: executed,
+                               stamp: static (result, serial) => result.Stamp(undoRecord: serial),
+                               key: op);
+                       },
                        key: op,
                        needs: [SessionNeed.Mutate, SessionNeed.Undo])
                    select receipt;
