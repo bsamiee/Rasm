@@ -45,11 +45,13 @@ fi
 timeout_bin=""
 flock_bin=""
 forge_agents_bin=""
+jq_bin=""
 _resolve_bin timeout timeout_bin || true
 _resolve_bin flock flock_bin || true
 _resolve_bin forge-agents forge_agents_bin || true
-readonly owner_bin timeout_bin flock_bin forge_agents_bin
-[[ -n "$timeout_bin" && -n "$flock_bin" ]] || exit 0
+_resolve_bin jq jq_bin || true
+readonly owner_bin timeout_bin flock_bin forge_agents_bin jq_bin
+[[ -n "$timeout_bin" && -n "$flock_bin" && -n "$jq_bin" ]] || exit 0
 ((BASH_VERSINFO[0] >= 5)) || exit 0
 
 # Whole-body deadline: one parent wrapper re-enters the hook under timeout so no stage can hold the harness beyond 4s, while every timeout outcome
@@ -93,7 +95,7 @@ printf '%s' "$payload" >"$pf"
 
 # Payload admission before any telemetry fork: main agent only (agent_id absent) on the lifecycle roster — Notification opens WAITING, the other five
 # clear or retire the session in the collector's lifecycle fold. A dropped payload exits before ps/mkdir ever run, so subagent churn costs one jq.
-jq -e '((.agent_id // "") == "")
+"$jq_bin" -e '((.agent_id // "") == "")
   and ((.hook_event_name // "") | IN("Notification", "Stop", "UserPromptSubmit", "PostToolUse", "SessionStart", "SessionEnd"))' \
     "$pf" >/dev/null 2>&1 || exit 0
 mkdir -p "$feed_dir"
@@ -108,11 +110,11 @@ case "$tty" in "?" | "??") tty="" ;; esac
 # Message rides verbatim into the banner, alerter, and bar toast, so C0/C1 controls (newlines, ANSI escapes) fold to single spaces at
 # capture — the feed carries one-line prompt text no downstream renderer can be steered by.
 TZ=UTC0 printf -v ts '%(%Y-%m-%dT%H:%M:%SZ)T' "$EPOCHSECONDS"
-jq -c --arg ts "$ts" \
+"$jq_bin" -c --arg ts "$ts" \
     --arg term "${TERM_PROGRAM:-}" --arg wp "${WEZTERM_PANE:-}" \
     --arg zs "${ZELLIJ_SESSION_NAME:-}" --arg zp "${ZELLIJ_PANE_ID:-}" \
     --arg tty "$tty" \
-    '{ts: $ts, source: "hook", event: .hook_event_name, session_id: (.session_id // "-"), cwd: (.cwd // "-"),
+    $'{ts: $ts, source: "hook", event: .hook_event_name, session_id: (.session_id // "-"), cwd: (.cwd // "-"),
     message: ((.message // "") | tostring | gsub("[[:cntrl:]]+"; " ") | .[0:400]),
     term: $term, wezterm_pane: $wp, zellij_session: $zs, zellij_pane: $zp, tty: $tty}' \
     "$pf" >"$row" 2>/dev/null
