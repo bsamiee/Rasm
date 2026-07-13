@@ -1,31 +1,31 @@
 export const meta = {
     name: 'rebuild',
     whenToUse:
-        'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it plans, maps every .planning sub-folder with its own opus + terra lens pair, ideates per package as two lanes (corrections census + bigger-ideas worklist), then hostile-implements, critiques, and red-teams every sub-folder-aligned page batch CONCURRENTLY at each owning-language doctrine bar under the own-pass-first input ladder with libs-wide ripple authority, and a read-only finder fan plus one terminal fixer close the run.',
+        'The standing hostile rebuild pass for any libs/ planning corpus: pass targets (file / sub-folder / package root, any number, any language mix); it maps every .planning sub-folder, ideates per package, hostile-rebuilds every page batch concurrently at the owning-language doctrine bar, and closes with a finder fan plus one terminal fixer.',
     description:
-        'Language-agnostic rebuild engine over libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets}; empty = no-op; targets may MIX languages — each batch derives its doctrine, both .api tiers, casing, and member-verification rail from its own owning package. Plan (1 opus) expands targets to pages in dependency order under the owning-package charter, seam-cohesive pages adjacent. Map runs ONCE per SUB-FOLDER UNIT (<pkg>/.planning/<sub>; root-level pages pool as one unit): an OPUS deep-map lane (architecture, ownership boundaries per page, seams, cross-folder relationships, domain gaps, underutilized capability — INFORMATION anchored to disk, never code) beside a gpt-5.6-terra two-tier .api inventory lane (codex wrapper, verified member + stacking inventory), each writing a per-unit dossier every batch touching that unit reuses — package-level mapping dilutes depth on a large package and is the rejected form. Ideate runs per owning package as TWO lanes with disjoint charters: a CORRECTIONS CENSUS (opus — drift, phantoms, spelling repairs, wire mismatches, wiring gaps, per sub-folder, deduped and disk-verified; the non-binding fix addendum) and a BIGGER-IDEAS worklist (fable — NEW capabilities, dimensions, modalities, families the domain admits beyond correction, under a value bar that routes correction-shaped entries back to the census; ambition, never prescriptions or a ceiling). Build packs WHOLE sub-folder units into batches up to the packing ceiling (oversize units split) so batch ownership aligns with the map dossiers, ALL batches concurrent under one agent-level slot scheduler capped at the runtime concurrency clamp: per batch ONE page-scoped gpt-5.6-terra doctrine-bar quality lens (codex wrapper; product to disk, receipt on the wire; CODEX flag false restores native lanes) then implement (fable), critique (ONE gpt-5.6-sol codex lane per batch, workspace-write, full conformance audit in place with its fixlog to disk), and redteam (fable, terminal — reading the critique fixlog from disk as refutation targets and FOLDING its surviving deferred/index/seam rows into the batch record) chained behind their own batch only. Every batch writer works the OWN-PASS-FIRST input ladder: (1) its own blind hostile pass — cold defect list, collapses, naivety kills, body rebuilds derived from disk BEFORE any recon opens, the majority of the diff by mandate (a diff mapping one-to-one onto recon rows fails the tripwire); (2) the unit map dossiers as grounding to verify and exceed; (3) the corrections census rows intersecting its pages as an addendum; (4) the bigger-ideas entries its pages own, realized at the strongest form disk admits. Handoffs between chain stages carry NAVIGATION FACTS ONLY (files, symbol deltas, seam rows, deferred backlog) — never self-assessment; reviewers derive their own defect list from disk first and receive prior claims strictly as refutation targets. Cross-batch coordination runs through per-batch seam-ledger files in scratch. Every writer holds LIBS-WIDE ripple authority under four non-arbitrary bounds: evidence (anchored ripples only), expand-form (concurrent foreign edits additive; collapse serializes to the fixer), depth (first-order fixed both ends now; second-order recorded to the backlog), and decision/propagation (index docs + central manifests + IDEAS rows single-writer via the terminal fixer; ruled-contract propagation distributed). Close: read-only finder fan per language on gpt-5.6-terra (landed pages + seam-ledger verification + cross-page duplication/collapse + split-brain smoothing + one governance finder per language), typed anchored findings graded substantive|hypothetical written as on-disk reports with thin receipts, stale findings discarded; ONE terminal fable fixer reads every ok report IN FULL from disk (failed-finder territory cold-read first), applies every index row, re-verifies findings as signals, drains the deferred backlog AND the unclaimed corrections-census rows, hunts past everything, and returns the final fixlog. Nothing follows the fixer.',
+        'Language-agnostic hostile-rebuild engine over the libs/{csharp,python,typescript} planning corpora. args = a target path, an array of paths, or {targets} — languages mix freely, {root} retargets an isolated checkout, empty = no-op; every page derives doctrine, both .api tiers, casing, and its member-verification rail from its owning package. Plan (opus) expands targets to pages in dependency + seam-cohesion order under the owning-package charter. Map fans one opus deep-map lane and one gpt-5.6-terra two-tier .api inventory lane per .planning sub-folder unit, each writing a per-unit dossier the batches reuse. Ideate runs two lanes per package with disjoint charters: a corrections census (opus, the non-binding fix addendum) and a bigger-ideas worklist (fable, new capability beyond correction). Build packs whole sub-folder units into batches under the packing ceiling, all concurrent under one slot scheduler; per batch a terra doctrine-bar lens, then fable implement, gpt-5.6-sol critique (workspace-write, fixlog to disk), and fable redteam folding the critique rows forward — every writer under the own-pass-first input ladder (own blind hostile pass primary, map dossiers grounding, census addendum, ideas ambition) with libs-wide ripple authority under the four bounds and seam-ledger coordination; handoffs carry navigation facts only. Close: a read-only terra finder fan plus one governance finder per language, then ONE terminal fable fixer draining findings, the deferred backlog, and unclaimed census rows in a fixpoint loop, then a doctrine lander adjudicating pooled harvest nominations. Stage law lives in the prompt blocks; CODEX=false restores native lanes throughout.',
     phases: [
         {
             title: 'Plan',
-            detail: 'one thin agent expands the targets into the dependency-ordered, seam-cohesion-adjacent page list under each owning-package charter: existing pages as rebuild, charter-demanded absent pages as new, settled pages skipped',
+            detail: 'targets expand to the dependency-ordered, seam-cohesion-adjacent page list under each owning-package charter: existing pages rebuild, charter-demanded absences new, settled pages skip',
             model: 'opus',
         },
         {
             title: 'Map',
-            detail: 'per .planning sub-folder unit, ONCE: an OPUS deep-map lane (architecture, ownership, seams, cross-folder relationships, domain gaps, underutilized capability — information, no code) beside a gpt-5.6-terra two-tier .api inventory lane (codex wrapper), each writing a per-unit dossier every batch touching that unit reuses',
+            detail: 'per .planning sub-folder unit: an opus deep-map lane (ownership, seams, cross-folder relevance, domain gaps — information, never code) beside a terra two-tier .api inventory lane, each writing the per-unit dossier the batches reuse',
             model: 'opus',
         },
         {
             title: 'Ideate',
-            detail: 'per owning package, TWO lanes: a corrections census (opus — the deduped disk-verified fix addendum, per sub-folder) and a bigger-ideas worklist (fable — new capabilities beyond correction under the value bar); disjoint charters, never one merged log',
+            detail: 'per package, two disjoint lanes: the corrections census (opus, the deduped disk-verified fix addendum) and the bigger-ideas worklist (fable, new capability beyond correction under the value bar)',
         },
         {
             title: 'Build',
-            detail: 'sub-folder-packed batches all concurrent under the agent-level slot cap: per batch ONE gpt-5.6-terra doctrine-bar lens (codex wrapper; product to disk, receipt on the wire) then implement (fable), critique (gpt-5.6-sol codex lane, fixlog to disk), redteam (fable, folding the critique rows forward) chained behind their own batch; every writer works the own-pass-first four-rung input ladder — own blind hostile pass primary, map dossiers grounding, census rows addendum, ideas ambition; navigation-fact handoffs, seam-ledger coordination, libs-wide bounded ripple authority',
+            detail: 'sub-folder-packed batches, all concurrent: per batch a terra doctrine-bar lens, then fable implement, sol critique (fixlog to disk), fable redteam folding the critique forward — every writer on the own-pass-first ladder with bounded libs-wide ripple authority and seam-ledger coordination',
         },
         {
             title: 'Close',
-            detail: 'read-only gpt-5.6-terra finder fan (codex wrappers; products to disk, receipts on the wire) per language over landed pages + the seam ledger + cross-page duplication/collapse + split-brain smoothing, plus one governance finder per language; ONE terminal fable fixer reads the reports from disk, applies index rows, resolves findings as signals, drains the deferred backlog and the unclaimed census rows, hunts past them, returns the final fixlog',
+            detail: 'a read-only terra finder fan plus one governance finder per language over the landed corpus and seam ledger; ONE terminal fable fixer drains findings, backlog, and unclaimed census rows; a doctrine lander adjudicates pooled harvest nominations',
         },
     ],
 };
@@ -537,13 +537,13 @@ const LANG = {
             'CLAUDE.md manifest + WORKSPACE_LAW strata govern (KERNEL -> AEC-DOMAIN -> APP-PLATFORM -> HOST-BOUNDARY -> APP; ' +
             'depend strictly upward; a host-neutral owner only where a non-Rhino runtime consumes the contract).',
         stackFloor:
-            'docs/stacks/csharp is the FLOOR, never the ceiling — every fence meets it and pushes past it to the strongest ' +
-            'form the doctrine admits; the tools/cs-analyzer compiled-doctrine gate enforces it (a true positive is architecture ' +
-            'pressure, a false positive is rule pressure, never a suppression).',
+            'docs/stacks/csharp is the FLOOR, never the ceiling — every fence pushes past it to the strongest form the doctrine ' +
+            'admits; the tools/cs-analyzer gate enforces it (a true positive is architecture pressure, a false positive rule ' +
+            'pressure, never a suppression).',
         apiTiers:
             'the SHARED substrate catalogs `libs/csharp/.api/*.md` (Thinktecture generated owners, LanguageExt ' +
             'rails/effects/schedules/immutable collections, QuikGraph, Mapperly and siblings) AND the folder catalogs ' +
-            '`<package>/.api/*.md`, always layering the universal Thinktecture/LanguageExt rails onto the domain packages, never the ' +
+            '`<package>/.api/*.md` — the universal Thinktecture/LanguageExt rails layered onto the domain packages, never the ' +
             'folder set alone.',
         verify:
             '`uv run python -m tools.assay api` (assay blocked or unavailable: the `.api` catalogs, the nuget MCP for feed ' +
@@ -555,13 +555,13 @@ const LANG = {
         collapseInto:
             'ONE `[Union]` / `[SmartEnum<TKey>]` / `[ValueObject<T>]` / `[ComplexValueObject]` / source-generated case ' + 'family IN THE SAME FILE',
         gapPkg:
-            'LIBRARY_DEPTH: e.g. an IFC schema gives a zone its quantities, space boundaries, and properties the page never ' +
-            'reads — stacking that full surface IS new functionality woven into the owner, not a denser spelling of the same call',
+            'LIBRARY_DEPTH: an IFC schema gives a zone quantities, space boundaries, and properties the page never reads — ' +
+            'stacking that full surface IS new functionality woven into the owner, not a denser spelling of the same call',
         gapDomain:
-            'a BIM zone owns its boundary/area/volume, per-kind attributes — a fire compartment a rating, a thermal zone a ' +
-            'setpoint, a load group its combinations, an MEP system its medium/flow/pressure — adjacency/nesting topology, and ' +
-            'coverage/aggregation/spatial-query operations, not a flat member-id set alone; a profile owns section properties, grade, ' +
-            'fabrication + code-check inputs, not width/height; a durable store owns its constraints, indexes, partitions, RLS, ' +
+            'a BIM zone owns boundary/area/volume, per-kind attributes (a fire compartment a rating, a thermal zone a setpoint, ' +
+            'a load group its combinations, an MEP system its medium/flow/pressure), adjacency/nesting topology, and ' +
+            'coverage/aggregation/spatial-query operations, never a flat member-id set; a profile owns section properties, grade, ' +
+            'fabrication + code-check inputs, not width/height; a durable store owns constraints, indexes, partitions, RLS, ' +
             'migration, and lifecycle, not naive columns',
         ownerGrammar:
             'a CASE in the existing closed family, a ROW or richer data on the existing smart-enum, a FIELD or a composed ' +
@@ -570,9 +570,8 @@ const LANG = {
         deepPkgs: 'LanguageExt/Thinktecture/MathNet/CSparse',
         body:
             'nested `Bind`/`Map` lambda towers where LINQ query syntax or one composed `Eff`/`Fin` pipeline reads flat; ' +
-            '`Match(_ => unit)` and swallowed `IfFail` where a typed failure case belongs; manual loop/accumulator plumbing ' +
-            'where `Fold`/`Traverse`/`Sequence`/`Partition` compose the join; helper statics and one-off records orbiting an ' +
-            'owner instead of living on it',
+            '`Match(_ => unit)` and swallowed `IfFail` where a typed failure case belongs; manual loop/accumulator plumbing where ' +
+            '`Fold`/`Traverse`/`Sequence`/`Partition` compose the join; helper statics and one-off records orbiting an owner',
         exhaust: 'total generated `Switch`, no silent `_` arm',
         modern: 'Latest modern C# 14 on net10',
         mechanics: '',

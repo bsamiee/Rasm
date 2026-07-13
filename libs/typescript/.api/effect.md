@@ -16,150 +16,176 @@
 [PUBLIC_TYPE_SCOPE]: the carrier, its data siblings, and failure algebra
 - rail: rails-and-effects
 
-| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]          | [CONSUMER]                                                                                        |
-| :-----: | :--------------------------------------------- | :--------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `Effect<A, E, R>`                              | carrier                | every folder — the one rail; `R` is the Tag requirement set the app root satisfies                |
-|  [02]   | `Option<A>` / `Either<R, L>`                   | value union            | `kernel` absence, decode results; `Option` replaces `null`/`undefined` in domain                  |
-|  [03]   | `Cause<E>` / `Exit<A, E>`                      | failure tree / outcome | `wire/fault` reconstruction, `otel/crash` — retains defect + interrupt + parallel failures        |
-|  [04]   | `Data.TaggedEnum<...>` / `Data.Class`          | closed family          | `state` CRDT ops, `wire` decoded unions, `edge` control intents — value equality by structure     |
-|  [05]   | `Redacted<A>`                                  | secret carrier         | `security/secret`, `proc/config` — never logged; `Redacted.value` unwraps at the crypto seam only |
-|  [06]   | `Duration` / `DateTime.Utc` / `DateTime.Zoned` | time value             | `core/value/clock`, `work/queue`, `store/journal` — monotonic + wall-clock evidence               |
-|  [07]   | `Brand.Branded<A, K>`                          | nominal refinement     | `core/value/schema` brand floor (`ContentKey`, `Hlc`, `OrdinalKey`) — decode-once type identity   |
-|  [08]   | `Scope` / `Fiber<A, E>`                        | resource / handle      | `proc/life`, `work/engine`, `browser/boot` — structured lifetime and interruptible child fibers   |
+| [INDEX] | [SYMBOL]                                       | [TYPE_FAMILY]          | [CONSUMER]                                                   |
+| :-----: | :--------------------------------------------- | :--------------------- | :----------------------------------------------------------- |
+|  [01]   | `Effect<A, E, R>`                              | carrier                | every folder — the one rail; `R` is the app-root Tag set     |
+|  [02]   | `Option<A>` / `Either<R, L>`                   | value union            | `kernel` absence, decode results — replaces `null` in domain |
+|  [03]   | `Cause<E>` / `Exit<A, E>`                      | failure tree / outcome | `wire/fault`, `otel/crash` — retains defect + interrupt      |
+|  [04]   | `Data.TaggedEnum<...>` / `Data.Class`          | closed family          | `state`, `wire`, `edge` — structural value equality          |
+|  [05]   | `Redacted<A>`                                  | secret carrier         | `security/secret`, `proc/config` — never logged              |
+|  [06]   | `Duration` / `DateTime.Utc` / `DateTime.Zoned` | time value             | `core/value/clock`, `work`, `store` — monotonic + wall-clock |
+|  [07]   | `Brand.Branded<A, K>`                          | nominal refinement     | `core/value/schema` brand floor — decode-once type identity  |
+|  [08]   | `Scope` / `Fiber<A, E>`                        | resource / handle      | `proc/life`, `work`, `browser` — structured lifetime         |
 
 [PUBLIC_TYPE_SCOPE]: schema, its derivations, and boundary shapes
 - rail: boundaries
 
-| [INDEX] | [SYMBOL]                                                                     | [TYPE_FAMILY]   | [CONSUMER]                                                                                                                                                                                                                            |
-| :-----: | :--------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Schema.Schema<Type, Encoded, R>`                                            | codec           | every boundary — one Schema owns decode, encode, and every derived surface                                                                                                                                                            |
-|  [02]   | `Schema.Struct` / `Schema.Class` / `Schema.TaggedClass`                      | record family   | `store/journal` events (`Schema.TaggedClass` + `eventVersion`), `kernel` value objects                                                                                                                                                |
-|  [03]   | `Schema.TaggedError` / `Schema.TaggedRequest`                                | fault / request | `wire/fault` decoded errors, `store`/`work` request schemas with success+failure channels                                                                                                                                             |
-|  [04]   | `Schema.PropertySignature` / `Schema.optionalWith`                           | field modality  | `core/value/schema` optional-to-`Option` decode, constructor defaults, key renaming at the seam                                                                                                                                       |
-|  [05]   | `ParseResult.ParseError` / `ParseResult.ParseIssue`                          | decode fault    | every ingress — lifts into the `Effect` error channel; `ArrayFormatter` renders issue trees                                                                                                                                           |
-|  [06]   | `SchemaAST.AST` + annotation IDs                                             | reflection node | the testkit arbitrary derivation (`tests/typescript/_testkit`), `edge/api` OpenAPI emission read the annotated AST                                                                                                                    |
-|  [07]   | `FastCheck.Arbitrary<A>` (`effect/FastCheck`) / `Arbitrary.LazyArbitrary<A>` | generator       | the testkit arbitrary source (`tests/typescript/_testkit`) — Schema-derived property generators, no hand-rolled fixtures; `LazyArbitrary<A>` = `(fc: typeof FastCheck) => FastCheck.Arbitrary<A>`, the deferred/recursive-schema form |
+| [INDEX] | [SYMBOL]                                                | [TYPE_FAMILY]   | [CONSUMER]                                               |
+| :-----: | :------------------------------------------------------ | :-------------- | :------------------------------------------------------- |
+|  [01]   | `Schema.Schema<Type, Encoded, R>`                       | codec           | every boundary — decode + encode + derivations           |
+|  [02]   | `Schema.Struct` / `Schema.Class` / `Schema.TaggedClass` | record family   | `store/journal` events, `kernel` value objects           |
+|  [03]   | `Schema.TaggedError` / `Schema.TaggedRequest`           | fault / request | `wire/fault` errors, `store`/`work` request schemas      |
+|  [04]   | `Schema.PropertySignature` / `Schema.optionalWith`      | field modality  | `core/value/schema` optional→`Option`, defaults, rename  |
+|  [05]   | `ParseResult.ParseError` / `ParseResult.ParseIssue`     | decode fault    | every ingress → `Effect` channel; `ArrayFormatter` trees |
+|  [06]   | `SchemaAST.AST` + annotation IDs                        | reflection node | testkit derivation; `edge/api` OpenAPI reads the AST     |
+|  [07]   | `FastCheck.Arbitrary<A>` / `Arbitrary.LazyArbitrary<A>` | generator       | testkit source — Schema-derived; `makeLazy` recursive    |
 
 [PUBLIC_TYPE_SCOPE]: services, layers, and dispatch surfaces
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SYMBOL]                                                              | [TYPE_FAMILY]     | [CONSUMER]                                                                                                                                                                                     |
-| :-----: | :-------------------------------------------------------------------- | :---------------- | :--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Context.Tag<Id, Service>` / `Context.TagClass` / `Context.Reference` | service key       | every port (`SqlClient`, `Embedder`, `SessionStore`); `class X extends Context.Tag("id")<X, S>()` mints a `TagClass` — the form `ai`/`store` service Tags carry; `Reference` carries a default |
-|  [02]   | `Layer<ROut, E, RIn>`                                                 | wiring            | app composition roots — folders ship `Layer` families the thin `main.ts` selects                                                                                                               |
-|  [03]   | `LayerMap.Service` / `LayerMap`                                       | keyed layer cache | `store/scope` per-tenant `StoreHandle` Layers keyed `(appKey, tenancy)` — isolation as a scope value                                                                                           |
-|  [04]   | `ManagedRuntime<R, E>`                                                | runtime root      | `browser/boot`, `proc/exec` — a built runtime the imperative host edge calls into                                                                                                              |
-|  [05]   | `Match.Matcher` (`Match.type`/`Match.value`)                          | dispatch builder  | `wire` codec dispatch, `iac/provider` closed-arm selection, `edge` fault mapping                                                                                                               |
-|  [06]   | `Metric.Metric` / `Logger.Logger` / `Tracer.Span`                     | signal owner      | `telemetry` — counters/histograms, structured loggers, spans composed onto the rail                                                                                                            |
+| [INDEX] | [SYMBOL]                                                 | [TYPE_FAMILY]     | [CONSUMER]                                              |
+| :-----: | :------------------------------------------------------- | :---------------- | :------------------------------------------------------ |
+|  [01]   | `Context.Tag` / `Context.TagClass` / `Context.Reference` | service key       | every port — `ai`/`store` Tags; `Reference` default     |
+|  [02]   | `Layer<ROut, E, RIn>`                                    | wiring            | app roots — `Layer` families `main.ts` selects          |
+|  [03]   | `LayerMap.Service` / `LayerMap`                          | keyed layer cache | `store/scope` `StoreHandle` `(appKey, tenancy)`         |
+|  [04]   | `ManagedRuntime<R, E>`                                   | runtime root      | `browser/boot`, `proc/exec` — host edge calls in        |
+|  [05]   | `Match.Matcher` (`Match.type`/`Match.value`)             | dispatch builder  | `wire` codec, `iac/provider` arms, `edge` fault mapping |
+|  [06]   | `Metric.Metric` / `Logger.Logger` / `Tracer.Span`        | signal owner      | `telemetry` — counters, loggers, spans on the rail      |
 
 ## [03]-[ENTRYPOINTS]
 
-[ENTRYPOINT_SCOPE]: `Effect` carrier — construction, boundary lift, and running
+[ENTRYPOINT_SCOPE]: `Effect` carrier — construct, boundary lift, run; every surface is `Effect.*`
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY]     | [CONSUMER]                                                                                                     |
-| :-----: | :--------------------------------------------------------------------------------------------- | :----------------- | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Effect.succeed` / `Effect.fail` / `Effect.sync` / `Effect.suspend`                            | construct          | pure values and lazy thunks into the rail; `fail` seeds the typed error channel                                |
-|  [02]   | `Effect.gen(function*(){ … })` / `Effect.fn("span")(body, …pipeline)`                          | do-notation        | every domain flow; `Effect.fn` is the traced-body seam — body per attempt, pipeline carries resilience         |
-|  [03]   | `Effect.tryPromise({ try, catch })` / `Effect.try` / `Effect.async` / `Effect.promise`         | boundary lift      | `BOUNDARY_ADMISSION` — a `Promise`/throw converts to a typed error at the owning seam                          |
-|  [04]   | `Effect.all(effects, { concurrency, mode })` / `Effect.forEach` / `Effect.validateAll`         | applicative        | independent operands accumulate; `mode: "validate"` collects every failure, not just the first                 |
-|  [05]   | `Effect.flatMap` / `Effect.andThen` / `Effect.zipWith` / `Effect.tap`                          | sequence           | dependent steps; `andThen` accepts value, `Effect`, or thunk — one combinator, many operands                   |
-|  [06]   | `Effect.catchTag` / `Effect.catchTags` / `Effect.catchAll` / `Effect.tapErrorTag`              | recover            | `wire`/`store` typed recovery by `_tag`; exhaustive over the tagged error family                               |
-|  [07]   | `Effect.retry(policy)` / `Effect.timeout` / `Effect.withExecutionPlan` / `Effect.race`         | resilience         | `net/client`, `ai/model`, `work/activity` — `ExecutionPlan` is multi-provider recovery with per-tier schedules |
-|  [08]   | `Effect.acquireRelease` / `Effect.acquireUseRelease` / `Effect.addFinalizer` / `Effect.scoped` | resource           | `proc/life`, `store` connections, `work` leases — release runs on success, failure, and interrupt              |
-|  [09]   | `Effect.fork` / `Effect.forkScoped` / `Effect.forkDaemon` / `Effect.interrupt`                 | concurrency        | `edge/live` subscriptions, `browser/transport` workers — scoped forks die with their scope                     |
-|  [10]   | `Effect.provide` / `Effect.provideService` / `Effect.updateService`                            | context supply     | app root injects `Layer`/service; `provideService` for a single Tag at a call site                             |
-|  [11]   | `Effect.withSpan` / `Effect.annotateLogs` / `Effect.withMetric` / `Effect.log*`                | observability seam | `telemetry` — `DEFINITION_TIME_ASPECTS` attach span/log/metric onto the rail, recoverable from declaration     |
-|  [12]   | `Effect.runFork` / `Effect.runPromise` / `Effect.runSync` / `Effect.runPromiseExit` / `Effect.runtime<R>()` + `Runtime.runPromise(rt)` | run | the one imperative edge — `runFork` for long-lived roots, `runPromiseExit` for typed outcome; `Effect.runtime` captures the live runtime a foreign async callback re-enters through `Runtime.runPromise` |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                             |
+| :-----: | :------------------------------------------------------ | :------------- | :----------------------------------------------------- |
+|  [01]   | `succeed` / `fail` / `sync` / `suspend`                 | construct      | values + thunks; `fail` seeds the error channel        |
+|  [02]   | `gen(function*(){ … })` / `fn("span")(body, …pipeline)` | do-notation    | every flow; body per attempt, policy pipeline          |
+|  [03]   | `tryPromise({...})` / `try` / `async` / `promise`       | boundary lift  | `Promise`/throw → typed error at the seam              |
+|  [04]   | `all(effects, {...})` / `forEach` / `validateAll`       | applicative    | operands accumulate; `mode`: abort vs validate-all     |
+|  [05]   | `flatMap` / `andThen` / `zipWith` / `tap`               | sequence       | steps; `andThen` = value / `Effect` / thunk            |
+|  [06]   | `catchTag` / `catchTags` / `catchAll` / `tapErrorTag`   | recover        | `wire`/`store` typed recovery by `_tag`                |
+|  [07]   | `retry` / `timeout` / `withExecutionPlan` / `race`      | resilience     | `net`/`ai`/`work` — `ExecutionPlan` multi-tier         |
+|  [08]   | `acquireRelease` / `acquireUseRelease`                  | resource       | scoped acquire; release on success/fail/interrupt      |
+|  [09]   | `addFinalizer` / `scoped`                               | resource       | `proc/life`, `store`, `work` leases                    |
+|  [10]   | `fork` / `forkScoped` / `forkDaemon` / `interrupt`      | concurrency    | `edge/live`, `browser` — scoped forks die with scope   |
+|  [11]   | `provide` / `provideService` / `updateService`          | context supply | app root injects `Layer`/service; per-Tag at a site    |
+|  [12]   | `withSpan` / `annotateLogs` / `withMetric` / `log*`     | observe seam   | `telemetry` — span/log/metric attach onto the rail     |
+|  [13]   | `runFork` / `runPromise` / `runSync` / `runPromiseExit` | run            | imperative edge; `runtime` re-enters foreign callbacks |
 
-[ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive
+[ENTRYPOINT_SCOPE]: `Schema` — decode, project, transform, derive; surfaces are `Schema.*` unless qualified
 - rail: boundaries
 
-| [INDEX] | [SURFACE]                                                                                                                                  | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                                                                                                                                                                                                                                                                                                              |
-| :-----: | :----------------------------------------------------------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `Schema.decode(schema)` / `Schema.decodeUnknown(schema)` / `Schema.decodeUnknownEither` / `Schema.decodeSync` / `Schema.encode`            | decode / encode | `decodeUnknown` decodes an `unknown` ingress once; `decode` takes an already-`Encoded` typed input `I` — a post-codec value (the `hash-wasm` hex `string` → `ContentKey` mint); `decodeSync` serves interior mints over parts already proven by their own schemas (`TenantContext.scope`), total at the call site by construction; `encode` at explicit egress; `ParseError` lifts to the error channel |
-|  [02]   | `Schema.Struct({...})` / `Schema.TaggedStruct(tag, {...})` / `Schema.Class<Self>(id)({...})`                                               | declare shape   | `SHAPE_BUDGET` — one runtime authority per concept; `Class` adds an opaque constructor + prototype                                                                                                                                                                                                                                                                                                      |
-|  [03]   | `Schema.Union` / `Schema.Literal` / `Schema.Enums` / `Schema.TemplateLiteralParser`                                                        | closed union    | `state`/`wire` tagged families; `TemplateLiteralParser` decodes structured string keys                                                                                                                                                                                                                                                                                                                  |
-|  [04]   | `Schema.pick` / `Schema.omit` / `Schema.partial` / `Schema.extend` / `Schema.pluck` / `Schema.typeSchema`                                  | project         | `DERIVED_TYPES` — every projection derives from the one owner, never a parallel schema; `typeSchema` projects the type-side `Schema<A>` a `Schema.transform` targets (`TenantContext.FromScope`)                                                                                                                                                                                                        |
-|  [05]   | `Schema.transformOrFail(from, to, { decode, encode })` / `Schema.transform`                                                                | bidirectional   | `wire` codec crossings, `kernel` brand mint — total both directions, proven by the `@rasm/ts-testkit` law combinators (`tests/typescript/_testkit`)                                                                                                                                                                                                                                                     |
-|  [06]   | `Schema.brand("K")` / `Schema.filter` / `Schema.optionalWith(s, { as: "Option", default })`                                                | refine          | `core/value/schema` brand floor; `optionalWith` decodes absence to `Option` with a constructor default                                                                                                                                                                                                                                                                                                  |
-|  [07]   | `Schema.Option` / `Schema.Either` / `Schema.Chunk` / `Schema.HashMap` / `Schema.Redacted`                                                  | effect-data     | schemas whose decoded value is an Effect data structure, not a plain object                                                                                                                                                                                                                                                                                                                             |
-|  [08]   | `Schema.Uint8ArrayFromBase64` / `Schema.StringFromHex` / `Schema.parseJson(inner)`                                                         | wire codec      | `wire` byte↔value crossings; `parseJson` composes an inner schema over a JSON string field                                                                                                                                                                                                                                                                                                              |
-|  [09]   | `Arbitrary.make(schema)` / `Arbitrary.makeLazy(schema)` / `JSONSchema.make(schema)` / `Pretty.make(schema)` / `Schema.equivalence(schema)` | derive          | one Schema yields the generator (`tests/typescript/_testkit`), the OpenAPI node (`edge`), the printer, and structural equality; `makeLazy` returns the deferred `LazyArbitrary<A>` for recursive/suspended schemas                                                                                                                                                                                      |
-|  [10]   | `Schema.standardSchemaV1(schema)`                                                                                                          | interop         | `ui` form libraries and any Standard-Schema consumer bind the decoder without an adapter                                                                                                                                                                                                                                                                                                                |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                                |
+| :-----: | :------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `decode` / `decodeUnknown` / `decodeUnknownEither`       | decode         | `decodeUnknown` at ingress; `decode` over `Encoded` input |
+|  [02]   | `decodeSync` / `encode`                                  | encode         | interior sync mint; `encode` egress; `ParseError` lifts   |
+|  [03]   | `Struct({...})` / `TaggedStruct({...})` / `Class(...)`   | declare shape  | one runtime authority per concept; `Class` adds a ctor    |
+|  [04]   | `Union` / `Literal` / `Enums` / `TemplateLiteralParser`  | closed union   | `state`/`wire` families; parse structured string keys     |
+|  [05]   | `pick` / `omit` / `partial` / `extend`                   | project        | every projection derives from one owner                   |
+|  [06]   | `pluck` / `typeSchema`                                   | project        | `typeSchema` projects the type-side schema                |
+|  [07]   | `transformOrFail(from, to, {...})` / `transform`         | bidirectional  | `wire` codec, `kernel` brand — total both directions      |
+|  [08]   | `brand("K")` / `filter` / `optionalWith(s, {...})`       | refine         | brand floor; `optionalWith` absence→`Option`              |
+|  [09]   | `Option` / `Either` / `Chunk` / `HashMap` / `Redacted`   | effect-data    | decoded value is an Effect data structure                 |
+|  [10]   | `Uint8ArrayFromBase64` / `StringFromHex` / `parseJson`   | wire codec     | `wire` byte↔value; `parseJson` over a JSON field          |
+|  [11]   | `Arbitrary.make` / `Arbitrary.makeLazy`                  | derive         | generator; `makeLazy` for recursive schemas               |
+|  [12]   | `JSONSchema.make` / `Pretty.make` / `Schema.equivalence` | derive         | OpenAPI node, printer, structural equality                |
+|  [13]   | `standardSchemaV1(schema)`                               | interop        | `ui` forms + Standard-Schema consumers bind the decoder   |
 
-[ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots
+[ENTRYPOINT_SCOPE]: `Context` / `Layer` / `Runtime` — services and composition roots; surfaces are `Layer.*` unless qualified
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SURFACE]                                                                                     | [ENTRY_FAMILY]  | [CONSUMER]                                                                                                 |
-| :-----: | :-------------------------------------------------------------------------------------------- | :-------------- | :--------------------------------------------------------------------------------------------------------- |
-|  [01]   | `class Svc extends Effect.Service<Svc>()("app/Svc", { effect, dependencies })`                | service owner   | the canonical service form — Tag, default `Layer`, and accessor in one declaration                         |
-|  [02]   | `class Tag extends Context.Tag("app/Port")<Tag, Shape>() {}` / `Context.Reference`            | port Tag        | `PORT_LAW` — `security`/`store`/`ui` declare ports the app root satisfies across the ledger edge           |
-|  [03]   | `Layer.effect(Tag, build)` / `Layer.scoped(Tag, build)` / `Layer.succeed(Tag, value)`         | construct layer | folder Layers; `scoped` ties the service to a `Scope` so teardown is structural                            |
-|  [04]   | `Layer.provide` / `Layer.provideMerge` / `Layer.mergeAll` / `Layer.merge`                     | compose layer   | app root builds the dependency graph; `provideMerge` keeps the provided service in the output              |
-|  [05]   | `Layer.launch(layer)` / `Layer.memoize` / `Layer.fresh` / `Layer.retry(schedule)`             | run / lifetime  | `proc/life` long-lived roots; `memoize` shares one instance, `fresh` forces a new build                    |
-|  [06]   | `Layer.setConfigProvider` / `Layer.setTracer` / `Layer.setClock` / `Layer.setRequestBatching` | override policy | `proc/config`, `telemetry`, the testkit harness (TestClock) swap the runtime service under the whole graph |
-|  [07]   | `ManagedRuntime.make(layer)` → `.runFork` / `.runPromise` / `.dispose`                        | runtime root    | `browser/boot` builds once, the imperative host calls in; `LayerMap.make` for keyed runtimes               |
-|  [08]   | `Reloadable.auto(Tag, { layer, schedule })` / `Reloadable.reload`                             | hot reload      | `proc/flag` re-evaluates a remote provider on a schedule without tearing the graph                         |
+| [INDEX] | [SURFACE]                                            | [ENTRY_FAMILY]  | [CONSUMER]                                                 |
+| :-----: | :--------------------------------------------------- | :-------------- | :--------------------------------------------------------- |
+|  [01]   | `class Svc extends Effect.Service<Svc>()("app/Svc")` | service owner   | Tag + default `Layer` + accessor in one declaration        |
+|  [02]   | `class Tag extends Context.Tag("id")<Tag, Shape>()`  | port Tag        | `security`/`store`/`ui` ports; `Reference` default         |
+|  [03]   | `effect(Tag, build)` / `scoped` / `succeed`          | construct layer | folder Layers; `scoped` → a `Scope`                        |
+|  [04]   | `provide` / `provideMerge` / `mergeAll` / `merge`    | compose layer   | build the dep graph; `provideMerge` keeps it               |
+|  [05]   | `launch` / `memoize` / `fresh` / `retry(schedule)`   | run / lifetime  | `proc/life` roots; `memoize` shares, `fresh` rebuilds      |
+|  [06]   | `setConfigProvider` / `setTracer`                    | override policy | `proc/config`/`telemetry` swap services in the graph       |
+|  [07]   | `setClock` / `setRequestBatching`                    | override policy | testkit `TestClock`; batching under the graph              |
+|  [08]   | `ManagedRuntime.make(layer)`                         | runtime root    | `.runFork`/`.runPromise`/`.dispose`; `LayerMap.make` keyed |
+|  [09]   | `Reloadable.auto(Tag, {...})` / `Reloadable.reload`  | hot reload      | `proc/flag` re-evaluates a provider on a schedule          |
 
-[ENTRYPOINT_SCOPE]: dispatch — `Match` and `Data`
+[ENTRYPOINT_SCOPE]: dispatch — `Match` builder and `Data` closed families
 - rail: surfaces-and-dispatch
 
-| [INDEX] | [SURFACE]                                                                                 | [ENTRY_FAMILY]  | [CONSUMER]                                                                                   |
-| :-----: | :---------------------------------------------------------------------------------------- | :-------------- | :------------------------------------------------------------------------------------------- |
-|  [01]   | `Match.type<T>()` / `Match.value(v)` → `Match.tag`/`Match.when` → `Match.exhaustive`      | dispatch        | `wire`/`edge`/`iac` — exhaustive over a tagged family; missing arm is a compile error        |
-|  [02]   | `Match.tagsExhaustive({ TagA: fa, TagB: fb })` / `Match.discriminatorsExhaustive("kind")` | record dispatch | closed-family dispatch by `_tag` or a named discriminant, total by construction              |
-|  [03]   | `Match.whenOr` / `Match.whenAnd` / `Match.not` / `Match.orElse` / `Match.withReturnType`  | predicate arm   | structural/predicate dispatch on non-keyed shapes; `withReturnType` pins the arm result type |
-|  [04]   | `Data.taggedEnum<Union>()` → `{ $match, $is, ...ctors }`                                  | closed family   | `state`/`wire` decoded unions with generated constructors, `$match`, and `$is` guards        |
-|  [05]   | `Data.TaggedError("Tag")<{...}>` / `Data.TaggedClass` / `Data.struct` / `Data.array`      | value + fault   | structural-equality records and typed errors; `Data.struct` gives `Equal`/`Hash` for free    |
+| [INDEX] | [SURFACE]                                                 | [ENTRY_FAMILY]  | [CONSUMER]                                              |
+| :-----: | :-------------------------------------------------------- | :-------------- | :------------------------------------------------------ |
+|  [01]   | `Match.type<T>()` / `Match.value(v)` → `Match.exhaustive` | dispatch        | `tag`/`when` arms; missing arm is a compile error       |
+|  [02]   | `Match.tagsExhaustive` / `Match.discriminatorsExhaustive` | record dispatch | dispatch by `_tag` or a named discriminant, total       |
+|  [03]   | `Match.whenOr` / `Match.whenAnd` / `Match.not`            | predicate arm   | structural/predicate dispatch on non-keyed shapes       |
+|  [04]   | `Match.orElse` / `Match.withReturnType`                   | predicate arm   | fallback arm; `withReturnType` pins the arm result type |
+|  [05]   | `Data.taggedEnum<Union>()` → `{ $match, $is, ...ctors }`  | closed family   | `state`/`wire` unions; generated ctors + `$match`/`$is` |
+|  [06]   | `Data.TaggedError("Tag")<{...}>` / `Data.TaggedClass`     | value + fault   | typed errors + structural-equality records              |
+|  [07]   | `Data.struct` / `Data.array`                              | value           | `Equal`/`Hash` for free on plain structures             |
 
-[ENTRYPOINT_SCOPE]: `Stream` / `Sink` — pull-based streaming
+[ENTRYPOINT_SCOPE]: `Stream` / `Sink` — pull-based streaming; surfaces are `Stream.*` unless qualified
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                                                                                                           | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                                                       |
-| :-----: | :---------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Stream.fromQueue` / `Stream.fromPubSub` / `Stream.async` / `Stream.asyncScoped` / `Stream.asyncPush` / `Stream.fromReadableStream` / `Stream.fromReadableStreamByob` | source         | `edge/live` SSE/WS feeds, `wire/frame` reassembly, `browser/transport` fetch streams, `data/object` BYOB byte ingress; `asyncScoped` bridges a scoped `addEventListener`, `asyncPush` a backpressured push source |
-|  [02]   | `Stream.mapEffect(f, { concurrency })` / `Stream.mapConcatEffect` / `Stream.grouped` / `Stream.groupedWithin` / `Stream.throttle`          | transform      | bounded-concurrency per-element effects, effectful iterable expansion, batch windows, rate shaping on one carrier                                                                |
-|  [03]   | `Stream.broadcast` / `Stream.partition` / `Stream.merge` / `Stream.zipLatest`                                                       | fan            | multi-consumer fan-out, keyed split, latest-value join for live dashboards                                                                                                       |
-|  [04]   | `Stream.run(sink)` / `Stream.runForEach` / `Stream.runFold` / `Stream.runFoldEffect` / `Stream.toReadableStream` / `Stream.toReadableStreamEffect`                   | drain          | terminal consumption; `Sink.foldWeighted`/`Sink.collectAllN` are the reusable fold sinks; the `toReadableStream*` pair feeds web-stream consumers (`data/object` streaming puts) |
-|  [05]   | `Stream.retry(schedule)` / `Stream.debounce` / `Stream.buffer` / `Stream.haltWhen`                                                  | resilience     | resumable feeds; `haltWhen(deferred)` ends the stream on an external signal                                                                                                      |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [CONSUMER]                                              |
+| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------ |
+|  [01]   | `fromQueue` / `fromPubSub` / `async`                     | source         | `edge/live` feeds, `wire/frame` reassembly              |
+|  [02]   | `asyncScoped` / `asyncPush`                              | source         | scoped `addEventListener`; backpressured push           |
+|  [03]   | `fromReadableStream` / `fromReadableStreamByob`          | source         | `browser/transport` streams, `data/object` BYOB ingress |
+|  [04]   | `mapEffect(f, { concurrency })` / `mapConcatEffect`      | transform      | bounded per-element effects, effectful expansion        |
+|  [05]   | `grouped` / `groupedWithin` / `throttle`                 | transform      | batch windows, rate shaping on one carrier              |
+|  [06]   | `broadcast` / `partition` / `merge` / `zipLatest`        | fan            | fan-out, keyed split, latest-value join                 |
+|  [07]   | `run(sink)` / `runForEach` / `runFold` / `runFoldEffect` | drain          | terminal fold; `Sink.foldWeighted`/`collectAllN`        |
+|  [08]   | `toReadableStream` / `toReadableStreamEffect`            | drain          | feed web-stream consumers (`data/object` puts)          |
+|  [09]   | `retry(schedule)` / `debounce` / `buffer` / `haltWhen`   | resilience     | resumable feeds; `haltWhen(deferred)` ends stream       |
 
 [ENTRYPOINT_SCOPE]: concurrency and mutable state
 - rail: rails-and-effects
 
-| [INDEX] | [SURFACE]                                                                                                 | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                                                    |
-| :-----: | :-------------------------------------------------------------------------------------------------------- | :------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Ref.make` / `SubscriptionRef.make` / `Subscribable` / `SynchronizedRef` (`.modify`, `.updateSomeAndGet`) | shared cell    | `SubscriptionRef` is a `Ref` + `Stream.changes`; `Subscribable` is its read-only `{ get, changes }` projection — `ui/atom`, `nuqs`, and `state/query/live` observe through it |
-|  [02]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed`                                                   | one-shot       | fiber handoff, `haltWhen` signals, promise-once coordination                                                                                                                  |
-|  [03]   | `Queue.bounded` / `Queue.sliding` / `PubSub.bounded` / `Mailbox.make`                                     | channel        | `work/queue` job intake, `edge/live` fan-out, `wire/quarantine` poison buffer with backpressure                                                                               |
-|  [04]   | `FiberRef.make` / `FiberRef.locallyScoped` / built-in `FiberRef.currentLogAnnotations`                    | fiber-local    | `edge/middleware` request/tenant/locale context, propagated across `fork` without threading                                                                                   |
-|  [05]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch` / `FiberSet.make` / `FiberMap.make`                        | bound / track  | concurrency caps (`edge` load-shed), keyed fiber registries (`work/engine` per-entity fibers)                                                                                 |
-|  [06]   | `STM.commit` / `TRef.make` / `TMap` / `TQueue` / `TSemaphore` / `TReentrantLock`                          | transaction    | `state`/`work` multi-cell atomic updates with automatic retry on conflict                                                                                                     |
+| [INDEX] | [SURFACE]                                               | [ENTRY_FAMILY] | [CONSUMER]                                                  |
+| :-----: | :------------------------------------------------------ | :------------- | :---------------------------------------------------------- |
+|  [01]   | `Ref.make` / `SubscriptionRef.make`                     | shared cell    | `SubscriptionRef` = `Ref` + `Stream.changes`                |
+|  [02]   | `Subscribable` / `SynchronizedRef`                      | shared cell    | read-only `{ get, changes }`; `ui/atom`/`nuqs` observe      |
+|  [03]   | `Deferred.make` / `Deferred.await` / `Deferred.succeed` | one-shot       | fiber handoff, `haltWhen` signals, promise-once             |
+|  [04]   | `Queue.bounded` / `Queue.sliding`                       | channel        | `work/queue` job intake with backpressure                   |
+|  [05]   | `PubSub.bounded` / `Mailbox.make`                       | channel        | `edge/live` fan-out, `wire/quarantine` poison buffer        |
+|  [06]   | `FiberRef.make` / `FiberRef.locallyScoped`              | fiber-local    | `edge/middleware` context; built-in `currentLogAnnotations` |
+|  [07]   | `Effect.makeSemaphore(n)` / `Effect.makeLatch`          | bound / track  | concurrency caps for `edge` load-shed                       |
+|  [08]   | `FiberSet.make` / `FiberMap.make`                       | bound / track  | keyed fiber registries; `work/engine` per-entity            |
+|  [09]   | `STM.commit` / `TRef.make` / `TMap`                     | transaction    | `state`/`work` atomic multi-cell updates, auto-retry        |
+|  [10]   | `TQueue` / `TSemaphore` / `TReentrantLock`              | transaction    | transactional queue, semaphore, reentrant lock              |
 
 [ENTRYPOINT_SCOPE]: schedule, config, time, and observability signals
 - rail: system-apis
 
-| [INDEX] | [SURFACE]                                                                                                                                                                                           | [ENTRY_FAMILY] | [CONSUMER]                                                                                                                                                                                                                 |
-| :-----: | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `Schedule.exponential` / `Schedule.jittered` / `Schedule.resetAfter` / `Schedule.intersect` / `Schedule.recurs` / `Schedule.upTo` / `Schedule.whileInput` / `Schedule.recurWhile` / `Schedule.cron` | recurrence     | `core/value/fault` budget rows compile to schedules — `resetAfter` re-arms base delay after quiet, `upTo` bounds total elapsed, `whileInput` gates re-drive on the fault value; `work/queue` cron; retry policy as a value |
-|  [02]   | `Config.string` / `Config.redacted` / `Config.integer` / `Config.withDefault` / `Config.nested`                                                                                                     | config schema  | `proc/config` typed ingress; `Config.redacted` keeps secrets in `Redacted` end-to-end                                                                                                                                      |
-|  [03]   | `ConfigProvider.fromEnv` / `ConfigProvider.fromJson` / `.orElse` / `ConfigProvider.constantCase`                                                                                                    | provider chain | `runtime/src/proc/config.ts` env→file→remote chain; case adapters map `FOO_BAR`↔`fooBar`                                                                                                                                   |
-|  [04]   | `Duration.seconds` / `Duration.decode` / `DateTime.now` / `DateTime.addDuration` / `Cron.parse`                                                                                                     | time           | `core/value/clock` HLC composition, `work` deadlines, `store` retention windows                                                                                                                                            |
-|  [05]   | `Metric.counter` / `Metric.histogram` / `Metric.gauge` / `Metric.timerWithBoundaries` / `Metric.increment` / `Metric.incrementBy` / `.tagged`                                                       | metric         | `telemetry/signal` — `(app, tenant)`-tagged instruments; `Effect.withMetric` attaches to a rail; `incrementBy` charges batch counts (`data/journal` drains)                                                                |
-|  [06]   | `Logger.make` / `Logger.replace` / `Logger.batched` / `LogLevel.Debug` / `Logger.structuredLogger`                                                                                                  | logger         | `telemetry` structured logging; `Logger.batched` for buffered export, `withMinimumLogLevel` gate                                                                                                                           |
-|  [07]   | `Metric.snapshot` / `Tracer.externalSpan` / `Effect.makeSpanScoped`                                                                                                                                 | signal read    | `core/observe/board` reads the registry; `externalSpan` continues an extracted W3C trace context                                                                                                                           |
+| [INDEX] | [SURFACE]                                                  | [ENTRY_FAMILY] | [CONSUMER]                                                |
+| :-----: | :--------------------------------------------------------- | :------------- | :-------------------------------------------------------- |
+|  [01]   | `Schedule.exponential` / `jittered` / `resetAfter`         | recurrence     | policy as a value; `resetAfter` re-arms after quiet       |
+|  [02]   | `Schedule.intersect` / `recurs` / `upTo`                   | recurrence     | compose schedules; `upTo` bounds total elapsed            |
+|  [03]   | `Schedule.whileInput` / `recurWhile` / `cron`              | recurrence     | gate re-drive on the fault value; `work/queue` cron       |
+|  [04]   | `Config.string` / `redacted` / `integer`                   | config schema  | `proc/config` typed ingress; `redacted` keeps secrets     |
+|  [05]   | `Config.withDefault` / `Config.nested`                     | config schema  | defaults + nested config sections                         |
+|  [06]   | `ConfigProvider.fromEnv` / `fromJson` / `constantCase`     | provider chain | env→file→remote; `.orElse` chains; case adapters          |
+|  [07]   | `Duration.seconds` / `Duration.decode` / `Cron.parse`      | time           | `core/value/clock` HLC, `work` deadlines, `store` windows |
+|  [08]   | `DateTime.now` / `DateTime.addDuration`                    | time           | wall-clock evidence over the HLC composition              |
+|  [09]   | `Metric.counter` / `histogram` / `gauge`                   | metric         | `telemetry` `(app, tenant)`-tagged instruments            |
+|  [10]   | `Metric.timerWithBoundaries` / `increment` / `incrementBy` | metric         | `incrementBy` charges batch counts (`data/journal`)       |
+|  [11]   | `Logger.make` / `replace` / `batched`                      | logger         | structured logging; `batched` buffered export             |
+|  [12]   | `Metric.snapshot` / `Tracer.externalSpan`                  | signal read    | `core/observe/board` reads; `externalSpan` continues W3C  |
+|  [13]   | `Effect.makeSpanScoped`                                    | signal read    | a scoped span the algorithm owns                          |
 
 [ENTRYPOINT_SCOPE]: immutable collections, equality, and caching
 - rail: shapes
 
-| [INDEX] | [SURFACE]                                                                                      | [ENTRY_FAMILY] | [CONSUMER]                                                                                             |
-| :-----: | :--------------------------------------------------------------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | `Chunk` / `HashMap` / `HashSet` / `SortedMap` / `MutableHashMap` (algorithm-local)             | collection     | `state/fold` keyed folds, `wire` decoded maps — Effect collections, not JS `Map`/`Set`                 |
-|  [02]   | `Array.*` / `Record.*` / `Struct.*` / `Tuple.*` / `Option.match` / `Option.zipWith` (module functions over plain values) | stdlib fold | `DERIVED_LOGIC` folds; `Array.reduce`/`Record.map` replace imperative loops, and `Option.zipWith` joins optional evidence without a null sentinel |
-|  [03]   | `Order.*` / `Equivalence.*` / `Equal.equals` / `Hash.hash` / `Predicate.*`                     | comparison     | `state/causal` ordering, `Data`-backed structural equality, `Predicate.and`/`or` refinement algebra    |
-|  [04]   | `Cache.make({ capacity, timeToLive, lookup })` / `RcMap.make` / `KeyedPool.make` / `Pool.make` | cache / pool   | `store/scope` lookups, `net/client` connection pools, `ai` provider clients — TTL + reference counting |
-|  [05]   | `RateLimiter.make({ limit, interval })` / `Request.Class` / `RequestResolver.makeBatched`      | rate / batch   | `net/client` API-key limits, `store`/`ai` request de-duplication and batching under one resolver       |
-|  [06]   | `Encoding.encodeBase64` / `Encoding.decodeHex` / `Redacted.make` / `Redacted.value`            | codec / secret | `security` byte encodings, `wire` frame codecs; `Redacted` unwraps only at the crypto boundary         |
+| [INDEX] | [SURFACE]                                       | [ENTRY_FAMILY] | [CONSUMER]                                         |
+| :-----: | :---------------------------------------------- | :------------- | :------------------------------------------------- |
+|  [01]   | `Chunk` / `HashMap` / `HashSet` / `SortedMap`   | collection     | not JS `Map`/`Set`; `MutableHashMap` algo-local    |
+|  [02]   | `Array.*` / `Record.*` / `Struct.*` / `Tuple.*` | stdlib fold    | `reduce`/`map` replace imperative loops            |
+|  [03]   | `Option.match` / `Option.zipWith`               | stdlib fold    | join optional evidence without a null sentinel     |
+|  [04]   | `Order.*` / `Equivalence.*` / `Predicate.*`     | comparison     | ordering + `Predicate.and`/`or` refinement algebra |
+|  [05]   | `Equal.equals` / `Hash.hash`                    | comparison     | `Data`-backed structural equality                  |
+|  [06]   | `Cache.make({...})` / `RcMap.make`              | cache / pool   | TTL + reference counting; `store/scope` lookups    |
+|  [07]   | `KeyedPool.make` / `Pool.make`                  | cache / pool   | `net/client` connection pools, `ai` clients        |
+|  [08]   | `RateLimiter.make({...})` / `Request.Class`     | rate / batch   | `net` API-key limits; request de-duplication       |
+|  [09]   | `RequestResolver.makeBatched`                   | rate / batch   | batch requests under one resolver                  |
+|  [10]   | `Encoding.encodeBase64` / `Encoding.decodeHex`  | codec          | `security` byte encodings, `wire` frame codecs     |
+|  [11]   | `Redacted.make` / `Redacted.value`              | secret         | unwrap only at the crypto boundary                 |
 
 ## [04]-[IMPLEMENTATION_LAW]
 

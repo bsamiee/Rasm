@@ -96,16 +96,16 @@
 [PUBLIC_TYPE_SCOPE]: abstract contracts (`trio.abc`)
 - rail: concurrency
 
-| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [RAIL]                                                                    |
-| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------------------------------ |
-|  [01]   | `AsyncResource`                                 | interface     | `aclose`-capable resource base                                            |
-|  [02]   | `{Send,Receive,HalfCloseable}Stream` / `Stream` | interface     | half/duplex/half-closeable byte-stream contracts                          |
-|  [03]   | `{Send,Receive}Channel` / `Channel`             | interface     | typed object-channel contracts (generic over item type)                   |
-|  [04]   | `Listener`                                      | interface     | `accept`-loop connection listener                                         |
+| [INDEX] | [SYMBOL]                                        | [TYPE_FAMILY] | [RAIL]                                                               |
+| :-----: | :---------------------------------------------- | :------------ | :------------------------------------------------------------------- |
+|  [01]   | `AsyncResource`                                 | interface     | `aclose`-capable resource base                                       |
+|  [02]   | `{Send,Receive,HalfCloseable}Stream` / `Stream` | interface     | half/duplex/half-closeable byte-stream contracts                     |
+|  [03]   | `{Send,Receive}Channel` / `Channel`             | interface     | typed object-channel contracts (generic over item type)              |
+|  [04]   | `Listener`                                      | interface     | `accept`-loop connection listener                                    |
 |  [05]   | `Clock`                                         | interface     | virtual clock: `start_clock`/`current_time`/`deadline_to_sleep_time` |
-|  [06]   | `Instrument`                                    | interface     | run-loop event hook bus (task/step/io-wait callbacks)                     |
-|  [07]   | `HostnameResolver`                              | interface     | overridable async `getaddrinfo`/`getnameinfo` hook                        |
-|  [08]   | `SocketFactory`                                 | interface     | overridable socket constructor for the network stack                      |
+|  [06]   | `Instrument`                                    | interface     | run-loop event hook bus (task/step/io-wait callbacks)                |
+|  [07]   | `HostnameResolver`                              | interface     | overridable async `getaddrinfo`/`getnameinfo` hook                   |
+|  [08]   | `SocketFactory`                                 | interface     | overridable socket constructor for the network stack                 |
 
 [PUBLIC_TYPE_SCOPE]: low-level run primitives (`trio.lowlevel`)
 - rail: concurrency
@@ -159,37 +159,37 @@
 [ENTRYPOINT_SCOPE]: channels
 - rail: concurrency
 
-| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                                                                           |
-| :-----: | :---------------------------------------- | :------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | `open_memory_channel[T](max_buffer_size)` | factory        | `(MemorySendChannel[T], MemoryReceiveChannel[T])` pair; `math.inf` unbounded                   |
-|  [02]   | `as_safe_channel(fn)`                     | adapter        | pump `AsyncGenerator` into `ReceiveChannel` CM (producer-cancel-decoupled) |
+| [INDEX] | [SURFACE]                                 | [ENTRY_FAMILY] | [RAIL]                                                        |
+| :-----: | :---------------------------------------- | :------------- | :------------------------------------------------------------ |
+|  [01]   | `open_memory_channel[T](max_buffer_size)` | factory        | `(send, receive)` channel pair; `math.inf` unbounded          |
+|  [02]   | `as_safe_channel(fn)`                     | adapter        | pump `AsyncGenerator` → `ReceiveChannel` CM; cancel-decoupled |
 
 [ENTRYPOINT_SCOPE]: networking, TLS, and signals
 - rail: concurrency
 
 - connect/listen surfaces carry `happy_eyeballs_delay=0.25, local_address, host, backlog, ssl_context, https_compatible, handler_nursery` as applicable
 
-| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                         |
-| :-----: | :------------------------------------------------------- | :------------- | :------------------------------------------------------------- |
-|  [01]   | `open_tcp_stream(host, port, *, ...)`                    | connect        | TCP `SocketStream`, RFC 6555 dual-stack dialing                |
-|  [02]   | `open_unix_socket(filename)`                             | connect        | UNIX-domain `SocketStream`                                     |
-|  [03]   | `open_tcp_listeners(port, *, ...)`                       | listen         | build TCP listeners                                            |
-|  [04]   | `serve_tcp(handler, port, *, ...)`                       | serve          | accept-loop each connection into `handler` under a nursery     |
-|  [05]   | `open_ssl_over_tcp_stream(host, port, *, ...)`           | connect        | TLS `SSLStream` over a fresh TCP dial                          |
-|  [06]   | `open_ssl_over_tcp_listeners(port, ssl_context, *, ...)` | listen         | TLS-terminating listeners                                      |
-|  [07]   | `serve_ssl_over_tcp(handler, port, ssl_context, ...)`    | serve          | serve each TLS stream into `handler`                           |
-|  [08]   | `serve_listeners(handler, listeners, *, ...)`            | serve          | accept-loop any `Listener` list, one task per connection |
-|  [09]   | `open_signal_receiver(*signals)`                         | signals        | `with` → async iterator of received signal numbers             |
-|  [10]   | `aclose_forcefully(resource)`                            | teardown       | best-effort `aclose` that ignores errors and never blocks      |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY] | [RAIL]                                                     |
+| :-----: | :------------------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `open_tcp_stream(host, port, *, ...)`                    | connect        | TCP `SocketStream`, RFC 6555 dual-stack dialing            |
+|  [02]   | `open_unix_socket(filename)`                             | connect        | UNIX-domain `SocketStream`                                 |
+|  [03]   | `open_tcp_listeners(port, *, ...)`                       | listen         | build TCP listeners                                        |
+|  [04]   | `serve_tcp(handler, port, *, ...)`                       | serve          | accept-loop each connection into `handler` under a nursery |
+|  [05]   | `open_ssl_over_tcp_stream(host, port, *, ...)`           | connect        | TLS `SSLStream` over a fresh TCP dial                      |
+|  [06]   | `open_ssl_over_tcp_listeners(port, ssl_context, *, ...)` | listen         | TLS-terminating listeners                                  |
+|  [07]   | `serve_ssl_over_tcp(handler, port, ssl_context, ...)`    | serve          | serve each TLS stream into `handler`                       |
+|  [08]   | `serve_listeners(handler, listeners, *, ...)`            | serve          | accept-loop any `Listener` list, one task per connection   |
+|  [09]   | `open_signal_receiver(*signals)`                         | signals        | `with` → async iterator of received signal numbers         |
+|  [10]   | `aclose_forcefully(resource)`                            | teardown       | best-effort `aclose` that ignores errors and never blocks  |
 
 [ENTRYPOINT_SCOPE]: file and process I/O
 - rail: concurrency
 - `run_process` carries `stdin=b'', capture_stdout=False, capture_stderr=False, check=True, deliver_cancel=None, task_status`
 
-| [INDEX] | [SURFACE]                        | [ENTRY_FAMILY] | [RAIL]                                                                                  |
-| :-----: | :------------------------------- | :------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `open_file(file, mode='r', ...)` | file open      | async file handle (thread-offloaded `AsyncIOWrapper`)                                   |
-|  [02]   | `wrap_file(file)`                | file wrap      | wrap an already-open sync file object as async                                          |
+| [INDEX] | [SURFACE]                        | [ENTRY_FAMILY] | [RAIL]                                                                    |
+| :-----: | :------------------------------- | :------------- | :------------------------------------------------------------------------ |
+|  [01]   | `open_file(file, mode='r', ...)` | file open      | async file handle (thread-offloaded `AsyncIOWrapper`)                     |
+|  [02]   | `wrap_file(file)`                | file wrap      | wrap an already-open sync file object as async                            |
 |  [03]   | `run_process(command, *, ...)`   | process run    | run → `CompletedProcess`; `task_status.started` yields the live `Process` |
 
 [ENTRYPOINT_SCOPE]: thread / loop bridge (`trio.to_thread`, `trio.from_thread`)
@@ -209,31 +209,31 @@
 - rail: concurrency
 - members live under `trio.lowlevel`; `start_guest_run` carries `run_sync_soon_threadsafe, done_callback`; `spawn_system_task` carries `name=None, context=None`; `wait_task_rescheduled(abort_func)` and `reschedule(task, next_send)` name their sole args
 
-| [INDEX] | [SURFACE]                                                           | [ENTRY_FAMILY]  | [RAIL]                                                              |
-| :-----: | :------------------------------------------------------------------ | :-------------- | :------------------------------------------------------------------ |
-|  [01]   | `checkpoint()`                                                      | checkpoint      | unconditional yield + cancellation check                            |
-|  [02]   | `checkpoint_if_cancelled()` / `cancel_shielded_checkpoint()`        | checkpoint      | cancel-only check / yield shielded from cancellation                |
-|  [03]   | `current_{task,root_task,trio_token,statistics}()`                  | introspection   | running task / root task / loop token / `RunStatistics`             |
-|  [04]   | `spawn_system_task(async_fn, *args, ...)`       | scheduling      | spawn a nursery-free, shielded-from-`KeyboardInterrupt` system task |
-|  [05]   | `wait_task_rescheduled(abort_func)` / `reschedule(task, next_send)` | scheduling      | the park/unpark pair every custom async primitive is built on       |
-|  [06]   | `wait_{readable,writable}(fd)` / `notify_closing(fd)`               | readiness       | await raw fd/socket readiness; wake waiters before closing          |
-|  [07]   | `start_guest_run(async_fn, *args, ...)`                             | guest mode      | interleave a trio run inside a foreign loop (Qt/asyncio/GUI)        |
-|  [08]   | `add_instrument(instrument)` / `remove_instrument(instrument)`      | instrumentation | attach/detach an `Instrument` on the live run                       |
-|  [09]   | `enable_ki_protection(f)` / `disable_ki_protection(f)`              | KI control      | mark a region (un)protected from `KeyboardInterrupt`                |
+| [INDEX] | [SURFACE]                                                | [ENTRY_FAMILY]  | [RAIL]                                               |
+| :-----: | :------------------------------------------------------- | :-------------- | :--------------------------------------------------- |
+|  [01]   | `checkpoint()`                                           | checkpoint      | unconditional yield + cancellation check             |
+|  [02]   | `checkpoint_if_cancelled` / `cancel_shielded_checkpoint` | checkpoint      | cancel-only check / yield shielded from cancellation |
+|  [03]   | `current_{task,root_task,trio_token,statistics}()`       | introspection   | running task / root / loop token / `RunStatistics`   |
+|  [04]   | `spawn_system_task(async_fn, *args, ...)`                | scheduling      | spawn a nursery-free, KI-shielded system task        |
+|  [05]   | `wait_task_rescheduled` / `reschedule`                   | scheduling      | the park/unpark pair under every async primitive     |
+|  [06]   | `wait_{readable,writable}(fd)` / `notify_closing(fd)`    | readiness       | await raw fd readiness; wake waiters before closing  |
+|  [07]   | `start_guest_run(async_fn, *args, ...)`                  | guest mode      | interleave a trio run in a foreign loop (Qt/asyncio) |
+|  [08]   | `add_instrument` / `remove_instrument`                   | instrumentation | attach/detach an `Instrument` on the live run        |
+|  [09]   | `enable_ki_protection(f)` / `disable_ki_protection(f)`   | KI control      | mark a region (un)protected from `KeyboardInterrupt` |
 
 [ENTRYPOINT_SCOPE]: deterministic testing (`trio.testing`)
 - rail: concurrency
 - members live under `trio.testing`
 
-| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                                             |
-| :-----: | :----------------------------------------------------- | :------------- | :----------------------------------------------------------------- |
-|  [01]   | `trio_test(fn)`                                        | test decorator | run an `async def` test under `trio.run` (pytest-agnostic)         |
-|  [02]   | `wait_all_tasks_blocked(cushion=0.0)`                  | testing helper | yield until every other task is blocked (deterministic settle)     |
-|  [03]   | `assert_checkpoints()` / `assert_no_checkpoints()`     | assertion CM   | assert a block does / does not execute a cancellation checkpoint   |
-|  [04]   | `{memory,lockstep}_stream_pair()`                      | stream factory | bidirectional in-memory / lockstep-synchronised test stream pair   |
-|  [05]   | `memory_stream_pump(send, receive, *, max_bytes=None)` | stream pump    | shuttle bytes between a `MemorySendStream`/`MemoryReceiveStream`   |
-|  [06]   | `check_{two_way,one_way,half_closeable}_stream(...)`   | conformance    | exhaustive contract test for a custom `Stream` implementation      |
-|  [07]   | `open_stream_to_socket_listener(listener)`             | test connect   | dial a `SocketListener` directly without a real network round-trip |
+| [INDEX] | [SURFACE]                                              | [ENTRY_FAMILY] | [RAIL]                                                     |
+| :-----: | :----------------------------------------------------- | :------------- | :--------------------------------------------------------- |
+|  [01]   | `trio_test(fn)`                                        | test decorator | run an `async def` test under `trio.run` (pytest-agnostic) |
+|  [02]   | `wait_all_tasks_blocked(cushion=0.0)`                  | testing helper | yield until every other task is blocked                    |
+|  [03]   | `assert_checkpoints()` / `assert_no_checkpoints()`     | assertion CM   | assert a block does/doesn't hit a cancellation checkpoint  |
+|  [04]   | `{memory,lockstep}_stream_pair()`                      | stream factory | in-memory / lockstep-synced test stream pair               |
+|  [05]   | `memory_stream_pump(send, receive, *, max_bytes=None)` | stream pump    | shuttle bytes between the test stream halves               |
+|  [06]   | `check_{two_way,one_way,half_closeable}_stream(...)`   | conformance    | exhaustive contract test for a custom `Stream`             |
+|  [07]   | `open_stream_to_socket_listener(listener)`             | test connect   | dial a `SocketListener` with no real network round-trip    |
 
 ## [04]-[IMPLEMENTATION_LAW]
 
